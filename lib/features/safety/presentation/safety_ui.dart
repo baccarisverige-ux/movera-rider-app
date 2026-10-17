@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 
 class SafetyUi {
   static const ink = Color(0xFF1C2329);
@@ -44,12 +46,16 @@ class SafetyScaffold extends StatelessWidget {
     required this.child,
     this.footer,
     this.showTitle = true,
+    this.solarBack = false,
   });
 
   final String title;
   final Widget child;
   final Widget? footer;
   final bool showTitle;
+
+  /// Draws the back chevron as a Solar icon (RideCheck pages are Solar only).
+  final bool solarBack;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +82,13 @@ class SafetyScaffold extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                      icon: solarBack
+                          ? const AppIconAsset(
+                              AppAssets.solarAltArrowLeft,
+                              size: 20,
+                              color: SafetyUi.ink,
+                            )
+                          : const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                       color: SafetyUi.ink,
                       tooltip: 'Back',
                     ),

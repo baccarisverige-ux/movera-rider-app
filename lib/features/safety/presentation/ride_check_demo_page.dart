@@ -92,6 +92,7 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
       children: [
         SafetyScaffold(
           title: 'RideCheck demo',
+          solarBack: true,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [

@@ -49,6 +49,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
         : t.finishFarFromDropoffKm.toStringAsFixed(1);
     return SafetyScaffold(
       title: 'RideCheck',
+      solarBack: true,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
