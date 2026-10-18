@@ -65,6 +65,8 @@ class AppAssets {
       'assets/icons/solar_chat_round_dots.svg';
   static const String solarAltArrowRight =
       'assets/icons/solar_alt_arrow_right.svg';
+  static const String solarAltArrowLeft =
+      'assets/icons/solar_alt_arrow_left.svg';
   static const String solarBellBing = 'assets/icons/solar_bell_bing.svg';
   static const String solarLockKeyhole = 'assets/icons/solar_lock_keyhole.svg';
   static const String solarMicrophone = 'assets/icons/solar_microphone.svg';
