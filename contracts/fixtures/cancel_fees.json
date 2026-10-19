@@ -1,0 +1,14 @@
+{
+  "version": "0.3.0",
+  "note": "Rider cancel fee = 0 inside the free window. Live: minutesSinceAccept < freeMin is free. Reservation: minutesBeforePickup >= freeMin is free. Else fixed value (minor units) or percent of fare rounded half-up to a whole minor unit, then clamped to min/max.",
+  "cases": [
+    { "id": "live_fixed_inside_free", "kind": "live", "rule": { "freeMin": 2, "type": "fixed", "value": 4500, "min": null, "max": null }, "fare": { "amountMinor": 25000, "currency": "SEK" }, "minutesSinceAccept": 1, "fee": { "amountMinor": 0, "currency": "SEK" } },
+    { "id": "live_fixed_after_free", "kind": "live", "rule": { "freeMin": 2, "type": "fixed", "value": 4500, "min": null, "max": null }, "fare": { "amountMinor": 25000, "currency": "SEK" }, "minutesSinceAccept": 2, "fee": { "amountMinor": 4500, "currency": "SEK" } },
+    { "id": "live_percent_clamped_min", "kind": "live", "rule": { "freeMin": 3, "type": "percent", "value": 15, "min": { "amountMinor": 5000, "currency": "SEK" }, "max": { "amountMinor": 15000, "currency": "SEK" } }, "fare": { "amountMinor": 20000, "currency": "SEK" }, "minutesSinceAccept": 5, "fee": { "amountMinor": 5000, "currency": "SEK" } },
+    { "id": "live_percent_clamped_max", "kind": "live", "rule": { "freeMin": 3, "type": "percent", "value": 15, "min": { "amountMinor": 5000, "currency": "SEK" }, "max": { "amountMinor": 15000, "currency": "SEK" } }, "fare": { "amountMinor": 200000, "currency": "SEK" }, "minutesSinceAccept": 5, "fee": { "amountMinor": 15000, "currency": "SEK" } },
+    { "id": "reservation_free_before_window", "kind": "reservation", "rule": { "freeMin": 120, "type": "percent", "value": 25, "min": { "amountMinor": 8000, "currency": "SEK" }, "max": { "amountMinor": 30000, "currency": "SEK" } }, "fare": { "amountMinor": 42000, "currency": "SEK" }, "minutesBeforePickup": 121, "fee": { "amountMinor": 0, "currency": "SEK" } },
+    { "id": "reservation_late_percent", "kind": "reservation", "rule": { "freeMin": 120, "type": "percent", "value": 25, "min": { "amountMinor": 8000, "currency": "SEK" }, "max": { "amountMinor": 30000, "currency": "SEK" } }, "fare": { "amountMinor": 42000, "currency": "SEK" }, "minutesBeforePickup": 90, "fee": { "amountMinor": 10500, "currency": "SEK" } },
+    { "id": "percent_rounds_half_up", "kind": "live", "rule": { "freeMin": 0, "type": "percent", "value": 15, "min": null, "max": null }, "fare": { "amountMinor": 12345, "currency": "SEK" }, "minutesSinceAccept": 1, "fee": { "amountMinor": 1852, "currency": "SEK" } },
+    { "id": "tnd_three_decimals", "kind": "live", "rule": { "freeMin": 2, "type": "fixed", "value": 3000, "min": null, "max": null }, "fare": { "amountMinor": 15000, "currency": "TND" }, "minutesSinceAccept": 4, "fee": { "amountMinor": 3000, "currency": "TND" } }
+  ]
+}

@@ -171,7 +171,7 @@ void main() {
 
     // The why-sheet is open, and the cancel is already done everywhere.
     expect(find.text('Why are you cancelling?'), findsOneWidget);
-    expect(server.rides[rideId]!['status'], 'cancelledByRider');
+    expect(server.rides[rideId]!['status'], 'cancelled_by_rider');
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
     expect(await RideSnapshotStore.read(), isNull);
     expect(await PendingCancelStore.all(), isEmpty);
@@ -229,7 +229,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(FindingDrivers), findsNothing);
-    expect(server.rides[rideId]!['status'], 'cancelledByRider');
+    expect(server.rides[rideId]!['status'], 'cancelled_by_rider');
     expect(server.rides[rideId]!['cancellationReason'], isNull);
     expect(await RideSnapshotStore.read(), isNull);
   });
@@ -296,7 +296,7 @@ void main() {
       expect(find.text('A driver accepted your ride.'), findsOneWidget);
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(backend.cancelPosts, 0);
-      expect(server.rides[rideId]!['status'], isNot('cancelledByRider'));
+      expect(server.rides[rideId]!['status'], isNot('cancelled_by_rider'));
       expect(AppScope.instance.ride.status.isMatched, isTrue);
 
       realtime.dispose();

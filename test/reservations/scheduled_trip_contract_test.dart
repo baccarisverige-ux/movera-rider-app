@@ -13,7 +13,7 @@ void main() {
     scheduledPickupAt: DateTime.utc(2026, 9, 24, 10),
     pickup: const ReservationPlace(label: 'A'),
     destination: const ReservationPlace(label: 'B'),
-    categoryId: 'movera',
+    categoryId: 'economy',
     categoryName: 'Movera',
     categoryImage: 'assets/images/rides/movera.webp',
     price: 259,
@@ -33,7 +33,7 @@ void main() {
     expect(trip.tripId, reservation.reservationId);
     expect(trip.status, TripStatus.requested);
     expect(trip.schedule?.scheduledFor, reservation.scheduledPickupAt);
-    expect(trip.categoryId, 'movera');
+    expect(trip.categoryId, 'economy');
     expect(trip.paymentMethodId, 'apple');
   });
 
@@ -86,7 +86,7 @@ void main() {
       scheduledPickupAt: fixedNow.add(const Duration(hours: 2)),
       pickup: const ReservationPlace(label: 'A'),
       destination: const ReservationPlace(label: 'B'),
-      categoryId: 'movera',
+      categoryId: 'economy',
       categoryName: 'Movera',
       categoryImage: 'assets/images/rides/movera.webp',
       price: 259,

@@ -8,7 +8,7 @@ class RideSelectionRepository {
 
   static const List<RideCatalogItem> builtInRides = [
     RideCatalogItem(
-      id: 'movera',
+      id: 'economy',
       image: 'assets/images/rides/movera.webp',
       name: 'Movera',
       note: 'Affordable and convenient rides',

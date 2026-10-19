@@ -40,7 +40,7 @@ void main() {
       );
       addTearDown(selection.dispose);
       selection.scheduleFor(pickupAt);
-      final ride = selection.rideById('movera');
+      final ride = selection.rideById('economy');
       selection.selectRide(ride.id, ride.price);
       // ARCH-16: Select Ride has the server quote before Book for later.
       adoptScheduledQuote(selection, ride.id);

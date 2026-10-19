@@ -15,7 +15,7 @@ Reservation _ride(String id, String to, ReservationStatus status, int day) =>
       scheduledPickupAt: DateTime.utc(2026, 10, day, 8),
       pickup: const ReservationPlace(label: 'Sveavägen 1'),
       destination: ReservationPlace(label: to),
-      categoryId: 'movera',
+      categoryId: 'economy',
       categoryName: 'Movera',
       categoryImage: 'assets/images/rides/movera.webp',
       price: 249,

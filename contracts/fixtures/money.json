@@ -1,0 +1,18 @@
+{
+  "version": "0.3.0",
+  "note": "amountMinor uses the currency's ISO-4217 exponent. 'major' is the decimal amount as a string.",
+  "cases": [
+    { "money": { "amountMinor": 12675, "currency": "SEK" }, "major": "126.75" },
+    { "money": { "amountMinor": 4500, "currency": "SEK" }, "major": "45.00" },
+    { "money": { "amountMinor": 0, "currency": "SEK" }, "major": "0.00" },
+    { "money": { "amountMinor": -2000, "currency": "SEK" }, "major": "-20.00" },
+    { "money": { "amountMinor": 335, "currency": "EUR" }, "major": "3.35" },
+    { "money": { "amountMinor": 12500, "currency": "TND" }, "major": "12.500" }
+  ],
+  "invalid": [
+    { "amountMinor": 12.5, "currency": "SEK" },
+    { "amountMinor": 100, "currency": "sek" },
+    { "amountMinor": 100 },
+    { "minorUnits": 100, "currency": "SEK" }
+  ]
+}

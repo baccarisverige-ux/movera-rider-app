@@ -1,0 +1,29 @@
+{
+  "version": 12, "publishedAt": "2026-10-19T08:00:00Z", "zoneId": "Z001", "currency": "SEK", "timeZone": "Europe/Stockholm",
+  "catalog": { "categories": [
+    { "id": "economy", "label": "Movera", "seats": 4, "sort": 1 },
+    { "id": "comfort", "label": "Comfort", "seats": 4, "sort": 2 },
+    { "id": "premium", "label": "Premium", "seats": 4, "sort": 3 },
+    { "id": "xl", "label": "XL", "seats": 6, "sort": 4 },
+    { "id": "electric", "label": "Electric", "seats": 4, "sort": 5 } ] },
+  "features": { "scheduledRides": true, "wallet": true, "pin": false, "shareTrip": true },
+  "paymentMethods": ["card", "swish", "apple", "google", "wallet", "cash"],
+  "booking": { "maxStops": 3, "bookingHorizonDays": 14 },
+  "cancelFees": {
+    "live": {
+      "economy": { "freeMin": 2, "type": "fixed", "value": 3500, "min": null, "max": null },
+      "comfort": { "freeMin": 2, "type": "fixed", "value": 4500, "min": null, "max": null },
+      "premium": { "freeMin": 3, "type": "percent", "value": 15, "min": { "amountMinor": 5000, "currency": "SEK" }, "max": { "amountMinor": 15000, "currency": "SEK" } },
+      "xl": { "freeMin": 3, "type": "percent", "value": 15, "min": { "amountMinor": 5000, "currency": "SEK" }, "max": { "amountMinor": 15000, "currency": "SEK" } },
+      "electric": { "freeMin": 2, "type": "fixed", "value": 3500, "min": null, "max": null } },
+    "reservation": {
+      "economy": { "freeMin": 60, "type": "fixed", "value": 5000, "min": null, "max": null },
+      "comfort": { "freeMin": 60, "type": "fixed", "value": 6000, "min": null, "max": null },
+      "premium": { "freeMin": 120, "type": "percent", "value": 25, "min": { "amountMinor": 8000, "currency": "SEK" }, "max": { "amountMinor": 30000, "currency": "SEK" } },
+      "xl": { "freeMin": 120, "type": "percent", "value": 25, "min": { "amountMinor": 8000, "currency": "SEK" }, "max": { "amountMinor": 30000, "currency": "SEK" } },
+      "electric": { "freeMin": 60, "type": "fixed", "value": 5000, "min": null, "max": null } } },
+  "waiting": { "freeWaitMin": 2, "perMin": { "amountMinor": 500, "currency": "SEK" }, "noShowAfterMin": 5, "noShowFee": { "amountMinor": 5000, "currency": "SEK" } },
+  "cancelReasons": [ { "code": "pickup_incorrect", "title": "Pickup point is incorrect" }, { "code": "plans_changed", "title": "Plans changed" }, { "code": "something_else", "title": "Something else" } ],
+  "rideCheck": { "stopMinutes": 2, "offRouteKm": 3 },
+  "appUpdate": { "minimumVersion": "1.0.0", "latestVersion": "1.2.0" }
+}

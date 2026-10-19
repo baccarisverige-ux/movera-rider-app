@@ -319,6 +319,55 @@ class RideTerminalStateSpec {
           iconBackground: Color(0xFFF8E8E6),
           iconColor: Color(0xFF9B3B34),
         ),
+      // Contract v0.3.0: each terminal cause has its own copy.
+      RideStatus.cancelledByAdmin => const RideTerminalStateSpec(
+          eyebrow: 'RIDE CANCELLED',
+          title: 'Cancelled by Movera',
+          message:
+              'Movera support cancelled this ride. It is no longer active and no driver is on the way.',
+          reassurance:
+              'Contact support from Help if you did not expect this.',
+          primaryLabel: 'Back to home',
+          icon: Icons.support_agent_rounded,
+          iconBackground: Color(0xFFEAF1F6),
+          iconColor: Color(0xFF2D5878),
+        ),
+      RideStatus.noShow => const RideTerminalStateSpec(
+          eyebrow: 'RIDE ENDED',
+          title: 'Your driver could not find you',
+          message:
+              'The driver waited at the pickup point and the ride was closed as a no-show. A no-show fee may apply.',
+          reassurance:
+              'You can see any fee on your receipt in History, or contact support from Help.',
+          primaryLabel: 'Back to home',
+          icon: Icons.person_search_rounded,
+          iconBackground: Color(0xFFFFF3DE),
+          iconColor: Color(0xFF9A6414),
+        ),
+      RideStatus.tripFailed => const RideTerminalStateSpec(
+          eyebrow: 'SOMETHING WENT WRONG',
+          title: 'This ride could not continue',
+          message:
+              'A problem on our side stopped this ride. It is no longer active.',
+          reassurance:
+              'Contact support from Help and we will sort out anything you were charged.',
+          primaryLabel: 'Back to home',
+          icon: Icons.error_outline_rounded,
+          iconBackground: Color(0xFFF8E8E6),
+          iconColor: Color(0xFF9B3B34),
+        ),
+      RideStatus.endedByDriver => const RideTerminalStateSpec(
+          eyebrow: 'RIDE ENDED',
+          title: 'Your driver ended the ride',
+          message:
+              'The driver ended this ride before the destination. It is no longer active.',
+          reassurance:
+              'You pay only for the distance driven. Contact support from Help if something happened.',
+          primaryLabel: 'Back to home',
+          icon: Icons.person_off_outlined,
+          iconBackground: Color(0xFFF8E8E6),
+          iconColor: Color(0xFF9B3B34),
+        ),
       _ => const RideTerminalStateSpec(
           eyebrow: 'RIDE ENDED',
           title: 'This ride is no longer active',

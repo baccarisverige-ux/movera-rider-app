@@ -2,7 +2,7 @@
 /// and the catalog fallback quote repository. Lives in core so the mock
 /// transport does not import a feature (ARCH-17).
 const mockCatalogPricesKr = <String, int>{
-  'movera': 259,
+  'economy': 259,
   'comfort': 339,
   'premium': 369,
   'priority': 289,

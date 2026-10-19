@@ -69,7 +69,7 @@ class _ThrowingCache implements RideCatalogCache {
 
 const _builtIn = [
   RideCatalogItem(
-    id: 'movera',
+    id: 'economy',
     image: 'assets/images/rides/movera.webp',
     name: 'Movera',
     note: 'Built in',
@@ -132,7 +132,7 @@ void main() {
       final cache = MemoryRideCatalogCache();
       final controller = RideCatalogController(
         api: _apiServing([
-          _row('movera', 'Movera', order: 1, badge: 'RECOMMENDED'),
+          _row('economy', 'Movera', order: 1, badge: 'RECOMMENDED'),
           _row('van', 'Van', price: 449, order: 2, imageKey: 'xl'),
         ]),
         cache: cache,
@@ -141,16 +141,16 @@ void main() {
       var notified = 0;
       controller.addListener(() => notified++);
 
-      expect(controller.current.map((item) => item.id), ['movera']);
+      expect(controller.current.map((item) => item.id), ['economy']);
       expect(controller.source, RideCatalogSource.builtIn);
 
       final loaded = await controller.load();
 
-      expect(loaded.map((item) => item.id), ['movera', 'van']);
+      expect(loaded.map((item) => item.id), ['economy', 'van']);
       expect(controller.current, loaded);
       expect(controller.source, RideCatalogSource.server);
       expect(notified, 1);
-      expect(cache.rows?.map((row) => row['id']), ['movera', 'van']);
+      expect(cache.rows?.map((row) => row['id']), ['economy', 'van']);
     });
 
     test('falls back to the cached list when the API throws', () async {
@@ -178,7 +178,7 @@ void main() {
 
       final loaded = await controller.load();
 
-      expect(loaded.map((item) => item.id), ['movera']);
+      expect(loaded.map((item) => item.id), ['economy']);
       expect(controller.source, RideCatalogSource.builtIn);
     });
 
@@ -188,7 +188,7 @@ void main() {
         cache: MemoryRideCatalogCache(const []),
         builtIn: _builtIn,
       );
-      expect((await controller.load()).map((item) => item.id), ['movera']);
+      expect((await controller.load()).map((item) => item.id), ['economy']);
       expect(controller.source, RideCatalogSource.builtIn);
     });
 
@@ -226,7 +226,7 @@ void main() {
       final loaded = await controller.load();
 
       expect(loaded.map((item) => item.id), [
-        'movera',
+        'economy',
         'comfort',
         'premium',
         'priority',
@@ -251,7 +251,8 @@ void main() {
       // Every server category ships with its own picture in the app, so the
       // admin can switch any of them on without an app release.
       for (final item in loaded) {
-        expect(item.image, 'assets/images/rides/${item.id}.webp');
+        final asset = item.id == 'economy' ? 'movera' : item.id;
+        expect(item.image, 'assets/images/rides/$asset.webp');
       }
       expect(
         RideSelectionRepository.builtInRides.map((item) => item.id),

@@ -177,7 +177,7 @@ void main() {
       ).markCancelled(reasonId: 'plans');
 
       expect(outcome, RideCancelOutcome.confirmed);
-      expect(backend.rides['w4']!['status'], 'cancelledByRider');
+      expect(backend.rides['w4']!['status'], 'cancelled_by_rider');
       expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
       expect(await RideSnapshotStore.readForArchive(), isNull);
       expect(await PendingCancelStore.all(), isEmpty);

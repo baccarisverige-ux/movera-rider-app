@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -15,8 +16,9 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 /// the ride surfaces cannot do without is missing.
 abstract final class RideProjection {
   static RideSnapshot? toSnapshot(Map<String, dynamic> ride, {DateTime? now}) {
-    final id = _string(ride['id'] ?? ride['tripId'] ?? ride['rideId']);
-    final status = RideStatusWire.parse(ride['status']);
+    // tripId is canonical; id / rideId are legacy aliases (contract v0.3.0).
+    final id = _string(ride['tripId'] ?? ride['id'] ?? ride['rideId']);
+    final status = RideStatusWire.fromProjection(ride);
     final pickup = _place(ride, 'pickup');
     final destination = _place(ride, 'destination');
     final price = _price(ride);
@@ -28,7 +30,9 @@ abstract final class RideProjection {
       return null;
     }
     final rawDriver = ride['driver'];
-    final categoryId = _string(ride['categoryId'] ?? ride['rideType']);
+    final rawCategory = _string(ride['categoryId'] ?? ride['rideType']);
+    final categoryId =
+        rawCategory == null ? null : CategoryIds.canonical(rawCategory);
     final paymentMethodId = _string(
       ride['paymentMethodId'] ?? ride['paymentMethod'],
     );

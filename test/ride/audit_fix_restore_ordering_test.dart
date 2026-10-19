@@ -186,7 +186,7 @@ void main() {
       pickupLng: 18.06,
       destinationLat: 59.65,
       destinationLng: 17.92,
-      rideType: 'movera',
+      rideType: 'economy',
       price: 259,
       paymentMethod: 'visa',
       rideTypeLabel: 'Movera',
@@ -201,10 +201,10 @@ void main() {
     expect(stored.stops.single.address, 'Solna');
     expect(stored.version, 1);
     expect(stored.serverUpdatedAt, isNotNull);
-    expect(stored.categoryId, 'movera');
+    expect(stored.categoryId, 'economy');
     expect(stored.paymentMethodId, 'visa');
     expect(stored.rideType, 'Movera');
-    expect(AppScope.instance.ride.bookedCategoryId, 'movera');
+    expect(AppScope.instance.ride.bookedCategoryId, 'economy');
   });
 
   test('PR-3 gap: a reload with this ride\'s cancel still queued restores '

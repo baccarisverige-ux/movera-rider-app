@@ -18,7 +18,7 @@ void main() {
     );
     session.captureNote('Ring the bell');
     session.capturePayment('Cash');
-    session.captureRideType('movera');
+    session.captureRideType('economy');
     expect(session.pickup, 'Current location');
     expect(session.dropoff, 'Stockholm Central Station');
     expect(session.stops, ['Odenplan']);
@@ -26,7 +26,7 @@ void main() {
     expect(session.timezone, 'Europe/Stockholm');
     expect(session.note, 'Ring the bell');
     expect(session.paymentMethod, 'Cash');
-    expect(session.rideType, 'movera');
+    expect(session.rideType, 'economy');
     expect(
       session.quoteId,
       isNull,
@@ -52,7 +52,7 @@ void main() {
     );
     session.captureSchedule(DateTime(2099, 9, 23, 10, 30));
     session.capturePayment('Wallet');
-    session.captureRideType('movera', quoteId: 'q_sched_1');
+    session.captureRideType('economy', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');
     expect(id, 'b_sched_1');
     expect(session.bookingId, 'b_sched_1');

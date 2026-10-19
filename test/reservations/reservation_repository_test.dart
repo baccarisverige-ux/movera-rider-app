@@ -18,7 +18,7 @@ ReservationDraft _draft({
     ),
     pickup: ReservationPlace(label: pickup, subtitle: 'Södertälje'),
     destination: ReservationPlace(label: dropoff, subtitle: 'Stockholm'),
-    categoryId: 'movera',
+    categoryId: 'economy',
     categoryName: 'Movera',
     categoryImage: 'assets/images/rides/movera.webp',
     price: 522,

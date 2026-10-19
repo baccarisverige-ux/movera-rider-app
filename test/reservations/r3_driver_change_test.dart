@@ -34,7 +34,7 @@ void main() {
     scheduledPickupAt: pickupAt,
     pickup: const ReservationPlace(label: 'Stockholm Central'),
     destination: const ReservationPlace(label: 'Arlanda Airport'),
-    categoryId: 'movera',
+    categoryId: 'economy',
     categoryName: 'Movera',
     categoryImage: 'assets/images/rides/movera.webp',
     price: 459,

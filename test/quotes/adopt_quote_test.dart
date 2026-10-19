@@ -19,28 +19,28 @@ void main() {
     test('makes the quote authoritative for that ride, as a load would', () {
       final selection = controller();
       final now = DateTime(2026, 10, 13, 12);
-      selection.unavailableQuoteIds.add('movera');
-      selection.offeredPrices['movera'] = 259;
+      selection.unavailableQuoteIds.add('economy');
+      selection.offeredPrices['economy'] = 259;
 
       final quote = RideQuote(
         id: 'q_movera_pin',
-        rideType: 'movera',
+        rideType: 'economy',
         totalMinor: 30100,
         currency: 'SEK',
         expiresAt: now.add(const Duration(minutes: 2)),
         discountMinor: 4000,
         signedPayload: 'mock-api',
       );
-      selection.adoptQuote('movera', quote);
+      selection.adoptQuote('economy', quote);
 
-      expect(selection.offeredPrices['movera'], 301);
-      expect(selection.quoteIds['movera'], 'q_movera_pin');
-      expect(selection.quoteExpiresAt['movera'], quote.expiresAt);
-      expect(selection.authoritativeQuotes['movera'], same(quote));
-      expect(selection.unavailableQuoteIds, isNot(contains('movera')));
-      expect(selection.quoteIsAvailable('movera', now: now), isTrue);
-      expect(selection.authoritativePriceFor('movera', now: now), 301);
-      expect(selection.quoteForBooking('movera', now: now), same(quote));
+      expect(selection.offeredPrices['economy'], 301);
+      expect(selection.quoteIds['economy'], 'q_movera_pin');
+      expect(selection.quoteExpiresAt['economy'], quote.expiresAt);
+      expect(selection.authoritativeQuotes['economy'], same(quote));
+      expect(selection.unavailableQuoteIds, isNot(contains('economy')));
+      expect(selection.quoteIsAvailable('economy', now: now), isTrue);
+      expect(selection.authoritativePriceFor('economy', now: now), 301);
+      expect(selection.quoteForBooking('economy', now: now), same(quote));
     });
 
     test('touches only that ride', () {
@@ -48,10 +48,10 @@ void main() {
       selection.offeredPrices['comfort'] = 339;
       selection.unavailableQuoteIds.add('comfort');
       selection.adoptQuote(
-        'movera',
+        'economy',
         RideQuote(
           id: 'q1',
-          rideType: 'movera',
+          rideType: 'economy',
           totalMinor: 25900,
           currency: 'SEK',
           expiresAt: DateTime.now().add(const Duration(minutes: 2)),
@@ -65,10 +65,10 @@ void main() {
     test('does nothing after dispose', () {
       final selection = controller()..dispose();
       selection.adoptQuote(
-        'movera',
+        'economy',
         RideQuote(
           id: 'q1',
-          rideType: 'movera',
+          rideType: 'economy',
           totalMinor: 25900,
           currency: 'SEK',
           expiresAt: DateTime.now().add(const Duration(minutes: 2)),
@@ -83,25 +83,25 @@ void main() {
         ApiQuoteRepository(api: ApiClient(client: InProcessMockClient()));
 
     test('a 3 km trip is the catalog price', () async {
-      final quote = await repo().quote(rideType: 'movera', distanceMeters: 3000);
+      final quote = await repo().quote(rideType: 'economy', distanceMeters: 3000);
       expect(quote.totalMinor, 25900);
       expect(quote.baseMinor, 25900);
       expect(quote.distanceMinor, 0);
     });
 
     test('longer trips cost 12 kr per extra kilometre', () async {
-      final quote = await repo().quote(rideType: 'movera', distanceMeters: 13000);
+      final quote = await repo().quote(rideType: 'economy', distanceMeters: 13000);
       expect(quote.totalMinor, 37900);
       expect(quote.baseMinor, 25900);
       expect(quote.distanceMinor, 12000);
-      final nextKm = await repo().quote(rideType: 'movera', distanceMeters: 4000);
+      final nextKm = await repo().quote(rideType: 'economy', distanceMeters: 4000);
       expect(nextKm.totalMinor, 27100);
     });
 
     test('shorter trips cost less, never below 60% of the catalog price', () async {
-      final short = await repo().quote(rideType: 'movera', distanceMeters: 1000);
+      final short = await repo().quote(rideType: 'economy', distanceMeters: 1000);
       expect(short.totalMinor, 23500);
-      final tiny = await repo().quote(rideType: 'movera', distanceMeters: 1);
+      final tiny = await repo().quote(rideType: 'economy', distanceMeters: 1);
       expect(tiny.totalMinor, 22300);
       final xl = await repo().quote(rideType: 'xl', distanceMeters: 1);
       // 399 - 36 = 363 is above the 60% floor (239), so the slope applies.
@@ -113,11 +113,11 @@ void main() {
       const pin = LatLng(59.3293, 18.0686);
       const movedPin = LatLng(59.3250, 18.0686);
       final before = await repo().quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: straightLineMeters(pin, destination),
       );
       final after = await repo().quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: straightLineMeters(movedPin, destination),
       );
       expect(after.totalMinor, greaterThan(before.totalMinor));

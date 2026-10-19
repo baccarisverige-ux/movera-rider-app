@@ -86,7 +86,7 @@ void main() {
         lat: 59.65,
         lng: 17.93,
       ),
-      categoryId: 'movera',
+      categoryId: 'economy',
       categoryName: 'Movera',
       categoryImage: 'assets/images/rides/movera.webp',
       price: 522,
@@ -100,7 +100,7 @@ void main() {
     expect(page.pickupAddress, 'Arlanda Express');
     expect(page.destinationAddress, 'Klockarvägen 37');
     expect(page.parentReservationId, 'rsv_origin');
-    expect(page.initialRideId, 'movera');
+    expect(page.initialRideId, 'economy');
     expect(page.note, 'Bags · Pet');
     expect(page.pickupPosition, const LatLng(59.65, 17.93));
     expect(page.destinationPosition, const LatLng(59.19, 17.62));

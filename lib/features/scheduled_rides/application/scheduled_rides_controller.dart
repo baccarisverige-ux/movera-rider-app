@@ -11,7 +11,7 @@ class ScheduledRideSession {
   String timezone = 'Europe/Stockholm';
   String note = '';
   String paymentMethod = 'Wallet';
-  String rideType = 'movera';
+  String rideType = 'economy';
   String? quoteId;
   String? bookingId;
   String submissionStatus = 'idle';

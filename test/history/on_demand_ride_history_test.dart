@@ -62,7 +62,7 @@ void main() {
       scheduledPickupAt: endedAt,
       pickup: const ReservationPlace(label: 'Pickup'),
       destination: ReservationPlace(label: destination),
-      categoryId: 'movera',
+      categoryId: 'economy',
       categoryName: 'Movera',
       categoryImage: 'assets/images/rides/movera.webp',
       price: 259,

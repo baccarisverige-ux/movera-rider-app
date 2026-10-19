@@ -190,7 +190,7 @@ void main() {
       expect(history, hasLength(1));
       expect(history.single.cancellationReason, 'plans_changed');
       expect(server.rides['sf-reason']!['cancellationReason'], 'plans_changed');
-      expect(server.rides['sf-reason']!['status'], 'cancelledByRider');
+      expect(server.rides['sf-reason']!['status'], 'cancelled_by_rider');
       expect(ride.status, RideStatus.cancelledByRider);
       controller.dispose();
     },

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -187,7 +188,9 @@ class RideCatalogJson {
 
   /// One row, or null when it is disabled or unusable.
   static RideCatalogItem? parse(Map<String, dynamic> row) {
-    final id = _string(row['id']);
+    // Contract v0.3.0: canonical category ids; `movera` reads as `economy`.
+    final rawId = _string(row['id']);
+    final id = rawId == null ? null : CategoryIds.canonical(rawId);
     final name = _string(row['name']);
     if (id == null || name == null) return null;
     final enabled = row['enabled'];
@@ -210,8 +213,12 @@ class RideCatalogJson {
     );
   }
 
+  /// Category ids whose picture ships under another name.
+  static const _assetAliases = <String, String>{'economy': 'movera'};
+
   static String imageFor(String key) {
-    final clean = key.trim().toLowerCase();
+    final raw = key.trim().toLowerCase();
+    final clean = _assetAliases[raw] ?? raw;
     if (knownImages.contains(clean)) return '$imageDir/$clean.webp';
     return fallbackImage;
   }

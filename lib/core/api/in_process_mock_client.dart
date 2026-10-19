@@ -6,12 +6,22 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
+import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
+///
+/// Contract v0.3.0 (`contracts/contract.json`): rides are stored and sent
+/// with a snake_case `status` (`TripStatus`), `paymentStatus` and
+/// `ratingStatus` fields, `tripId` (with the legacy `rideId`/`id` aliases),
+/// and every lifecycle change goes through [TripStateMachine]: a command the
+/// table does not allow answers `409 invalid_transition` with the current
+/// `projection` and changes nothing.
 class InProcessMockClient extends http.BaseClient {
   InProcessMockClient({
     this.latency = Duration.zero,
@@ -124,7 +134,7 @@ class InProcessMockClient extends http.BaseClient {
   /// `van` is not in the app's built-in list: it proves the catalog really
   /// comes from here. Tests may edit this list.
   final List<Map<String, dynamic>> rideTypes = [
-    _rideType('movera', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
+    _rideType('economy', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
         order: 1, badge: 'RECOMMENDED'),
     _rideType('comfort', 'Comfort', 4, 11, 339, 'Newer cars with extra legroom',
         order: 2),
@@ -190,7 +200,8 @@ class InProcessMockClient extends http.BaseClient {
 
   /// Catalog price in kr for [rideType]: the ride-types table first, then
   /// the dev fallback table.
-  int _catalogPriceKr(String rideType) {
+  int _catalogPriceKr(String rawType) {
+    final rideType = CategoryIds.canonical(rawType);
     for (final type in rideTypes) {
       if (type['id'] == rideType) {
         final price = type['price'];
@@ -542,7 +553,7 @@ class InProcessMockClient extends http.BaseClient {
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
-      } else if (!['tripCompleted', 'paymentFinalized', 'ratingPending'].contains(ride['status'])) {
+      } else if (_statusOf(ride) != TripStatus.completed) {
         status = 409;
         payload = {'code': 'RIDE_NOT_COMPLETE', 'requestId': requestId};
       } else if ((rating == null && tipMinor == null) ||
@@ -556,6 +567,11 @@ class InProcessMockClient extends http.BaseClient {
           if (tipMinor != null) 'tipMinor': tipMinor,
           if (tipMinor != null) 'currency': 'SEK',
         };
+        if (rating != null) {
+          // ratingTransitions: (not_requested →) pending → submitted.
+          ride['ratingStatus'] = TripRatingStatus.submitted.wireName;
+          _touch(ride);
+        }
         payload = {'code': 'OK', 'status': 'accepted', 'requestId': requestId};
       }
     } else if (parts.length >= 6 &&
@@ -583,23 +599,39 @@ class InProcessMockClient extends http.BaseClient {
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
-        parts.last == 'cancel' &&
+        (parts.last == 'cancel' || parts.last == 'end-early') &&
         method == 'POST') {
       final id = parts[4];
       final ride = rides[id];
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
-      } else if (ride['status'] == 'cancelledByRider') {
+      } else if (_statusOf(ride) == TripStatus.cancelledByRider) {
         // Cancel-first: the rider's optional reason arrives after the cancel.
-        if (body['reason'] is String && ride['cancellationReason'] == null) {
-          ride['cancellationReason'] = body['reason'];
+        final reason = body['reasonCode'] ?? body['reason'];
+        if (reason is String && ride['cancellationReason'] == null) {
+          ride['cancellationReason'] = reason;
+          (ride['cancellation'] as Map?)?['reasonCode'] = reason;
         }
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       } else {
-        ride['status'] = 'cancelledByRider';
-        if (body['reason'] is String) ride['cancellationReason'] = body['reason'];
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        // `cancel` before boarding, `end_early` once the rider is on board
+        // (POST .../end-early); anything else is invalid_transition.
+        final command = parts.last == 'end-early' ? 'end_early' : 'cancel';
+        if (!_apply(ride, command, TripActor.rider)) {
+          status = 409;
+          payload = _invalidTransition(ride, command, requestId);
+        } else {
+          final reason = body['reasonCode'] ?? body['reason'];
+          if (reason is String) ride['cancellationReason'] = reason;
+          ride['cancellation'] = {
+            'actor': TripActor.rider.wireName,
+            'reasonCode': reason is String ? reason : null,
+            'at': ride['updatedAt'],
+            'fee': null,
+          };
+          payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        }
       }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
@@ -617,16 +649,28 @@ class InProcessMockClient extends http.BaseClient {
         parts[3] == 'rides' &&
         parts.last == 'status' &&
         method == 'POST') {
-      final id = parts[4];
-      final ride = rides[id] ?? {'id': id, 'version': 0};
-      ride['status'] = body['status'] ?? ride['status'];
-      ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-      ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-      if (body['driver'] is Map) ride['driver'] = body['driver'];
-      if (body['lat'] != null) ride['driverLat'] = body['lat'];
-      if (body['lng'] != null) ride['driverLng'] = body['lng'];
-      rides[id] = ride;
-      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      // Stand-in for the driver app and dispatch (demo/test only, not part
+      // of the shared contract). Body: `{command, actor}` for one command,
+      // or `{status}` (a contract name, or a legacy Rider name) to walk the
+      // trip there one legal driver/system transition at a time, and/or
+      // `{paymentStatus}` / `{ratingStatus}` after completion. Nothing here
+      // bypasses the transition table.
+      final ride = rides[parts[4]];
+      if (ride == null) {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else {
+        final denied = _simulate(ride, body);
+        if (denied != null) {
+          status = 409;
+          payload = _invalidTransition(ride, denied, requestId);
+        } else {
+          if (body['driver'] is Map) ride['driver'] = body['driver'];
+          if (body['lat'] != null) ride['driverLat'] = body['lat'];
+          if (body['lng'] != null) ride['driverLng'] = body['lng'];
+          payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        }
+      }
     } else if (parts.length == 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
@@ -742,9 +786,10 @@ class InProcessMockClient extends http.BaseClient {
           };
         }
       } else {
-        final currentStatus = ride['status'] as String?;
-        final searching =
-            currentStatus == 'findingDriver' || currentStatus == 'searchDelayed';
+        final current = _statusOf(ride);
+        final searching = current == TripStatus.requested ||
+            current == TripStatus.searching ||
+            current == TripStatus.offered;
         if (!searching) {
           status = 409;
           payload = {
@@ -932,8 +977,7 @@ class InProcessMockClient extends http.BaseClient {
       // ARCH-12 / C-5 (PROPOSED): the rider's live trip, or none.
       Map<String, dynamic>? live;
       for (final ride in rides.values) {
-        final value = RideStatusWire.parse(ride['status']);
-        if (value == null || value.isTerminal || ride['scheduledAt'] != null) {
+        if (_statusOf(ride).isTerminal || ride['scheduledAt'] != null) {
           continue;
         }
         live = ride;
@@ -943,8 +987,7 @@ class InProcessMockClient extends http.BaseClient {
       // ARCH-12 / C-5 (PROPOSED): finished trips, newest first, one page.
       final finished = [
         for (final ride in rides.values.toList().reversed)
-          if (RideStatusWire.parse(ride['status']) case final value?)
-            if (value.isTerminal || value.isCompletedSurface) ride,
+          if (_statusOf(ride).isTerminal) ride,
       ];
       payload = {
         'code': 'OK',
@@ -1078,29 +1121,208 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   void _expireSearchIfDue(Map<String, dynamic> ride) {
-    final current = ride['status'];
-    if (current != 'findingDriver' && current != 'searchDelayed') return;
+    final current = _statusOf(ride);
+    if (current != TripStatus.searching && current != TripStatus.offered) {
+      return;
+    }
     final startedRaw = ride['searchStartedAt'];
     final started = startedRaw is String ? DateTime.tryParse(startedRaw) : null;
     if (started == null) return;
     final now = DateTime.now().toUtc();
     if (now.difference(started) < searchExpiresAfter) return;
-    ride['status'] = 'noDriverFound';
-    ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-    ride['updatedAt'] = now.toIso8601String();
+    // `expire` (system): no driver found in time.
+    _apply(ride, 'expire', TripActor.system);
   }
 
-  static const _terminalStatuses = {
-    'tripCompleted',
-    'paymentProcessing',
-    'paymentFinalized',
-    'ratingPending',
-    'closed',
-    'cancelledByRider',
-    'cancelledByDriver',
-    'cancelledBySystem',
-    'noDriverFound',
+  /// The stored trip status. Stored rides carry a contract name; a legacy
+  /// Rider name (tests that seed `rides[...]` by hand) is read through the
+  /// UI → trip map once, then the trip is written back in contract form.
+  static TripStatus _statusOf(Map<String, dynamic> ride) {
+    final raw = ride['status'];
+    final trip = TripStatusWire.parse(raw);
+    if (trip != null) return trip;
+    final legacy = RideStatusWire.legacyName(raw);
+    return legacy?.tripStatus ?? TripStatus.draft;
+  }
+
+  static TripKind _kindOf(Map<String, dynamic> ride) =>
+      TripKindWire.parse(ride['kind']) ??
+      (ride['scheduledAt'] != null ? TripKind.scheduled : TripKind.live);
+
+  /// One committed change: version + 1, new updatedAt.
+  static void _touch(Map<String, dynamic> ride) {
+    ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+    ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+  }
+
+  /// Applies [command] by [actor] through [TripStateMachine]. False (and
+  /// nothing changed) when the table does not allow it.
+  bool _apply(Map<String, dynamic> ride, String command, TripActor actor) {
+    final from = _statusOf(ride);
+    final to = TripStateMachine.apply(
+      from,
+      command,
+      actor,
+      kind: _kindOf(ride),
+    );
+    if (to == null) return false;
+    ride['status'] = to.wireName;
+    if (to == TripStatus.searching && from != TripStatus.offered) {
+      // Back in dispatch (driver drop / admin reassign): the old driver is
+      // gone and the search clock restarts.
+      ride
+        ..remove('driver')
+        ..remove('driverLat')
+        ..remove('driverLng');
+      ride['searchStartedAt'] = DateTime.now().toUtc().toIso8601String();
+    }
+    if (to == TripStatus.completed) {
+      // Payment and rating start as fields once the trip is done.
+      ride['ratingStatus'] = TripRatingStatus.notRequested.wireName;
+    }
+    if (actor != TripActor.rider && to.isTerminal && to != TripStatus.completed) {
+      ride['cancellation'] ??= {
+        'actor': actor.wireName,
+        'reasonCode': null,
+        'at': DateTime.now().toUtc().toIso8601String(),
+        'fee': null,
+      };
+    }
+    _touch(ride);
+    return true;
+  }
+
+  /// `409 invalid_transition` (contract errors shape) with the projection.
+  /// `ride` is kept as the pre-v0.3 alias of `projection`.
+  static Map<String, dynamic> _invalidTransition(
+    Map<String, dynamic> ride,
+    String command,
+    String requestId,
+  ) => {
+    'code': 'invalid_transition',
+    'message':
+        '$command is not allowed while the trip is ${_statusOf(ride).wireName}.',
+    'requestId': requestId,
+    'retryable': false,
+    'projection': ride,
+    'ride': ride,
   };
+
+  /// The demo simulator (see the `/status` route). Returns the refused
+  /// command, or null when everything asked for was applied.
+  String? _simulate(Map<String, dynamic> ride, Map<String, dynamic> body) {
+    final command = body['command'];
+    if (command is String) {
+      final actor = TripActorWire.parse(body['actor']) ?? TripActor.driver;
+      return _apply(ride, command, actor) ? null : command;
+    }
+
+    TripStatus? target;
+    TripPaymentStatus? payment = TripPaymentStatusWire.parse(
+      body['paymentStatus'],
+    );
+    TripRatingStatus? rating = TripRatingStatusWire.parse(body['ratingStatus']);
+    final rawStatus = body['status'];
+    if (rawStatus != null) {
+      target = TripStatusWire.parse(rawStatus);
+      final legacy = target == null ? RideStatusWire.legacyName(rawStatus) : null;
+      if (legacy != null) {
+        target = legacy.tripStatus;
+        // Pre-v0.3 post-trip "statuses" are payment/rating fields now.
+        switch (legacy) {
+          case RideStatus.paymentProcessing:
+            payment ??= TripPaymentStatus.authorized;
+          case RideStatus.paymentFinalized:
+            payment ??= TripPaymentStatus.captured;
+          case RideStatus.ratingPending:
+            payment ??= TripPaymentStatus.captured;
+            rating ??= TripRatingStatus.pending;
+          case RideStatus.closed:
+            payment ??= TripPaymentStatus.captured;
+            rating ??= TripRatingStatus.skipped;
+          case RideStatus.paymentFailed:
+            payment ??= TripPaymentStatus.failed;
+          default:
+            break;
+        }
+      }
+      if (target == null) return 'status';
+    }
+
+    if (target != null && target != _statusOf(ride)) {
+      final kind = _kindOf(ride);
+      final path = TripStateMachine.pathTo(_statusOf(ride), target, kind: kind) ??
+          TripStateMachine.pathTo(
+            _statusOf(ride),
+            target,
+            kind: kind,
+            actors: TripActor.values.toSet(),
+          );
+      if (path == null) return 'status:${target.wireName}';
+      for (final (step, actor) in path) {
+        if (!_apply(ride, step, actor)) return step;
+      }
+    }
+
+    if (payment != null || rating != null) {
+      if (_statusOf(ride) != TripStatus.completed) return 'settle';
+      if (payment != null) {
+        final current = TripPaymentStatusWire.parse(ride['paymentStatus']);
+        final walk = _paymentWalk(current, payment);
+        if (walk == null) return 'payment:${payment.wireName}';
+        if (walk.isNotEmpty) {
+          ride['paymentStatus'] = payment.wireName;
+          _touch(ride);
+        }
+      }
+      if (rating != null) {
+        final current =
+            TripRatingStatusWire.parse(ride['ratingStatus']) ??
+            TripRatingStatus.notRequested;
+        if (current != rating) {
+          final allowed = tripRatingTransitions[current]?.contains(rating) ??
+              false;
+          final viaPending = current == TripRatingStatus.notRequested &&
+              rating != TripRatingStatus.pending;
+          if (!allowed && !viaPending) return 'rating:${rating.wireName}';
+          ride['ratingStatus'] = rating.wireName;
+          _touch(ride);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// The payment statuses between [from] (null: no payment yet, which may
+  /// start at `pending`) and [to] along `paymentTransitions`, or null.
+  static List<TripPaymentStatus>? _paymentWalk(
+    TripPaymentStatus? from,
+    TripPaymentStatus to,
+  ) {
+    if (from == to) return const [];
+    final start = from ?? TripPaymentStatus.pending;
+    if (start == to) return [to];
+    final previous = <TripPaymentStatus, TripPaymentStatus>{};
+    final queue = [start];
+    while (queue.isNotEmpty) {
+      final at = queue.removeAt(0);
+      for (final next in tripPaymentTransitions[at] ?? const <TripPaymentStatus>{}) {
+        if (next == start || previous.containsKey(next)) continue;
+        previous[next] = at;
+        if (next == to) {
+          final walk = <TripPaymentStatus>[to];
+          var back = at;
+          while (back != start) {
+            walk.insert(0, back);
+            back = previous[back]!;
+          }
+          return walk;
+        }
+        queue.add(next);
+      }
+    }
+    return null;
+  }
 
   /// Pickup can move until the driver is at the door; the destination and
   /// the stops can change until the trip is over.
@@ -1108,16 +1330,17 @@ class InProcessMockClient extends http.BaseClient {
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final current = ride['status'] as String? ?? '';
-    if (_terminalStatuses.contains(current)) return 'RIDE_FINISHED';
+    final current = _statusOf(ride);
+    if (current.isTerminal) return 'RIDE_FINISHED';
     final pickupChanged =
         body['pickupAddress'] != null &&
         body['pickupAddress'] != ride['pickupAddress'];
     const pickupEditable = {
-      'findingDriver',
-      'searchDelayed',
-      'driverAssigned',
-      'driverArriving',
+      TripStatus.requested,
+      TripStatus.searching,
+      TripStatus.offered,
+      TripStatus.accepted,
+      TripStatus.driverToPickup,
     };
     if (pickupChanged && !pickupEditable.contains(current)) {
       return 'PICKUP_LOCKED';
@@ -1286,7 +1509,10 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
-    final rideType = body['rideType'] as String? ?? 'movera';
+    // Contract v0.3.0: canonical category id; `movera` is read as `economy`.
+    final rideType = CategoryIds.canonical(
+      body['rideType'] as String? ?? CategoryIds.economy,
+    );
     // ARCH-8 / contract C-2: price the route from the points (through the
     // stops) like a server would; the client's distance is only a hint for
     // callers that send no points.
@@ -1369,7 +1595,7 @@ class InProcessMockClient extends http.BaseClient {
       return 'QUOTE_AMOUNT_MISMATCH';
     }
 
-    final categoryId = (body['categoryId'] ?? '').toString();
+    final categoryId = CategoryIds.canonical((body['categoryId'] ?? '').toString());
     if (quote['rideType'] != categoryId) return 'QUOTE_CATEGORY_MISMATCH';
 
     final submittedPrice = (body['price'] as num?)?.toDouble();
@@ -1392,14 +1618,39 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
-    final categoryId =
-        (body['categoryId'] ?? body['rideType'] ?? 'movera').toString();
+    final categoryId = CategoryIds.canonical(
+      (body['categoryId'] ?? body['rideType'] ?? CategoryIds.economy).toString(),
+    );
     final paymentMethodId =
         (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet').toString();
+    final scheduled = body['scheduledAt'] != null;
+    // The server walks the new trip draft → quoted → requested (→ searching
+    // for a live trip) through the transition table; the client reads the
+    // status from this response and never assumes it.
+    var tripStatus = TripStatus.draft;
+    for (final (command, actor) in [
+      ('quote', TripActor.system),
+      ('request', TripActor.rider),
+      if (!scheduled) ('start_search', TripActor.system),
+    ]) {
+      tripStatus = TripStateMachine.apply(
+        tripStatus,
+        command,
+        actor,
+        kind: scheduled ? TripKind.scheduled : TripKind.live,
+      )!;
+    }
+    final id = 'ride_$requestId';
     return {
-      'id': 'ride_$requestId',
-      'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
+      'id': id,
+      'tripId': id,
+      // Legacy read-only alias of tripId during migration.
+      'rideId': id,
+      'kind': scheduled ? TripKind.scheduled.wireName : TripKind.live.wireName,
+      'status': tripStatus.wireName,
+      'ratingStatus': TripRatingStatus.notRequested.wireName,
       'version': 1,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
       if (body['scheduledAt'] == null)
         'searchStartedAt': DateTime.now().toUtc().toIso8601String(),

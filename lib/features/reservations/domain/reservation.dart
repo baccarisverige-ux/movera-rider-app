@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
@@ -394,7 +395,9 @@ class Reservation {
         ),
         pickup: pickup,
         destination: destination,
-        categoryId: (map['categoryId'] as String?) ?? 'movera',
+        categoryId: CategoryIds.canonical(
+          (map['categoryId'] as String?) ?? CategoryIds.economy,
+        ),
         categoryName: (map['categoryName'] as String?) ?? 'Movera',
         categoryImage:
             (map['categoryImage'] as String?) ??
