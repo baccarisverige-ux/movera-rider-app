@@ -292,6 +292,34 @@ class ReservationDriverBadge extends StatelessWidget {
   }
 }
 
+/// UI-06: what happened to a finished ride ("Completed", "Ended early",
+/// "Cancelled · fee 50 kr"), in the same pill as the driver badge.
+class ReservationHistoryStatusChip extends StatelessWidget {
+  const ReservationHistoryStatusChip({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('history-status-chip'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF1F3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: reservationText(
+          11.5,
+          weight: FontWeight.w600,
+          color: kReservationMuted,
+        ),
+      ),
+    );
+  }
+}
+
 class ReservationHistoryCard extends StatelessWidget {
   const ReservationHistoryCard({
     super.key,
@@ -365,7 +393,10 @@ class ReservationHistoryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ReservationDriverBadge(ride: ride),
+                if (ReservationFormat.historyStatus(ride) case final status?)
+                  ReservationHistoryStatusChip(label: status)
+                else
+                  ReservationDriverBadge(ride: ride),
               ],
             ),
           ),

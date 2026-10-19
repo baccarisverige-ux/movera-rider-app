@@ -14,6 +14,9 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_loader.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
+import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 
 class RideHistory extends StatefulWidget {
   const RideHistory({super.key, this.reservations, this.onDemandReader});
@@ -348,14 +351,17 @@ class _RideHistoryState extends State<RideHistory> {
                       style: _text(14.5, color: _muted, height: 1.45),
                     ),
                     const SizedBox(height: 16),
-                    GestureDetector(
+                    MoveraHitArea(
+                      label: 'Learn how it works',
                       onTap: _showHowItWorks,
-                      child: Text(
-                        'Learn how it works',
-                        style: _text(
-                          15,
-                          weight: FontWeight.w600,
-                          color: _accent,
+                      child: ExcludeSemantics(
+                        child: Text(
+                          'Learn how it works',
+                          style: _text(
+                            15,
+                            weight: FontWeight.w600,
+                            color: _accent,
+                          ),
                         ),
                       ),
                     ),
@@ -493,7 +499,11 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 18),
             Text(
-              ride.status.isCompleted ? 'Completed ride' : 'Cancelled ride',
+              ride.status.isCompleted
+                  ? 'Completed ride'
+                  : ride.endedEarly
+                  ? 'Ended early'
+                  : 'Cancelled ride',
               style: _text(21, weight: FontWeight.w700),
             ),
             const SizedBox(height: 14),
@@ -504,9 +514,27 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${ride.categoryName} · Booked price ${ReservationFormat.price(ride)}',
+              '${ride.categoryName} · '
+              '${ride.chargedFare != null ? 'Charged' : 'Booked price'} '
+              '${ReservationFormat.price(ride)}',
+              key: const ValueKey('history-detail-price'),
               style: _text(15, weight: FontWeight.w700),
             ),
+            if (ride.endedEarly) ...[
+              const SizedBox(height: 5),
+              Text(
+                'You ended this trip before the destination and paid for '
+                'the distance driven.',
+                style: _text(13.5, color: _muted),
+              ),
+            ],
+            if (ride.cancellationFee case final fee? when fee.isPositive) ...[
+              const SizedBox(height: 5),
+              Text(
+                'Cancellation fee: ${ReservationFormat.money(fee)}',
+                style: _text(13.5, color: _muted),
+              ),
+            ],
             const SizedBox(height: 5),
             Text(
               ReservationFormat.historyWhen(ride),
@@ -520,7 +548,7 @@ class _RideHistoryState extends State<RideHistory> {
             if (ride.cancellationReason?.trim().isNotEmpty == true) ...[
               const SizedBox(height: 5),
               Text(
-                'Reason: ${ride.cancellationReason}',
+                'Reason: ${ReservationFormat.reasonLabel(ride.cancellationReason!)}',
                 style: _text(13.5, color: _muted),
               ),
             ],
@@ -528,6 +556,23 @@ class _RideHistoryState extends State<RideHistory> {
             RideCheckTripEntry(
               rideId: ride.reservationId.substring('ondemand-'.length),
               topSpacing: 14,
+            ),
+            const SizedBox(height: 6),
+            // UI-07: the completion screen is not the only way to report a
+            // problem with a ride.
+            TextButton.icon(
+              key: const ValueKey('history-get-help'),
+              onPressed: () {
+                Navigator.pop(context);
+                guardedPush(
+                  this.context,
+                  RightToLeftTransition(
+                    SelectIssue(ride: SupportController.rideFor(ride)),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.help_outline_rounded),
+              label: const Text('Get help with this ride'),
             ),
           ],
         ),

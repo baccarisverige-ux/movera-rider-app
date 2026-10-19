@@ -75,7 +75,9 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                 ),
                 Expanded(
                   child: Text(
-                    'Why are you cancelling?',
+                    widget.phase == CancelPhase.inTrip
+                        ? 'Why are you ending the trip?'
+                        : 'Why are you cancelling?',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
@@ -95,7 +97,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   : widget.phase == CancelPhase.reservation
                   ? 'Optional. This helps us improve scheduled rides.'
                   : widget.phase == CancelPhase.inTrip
-                  ? 'Optional. This helps us understand active-trip cancellations.'
+                  ? 'Optional. This helps us understand trips that end early.'
                   : 'Optional. This helps us improve matching.',
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -175,7 +177,11 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   ),
                 ),
                 child: Text(
-                  widget.committed ? 'Send' : 'Cancel ride',
+                  widget.committed
+                      ? 'Send'
+                      : widget.phase == CancelPhase.inTrip
+                      ? 'End trip'
+                      : 'Cancel ride',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,

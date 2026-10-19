@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -106,6 +107,8 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
+    bool endedEarly = false,
+    Money? charged,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -121,6 +124,8 @@ abstract final class OnDemandRideHistoryStore {
       terminalStatus: terminalStatus,
       endedAt: endedAt,
       cancellationReason: cancellationReason,
+      endedEarly: endedEarly,
+      charged: charged,
     );
     if (record == null) {
       throw ArgumentError.value(
@@ -181,6 +186,8 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
+    bool endedEarly = false,
+    Money? charged,
   }) {
     final rideId = snapshot.rideId?.trim();
     final reservationStatus = _reservationStatus(terminalStatus);
@@ -221,6 +228,8 @@ abstract final class OnDemandRideHistoryStore {
           cancellationReason ??
           snapshot.cancellationReason ??
           _endedSearchReason(terminalStatus),
+      endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
+      chargedFare: charged,
     );
   }
 

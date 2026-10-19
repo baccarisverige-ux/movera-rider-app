@@ -93,7 +93,7 @@ void main() {
         return answer.future;
       },
     );
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
 
     await dragPinTo(tester, moved);
@@ -113,9 +113,9 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
-    expect(find.text('kr 259'), findsNothing);
-    expect(find.text('kr 301'), findsOneWidget);
-    expect(find.text('kr 341'), findsOneWidget);
+    expect(find.text('259 kr'), findsNothing);
+    expect(find.text('301 kr'), findsOneWidget);
+    expect(find.text('341 kr'), findsOneWidget);
     expect(find.text('Promotion 12%'), findsOneWidget);
     await settle(tester);
   });
@@ -137,14 +137,14 @@ void main() {
     answers[1].complete(const SetPickupFare(totalKr: 310));
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 310'), findsOneWidget);
+    expect(find.text('310 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
 
     answers[0].complete(const SetPickupFare(totalKr: 280));
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 310'), findsOneWidget);
-    expect(find.text('kr 280'), findsNothing);
+    expect(find.text('310 kr'), findsOneWidget);
+    expect(find.text('280 kr'), findsNothing);
     await settle(tester);
   });
 
@@ -153,7 +153,7 @@ void main() {
     await dragPinTo(tester, moved);
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
     await settle(tester);
   });

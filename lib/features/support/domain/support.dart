@@ -54,7 +54,8 @@ class SupportRide {
 
   String get priceLabel {
     if (cancelled) {
-      return extra == null ? 'kr 0 · Cancelled' : 'kr 0 · Cancelled · $extra';
+      final zero = formatKr(0);
+      return extra == null ? '$zero · Cancelled' : '$zero · Cancelled · $extra';
     }
     if (failed) return 'Failed';
     return formatKr(price);

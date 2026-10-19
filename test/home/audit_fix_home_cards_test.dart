@@ -124,7 +124,7 @@ void main() {
     tester,
   ) async {
     await pumpMenu(tester);
-    expect(find.textContaining('kr 50'), findsNothing);
+    expect(find.textContaining('50 kr'), findsNothing);
     expect(find.text('Coming soon: invite friends to Movera.'), findsOneWidget);
   });
 

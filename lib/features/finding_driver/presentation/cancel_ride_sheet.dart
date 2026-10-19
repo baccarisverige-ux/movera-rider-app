@@ -157,8 +157,11 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
     final inset = MediaQuery.paddingOf(context).bottom;
     final matched = phase == CancelPhase.matched;
     final inTrip = phase == CancelPhase.inTrip;
+    // UI-01: on board this is the contract's end-early, not a cancel: the
+    // trip ends here and the rider pays for the distance driven.
     final body = inTrip
-        ? 'Your trip is already in progress. Cancelling will end this ride and return you to Home.'
+        ? 'Your driver will drop you off as soon as it is safe. You pay for '
+              'the distance driven so far.'
         : matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
@@ -175,7 +178,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               const SizedBox(width: 40),
               Expanded(
                 child: Text(
-                  'Cancel ride?',
+                  inTrip ? 'End trip here?' : 'Cancel ride?',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
@@ -193,7 +196,9 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Are you sure you want to cancel?',
+            inTrip
+                ? 'End your trip before the destination?'
+                : 'Are you sure you want to cancel?',
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -249,7 +254,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'Cancelling…',
+                          inTrip ? 'Ending trip…' : 'Cancelling…',
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -259,7 +264,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                       ],
                     )
                   : Text(
-                      inTrip ? 'Cancel ride' : 'Cancel request',
+                      inTrip ? 'End trip here' : 'Cancel request',
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,

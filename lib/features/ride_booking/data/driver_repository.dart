@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
 class DriverProfile {
   const DriverProfile({
@@ -99,14 +100,15 @@ class TripReceiptRepository {
     final ride = LastCompletedRide.value;
     if (ride == null) return null;
 
+    final charged = LastCompletedRide.charged;
     return TripReceipt(
       pickup: ride.pickupAddress,
       destination: ride.destinationAddress,
-      total: '${ride.price.round()} kr',
+      total: charged != null ? formatMoney(charged) : formatKr(ride.price),
       method: ride.paymentMethod,
-      // The local completion snapshot only knows the booked/quoted amount.
-      // The backend will later provide the authoritative final fare.
-      isFinal: false,
+      // The local completion snapshot only knows the booked/quoted amount,
+      // unless the server already said what the rider pays (end-early).
+      isFinal: charged != null,
     );
   }
 }

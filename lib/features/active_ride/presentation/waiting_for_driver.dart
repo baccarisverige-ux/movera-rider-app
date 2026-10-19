@@ -680,7 +680,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// on board (that is end-early: the distance driven) or when no rule
   /// applies.
   Future<String?> _cancelFeeNote() async {
-    if (_isInTrip) return null;
+    if (_isInTrip) {
+      // UI-01: end-early. The amount is the server's (the trip's `fare`
+      // once it ends); the receipt that follows shows it.
+      return 'Booked price for the whole trip: ${formatKr(_price)}. Your '
+          'receipt shows what you pay.';
+    }
     try {
       final stored = await RouteChangeController.storedRide();
       final category =
@@ -749,6 +754,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
+      final endedEarly = _ride.endedEarly;
+      if (endedEarly != null) {
+        // UI-01: an on-board end is a finished trip with a receipt, not a
+        // silent return to Home.
+        _openEndedEarlySummary(endedEarly);
+        return;
+      }
       RideNavigator.home(context);
     } catch (error, stack) {
       final scheduled = widget.onCancel != null;
@@ -774,6 +786,36 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         ),
       );
     }
+  }
+
+  /// The trip summary after the rider ended the trip on board (UI-01),
+  /// placed like the completion screen: replacing Waiting.
+  void _openEndedEarlySummary(EndedEarlyTrip trip) {
+    final summary = RideCompleted(
+      status: RideStatus.cancelledByRider,
+      rideId: trip.rideId,
+      endedEarly: trip,
+      persistOnDemandState: false,
+      showConnectionBanner: false,
+      onClose: (context) async {
+        _ride.leaveEndedEarlySummary();
+        RideNavigator.home(context);
+      },
+    );
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop() &&
+        RideRestoreCoordinator.instance.replaceRootSurface(
+          summary,
+          RestoredSurface.complete,
+        )) {
+      return;
+    }
+    navigator.pushReplacement(
+      RideStageTransition(
+        summary,
+        settings: const RouteSettings(name: AppRoutes.rideCompleted),
+      ),
+    );
   }
 
   void _showCancelProblem(RideCancelOutcome result) {
@@ -1333,7 +1375,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     MoveraIconButton.round(
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
-                      label: 'Cancel ride',
+                      // UI-01: on board this ends the trip early.
+                      label: _isInTrip ? 'End trip' : 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),

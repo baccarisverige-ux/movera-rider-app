@@ -16,3 +16,14 @@ String shortenPlace(String raw) {
   if (parts.length == 1) return parts.first;
   return '${parts[0]}, ${parts[1]}';
 }
+
+/// UI-08: the stops of a route in one short line, "via Odenplan · KTH", so
+/// the rider can see them on every booking step. Null without stops.
+String? viaStopsLine(Iterable<String> stops) {
+  final names = [
+    for (final stop in stops)
+      if (stop.trim().isNotEmpty) shortenPlace(stop).split(',').first.trim(),
+  ];
+  if (names.isEmpty) return null;
+  return 'via ${names.join(' · ')}';
+}

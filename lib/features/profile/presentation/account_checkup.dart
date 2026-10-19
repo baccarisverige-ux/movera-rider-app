@@ -76,7 +76,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                   body: security == null
                       ? 'Verification unavailable'
                       : security.phone.isEmpty
-                          ? 'No phone on the server'
+                          ? 'No phone added'
                           : phoneVerified
                               ? '${security.phone} · Verified'
                               : '${security.phone} · Not verified',

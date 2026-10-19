@@ -198,7 +198,7 @@ void main() {
     final selection = selectionWith(quotes);
     final booking = _CaptureBooking();
     await openSetPickup(tester, selection, booking);
-    expect(find.text('kr 259'), findsWidgets);
+    expect(find.text('259 kr'), findsWidgets);
 
     final map = tester.widget<CustomGoogleMap>(
       find.byKey(const ValueKey('set-pickup-map')),
@@ -212,7 +212,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     // The re-quote went through the selection's own repository.
-    expect(find.text('kr 301'), findsWidgets);
+    expect(find.text('301 kr'), findsWidgets);
     final pinQuoteId = 'quote-economy-${quotes.calls}';
 
     await confirm(tester);
