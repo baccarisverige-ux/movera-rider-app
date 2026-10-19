@@ -10,6 +10,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../mock_fare.dart';
 
 RideSnapshot _snapshot({
   String pickupAddress = 'Pickup A',
@@ -125,7 +126,7 @@ void main() {
 
     expect(changed, isTrue);
     expect(controller.currentPrice, 279);
-    expect(transport.rides['r1']?['price'], 279);
+    expect(mockFareKr(transport.rides['r1']), 279);
     expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
     expect(matches, 1);
@@ -162,7 +163,7 @@ void main() {
 
     expect(changed, isFalse);
     expect(controller.currentPrice, 259);
-    expect(transport.rides['r1']?['price'], 259);
+    expect(mockFareKr(transport.rides['r1']), 259);
     expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
 

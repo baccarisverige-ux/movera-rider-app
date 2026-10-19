@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../mock_fare.dart';
 
 RideSnapshot snap({double price = 259}) => RideSnapshot(
   status: RideStatus.findingDriver,
@@ -270,7 +271,7 @@ void main() {
     expect(controller.currentPrice, 279);
     expect(controller.showPriceBump, isFalse);
     expect(controller.offerConfirmation, 'Updated offer: 279 kr');
-    expect(httpClient.rides['r1']?['price'], 279);
+    expect(mockFareKr(httpClient.rides['r1']), 279);
     expect(ride.rideId, 'r1');
     controller.dismissPriceBump();
     expect(controller.showPriceBump, isFalse);
@@ -302,7 +303,7 @@ void main() {
     expect(ok, isTrue);
     expect(controller.currentPrice, 340);
     expect(ride.rideId, 'r1');
-    expect(httpClient.rides['r1']?['price'], 340);
+    expect(mockFareKr(httpClient.rides['r1']), 340);
     controller.dismissPriceBump();
     expect(controller.showPriceBump, isFalse);
     controller.dispose();

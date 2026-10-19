@@ -10,12 +10,14 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
@@ -114,7 +116,10 @@ class FindingDriverController {
   bool _stillLooking = false;
   bool _stillLookingDismissed = false;
   bool _serverCheckInFlight = false;
-  int _lastSequence = -1;
+  /// Contract v0.3.0 realtime gate: the server's sequence and eventId,
+  /// `sequence <= last` dropped, nothing but payment/rating/message after a
+  /// terminal status.
+  final RealtimeGate _gate = RealtimeGate();
   int _nearbyRequestEpoch = 0;
   int _pickupUpdateEpoch = 0;
   int _editEpoch = 0;
@@ -277,7 +282,7 @@ class FindingDriverController {
     _stillLooking = false;
     _stillLookingDismissed = false;
     _serverCheckInFlight = false;
-    _lastSequence = -1;
+    _gate.reset();
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _editEpoch += 1;
@@ -304,9 +309,15 @@ class FindingDriverController {
     }
     _sub = _realtime.subscribe(rideId).listen((event) {
       if (_disposed || _cancelled || _terminated) return;
-      if (event.sequence < _lastSequence) return;
+      final disposition = _gate.admit(
+        eventId: event.eventId,
+        tripId: event.tripId,
+        sequence: event.sequence,
+        kind: event.kind,
+        isTerminalStatus: event.status.isTerminal,
+      );
+      if (!disposition.passes) return;
       if (_assigned && event.status == RideStatus.driverAssigned) return;
-      _lastSequence = event.sequence;
       if (event.driver != null) matchedDriver = event.driver;
 
       final accepted = ride.backendReconcile(
@@ -715,15 +726,17 @@ class FindingDriverController {
     // The client-computed total is a preview for the button label, never a
     // value the server is asked to accept. The fare shown afterwards is the
     // one the server's response actually carries.
+    final increase = Money(kr * 100);
     final intent = jsonEncode({
       'rideId': id,
       'fromPrice': snapshot.price,
-      'offerIncreaseKr': kr,
+      'offerIncrease': increase.toJson(),
     });
     try {
       final response = await api.patch(
         '/api/v1/rides/$id',
-        body: {'offerIncreaseKr': kr},
+        // Contract v0.3.0: the raise as Money, not kronor.
+        body: {'offerIncrease': increase.toJson()},
         idempotencyKey: _priceMutation.keyFor(intent),
       );
       _priceMutation.succeeded(intent);
@@ -789,6 +802,8 @@ class FindingDriverController {
   /// `ride.price` (or a top-level `price`). Null when absent or unusable.
   static double? _serverPrice(Map<String, dynamic> response) {
     final ride = response['ride'];
+    final fare = Money.fromWire(ride is Map ? ride['fare'] : response['fare']);
+    if (fare != null) return fare.isPositive ? fare.major : null;
     final raw = ride is Map ? ride['price'] : response['price'];
     if (raw is! num) return null;
     final value = raw.toDouble();

@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
@@ -276,6 +277,8 @@ class RideSelectionController {
     int distanceMeters = 3000,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    // Audit finding B7 / contract §3: quotes MUST include the stops.
+    List<RouteStop> stops = const <RouteStop>[],
     int parallelism = PerformanceBudgets.quoteParallelism,
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
@@ -298,6 +301,7 @@ class RideSelectionController {
             distanceMeters: distanceMeters,
             pickupPoint: pickupPoint,
             destinationPoint: destinationPoint,
+            stops: stops,
             timeout: timeout,
           ),
         ),
@@ -313,6 +317,7 @@ class RideSelectionController {
     required int distanceMeters,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
     required Duration timeout,
   }) async {
     if (generation != _quoteGeneration) return;
@@ -325,6 +330,7 @@ class RideSelectionController {
           destination: destination,
           pickupPoint: pickupPoint,
           destinationPoint: destinationPoint,
+          stops: stops,
         ),
         timeout,
       );
@@ -354,6 +360,7 @@ class RideSelectionController {
     String? destination,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     if (_disposed) return null;
@@ -367,6 +374,7 @@ class RideSelectionController {
         destination: destination,
         pickupPoint: pickupPoint,
         destinationPoint: destinationPoint,
+        stops: stops,
       ),
       timeout,
     );

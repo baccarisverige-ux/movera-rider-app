@@ -413,7 +413,12 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadQuotes() async {
     final generation = _selection.beginQuotes();
+    // Quotes include the stops (audit finding B7, contract §3), so the price
+    // shown is the price of the route booked.
+    final stops = await _routeStops();
+    if (!mounted) return;
     await _selection.loadQuotes(
+      stops: stops,
       generation: generation,
       pickup: widget.pickupAddress,
       destination: widget.destinationAddress,
@@ -441,7 +446,9 @@ class _SelectRideState extends State<SelectRide>
   /// and adopt the quote, so Confirm books the price shown there. Goes
   /// through the selection, which keeps only the latest pin's answer.
   Future<SetPickupFare?> _requoteFromPin(_RideOption ride, LatLng pin) async {
+    final stops = await _routeStops();
     final pending = _selection.quoteFromPin(
+      stops: stops,
       rideId: ride.id,
       distanceMeters: straightLineMeters(pin, widget.destinationPosition),
       pickup: coordinatePickupAddress(pin),
@@ -501,7 +508,9 @@ class _SelectRideState extends State<SelectRide>
       const SnackBar(content: Text('Refreshing price…')),
     );
     try {
+      final stops = await _routeStops();
       await _selection.quoteFromPin(
+        stops: stops,
         rideId: ride.id,
         distanceMeters: straightLineMeters(
           _pickupPosition,
@@ -1250,6 +1259,17 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  Future<List<RouteStop>>? _stopsLookup;
+
+  /// [_locateStops], looked up once per screen and shared by quoting and
+  /// booking so both price the same route.
+  Future<List<RouteStop>> _routeStops() {
+    if (widget.stops.every((stop) => stop.trim().isEmpty)) {
+      return Future.value(const <RouteStop>[]);
+    }
+    return _stopsLookup ??= _locateStops();
+  }
+
   /// The stops the rider typed on Plan your ride, with their map points;
   /// an address that cannot be found is left out rather than blocking the
   /// booking.
@@ -1376,7 +1396,7 @@ class _SelectRideState extends State<SelectRide>
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);
 
-        final stops = await _locateStops();
+        final stops = await _routeStops();
         if (!mounted) return;
 
         String rideId;

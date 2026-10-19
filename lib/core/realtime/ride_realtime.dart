@@ -1,6 +1,7 @@
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
 enum RideRealtimeSignal {
   driverArrived,
@@ -26,7 +27,9 @@ class RideRealtimeEvent {
     this.locationAt,
     this.signal,
     this.message,
+    RealtimeKind? kind,
   })  : rideId = (tripId ?? rideId)!,
+        _kind = kind,
         // ARCH-11: client-side stamps are UTC like server ones.
         at = occurredAt ?? at ?? WireTime.now(),
         eventId =
@@ -66,6 +69,27 @@ class RideRealtimeEvent {
   final DateTime? locationAt;
   final RideRealtimeSignal? signal;
   final String? message;
+  final RealtimeKind? _kind;
+
+  /// The contract event kind (`contract.json#realtime.kinds`). The server
+  /// says it; for a transport that does not, it follows from the event.
+  RealtimeKind get kind =>
+      _kind ??
+      RealtimeKindWire.parse(payload['kind']) ??
+      switch (signal) {
+        RideRealtimeSignal.driverArrived => RealtimeKind.driverArrived,
+        RideRealtimeSignal.riderOnTheWay => RealtimeKind.riderOnTheWay,
+        null => switch (status) {
+          RideStatus.paymentProcessing ||
+          RideStatus.paymentFinalized ||
+          RideStatus.paymentFailed => RealtimeKind.paymentUpdated,
+          RideStatus.ratingPending ||
+          RideStatus.closed => RealtimeKind.ratingUpdated,
+          RideStatus.cancelledByRider => RealtimeKind.riderCancelled,
+          RideStatus.cancelledByDriver => RealtimeKind.driverCancelled,
+          _ => RealtimeKind.tripProjection,
+        },
+      };
 
   bool isNewerThan(RideRealtimeEvent other) {
     if (tripId != other.tripId) return true;

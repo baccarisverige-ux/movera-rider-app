@@ -50,6 +50,47 @@ class Money {
     String currency = defaultCurrency,
   ]) => raw is num ? Money.fromLegacyMajor(raw, currency) : null;
 
+  /// ISO-4217 minor-unit exponents (`contract.json#currencies`).
+  static const exponents = <String, int>{'SEK': 2, 'EUR': 2, 'TND': 3};
+
+  /// Minor units per major unit is `10^exponent`; unknown codes use 2.
+  static int exponentOf(String currency) => exponents[currency] ?? 2;
+
+  /// The contract wire shape, strictly (`fixtures/money.json`): an
+  /// integer `amountMinor` and an upper-case ISO-4217 `currency`. A float,
+  /// a lower-case code, a missing currency or another key (`minorUnits`)
+  /// is not Money.
+  static Money? fromWire(Object? raw) {
+    if (raw is! Map) return null;
+    final minor = raw['amountMinor'];
+    final currency = raw['currency'];
+    if (minor is! int) return null;
+    if (currency is! String || !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
+      return null;
+    }
+    return Money(minor, currency);
+  }
+
+  /// The decimal amount with the currency's exponent: `126.75` SEK,
+  /// `12.500` TND, `-20.00` SEK. Display formatting stays local.
+  String get majorString {
+    final exponent = exponentOf(currency);
+    final unit = _pow10(exponent);
+    final abs = amountMinor.abs();
+    final whole = abs ~/ unit;
+    final fraction = (abs % unit).toString().padLeft(exponent, '0');
+    final sign = amountMinor < 0 ? '-' : '';
+    return exponent == 0 ? '$sign$whole' : '$sign$whole.$fraction';
+  }
+
+  static int _pow10(int exponent) {
+    var value = 1;
+    for (var i = 0; i < exponent; i++) {
+      value *= 10;
+    }
+    return value;
+  }
+
   /// Upper-cased ISO-4217 alpha code, or null when [raw] is not one.
   static String? normalizeCurrency(Object? raw) {
     if (raw is! String) return null;
@@ -57,8 +98,8 @@ class Money {
     return RegExp(r'^[A-Z]{3}$').hasMatch(code) ? code : null;
   }
 
-  /// Whole units for display only (`259.0` kr).
-  double get major => amountMinor / 100;
+  /// Major units for display only (`259.0` kr), with the ISO exponent.
+  double get major => amountMinor / _pow10(exponentOf(currency));
 
   bool get isPositive => amountMinor > 0;
 

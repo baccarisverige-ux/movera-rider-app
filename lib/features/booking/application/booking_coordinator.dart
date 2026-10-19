@@ -166,7 +166,8 @@ class BookingCoordinator {
           'quoteSignedPayload': quoteSignedPayload,
           'quoteExpiresAt': quoteExpiresAt?.toUtc().toIso8601String(),
           'quoteTotalMinor': quoteTotalMinor,
-          if (quoteTotalMinor != null) 'price': quoteTotalMinor / 100,
+          if (quoteTotalMinor != null)
+            'fare': Money(quoteTotalMinor).toJson(),
         },
       },
       scheduledAt: scheduledAt,
@@ -516,7 +517,8 @@ class BookingCoordinator {
         'destinationLat': destinationLat,
         'destinationLng': destinationLng,
         'categoryId': rideType,
-        'price': price,
+        // Contract v0.3.0: the confirmed fare as Money (it equals the quote).
+        'fare': Money(quoteTotalMinor).toJson(),
         'paymentMethodId': paymentMethod,
         'quoteId': quoteId,
         'quoteSignedPayload': quoteSignedPayload,

@@ -18,6 +18,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../mock_fare.dart';
 
 class _Geo implements GeocodingRepository {
   _Geo([this.known = const {}]);
@@ -390,7 +391,7 @@ void main() {
         api.patch('/api/v1/rides/ride-bump', body: {'offerIncreaseKr': 100}),
         throwsA(anything),
       );
-      expect(mock.rides['ride-bump']!['price'], 300);
+      expect(mockFareKr(mock.rides['ride-bump']!), 300);
     });
   });
 }

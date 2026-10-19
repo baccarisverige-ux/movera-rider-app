@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -321,6 +322,10 @@ class AppScope {
   /// Ride categories from the server (admin panel), with cache and built-in
   /// fallbacks. Loaded at bootstrap and again when Select Ride opens.
   late final RideCatalogController catalog = RideCatalogController(api: api);
+
+  /// RiderAppConfig (contract v0.3.0 §6): the local seed today,
+  /// `GET /rider/config?zoneId` once a backend serves it.
+  RiderConfigRepository riderConfig = const SeedRiderConfigRepository();
 
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
