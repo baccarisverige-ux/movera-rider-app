@@ -106,6 +106,8 @@ abstract final class TripStateMachine {
         when: TripKind.live),
     TripTransition('cancel', TripActor.driver, {_a}, _rq,
         when: TripKind.scheduled),
+    TripTransition('cancel', TripActor.driver, {_dp, _ar}, _s,
+        when: TripKind.scheduled),
     TripTransition('cancel', TripActor.driver, {_ob, _it, _ad},
         TripStatus.cancelledByDriver),
     TripTransition('no_show', TripActor.driver, {_ar}, TripStatus.noShow),
