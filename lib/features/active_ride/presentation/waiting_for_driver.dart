@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -648,12 +651,53 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
+  /// When this screen first saw the driver accepted: the start of the
+  /// live free-cancel window (`rider.cancelFees.live[category].freeMin`).
+  /// A reload restarts it, so the preview errs toward "free"; the server's
+  /// own `cancellation.fee` is what is charged.
+  final DateTime _acceptedAt = DateTime.now();
+
+  /// The fee line shown before the rider confirms a cancel (contract
+  /// v0.3.0 §5), from the shared calculator and the rider config. Null when
+  /// on board (that is end-early: the distance driven) or when no rule
+  /// applies.
+  Future<String?> _cancelFeeNote() async {
+    if (_isInTrip) return null;
+    try {
+      final stored = await RouteChangeController.storedRide();
+      final category =
+          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      if (category == null) return null;
+      final config = await AppScope.instance.riderConfig.current();
+      final preview = LiveCancelFeePreview.of(
+        config,
+        categoryId: category,
+        fare: Money.fromLegacyMajor(_price, config.currency),
+        acceptedAt: _acceptedAt,
+        now: DateTime.now(),
+      );
+      if (preview == null) return null;
+      if (preview.fee.isPositive) {
+        return 'Cancelling now costs ${formatMoney(preview.fee)}.';
+      }
+      final left = preview.freeMinutesLeft;
+      return left <= 1
+          ? 'Cancelling is free for less than a minute more.'
+          : 'Cancelling is free for $left more minutes.';
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _confirmCancel() async {
     if (_leaving) return;
+    final feeNote = await _cancelFeeNote();
+    if (!mounted || _leaving) return;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
       phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
+      feeNote: feeNote,
     );
     if (!outcome.cancelled || !mounted) return;
     _leaving = true;

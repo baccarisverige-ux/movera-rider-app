@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -195,7 +196,10 @@ class RideCatalogJson {
     if (id == null || name == null) return null;
     final enabled = row['enabled'];
     if (enabled is bool && !enabled) return null;
-    final price = (row['price'] as num?)?.toDouble();
+    // Contract v0.3.0: `price: Money`; a bare number is the pre-v0.3 kronor.
+    final rawPrice = row['price'];
+    final price = Money.fromWire(rawPrice)?.major ??
+        (rawPrice is num ? rawPrice.toDouble() : null);
     if (price == null || price < 0) return null;
     final etaMin = ((row['etaMin'] as num?)?.toInt() ?? 0).clamp(0, 999);
     final seats = ((row['seats'] as num?)?.toInt() ?? 4).clamp(1, 99);

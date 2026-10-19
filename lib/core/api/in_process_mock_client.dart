@@ -187,8 +187,8 @@ class InProcessMockClient extends http.BaseClient {
       'name': name,
       'seats': seats,
       'etaMin': etaMin,
-      'price': price,
-      'currency': currency,
+      // The list price as Money (contract v0.3.0).
+      'price': _money(price * 100),
       'description': description,
       'badge': badge,
       'glyph': glyph,
@@ -205,6 +205,9 @@ class InProcessMockClient extends http.BaseClient {
     for (final type in rideTypes) {
       if (type['id'] == rideType) {
         final price = type['price'];
+        if (price is Map && price['amountMinor'] is int) {
+          return (price['amountMinor'] as int) ~/ 100;
+        }
         if (price is num) return price.round();
       }
     }
@@ -570,7 +573,7 @@ class InProcessMockClient extends http.BaseClient {
         if (rating != null) {
           // ratingTransitions: (not_requested →) pending → submitted.
           ride['ratingStatus'] = TripRatingStatus.submitted.wireName;
-          _touch(ride);
+          _touch(ride, 'rating_updated');
         }
         payload = {'code': 'OK', 'status': 'accepted', 'requestId': requestId};
       }
@@ -668,6 +671,12 @@ class InProcessMockClient extends http.BaseClient {
           if (body['driver'] is Map) ride['driver'] = body['driver'];
           if (body['lat'] != null) ride['driverLat'] = body['lat'];
           if (body['lng'] != null) ride['driverLng'] = body['lng'];
+          if (body['lat'] != null && body['command'] == null &&
+              body['status'] == null) {
+            // A GPS fix alone: a `location` event, version unchanged.
+            ride['locationAt'] = DateTime.now().toUtc().toIso8601String();
+            _sequenceEvent(ride, 'location');
+          }
           payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
         }
       }
@@ -696,8 +705,6 @@ class InProcessMockClient extends http.BaseClient {
               .toIso8601String();
           final newTotalMinor =
               ((pricing['newPriceKr'] as double) * 100).round();
-          final differenceMinor =
-              ((pricing['differenceKr'] as double) * 100).round();
           routeQuotes[quoteId] = {
             'rideId': parts[4],
             'route': _routeFingerprint(body),
@@ -706,11 +713,9 @@ class InProcessMockClient extends http.BaseClient {
           };
           payload = {
             'code': 'OK',
-            ...pricing,
+            ..._pricingWire(pricing),
             'routeQuoteId': quoteId,
             'expiresAt': expiresAt,
-            'newTotalMinor': newTotalMinor,
-            'differenceMinor': differenceMinor,
             'requestId': requestId,
           };
         }
@@ -742,10 +747,10 @@ class InProcessMockClient extends http.BaseClient {
           ride['destinationLat'] = body['destinationLat'];
           ride['destinationLng'] = body['destinationLng'];
           ride['stops'] = pricing['stops'];
-          ride['price'] = pricing['newPriceKr'];
-          ride['maxOfferMinor'] = _maxOfferMinor(pricing['newPriceKr'] as num);
-          ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-          ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+          final newMinor = ((pricing['newPriceKr'] as double) * 100).round();
+          _setFare(ride, newMinor);
+          ride['maxOfferMinor'] = _maxOfferMinorFor(newMinor);
+          _touch(ride);
           // The driver app is told on its next poll; the log is what admin
           // reads later.
           ride['driverNotifiedAt'] = ride['updatedAt'];
@@ -764,7 +769,7 @@ class InProcessMockClient extends http.BaseClient {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
               'at': ride['updatedAt'],
               'method': method,
-              'amountKr': difference,
+              'amount': _money((difference * 100).round()),
               'status': difference > 0 ? 'captured' : 'refunded',
               if (difference < 0)
                 // wallet: credited at once; originalMethod: 2–3 business days.
@@ -775,13 +780,13 @@ class InProcessMockClient extends http.BaseClient {
             'at': ride['updatedAt'],
             'destinationAddress': body['destinationAddress'],
             'stops': pricing['stops'],
-            'newPriceKr': pricing['newPriceKr'],
-            'differenceKr': pricing['differenceKr'],
+            'newTotal': _money(newMinor),
+            'difference': _money(((pricing['differenceKr'] as double) * 100).round()),
           });
           payload = {
             'code': 'OK',
             'ride': ride,
-            ...pricing,
+            ..._pricingWire(pricing),
             'requestId': requestId,
           };
         }
@@ -798,15 +803,16 @@ class InProcessMockClient extends http.BaseClient {
             'ride': ride,
             'requestId': requestId,
           };
-        } else if (body.containsKey('offerIncreaseKr') &&
-            !_validOfferIncrease(body['offerIncreaseKr'], ride['price'])) {
+        } else if ((body.containsKey('offerIncrease') ||
+                body.containsKey('offerIncreaseKr')) &&
+            _offerIncreaseMinor(body) == null) {
           status = 422;
           payload = {
             'code': 'INVALID_OFFER',
             'message': 'Offer increase must be a positive whole amount',
             'requestId': requestId,
           };
-        } else if (_offerAboveMaximum(ride, body['offerIncreaseKr'])) {
+        } else if (_offerAboveMaximum(ride, _offerIncreaseMinor(body))) {
           // ARCH-20: the ceiling holds on the server, whatever the client
           // computed after a reload.
           status = 409;
@@ -820,10 +826,11 @@ class InProcessMockClient extends http.BaseClient {
           // D-012: the server prices an offer bump itself from the rider's
           // intent (offerIncreaseKr). A client-sent `price` is never treated
           // as authority and is ignored. The ceiling is checked above.
-          final increase = body['offerIncreaseKr'];
-          if (increase is num) {
-            ride['price'] = (ride['price'] as num) + increase;
-            ride['offerIncreaseKr'] = increase;
+          final increase = _offerIncreaseMinor(body);
+          final fare = _fareMinor(ride);
+          if (increase != null && fare != null) {
+            _setFare(ride, fare + increase);
+            ride['offerIncrease'] = _money(increase);
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -852,7 +859,16 @@ class InProcessMockClient extends http.BaseClient {
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else {
         _expireSearchIfDue(ride);
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        payload = {
+          'code': 'OK',
+          'ride': ride,
+          // The last committed event, envelope-style (contract §4).
+          'eventId': ride['eventId'],
+          'sequence': ride['sequence'],
+          'kind': ride['eventKind'],
+          'serverTime': DateTime.now().toUtc().toIso8601String(),
+          'requestId': requestId,
+        };
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
       final amountMinor = body['amountMinor'];
@@ -922,6 +938,7 @@ class InProcessMockClient extends http.BaseClient {
         'code': 'OK',
         'status': 'succeeded',
         'amountMinor': body['amountMinor'] ?? 0,
+        'currency': currency,
         'requestId': requestId,
       };
     } else if (path == '/api/v1/ride-types' && method == 'GET') {
@@ -1149,10 +1166,24 @@ class InProcessMockClient extends http.BaseClient {
       TripKindWire.parse(ride['kind']) ??
       (ride['scheduledAt'] != null ? TripKind.scheduled : TripKind.live);
 
-  /// One committed change: version + 1, new updatedAt.
-  static void _touch(Map<String, dynamic> ride) {
+  /// One committed change: version + 1, new updatedAt, and the next
+  /// server-assigned realtime `sequence` with a unique `eventId` and its
+  /// event kind (contract v0.3.0 §4; clients never number events).
+  static void _touch(
+    Map<String, dynamic> ride, [
+    String eventKind = 'trip_projection',
+  ]) {
     ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
     ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+    _sequenceEvent(ride, eventKind);
+  }
+
+  static void _sequenceEvent(Map<String, dynamic> ride, String eventKind) {
+    final sequence = ((ride['sequence'] as num?)?.toInt() ?? 0) + 1;
+    final id = (ride['tripId'] ?? ride['id']).toString();
+    ride['sequence'] = sequence;
+    ride['eventId'] = 'ev_${id}_$sequence';
+    ride['eventKind'] = eventKind;
   }
 
   /// Applies [command] by [actor] through [TripStateMachine]. False (and
@@ -1188,7 +1219,14 @@ class InProcessMockClient extends http.BaseClient {
         'fee': null,
       };
     }
-    _touch(ride);
+    _touch(
+      ride,
+      switch ((actor, command)) {
+        (TripActor.rider, 'cancel' || 'end_early') => 'rider_cancelled',
+        (TripActor.driver, 'cancel') => 'driver_cancelled',
+        _ => 'trip_projection',
+      },
+    );
     return true;
   }
 
@@ -1272,7 +1310,7 @@ class InProcessMockClient extends http.BaseClient {
         if (walk == null) return 'payment:${payment.wireName}';
         if (walk.isNotEmpty) {
           ride['paymentStatus'] = payment.wireName;
-          _touch(ride);
+          _touch(ride, 'payment_updated');
         }
       }
       if (rating != null) {
@@ -1286,7 +1324,7 @@ class InProcessMockClient extends http.BaseClient {
               rating != TripRatingStatus.pending;
           if (!allowed && !viaPending) return 'rating:${rating.wireName}';
           ride['ratingStatus'] = rating.wireName;
-          _touch(ride);
+          _touch(ride, 'rating_updated');
         }
       }
     }
@@ -1351,17 +1389,87 @@ class InProcessMockClient extends http.BaseClient {
     return null;
   }
 
-  /// ARCH-20: true when [increase] would take the fare over the ceiling.
-  static bool _offerAboveMaximum(Map<String, dynamic> ride, Object? increase) {
+  /// ARCH-20: true when [increaseMinor] would take the fare over the
+  /// ceiling.
+  static bool _offerAboveMaximum(Map<String, dynamic> ride, int? increaseMinor) {
     final max = ride['maxOfferMinor'];
-    final price = ride['price'];
-    if (increase is! num || max is! num || price is! num) return false;
-    return ((price + increase) * 100).round() > max;
+    final fare = _fareMinor(ride);
+    if (increaseMinor == null || max is! num || fare == null) return false;
+    return fare + increaseMinor > max;
   }
 
-  /// The highest fare a rider may offer for a ride priced [priceKr]: 1.8×.
-  static int _maxOfferMinor(num priceKr) =>
-      ((priceKr * 1.8).roundToDouble() * 100).round();
+  /// The highest fare a rider may offer for a ride priced [fareMinor]:
+  /// 1.8×, in whole kronor.
+  static int _maxOfferMinorFor(int fareMinor) =>
+      ((fareMinor / 100 * 1.8).roundToDouble() * 100).round();
+
+  static Map<String, Object> _money(int amountMinor) => {
+    'amountMinor': amountMinor,
+    'currency': currency,
+  };
+
+  /// The trip fare in minor units (`fare: Money`). A ride a test seeded
+  /// with the pre-v0.3 kronor `price` is read once from it.
+  static int? _fareMinor(Map<String, dynamic> ride) {
+    final fare = ride['fare'];
+    if (fare is Map && fare['amountMinor'] is int) {
+      return fare['amountMinor'] as int;
+    }
+    final legacy = ride['price'];
+    return legacy is num ? (legacy * 100).round() : null;
+  }
+
+  /// The fare at booking, before offers and route changes.
+  static int? _bookedMinor(Map<String, dynamic> ride) {
+    final booked = ride['bookedFare'];
+    if (booked is Map && booked['amountMinor'] is int) {
+      return booked['amountMinor'] as int;
+    }
+    final legacy = ride['bookedPrice'];
+    return legacy is num ? (legacy * 100).round() : _fareMinor(ride);
+  }
+
+  /// Contract money on the wire: `fare: Money`, never kronor doubles.
+  static void _setFare(Map<String, dynamic> ride, int amountMinor) {
+    ride['fare'] = _money(amountMinor);
+    ride.remove('price');
+  }
+
+  /// The rider's offer raise as minor units: `offerIncrease: Money`, or the
+  /// pre-v0.3 whole-kronor `offerIncreaseKr` (compatibility). Null when it
+  /// is not a positive whole-kronor amount.
+  static int? _offerIncreaseMinor(Map<String, dynamic> body) {
+    final money = body['offerIncrease'];
+    if (money is Map) {
+      final minor = money['amountMinor'];
+      if (minor is int && minor > 0 && minor % 100 == 0 &&
+          money['currency'] == currency) {
+        return minor;
+      }
+      return null;
+    }
+    final kr = body['offerIncreaseKr'];
+    if (kr is num && kr > 0 && kr == kr.roundToDouble()) {
+      return (kr * 100).round();
+    }
+    return null;
+  }
+
+  /// A route-change price on the wire: Money plus the flat minor fields
+  /// (next to `currency`), no kronor doubles.
+  static Map<String, Object?> _pricingWire(Map<String, dynamic> pricing) {
+    final newMinor = ((pricing['newPriceKr'] as double) * 100).round();
+    final differenceMinor = ((pricing['differenceKr'] as double) * 100).round();
+    return {
+      'newTotal': _money(newMinor),
+      'difference': _money(differenceMinor),
+      'newTotalMinor': newMinor,
+      'differenceMinor': differenceMinor,
+      'currency': currency,
+      'routeKm': pricing['routeKm'],
+      'stops': pricing['stops'],
+    };
+  }
 
   /// The route a route quote priced, to compare with the one applied.
   static String _routeFingerprint(Map<String, dynamic> body) => jsonEncode([
@@ -1428,10 +1536,7 @@ class InProcessMockClient extends http.BaseClient {
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final bookedPrice =
-        (ride['bookedPrice'] as num?)?.toDouble() ??
-        (ride['price'] as num?)?.toDouble() ??
-        0;
+    final bookedPrice = (_bookedMinor(ride) ?? 0) / 100;
     final pLat = (body['pickupLat'] ?? ride['pickupLat']) as num?;
     final pLng = (body['pickupLng'] ?? ride['pickupLng']) as num?;
     final dLat = body['destinationLat'] as num;
@@ -1462,7 +1567,8 @@ class InProcessMockClient extends http.BaseClient {
         (bookedPrice + stops.length * 25 + (routeKm - bookedKm) * 12)
             .clamp(bookedPrice * 0.5, double.infinity)
             .roundToDouble();
-    final current = (ride['price'] as num?)?.toDouble() ?? bookedPrice;
+    final currentMinor = _fareMinor(ride);
+    final current = currentMinor == null ? bookedPrice : currentMinor / 100;
     return {
       'newPriceKr': newPrice,
       'differenceKr': newPrice - current,
@@ -1539,6 +1645,9 @@ class InProcessMockClient extends http.BaseClient {
       'id': id,
       'quoteId': id,
       'rideType': rideType,
+      // Contract v0.3.0 Quote.total; the flat minor fields sit next to
+      // `currency` for pre-v0.3 readers.
+      'total': _money(minor),
       'totalMinor': minor,
       'amountMinor': minor,
       'currency': currency,
@@ -1598,9 +1707,13 @@ class InProcessMockClient extends http.BaseClient {
     final categoryId = CategoryIds.canonical((body['categoryId'] ?? '').toString());
     if (quote['rideType'] != categoryId) return 'QUOTE_CATEGORY_MISMATCH';
 
-    final submittedPrice = (body['price'] as num?)?.toDouble();
-    if (submittedPrice == null ||
-        (submittedPrice * 100).round() != serverTotal) {
+    // The fare the rider confirmed: `fare: Money`, or the pre-v0.3 kronor
+    // `price` (compatibility).
+    final fare = body['fare'];
+    final submittedMinor = fare is Map && fare['amountMinor'] is int
+        ? fare['amountMinor'] as int
+        : (body['price'] is num ? ((body['price'] as num) * 100).round() : null);
+    if (submittedMinor == null || submittedMinor != serverTotal) {
       return 'QUOTE_PRICE_MISMATCH';
     }
 
@@ -1650,6 +1763,9 @@ class InProcessMockClient extends http.BaseClient {
       'status': tripStatus.wireName,
       'ratingStatus': TripRatingStatus.notRequested.wireName,
       'version': 1,
+      'sequence': 1,
+      'eventId': 'ev_${id}_1',
+      'eventKind': 'trip_projection',
       'createdAt': DateTime.now().toUtc().toIso8601String(),
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
       if (body['scheduledAt'] == null)
@@ -1660,10 +1776,13 @@ class InProcessMockClient extends http.BaseClient {
       // new write uses the canonical backend vocabulary above.
       'rideType': categoryId,
       'paymentMethod': paymentMethodId,
-      'price': body['price'],
-      'bookedPrice': body['price'],
-      // ARCH-20 / contract C-4: the server owns the offer ceiling.
-      if (body['price'] is num) 'maxOfferMinor': _maxOfferMinor(body['price']),
+      // Contract v0.3.0: Money on the wire, no kronor doubles.
+      if (_bookingFareMinor(body) case final minor?) ...{
+        'fare': _money(minor),
+        'bookedFare': _money(minor),
+        // ARCH-20 / contract C-4: the server owns the offer ceiling.
+        'maxOfferMinor': _maxOfferMinorFor(minor),
+      },
       'bookedKm':
           body['pickupLat'] is num &&
               body['pickupLng'] is num &&
@@ -1733,9 +1852,16 @@ class InProcessMockClient extends http.BaseClient {
     );
   }
 
-  static bool _validOfferIncrease(Object? increase, Object? currentPrice) =>
-      increase is num &&
-      increase > 0 &&
-      increase == increase.roundToDouble() &&
-      currentPrice is num;
+  /// The booked fare: `fare: Money`, else the quote total, else the
+  /// pre-v0.3 kronor `price`.
+  static int? _bookingFareMinor(Map<String, dynamic> body) {
+    final fare = body['fare'];
+    if (fare is Map && fare['amountMinor'] is int) {
+      return fare['amountMinor'] as int;
+    }
+    final price = body['price'];
+    if (price is num) return (price * 100).round();
+    final quoted = body['quoteTotalMinor'];
+    return quoted is int ? quoted : null;
+  }
 }

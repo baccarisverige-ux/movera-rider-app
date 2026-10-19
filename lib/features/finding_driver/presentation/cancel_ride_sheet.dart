@@ -16,6 +16,7 @@ Future<CancelOutcome> showCancelRideSheet(
   required bool takingLonger,
   CancelPhase phase = CancelPhase.searching,
   Future<void> Function()? onCancelConfirmed,
+  String? feeNote,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final confirmed = await MoveraSheet.show<bool>(
@@ -25,6 +26,7 @@ Future<CancelOutcome> showCancelRideSheet(
     builder: (_) => CancelRideSheet(
       takingLonger: takingLonger,
       phase: phase,
+      feeNote: feeNote,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
@@ -80,10 +82,15 @@ class CancelRideSheet extends StatefulWidget {
     this.phase = CancelPhase.searching,
     this.onConfirm,
     this.driverMatched,
+    this.feeNote,
   });
 
   final bool takingLonger;
   final CancelPhase phase;
+
+  /// The cancel fee the rider would pay now, worked out before they
+  /// confirm (contract v0.3.0 §5, `rider.cancelFees`). Null: not shown.
+  final String? feeNote;
 
   /// When set, Cancel request runs this (showing progress) and the sheet
   /// closes with its result. Otherwise the sheet just closes with true.
@@ -202,6 +209,19 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               color: const Color(0xFF5C656C),
             ),
           ),
+          if (widget.feeNote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.feeNote!,
+              key: const ValueKey('cancel-fee-note'),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1D252C),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,

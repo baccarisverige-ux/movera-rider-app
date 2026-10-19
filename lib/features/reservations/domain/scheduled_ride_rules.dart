@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 
@@ -27,6 +28,13 @@ class ScheduledRideRules {
   /// The rider sees the driver's name, photo and car as soon as a driver
   /// accepts. Off: only once the driver is on the way.
   final bool showDriverOnAccept;
+
+  /// These rules as a contract FeeRule (fixed late fee).
+  FeeRule get feeRule => FeeRule(
+    freeMin: freeCancelMinutesBeforePickup,
+    type: FeeType.fixed,
+    value: lateCancelFee.amountMinor,
+  );
 
   Duration get freeCancelWindow =>
       Duration(minutes: freeCancelMinutesBeforePickup);
@@ -74,16 +82,23 @@ class ScheduledRideRules {
   /// Movera did not deliver it.
   ReservationCancelTerms cancelTermsFor(Reservation ride, DateTime now) {
     final freeUntil = ride.scheduledPickupAt.subtract(freeCancelWindow);
-    final late = !now.isBefore(freeUntil);
     final missedByMovera =
         ride.driver == null && !now.isBefore(ride.scheduledPickupAt);
-    final charged = late && lateCancelFee.isPositive && !missedByMovera;
+    // Contract v0.3.0: the shared FeeRule calculator decides (reservation:
+    // free while minutesBeforePickup >= freeMin), the same one Driver and
+    // Admin replay against fixtures/cancel_fees.json.
+    final fee = CancelFeeCalculator.reservation(
+      feeRule,
+      Money.fromLegacyMajor(ride.price, lateCancelFee.currency),
+      ride.scheduledPickupAt.difference(now).inMinutes,
+    );
+    final charged = fee.isPositive && !missedByMovera;
     return ReservationCancelTerms(
       at: now,
       freeUntil: freeUntil,
       window: freeCancelWindow,
       lateFee: lateCancelFee,
-      fee: charged ? lateCancelFee : null,
+      fee: charged ? fee : null,
     );
   }
 

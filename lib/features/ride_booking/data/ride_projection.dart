@@ -114,6 +114,9 @@ abstract final class RideProjection {
   /// Kronor for the snapshot: `totalMinor` (C-0 money) first, then a
   /// `{amountMinor, currency}` total, then the legacy whole-kronor `price`.
   static double? _price(Map<String, dynamic> ride) {
+    // Contract v0.3.0: `fare: Money` is the authoritative fare.
+    final fare = Money.fromWire(ride['fare']);
+    if (fare != null) return fare.major;
     final minor = ride['totalMinor'];
     if (minor is num) return minor / 100;
     final total = Money.tryParse(ride['total']);

@@ -108,8 +108,15 @@ void main() {
       expect(ReservationFormat.cancelTermsTitle(terms), contains('07:00'));
     });
 
-    test('the fee applies from the moment the window closes', () {
-      final atLine = rules.cancelTermsFor(ride(), DateTime(2026, 10, 20, 7, 0));
+    test('the fee applies once the window has closed', () {
+      // Contract v0.3.0 (fixtures/cancel_fees.json): a reservation is free
+      // while minutesBeforePickup >= freeMin, so the line itself is free.
+      final onLine = rules.cancelTermsFor(ride(), DateTime(2026, 10, 20, 7, 0));
+      expect(onLine.fee, isNull);
+      final atLine = rules.cancelTermsFor(
+        ride(),
+        DateTime(2026, 10, 20, 7, 0, 1),
+      );
       expect(atLine.fee, const Money(5000));
       final late = rules.cancelTermsFor(
         ride(driver: elin, status: ReservationStatus.driverAssigned),
