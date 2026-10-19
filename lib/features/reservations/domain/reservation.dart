@@ -240,6 +240,8 @@ class Reservation {
     this.parentReservationId,
     this.previousDriver,
     this.cancellationFee,
+    this.endedEarly = false,
+    this.chargedFare,
   });
 
   final String reservationId;
@@ -270,6 +272,14 @@ class Reservation {
 
   /// The fee the rider agreed to when cancelling late, if any.
   final Money? cancellationFee;
+
+  /// UI-01: the rider ended the trip on board (contract `end_early`). The
+  /// ride is `cancelled`, but they paid for the distance driven.
+  final bool endedEarly;
+
+  /// What the server said the rider pays, when known (an ended-early
+  /// trip's final `fare`). Null: only [price], the booked price, is known.
+  final Money? chargedFare;
 
   bool get driverAssigned => status.hasDriver && driver != null;
 
@@ -309,6 +319,8 @@ class Reservation {
     bool clearDriver = false,
     ReservationDriver? previousDriver,
     Money? cancellationFee,
+    bool? endedEarly,
+    Money? chargedFare,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -334,6 +346,8 @@ class Reservation {
       parentReservationId: parentReservationId ?? this.parentReservationId,
       previousDriver: previousDriver ?? this.previousDriver,
       cancellationFee: cancellationFee ?? this.cancellationFee,
+      endedEarly: endedEarly ?? this.endedEarly,
+      chargedFare: chargedFare ?? this.chargedFare,
     );
   }
 
@@ -362,6 +376,8 @@ class Reservation {
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
     if (previousDriver != null) 'previousDriver': previousDriver!.toJson(),
     if (cancellationFee != null) 'cancellationFee': cancellationFee!.toJson(),
+    if (endedEarly) 'endedEarly': true,
+    if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -418,6 +434,8 @@ class Reservation {
         parentReservationId: map['parentReservationId'] as String?,
         previousDriver: ReservationDriver.tryParse(map['previousDriver']),
         cancellationFee: Money.tryParse(map['cancellationFee']),
+        endedEarly: map['endedEarly'] == true,
+        chargedFare: Money.tryParse(map['chargedFare']),
       );
     } catch (_) {
       return null;

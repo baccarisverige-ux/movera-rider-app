@@ -40,7 +40,7 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   String _passwordLine(DateTime? when, bool supported) {
-    if (!supported) return 'Unavailable until secure account service is connected';
+    if (!supported) return 'Coming soon';
     if (when == null) return 'Not set';
     return 'Last changed ${when.day}/${when.month}/${when.year}';
   }
@@ -99,7 +99,7 @@ class _SecurityPageState extends State<SecurityPage> {
                     ? (security.passkeyEnabled
                         ? 'Ready on this device'
                         : 'No passkey configured')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.password_outlined),
@@ -116,21 +116,21 @@ class _SecurityPageState extends State<SecurityPage> {
                     ? (security.authenticatorEnabled
                         ? 'One-time codes are on'
                         : 'Not configured')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.security_outlined),
                 title: '2-step verification',
                 body: caps.twoStep
                     ? (security.twoStepEnabled ? 'On' : 'Off')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phone_iphone_outlined),
                 title: 'Recovery phone',
                 body: caps.recoveryPhone
                     ? (security.recoveryPhone ?? 'Not configured')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
                 showDivider: false,
               ),
             ],
@@ -154,14 +154,14 @@ class _SecurityPageState extends State<SecurityPage> {
                 title: 'Google',
                 body: caps.connectedAccounts
                     ? (security.googleConnected ? 'Connected' : 'Not connected')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
               ),
               AccountTile(
                 mark: Image.asset(AppAssets.apple, height: 20),
                 title: 'Apple',
                 body: caps.connectedAccounts
                     ? (security.appleConnected ? 'Connected' : 'Not connected')
-                    : 'Unavailable until secure account service is connected',
+                    : 'Coming soon',
                 showDivider: false,
               ),
             ],
@@ -183,7 +183,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 ? const [
                     AccountTile(
                       mark: AccountIcon(Icons.devices_outlined),
-                      title: 'No server session activity available',
+                      title: 'No sign-in activity to show',
                       body: 'Movera has no session records to show.',
                       showDivider: false,
                     ),
@@ -203,9 +203,9 @@ class _SecurityPageState extends State<SecurityPage> {
               child: AccountTile(
                 title: 'Sign out other devices',
                 body: !caps.signOutOtherDevices
-                    ? 'Unavailable until reauthentication is connected'
+                    ? 'Coming soon'
                     : !caps.reauthentication
-                        ? 'Unavailable until reauthentication is connected'
+                        ? 'Coming soon'
                         : !security.hasFreshReauthentication
                             ? 'Reauthenticate before revoking other sessions'
                             : 'Server will revoke every session except this one.',

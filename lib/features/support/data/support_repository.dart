@@ -4,9 +4,9 @@ class SupportChatScript {
   const SupportChatScript({
     required this.welcome,
     this.issueAck =
-        'Support messaging isn’t connected in this build yet, so this message can’t be sent to a support agent.',
+        'Add any details below, then send it to Movera. The ride details are included.',
     this.followUp =
-        'Please use the available help and safety tools in the app until support messaging is connected.',
+        'Sent to Movera. The team reviews it together with this ride’s details.',
   });
 
   final String welcome;
@@ -14,11 +14,20 @@ class SupportChatScript {
   final String followUp;
 }
 
+/// What the Support message screen says (UI-03, UI-09: no build-state
+/// wording). There is no live agent: a message about a ride goes to
+/// Movera's review queue.
 class SupportRepository {
   SupportChatScript chat({SupportRide? ride}) {
+    if (ride != null) {
+      return const SupportChatScript(
+        welcome: 'Tell us what happened on this ride.',
+      );
+    }
     return const SupportChatScript(
       welcome:
-          'Movera support messaging isn’t connected in this build yet. You can still browse help articles and use the available safety tools in the app.',
+          'To send Movera a message from the app, choose the ride it’s about. '
+          'Help articles and the Safety tools are always available.',
     );
   }
 }

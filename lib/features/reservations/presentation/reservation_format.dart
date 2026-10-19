@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
@@ -22,7 +23,58 @@ abstract final class ReservationFormat {
     'Dec',
   ];
 
-  static String price(Reservation ride) => formatKr(ride.price);
+  /// What the rider pays: the server's final amount when known (an
+  /// ended-early trip), else the booked price.
+  static String price(Reservation ride) {
+    final charged = ride.chargedFare;
+    return charged != null ? formatMoney(charged) : formatKr(ride.price);
+  }
+
+  /// UI-06: the chip on a finished ride in History. Driver-dispatch badges
+  /// ("Driver pending" / "Driver assigned") mean nothing once a ride is over.
+  static String? historyStatus(Reservation ride) {
+    switch (ride.status) {
+      case ReservationStatus.completed:
+        return 'Completed';
+      case ReservationStatus.cancelled:
+        if (ride.endedEarly) return 'Ended early';
+        final fee = ride.cancellationFee;
+        if (fee != null && fee.isPositive) {
+          return 'Cancelled · fee ${money(fee)}';
+        }
+        return 'Cancelled';
+      default:
+        return null;
+    }
+  }
+
+  static const _reasonLabels = <String, String>{
+    'rider_no_show': 'No-show',
+    'system_no_driver': 'No driver found',
+    'system_payment_failed': 'Payment problem',
+    'system_zone_closed': 'Service area closed',
+    'system_error': 'Something went wrong',
+  };
+
+  /// UI-07: a cancel reason as riders read it. Reason codes
+  /// (`plans_changed`) map to their labels; older records already hold a
+  /// label ("No driver found") and are shown as they are.
+  static String reasonLabel(String raw) {
+    final value = raw.trim();
+    for (final phase in CancelPhase.values) {
+      for (final reason in CancellationReason.forPhase(phase)) {
+        if (reason.id == value) return reason.label;
+      }
+    }
+    final known = _reasonLabels[value];
+    if (known != null) return known;
+    if (value.startsWith('admin_')) return 'Cancelled by Movera';
+    if (RegExp(r'^[a-z0-9]+(_[a-z0-9]+)+$').hasMatch(value)) {
+      final words = value.replaceAll('_', ' ');
+      return '${words[0].toUpperCase()}${words.substring(1)}';
+    }
+    return value;
+  }
 
   static String _weekday(DateTime when) => _weekdays[when.weekday - 1];
 
@@ -138,7 +190,7 @@ abstract final class ReservationFormat {
         return ride.cancellationReason == null ||
                 ride.cancellationReason!.isEmpty
             ? 'This reservation was cancelled. Details stay in your ride history.'
-            : 'Cancelled. ${ride.cancellationReason}';
+            : 'Cancelled. ${reasonLabel(ride.cancellationReason!)}';
       case ReservationStatus.completed:
         return 'This scheduled ride is complete.';
       case ReservationStatus.driverAssigned:
@@ -165,11 +217,8 @@ abstract final class ReservationFormat {
     return '${cardDate(ride.scheduledPickupAt)} · ${time(ride.scheduledPickupAt)}';
   }
 
-  /// "kr 50" for SEK; other currencies as "EUR 5".
-  static String money(Money amount) {
-    if (amount.currency == 'SEK') return formatSek(amount.amountMinor);
-    return '${amount.currency} ${amount.major.toStringAsFixed(0)}';
-  }
+  /// "50 kr", "5 €": the app's one money format (UI-10).
+  static String money(Money amount) => formatMoney(amount);
 
   /// "1 h", "1 h 30 min", "45 min".
   static String window(Duration window) {

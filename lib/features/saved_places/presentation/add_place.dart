@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -161,27 +162,35 @@ class _AddPlaceState extends State<AddPlace> {
           padding: const EdgeInsets.only(left: 16),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: InkWell(
+            // UI-11: a 44 px tap area and a name for screen readers; the
+            // 30 px circle looks the same.
+            child: MoveraHitArea(
+              label: 'Back',
+              alignment: Alignment.centerLeft,
               onTap: () => Navigator.pop(context),
-              child: Container(
-                height: ResSize.h * 30,
-                width: ResSize.w * 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColor.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xff999999).withValues(alpha: 0.4),
-                      blurRadius: 40,
-                      offset: const Offset(0, 4),
+              child: InkWell(
+                excludeFromSemantics: true,
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  height: ResSize.h * 30,
+                  width: ResSize.w * 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColor.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff999999).withValues(alpha: 0.4),
+                        blurRadius: 40,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_rounded,
+                      color: AppColor.title,
+                      size: ResSize.h * 16,
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_back_ios_rounded,
-                    color: AppColor.title,
-                    size: ResSize.h * 16,
                   ),
                 ),
               ),

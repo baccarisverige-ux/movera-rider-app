@@ -310,7 +310,7 @@ class _WalletHomeState extends State<WalletHome> {
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Text(
-                                  'kr $value',
+                                  formatKr(value),
                                   style: _style(
                                     13,
                                     weight: FontWeight.w600,

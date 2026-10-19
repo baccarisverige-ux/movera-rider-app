@@ -72,7 +72,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     if (!_security.available || _security.state == null) {
       return unavailableLabel;
     }
-    if (value.trim().isEmpty) return 'Not added on the server';
+    if (value.trim().isEmpty) return 'Not added';
     return verified ? '$value · Verified' : '$value · Not verified';
   }
 

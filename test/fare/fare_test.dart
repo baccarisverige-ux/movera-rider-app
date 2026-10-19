@@ -15,7 +15,7 @@ void main() {
       promotionMinor: 1000,
     );
     expect(fare.finalMinor, 8900 + 1200 + 400 + 500 + 200 - 1000);
-    expect(formatSek(fare.finalMinor), 'kr 102');
+    expect(formatSek(fare.finalMinor), '102 kr');
   });
 
   test('heading wrap cases', () {

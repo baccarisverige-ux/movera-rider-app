@@ -45,7 +45,7 @@ void main() {
 
   group('defaults mirror the admin defaults', () {
     test(
-      'free until 1 h before pickup, then kr 50; driver shown on accept',
+      'free until 1 h before pickup, then 50 kr; driver shown on accept',
       () {
         const rules = ScheduledRideRules.defaults;
         expect(rules.freeCancelWindow, const Duration(hours: 1));
@@ -125,7 +125,7 @@ void main() {
       expect(late.fee, const Money(5000));
       expect(
         ReservationFormat.cancelTermsTitle(late),
-        'Cancellation fee: kr 50',
+        'Cancellation fee: 50 kr',
       );
       expect(ReservationFormat.cancelTermsBody(late), contains('07:00'));
     });

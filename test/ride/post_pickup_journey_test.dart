@@ -44,7 +44,7 @@ void main() {
     expect(find.text('Destination'), findsNothing);
     expect(find.text('Safety Kit'), findsOneWidget);
     expect(find.text('Show this PIN to your driver'), findsNothing);
-    expect(find.text('Cancel ride'), findsOneWidget);
+    expect(find.text('End trip here'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

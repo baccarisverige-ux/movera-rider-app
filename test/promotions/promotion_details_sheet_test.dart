@@ -64,16 +64,16 @@ void main() {
     expect(find.text('30% off · 4 of 5 rides left'), findsOneWidget);
     expect(find.text('4 left'), findsOneWidget);
     expect(find.text('Valid until 30 Nov 2026 · 48 days left'), findsOneWidget);
-    expect(find.text('Max kr 50 off per ride'), findsOneWidget);
+    expect(find.text('Max 50 kr off per ride'), findsOneWidget);
     expect(find.text('Your prices with this promotion'), findsOneWidget);
     // Comfort: struck-through original, bold discounted price.
-    final struck = tester.widget<Text>(find.text('kr 339'));
+    final struck = tester.widget<Text>(find.text('339 kr'));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
-    // Comfort's discounted price comes before Priority's original kr 289.
-    final bold = tester.widget<Text>(find.text('kr 289').first);
+    // Comfort's discounted price comes before Priority's original 289 kr.
+    final bold = tester.widget<Text>(find.text('289 kr').first);
     expect(bold.style?.fontWeight, FontWeight.w700);
     // Movera is not in the promotion: full price, "Not included".
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.text('Not included'), findsOneWidget);
     expect(find.text('Included'), findsNothing);
     expect(
@@ -97,7 +97,7 @@ void main() {
       find.text('Prices show once you choose a destination.'),
       findsOneWidget,
     );
-    expect(find.textContaining('kr 3'), findsNothing);
+    expect(find.textContaining(RegExp(r'(^|\s)3\d* kr')), findsNothing);
   });
 
   testWidgets('ends today and expired states', (tester) async {

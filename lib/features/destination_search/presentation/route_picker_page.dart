@@ -342,24 +342,46 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing || _destination.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _finishing = true);
-    final draft = await widget.onFinish(
-      RoutePickerSelection(
-        pickup: _expand(_pickup.text),
-        pickupPoint: _pickupPoint,
-        destination: _expand(_destination.text),
-        destinationPoint: _destinationPoint,
-        stops: [
-          for (final c in _stops)
-            if (c.text.trim().isNotEmpty) _expand(c.text),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (draft != null) {
-      Navigator.of(context).pop(draft);
-    } else {
-      setState(() => _finishing = false);
+    Map<String, dynamic>? draft;
+    try {
+      draft = await widget.onFinish(
+        RoutePickerSelection(
+          pickup: _expand(_pickup.text),
+          pickupPoint: _pickupPoint,
+          destination: _expand(_destination.text),
+          destinationPoint: _destinationPoint,
+          stops: [
+            for (final c in _stops)
+              if (c.text.trim().isNotEmpty) _expand(c.text),
+          ],
+        ),
+      );
+    } catch (_) {
+      // UI-02: a failed lookup (offline, timeout) used to leave the picker
+      // busy for good, ignoring every later tap. Say so and stay usable.
+      if (mounted) _showFinishFailed();
+    } finally {
+      if (mounted && draft == null) setState(() => _finishing = false);
     }
+    if (!mounted || draft == null) return;
+    Navigator.of(context).pop(draft);
+  }
+
+  void _showFinishFailed() {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('route-picker-finish-failed'),
+          content: const Text(
+            "Couldn't reach Movera. Check your connection and try again.",
+          ),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(label: 'Try again', onPressed: _finish),
+        ),
+      );
   }
 
   Future<void> _pickOnMap() async {

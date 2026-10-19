@@ -176,7 +176,8 @@ class RiderInTripPanel extends StatelessWidget {
               key: const ValueKey<String>('active-trip-cancel'),
               onPressed: onCancel,
               icon: const Icon(Icons.close_rounded, size: 18),
-              label: const Text('Cancel ride'),
+              // UI-01: on board the trip ends early (paid by distance).
+              label: const Text('End trip here'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFB42318),
                 side: const BorderSide(color: Color(0xFFE4B8B4)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
 /// True for "Pay in car": the price is only shown, nothing is charged now.
 bool isCashPayment(String paymentMethod) {
@@ -74,7 +75,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   bool get _cash => isCashPayment(widget.paymentMethodId ?? paymentMethod);
   double get _diff => quote.differenceKr;
 
-  String _kr(double value) => '${value.round()} kr';
+  String _kr(double value) => formatKr(value);
 
   void _confirmRoute() {
     if (_cash || _diff.abs() < 0.5) {
@@ -120,11 +121,9 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
     } else {
       priceNote = '${_kr(-diff)} less, returned to $paymentMethod.';
     }
-    return Column(
+    return _step(
       key: const ValueKey('route-change-step-route'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+      body: [
         Text(
           'New route',
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
@@ -134,7 +133,9 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         for (var i = 0; i < quote.stops.length; i++)
           _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: 'Stop ${i + 1}'),
         _row(Icons.square, const Color(0xFF1769E8), quote.destinationAddress),
-        const SizedBox(height: 16),
+      ],
+      // The new price stays next to Confirm; only the route list scrolls.
+      actions: [
         Container(
           key: const ValueKey('route-change-price'),
           padding: const EdgeInsets.all(14),
@@ -197,11 +198,9 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   Widget _payment(BuildContext context) {
     final diff = _diff;
     final more = diff > 0;
-    return Column(
+    return _step(
       key: const ValueKey('route-change-step-payment'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+      body: [
         Text(
           more ? 'Confirm payment' : 'Choose your refund',
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
@@ -257,6 +256,8 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             icon: Icons.credit_card_outlined,
           ),
         ],
+      ],
+      actions: [
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-pay'),
@@ -269,6 +270,33 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         ),
         const SizedBox(height: 8),
         _secondary('Back', () => setState(() => _paymentStep = false)),
+      ],
+    );
+  }
+
+  /// UI-05: the step's content scrolls when the sheet is short (two stops
+  /// at large text, a landscape phone), while its buttons stay in reach.
+  Widget _step({
+    required Key key,
+    required List<Widget> body,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: body,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...actions,
       ],
     );
   }
@@ -330,18 +358,24 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   }
 
   Widget _primary({required Key key, required String label, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
+    // A minimum height, not a fixed one: a long label at large text wraps
+    // inside the button instead of being clipped (UI-05).
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: double.infinity,
+        minHeight: 54,
+      ),
       child: FilledButton(
         key: key,
         onPressed: onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF11181D),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
         ),
       ),
@@ -361,19 +395,28 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   }
 
   Widget _kv(String left, String right, {bool bold = false}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            left,
-            style: GoogleFonts.poppins(fontSize: 14, color: bold ? _ink : _muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+    // UI-05: the value keeps its place on the right but may take at most
+    // 60% of the row, so a long method name wraps instead of overflowing.
+    return LayoutBuilder(
+      builder: (context, box) => Row(
+        children: [
+          Expanded(
+            child: Text(
+              left,
+              style: GoogleFonts.poppins(fontSize: 14, color: bold ? _ink : _muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+            ),
           ),
-        ),
-        Text(
-          right,
-          style: GoogleFonts.poppins(fontSize: bold ? 16 : 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: _ink),
-        ),
-      ],
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: box.maxWidth * 0.6),
+            child: Text(
+              right,
+              textAlign: TextAlign.end,
+              style: GoogleFonts.poppins(fontSize: bold ? 16 : 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: _ink),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

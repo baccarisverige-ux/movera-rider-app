@@ -23,6 +23,7 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// The rider's menu as a full-screen page: name and photo, Wallet, four
@@ -374,7 +375,7 @@ class RiderMenuPage extends StatelessWidget {
     double? balance,
     VoidCallback reload,
   ) {
-    final amount = balance == null ? null : 'kr ${balance.toStringAsFixed(0)}';
+    final amount = balance == null ? null : formatKr(balance);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
       label: amount == null ? 'Wallet' : 'Wallet, $amount',
@@ -823,7 +824,12 @@ class _WalletBalanceState extends State<_WalletBalance> {
   Future<double> _load() => AppScope.instance.walletController.loadBalance();
 
   void _reload() {
-    if (mounted) setState(() => _balance = _load());
+    if (!mounted) return;
+    // UI-12: the callback must not return the Future (setState asserts).
+    final next = _load();
+    setState(() {
+      _balance = next;
+    });
   }
 
   @override

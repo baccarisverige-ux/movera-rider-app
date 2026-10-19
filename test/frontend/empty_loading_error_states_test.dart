@@ -452,7 +452,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Loading wallet'), findsNothing);
     expect(find.text('Available balance'), findsOneWidget);
-    expect(find.text('kr 0'), findsOneWidget);
+    expect(find.text('0 kr'), findsOneWidget);
   });
 
   testWidgets('wallet error offers a real retry without raw exceptions', (
@@ -481,7 +481,7 @@ void main() {
     expect(find.textContaining('StateError'), findsNothing);
     expect(find.text('Available balance'), findsNothing);
     expect(find.text('Loading wallet'), findsNothing);
-    expect(find.text('kr 125'), findsNothing);
+    expect(find.text('125 kr'), findsNothing);
 
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
@@ -489,7 +489,7 @@ void main() {
     expect(find.text('Couldn’t load wallet'), findsNothing);
     expect(find.text('Loading wallet'), findsNothing);
     expect(find.text('Available balance'), findsOneWidget);
-    expect(find.text('kr 125'), findsOneWidget);
+    expect(find.text('125 kr'), findsOneWidget);
   });
 
   for (final viewport in const [

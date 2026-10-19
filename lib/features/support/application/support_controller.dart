@@ -27,12 +27,13 @@ class SupportController {
       ..._history.combine(scheduled, onDemand, completed: true),
       ..._history.combine(scheduled, onDemand, completed: false),
     ]..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
-    return [for (final ride in rides) _supportRide(ride)];
+    return [for (final ride in rides) rideFor(ride)];
   }
 
   SupportChatScript chat({SupportRide? ride}) => _store.chat(ride: ride);
 
-  static SupportRide _supportRide(Reservation ride) {
+  /// The Support row for a History ride (also "Get help" in History).
+  static SupportRide rideFor(Reservation ride) {
     final to = ride.destination.label.trim();
     return SupportRide(
       id: ride.reservationId,

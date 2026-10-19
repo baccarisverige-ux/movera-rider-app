@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
@@ -17,6 +18,7 @@ import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dar
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
 class RideCompleted extends StatefulWidget {
@@ -30,7 +32,14 @@ class RideCompleted extends StatefulWidget {
     this.showConnectionBanner = true,
     this.onClose,
     this.controller,
+    this.endedEarly,
   });
+
+  /// UI-01: the rider ended the trip on board. The summary says so and
+  /// shows what they pay for the distance driven, instead of dropping them
+  /// on Home. Rating stays off: the contract allows it only after
+  /// `completed`, and an ended-early trip is `cancelled_by_rider`.
+  final EndedEarlyTrip? endedEarly;
 
   final RideStatus status;
   final String? rideId;
@@ -85,6 +94,8 @@ class _RideCompletedState extends State<RideCompleted> {
   void initState() {
     super.initState();
     _status = widget.status;
+    // An ended-early trip is terminal: no completion states will follow.
+    if (widget.endedEarly != null) return;
     final rideId = widget.rideId?.trim();
     if (rideId == null || rideId.isEmpty) return;
 
@@ -250,16 +261,23 @@ class _RideCompletedState extends State<RideCompleted> {
     }
   }
 
-  _CompletionSpec get _spec => _CompletionSpec.fromStatus(_status);
+  _CompletionSpec get _spec {
+    final endedEarly = widget.endedEarly;
+    if (endedEarly != null) return _CompletionSpec.endedEarly(endedEarly);
+    return _CompletionSpec.fromStatus(_status);
+  }
 
   @override
   Widget build(BuildContext context) {
     final spec = _spec;
+    final endedEarly = widget.endedEarly != null;
     final canRate =
-        _status == RideStatus.ratingPending ||
-        (widget.feedbackAvailableOnCompletion &&
-            _status == RideStatus.tripCompleted);
-    final showFeedbackSurface = widget.persistOnDemandState || canRate;
+        !endedEarly &&
+        (_status == RideStatus.ratingPending ||
+            (widget.feedbackAvailableOnCompletion &&
+                _status == RideStatus.tripCompleted));
+    final showFeedbackSurface =
+        !endedEarly && (widget.persistOnDemandState || canRate);
 
     return PopScope(
       canPop: false,
@@ -284,7 +302,7 @@ class _RideCompletedState extends State<RideCompleted> {
                     ),
                     Expanded(
                       child: Text(
-                        'Ride summary',
+                        endedEarly ? 'Trip summary' : 'Ride summary',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 17,
@@ -630,6 +648,23 @@ class _CompletionSpec {
   final String statusLabel;
   final IconData icon;
   final IconData statusIcon;
+
+  factory _CompletionSpec.endedEarly(EndedEarlyTrip trip) {
+    final charged = trip.charged;
+    return _CompletionSpec(
+      title: 'Trip ended early',
+      message: charged == null
+          ? 'You ended the trip before your destination. You pay only for '
+                'the distance driven.'
+          : 'You ended the trip before your destination. You pay '
+                '${formatMoney(charged)} for the distance driven.',
+      statusLabel: charged == null
+          ? 'Paid by distance driven'
+          : 'You pay ${formatMoney(charged)}',
+      icon: Icons.flag_rounded,
+      statusIcon: Icons.receipt_long_rounded,
+    );
+  }
 
   factory _CompletionSpec.fromStatus(RideStatus status) {
     switch (status) {

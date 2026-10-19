@@ -174,8 +174,9 @@ class _TopBar extends StatelessWidget {
       height: 40,
       child: Row(
         children: [
+          // UI-11: 48 px, so Back is a full-size target (was 40).
           SizedBox(
-            width: 40,
+            width: 48,
             child: onBack == null
                 ? null
                 : Material(
@@ -223,7 +224,7 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 40,
+            width: 48,
             child: Text(
               '$step / $totalSteps',
               textAlign: TextAlign.right,

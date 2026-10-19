@@ -15,8 +15,11 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart'
+    show routeStopMarkers;
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/straight_line.dart';
@@ -82,6 +85,7 @@ class SelectRide extends StatefulWidget {
     this.realtime,
     this.pickupAlreadyConfirmed = false,
     this.pickupIsFallback = false,
+    this.geocoding,
   });
 
   /// Whether [origin] has the exact points a return ride needs (CODE-5).
@@ -161,6 +165,9 @@ class SelectRide extends StatefulWidget {
   /// had no location fix: Set location opens with its button disabled until
   /// the rider moves the pin or their location arrives.
   final bool pickupIsFallback;
+
+  /// Looks the stops up; defaults to the app's geocoder.
+  final GeocodingRepository? geocoding;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -1218,6 +1225,7 @@ class _SelectRideState extends State<SelectRide>
       initialAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
       destinationPosition: widget.destinationPosition,
+      stops: [for (final stop in _locatedStops) stop.address],
       ride: SetPickupRide(
         name: ride.name,
         image: ride.image,
@@ -1270,17 +1278,26 @@ class _SelectRideState extends State<SelectRide>
     return _stopsLookup ??= _locateStops();
   }
 
+  /// The stops that made it into the quote, for the map and the header.
+  List<RouteStop> _locatedStops = const [];
+
   /// The stops the rider typed on Plan your ride, with their map points;
   /// an address that cannot be found is left out rather than blocking the
-  /// booking.
+  /// booking — and the rider is told (UI-04), never silently.
   Future<List<RouteStop>> _locateStops() async {
     final located = <RouteStop>[];
+    final notFound = <String>[];
+    final failed = <String>[];
     for (final address in widget.stops) {
       final clean = address.trim();
       if (clean.isEmpty) continue;
       try {
-        final found = await AppScope.instance.geocoding.forward(clean);
-        if (found == null) continue;
+        final found = await (widget.geocoding ?? AppScope.instance.geocoding)
+            .forward(clean);
+        if (found == null) {
+          notFound.add(clean);
+          continue;
+        }
         located.add(
           RouteStop(
             address: clean,
@@ -1289,10 +1306,50 @@ class _SelectRideState extends State<SelectRide>
           ),
         );
       } catch (_) {
-        // Skip the stop; the driver still gets the pickup and destination.
+        // Left out of this price; the rider can try the lookup again.
+        failed.add(clean);
       }
     }
+    if (mounted) {
+      setState(() {
+        _locatedStops = List.unmodifiable(located);
+        _stopsNotice = _stopsLeftOutNotice(notFound: notFound, failed: failed);
+        _stopsRetry = failed.isNotEmpty;
+      });
+    }
     return located;
+  }
+
+  /// UI-04: which stops the price leaves out, said where the stops are
+  /// shown (under the destination), so it never covers Book.
+  String? _stopsNotice;
+  bool _stopsRetry = false;
+
+  static String? _stopsLeftOutNotice({
+    required List<String> notFound,
+    required List<String> failed,
+  }) {
+    String quoted(List<String> stops) =>
+        stops.map((stop) => '“${shortenPlace(stop)}”').join(', ');
+    if (failed.isNotEmpty) {
+      return "Couldn't look up the stop ${quoted(failed)} right now. "
+          "It isn't in this price.";
+    }
+    if (notFound.isNotEmpty) {
+      return "Couldn't find the stop ${quoted(notFound)}. It isn't in this "
+          'price — go back to change it, or book without it.';
+    }
+    return null;
+  }
+
+  void _retryStops() {
+    setState(() {
+      _stopsNotice = null;
+      _stopsRetry = false;
+    });
+    // Look the stops up again and price the new route.
+    _stopsLookup = null;
+    unawaited(_loadQuotes());
   }
 
   void _bookNow() {
@@ -1551,6 +1608,8 @@ class _SelectRideState extends State<SelectRide>
                                   ? RouteTimeMarker.anchor
                                   : const Offset(0.5, 0.5),
                             ),
+                          // UI-08: the stops are on the map while booking.
+                          ...routeStopMarkers(_locatedStops),
                         },
                         polylines: styledRoute(
                           routePolyline(
@@ -1868,7 +1927,7 @@ class _SelectRideState extends State<SelectRide>
       borderRadius: BorderRadius.circular(22),
       elevation: 0,
       child: Container(
-        height: 50,
+        constraints: const BoxConstraints(minHeight: 50),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(22),
@@ -1889,14 +1948,53 @@ class _SelectRideState extends State<SelectRide>
               tooltip: 'Back',
             ),
             Expanded(
-              child: Text(
-                _compactAddress(widget.destinationAddress),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _text(15, weight: FontWeight.w500),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _compactAddress(widget.destinationAddress),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(15, weight: FontWeight.w500),
+                  ),
+                  // UI-08: the stops the price includes.
+                  if (viaStopsLine(_locatedStops.map((s) => s.address))
+                      case final via?)
+                    Text(
+                      via,
+                      key: const ValueKey('select-ride-via-stops'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(12, color: _muted),
+                    ),
+                  if (_stopsNotice case final notice?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 6),
+                      child: Text(
+                        notice,
+                        key: const ValueKey('select-ride-stops-left-out'),
+                        style: _text(
+                          12,
+                          weight: FontWeight.w500,
+                          color: const Color(0xFFB42318),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
+            if (_stopsRetry)
+              TextButton(
+                key: const ValueKey('select-ride-stops-retry'),
+                onPressed: _retryStops,
+                child: Text(
+                  'Try again',
+                  style: _text(13, weight: FontWeight.w600, color: _ink),
+                ),
+              )
+            else
+              const SizedBox(width: 8),
           ],
         ),
       ),

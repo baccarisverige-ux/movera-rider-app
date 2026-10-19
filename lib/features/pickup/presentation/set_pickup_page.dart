@@ -18,6 +18,7 @@ import 'package:movera_rider/features/pickup/application/pickup_controller.dart'
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -164,6 +165,7 @@ class SetPickupPage extends StatefulWidget {
     this.confirmLabel = 'Confirm and search',
     this.scheduledPickup,
     this.geocoding,
+    this.stops = const <String>[],
   });
 
   static Future<SetPickupResult?> open(
@@ -186,6 +188,7 @@ class SetPickupPage extends StatefulWidget {
     bool positionIsFallback = false,
     String confirmLabel = 'Confirm and search',
     DateTime? scheduledPickup,
+    List<String> stops = const <String>[],
   }) async {
     final route = RightToLeftTransition<SetPickupResult>(
       SetPickupPage(
@@ -207,6 +210,7 @@ class SetPickupPage extends StatefulWidget {
         positionIsFallback: positionIsFallback,
         confirmLabel: confirmLabel,
         scheduledPickup: scheduledPickup,
+        stops: stops,
       ),
       settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
@@ -219,6 +223,9 @@ class SetPickupPage extends StatefulWidget {
   final String initialAddress;
   final String destinationAddress;
   final LatLng destinationPosition;
+
+  /// UI-08: the stops on the way, shown under the destination.
+  final List<String> stops;
   final SetPickupRide ride;
   final SetPickupFare fare;
   final SetPickupPayment payment;
@@ -869,7 +876,7 @@ class _SetPickupPageState extends State<SetPickupPage>
         elevation: 0,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          height: 56,
+          constraints: const BoxConstraints(minHeight: 56),
           padding: const EdgeInsets.only(left: 4, right: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
@@ -890,11 +897,25 @@ class _SetPickupPageState extends State<SetPickupPage>
               ),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  widget.destinationAddress,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _text(16, weight: FontWeight.w500),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.destinationAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(16, weight: FontWeight.w500),
+                    ),
+                    if (viaStopsLine(widget.stops) case final via?)
+                      Text(
+                        via,
+                        key: const ValueKey('set-pickup-via-stops'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(12.5, color: _muted),
+                      ),
+                  ],
                 ),
               ),
             ],
