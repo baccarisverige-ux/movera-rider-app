@@ -29,7 +29,7 @@ void main() {
           lat: 59.31,
           lng: 18.04,
         ),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 259,

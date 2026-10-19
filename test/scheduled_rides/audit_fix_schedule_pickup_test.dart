@@ -15,7 +15,7 @@ Reservation _originWithoutPoints() => Reservation(
   scheduledPickupAt: DateTime.utc(2026, 9, 23, 6, 55),
   pickup: ReservationPlace(label: 'Klockarvägen 37'),
   destination: ReservationPlace(label: 'Arlanda Express'),
-  categoryId: 'movera',
+  categoryId: 'economy',
   categoryName: 'Movera',
   categoryImage: 'assets/images/rides/movera.webp',
   price: 522,

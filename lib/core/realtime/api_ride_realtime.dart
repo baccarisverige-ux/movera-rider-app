@@ -35,8 +35,10 @@ class ApiRideRealtime implements RideRealtime {
   final RealtimeConnection connection;
   final Duration pollInterval;
 
-  /// Consecutive `404`s after which the ride is treated as gone
-  /// (`cancelledBySystem`) and polling stops.
+  /// Consecutive `404`s after which polling pauses and the connection is
+  /// marked failed. The client never invents a lifecycle state for it
+  /// (contract v0.3.0): the ride keeps its last server status until a
+  /// resync ([reconnectAndResync]) reads the trip again.
   final int notFoundLimit;
   final DateTime Function() _clock;
   final Map<String, _RidePoll> _rides = {};
@@ -93,7 +95,7 @@ class ApiRideRealtime implements RideRealtime {
       final rawRide = json['ride'];
       if (rawRide is! Map) throw const FormatException('Missing ride projection');
       final ride = Map<String, dynamic>.from(rawRide);
-      final status = _status(ride['status']);
+      var status = RideStatusWire.fromProjection(ride);
       if (status == null) {
         AppLog.warning('realtime.unknown_status', extra: {
           'rideId': poll.id,
@@ -134,6 +136,12 @@ class ApiRideRealtime implements RideRealtime {
         connection.markConnected();
         return;
       }
+      // Contract v0.3.0: a driver drop before boarding (or an admin
+      // reassign) puts the trip back to `searching`. The rider keeps the
+      // trip; Waiting shows the reassignment notice for it.
+      final reassigned = status.isSearching &&
+          (poll.lastStatus?.isMatched ?? false);
+      if (reassigned) status = RideStatus.cancelledByDriver;
       final rawDriver = ride['driver'];
       final driver = rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
@@ -173,6 +181,8 @@ class ApiRideRealtime implements RideRealtime {
         payload: {
           if (serverLocationAt != null)
             'serverLocationAt': WireTime.format(serverLocationAt),
+          if (ride['status'] is String) 'tripStatus': ride['status'],
+          if (reassigned) 'kind': 'driver_cancelled',
         },
       ));
       connection.markConnected();
@@ -200,22 +210,15 @@ class ApiRideRealtime implements RideRealtime {
   int _nextSequence(String rideId) =>
       _sequences[rideId] = (_sequences[rideId] ?? 0) + 1;
 
-  /// ARCH-13: the server no longer knows the ride. Polling stops and owners
-  /// get one terminal `cancelledBySystem` ordered after everything the
-  /// server sent (version + 1), marked as decided by the client.
+  /// The server no longer knows the ride. Polling pauses and the
+  /// connection shows a problem; no status is made up on the client
+  /// (contract v0.3.0, audit B5). [reconnectAndResync] asks again.
   void _endNotFound(_RidePoll poll) {
     poll.ended = true;
     poll.timer?.cancel();
     poll.timer = null;
     AppLog.warning('realtime.ride_not_found', extra: {'rideId': poll.id});
-    final last = poll.version;
-    poll.controller?.add(RideRealtimeEvent(
-      rideId: poll.id,
-      status: RideStatus.cancelledBySystem,
-      sequence: _nextSequence(poll.id),
-      version: last == null ? null : last + 1,
-      payload: const {'source': 'client_not_found'},
-    ));
+    connection.markFailed();
   }
 
   /// ARCH-13: [locationAt] is server time; staleness is judged against the
@@ -236,10 +239,6 @@ class ApiRideRealtime implements RideRealtime {
 
   int? _seconds(Object? raw) => raw is num && raw >= 0 ? raw.round() : null;
 
-  // ARCH-10: P1 snake_case TripStatus wire names (driver_to_pickup) and the
-  // legacy RideStatus names both parse through the one contract adapter.
-  RideStatus? _status(Object? raw) => RideStatusWire.parse(raw);
-
   int? _version(Object? raw) =>
       raw is int ? raw : (raw is String ? int.tryParse(raw) : null);
 
@@ -250,6 +249,12 @@ class ApiRideRealtime implements RideRealtime {
     final poll = _rides[rideId.trim()];
     if (poll == null) return;
     connection.markReconnecting();
+    if (poll.ended) {
+      // An explicit resync after the not-found pause reads the trip once
+      // more; a further 404 pauses again.
+      poll.ended = false;
+      poll.notFound = poll.notFound > 0 ? notFoundLimit - 1 : 0;
+    }
     await _poll(poll, force: true);
   }
 

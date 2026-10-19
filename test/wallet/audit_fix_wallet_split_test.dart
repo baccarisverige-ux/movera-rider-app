@@ -76,7 +76,7 @@ void main() {
       final api = ApiClient(client: mock);
       final quote = await api.post(
         '/api/v1/quotes',
-        body: {'rideType': 'movera', 'distanceMeters': 3000},
+        body: {'rideType': 'economy', 'distanceMeters': 3000},
       );
       final q = Map<String, dynamic>.from(quote['quote'] as Map);
       final total = (q['totalMinor'] as num).round();
@@ -88,7 +88,7 @@ void main() {
         pickupLng: 18.05,
         destinationLat: 59.31,
         destinationLng: 18.04,
-        rideType: 'movera',
+        rideType: 'economy',
         price: total / 100,
         paymentMethod: 'cash',
         quoteId: q['id'] as String,

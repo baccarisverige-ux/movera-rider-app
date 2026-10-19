@@ -1,0 +1,244 @@
+{
+ "version": "0.3.0",
+ "note": "Realtime gate cases. Feed events in order to a fresh gate; 'expect' is the disposition: accepted | accepted_with_gap | duplicate | blocked_after_terminal | invalid. 'status'/'paymentStatus'/'ratingStatus' at the top level are test shorthand for projection.status / projection.paymentStatus / projection.ratingStatus.",
+ "cases": [
+  {
+   "id": "in_order",
+   "events": [
+    {
+     "eventId": "e1",
+     "tripId": "T1",
+     "sequence": 1,
+     "version": 1,
+     "kind": "trip_projection",
+     "status": "accepted",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e2",
+     "tripId": "T1",
+     "sequence": 2,
+     "version": 1,
+     "kind": "location",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    },
+    {
+     "eventId": "e3",
+     "tripId": "T1",
+     "sequence": 3,
+     "version": 2,
+     "kind": "trip_projection",
+     "status": "driver_to_pickup",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:02:00Z",
+     "serverTime": "2026-10-19T08:02:01Z"
+    }
+   ]
+  },
+  {
+   "id": "duplicate_and_out_of_order",
+   "events": [
+    {
+     "eventId": "e1",
+     "tripId": "T2",
+     "sequence": 1,
+     "version": 1,
+     "kind": "trip_projection",
+     "status": "accepted",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e2",
+     "tripId": "T2",
+     "sequence": 2,
+     "version": 2,
+     "kind": "trip_projection",
+     "status": "driver_to_pickup",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    },
+    {
+     "eventId": "e2",
+     "tripId": "T2",
+     "sequence": 2,
+     "version": 2,
+     "kind": "trip_projection",
+     "status": "driver_to_pickup",
+     "expect": "duplicate",
+     "occurredAt": "2026-10-19T08:02:00Z",
+     "serverTime": "2026-10-19T08:02:01Z"
+    },
+    {
+     "eventId": "e1b",
+     "tripId": "T2",
+     "sequence": 1,
+     "version": 1,
+     "kind": "trip_projection",
+     "status": "accepted",
+     "expect": "duplicate",
+     "occurredAt": "2026-10-19T08:03:00Z",
+     "serverTime": "2026-10-19T08:03:01Z"
+    }
+   ]
+  },
+  {
+   "id": "gap_triggers_resync",
+   "events": [
+    {
+     "eventId": "e1",
+     "tripId": "T3",
+     "sequence": 1,
+     "version": 1,
+     "kind": "trip_projection",
+     "status": "accepted",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e4",
+     "tripId": "T3",
+     "sequence": 4,
+     "version": 3,
+     "kind": "trip_projection",
+     "status": "arrived",
+     "expect": "accepted_with_gap",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    }
+   ]
+  },
+  {
+   "id": "terminal_blocks_lifecycle_not_payment",
+   "events": [
+    {
+     "eventId": "e1",
+     "tripId": "T4",
+     "sequence": 1,
+     "version": 5,
+     "kind": "trip_projection",
+     "status": "completed",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e2",
+     "tripId": "T4",
+     "sequence": 2,
+     "version": 5,
+     "kind": "location",
+     "expect": "blocked_after_terminal",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    },
+    {
+     "eventId": "e3",
+     "tripId": "T4",
+     "sequence": 3,
+     "version": 6,
+     "kind": "payment_updated",
+     "paymentStatus": "captured",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:02:00Z",
+     "serverTime": "2026-10-19T08:02:01Z"
+    },
+    {
+     "eventId": "e4",
+     "tripId": "T4",
+     "sequence": 4,
+     "version": 7,
+     "kind": "rating_updated",
+     "ratingStatus": "submitted",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:03:00Z",
+     "serverTime": "2026-10-19T08:03:01Z"
+    },
+    {
+     "eventId": "e5",
+     "tripId": "T4",
+     "sequence": 5,
+     "version": 8,
+     "kind": "trip_projection",
+     "status": "in_trip",
+     "expect": "blocked_after_terminal",
+     "occurredAt": "2026-10-19T08:04:00Z",
+     "serverTime": "2026-10-19T08:04:01Z"
+    }
+   ]
+  },
+  {
+   "id": "rider_cancelled_is_terminal",
+   "events": [
+    {
+     "eventId": "e1",
+     "tripId": "T5",
+     "sequence": 1,
+     "version": 1,
+     "kind": "trip_projection",
+     "status": "driver_to_pickup",
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e2",
+     "tripId": "T5",
+     "sequence": 2,
+     "version": 2,
+     "kind": "rider_cancelled",
+     "status": "cancelled_by_rider",
+     "cancelFee": {
+      "amountMinor": 4500,
+      "currency": "SEK"
+     },
+     "expect": "accepted",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    },
+    {
+     "eventId": "e3",
+     "tripId": "T5",
+     "sequence": 3,
+     "version": 2,
+     "kind": "driver_arrived",
+     "expect": "blocked_after_terminal",
+     "occurredAt": "2026-10-19T08:02:00Z",
+     "serverTime": "2026-10-19T08:02:01Z"
+    }
+   ]
+  },
+  {
+   "id": "invalid_envelopes",
+   "events": [
+    {
+     "eventId": "e0",
+     "tripId": "T6",
+     "sequence": 0,
+     "version": 1,
+     "kind": "location",
+     "expect": "invalid",
+     "occurredAt": "2026-10-19T08:00:00Z",
+     "serverTime": "2026-10-19T08:00:01Z"
+    },
+    {
+     "eventId": "e1",
+     "tripId": "",
+     "sequence": 1,
+     "version": 1,
+     "kind": "location",
+     "expect": "invalid",
+     "occurredAt": "2026-10-19T08:01:00Z",
+     "serverTime": "2026-10-19T08:01:01Z"
+    }
+   ]
+  }
+ ]
+}

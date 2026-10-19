@@ -242,7 +242,7 @@ void main() {
         scheduledPickupAt: now.add(const Duration(minutes: 1)),
         pickup: const ReservationPlace(label: 'Home'),
         destination: const ReservationPlace(label: 'Arlanda Airport'),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 349,

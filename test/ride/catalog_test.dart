@@ -17,7 +17,7 @@ void main() {
     final now = RideSelectionController(bookingMode: BookingMode.now);
     final later = RideSelectionController(bookingMode: BookingMode.scheduled);
     expect(now.rides().map((ride) => ride.id).toList(), [
-      'movera',
+      'economy',
       'comfort',
       'premium',
       'priority',

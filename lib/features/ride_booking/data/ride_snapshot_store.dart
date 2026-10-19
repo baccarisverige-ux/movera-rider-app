@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -211,13 +213,8 @@ class RideSnapshot {
 
     final statusName = json['status'];
     if (statusName is! String) return null;
-    RideStatus? parsedStatus;
-    for (final value in RideStatus.values) {
-      if (value.name == statusName) {
-        parsedStatus = value;
-        break;
-      }
-    }
+    // Device-local storage keeps the UI enum name, not the wire status.
+    final parsedStatus = RideStatusWire.legacyName(statusName);
     if (parsedStatus == null) return null;
 
     final savedRaw = json['savedAt'];
@@ -287,7 +284,8 @@ class RideSnapshot {
       walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
       serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
-      categoryId: _nonEmpty(json['categoryId']),
+      categoryId: CategoryIds.tryCanonical(json['categoryId']) ??
+          _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
     );

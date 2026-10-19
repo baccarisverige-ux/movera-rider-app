@@ -218,12 +218,12 @@ void main() {
         pickupLng: 18.0,
         destinationLat: 59.4,
         destinationLng: 18.1,
-        rideType: 'movera',
+        rideType: 'economy',
         price: 259,
         paymentMethod: 'visa',
       );
       final json = await api.get('/api/v1/rides/$id');
-      expect((json['ride'] as Map)['status'], 'noDriverFound');
+      expect((json['ride'] as Map)['status'], 'expired');
       expect((json['ride'] as Map)['version'], 2);
     });
   });
@@ -258,14 +258,14 @@ void main() {
             .toUtc()
             .subtract(const Duration(minutes: 4))
             .toIso8601String(),
-        'categoryId': 'movera',
+        'categoryId': 'economy',
         'paymentMethodId': 'visa',
       };
       AppScope.instance.ride
         ..rideId = id
         ..status = RideStatus.findingDriver
         ..authoritativeVersion = 1
-        ..bookedCategoryId = 'movera'
+        ..bookedCategoryId = 'economy'
         ..bookedPaymentMethodId = 'visa';
       return id;
     }
@@ -405,7 +405,7 @@ void main() {
       final secondId = AppScope.instance.ride.rideId;
       expect(secondId, isNotNull);
       expect(secondId, isNot(firstId));
-      expect(server.rides[secondId]!['categoryId'], 'movera');
+      expect(server.rides[secondId]!['categoryId'], 'economy');
       expect(server.rides[secondId]!['paymentMethodId'], 'visa');
       expect(server.rides[secondId]!['destinationAddress'], 'Arlanda Airport');
       // One new booking, with its own idempotency key.

@@ -19,7 +19,7 @@ void main() {
   };
 
   const categories = [
-    PromotionCategory(id: 'movera', name: 'Movera'),
+    PromotionCategory(id: 'economy', name: 'Movera'),
     PromotionCategory(id: 'comfort', name: 'Comfort'),
     PromotionCategory(id: 'priority', name: 'Priority'),
     PromotionCategory(id: 'premium', name: 'Premium'),
@@ -55,7 +55,7 @@ void main() {
       tester,
       promotion: RiderPromotion.fromJson(json)!,
       prices: const {
-        'movera': (original: 259, discounted: 259),
+        'economy': (original: 259, discounted: 259),
         'comfort': (original: 339, discounted: 289),
         'priority': (original: 289, discounted: 239),
         'premium': (original: 369, discounted: 319),

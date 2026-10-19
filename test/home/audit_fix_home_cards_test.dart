@@ -50,7 +50,7 @@ void main() {
 
   test('FLOW-13: CO₂ avoided counts Electric rides only', () {
     final stats = MonthRideStats.fromRides([
-      _ride('a', 'movera'),
+      _ride('a', 'economy'),
       _ride('b', 'premium'),
       _ride('c', 'electric'),
     ], _now);

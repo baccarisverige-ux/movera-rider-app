@@ -91,7 +91,7 @@ void main() {
     expect(changed, isTrue);
     expect(controller.currentPrice, 279);
     expect(transport.rides['r1']?['price'], 279);
-    expect(transport.rides['r1']?['status'], 'driverAssigned');
+    expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
     expect(matches, 1);
     final stored = await RideSnapshotStore.read();
@@ -112,6 +112,7 @@ void main() {
       throwsA(isA<ApiError>()),
     );
 
+    // Refused: the seeded record is left exactly as it was.
     expect(transport.rides['r1']?['status'], 'driverAssigned');
     expect(transport.rides['r1']?['price'], 259);
   });

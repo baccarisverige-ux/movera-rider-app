@@ -72,7 +72,7 @@ void main() {
 
     await expectLater(
       quotes.quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: 3000,
         pickup: 'A',
         destination: 'B',
@@ -92,8 +92,8 @@ void main() {
       destination: 'B',
     );
 
-    expect(selection.quoteIsAvailable('movera'), isFalse);
-    expect(selection.quoteIdFor('movera'), isNull);
-    expect(selection.unavailableQuoteIds, contains('movera'));
+    expect(selection.quoteIsAvailable('economy'), isFalse);
+    expect(selection.quoteIdFor('economy'), isNull);
+    expect(selection.unavailableQuoteIds, contains('economy'));
   });
 }

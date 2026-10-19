@@ -12,7 +12,8 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// ARCH-13: the polling transport reads the C-6 event envelope (eventId,
 /// version, serverTime, etaSeconds), dedupes by eventId, orders by version,
-/// backs off after failures and ends a ride the server no longer knows.
+/// backs off after failures and pauses (never invents a status) when the
+/// server no longer knows a ride.
 void main() {
   final t0 = DateTime.utc(2026, 10, 14, 9);
 
@@ -171,13 +172,14 @@ void main() {
   });
 
   test(
-    'repeated 404 ends the ride as cancelledBySystem and stops polling',
+    'repeated 404 pauses polling without inventing a status (contract v0.3.0)',
     () async {
       var now = t0;
+      final connection = RealtimeConnection();
       final t = build([
         body(eventId: 'ev-1', version: 4),
         404,
-      ], clock: () => now);
+      ], clock: () => now, connection: connection);
       final events = <RideRealtimeEvent>[];
       final sub = t.rt.subscribe('ride-1').listen(events.add);
       await settle();
@@ -185,14 +187,20 @@ void main() {
         await t.rt.reconnectAndResync('ride-1');
       }
       await settle();
-      expect(events.last.status, RideStatus.cancelledBySystem);
-      expect(events.last.version, 5);
+      // No client-made cancelledBySystem: the last server status stands and
+      // the connection shows a problem.
+      expect(events, hasLength(1));
+      expect(events.single.status, RideStatus.driverArriving);
+      expect(connection.state, RealtimeState.failed);
       final calls = t.calls.length;
-      await t.rt.reconnectAndResync('ride-1');
       now = t0.add(const Duration(hours: 1));
       t.rt.researchAfterDriverCancel();
       await settle();
-      expect(t.calls.length, calls);
+      expect(t.calls.length, calls, reason: 'polling is paused');
+      // An explicit resync asks the server once more.
+      await t.rt.reconnectAndResync('ride-1');
+      await settle();
+      expect(t.calls.length, calls + 1);
       await sub.cancel();
     },
   );

@@ -126,7 +126,7 @@ void main() {
     expect(changed, isTrue);
     expect(controller.currentPrice, 279);
     expect(transport.rides['r1']?['price'], 279);
-    expect(transport.rides['r1']?['status'], 'driverAssigned');
+    expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
     expect(matches, 1);
     final stored = await RideSnapshotStore.read();
@@ -163,7 +163,7 @@ void main() {
     expect(changed, isFalse);
     expect(controller.currentPrice, 259);
     expect(transport.rides['r1']?['price'], 259);
-    expect(transport.rides['r1']?['status'], 'driverAssigned');
+    expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
 
     controller.dispose();
@@ -206,7 +206,7 @@ void main() {
     expect(transport.rides['r1']?['pickupAddress'], 'Pickup B');
     expect(transport.rides['r1']?['pickupLat'], 59.35);
     expect(transport.rides['r1']?['pickupLng'], 18.07);
-    expect(transport.rides['r1']?['status'], 'driverAssigned');
+    expect(transport.rides['r1']?['status'], 'accepted');
     expect(ride.status, RideStatus.driverAssigned);
     final stored = await RideSnapshotStore.read();
     expect(stored?.pickupAddress, 'Pickup B');

@@ -196,7 +196,7 @@ void main() {
           scheduledPickupAt: DateTime.now().add(const Duration(hours: 3)),
           pickup: const ReservationPlace(label: 'A', lat: 59.3, lng: 18.0),
           destination: const ReservationPlace(label: 'B', lat: 59.6, lng: 17.9),
-          categoryId: 'movera',
+          categoryId: 'economy',
           categoryName: 'Movera',
           categoryImage: 'assets/images/rides/movera.webp',
           price: 259,

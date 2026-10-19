@@ -170,7 +170,7 @@ void main() {
   test('presentation has no catalog fare table', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
-      expect(src.contains("'movera': 259"), isFalse, reason: file.path);
+      expect(src.contains("'economy': 259"), isFalse, reason: file.path);
     }
   });
 

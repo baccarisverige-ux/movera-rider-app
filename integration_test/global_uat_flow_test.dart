@@ -30,7 +30,7 @@ void main() {
     final api = ApiClient(client: InProcessMockClient());
     final quote = await api.post(
       '/api/v1/quotes',
-      body: {'rideType': 'movera'},
+      body: {'rideType': 'economy'},
     );
     final q = quote['quote'] as Map;
     expect(q['id'], q['quoteId']);
@@ -76,7 +76,7 @@ void main() {
         scheduledPickupAt: DateTime.now().add(const Duration(days: 1)),
         pickup: const ReservationPlace(label: 'Home'),
         destination: const ReservationPlace(label: 'Arlanda Express'),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 522,

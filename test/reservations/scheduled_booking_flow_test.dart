@@ -44,7 +44,7 @@ void main() {
   }
 
   RideSelectionController scheduledSelection({
-    String rideId = 'movera',
+    String rideId = 'economy',
     DateTime? when,
   }) {
     final selection = RideSelectionController(
@@ -92,7 +92,7 @@ void main() {
     expect(selection.entersFindingDriver, isFalse);
     expect(selection.createsReservation, isTrue);
     expect(selection.rides().map((ride) => ride.id), catalog);
-    expect(selection.selectedRideId, 'movera');
+    expect(selection.selectedRideId, 'economy');
   });
 
   test(

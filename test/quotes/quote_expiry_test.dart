@@ -12,26 +12,26 @@ void main() {
   test('fresh quote remains authoritative before expiry', () {
     final selection = controller();
     final now = DateTime(2026, 9, 16, 10);
-    selection.offeredPrices['movera'] = 249;
-    selection.quoteIds['movera'] = 'q-fresh';
-    selection.quoteExpiresAt['movera'] = now.add(const Duration(seconds: 30));
+    selection.offeredPrices['economy'] = 249;
+    selection.quoteIds['economy'] = 'q-fresh';
+    selection.quoteExpiresAt['economy'] = now.add(const Duration(seconds: 30));
 
-    expect(selection.priceFor('movera', 259, now: now), 249);
-    expect(selection.quoteIdFor('movera', now: now), 'q-fresh');
-    expect(selection.quoteIsFresh('movera', now: now), isTrue);
+    expect(selection.priceFor('economy', 259, now: now), 249);
+    expect(selection.quoteIdFor('economy', now: now), 'q-fresh');
+    expect(selection.quoteIsFresh('economy', now: now), isTrue);
   });
 
   test('expired quote is discarded instead of showing or submitting stale fare', () {
     final selection = controller();
     final now = DateTime(2026, 9, 16, 10);
-    selection.offeredPrices['movera'] = 199;
-    selection.quoteIds['movera'] = 'q-expired';
-    selection.quoteExpiresAt['movera'] = now.subtract(const Duration(seconds: 1));
+    selection.offeredPrices['economy'] = 199;
+    selection.quoteIds['economy'] = 'q-expired';
+    selection.quoteExpiresAt['economy'] = now.subtract(const Duration(seconds: 1));
 
-    expect(selection.priceFor('movera', 259, now: now), 259);
-    expect(selection.offeredPrices.containsKey('movera'), isFalse);
-    expect(selection.quoteIdFor('movera', now: now), isNull);
-    expect(selection.quoteExpiresAt.containsKey('movera'), isFalse);
+    expect(selection.priceFor('economy', 259, now: now), 259);
+    expect(selection.offeredPrices.containsKey('economy'), isFalse);
+    expect(selection.quoteIdFor('economy', now: now), isNull);
+    expect(selection.quoteExpiresAt.containsKey('economy'), isFalse);
   });
 
   test('catalog selection without a server quote is not authoritative', () {

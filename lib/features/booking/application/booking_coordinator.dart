@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -80,6 +81,18 @@ class BookingCoordinator {
       throw const FormatException('Booking response contains invalid ride id');
     }
     return id;
+  }
+
+  /// The trip status the server created the ride in (contract v0.3.0:
+  /// `requested` for a reservation, `searching` for a live trip). The
+  /// client never assumes it (audit B5).
+  RideStatus _createdStatus(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    final status = ride is Map ? RideStatusWire.fromProjection(ride) : null;
+    if (status == null) {
+      throw StateError('The created ride carries no contract status');
+    }
+    return status;
   }
 
   int? _rideVersion(Map<String, dynamic> json) {
@@ -183,21 +196,14 @@ class BookingCoordinator {
       idempotencyKey: id,
     );
     final rideId = _requireRideId(json);
+    final created = _createdStatus(json);
     AppScope.instance.ride.backendReconcile(
-      RideStatus.bookingRequested,
+      created,
       id: rideId,
       version: _rideVersion(json),
       updatedAt: _rideUpdatedAt(json),
     );
     Analytics.bookingSubmitted(rideId: rideId);
-    if (scheduledAt == null) {
-      AppScope.instance.ride.backendReconcile(
-        RideStatus.findingDriver,
-        id: rideId,
-        version: _rideVersion(json),
-        updatedAt: _rideUpdatedAt(json),
-      );
-    }
     return rideId;
   }
 
@@ -529,6 +535,12 @@ class BookingCoordinator {
       idempotencyKey: key,
     );
     final id = _requireRideId(json);
+    // Booking → Finding only on the server's word: the response must say
+    // the trip is requested / searching.
+    final created = _createdStatus(json);
+    if (!created.isSearching) {
+      throw StateError('The server did not open a search (${created.name})');
+    }
     Analytics.bookingSubmitted(rideId: id);
 
     final collisionBeforeCommit = await _standDownIfFindingOwned(createdRideId: id);
@@ -538,7 +550,7 @@ class BookingCoordinator {
     final serverUpdatedAt = _rideUpdatedAt(json);
     final session = AppScope.instance.ride;
     session.backendReconcile(
-      RideStatus.findingDriver,
+      created,
       id: id,
       version: version,
       updatedAt: serverUpdatedAt,
@@ -557,7 +569,7 @@ class BookingCoordinator {
     // seconds of the search restores the same ride, in the right order.
     await RideSnapshotStore.save(
       RideSnapshot(
-        status: RideStatus.findingDriver,
+        status: created,
         savedAt: now,
         searchStartedAt: now,
         version: version,

@@ -34,7 +34,7 @@ void main() {
     final api = ApiClient(client: httpClient);
     final quote = await api.post(
       '/api/v1/quotes',
-      body: {'rideType': 'movera'},
+      body: {'rideType': 'economy'},
     );
     final q = quote['quote'] as Map;
     expect(q['id'], q['quoteId']);

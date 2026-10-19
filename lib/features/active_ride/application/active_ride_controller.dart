@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -121,14 +123,17 @@ class ActiveRideController {
       rideId: id,
       reasonId: reasonId,
     );
+    // Contract v0.3.0: once the rider is on board the command is
+    // `end_early` (pay for the distance driven), not `cancel`.
+    final onboard = tripRiderOnboardStatuses.contains(
+      AppScope.instance.ride.status.tripStatus,
+    );
+    final command = onboard ? 'end-early' : 'cancel';
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
         await api.post(
-          '/api/v1/rides/$id/cancel',
-          body: {
-            if ((entry.reasonId ?? reasonId) != null)
-              'reason': entry.reasonId ?? reasonId,
-          },
+          '/api/v1/rides/$id/$command',
+          body: CancelReasonCodes.riderCancelBody(entry.reasonId ?? reasonId),
           idempotencyKey: entry.idempotencyKey,
         );
         await PendingCancelStore.remove(id);
@@ -207,7 +212,11 @@ class ActiveRideController {
     ride.backendReconcile(status, id: id);
     _stopSafetyRecording();
     if (status == RideStatus.cancelledByDriver ||
-        status == RideStatus.cancelledBySystem) {
+        status == RideStatus.cancelledBySystem ||
+        status == RideStatus.cancelledByAdmin ||
+        status == RideStatus.endedByDriver ||
+        status == RideStatus.noShow ||
+        status == RideStatus.tripFailed) {
       await _archive(snapshot, status, expectedRideId: id);
     }
     await _store.clear();

@@ -114,7 +114,7 @@ void main() {
     price: 200,
     paymentMethod: paymentMethod,
     paymentMethodId: paymentMethodId,
-    categoryId: 'movera',
+    categoryId: 'economy',
     rideId: 'ride-route-1',
   );
 
@@ -164,7 +164,7 @@ void main() {
         pickupLng: 18.0,
         destinationLat: 59.2,
         destinationLng: 18.1,
-        rideType: 'movera',
+        rideType: 'economy',
         price: 259,
         paymentMethod: 'Visa •••• 4242',
         rideId: 'ride_1',

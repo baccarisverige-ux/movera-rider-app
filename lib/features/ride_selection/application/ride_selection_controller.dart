@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 
@@ -58,7 +59,7 @@ class RideSelectionController {
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
   bool _disposed = false;
   bool usedFallback = false;
-  String selectedRideId = 'movera';
+  String selectedRideId = CategoryIds.economy;
   int selectedPayment = 1;
   DateTime? scheduledFor;
   BookingMode bookingMode;

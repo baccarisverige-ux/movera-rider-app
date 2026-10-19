@@ -45,7 +45,7 @@ void main() {
   test('quote id equals quoteId', () async {
     final client = InProcessMockClient();
     final api = ApiClient(client: client);
-    final json = await api.post('/api/v1/quotes', body: {'rideType': 'movera'});
+    final json = await api.post('/api/v1/quotes', body: {'rideType': 'economy'});
     expect(json['quote']['id'], json['quote']['quoteId']);
     expect(json['quote']['totalMinor'], 25900);
     expect(json['quote']['currency'], 'SEK');
@@ -71,7 +71,7 @@ void main() {
       destination: 'C',
     );
     await Future.wait([firstLoad, secondLoad]);
-    expect(selection.offeredPrices['movera'], 259);
+    expect(selection.offeredPrices['economy'], 259);
   });
 
   test('destination B remains authoritative when A finishes later', () async {
@@ -94,7 +94,7 @@ void main() {
       destination: 'Destination B',
     );
     await Future.wait([loadA, loadB]);
-    expect(selection.offeredPrices['movera'], 259);
+    expect(selection.offeredPrices['economy'], 259);
   });
 
   test('ride category change while quotes pending preserves selection', () async {
@@ -112,7 +112,7 @@ void main() {
     selection.selectRide('xl', 399);
     await load;
     expect(selection.selectedRideId, 'xl');
-    expect(selection.quoteIds['movera'], startsWith('q_'));
+    expect(selection.quoteIds['economy'], startsWith('q_'));
   });
 
   test('select ride and payment live on the controller', () {
@@ -144,7 +144,7 @@ void main() {
     );
     selection.beginQuotes();
     await load;
-    expect(selection.offeredPrices.containsKey('movera'), isFalse);
+    expect(selection.offeredPrices.containsKey('economy'), isFalse);
   });
 
   test('api quote repository parses mock contract', () async {

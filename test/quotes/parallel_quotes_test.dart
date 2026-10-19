@@ -73,7 +73,7 @@ void main() {
     );
 
     expect(selection.unavailableQuoteIds, contains('xl'));
-    expect(selection.quoteIds['movera'], isNotNull);
+    expect(selection.quoteIds['economy'], isNotNull);
     expect(selection.quoteIds['premium'], isNotNull);
   });
 

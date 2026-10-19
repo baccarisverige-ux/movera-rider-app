@@ -191,7 +191,7 @@ void main() {
         pickupLng: 18.0590,
         destinationLat: 59.6519,
         destinationLng: 17.9186,
-        rideType: 'movera',
+        rideType: 'economy',
         price: 259,
         paymentMethod: 'apple_pay',
         rideTypeLabel: 'Movera',
@@ -249,7 +249,7 @@ void main() {
       final duplicate = transport.rides.values.single;
       expect(
         duplicate['status'],
-        RideStatus.cancelledByRider.name,
+        'cancelled_by_rider',
         reason:
             'the newly created race loser must be explicitly stood down, never left searching invisibly',
       );

@@ -9,6 +9,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
@@ -433,7 +435,9 @@ class FindingDriverController {
       }
       final raw = json['ride'];
       if (raw is! Map || raw['id']?.toString().trim() != id) return;
-      final status = _serverStatus(raw['status']);
+      // ARCH-10 / contract v0.3.0: the one wire parser (`expired` means
+      // what it means everywhere: no driver found).
+      final status = RideStatusWire.fromProjection(raw);
       if (status == null || status.isSearching) return;
       final version = (raw['version'] as num?)?.toInt();
       final updatedAt = raw['updatedAt'] is String
@@ -468,15 +472,6 @@ class FindingDriverController {
     } finally {
       _serverCheckInFlight = false;
     }
-  }
-
-  static RideStatus? _serverStatus(Object? raw) {
-    if (raw is! String) return null;
-    if (raw == 'expired') return RideStatus.bookingExpired;
-    for (final value in RideStatus.values) {
-      if (value.name == raw) return value;
-    }
-    return null;
   }
 
   /// The stored snapshot of [rideId] (the session's ride when null), or
@@ -887,6 +882,8 @@ class FindingDriverController {
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
             status == RideStatus.cancelledBySystem ||
+            status == RideStatus.cancelledByAdmin ||
+            status == RideStatus.tripFailed ||
             // RIDE-5: a search the server ended is kept in History too.
             status == RideStatus.noDriverFound ||
             status == RideStatus.bookingExpired)) {
@@ -1023,7 +1020,7 @@ class FindingDriverController {
       try {
         await api.post(
           '/api/v1/rides/$id/cancel',
-          body: {if (reason != null) 'reason': reason},
+          body: CancelReasonCodes.riderCancelBody(reason),
           idempotencyKey: entry.idempotencyKey,
         );
         await PendingCancelStore.remove(id);
@@ -1114,7 +1111,7 @@ class FindingDriverController {
     try {
       await api.post(
         '/api/v1/rides/$id/cancel',
-        body: {'reason': reasonId},
+        body: CancelReasonCodes.riderCancelBody(reasonId),
         idempotencyKey: _reasonMutation.keyFor(intent),
       );
       _reasonMutation.succeeded(intent);
@@ -1189,7 +1186,7 @@ class FindingDriverController {
       try {
         await client.post(
           '/api/v1/rides/${cancel.rideId}/cancel',
-          body: {if (cancel.reasonId != null) 'reason': cancel.reasonId},
+          body: CancelReasonCodes.riderCancelBody(cancel.reasonId),
           idempotencyKey: key,
         );
         await PendingCancelStore.remove(cancel.rideId);

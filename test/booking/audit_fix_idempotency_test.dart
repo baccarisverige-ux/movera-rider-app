@@ -77,7 +77,7 @@ void main() {
 
   Future<RideQuote> freshQuote(ApiClient api, {GeoPoint from = pickup}) =>
       ApiQuoteRepository(api: api).quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: 1500,
         pickupPoint: from,
         destinationPoint: drop,
@@ -96,7 +96,7 @@ void main() {
     pickupLng: from.longitude,
     destinationLat: to.latitude,
     destinationLng: to.longitude,
-    rideType: 'movera',
+    rideType: 'economy',
     price: quote.totalMinor / 100,
     paymentMethod: paymentMethod,
     quoteId: quote.id,
@@ -183,7 +183,7 @@ void main() {
       final api = ApiClient(client: backend);
 
       await ApiQuoteRepository(api: api).quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: 1234,
         pickup: 'Sergels torg 1',
         destination: 'Odenplan 2',
@@ -213,13 +213,13 @@ void main() {
         final api = ApiClient(client: InProcessMockClient());
         final repo = ApiQuoteRepository(api: api);
         final honest = await repo.quote(
-          rideType: 'movera',
+          rideType: 'economy',
           distanceMeters: 30000,
           pickupPoint: pickup,
           destinationPoint: drop,
         );
         final lying = await repo.quote(
-          rideType: 'movera',
+          rideType: 'economy',
           distanceMeters: 1,
           pickupPoint: pickup,
           destinationPoint: drop,
@@ -240,7 +240,7 @@ void main() {
         pickupLng: pickup.longitude,
         destinationLat: drop.latitude,
         destinationLng: drop.longitude,
-        rideType: 'movera',
+        rideType: 'economy',
         price: 0,
         paymentMethod: 'visa',
       );
@@ -276,7 +276,7 @@ void main() {
 
       Future<String> schedule(String destination, double lat) =>
           booking.requestBooking(
-            rideType: 'movera',
+            rideType: 'economy',
             paymentMethod: 'visa',
             scheduledAt: '2026-10-20T08:00:00Z',
             pickupAddress: 'Sergels torg 1',
@@ -305,7 +305,7 @@ void main() {
       expect(body['destinationLat'], 59.65);
       expect(body['quoteId'], quote.id);
       expect(body['quoteTotalMinor'], quote.totalMinor);
-      expect(body['categoryId'], 'movera');
+      expect(body['categoryId'], 'economy');
     });
 
     test(
@@ -318,7 +318,7 @@ void main() {
 
         await expectLater(
           booking.requestBooking(
-            rideType: 'movera',
+            rideType: 'economy',
             paymentMethod: 'visa',
             scheduledAt: '2026-10-20T08:00:00Z',
             pickupAddress: 'Sergels torg 1',

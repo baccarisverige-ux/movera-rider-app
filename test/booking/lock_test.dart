@@ -165,7 +165,7 @@ void main() {
     final booking = BookingCoordinator(api: ApiClient(client: mock));
 
     Future<String> submit() => booking.requestBooking(
-      rideType: 'movera',
+      rideType: 'economy',
       paymentMethod: 'Wallet',
       scheduledAt: '2026-09-13T10:00:00Z',
     );
@@ -180,12 +180,12 @@ void main() {
   test('in-flight scheduled booking is reused', () async {
     final booking = BookingCoordinator();
     final first = booking.requestBooking(
-      rideType: 'movera',
+      rideType: 'economy',
       paymentMethod: 'Wallet',
       scheduledAt: '2026-09-13T10:00:00Z',
     );
     final second = booking.requestBooking(
-      rideType: 'movera',
+      rideType: 'economy',
       paymentMethod: 'Wallet',
       scheduledAt: '2026-09-13T10:00:00Z',
     );

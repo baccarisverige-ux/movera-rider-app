@@ -8,14 +8,7 @@ export 'package:movera_rider/core/contracts/trip_status.dart'
 /// The enum itself is canonical in core/contracts so Rider, Driver and future
 /// Admin-facing adapters cannot silently fork the platform lifecycle.
 extension TripStatusX on contract.TripStatus {
-  bool get isTerminal =>
-      this == contract.TripStatus.completed ||
-      this == contract.TripStatus.cancelledByRider ||
-      this == contract.TripStatus.cancelledByDriver ||
-      this == contract.TripStatus.cancelledByAdmin ||
-      this == contract.TripStatus.noShow ||
-      this == contract.TripStatus.expired ||
-      this == contract.TripStatus.failed;
+  // isTerminal lives on TripStatusWire: the contract terminal set, once.
 
   bool get isActive =>
       this == contract.TripStatus.requested ||
