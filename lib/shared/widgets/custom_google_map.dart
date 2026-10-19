@@ -7,6 +7,11 @@ import '../styles/reference_map_style.dart';
 
 export '../styles/reference_map_style.dart' show moveraReferenceMapStyle;
 
+/// Google Cloud Map ID (cloud-based styling) baked in at build time with
+/// `--dart-define=MOVERA_GOOGLE_MAP_ID=...`. Empty means no Map ID: the map
+/// keeps the in-app [moveraReferenceMapStyle].
+const String moveraGoogleMapId = String.fromEnvironment('MOVERA_GOOGLE_MAP_ID');
+
 class CustomGoogleMap extends StatefulWidget {
   final CameraPosition? initialPosition;
   final Set<Marker>? markers;
@@ -34,6 +39,10 @@ class CustomGoogleMap extends StatefulWidget {
   final void Function()? onCameraMoveStarted;
   final EdgeInsets padding;
   final String? customMapStyle;
+
+  /// Cloud Map ID. When non-empty the cloud style wins, so no inline JSON
+  /// style is passed (Google ignores it alongside a Map ID).
+  final String cloudMapId;
 
   const CustomGoogleMap({
     super.key,
@@ -63,6 +72,7 @@ class CustomGoogleMap extends StatefulWidget {
     this.onCameraMoveStarted,
     this.padding = EdgeInsets.zero,
     this.customMapStyle,
+    this.cloudMapId = moveraGoogleMapId,
   });
 
   @override
@@ -93,6 +103,8 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
         child: SizedBox.expand(),
       );
     }
+    final String mapId = widget.cloudMapId.trim();
+    final bool hasMapId = mapId.isNotEmpty;
     return GoogleMap(
       initialCameraPosition: widget.initialPosition ?? _defaultPosition,
       markers: widget.markers ?? {},
@@ -113,7 +125,8 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       rotateGesturesEnabled: widget.rotateGesturesEnabled,
       mapType: widget.mapType,
       padding: widget.padding,
-      style: widget.customMapStyle ?? moveraReferenceMapStyle,
+      cloudMapId: hasMapId ? mapId : null,
+      style: hasMapId ? null : widget.customMapStyle ?? moveraReferenceMapStyle,
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
 
