@@ -324,6 +324,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                     compassEnabled: false,
+                    // The accuracy ring is a flat screen circle sized with
+                    // flat-map maths; a tilted ground would not match it.
+                    tiltWithZoom: false,
                     onMapCreated: (controller) {
                       _map = controller;
                       AppScope.instance.maps.attach(

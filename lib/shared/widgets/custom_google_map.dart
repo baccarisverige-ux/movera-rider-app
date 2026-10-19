@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/maps/camera_tilt.dart';
+import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -44,6 +49,11 @@ class CustomGoogleMap extends StatefulWidget {
   /// style is passed (Google ignores it alongside a Map ID).
   final String cloudMapId;
 
+  /// Lean the camera towards the horizon as the rider zooms in
+  /// ([tiltForZoom]). Screens that read the pickup from a screen-centred pin
+  /// with flat-map maths pass false and stay flat.
+  final bool tiltWithZoom;
+
   const CustomGoogleMap({
     super.key,
     this.initialPosition,
@@ -73,6 +83,7 @@ class CustomGoogleMap extends StatefulWidget {
     this.padding = EdgeInsets.zero,
     this.customMapStyle,
     this.cloudMapId = moveraGoogleMapId,
+    this.tiltWithZoom = true,
   });
 
   @override
@@ -88,6 +99,106 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     target: LatLng(59.3293, 18.0686),
     zoom: 13.0,
   );
+
+  // Fingers on the map: Flutter pointers on phones, page events on the web
+  // (where the map is a browser element Flutter's pointers never reach).
+  int _fingers = 0;
+  MapTouchSubscription? _webTouch;
+  bool _moving = false;
+  double? _moveStartZoom;
+  bool _easeWhenReleased = false;
+  Size? _viewport;
+
+  @override
+  void initState() {
+    super.initState();
+    _webTouch = watchMapTouch(onDown: _fingerDown, onUp: _fingerUp);
+  }
+
+  MapView? get _view {
+    final controller = _mapController;
+    return controller == null ? null : mapViewOf(controller);
+  }
+
+  void _syncView() {
+    final view = _view;
+    if (view == null) return;
+    view.size = _viewport;
+    view.tiltWithZoom = widget.tiltWithZoom;
+    // Raster web maps (no Map ID) ignore tilt; vector maps and phones use it.
+    view.supportsTilt = !kIsWeb || widget.cloudMapId.trim().isNotEmpty;
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomGoogleMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncView();
+  }
+
+  void _fingerDown() => _fingers += 1;
+
+  void _fingerUp() {
+    if (_fingers == 0) return;
+    _fingers -= 1;
+    if (_fingers == 0 && _easeWhenReleased && !_moving) {
+      _easeWhenReleased = false;
+      _easeTiltToZoom();
+    }
+  }
+
+  void _onMoveStarted() {
+    if (!_moving) {
+      _moving = true;
+      _moveStartZoom = _view?.pose?.zoom;
+    }
+    widget.onCameraMoveStarted?.call();
+  }
+
+  void _onMove(CameraPosition position) {
+    final view = _view;
+    if (view != null) {
+      if (!_moving) {
+        _moving = true;
+        _moveStartZoom = view.pose?.zoom ?? position.zoom;
+      }
+      view.pose = position;
+    }
+    widget.onCameraMove?.call(position);
+  }
+
+  void _onIdle() {
+    final startZoom = _moveStartZoom;
+    _moving = false;
+    _moveStartZoom = null;
+    final pose = _view?.pose;
+    // A zoom (pinch, double tap) just ended: lean to that zoom's tilt.
+    // Pans and the rider's own tilt keep their pose. Never mid-gesture: with
+    // a finger still down the ease waits for it to lift.
+    if (pose != null &&
+        startZoom != null &&
+        (pose.zoom - startZoom).abs() > 0.05) {
+      if (_fingers > 0) {
+        _easeWhenReleased = true;
+      } else {
+        _easeTiltToZoom();
+      }
+    }
+    widget.onCameraIdle?.call();
+  }
+
+  void _easeTiltToZoom() {
+    final controller = _mapController;
+    final view = _view;
+    final pose = view?.pose;
+    if (controller == null || view == null || pose == null) return;
+    if (!view.tiltWithZoom || !view.supportsTilt || view.easing) return;
+    if (!tiltNeedsEasing(pose)) return;
+    unawaited(
+      easeCameraTo(controller, withZoomTilt(pose)).catchError((Object _) {
+        // The map went away mid-ease; nothing to correct.
+      }),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +216,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     }
     final String mapId = widget.cloudMapId.trim();
     final bool hasMapId = mapId.isNotEmpty;
-    return GoogleMap(
+    final map = GoogleMap(
       initialCameraPosition: widget.initialPosition ?? _defaultPosition,
       markers: widget.markers ?? {},
       polylines: widget.polylines ?? {},
@@ -129,6 +240,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       style: hasMapId ? null : widget.customMapStyle ?? moveraReferenceMapStyle,
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
+        mapViewOf(controller).pose ??=
+            widget.initialPosition ?? _defaultPosition;
+        _syncView();
 
         if (kDebugMode) {
           controller.getStyleError().then((String? styleError) {
@@ -144,9 +258,29 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       },
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
-      onCameraMove: widget.onCameraMove,
-      onCameraIdle: widget.onCameraIdle,
-      onCameraMoveStarted: widget.onCameraMoveStarted,
+      onCameraMove: _onMove,
+      onCameraIdle: _onIdle,
+      onCameraMoveStarted: _onMoveStarted,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
+          _viewport = Size(
+            (constraints.maxWidth - widget.padding.horizontal)
+                .clamp(0.0, double.infinity),
+            (constraints.maxHeight - widget.padding.vertical)
+                .clamp(0.0, double.infinity),
+          );
+          _view?.size = _viewport;
+        }
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: kIsWeb ? null : (_) => _fingerDown(),
+          onPointerUp: kIsWeb ? null : (_) => _fingerUp(),
+          onPointerCancel: kIsWeb ? null : (_) => _fingerUp(),
+          child: map,
+        );
+      },
     );
   }
 
@@ -158,6 +292,8 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // web controller again here races the platform view teardown and throws a
     // generic browser page error when a map screen is popped (for example when
     // confirming the exact pickup before SelectRide opens).
+    _webTouch?.cancel();
+    _webTouch = null;
     _mapController = null;
     super.dispose();
   }

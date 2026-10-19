@@ -65,6 +65,10 @@ import 'package:smooth_sheets/smooth_sheets.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
 
+/// Home's opening camera: the whole local area (about 10 km across a phone)
+/// around the rider, before and after the first location fix.
+const double homeOpeningZoom = 11.7;
+
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -145,7 +149,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
-    zoom: 13.0,
+    zoom: homeOpeningZoom,
   );
 
   static const Color _premiumInk = Color(0xFF1D252C);
@@ -302,7 +306,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final maps = AppScope.instance.maps;
     // Map not created yet: onMapCreated picks the hint up.
     if (maps.activeOwner != MapOwners.home) return;
-    await maps.moveCamera(GeoPoint(hint.latitude, hint.longitude), zoom: 15);
+    await maps.moveCamera(
+      GeoPoint(hint.latitude, hint.longitude),
+      zoom: homeOpeningZoom,
+    );
   }
 
   Future<void>? _detectInFlight;
@@ -383,7 +390,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       );
       await AppScope.instance.maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
-        zoom: 15,
+        zoom: homeOpeningZoom,
       );
     } catch (_) {
       if (!mounted) return;
@@ -1865,7 +1872,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               if (target != null) {
                                 AppScope.instance.maps.animateCamera(
                                   GeoPoint(target.latitude, target.longitude),
-                                  zoom: 15,
+                                  zoom: homeOpeningZoom,
                                 );
                               }
                             },

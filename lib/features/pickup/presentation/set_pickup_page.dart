@@ -839,6 +839,9 @@ class _SetPickupPageState extends State<SetPickupPage>
     return CustomGoogleMap(
       key: const ValueKey('set-pickup-map'),
       initialPosition: CameraPosition(target: _cameraFor(_center), zoom: _zoom),
+      // The pin sits above the centre and its ground point is worked out
+      // with flat-map maths, which a tilted camera would throw off.
+      tiltWithZoom: false,
       // Only the map and the pin: the route and the times live in the sheet.
       myLocationEnabled: true,
       onMapCreated: (controller) {
