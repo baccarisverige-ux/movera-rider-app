@@ -18,96 +18,565 @@
     "case": "JSON keys camelCase; enum values snake_case."
   },
   "currencies": {
-    "SEK": { "exponent": 2, "symbol": "kr" },
-    "EUR": { "exponent": 2, "symbol": "€" },
-    "TND": { "exponent": 3, "symbol": "DT" }
+    "SEK": {
+      "exponent": 2,
+      "symbol": "kr"
+    },
+    "EUR": {
+      "exponent": 2,
+      "symbol": "€"
+    },
+    "TND": {
+      "exponent": 3,
+      "symbol": "DT"
+    }
   },
   "categories": {
     "pattern": "^[a-z][a-z0-9_]{1,31}$",
     "note": "Category ids come from the admin Pricing catalog; admins can add more. These are the seed ids every app must know.",
-    "seed": ["economy", "comfort", "premium", "priority", "xl", "electric", "pet"],
-    "aliases": { "movera": "economy" }
+    "seed": [
+      "economy",
+      "comfort",
+      "premium",
+      "priority",
+      "xl",
+      "electric",
+      "pet"
+    ],
+    "aliases": {
+      "movera": "economy"
+    }
   },
-  "paymentMethods": ["card", "swish", "klarna", "apple", "google", "paypal", "cash", "wallet"],
+  "paymentMethods": [
+    "card",
+    "swish",
+    "klarna",
+    "apple",
+    "google",
+    "paypal",
+    "cash",
+    "wallet"
+  ],
   "tripStatus": {
     "values": [
-      "draft", "quoted", "requested", "searching", "offered", "accepted",
-      "driver_to_pickup", "arrived", "rider_onboard", "in_trip", "approaching_dropoff",
-      "completed", "cancelled_by_rider", "cancelled_by_driver", "cancelled_by_admin",
-      "cancelled_by_system", "no_show", "expired", "failed"
+      "draft",
+      "quoted",
+      "requested",
+      "searching",
+      "offered",
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff",
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
     ],
     "terminal": [
-      "completed", "cancelled_by_rider", "cancelled_by_driver", "cancelled_by_admin",
-      "cancelled_by_system", "no_show", "expired", "failed"
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
     ],
-    "driverAssigned": ["accepted", "driver_to_pickup", "arrived", "rider_onboard", "in_trip", "approaching_dropoff"],
-    "riderOnboard": ["rider_onboard", "in_trip", "approaching_dropoff"]
+    "driverAssigned": [
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff"
+    ],
+    "riderOnboard": [
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff"
+    ]
   },
-  "paymentStatus": ["pending", "authorized", "captured", "failed", "refunded", "partially_refunded"],
-  "ratingStatus": ["not_requested", "pending", "submitted", "skipped"],
-  "driverAccountStatus": ["pending", "active", "on_hold", "suspended"],
-  "driverOnlineStatus": ["offline", "going_online", "online", "on_trip", "suspended"],
-  "offerKind": ["radar", "exclusive", "assigned", "reservation", "next_trip"],
-  "offerStatus": ["open", "claimed", "claimed_elsewhere", "declined", "expired", "withdrawn"],
-  "actors": ["rider", "driver", "admin", "system"],
+  "paymentStatus": [
+    "pending",
+    "authorized",
+    "captured",
+    "failed",
+    "refunded",
+    "partially_refunded"
+  ],
+  "ratingStatus": [
+    "not_requested",
+    "pending",
+    "submitted",
+    "skipped"
+  ],
+  "driverAccountStatus": [
+    "pending",
+    "active",
+    "on_hold",
+    "suspended"
+  ],
+  "driverOnlineStatus": [
+    "offline",
+    "going_online",
+    "online",
+    "on_trip",
+    "suspended"
+  ],
+  "offerKind": [
+    "radar",
+    "exclusive",
+    "assigned",
+    "reservation",
+    "next_trip"
+  ],
+  "offerStatus": [
+    "open",
+    "claimed",
+    "claimed_elsewhere",
+    "declined",
+    "expired",
+    "withdrawn"
+  ],
+  "actors": [
+    "rider",
+    "driver",
+    "admin",
+    "system"
+  ],
   "transitions": [
-    { "command": "quote", "actor": "system", "from": ["draft"], "to": "quoted" },
-    { "command": "request", "actor": "rider", "from": ["quoted"], "to": "requested" },
-    { "command": "start_search", "actor": "system", "from": ["requested"], "to": "searching" },
-    { "command": "send_offer", "actor": "system", "from": ["searching"], "to": "offered" },
-    { "command": "offer_lapsed", "actor": "system", "from": ["offered"], "to": "searching", "note": "declined, timed out or claimed elsewhere" },
-    { "command": "accept", "actor": "driver", "from": ["offered", "requested"], "to": "accepted", "note": "requested only for a scheduled trip the driver claims early" },
-    { "command": "assign", "actor": "admin", "from": ["requested", "searching", "offered"], "to": "offered", "note": "admin offers to one driver; the driver still accepts" },
-    { "command": "head_to_pickup", "actor": "driver", "from": ["accepted"], "to": "driver_to_pickup" },
-    { "command": "arrive", "actor": "driver", "from": ["driver_to_pickup"], "to": "arrived" },
-    { "command": "board", "actor": "driver", "from": ["arrived"], "to": "rider_onboard", "note": "PIN check when the zone requires it" },
-    { "command": "start_trip", "actor": "driver", "from": ["rider_onboard"], "to": "in_trip" },
-    { "command": "near_dropoff", "actor": "system", "from": ["in_trip"], "to": "approaching_dropoff" },
-    { "command": "complete", "actor": "driver", "from": ["in_trip", "approaching_dropoff"], "to": "completed" },
-    { "command": "complete", "actor": "admin", "from": ["rider_onboard", "in_trip", "approaching_dropoff"], "to": "completed" },
-    { "command": "cancel", "actor": "rider", "from": ["requested", "searching", "offered", "accepted", "driver_to_pickup", "arrived"], "to": "cancelled_by_rider", "fee": "riderCancelFee" },
-    { "command": "end_early", "actor": "rider", "from": ["rider_onboard", "in_trip", "approaching_dropoff"], "to": "cancelled_by_rider", "note": "fare for the distance driven" },
-    { "command": "cancel", "actor": "driver", "from": ["accepted", "driver_to_pickup", "arrived"], "to": "searching", "when": "live", "note": "reassign: the trip goes back to dispatch, the cancel counts in the driver's rate" },
-    { "command": "cancel", "actor": "driver", "from": ["accepted"], "to": "requested", "when": "scheduled", "note": "the reservation goes back out to drivers" },
-    { "command": "cancel", "actor": "driver", "from": ["rider_onboard", "in_trip", "approaching_dropoff"], "to": "cancelled_by_driver" },
-    { "command": "no_show", "actor": "driver", "from": ["arrived"], "to": "no_show", "guard": "waited >= noShowAfterMin", "fee": "noShowFee" },
-    { "command": "no_show", "actor": "admin", "from": ["arrived", "accepted", "driver_to_pickup"], "to": "no_show" },
-    { "command": "reassign", "actor": "admin", "from": ["offered", "accepted", "driver_to_pickup", "arrived"], "to": "searching" },
-    { "command": "cancel", "actor": "admin", "from": ["draft", "quoted", "requested", "searching", "offered", "accepted", "driver_to_pickup", "arrived", "rider_onboard", "in_trip", "approaching_dropoff"], "to": "cancelled_by_admin" },
-    { "command": "expire", "actor": "system", "from": ["quoted", "requested", "searching", "offered"], "to": "expired", "note": "quote lapsed or no driver found in time" },
-    { "command": "system_cancel", "actor": "system", "from": ["requested", "searching", "offered", "accepted"], "to": "cancelled_by_system", "note": "payment hold failed, zone closed, sweeps" },
-    { "command": "fail", "actor": "system", "from": ["requested", "searching", "offered", "accepted", "driver_to_pickup", "arrived", "rider_onboard", "in_trip", "approaching_dropoff"], "to": "failed" }
+    {
+      "command": "quote",
+      "actor": "system",
+      "from": [
+        "draft"
+      ],
+      "to": "quoted"
+    },
+    {
+      "command": "request",
+      "actor": "rider",
+      "from": [
+        "quoted"
+      ],
+      "to": "requested"
+    },
+    {
+      "command": "start_search",
+      "actor": "system",
+      "from": [
+        "requested"
+      ],
+      "to": "searching"
+    },
+    {
+      "command": "send_offer",
+      "actor": "system",
+      "from": [
+        "searching"
+      ],
+      "to": "offered"
+    },
+    {
+      "command": "offer_lapsed",
+      "actor": "system",
+      "from": [
+        "offered"
+      ],
+      "to": "searching",
+      "note": "declined, timed out or claimed elsewhere"
+    },
+    {
+      "command": "accept",
+      "actor": "driver",
+      "from": [
+        "offered",
+        "requested"
+      ],
+      "to": "accepted",
+      "note": "requested only for a scheduled trip the driver claims early"
+    },
+    {
+      "command": "assign",
+      "actor": "admin",
+      "from": [
+        "requested",
+        "searching",
+        "offered"
+      ],
+      "to": "offered",
+      "note": "admin offers to one driver; the driver still accepts"
+    },
+    {
+      "command": "head_to_pickup",
+      "actor": "driver",
+      "from": [
+        "accepted"
+      ],
+      "to": "driver_to_pickup"
+    },
+    {
+      "command": "arrive",
+      "actor": "driver",
+      "from": [
+        "driver_to_pickup"
+      ],
+      "to": "arrived"
+    },
+    {
+      "command": "board",
+      "actor": "driver",
+      "from": [
+        "arrived"
+      ],
+      "to": "rider_onboard",
+      "note": "PIN check when the zone requires it"
+    },
+    {
+      "command": "start_trip",
+      "actor": "driver",
+      "from": [
+        "rider_onboard"
+      ],
+      "to": "in_trip"
+    },
+    {
+      "command": "near_dropoff",
+      "actor": "system",
+      "from": [
+        "in_trip"
+      ],
+      "to": "approaching_dropoff"
+    },
+    {
+      "command": "complete",
+      "actor": "driver",
+      "from": [
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "completed"
+    },
+    {
+      "command": "complete",
+      "actor": "admin",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "completed"
+    },
+    {
+      "command": "cancel",
+      "actor": "rider",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "cancelled_by_rider",
+      "fee": "riderCancelFee"
+    },
+    {
+      "command": "end_early",
+      "actor": "rider",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_rider",
+      "note": "fare for the distance driven"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching",
+      "when": "live",
+      "note": "reassign: the trip goes back to dispatch, the cancel counts in the driver's rate"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "accepted"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "the reservation goes back out to drivers"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching",
+      "when": "scheduled",
+      "note": "already on the way: the scheduled trip is dispatched again like a live one"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_driver"
+    },
+    {
+      "command": "no_show",
+      "actor": "driver",
+      "from": [
+        "arrived"
+      ],
+      "to": "no_show",
+      "guard": "waited >= noShowAfterMin",
+      "fee": "noShowFee"
+    },
+    {
+      "command": "no_show",
+      "actor": "admin",
+      "from": [
+        "arrived",
+        "accepted",
+        "driver_to_pickup"
+      ],
+      "to": "no_show"
+    },
+    {
+      "command": "reassign",
+      "actor": "admin",
+      "from": [
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching"
+    },
+    {
+      "command": "cancel",
+      "actor": "admin",
+      "from": [
+        "draft",
+        "quoted",
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_admin"
+    },
+    {
+      "command": "expire",
+      "actor": "system",
+      "from": [
+        "quoted",
+        "requested",
+        "searching",
+        "offered"
+      ],
+      "to": "expired",
+      "note": "quote lapsed or no driver found in time"
+    },
+    {
+      "command": "system_cancel",
+      "actor": "system",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted"
+      ],
+      "to": "cancelled_by_system",
+      "note": "payment hold failed, zone closed, sweeps"
+    },
+    {
+      "command": "fail",
+      "actor": "system",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "failed"
+    }
   ],
   "paymentTransitions": [
-    { "from": "pending", "to": "authorized" },
-    { "from": "pending", "to": "failed" },
-    { "from": "authorized", "to": "captured" },
-    { "from": "authorized", "to": "failed" },
-    { "from": "failed", "to": "authorized", "note": "retry with another method" },
-    { "from": "captured", "to": "refunded" },
-    { "from": "captured", "to": "partially_refunded" },
-    { "from": "partially_refunded", "to": "refunded" }
+    {
+      "from": "pending",
+      "to": "authorized"
+    },
+    {
+      "from": "pending",
+      "to": "failed"
+    },
+    {
+      "from": "authorized",
+      "to": "captured"
+    },
+    {
+      "from": "authorized",
+      "to": "failed"
+    },
+    {
+      "from": "failed",
+      "to": "authorized",
+      "note": "retry with another method"
+    },
+    {
+      "from": "captured",
+      "to": "refunded"
+    },
+    {
+      "from": "captured",
+      "to": "partially_refunded"
+    },
+    {
+      "from": "partially_refunded",
+      "to": "refunded"
+    }
   ],
   "ratingTransitions": [
-    { "from": "not_requested", "to": "pending", "when": "trip completed" },
-    { "from": "pending", "to": "submitted" },
-    { "from": "pending", "to": "skipped" }
+    {
+      "from": "not_requested",
+      "to": "pending",
+      "when": "trip completed"
+    },
+    {
+      "from": "pending",
+      "to": "submitted"
+    },
+    {
+      "from": "pending",
+      "to": "skipped"
+    }
   ],
   "cancelReasons": {
-    "rider": ["pickup_incorrect", "wrong_ride_option", "requested_by_mistake", "wait_too_long", "destination_change", "driver_not_suitable", "plans_changed", "something_else"],
-    "driverBeforeTrip": ["rider_requested_cancel", "rider_not_at_pickup", "unsafe_pickup", "vehicle_issue_before_start", "driver_emergency_before_start", "other_before_start"],
-    "driverDuringTrip": ["rider_requested_early_end", "safety_concern_on_trip", "vehicle_issue_on_trip", "accident_or_road_emergency", "rider_behavior", "trip_or_destination_issue", "other_on_trip"],
-    "driverNextTrip": ["next_trip_current_running_late", "next_trip_pickup_too_far", "next_trip_rider_requested", "next_trip_vehicle_issue", "next_trip_driver_emergency", "next_trip_other"],
-    "scheduled": ["scheduled_cannot_make_time", "scheduled_vehicle_issue", "scheduled_personal_emergency", "scheduled_pickup_too_far", "scheduled_trip_details", "scheduled_other"],
-    "noShow": ["rider_no_show"],
-    "admin": ["admin_safety", "admin_fraud", "admin_rider_request", "admin_driver_request", "admin_operational", "admin_other"],
-    "system": ["system_no_driver", "system_payment_failed", "system_zone_closed", "system_error"]
+    "rider": [
+      "pickup_incorrect",
+      "wrong_ride_option",
+      "requested_by_mistake",
+      "wait_too_long",
+      "destination_change",
+      "driver_not_suitable",
+      "plans_changed",
+      "something_else"
+    ],
+    "driverBeforeTrip": [
+      "rider_requested_cancel",
+      "rider_not_at_pickup",
+      "unsafe_pickup",
+      "vehicle_issue_before_start",
+      "driver_emergency_before_start",
+      "other_before_start"
+    ],
+    "driverDuringTrip": [
+      "rider_requested_early_end",
+      "safety_concern_on_trip",
+      "vehicle_issue_on_trip",
+      "accident_or_road_emergency",
+      "rider_behavior",
+      "trip_or_destination_issue",
+      "other_on_trip"
+    ],
+    "driverNextTrip": [
+      "next_trip_current_running_late",
+      "next_trip_pickup_too_far",
+      "next_trip_rider_requested",
+      "next_trip_vehicle_issue",
+      "next_trip_driver_emergency",
+      "next_trip_other"
+    ],
+    "scheduled": [
+      "scheduled_cannot_make_time",
+      "scheduled_vehicle_issue",
+      "scheduled_personal_emergency",
+      "scheduled_pickup_too_far",
+      "scheduled_trip_details",
+      "scheduled_other"
+    ],
+    "noShow": [
+      "rider_no_show"
+    ],
+    "admin": [
+      "admin_safety",
+      "admin_fraud",
+      "admin_rider_request",
+      "admin_driver_request",
+      "admin_operational",
+      "admin_other"
+    ],
+    "system": [
+      "system_no_driver",
+      "system_payment_failed",
+      "system_zone_closed",
+      "system_error"
+    ]
   },
   "realtime": {
-    "envelope": ["eventId", "tripId", "sequence", "version", "kind", "occurredAt", "serverTime"],
-    "optional": ["projection", "location", "etaSeconds", "cancelFee", "message"],
-    "kinds": ["trip_projection", "rider_cancelled", "driver_cancelled", "location", "driver_arrived", "rider_on_the_way", "payment_updated", "rating_updated", "message"],
-    "afterTerminal": ["payment_updated", "rating_updated", "message"],
+    "envelope": [
+      "eventId",
+      "tripId",
+      "sequence",
+      "version",
+      "kind",
+      "occurredAt",
+      "serverTime"
+    ],
+    "optional": [
+      "projection",
+      "location",
+      "etaSeconds",
+      "cancelFee",
+      "message"
+    ],
+    "kinds": [
+      "trip_projection",
+      "rider_cancelled",
+      "driver_cancelled",
+      "location",
+      "driver_arrived",
+      "rider_on_the_way",
+      "payment_updated",
+      "rating_updated",
+      "message"
+    ],
+    "afterTerminal": [
+      "payment_updated",
+      "rating_updated",
+      "message"
+    ],
     "rules": [
       "reject sequence < 1 or blank tripId",
       "drop a seen eventId or sequence <= last seen",
@@ -119,7 +588,18 @@
   },
   "errors": {
     "shape": "{ code, message, requestId, retryable, projection? }",
-    "codes": ["invalid_request", "unauthenticated", "forbidden", "not_found", "conflict", "invalid_transition", "version_mismatch", "rate_limited", "unavailable", "internal"]
+    "codes": [
+      "invalid_request",
+      "unauthenticated",
+      "forbidden",
+      "not_found",
+      "conflict",
+      "invalid_transition",
+      "version_mismatch",
+      "rate_limited",
+      "unavailable",
+      "internal"
+    ]
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",

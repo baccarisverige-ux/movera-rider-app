@@ -1,83 +1,896 @@
 {
-  "version": "0.3.0",
-  "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled.",
-  "scenarios": [
-    { "id": "happy_path", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["near_dropoff", "system", "approaching_dropoff"], ["complete", "driver", "completed"],
-      ["cancel", "rider", "invalid_transition"], ["cancel", "admin", "invalid_transition"] ] },
-    { "id": "multi_stop", "kind": "live", "stops": 2, "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["complete", "driver", "completed"] ] },
-    { "id": "offer_declined_then_accepted", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["offer_lapsed", "system", "searching"], ["send_offer", "system", "offered"],
-      ["accept", "driver", "accepted"] ] },
-    { "id": "no_driver_found", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["expire", "system", "expired"], ["accept", "driver", "invalid_transition"] ] },
-    { "id": "rider_cancel_while_searching", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["cancel", "rider", "cancelled_by_rider"] ] },
-    { "id": "rider_cancel_after_accept", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["cancel", "rider", "cancelled_by_rider"] ] },
-    { "id": "rider_cancel_at_pickup", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["cancel", "rider", "cancelled_by_rider"] ] },
-    { "id": "rider_cannot_cancel_onboard_but_can_end_early", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["cancel", "rider", "invalid_transition"], ["end_early", "rider", "cancelled_by_rider"] ] },
-    { "id": "driver_cancel_before_pickup_reassigns", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["cancel", "driver", "searching"], ["send_offer", "system", "offered"], ["accept", "driver", "accepted"] ] },
-    { "id": "driver_ends_trip_early", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["cancel", "driver", "cancelled_by_driver"] ] },
-    { "id": "no_show", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["no_show", "driver", "invalid_transition"],
-      ["head_to_pickup", "driver", "driver_to_pickup"], ["arrive", "driver", "arrived"], ["no_show", "driver", "no_show"],
-      ["board", "driver", "invalid_transition"] ] },
-    { "id": "admin_reassign_and_cancel", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["reassign", "admin", "searching"],
-      ["assign", "admin", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["cancel", "admin", "cancelled_by_admin"] ] },
-    { "id": "admin_completes_stuck_trip", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["complete", "admin", "completed"] ] },
-    { "id": "payment_hold_failed", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["system_cancel", "system", "cancelled_by_system"],
-      ["start_search", "system", "invalid_transition"] ] },
-    { "id": "system_failure_mid_trip", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["start_search", "system", "searching"],
-      ["send_offer", "system", "offered"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["fail", "system", "failed"], ["arrive", "driver", "invalid_transition"] ] },
-    { "id": "scheduled_claimed_then_released", "kind": "scheduled", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["accept", "driver", "accepted"],
-      ["cancel", "driver", "requested"], ["accept", "driver", "accepted"], ["head_to_pickup", "driver", "driver_to_pickup"],
-      ["arrive", "driver", "arrived"], ["board", "driver", "rider_onboard"], ["start_trip", "driver", "in_trip"],
-      ["complete", "driver", "completed"] ] },
-    { "id": "scheduled_rider_late_cancel", "kind": "scheduled", "steps": [
-      ["quote", "system", "quoted"], ["request", "rider", "requested"], ["accept", "driver", "accepted"],
-      ["cancel", "rider", "cancelled_by_rider"] ] },
-    { "id": "wrong_actor_rejected", "kind": "live", "steps": [
-      ["quote", "system", "quoted"], ["request", "driver", "invalid_transition"], ["request", "rider", "requested"],
-      ["start_search", "system", "searching"], ["send_offer", "system", "offered"], ["accept", "rider", "invalid_transition"],
-      ["accept", "driver", "accepted"], ["complete", "driver", "invalid_transition"] ] }
-  ]
+ "version": "0.3.0",
+ "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled.",
+ "scenarios": [
+  {
+   "id": "happy_path",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "near_dropoff",
+     "system",
+     "approaching_dropoff"
+    ],
+    [
+     "complete",
+     "driver",
+     "completed"
+    ],
+    [
+     "cancel",
+     "rider",
+     "invalid_transition"
+    ],
+    [
+     "cancel",
+     "admin",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "multi_stop",
+   "kind": "live",
+   "stops": 2,
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "complete",
+     "driver",
+     "completed"
+    ]
+   ]
+  },
+  {
+   "id": "offer_declined_then_accepted",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "offer_lapsed",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ]
+   ]
+  },
+  {
+   "id": "no_driver_found",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "expire",
+     "system",
+     "expired"
+    ],
+    [
+     "accept",
+     "driver",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "rider_cancel_while_searching",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "cancel",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ]
+  },
+  {
+   "id": "rider_cancel_after_accept",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "cancel",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ]
+  },
+  {
+   "id": "rider_cancel_at_pickup",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "cancel",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ]
+  },
+  {
+   "id": "rider_cannot_cancel_onboard_but_can_end_early",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "cancel",
+     "rider",
+     "invalid_transition"
+    ],
+    [
+     "end_early",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ]
+  },
+  {
+   "id": "driver_cancel_before_pickup_reassigns",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "cancel",
+     "driver",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ]
+   ]
+  },
+  {
+   "id": "driver_ends_trip_early",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "cancel",
+     "driver",
+     "cancelled_by_driver"
+    ]
+   ]
+  },
+  {
+   "id": "no_show",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "no_show",
+     "driver",
+     "invalid_transition"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "no_show",
+     "driver",
+     "no_show"
+    ],
+    [
+     "board",
+     "driver",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "admin_reassign_and_cancel",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "reassign",
+     "admin",
+     "searching"
+    ],
+    [
+     "assign",
+     "admin",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "cancel",
+     "admin",
+     "cancelled_by_admin"
+    ]
+   ]
+  },
+  {
+   "id": "admin_completes_stuck_trip",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "complete",
+     "admin",
+     "completed"
+    ]
+   ]
+  },
+  {
+   "id": "payment_hold_failed",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "system_cancel",
+     "system",
+     "cancelled_by_system"
+    ],
+    [
+     "start_search",
+     "system",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "system_failure_mid_trip",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "fail",
+     "system",
+     "failed"
+    ],
+    [
+     "arrive",
+     "driver",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "scheduled_claimed_then_released",
+   "kind": "scheduled",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "cancel",
+     "driver",
+     "requested"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "complete",
+     "driver",
+     "completed"
+    ]
+   ]
+  },
+  {
+   "id": "scheduled_rider_late_cancel",
+   "kind": "scheduled",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "cancel",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ]
+  },
+  {
+   "id": "wrong_actor_rejected",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "driver",
+     "invalid_transition"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "rider",
+     "invalid_transition"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "complete",
+     "driver",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "scheduled_driver_cancels_on_the_way",
+   "kind": "scheduled",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "cancel",
+     "driver",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ]
+   ]
+  }
+ ]
 }

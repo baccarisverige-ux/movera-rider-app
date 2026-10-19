@@ -99,6 +99,7 @@ Terminal: completed · cancelled_by_rider · cancelled_by_driver · cancelled_by
 | end_early (rider) | rider_onboard … approaching_dropoff | cancelled_by_rider | Pays distance driven | Island "Rider ended trip" | Trip review |
 | cancel (driver), live | accepted, driver_to_pickup, arrived | **searching** (reassign) | "Finding a new driver" | Back online; counts in cancel rate | Cancel rate, cancel reason |
 | cancel (driver), scheduled | accepted | **requested** | Reservation still booked | Leaves Accepted | Late-cancel count |
+| cancel (driver), scheduled, on the way | driver_to_pickup, arrived | **searching** | "Finding a new driver" | Back online; counts | Late-cancel count |
 | cancel (driver) | rider_onboard … approaching_dropoff | cancelled_by_driver | Trip ended, support link | Reason sheet (during-trip codes) | Incident review |
 | no_show (driver after noShowAfterMin; admin) | arrived (admin also accepted, driver_to_pickup) | no_show | No-show fee charged | No-show fee to driver (share %) | Can reverse |
 | reassign (admin) | offered … arrived | searching | "Finding a new driver" | Trip removed, island notice | Audit, reason |
