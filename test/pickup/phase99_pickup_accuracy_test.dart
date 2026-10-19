@@ -120,6 +120,8 @@ void main() {
           find.byType(CustomGoogleMap),
         );
         expect(map.circles ?? const <Circle>{}, isEmpty);
+        // The flat ring and centre pin need a flat camera: no zoom tilt here.
+        expect(map.tiltWithZoom, isFalse);
         final overlay = find.byKey(const ValueKey('pickup-accuracy-overlay'));
         expect(overlay, findsOneWidget);
         expect(

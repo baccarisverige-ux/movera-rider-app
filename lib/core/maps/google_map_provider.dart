@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
+import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/map_provider.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 
@@ -58,18 +60,24 @@ class GoogleMapProvider implements MapProvider {
     if (activeOwner != activeBefore) _notifyOwner();
   }
 
+  /// Camera pose for [target] at [zoom] on the active map, tilted for the
+  /// zoom unless that map stays flat.
+  CameraPosition _pose(GeoPoint target, double zoom, double bearing) {
+    final map = controller;
+    final tilt = map == null ? tiltForZoom(zoom) : mapViewOf(map).tiltFor(zoom);
+    return CameraPosition(
+      target: LatLng(target.latitude, target.longitude),
+      zoom: zoom,
+      bearing: bearing,
+      tilt: tilt,
+    );
+  }
+
   @override
   Future<void> moveCamera(GeoPoint target, {double zoom = 15}) async {
     final map = controller;
     if (map == null) return;
-    await map.moveCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(target.latitude, target.longitude),
-          zoom: zoom,
-        ),
-      ),
-    );
+    await placeCameraAt(map, _pose(target, zoom, 0));
   }
 
   @override
@@ -80,33 +88,45 @@ class GoogleMapProvider implements MapProvider {
   }) async {
     final map = controller;
     if (map == null) return;
-    await map.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(target.latitude, target.longitude),
-          zoom: zoom,
-          bearing: bearing,
-        ),
-      ),
-    );
+    await easeCameraTo(map, _pose(target, zoom, bearing));
   }
 
+  /// Frames both points. When the map's viewport is known the fit is one
+  /// continuous move to the fitted pose with its zoom's tilt (flat for wide
+  /// route overviews, leaning for close ones); otherwise, and on maps that
+  /// ignore tilt, it is the plain bounds fit.
   @override
   Future<void> fitBounds(GeoPoint a, GeoPoint b, {double padding = 56}) async {
     final map = controller;
     if (map == null) return;
-    await map.animateCamera(
+    final southwest = LatLng(
+      a.latitude < b.latitude ? a.latitude : b.latitude,
+      a.longitude < b.longitude ? a.longitude : b.longitude,
+    );
+    final northeast = LatLng(
+      a.latitude > b.latitude ? a.latitude : b.latitude,
+      a.longitude > b.longitude ? a.longitude : b.longitude,
+    );
+    final view = mapViewOf(map);
+    final size = view.size;
+    if (size != null && view.supportsTilt) {
+      final fitted = tiltedFitCamera(
+        southwest: southwest,
+        northeast: northeast,
+        width: size.width,
+        height: size.height,
+        padding: padding,
+        tilted: view.tiltWithZoom,
+      );
+      if (fitted != null) {
+        await easeCameraTo(map, fitted);
+        return;
+      }
+    }
+    await runCameraUpdate(
+      map,
       CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(
-            a.latitude < b.latitude ? a.latitude : b.latitude,
-            a.longitude < b.longitude ? a.longitude : b.longitude,
-          ),
-          northeast: LatLng(
-            a.latitude > b.latitude ? a.latitude : b.latitude,
-            a.longitude > b.longitude ? a.longitude : b.longitude,
-          ),
-        ),
+        LatLngBounds(southwest: southwest, northeast: northeast),
         padding,
       ),
     );
