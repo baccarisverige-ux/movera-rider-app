@@ -29,6 +29,11 @@ enum RideCancelOutcome {
   /// The server refused: the ride can no longer be cancelled (for example it
   /// already finished). Nothing was committed locally.
   rejected,
+
+  /// The server refused with `409 version_mismatch` (X7): the trip changed
+  /// since it was read. Nothing was committed or re-sent; the screen
+  /// refreshes the ride and the rider decides again.
+  stale,
 }
 
 /// UI-01: an on-board "cancel" is the contract's `end_early` — the trip
@@ -196,6 +201,8 @@ class ActiveRideController {
           return (
             outcome: status == 404
                 ? RideCancelOutcome.confirmed
+                : error.isVersionMismatch
+                ? RideCancelOutcome.stale
                 : RideCancelOutcome.rejected,
             command: entry.command,
             charged: null,

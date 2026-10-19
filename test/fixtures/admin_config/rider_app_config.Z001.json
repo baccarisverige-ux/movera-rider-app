@@ -1,0 +1,426 @@
+{
+  "version": 8,
+  "publishedAt": "2026-10-19T08:00:00Z",
+  "zoneId": "Z001",
+  "currency": "SEK",
+  "timeZone": "Europe/Stockholm",
+  "catalog": {
+    "categories": [
+      {
+        "id": "economy",
+        "label": "Movera",
+        "seats": 4,
+        "sort": 1,
+        "line": "Everyday ride"
+      },
+      {
+        "id": "comfort",
+        "label": "Comfort",
+        "seats": 4,
+        "sort": 2,
+        "line": "Newer cars, more room"
+      },
+      {
+        "id": "premium",
+        "label": "Premium",
+        "seats": 4,
+        "sort": 3,
+        "line": "High-end cars, top drivers"
+      },
+      {
+        "id": "priority",
+        "label": "Priority",
+        "seats": 4,
+        "sort": 4,
+        "line": "Faster pickup"
+      },
+      {
+        "id": "xl",
+        "label": "XL",
+        "seats": 6,
+        "sort": 5,
+        "line": "Up to 6 seats"
+      },
+      {
+        "id": "electric",
+        "label": "Electric",
+        "seats": 4,
+        "sort": 6,
+        "line": "Fully electric car"
+      },
+      {
+        "id": "pet",
+        "label": "Pet",
+        "seats": 4,
+        "sort": 7,
+        "line": "Your pet rides with you"
+      },
+      {
+        "id": "child_seat",
+        "label": "Child Seat",
+        "seats": 4,
+        "sort": 8,
+        "line": "Car with a baby or child seat"
+      }
+    ]
+  },
+  "features": {
+    "scheduledRides": true,
+    "wallet": true,
+    "pin": true,
+    "shareTrip": true
+  },
+  "paymentMethods": [
+    "card",
+    "swish",
+    "klarna",
+    "apple",
+    "google",
+    "paypal",
+    "cash",
+    "wallet"
+  ],
+  "booking": {
+    "maxStops": 3,
+    "bookingHorizonDays": 7
+  },
+  "cancelFees": {
+    "live": {
+      "economy": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "comfort": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 4500,
+        "min": null,
+        "max": null
+      },
+      "premium": {
+        "freeMin": 3,
+        "type": "percent",
+        "value": 15,
+        "min": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        },
+        "max": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        }
+      },
+      "priority": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "xl": {
+        "freeMin": 3,
+        "type": "percent",
+        "value": 15,
+        "min": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        },
+        "max": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        }
+      },
+      "electric": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "pet": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "child_seat": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      }
+    },
+    "reservation": {
+      "economy": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "comfort": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 6000,
+        "min": null,
+        "max": null
+      },
+      "premium": {
+        "freeMin": 120,
+        "type": "percent",
+        "value": 25,
+        "min": {
+          "amountMinor": 8000,
+          "currency": "SEK"
+        },
+        "max": {
+          "amountMinor": 30000,
+          "currency": "SEK"
+        }
+      },
+      "priority": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "xl": {
+        "freeMin": 120,
+        "type": "percent",
+        "value": 25,
+        "min": {
+          "amountMinor": 8000,
+          "currency": "SEK"
+        },
+        "max": {
+          "amountMinor": 30000,
+          "currency": "SEK"
+        }
+      },
+      "electric": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "pet": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "child_seat": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      }
+    }
+  },
+  "cancelCheck": {
+    "on": true,
+    "closerPct": 25
+  },
+  "waiting": {
+    "freeWaitMin": 2,
+    "perMin": {
+      "amountMinor": 1226,
+      "currency": "SEK"
+    },
+    "noShowAfterMin": 5,
+    "noShowFee": {
+      "amountMinor": 6500,
+      "currency": "SEK"
+    },
+    "byCategory": {
+      "economy": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "comfort": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "premium": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1690,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "priority": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "xl": {
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "electric": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "pet": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "child_seat": {
+        "freeWaitMin": 2,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    }
+  },
+  "cancelReasons": [
+    {
+      "code": "pickup_incorrect",
+      "title": "Pickup point is incorrect"
+    },
+    {
+      "code": "wrong_ride_option",
+      "title": "I chose the wrong ride option"
+    },
+    {
+      "code": "requested_by_mistake",
+      "title": "I requested the ride by mistake"
+    },
+    {
+      "code": "wait_too_long",
+      "title": "The wait is taking too long"
+    },
+    {
+      "code": "destination_change",
+      "title": "Destination needs to be changed"
+    },
+    {
+      "code": "driver_not_suitable",
+      "title": "Driver/ride details are not suitable"
+    },
+    {
+      "code": "plans_changed",
+      "title": "Plans changed"
+    },
+    {
+      "code": "something_else",
+      "title": "Something else"
+    }
+  ],
+  "rideCheck": {
+    "stopMinutes": 2,
+    "offRouteKm": 2,
+    "finishFarFromDropoffKm": 3,
+    "farOn": true,
+    "stopOn": true,
+    "routeOn": true,
+    "longerOn": true,
+    "longerPct": 50,
+    "crashOn": true
+  },
+  "appUpdate": {
+    "minimumVersion": "1.0.0",
+    "latestVersion": "1.0.0",
+    "byPlatform": {
+      "ios": {
+        "enabled": true,
+        "minimumVersion": "1.0.0",
+        "latestVersion": "1.0.0",
+        "mandatory": false,
+        "title": "Update Movera",
+        "message": "A new version of Movera is available.",
+        "actionLabel": "Update",
+        "dismissLabel": "Later",
+        "updateUrl": "https://apps.apple.com"
+      },
+      "android": {
+        "enabled": true,
+        "minimumVersion": "1.0.0",
+        "latestVersion": "1.0.0",
+        "mandatory": false,
+        "title": "Update Movera",
+        "message": "A new version of Movera is available.",
+        "actionLabel": "Update",
+        "dismissLabel": "Later",
+        "updateUrl": "https://play.google.com"
+      }
+    }
+  },
+  "sourceRevisions": {
+    "dispatch": 1,
+    "pricing": 1,
+    "config": 1,
+    "finance": 1,
+    "reservations": 1,
+    "rideCheck": 1,
+    "driverTexts": 1,
+    "driverNotices": 1
+  }
+}

@@ -567,6 +567,11 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice('This ride can no longer be cancelled.');
+    } else if (result == SearchCancelResult.stale) {
+      _showCancelNotice(
+        'Your ride was just updated, so it wasn’t cancelled. Check it and '
+        'try again if you still want to cancel.',
+      );
     } else if (_matchedPending || _match.matchCount > 0) {
       _showCancelNotice('A driver accepted your ride.');
     }

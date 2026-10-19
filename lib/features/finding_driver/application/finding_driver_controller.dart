@@ -55,6 +55,11 @@ enum SearchCancelResult {
   /// Nothing was committed; realtime reports the real outcome.
   rejected,
 
+  /// The server refused with `409 version_mismatch` (X7): the trip changed
+  /// since this screen read it. Nothing was committed or re-sent; the
+  /// search resyncs and the rider decides again.
+  stale,
+
   /// Nothing to do: already cancelled, finished, matched or disposed.
   ignored,
 }
@@ -1119,6 +1124,7 @@ class FindingDriverController {
           await PendingCancelStore.remove(id);
           final status = (error as ApiError).statusCode;
           if (status == 404) return SearchCancelResult.confirmed;
+          if (error.isVersionMismatch) return SearchCancelResult.stale;
           return status == 409
               ? SearchCancelResult.driverAccepted
               : SearchCancelResult.rejected;
