@@ -117,10 +117,10 @@ abstract final class RideProjection {
     // Contract v0.3.0: `fare: Money` is the authoritative fare.
     final fare = Money.fromWire(ride['fare']);
     if (fare != null) return fare.major;
-    final minor = ride['totalMinor'];
-    if (minor is num) return minor / 100;
+    final minor = Money.tryMinor(ride['totalMinor'], ride['currency']);
+    if (minor != null) return minor.major;
     final total = Money.tryParse(ride['total']);
-    if (total != null) return total.amountMinor / 100;
+    if (total != null) return total.major;
     final legacy = ride['price'] ?? ride['bookedPrice'];
     return legacy is num ? legacy.toDouble() : null;
   }

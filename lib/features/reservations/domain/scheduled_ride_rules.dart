@@ -77,27 +77,42 @@ class ScheduledRideRules {
 
   /// What cancelling [ride] at [now] costs the rider.
   ///
-  /// Free until [freeCancelWindow] before pickup; after that the admin fee.
-  /// A ride whose pickup time has passed without a driver is always free:
-  /// Movera did not deliver it.
-  ReservationCancelTerms cancelTermsFor(Reservation ride, DateTime now) {
-    final freeUntil = ride.scheduledPickupAt.subtract(freeCancelWindow);
+  /// [categoryRule] is the zone's rule for the ride's category
+  /// (`RiderAppConfig.cancelFees.reservation[categoryId]`, X3); without one
+  /// the single rule above applies. Free until the rule's window before
+  /// pickup; after that its fee, worked out on the ride's fare in the
+  /// ride's currency. A ride whose pickup time has passed without a driver
+  /// is always free: Movera did not deliver it.
+  ReservationCancelTerms cancelTermsFor(
+    Reservation ride,
+    DateTime now, {
+    FeeRule? categoryRule,
+  }) {
+    final rule = categoryRule ?? feeRule;
+    final window = Duration(minutes: rule.freeMin);
+    final freeUntil = ride.scheduledPickupAt.subtract(window);
     final missedByMovera =
         ride.driver == null && !now.isBefore(ride.scheduledPickupAt);
     // Contract v0.3.0: the shared FeeRule calculator decides (reservation:
-    // free while minutesBeforePickup >= freeMin), the same one Driver and
-    // Admin replay against fixtures/cancel_fees.json.
+    // free while minutesBeforePickup >= freeMin), replayed against
+    // fixtures/cancel_fees.json.
+    final fare = Money.fromLegacyMajor(ride.price, ride.currency);
     final fee = CancelFeeCalculator.reservation(
-      feeRule,
-      Money.fromLegacyMajor(ride.price, lateCancelFee.currency),
+      rule,
+      fare,
       ride.scheduledPickupAt.difference(now).inMinutes,
     );
+    // The fee a cancel inside the window costs (a percent rule depends on
+    // the fare, so it is worked out for this ride).
+    final lateFee = categoryRule == null
+        ? lateCancelFee
+        : CancelFeeCalculator.reservation(rule, fare, rule.freeMin - 1);
     final charged = fee.isPositive && !missedByMovera;
     return ReservationCancelTerms(
       at: now,
       freeUntil: freeUntil,
-      window: freeCancelWindow,
-      lateFee: lateCancelFee,
+      window: window,
+      lateFee: lateFee,
       fee: charged ? fee : null,
     );
   }

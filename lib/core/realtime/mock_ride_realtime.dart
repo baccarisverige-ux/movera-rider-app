@@ -129,6 +129,14 @@ class MockRideRealtime implements RideRealtime {
     _resumeVersion = null;
 
     if (_rideId == rideId && !disposed && !cancelled) {
+      // RC-08: [unsubscribe] cancelled the only assignment timer. A search
+      // for the same ride subscribing again must still get a driver.
+      if (lastStatus == RideStatus.findingDriver &&
+          _assign == null &&
+          !held &&
+          !_assignmentInFlight) {
+        _armAssignment(rideId);
+      }
       return _controller.stream;
     }
     _assign?.cancel();
@@ -197,12 +205,23 @@ class MockRideRealtime implements RideRealtime {
     _sequence = 0;
     lastStatus = RideStatus.findingDriver;
     lastDriver = null;
-    _emit(RideStatus.findingDriver);
+    // RC-08: like the resume path, deliver the first status once the
+    // caller's listener is attached (a broadcast stream drops it otherwise).
+    scheduleMicrotask(() {
+      if (cancelled || disposed || _rideId != rideId) return;
+      if (lastStatus != RideStatus.findingDriver) return;
+      _emit(RideStatus.findingDriver);
+    });
+    _armAssignment(rideId);
+    return _controller.stream;
+  }
+
+  void _armAssignment(String rideId) {
     _assign = Timer(assignAfter, () {
+      _assign = null;
       if (cancelled || disposed || held || _rideId != rideId) return;
       assignNow();
     });
-    return _controller.stream;
   }
 
   void holdAssignment() {

@@ -6,7 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -27,7 +31,19 @@ class InProcessMockClient extends http.BaseClient {
     this.latency = Duration.zero,
     this.searchExpiresAfter = const Duration(minutes: 3),
     this.persistSafety = false,
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
+
+  /// The time the cancel-fee windows are measured with (tests move it).
+  final DateTime Function() _clock;
+
+  /// X7: the rider config the stand-in server charges cancel fees from
+  /// (`cancelFees.live` / `.reservation` per category). Tests may replace it.
+  RiderAppConfig riderConfig = SeedRiderConfigRepository.seed;
+
+  /// When a driver accepted each trip (the start of the live free-cancel
+  /// window). Server-side only; not part of the projection.
+  final Map<String, DateTime> _acceptedAt = {};
 
   final Duration latency;
 
@@ -606,32 +622,49 @@ class InProcessMockClient extends http.BaseClient {
         method == 'POST') {
       final id = parts[4];
       final ride = rides[id];
+      final command = parts.last == 'end-early' ? 'end_early' : 'cancel';
+      final reasonCode = body['reasonCode'];
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        status = 409;
+        payload = stale;
+      } else if (reasonCode != null &&
+          !_reasonAllowed(reasonCode, command, TripActor.rider)) {
+        // X7: a reason code outside the rider group (contract.json
+        // #cancelReasons) is refused, never stored.
+        status = 400;
+        payload = _invalidReason(reasonCode, TripActor.rider, requestId);
       } else if (_statusOf(ride) == TripStatus.cancelledByRider) {
         // Cancel-first: the rider's optional reason arrives after the cancel.
-        final reason = body['reasonCode'] ?? body['reason'];
+        final reason = reasonCode ?? body['reason'];
         if (reason is String && ride['cancellationReason'] == null) {
           ride['cancellationReason'] = reason;
-          (ride['cancellation'] as Map?)?['reasonCode'] = reason;
+          if (reasonCode is String) {
+            (ride['cancellation'] as Map?)?['reasonCode'] = reasonCode;
+          }
         }
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       } else {
         // `cancel` before boarding, `end_early` once the rider is on board
         // (POST .../end-early); anything else is invalid_transition.
-        final command = parts.last == 'end-early' ? 'end_early' : 'cancel';
+        // The fee is worked out before the command clears the driver.
+        final fee = command == 'cancel' ? _riderCancelFee(ride) : null;
         if (!_apply(ride, command, TripActor.rider)) {
           status = 409;
           payload = _invalidTransition(ride, command, requestId);
         } else {
-          final reason = body['reasonCode'] ?? body['reason'];
+          final reason = reasonCode ?? body['reason'];
           if (reason is String) ride['cancellationReason'] = reason;
           ride['cancellation'] = {
             'actor': TripActor.rider.wireName,
-            'reasonCode': reason is String ? reason : null,
+            'reasonCode': reasonCode is String ? reasonCode : null,
             'at': ride['updatedAt'],
-            'fee': null,
+            // Contract §6: the live or reservation FeeRule of the trip's
+            // category; null when free. End-early is not a cancel fee: the
+            // rider pays the trip's `fare`.
+            'fee': fee?.toJson(),
           };
           payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
         }
@@ -659,15 +692,33 @@ class InProcessMockClient extends http.BaseClient {
       // `{paymentStatus}` / `{ratingStatus}` after completion. Nothing here
       // bypasses the transition table.
       final ride = rides[parts[4]];
+      final simulatedActor =
+          TripActorWire.parse(body['actor']) ?? TripActor.driver;
+      final simulatedReason = body['reasonCode'];
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        status = 409;
+        payload = stale;
+      } else if (simulatedReason != null &&
+          (body['command'] is! String ||
+              !_reasonAllowed(
+                simulatedReason,
+                body['command'] as String,
+                simulatedActor,
+              ))) {
+        status = 400;
+        payload = _invalidReason(simulatedReason, simulatedActor, requestId);
       } else {
         final denied = _simulate(ride, body);
         if (denied != null) {
           status = 409;
           payload = _invalidTransition(ride, denied, requestId);
         } else {
+          if (simulatedReason is String && ride['cancellation'] is Map) {
+            (ride['cancellation'] as Map)['reasonCode'] = simulatedReason;
+          }
           if (body['driver'] is Map) ride['driver'] = body['driver'];
           if (body['lat'] != null) ride['driverLat'] = body['lat'];
           if (body['lng'] != null) ride['driverLng'] = body['lng'];
@@ -1198,6 +1249,13 @@ class InProcessMockClient extends http.BaseClient {
     );
     if (to == null) return false;
     ride['status'] = to.wireName;
+    final tripId = (ride['tripId'] ?? ride['id']).toString();
+    if (to == TripStatus.accepted) {
+      _acceptedAt[tripId] = _clock();
+    } else if (to == TripStatus.searching || to == TripStatus.requested) {
+      // Back in dispatch: the next accept starts a new free window.
+      _acceptedAt.remove(tripId);
+    }
     if (to == TripStatus.searching && from != TripStatus.offered) {
       // Back in dispatch (driver drop / admin reassign): the old driver is
       // gone and the search clock restarts.
@@ -1228,6 +1286,130 @@ class InProcessMockClient extends http.BaseClient {
       },
     );
     return true;
+  }
+
+  /// `409 version_mismatch` with the projection when [body] carries an
+  /// `expectedVersion` that is not the trip's current version (contract §1
+  /// Concurrency). Null when it matches or is absent (pre-v0.3 clients).
+  static Map<String, dynamic>? _versionMismatch(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+    String requestId,
+  ) {
+    final expected = body['expectedVersion'];
+    if (expected == null) return null;
+    final current = (ride['version'] as num?)?.toInt() ?? 0;
+    if (expected is int && expected == current) return null;
+    return {
+      'code': 'version_mismatch',
+      'message': 'The trip is at version $current, not $expected.',
+      'requestId': requestId,
+      'retryable': false,
+      'projection': ride,
+      'ride': ride,
+    };
+  }
+
+  /// Whether [code] is a reason [actor] may give for [command]
+  /// (`contract.json#cancelReasons`, by actor group).
+  static bool _reasonAllowed(Object? code, String command, TripActor actor) {
+    if (code is! String) return false;
+    final groups = switch ((actor, command)) {
+      (TripActor.rider, 'cancel' || 'end_early') => [CancelReasonCodes.rider],
+      (TripActor.driver, 'no_show') => [CancelReasonCodes.noShow],
+      (TripActor.driver, 'cancel') => [
+        _driverBeforeTrip,
+        _driverDuringTrip,
+        _driverNextTrip,
+        _driverScheduled,
+      ],
+      (TripActor.admin, _) => [CancelReasonCodes.admin],
+      (TripActor.system, _) => [CancelReasonCodes.system],
+      _ => const <List<String>>[],
+    };
+    return groups.any((group) => group.contains(code));
+  }
+
+  static const _driverBeforeTrip = [
+    'rider_requested_cancel',
+    'rider_not_at_pickup',
+    'unsafe_pickup',
+    'vehicle_issue_before_start',
+    'driver_emergency_before_start',
+    'other_before_start',
+  ];
+  static const _driverDuringTrip = [
+    'rider_requested_early_end',
+    'safety_concern_on_trip',
+    'vehicle_issue_on_trip',
+    'accident_or_road_emergency',
+    'rider_behavior',
+    'trip_or_destination_issue',
+    'other_on_trip',
+  ];
+  static const _driverNextTrip = [
+    'next_trip_current_running_late',
+    'next_trip_pickup_too_far',
+    'next_trip_rider_requested',
+    'next_trip_vehicle_issue',
+    'next_trip_driver_emergency',
+    'next_trip_other',
+  ];
+  static const _driverScheduled = [
+    'scheduled_cannot_make_time',
+    'scheduled_vehicle_issue',
+    'scheduled_personal_emergency',
+    'scheduled_pickup_too_far',
+    'scheduled_trip_details',
+    'scheduled_other',
+  ];
+
+  static Map<String, dynamic> _invalidReason(
+    Object? code,
+    TripActor actor,
+    String requestId,
+  ) => {
+    'code': 'invalid_request',
+    'message': '$code is not a ${actor.wireName} cancel reason.',
+    'requestId': requestId,
+    'retryable': false,
+  };
+
+  /// What a rider cancel costs now (contract §6 FeeRule, the shared
+  /// calculator): live trips from the category's live rule, counted from
+  /// the driver's accept (free before one accepted); scheduled trips from
+  /// the reservation rule, counted to pickup (free once pickup passed with
+  /// no driver). Null when free.
+  Money? _riderCancelFee(Map<String, dynamic> ride) {
+    final fareMinor = _fareMinor(ride);
+    if (fareMinor == null) return null;
+    final fare = Money(fareMinor, currency);
+    final category = CategoryIds.canonical(
+      (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+    );
+    final now = _clock();
+    Money? fee;
+    if (_kindOf(ride) == TripKind.scheduled) {
+      final rule = riderConfig.reservationFeeFor(category);
+      final pickup = WireTime.tryParse(ride['scheduledAt']);
+      if (rule == null || pickup == null) return null;
+      if (ride['driver'] == null && !now.isBefore(pickup)) return null;
+      fee = CancelFeeCalculator.reservation(
+        rule,
+        fare,
+        pickup.difference(now).inMinutes,
+      );
+    } else {
+      final rule = riderConfig.liveFeeFor(category);
+      final accepted = _acceptedAt[(ride['tripId'] ?? ride['id']).toString()];
+      if (rule == null || accepted == null) return null;
+      fee = CancelFeeCalculator.live(
+        rule,
+        fare,
+        now.difference(accepted).inMinutes,
+      );
+    }
+    return fee.isPositive ? fee : null;
   }
 
   /// `409 invalid_transition` (contract errors shape) with the projection.

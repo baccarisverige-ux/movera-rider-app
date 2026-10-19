@@ -819,11 +819,31 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _showCancelProblem(RideCancelOutcome result) {
-    final message = result == RideCancelOutcome.rejected
-        ? 'This ride can no longer be cancelled.'
-        : "We couldn't reach Movera to confirm your cancellation. Your ride "
-              "is still active until it's confirmed — we'll retry "
-              "automatically when you're back online.";
+    if (result == RideCancelOutcome.stale) {
+      // X7: the trip changed under the cancel. Read it again; the rider
+      // decides again from what it shows now (nothing is re-sent).
+      final id = _rideId?.trim();
+      if (id != null && id.isNotEmpty) {
+        unawaited(
+          _realtime.reconnectAndResync(id).catchError((Object error) {
+            AppLog.warning(
+              'ride.cancel.resync_failed',
+              extra: {'rideId': id, 'error': error.toString()},
+            );
+          }),
+        );
+      }
+    }
+    final message = switch (result) {
+      RideCancelOutcome.rejected => 'This ride can no longer be cancelled.',
+      RideCancelOutcome.stale =>
+        'Your ride was just updated, so it wasn’t cancelled. Check it and '
+            'try again if you still want to cancel.',
+      _ =>
+        "We couldn't reach Movera to confirm your cancellation. Your ride "
+            "is still active until it's confirmed — we'll retry "
+            "automatically when you're back online.",
+    };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),

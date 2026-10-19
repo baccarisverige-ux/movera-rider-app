@@ -170,6 +170,9 @@ class AppScope {
       rulesSource: flags.scheduledRides || flags.bookingLater
           ? ApiScheduledRideRulesSource(api)
           : null,
+      // X3: reservation cancel fees per category from the rider config.
+      config: SeedRiderConfigRepository.seed,
+      configLoader: () => riderConfig.current(),
     );
     // FLOW-7: the name, language and consents go to the server; the device
     // copy is the cache. With the mock transport the in-process mock

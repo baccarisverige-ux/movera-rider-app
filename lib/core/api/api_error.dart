@@ -16,6 +16,10 @@ class ApiError implements Exception {
   bool get isUnauthorized => statusCode == 401;
   bool get isForbidden => statusCode == 403;
   bool get isAuthenticationFailure => isUnauthorized || isForbidden;
+
+  /// `409 version_mismatch` (contract §1 Concurrency): the trip changed
+  /// since the caller last read it. Nothing was applied; read it again.
+  bool get isVersionMismatch => statusCode == 409 && code == 'version_mismatch';
   bool get isRetryable =>
       statusCode == 408 ||
       statusCode == 429 ||

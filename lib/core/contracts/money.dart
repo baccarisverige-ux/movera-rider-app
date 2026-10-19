@@ -14,14 +14,13 @@ class Money {
 
   static const zeroSek = Money(0);
 
-  /// A legacy whole-unit amount (`price: 259.0`) converted once, here.
-  factory Money.fromLegacyMajor(
-    num major, [
-    String currency = defaultCurrency,
-  ]) => Money(
-    (major * 100).round(),
-    normalizeCurrency(currency) ?? defaultCurrency,
-  );
+  /// A legacy whole-unit amount (`price: 259.0`) converted once, here,
+  /// with the currency's ISO exponent (RC-07: 1.5 TND is 1500 millimes,
+  /// 1.5 SEK is 150 öre).
+  factory Money.fromLegacyMajor(num major, [String currency = defaultCurrency]) {
+    final code = normalizeCurrency(currency) ?? defaultCurrency;
+    return Money((major * _pow10(exponentOf(code))).round(), code);
+  }
 
   /// Parses `{amountMinor, currency}`. Returns null for anything else,
   /// including a currency that is not a three-letter ISO-4217 code.
