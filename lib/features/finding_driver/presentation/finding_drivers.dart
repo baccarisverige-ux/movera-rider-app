@@ -204,6 +204,13 @@ class _FindingDriversState extends State<FindingDrivers> {
         _terminalPending = status;
         _drainDeferredNavigation();
       },
+      onCancelRefused: () {
+        if (!mounted) return;
+        setState(() {});
+        _showCancelNotice(
+          'A driver already accepted your ride, so it wasn’t cancelled.',
+        );
+      },
     );
   }
 
@@ -270,6 +277,11 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   Future<void> _handleTerminal(RideStatus status) async {
     if (!mounted || _leaving) return;
+    if (status == RideStatus.cancelledByRider && _match.cancelled) {
+      // RC-03: the server confirmed a cancel that was waiting offline.
+      await _finishCommittedCancel();
+      return;
+    }
     _leaving = true;
     setState(() {});
     final ended = _match.ownershipSnapshot;
@@ -505,11 +517,12 @@ class _FindingDriversState extends State<FindingDrivers> {
     await _resumeFindingAfterDriverCancel();
   }
 
-  /// Cancel-first (CODE-3): Cancel request commits the cancel straight away
-  /// — server first, the outbox when offline, History archived, snapshot
-  /// cleared — and only then offers the optional why-sheet, whose reason is
-  /// sent as feedback. A reload while that sheet is open therefore lands on
-  /// Home. If the server says a driver already accepted (RIDE-4), nothing is
+  /// Cancel-first (CODE-3): Cancel request commits the cancel once the
+  /// server confirms it — History archived, snapshot cleared — and only then
+  /// offers the optional why-sheet, whose reason is sent as feedback. A
+  /// reload while that sheet is open therefore lands on Home. Offline the
+  /// request waits in the outbox and the search shows "Cancelling…" until
+  /// the server answers (RC-03). If the server says a driver already accepted (RIDE-4), nothing is
   /// cancelled and the deferred match moves the rider on to Waiting.
   Future<void> _confirmCancel() async {
     if (_leaving || _cancelSheetOpen) return;
@@ -536,11 +549,19 @@ class _FindingDriversState extends State<FindingDrivers> {
       return;
     }
     if (result != null && _isCommitted(result)) {
-      await _finishCommittedCancel(queued: result == SearchCancelResult.queued);
+      await _finishCommittedCancel();
       return;
     }
     _cancelSheetOpen = false;
-    if (result == SearchCancelResult.driverAccepted) {
+    if (result == SearchCancelResult.queued) {
+      // RC-03: offline. Nothing is cancelled yet; the search shows
+      // "Cancelling…" until the server confirms it or a driver accepted.
+      setState(() {});
+      _showCancelNotice(
+        'We couldn’t reach Movera. We’ll cancel your ride as soon as '
+        'you’re back online.',
+      );
+    } else if (result == SearchCancelResult.driverAccepted) {
       _showCancelNotice(
         'A driver already accepted your ride, so it wasn’t cancelled.',
       );
@@ -553,10 +574,9 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   static bool _isCommitted(SearchCancelResult result) =>
-      result == SearchCancelResult.confirmed ||
-      result == SearchCancelResult.queued;
+      result == SearchCancelResult.confirmed;
 
-  Future<void> _finishCommittedCancel({required bool queued}) async {
+  Future<void> _finishCommittedCancel() async {
     // The ride is over; nothing deferred may navigate from here on.
     _leaving = true;
     _terminalPending = null;
@@ -570,12 +590,6 @@ class _FindingDriversState extends State<FindingDrivers> {
     final reason = feedback.reasonId;
     if (reason != null) unawaited(_match.sendCancelReason(reason));
     if (!mounted) return;
-    if (queued) {
-      _showCancelNotice(
-        'Your request is cancelled. We’ll confirm it with Movera as soon '
-        'as you’re back online.',
-      );
-    }
     RideNavigator.home(context);
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/api/api_error.dart';
@@ -20,6 +21,7 @@ class PendingCancel {
     required this.rideId,
     this.reasonId,
     this.idempotencyKey,
+    this.command = PendingCancelCommand.cancel,
   });
 
   final String rideId;
@@ -29,26 +31,87 @@ class PendingCancel {
   /// and persists one the first time it sees such an entry.
   final String? idempotencyKey;
 
-  PendingCancel withKey(String key) =>
-      PendingCancel(rideId: rideId, reasonId: reasonId, idempotencyKey: key);
+  /// The rider command this entry stands for (RC-02): `cancel` before
+  /// boarding, `end-early` once on board. Entries written before the field
+  /// existed were all `cancel`.
+  final PendingCancelCommand command;
+
+  PendingCancel withKey(String key) => PendingCancel(
+    rideId: rideId,
+    reasonId: reasonId,
+    idempotencyKey: key,
+    command: command,
+  );
 
   PendingCancel withReason(String? reason) => PendingCancel(
     rideId: rideId,
     reasonId: reason,
     idempotencyKey: idempotencyKey,
+    command: command,
   );
 
   Map<String, dynamic> toJson() => {
     'rideId': rideId,
     'reasonId': reasonId,
     if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+    'command': command.pathSegment,
   };
 
   factory PendingCancel.fromJson(Map<String, dynamic> json) => PendingCancel(
     rideId: json['rideId'] as String,
     reasonId: json['reasonId'] as String?,
     idempotencyKey: json['idempotencyKey'] as String?,
+    command: PendingCancelCommand.parse(json['command']),
   );
+}
+
+/// The two rider commands that end a ride (contract v0.3.0).
+enum PendingCancelCommand {
+  /// Before boarding: `POST …/cancel`.
+  cancel('cancel'),
+
+  /// On board: `POST …/end-early` (pay for the distance driven).
+  endEarly('end-early');
+
+  const PendingCancelCommand(this.pathSegment);
+
+  /// The last path segment of the command endpoint.
+  final String pathSegment;
+
+  /// Unknown or missing values are `cancel`, as every pre-RC-02 entry was.
+  static PendingCancelCommand parse(Object? raw) {
+    for (final command in values) {
+      if (command.pathSegment == raw) return command;
+    }
+    return cancel;
+  }
+}
+
+/// What one outbox flush learned about an entry.
+enum PendingCancelResult {
+  /// The server accepted the command.
+  sent,
+
+  /// The server refused it (409/422) and the ride is still live: the
+  /// rider's cancel did not happen and the ride goes on.
+  refused,
+
+  /// The ride is gone or already over (404/410, or a refusal for a ride
+  /// that has ended): nothing is left to cancel.
+  gone,
+}
+
+/// A flush outcome for one ride, as reported on [PendingCancelStore.outcomes].
+class PendingCancelOutcome {
+  const PendingCancelOutcome({
+    required this.rideId,
+    required this.command,
+    required this.result,
+  });
+
+  final String rideId;
+  final PendingCancelCommand command;
+  final PendingCancelResult result;
 }
 
 /// True when a cancel request failed in a way no retry can fix: the server
@@ -63,6 +126,15 @@ bool isPermanentCancelFailure(Object error) {
 
 class PendingCancelStore {
   static const _key = 'movera_pending_cancels';
+
+  static final StreamController<PendingCancelOutcome> _outcomes =
+      StreamController<PendingCancelOutcome>.broadcast();
+
+  /// Every answer an outbox flush got (RC-02/RC-03), so a screen still
+  /// showing the ride can tell the rider instead of the entry vanishing.
+  static Stream<PendingCancelOutcome> get outcomes => _outcomes.stream;
+
+  static void report(PendingCancelOutcome outcome) => _outcomes.add(outcome);
 
   /// Decodes one stored entry, or null when it is corrupt (not JSON, not an
   /// object, no usable rideId). CODE-17: one bad entry used to throw out of
@@ -79,6 +151,7 @@ class PendingCancelStore {
         rideId: rideId,
         reasonId: reasonId is String ? reasonId : null,
         idempotencyKey: key is String && key.isNotEmpty ? key : null,
+        command: PendingCancelCommand.parse(decoded['command']),
       );
     } catch (_) {
       return null;
@@ -145,19 +218,27 @@ class PendingCancelStore {
   }
 
   /// Records the rider's intent to cancel [rideId] before the request is
-  /// sent, reusing the entry (and its idempotency key) if one already exists.
+  /// sent, reusing the entry (and its idempotency key) if one already exists
+  /// for the same [command]. A different command is a different request,
+  /// so it replaces the entry with its own key.
   static Future<PendingCancel> enqueue({
     required String rideId,
     String? reasonId,
     String? idempotencyKey,
+    PendingCancelCommand command = PendingCancelCommand.cancel,
   }) async {
     final existing = await find(rideId);
-    if (existing != null && existing.idempotencyKey != null) return existing;
+    if (existing != null &&
+        existing.command == command &&
+        existing.idempotencyKey != null) {
+      return existing;
+    }
     final entry = PendingCancel(
       rideId: rideId,
       reasonId: reasonId ?? existing?.reasonId,
       idempotencyKey:
           idempotencyKey ?? newIdempotencyKey('ride-cancel'),
+      command: command,
     );
     await add(entry);
     return entry;

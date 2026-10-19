@@ -39,6 +39,13 @@ class ActiveRideController {
 
   ApiClient get api => _api ?? AppScope.instance.api;
 
+  /// RC-02/RC-03: ride ids whose queued cancel or end-early the server
+  /// refused once it was sent, while the ride goes on.
+  static Stream<String> get queuedCancelRefusals => PendingCancelStore
+      .outcomes
+      .where((outcome) => outcome.result == PendingCancelResult.refused)
+      .map((outcome) => outcome.rideId);
+
   void markArriving() {
     AppScope.instance.ride.localTransition(RideStatus.driverArriving);
   }
@@ -119,20 +126,23 @@ class ActiveRideController {
     String id, {
     String? reasonId,
   }) async {
-    final entry = await PendingCancelStore.enqueue(
-      rideId: id,
-      reasonId: reasonId,
-    );
     // Contract v0.3.0: once the rider is on board the command is
-    // `end_early` (pay for the distance driven), not `cancel`.
+    // `end_early` (pay for the distance driven), not `cancel`. The outbox
+    // keeps which one, so a retry after reconnect sends the same (RC-02).
     final onboard = tripRiderOnboardStatuses.contains(
       AppScope.instance.ride.status.tripStatus,
     );
-    final command = onboard ? 'end-early' : 'cancel';
+    final command =
+        onboard ? PendingCancelCommand.endEarly : PendingCancelCommand.cancel;
+    final entry = await PendingCancelStore.enqueue(
+      rideId: id,
+      reasonId: reasonId,
+      command: command,
+    );
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
         await api.post(
-          '/api/v1/rides/$id/$command',
+          '/api/v1/rides/$id/${entry.command.pathSegment}',
           body: CancelReasonCodes.riderCancelBody(entry.reasonId ?? reasonId),
           idempotencyKey: entry.idempotencyKey,
         );

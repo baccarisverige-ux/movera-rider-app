@@ -305,7 +305,8 @@ void main() {
   );
 
   testWidgets(
-    'offline: the cancel is committed and kept in the outbox with its reason',
+    'offline: nothing is committed, the search shows Cancelling… and the '
+    'outbox keeps the cancel until the server confirms it (RC-03)',
     (tester) async {
       const rideId = 'cf-offline';
       await openFinding(tester, rideId);
@@ -314,18 +315,34 @@ void main() {
       await confirmCancel(tester);
       await pumpUntil(
         tester,
-        () => find.text('Why are you cancelling?').evaluate().isNotEmpty,
+        () => find.text('Cancelling your ride…').evaluate().isNotEmpty,
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
-      expect(await RideSnapshotStore.read(), isNull);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(find.text('Why are you cancelling?'), findsNothing);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
       final queued = await PendingCancelStore.all();
       expect(queued.single.rideId, rideId);
       final key = queued.single.idempotencyKey;
       expect(key, isNotNull);
       // Both in-session attempts reused the outbox key.
       expect(backend.cancelKeys, [key, key]);
+
+      // Back online: the outbox sends the same request; the server's answer
+      // commits the cancel and only then is the why-sheet offered.
+      backend.onCancel = null;
+      unawaited(FindingDriverController.flushPendingCancels(api: api));
+      await pumpUntil(
+        tester,
+        () => find.text('Why are you cancelling?').evaluate().isNotEmpty,
+      );
+      expect(backend.cancelKeys.last, key);
+      expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
+      expect(await RideSnapshotStore.read(), isNull);
+      expect(await PendingCancelStore.all(), isEmpty);
+      expect(server.rides[rideId]!['status'], 'cancelled_by_rider');
 
       await tester.tap(find.text('Plans changed'));
       await tester.pump();
@@ -335,10 +352,6 @@ void main() {
         () => find.byType(FindingDrivers).evaluate().isEmpty,
       );
       await tester.pump(const Duration(milliseconds: 400));
-
-      final after = await PendingCancelStore.all();
-      expect(after.single.idempotencyKey, key);
-      expect(after.single.reasonId, isNotNull);
     },
   );
 
