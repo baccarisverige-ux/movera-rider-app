@@ -198,6 +198,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
+  StreamSubscription<String>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -236,6 +237,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
     }
+    _outboxSub = ActiveRideController.queuedCancelRefusals.listen(
+      _onQueuedCancelRefused,
+    );
     final rideId = _rideId;
     if (rideId != null && rideId.trim().isNotEmpty) {
       _tracking.start(
@@ -258,6 +262,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   bool _missingRideId = false;
+
+  /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
+  /// the server once it was sent. The ride goes on; say so.
+  void _onQueuedCancelRefused(String rideId) {
+    if (!mounted || _leaving) return;
+    if (rideId != _rideId?.trim()) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Couldn't cancel. Your ride is still on."),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 6),
+      ),
+    );
+  }
 
   /// RIDE-7: the stage this ride is already known to be in (a restore seeds
   /// the session from the snapshot), so tracking starts there.
@@ -1075,6 +1093,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   @override
   void dispose() {
+    unawaited(_outboxSub?.cancel());
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _settleTimer?.cancel();

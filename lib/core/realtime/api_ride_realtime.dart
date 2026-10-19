@@ -8,6 +8,7 @@ import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 
@@ -93,9 +94,15 @@ class ApiRideRealtime implements RideRealtime {
       if (_disposed || !identical(_rides[poll.id], poll)) return;
       poll.retryAt = null;
       poll.notFound = 0;
-      final rawRide = json['ride'];
-      if (rawRide is! Map) throw const FormatException('Missing ride projection');
-      final ride = Map<String, dynamic>.from(rawRide);
+      // Contract v0.3 §1: a success response is the bare TripProjection.
+      // The pre-v0.3 `{code, ride}` envelope is still read during the
+      // migration; only that envelope carries event fields beside `ride`.
+      final projection = tripProjectionOf(json);
+      if (projection == null) {
+        throw const FormatException('Missing ride projection');
+      }
+      final ride = projection;
+      final enveloped = json['ride'] is Map;
       var status = RideStatusWire.fromProjection(ride);
       if (status == null) {
         AppLog.warning('realtime.unknown_status', extra: {
@@ -107,25 +114,33 @@ class ApiRideRealtime implements RideRealtime {
         connection.markFailed();
         return;
       }
-      final eventId = _eventId(json['eventId'] ?? ride['eventId']);
+      final envelope = enveloped ? json : const <String, dynamic>{};
+      final eventId = _eventId(envelope['eventId'] ?? ride['eventId']);
       if (eventId != null && poll.seenEventIds.contains(eventId)) {
         // The same server change again (a replay after reconnect).
         connection.markConnected();
         return;
       }
-      final version = _version(ride['version'] ?? json['version']);
-      final updatedAt = _date(ride['updatedAt'] ?? json['updatedAt']);
+      final version = _version(ride['version'] ?? envelope['version']);
+      final updatedAt = _date(ride['updatedAt'] ?? envelope['updatedAt']);
       // Contract v0.3.0 §4: the server's own `sequence` orders events and
       // the shared gate decides (dedupe by eventId, `sequence <= last` is a
       // duplicate, after a terminal status only payment/rating/message).
-      final serverSequence = _version(json['sequence'] ?? ride['sequence']);
+      // A projection's `sequence` is its resync cursor (minimum 0): 0 means
+      // no realtime event yet, so it is ordered by `version` alone.
+      final rawSequence = _version(envelope['sequence'] ?? ride['sequence']);
+      final serverSequence =
+          rawSequence != null && rawSequence > 0 ? rawSequence : null;
+      // A projection's own `kind` is the TripKind (live/scheduled), never an
+      // event kind. Without an explicit event kind the change is read from
+      // the projection: same lifecycle status, only payment or rating moved.
       final kind =
-          RealtimeKindWire.parse(json['kind'] ?? ride['eventKind']) ??
-          RealtimeKind.tripProjection;
+          RealtimeKindWire.parse(envelope['kind'] ?? ride['eventKind']) ??
+          _projectionKind(poll, ride);
       if (serverSequence != null) {
         final disposition = poll.gate.admit(
           eventId: eventId ?? '${poll.id}:$serverSequence',
-          tripId: '${ride['tripId'] ?? ride['id'] ?? poll.id}',
+          tripId: tripIdOf(ride) ?? poll.id,
           sequence: serverSequence,
           kind: kind,
           isTerminalStatus: status.tripStatus.isTerminal &&
@@ -172,29 +187,32 @@ class ApiRideRealtime implements RideRealtime {
       final reassigned = status.isSearching &&
           (poll.lastStatus?.isMatched ?? false);
       if (reassigned) status = RideStatus.cancelledByDriver;
+      final location = _location(ride);
       final rawDriver = ride['driver'];
       final driver = rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
           : null;
       if (poll.version == version && poll.updatedAt == updatedAt &&
           poll.lastStatus == status &&
-          poll.lastLat == ride['driverLat'] &&
-          poll.lastLng == ride['driverLng']) {
+          poll.lastLat == location.lat &&
+          poll.lastLng == location.lng) {
         connection.markConnected();
         return;
       }
       poll.version = version ?? poll.version;
       poll.updatedAt = updatedAt ?? poll.updatedAt;
       poll.lastStatus = status;
-      poll.lastLat = ride['driverLat'];
-      poll.lastLng = ride['driverLng'];
+      poll.lastWireStatus = ride['status'];
+      poll.lastPaymentStatus = ride['paymentStatus'];
+      poll.lastRatingStatus = ride['ratingStatus'];
+      poll.lastLat = location.lat;
+      poll.lastLng = location.lng;
       if (eventId != null) poll.remember(eventId);
-      // The server's sequence, else its version. Only a legacy server that
-      // sends neither gets a local counter (compatibility, one release).
-      final sequence = serverSequence ?? version ?? _nextSequence(poll.id);
-      final serverLocationAt = _date(
-        ride['locationAt'] ?? ride['driverLocationAt'],
-      );
+      // The server's sequence (0 = no realtime event yet), else its
+      // version. Only a legacy server that sends neither gets a local
+      // counter (compatibility, one release).
+      final sequence = rawSequence ?? version ?? _nextSequence(poll.id);
+      final serverLocationAt = location.at;
       poll.controller?.add(RideRealtimeEvent(
         rideId: poll.id,
         status: status,
@@ -204,12 +222,12 @@ class ApiRideRealtime implements RideRealtime {
         version: version,
         serverTime: updatedAt,
         driver: driver,
-        latitude: (ride['driverLat'] as num?)?.toDouble(),
-        longitude: (ride['driverLng'] as num?)?.toDouble(),
+        latitude: location.lat,
+        longitude: location.lng,
         etaSeconds: _seconds(ride['etaSeconds']),
         locationAt: _onDeviceClock(
           serverLocationAt,
-          serverNow: _date(json['serverTime'] ?? ride['serverTime']),
+          serverNow: _date(envelope['serverTime'] ?? ride['serverTime']),
         ),
         payload: {
           if (serverLocationAt != null)
@@ -238,6 +256,45 @@ class ApiRideRealtime implements RideRealtime {
     } finally {
       poll.inFlight = false;
     }
+  }
+
+  /// The event kind of a polled projection that names none. After a
+  /// terminal status the gate lets only payment/rating changes through, so
+  /// a projection whose lifecycle status is unchanged and whose payment or
+  /// rating status moved is that update (RC-01); anything else is a
+  /// `trip_projection`.
+  RealtimeKind _projectionKind(_RidePoll poll, Map<String, dynamic> ride) {
+    if (poll.lastWireStatus == null || ride['status'] != poll.lastWireStatus) {
+      return RealtimeKind.tripProjection;
+    }
+    if (ride['paymentStatus'] != poll.lastPaymentStatus) {
+      return RealtimeKind.paymentUpdated;
+    }
+    if (ride['ratingStatus'] != poll.lastRatingStatus) {
+      return RealtimeKind.ratingUpdated;
+    }
+    return RealtimeKind.tripProjection;
+  }
+
+  /// The driver position: the contract `driverLocation` GeoFix, else the
+  /// legacy flat `driverLat`/`driverLng` (pre-v0.3 wire).
+  ({double? lat, double? lng, DateTime? at}) _location(
+    Map<String, dynamic> ride,
+  ) {
+    final fix = ride['driverLocation'];
+    if (fix is Map && fix['lat'] is num && fix['lng'] is num) {
+      return (
+        lat: (fix['lat'] as num).toDouble(),
+        lng: (fix['lng'] as num).toDouble(),
+        at: _date(fix['measuredAt']) ??
+            _date(ride['locationAt'] ?? ride['driverLocationAt']),
+      );
+    }
+    return (
+      lat: (ride['driverLat'] as num?)?.toDouble(),
+      lng: (ride['driverLng'] as num?)?.toDouble(),
+      at: _date(ride['locationAt'] ?? ride['driverLocationAt']),
+    );
   }
 
   int _nextSequence(String rideId) =>
@@ -357,6 +414,9 @@ class _RidePoll {
   int? version;
   DateTime? updatedAt;
   RideStatus? lastStatus;
-  Object? lastLat;
-  Object? lastLng;
+  Object? lastWireStatus;
+  Object? lastPaymentStatus;
+  Object? lastRatingStatus;
+  double? lastLat;
+  double? lastLng;
 }

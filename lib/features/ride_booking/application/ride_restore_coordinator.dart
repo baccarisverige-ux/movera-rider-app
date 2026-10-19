@@ -36,8 +36,10 @@ class RideRestoreCoordinator {
     Future<bool> Function()? hasSession,
     SearchInterruptedNotice? interruptedNotice,
     Future<PendingCancel?> Function(String rideId)? pendingCancel,
+    Future<PendingCancelResult?> Function(String rideId)? flushCancel,
     Future<RideSnapshot?> Function()? serverActiveTrip,
   }) : _reader = reader ?? RideSnapshotStore.read,
+       _flushCancel = flushCancel ?? _defaultFlushCancel,
        _serverActiveTrip = serverActiveTrip ?? _defaultServerActiveTrip,
        _pendingCancel = pendingCancel ?? PendingCancelStore.find,
        _skipRestore = skipRestore ?? defaultSkipRestore,
@@ -53,7 +55,17 @@ class RideRestoreCoordinator {
   final Future<bool> Function() _hasSession;
   final SearchInterruptedNotice _interruptedNotice;
   final Future<PendingCancel?> Function(String rideId) _pendingCancel;
+  final Future<PendingCancelResult?> Function(String rideId) _flushCancel;
   final Future<RideSnapshot?> Function() _serverActiveTrip;
+
+  /// How long a cold restore waits for the server's answer to a queued
+  /// cancel before it shows the ride as still cancelling.
+  static const queuedCancelWait = Duration(seconds: 4);
+
+  static Future<PendingCancelResult?> _defaultFlushCancel(String rideId) =>
+      FindingDriverController.flushPendingCancels()
+          .then<PendingCancelResult?>((results) => results[rideId])
+          .timeout(queuedCancelWait, onTimeout: () => null);
 
   static Future<RideSnapshot?> _defaultServerActiveTrip() =>
       AppScope.instance.activeTrips.fetchActive();
@@ -96,9 +108,13 @@ class RideRestoreCoordinator {
       _firstRoot?.future ?? Future<void>.value();
 
   /// PR-3 follow-up: a reload while the rider's cancel was still on its way
-  /// leaves the snapshot behind with the cancel queued in the outbox. That
-  /// ride is over for the rider: archive it, drop the snapshot, let the
-  /// outbox send the cancel, and restore Home instead of the search.
+  /// leaves the snapshot behind with the cancel queued in the outbox.
+  ///
+  /// RC-03: the queued cancel is sent first and only the server's answer
+  /// ends the ride here. Confirmed (or the ride is gone): archive it, drop
+  /// the snapshot and restore Home. Refused (a driver accepted first) or no
+  /// answer yet (offline): the ride is restored, and a restored search shows
+  /// the cancel as still on its way until the server answers.
   Future<RideSnapshot?> _dropIfCancelQueued(RideSnapshot? snapshot) async {
     final id = snapshot?.rideId?.trim();
     if (snapshot == null || id == null || id.isEmpty) return snapshot;
@@ -112,7 +128,26 @@ class RideRestoreCoordinator {
       return snapshot;
     }
     if (queued == null) return snapshot;
-    AppLog.info('ride.restore.cancel_queued', extra: {'rideId': id});
+    PendingCancelResult? answer;
+    try {
+      answer = await _flushCancel(id);
+    } catch (error) {
+      AppLog.warning(
+        'ride.restore.cancel_flush_failed',
+        extra: {'rideId': id, 'error': '$error'},
+      );
+    }
+    AppLog.info('ride.restore.cancel_queued', extra: {
+      'rideId': id,
+      'answer': answer?.name ?? 'none',
+    });
+    // An end-early that went through ends the trip, it does not cancel it:
+    // the restored trip resyncs and shows how the server closed it.
+    if (queued.command != PendingCancelCommand.cancel ||
+        (answer != PendingCancelResult.sent &&
+            answer != PendingCancelResult.gone)) {
+      return snapshot;
+    }
     final session = AppScope.instance.ride;
     if (session.rideId == null || session.rideId == id) {
       session.backendReconcile(RideStatus.cancelledByRider, id: id);
@@ -125,9 +160,6 @@ class RideRestoreCoordinator {
     } catch (_) {
       await RideSnapshotStore.clear();
     }
-    unawaited(
-      FindingDriverController.flushPendingCancels().catchError((Object _) {}),
-    );
     return null;
   }
 

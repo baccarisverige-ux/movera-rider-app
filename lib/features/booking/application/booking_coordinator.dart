@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:http/http.dart' as http;
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -8,20 +10,25 @@ import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/booking/application/booking_attempt.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class BookingCoordinator {
-  BookingCoordinator({ApiClient? api}) : _api = api;
+  BookingCoordinator({ApiClient? api, ActiveTripRepository? activeTrips})
+    : _api = api,
+      _activeTrips = activeTrips;
 
   final ApiClient? _api;
+  final ActiveTripRepository? _activeTrips;
   final MutationAttempt _duplicateCancelMutation =
       MutationAttempt('duplicate-ride-cancel');
   Future<String>? _inflight;
@@ -59,12 +66,27 @@ class BookingCoordinator {
         if (identical(_inflight, started)) _inflight = null;
         if (identical(_attempt, attempt)) _attempt = null;
       },
-      onError: (Object _, StackTrace __) {
+      onError: (Object error, StackTrace _) {
         // Keep the logical attempt after failure so an explicit retry of the
-        // same booking intent reuses the exact same idempotency key.
+        // same booking intent reuses the exact same idempotency key. A
+        // refusal means no ride exists: the next try is a new booking.
         if (identical(_inflight, started)) _inflight = null;
+        if (_isRefusal(error) && identical(_attempt, attempt)) {
+          _attempt = null;
+        }
       },
     );
+  }
+
+  /// The server answered and refused (a 4xx such as an expired quote): no
+  /// ride exists. A timeout, network error or 5xx may have created one.
+  static bool _isRefusal(Object error) {
+    if (error is! ApiError) return false;
+    final status = error.statusCode;
+    return status != null &&
+        status >= 400 &&
+        status < 500 &&
+        !error.isRetryable;
   }
 
   String _requireRideId(Map<String, dynamic> json) {
@@ -144,35 +166,37 @@ class BookingCoordinator {
       ],
     });
     final attempt = _attemptFor(intentKey);
-    final started = _requestBooking(
-      body: {
-        'categoryId': rideType,
-        'paymentMethodId': paymentMethod,
-        'scheduledAt': scheduledAt,
-        if (pickupAddress != null) 'pickupAddress': pickupAddress,
-        if (pickupLat != null && pickupLng != null) ...{
-          'pickupLat': pickupLat,
-          'pickupLng': pickupLng,
-        },
-        if (destinationAddress != null)
-          'destinationAddress': destinationAddress,
-        if (destinationLat != null && destinationLng != null) ...{
-          'destinationLat': destinationLat,
-          'destinationLng': destinationLng,
-        },
-        if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
-        if (quoteId != null) ...{
-          'quoteId': quoteId,
-          'quoteSignedPayload': quoteSignedPayload,
-          'quoteExpiresAt': quoteExpiresAt?.toUtc().toIso8601String(),
-          'quoteTotalMinor': quoteTotalMinor,
-          if (quoteTotalMinor != null)
-            'fare': Money(quoteTotalMinor).toJson(),
-        },
+    final body = <String, dynamic>{
+      'categoryId': rideType,
+      'paymentMethodId': paymentMethod,
+      'scheduledAt': scheduledAt,
+      if (pickupAddress != null) 'pickupAddress': pickupAddress,
+      if (pickupLat != null && pickupLng != null) ...{
+        'pickupLat': pickupLat,
+        'pickupLng': pickupLng,
       },
-      scheduledAt: scheduledAt,
-      attempt: attempt,
-    );
+      if (destinationAddress != null)
+        'destinationAddress': destinationAddress,
+      if (destinationLat != null && destinationLng != null) ...{
+        'destinationLat': destinationLat,
+        'destinationLng': destinationLng,
+      },
+      if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
+      if (quoteId != null) ...{
+        'quoteId': quoteId,
+        'quoteSignedPayload': quoteSignedPayload,
+        'quoteExpiresAt': quoteExpiresAt?.toUtc().toIso8601String(),
+        'quoteTotalMinor': quoteTotalMinor,
+        if (quoteTotalMinor != null)
+          'fare': Money(quoteTotalMinor).toJson(),
+      },
+    };
+    // RC-04: a retry of an unfinished attempt resends its first body.
+    Future<String> send() =>
+        _requestBooking(body: body, scheduledAt: scheduledAt, attempt: attempt);
+    final replay = attempt.replay;
+    attempt.replay ??= send;
+    final started = replay != null ? replay() : send();
     _inflight = started;
     _releaseWhenDone(started, attempt);
     return started;
@@ -302,33 +326,13 @@ class BookingCoordinator {
       'useWalletFirst': useWalletFirst,
     });
 
-    final binding = await _resolveQuoteBinding(
-      baseIntent: baseIntent,
-      pickupAddress: pickupAddress,
-      destinationAddress: destinationAddress,
-      pickupLat: pickupLat,
-      pickupLng: pickupLng,
-      destinationLat: destinationLat,
-      destinationLng: destinationLng,
-      rideType: rideType,
-      requestedPrice: requestedPrice,
-      quoteId: quoteId,
-      quoteSignedPayload: quoteSignedPayload,
-      quoteExpiresAt: quoteExpiresAt,
-      quoteTotalMinor: quoteTotalMinor,
-      stops: stops,
-    );
-    final effectivePrice = binding.totalMinor / 100;
-    // "Use wallet balance first": the part the rider was shown, never more
-    // than the fare, and nothing when the rider switched it off.
-    final walletMinor = useWalletFirst
-        ? walletAmountMinor.clamp(0, binding.totalMinor).toInt()
-        : 0;
-
     // RIDE-3: the key belongs to the rider's trip, not to the quote. A
-    // retry after a timeout gets a fresh quote (and Set pickup may nudge the
-    // pin), yet it is the same booking, so it reuses the key and the server
-    // can never create a second ride for it.
+    // retry after a timeout is the same booking, so it reuses the key and
+    // the server can never create a second ride for it. RC-04: it also
+    // resends the first request unchanged (same quote, same pin), since a
+    // contract server answers a different body under the same key with
+    // 409. Notes and the wallet choice are part of the intent: changing
+    // them is a different request.
     final intentKey = jsonEncode(<String, Object?>{
       'operation': 'submitFinding',
       'pickup': _intentPoint(pickupLat, pickupLng),
@@ -338,32 +342,65 @@ class BookingCoordinator {
       'stops': [
         for (final stop in stops) _intentPoint(stop.latitude, stop.longitude),
       ],
+      'notes': notes.toJson(),
+      'useWalletFirst': useWalletFirst,
     });
     final attempt = _attemptFor(intentKey);
 
     try {
-      final id = await _submitFinding(
-        pickupAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        pickupLat: pickupLat,
-        pickupLng: pickupLng,
-        destinationLat: destinationLat,
-        destinationLng: destinationLng,
-        rideType: rideType,
-        price: effectivePrice,
-        paymentMethod: paymentMethod,
-        quoteId: binding.id,
-        quoteSignedPayload: binding.signedPayload,
-        quoteExpiresAt: binding.expiresAt,
-        quoteTotalMinor: binding.totalMinor,
-        rideTypeLabel: rideTypeLabel,
-        paymentMethodLabel: paymentMethodLabel,
-        notes: notes,
-        stops: stops,
-        useWalletFirst: useWalletFirst,
-        walletAmountMinor: walletMinor,
-        attempt: attempt,
-      );
+      final replay = attempt.replay;
+      String id;
+      if (replay != null) {
+        id = await _sendOrRecover(attempt, replay, destinationLat, destinationLng);
+      } else {
+        final binding = await _resolveQuoteBinding(
+          baseIntent: baseIntent,
+          pickupAddress: pickupAddress,
+          destinationAddress: destinationAddress,
+          pickupLat: pickupLat,
+          pickupLng: pickupLng,
+          destinationLat: destinationLat,
+          destinationLng: destinationLng,
+          rideType: rideType,
+          requestedPrice: requestedPrice,
+          quoteId: quoteId,
+          quoteSignedPayload: quoteSignedPayload,
+          quoteExpiresAt: quoteExpiresAt,
+          quoteTotalMinor: quoteTotalMinor,
+          stops: stops,
+        );
+        final effectivePrice = binding.totalMinor / 100;
+        // "Use wallet balance first": the part the rider was shown, never
+        // more than the fare, and nothing when the rider switched it off.
+        final walletMinor = useWalletFirst
+            ? walletAmountMinor.clamp(0, binding.totalMinor).toInt()
+            : 0;
+        Future<String> send({bool isReplay = false}) => _submitFinding(
+          pickupAddress: pickupAddress,
+          destinationAddress: destinationAddress,
+          pickupLat: pickupLat,
+          pickupLng: pickupLng,
+          destinationLat: destinationLat,
+          destinationLng: destinationLng,
+          rideType: rideType,
+          price: effectivePrice,
+          paymentMethod: paymentMethod,
+          quoteId: binding.id,
+          quoteSignedPayload: binding.signedPayload,
+          quoteExpiresAt: binding.expiresAt,
+          quoteTotalMinor: binding.totalMinor,
+          rideTypeLabel: rideTypeLabel,
+          paymentMethodLabel: paymentMethodLabel,
+          notes: notes,
+          stops: stops,
+          useWalletFirst: useWalletFirst,
+          walletAmountMinor: walletMinor,
+          attempt: attempt,
+          isReplay: isReplay,
+          onSending: () => attempt.replay ??= () => send(isReplay: true),
+        );
+        id = await _sendOrRecover(attempt, send, destinationLat, destinationLng);
+      }
       if (identical(_attempt, attempt)) _attempt = null;
       if (_autoQuoteIntent == baseIntent) {
         _autoQuoteIntent = null;
@@ -374,14 +411,87 @@ class BookingCoordinator {
       // The server answered and refused (a 4xx such as an expired quote):
       // no ride exists, so the next try is a new booking with a new key.
       // A timeout, network error or 5xx keeps the key: the ride may exist.
-      final status = error.statusCode;
-      final refused = status != null &&
-          status >= 400 &&
-          status < 500 &&
-          !error.isRetryable;
-      if (refused && identical(_attempt, attempt)) _attempt = null;
+      if (_isRefusal(error) && identical(_attempt, attempt)) _attempt = null;
       rethrow;
     }
+  }
+
+  /// RC-09: a timeout, network error or 5xx after the request went out may
+  /// still have created the ride. Before the rider is told the booking
+  /// failed, the same request is sent once more (same key, same body) and
+  /// then the server is asked for the rider's active trip; a live trip to
+  /// the same destination is this booking and is adopted.
+  Future<String> _sendOrRecover(
+    BookingAttempt attempt,
+    Future<String> Function() send,
+    double destinationLat,
+    double destinationLng,
+  ) async {
+    try {
+      return await send();
+    } catch (error) {
+      final replay = attempt.replay;
+      if (!maybeCreated(error) || replay == null) rethrow;
+      AppLog.warning('booking.maybe_created', extra: {'error': '$error'});
+      try {
+        return await replay();
+      } catch (again) {
+        if (!maybeCreated(again)) rethrow;
+      }
+      final adopted = await _adoptActiveTrip(destinationLat, destinationLng);
+      if (adopted != null) return adopted;
+      rethrow;
+    }
+  }
+
+  /// A failure after which the server may still have created the ride: a
+  /// timeout, a dropped connection or a 5xx (never a refusal).
+  static bool maybeCreated(Object error) => error is ApiError
+      ? error.isRetryable
+      : error is http.ClientException;
+
+  /// The rider's live trip on the server, when it is the booking being
+  /// made (same destination): adopted as the created ride. Null otherwise.
+  Future<String?> _adoptActiveTrip(
+    double destinationLat,
+    double destinationLng,
+  ) async {
+    RideSnapshot? trip;
+    try {
+      trip = await (_activeTrips ?? AppScope.instance.activeTrips).fetchActive();
+    } catch (error) {
+      AppLog.warning('booking.active_trip_failed', extra: {'error': '$error'});
+      return null;
+    }
+    final id = trip?.rideId?.trim();
+    if (trip == null ||
+        id == null ||
+        id.isEmpty ||
+        trip.status.isTerminal ||
+        trip.status.tripStatus.isTerminal) {
+      return null;
+    }
+    final same = _intentPoint(trip.destinationLat, trip.destinationLng)
+            ?.join(',') ==
+        _intentPoint(destinationLat, destinationLng)?.join(',');
+    if (!same) return null;
+    final collision = await _standDownIfFindingOwned(createdRideId: id);
+    if (collision != null) return collision;
+    final session = AppScope.instance.ride;
+    session.backendReconcile(
+      trip.status,
+      id: id,
+      version: trip.version,
+      updatedAt: trip.serverUpdatedAt,
+    );
+    session
+      ..bookedCategoryId = trip.categoryId ?? session.bookedCategoryId
+      ..bookedPaymentMethodId =
+          trip.paymentMethodId ?? session.bookedPaymentMethodId
+      ..bookedMaxOfferMinor = trip.maxOfferMinor ?? session.bookedMaxOfferMinor;
+    await RideSnapshotStore.save(trip);
+    AppLog.info('booking.adopted_active_trip', extra: {'rideId': id});
+    return id;
   }
 
   Future<_BookingQuoteBinding> _resolveQuoteBinding({
@@ -496,10 +606,14 @@ class BookingCoordinator {
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
     required BookingAttempt attempt,
+    bool isReplay = false,
+    void Function()? onSending,
   }) async {
     if (quoteId.trim().isEmpty ||
         quoteSignedPayload.trim().isEmpty ||
-        !quoteExpiresAt.isAfter(DateTime.now()) ||
+        // A replay may carry a quote that expired meanwhile: the server
+        // either returns the ride it already created or refuses it.
+        (!isReplay && !quoteExpiresAt.isAfter(DateTime.now())) ||
         quoteTotalMinor <= 0 ||
         // ARCH-11: the shown price must be the quote, compared in öre.
         Money.fromLegacyMajor(price).amountMinor != quoteTotalMinor) {
@@ -507,6 +621,7 @@ class BookingCoordinator {
     }
 
     final key = attempt.idempotencyKey;
+    onSending?.call();
     final json = await _client.post(
       '/api/v1/rides',
       body: {

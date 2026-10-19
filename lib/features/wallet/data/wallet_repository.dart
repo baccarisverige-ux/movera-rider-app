@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_balance_repository.dart';
@@ -128,11 +130,21 @@ class WalletStore implements WalletBalanceSource {
 /// The device-local ledger behind [WalletStore] (demo/dev only). It is not
 /// `ServerBackedRepository`, so a release composition that exposes the
 /// wallet with it fails (ARCH-6).
+///
+/// RC-10: like the server ledger it stands in for, it ignores the
+/// `previous` balance the caller passes. Each movement re-reads the stored
+/// balance and writes it back inside one serialized section, in öre, so a
+/// ride charge or a refund that lands while the Wallet page is open is
+/// never overwritten by a top-up computed from the page's stale balance.
 class LocalWalletRepository implements WalletBalanceRepository {
   LocalWalletRepository([WalletBalanceSource? source])
       : _source = source ?? WalletStore();
 
   final WalletBalanceSource _source;
+
+  /// The movement in progress, shared by every instance: they all write the
+  /// one stored balance. Cleared as soon as that movement ends.
+  static Future<void>? _running;
 
   @override
   bool get available => true;
@@ -140,37 +152,44 @@ class LocalWalletRepository implements WalletBalanceRepository {
   @override
   Future<double> loadBalance() => _source.loadBalance();
 
+  /// Applies [deltaKr] to the stored balance, serialized with every other
+  /// movement, and returns the new balance.
+  Future<double> _apply(double deltaKr) async {
+    final previous = _running;
+    final done = Completer<void>();
+    _running = done.future;
+    try {
+      if (previous != null) await previous;
+      final current = await _source.loadBalance();
+      final nextMinor = (current * 100).round() + (deltaKr * 100).round();
+      final next = nextMinor / 100;
+      await _source.saveBalance(next);
+      return next;
+    } finally {
+      done.complete();
+      if (identical(_running, done.future)) _running = null;
+    }
+  }
+
   @override
   Future<double> creditTopUp({
     required String paymentIntentId,
     required double previous,
     required double amount,
-  }) async {
-    final next = previous + amount;
-    await _source.saveBalance(next);
-    return next;
-  }
+  }) => _apply(amount);
 
   @override
   Future<double> debitRide({
     String? rideId,
     required double previous,
     required double amount,
-  }) async {
-    final next = previous - amount;
-    await _source.saveBalance(next);
-    return next;
-  }
+  }) => _apply(-amount);
 
   @override
   Future<double> refund({
     required double previous,
     required double amount,
-  }) async {
-    final next = previous + amount;
-    await _source.saveBalance(next);
-    return next;
-  }
+  }) => _apply(amount);
 }
 
 /// The wallet of a build where it is switched off: no balance, and every

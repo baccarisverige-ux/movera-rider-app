@@ -1425,12 +1425,18 @@ class _SelectRideState extends State<SelectRide>
           if (rideId.trim().isEmpty) {
             throw StateError('Booking response did not contain a ride id.');
           }
-        } catch (_) {
+        } catch (error) {
           if (!mounted) return;
+          // RC-09: a booking that may exist on the server is not "refused".
+          final uncertain = BookingController.mayHaveBooked(error);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'We could not book this ride. Check the fare and try again.',
+                uncertain
+                    ? 'We couldn’t confirm your booking. Check your '
+                          'connection and try again.'
+                    : 'We could not book this ride. Check the fare and try '
+                          'again.',
               ),
             ),
           );

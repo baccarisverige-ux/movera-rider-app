@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/booking/data/booking_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -6,6 +7,11 @@ class BookingController {
   BookingController({BookingRepository? store})
       : _store = store ?? BookingRepository();
   final BookingRepository _store;
+
+  /// RC-09: the booking failed in a way that may still have created the
+  /// ride (timeout, dropped connection, 5xx) after its own recovery.
+  static bool mayHaveBooked(Object error) =>
+      BookingCoordinator.maybeCreated(error);
 
   Future<String> submitFinding({
     required String pickupAddress,

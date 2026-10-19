@@ -10,6 +10,9 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 
 class ApiClient {
+  /// `X-Api-Version` on every request: `contract.json#headers` (v0.3).
+  static const apiVersion = '0.3';
+
   ApiClient({
     http.Client? client,
     AppEnv? env,
@@ -77,7 +80,7 @@ class ApiClient {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Request-Id': requestId,
-        'X-Api-Version': 'v1',
+        'X-Api-Version': apiVersion,
         if (access != null) 'Authorization': 'Bearer $access',
         if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       };
