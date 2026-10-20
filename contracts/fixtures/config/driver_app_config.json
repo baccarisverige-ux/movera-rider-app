@@ -1,17 +1,195 @@
 {
-  "version": 7, "publishedAt": "2026-10-19T08:00:00Z", "zoneId": "Z001", "currency": "SEK", "timeZone": "Europe/Stockholm",
-  "catalog": { "categories": [ { "id": "economy", "label": "Movera", "seats": 4, "sort": 1 }, { "id": "comfort", "label": "Comfort", "seats": 4, "sort": 2 } ] },
-  "features": { "scheduledRides": true, "performance": true },
-  "offers": { "radarSeconds": 15, "exclusiveSeconds": 15, "offerCard": { "netFare": true, "pickupAddress": true, "dropoffAreaOnly": false, "stops": true },
-    "exclusiveReasons": [ { "id": "closest", "text": "You are the closest driver", "on": true } ],
-    "autoOffline": { "missedExclusive": 5, "hiddenComesBackMin": 2 } },
-  "pickupPay": { "perKm": { "amountMinor": 500, "currency": "SEK" }, "perMin": { "amountMinor": 100, "currency": "SEK" }, "freeKm": 1, "freeMin": 2, "ranges": [], "display": "total" },
-  "cancelFees": { "live": { "economy": { "freeMin": 2, "type": "fixed", "value": 3500, "min": null, "max": null } }, "reservation": { "economy": { "freeMin": 60, "type": "fixed", "value": 5000, "min": null, "max": null } } },
-  "waiting": { "freeWaitMin": 2, "perMin": { "amountMinor": 500, "currency": "SEK" }, "noShowAfterMin": 5, "noShowFee": { "amountMinor": 5000, "currency": "SEK" }, "driverSharePct": 80 },
-  "destinationMode": { "perDay": 2 }, "nextTrips": { "on": true },
-  "cancelReasons": { "driverBeforeTrip": ["rider_requested_cancel", "rider_not_at_pickup"], "driverDuringTrip": ["safety_concern_on_trip"], "driverNextTrip": ["next_trip_other"], "scheduled": ["scheduled_other"], "noShow": ["rider_no_show"] },
-  "drivingLimits": { "maxHoursPerDay": 12, "restMinutes": 30 },
-  "rideCheck": { "stopMinutes": 2, "offRouteKm": 3 },
-  "texts": { "byLanguage": {} }, "notices": {},
-  "appUpdate": { "minimumVersion": "1.0.0", "latestVersion": "1.2.0" }
+  "version": 7,
+  "publishedAt": "2026-10-19T08:00:00Z",
+  "zoneId": "Z001",
+  "currency": "SEK",
+  "timeZone": "Europe/Stockholm",
+  "country": "SE",
+  "languages": {
+    "available": [
+      "en",
+      "fr",
+      "sv"
+    ],
+    "default": {
+      "rider": "sv",
+      "driver": "sv",
+      "admin": "sv"
+    }
+  },
+  "catalog": {
+    "categories": [
+      {
+        "id": "economy",
+        "label": "Movera",
+        "seats": 4,
+        "sort": 1
+      },
+      {
+        "id": "comfort",
+        "label": "Comfort",
+        "seats": 4,
+        "sort": 2
+      }
+    ]
+  },
+  "features": {
+    "scheduledRides": true,
+    "performance": true
+  },
+  "paymentMethods": [
+    "cash",
+    "card",
+    "apple_pay",
+    "google_pay"
+  ],
+  "booking": {
+    "maxStops": 3,
+    "maxPickupMoveMeters": 500
+  },
+  "offers": {
+    "radarSeconds": 15,
+    "exclusiveSeconds": 15,
+    "offerCard": {
+      "netFare": true,
+      "pickupAddress": true,
+      "dropoffAreaOnly": false,
+      "stops": true
+    },
+    "exclusiveReasons": [
+      {
+        "id": "closest",
+        "text": "You are the closest driver",
+        "on": true
+      }
+    ],
+    "autoOffline": {
+      "missedExclusive": 3,
+      "hiddenComesBackMin": 2
+    }
+  },
+  "pickupPay": {
+    "perKm": {
+      "amountMinor": 500,
+      "currency": "SEK"
+    },
+    "perMin": {
+      "amountMinor": 100,
+      "currency": "SEK"
+    },
+    "freeKm": 1,
+    "freeMin": 2,
+    "ranges": [],
+    "display": "total"
+  },
+  "driverBonus": {
+    "defaultLimit": {
+      "amountMinor": 20000,
+      "currency": "SEK"
+    },
+    "hardMax": {
+      "amountMinor": 100000,
+      "currency": "SEK"
+    }
+  },
+  "cancelFees": {
+    "live": {
+      "economy": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      }
+    },
+    "reservation": {
+      "economy": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      }
+    }
+  },
+  "waiting": {
+    "freeWaitMin": 5,
+    "perMin": {
+      "amountMinor": 500,
+      "currency": "SEK"
+    },
+    "noShowAfterMin": 5,
+    "noShowFee": {
+      "amountMinor": 5000,
+      "currency": "SEK"
+    },
+    "driverSharePct": 80,
+    "driverShareWaitPct": 100,
+    "byCategory": {
+      "economy": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 500,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        }
+      },
+      "comfort": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 500,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        }
+      }
+    }
+  },
+  "destinationMode": {
+    "perDay": 2
+  },
+  "nextTrips": {
+    "on": true
+  },
+  "cancelReasons": {
+    "driverBeforeTrip": [
+      "rider_requested_cancel",
+      "rider_not_at_pickup"
+    ],
+    "driverDuringTrip": [
+      "safety_concern_on_trip"
+    ],
+    "driverNextTrip": [
+      "next_trip_other"
+    ],
+    "scheduled": [
+      "scheduled_other"
+    ],
+    "noShow": [
+      "rider_no_show"
+    ]
+  },
+  "drivingLimits": {
+    "maxHoursPerDay": 12,
+    "restMinutes": 30
+  },
+  "rideCheck": {
+    "stopMinutes": 2,
+    "offRouteKm": 3
+  },
+  "texts": {
+    "byLanguage": {}
+  },
+  "notices": {},
+  "appUpdate": {
+    "minimumVersion": "1.0.0",
+    "latestVersion": "1.2.0"
+  }
 }

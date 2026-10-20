@@ -3,6 +3,10 @@ import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 
+import 'zone_settings.dart';
+
+export 'zone_settings.dart';
+
 /// One category of the zone's catalog (`catalog.categories[]`).
 class RiderConfigCategory {
   const RiderConfigCategory({
@@ -26,9 +30,12 @@ class RiderConfigCancelReason {
   final String title;
 }
 
-/// Waiting at pickup and no-show (`waiting`).
-class RiderWaitingRules {
-  const RiderWaitingRules({
+/// Waiting at pickup and no-show of one category (`CategoryWaiting`).
+/// Owner Q41: the no-show is allowed once the free wait is over, so
+/// [noShowAfterMin] normally equals [freeWaitMin]; [perMin] is the waiting
+/// fee per minute after the free wait (Q42).
+class RiderCategoryWaiting {
+  const RiderCategoryWaiting({
     required this.freeWaitMin,
     required this.perMin,
     required this.noShowAfterMin,
@@ -39,6 +46,24 @@ class RiderWaitingRules {
   final Money perMin;
   final int noShowAfterMin;
   final Money noShowFee;
+}
+
+/// Waiting at pickup and no-show (`waiting`). The top-level terms are the
+/// headline category's; [byCategory] has each category's own terms.
+class RiderWaitingRules extends RiderCategoryWaiting {
+  const RiderWaitingRules({
+    required super.freeWaitMin,
+    required super.perMin,
+    required super.noShowAfterMin,
+    required super.noShowFee,
+    this.byCategory = const {},
+  });
+
+  final Map<String, RiderCategoryWaiting> byCategory;
+
+  /// The terms of [categoryId] (aliases resolved), else the top-level ones.
+  RiderCategoryWaiting forCategory(String categoryId) =>
+      byCategory[CategoryIds.tryCanonical(categoryId) ?? categoryId] ?? this;
 }
 
 /// `RiderAppConfig` (CONTRACT.md §6), the document Admin exports per zone.
@@ -59,9 +84,16 @@ class RiderAppConfig {
     this.timeZone = defaultTimeZone,
     this.categories = const [],
     this.features = const {},
-    this.paymentMethods = const [],
+    this.paymentMethods = ZoneDefaults.paymentMethods,
     this.maxStops = defaultMaxStops,
     this.bookingHorizonDays = defaultBookingHorizonDays,
+    this.maxPickupMoveMeters = defaultMaxPickupMoveAfterAcceptMeters,
+    this.country = 'SE',
+    this.languages = const AppLanguages(rider: 'sv', driver: 'sv', admin: 'sv'),
+    this.tips = const [],
+    this.raiseSteps = const [],
+    this.promoCap,
+    this.walletUsedFirst = true,
     this.waiting,
     this.cancelReasons = const [],
     this.rideCheck = const {},
@@ -76,10 +108,11 @@ class RiderAppConfig {
   static const defaultBookingHorizonDays = 14;
 
   /// Q40: how far, in metres, a rider may move the pickup once a driver
-  /// has accepted; further means cancel and rebook. Admin will set it per
-  /// zone; the config document has no field for it yet, so this default
-  /// is what the app and the demo server use.
-  static const defaultMaxPickupMoveAfterAcceptMeters = 500;
+  /// has accepted; further means cancel and rebook. The zone's value is
+  /// `booking.maxPickupMoveMeters` ([maxPickupMoveMeters]); this is the
+  /// default (`contract.json#configDefaults`).
+  static const defaultMaxPickupMoveAfterAcceptMeters =
+      ZoneDefaults.maxPickupMoveMeters;
 
   final int version;
   final String zoneId;
@@ -97,10 +130,45 @@ class RiderAppConfig {
   /// `features.*` flags; an unknown flag reads as off ([feature]).
   final Map<String, bool> features;
 
-  /// Payment method ids offered in the zone.
+  /// Contract zone payment methods offered (`cash`, `card`, `apple_pay`,
+  /// `google_pay`; owner Q7). The wallet is separate ([walletUsedFirst]).
   final List<String> paymentMethods;
   final int maxStops;
   final int bookingHorizonDays;
+
+  /// `booking.maxPickupMoveMeters`: how far the pickup may move after
+  /// accept (Q40).
+  final int maxPickupMoveMeters;
+
+  /// ISO 3166 country of the zone (`SE`, `FR`, `TN`).
+  final String country;
+
+  /// App languages and the country's default per app (Q48/Q49).
+  final AppLanguages languages;
+
+  /// Tip options in the zone's currency, enabled or not (Q5).
+  final List<AmountOption> tips;
+
+  /// Raise-offer quick steps in the zone's currency (Q6).
+  final List<AmountOption> raiseSteps;
+
+  /// Most a promotion may take off one trip (Q10); null = no cap set.
+  final Money? promoCap;
+
+  /// The wallet balance (one per currency) pays first (Q7/Q8).
+  final bool walletUsedFirst;
+
+  /// The tips the rider may pick.
+  List<Money> get enabledTips => [
+    for (final option in tips)
+      if (option.enabled) option.amount,
+  ];
+
+  /// The raise-offer steps the rider may pick.
+  List<Money> get enabledRaiseSteps => [
+    for (final option in raiseSteps)
+      if (option.enabled) option.amount,
+  ];
 
   /// Null when neither the document nor its fallback has valid waiting rules.
   final RiderWaitingRules? waiting;
@@ -162,6 +230,12 @@ class RiderAppConfig {
 
     final booking = raw['booking'];
     final appUpdate = raw['appUpdate'];
+    final country =
+        _country(raw['country']) ??
+        base?.country ??
+        ZoneDefaults.countryOf(currency);
+    final wallet = raw['wallet'];
+    final usedFirst = wallet is Map ? wallet['usedFirst'] : null;
     return RiderAppConfig(
       version: version,
       zoneId: _string(raw['zoneId']) ?? fallback?.zoneId ?? '',
@@ -172,7 +246,35 @@ class RiderAppConfig {
       categories: _categories(raw['catalog']) ?? fallback?.categories ?? const [],
       features: _features(raw['features']) ?? fallback?.features ?? const {},
       paymentMethods:
-          _ids(raw['paymentMethods']) ?? fallback?.paymentMethods ?? const [],
+          readZonePaymentMethods(raw['paymentMethods']) ??
+          fallback?.paymentMethods ??
+          ZoneDefaults.paymentMethods,
+      maxPickupMoveMeters:
+          _count(
+            booking is Map ? booking['maxPickupMoveMeters'] : null,
+            max: 100000,
+          ) ??
+          fallback?.maxPickupMoveMeters ??
+          defaultMaxPickupMoveAfterAcceptMeters,
+      country: country,
+      languages:
+          readAppLanguages(raw['languages'], country) ??
+          (base?.country == country ? base?.languages : null) ??
+          AppLanguages.forCountry(country),
+      tips:
+          readAmountOptions(raw['tips'], currency) ??
+          base?.tips ??
+          ZoneDefaults.tipsIn(currency),
+      raiseSteps:
+          readAmountOptions(raw['raiseSteps'], currency) ??
+          base?.raiseSteps ??
+          ZoneDefaults.raiseStepsIn(currency),
+      promoCap: raw.containsKey('promoCap') && raw['promoCap'] == null
+          ? null
+          : _positive(money(raw['promoCap'])) ?? base?.promoCap,
+      walletUsedFirst: usedFirst is bool
+          ? usedFirst
+          : fallback?.walletUsedFirst ?? true,
       maxStops:
           _count(booking is Map ? booking['maxStops'] : null, max: 10) ??
           fallback?.maxStops ??
@@ -214,6 +316,12 @@ class RiderAppConfig {
   static int? _count(Object? raw, {required int max}) =>
       raw is int && raw >= 0 && raw <= max ? raw : null;
 
+  static String? _country(Object? raw) =>
+      raw is String && RegExp(r'^[A-Z]{2}$').hasMatch(raw) ? raw : null;
+
+  static Money? _positive(Money? value) =>
+      value != null && value.amountMinor > 0 ? value : null;
+
   static List<RiderConfigCategory>? _categories(Object? catalog) {
     final rows = catalog is Map ? catalog['categories'] : null;
     if (rows is! List) return null;
@@ -247,16 +355,6 @@ class RiderAppConfig {
     };
   }
 
-  static List<String>? _ids(Object? raw) {
-    if (raw is! List) return null;
-    final out = <String>[];
-    for (final id in raw) {
-      final value = _string(id);
-      if (value != null && !out.contains(value)) out.add(value);
-    }
-    return out;
-  }
-
   static RiderWaitingRules? _waiting(
     Object? raw,
     Money? Function(Object?) money,
@@ -277,7 +375,35 @@ class RiderAppConfig {
       perMin: perMin,
       noShowAfterMin: noShowAfter,
       noShowFee: noShowFee,
+      byCategory: _byCategory(raw['byCategory'], money, perMin, noShowFee),
     );
+  }
+
+  /// `waiting.byCategory`: a missing free wait takes the category default
+  /// (5 min, XL 3), a missing no-show wait equals the free wait (Q41), and
+  /// missing money takes the top-level terms. Bad rows are skipped.
+  static Map<String, RiderCategoryWaiting> _byCategory(
+    Object? raw,
+    Money? Function(Object?) money,
+    Money perMin,
+    Money noShowFee,
+  ) {
+    if (raw is! Map) return const {};
+    final out = <String, RiderCategoryWaiting>{};
+    for (final entry in raw.entries) {
+      final id = CategoryIds.tryCanonical(entry.key);
+      final row = entry.value;
+      if (id == null || row is! Map) continue;
+      final freeWait =
+          _count(row['freeWaitMin'], max: 120) ?? ZoneDefaults.freeWaitMinOf(id);
+      out[id] = RiderCategoryWaiting(
+        freeWaitMin: freeWait,
+        perMin: money(row['perMin']) ?? perMin,
+        noShowAfterMin: _count(row['noShowAfterMin'], max: 120) ?? freeWait,
+        noShowFee: money(row['noShowFee']) ?? noShowFee,
+      );
+    }
+    return Map.unmodifiable(out);
   }
 
   /// Rider codes only (`contract.json#cancelReasons.rider`); another
@@ -362,9 +488,14 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
   static const Map<String, Object?> _franceOverrides = {
     'zoneId': 'FR-PC',
     'currency': 'EUR',
+    'country': 'FR',
+    'languages': {
+      'available': ['en', 'fr', 'sv'],
+      'default': {'rider': 'fr', 'driver': 'fr', 'admin': 'fr'},
+    },
     'timeZone': 'Europe/Paris',
     'waiting': {
-      'freeWaitMin': 2,
+      'freeWaitMin': 5,
       'perMin': {'amountMinor': 115, 'currency': 'EUR'},
       'noShowAfterMin': 5,
       'noShowFee': {'amountMinor': 615, 'currency': 'EUR'},
@@ -396,9 +527,14 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
   static const Map<String, Object?> _tunisiaOverrides = {
     'zoneId': 'TN-TC',
     'currency': 'TND',
+    'country': 'TN',
+    'languages': {
+      'available': ['en', 'fr', 'sv'],
+      'default': {'rider': 'fr', 'driver': 'fr', 'admin': 'fr'},
+    },
     'timeZone': 'Africa/Tunis',
     'waiting': {
-      'freeWaitMin': 2,
+      'freeWaitMin': 5,
       'perMin': {'amountMinor': 3700, 'currency': 'TND'},
       'noShowAfterMin': 5,
       'noShowFee': {'amountMinor': 19500, 'currency': 'TND'},
@@ -434,6 +570,11 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     'zoneId': 'Z001',
     'currency': 'SEK',
     'timeZone': 'Europe/Stockholm',
+    'country': 'SE',
+    'languages': {
+      'available': ['en', 'fr', 'sv'],
+      'default': {'rider': 'sv', 'driver': 'sv', 'admin': 'sv'},
+    },
     'catalog': {
       'categories': [
         {'id': 'economy', 'label': 'Movera', 'seats': 4, 'sort': 1},
@@ -449,13 +590,62 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       'pin': false,
       'shareTrip': true,
     },
-    'paymentMethods': ['card', 'swish', 'apple', 'google', 'wallet', 'cash'],
-    'booking': {'maxStops': 3, 'bookingHorizonDays': 14},
+    'paymentMethods': ['cash', 'card', 'apple_pay', 'google_pay'],
+    'wallet': {'usedFirst': true},
+    'tips': [
+      {'amount': {'amountMinor': 1000, 'currency': 'SEK'}, 'enabled': true},
+      {'amount': {'amountMinor': 2000, 'currency': 'SEK'}, 'enabled': true},
+      {'amount': {'amountMinor': 3000, 'currency': 'SEK'}, 'enabled': true},
+    ],
+    'raiseSteps': [
+      {'amount': {'amountMinor': 5000, 'currency': 'SEK'}, 'enabled': true},
+      {'amount': {'amountMinor': 10000, 'currency': 'SEK'}, 'enabled': true},
+      {'amount': {'amountMinor': 15000, 'currency': 'SEK'}, 'enabled': true},
+      {'amount': {'amountMinor': 20000, 'currency': 'SEK'}, 'enabled': true},
+    ],
+    'promoCap': null,
+    'booking': {
+      'maxStops': 3,
+      'bookingHorizonDays': 14,
+      'maxPickupMoveMeters': 500,
+    },
     'waiting': {
-      'freeWaitMin': 2,
+      'freeWaitMin': 5,
       'perMin': {'amountMinor': 500, 'currency': 'SEK'},
       'noShowAfterMin': 5,
       'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+      'byCategory': {
+        'economy': {
+          'freeWaitMin': 5,
+          'perMin': {'amountMinor': 500, 'currency': 'SEK'},
+          'noShowAfterMin': 5,
+          'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+        'comfort': {
+          'freeWaitMin': 5,
+          'perMin': {'amountMinor': 500, 'currency': 'SEK'},
+          'noShowAfterMin': 5,
+          'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+        'premium': {
+          'freeWaitMin': 5,
+          'perMin': {'amountMinor': 500, 'currency': 'SEK'},
+          'noShowAfterMin': 5,
+          'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+        'xl': {
+          'freeWaitMin': 3,
+          'perMin': {'amountMinor': 500, 'currency': 'SEK'},
+          'noShowAfterMin': 3,
+          'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+        'electric': {
+          'freeWaitMin': 5,
+          'perMin': {'amountMinor': 500, 'currency': 'SEK'},
+          'noShowAfterMin': 5,
+          'noShowFee': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+      },
     },
     'cancelReasons': [
       {'code': 'pickup_incorrect', 'title': 'Pickup point is incorrect'},

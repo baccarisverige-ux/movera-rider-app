@@ -1,4 +1,4 @@
-# Movera shared contract v0.3.1
+# Movera shared contract v0.4.0
 
 One contract for **Rider** (Flutter), **Driver** (Flutter) and **Admin** (React/TS), so one future backend can serve all three.
 This folder is copied byte-for-byte into each repo at `contracts/`. Each repo runs contract tests that (1) check its copy matches `contracts/CHECKSUMS` and (2) replay `fixtures/*.json` through its own code. Change the contract here first, bump `version`, then copy to all three repos.
@@ -7,9 +7,9 @@ Files:
 
 | File | What |
 |---|---|
-| `contract.json` | Machine-readable source of truth: enums, terminal set, transition table, cancel codes, realtime rules, error codes, currencies, categories |
+| `contract.json` | Machine-readable source of truth: enums, terminal set, transition table, cancel codes, realtime rules, error codes, currencies, categories, languages, admin dispatch rules, config defaults |
 | `CONTRACT.md` | This document: entities, lifecycle per app, events, admin control matrix, config documents, API surface |
-| `openapi.yaml` | REST + realtime surface v0.3 (all three apps) |
+| `openapi.yaml` | REST + realtime surface v0.4 (all three apps) |
 | `fixtures/scenarios.json` | Trip lifecycle scenarios (commands × actors → status or `invalid_transition`), plus who may rate the trip afterwards (`rating`) |
 | `fixtures/events.json` | Realtime gate cases (accepted / gap / duplicate / blocked / invalid) |
 | `fixtures/money.json` | Money minor-unit cases incl. TND (3 decimals) |
@@ -26,8 +26,9 @@ Files:
 - **Location**: `Place { address?, lat, lng }` for pickup, dropoff, stops (ordered). `GeoFix { lat, lng, accuracy, heading?, measuredAt }` for device GPS only. JSON says `lat`/`lng`; Dart may keep `latitude`/`longitude` inside.
 - **Case**: keys camelCase, enum values snake_case.
 - **Categories**: ids from the admin Pricing catalog (`^[a-z][a-z0-9_]{1,31}$`). Seed: `economy, comfort, premium, priority, xl, electric, pet`. Alias `movera → economy` accepted on read for one release. Labels are display only.
-- **Payment methods**: `card, swish, klarna, apple, google, paypal, cash, wallet` (a saved card is `card` + `paymentMethodId`).
-- **Headers**: `Idempotency-Key` on every mutation (16–128 chars, server 409s on a different body under the same key), `X-Request-Id`, `X-Api-Version: 0.3`.
+- **Payment methods**: `card, apple_pay, google_pay, cash, wallet` (a saved card is `card` + `paymentMethodId`). Every country offers the same four (`contract.json#zonePaymentMethods`: `cash, card, apple_pay, google_pay`, owner Q7). No `swish`, no `d17`. `wallet` is never a config payment method: it is one balance per currency (no conversion), used first. The v0.3 ids `apple` / `google` are accepted on read as `apple_pay` / `google_pay` for one release.
+- **Languages**: `en, fr, sv` (`contract.json#languages`). Admin sets the default per country for the rider, driver and admin apps; the user can change it.
+- **Headers**: `Idempotency-Key` on every mutation (16–128 chars, server 409s on a different body under the same key), `X-Request-Id`, `X-Api-Version: 0.4`.
 - **Concurrency**: every trip/offer/driver/config command sends `expectedVersion`; a stale version gets `409 version_mismatch` with the current projection.
 - **Errors**: `{ code, message, requestId, retryable, projection? }`, codes in `contract.json#errors.codes`. `projection` is the current resource for `version_mismatch` / `invalid_transition` (trip, offer, driver, rider, vehicle or config draft). Validation and wrong PIN are 400 `invalid_request`; too many PIN attempts 429. Success responses are the bare resource.
 
@@ -38,12 +39,14 @@ TripProjection {
   tripId, status: TripStatus, version ≥1, sequence ≥0,
   kind: live | scheduled, scheduledAt?,
   createdAt, updatedAt,
+  acceptedAt: Timestamp | null,      // when a driver accepted (null before); the live free-cancel clock counts from it (owner Q12)
   riderId, driverId?, vehicleId?, zoneId, categoryId,
   pickup: Place, dropoff: Place, stops: Place[],
   quote?: { quoteId, total: Money, expiresAt },
   fare: Money,                       // current authoritative fare (rider pays)
   fareLines?: [{ code, amount: Money }],   // base, distance, time, stops, waiting, pickup_pay, surge, discount, cancel_fee
   driverEarnings?: Money, commission?: Money,
+  driverBonus?: Money,               // Movera-paid extra for the driver (admin / driver only; never in the rider's fare)
   paymentMethod, paymentMethodId?, paymentStatus?: PaymentStatus, ratingStatus: RatingStatus,
   driver?: DriverSummary, driverLocation?: GeoFix, etaSeconds?,
   waiting?: { arrivedAt, freeUntil, noShowAt, chargedSeconds },
@@ -52,8 +55,10 @@ TripProjection {
 }
 DriverSummary { driverId, firstName, rating?, tripCount?, photoUrl?, vehicle: { vehicleId?, make?, model?, color?, plate?, categoryId? } }
 Offer { offerId, tripId, kind: OfferKind, status: OfferStatus, version, expiresAt, fare: Money, driverEarnings: Money,
-        pickupPay?: Money, fareBoost?: Money, pickup: Place, dropoff: Place, stops: Place[], categoryId, paymentMethod,
+        pickupPay?: Money, fareBoost?: Money, driverBonus?: Money, priority: bool, source: system | admin, groupId?,
+        pickup: Place, dropoff: Place, stops: Place[], categoryId, paymentMethod,
         pickupEtaSeconds, pickupMeters, tripSeconds, tripMeters, riderRating?, riderTrips?, scheduledAt?, reasonCode? }
+        // driverBonus is already included in fare and driverEarnings as the driver sees them; priority → "Priority" badge
 Quote { quoteId, categoryId, total: Money, fareLines, expiresAt, pickup, dropoff, stops, surgeMultiplier? }
 Rider { riderId, firstName, phone?, email?, rating?, status: active | suspended, version }
 Driver { driverId, accountStatus: DriverAccountStatus, onlineStatus: DriverOnlineStatus, firstName, rating?, zoneIds, categoryIds, vehicleId?, documents: DocumentSummary[], version }
@@ -62,7 +67,7 @@ Document { documentId, ownerId, type, status: missing | in_review | approved | r
 PaymentIntent { paymentId, tripId, amount: Money, method, status: PaymentStatus, failureCode? }
 Refund { refundId, paymentId, amount: Money, reason, status: pending_approval | done | rejected }
 WalletEntry { entryId, ownerId, amount: Money, kind: topup | charge | refund | payout | adjustment, tripId?, at }
-Rating { tripId, from: rider | driver, stars: 0.5..5 (step 0.5), tags[], comment? }
+Rating { tripId, from: rider | driver, stars: 1..5 (whole stars, integer), tags[], comment? }
 Notification { notificationId, audience: rider | driver, kind, title, body, at, read }
 Message { messageId, tripId, from: rider | driver | support, text, at }
 ```
@@ -88,9 +93,9 @@ Terminal: completed · cancelled_by_rider · cancelled_by_driver · cancelled_by
 | quote (system) | draft | quoted | Price per category | — | Quote kept on the trip |
 | request (rider) | quoted | requested | "Finding driver" / booked reservation | — | Trip appears in lists |
 | start_search (system) | requested | searching | Searching animation | — | Live map: searching |
-| send_offer (system) / assign (admin) | searching (admin: requested, searching, offered) | offered | Still searching | Radar / Exclusive / "Assigned by Movera" card | Sees who has the offer; can assign |
+| send_offer (system) / assign (admin) | searching (admin: requested, searching, offered) | offered | Still searching | Radar / Exclusive / "Assigned by Movera" card (Priority badge when `priority`) | Direct assign or radar group (§3.1); sees offers and countdown |
 | offer_lapsed (system) | offered | searching | — | Card gone ("taken" / expired) | — |
-| accept (driver) | offered (scheduled: requested) | accepted | Driver card, car, ETA | Trip screen / Accepted reservation | Driver shown on trip |
+| accept (driver) | offered (scheduled: requested) | accepted | Driver card, car, ETA | Trip screen / Accepted reservation | Driver shown on trip; assignment locked |
 | head_to_pickup (driver) | accepted | driver_to_pickup | Car moving on map, ETA | Navigation to pickup | Live tracking |
 | arrive (driver) | driver_to_pickup | arrived | "Driver is here", waiting clock | Waiting clock, no-show timer | Waiting visible |
 | board (driver) | arrived | rider_onboard | PIN shown when required | PIN entry | — |
@@ -110,7 +115,20 @@ Terminal: completed · cancelled_by_rider · cancelled_by_driver · cancelled_by
 | system_cancel (system) | requested … accepted | cancelled_by_system | Payment problem / zone closed | Trip removed | Alert |
 | fail (system) | any active | failed | Error + support | Error + support | Alert |
 
+### 3.1 Admin dispatch tooling (owner Q13–Q18)
+
+Both tools are the admin `assign` transition (`contract.json#adminDispatch`); the trip stays `offered` until one driver accepts.
+
+- **Direct assign** `POST /admin/trips/{id}/assign {driverId}`: an exclusive offer (`kind = assigned`, `source = admin`) to one driver, who accepts or declines within `offers.exclusiveSeconds`. It counts as an exclusive offer (acceptance rate, auto-offline).
+- **Radar group** `POST /admin/trips/{id}/radar-group {driverIds[1..10]}`: one `radar` offer per chosen driver with the same `groupId`, on the zone's normal timer (`offers.radarSeconds`); the admin sees the countdown (`expiresAt`). The first to accept wins, the others get `offer_withdrawn` (`claimed_elsewhere`). Groups can be repeated while the trip is not locked.
+- **Nearby drivers** `GET /admin/trips/{id}/nearby-drivers?scope=radius|zone|zone_and_neighbours&radiusKm=` (presets 5 / 7 / 10 km or any number).
+- **Lock**: once a driver accepts (`status` in `driverAssigned` or terminal), `assign` and `radar-group` are `409 invalid_transition`.
+- **Driver bonus** ("add money to trip"): `driverBonus: Money` on assign / radar-group, or `POST /admin/trips/{id}/driver-bonus`. Paid by Movera (from its commission, possibly beyond it); the rider never pays it. The driver's `Offer.fare` and `driverEarnings` already include it, and `priority: true` shows the "Priority" badge. Above the country's `driverBonus.defaultLimit` the server answers `400 invalid_request` ("adjust the limit in Pricing"); the limit can never exceed `driverBonus.hardMax`.
+- **Events**: `GET /admin/dispatch/stream` (SSE, `AdminDispatchEvent`): `offer_sent, offer_declined, offer_expired, offer_withdrawn, offer_accepted, assignment_locked, driver_bonus_added`. The rider only sees "searching" then "driver assigned".
+
 Multi-stop: `stops[]` ordered on quote, request and projection; quotes MUST include stops. Waiting at a stop is billed per `pickupWait` rules. Route changes after request create a new quote (`/trips/{id}/route-quote`) and a `PATCH` with `expectedVersion`.
+
+Live free cancel: the `freeMin` of a live FeeRule counts from `acceptedAt` (owner Q12).
 
 Scheduled rides: `kind = scheduled`, `scheduledAt` UTC. Free cancel until `freeCancelMinutesBeforePickup` (per zone × category, §5). Dispatch starts `searchBeforeMin` before pickup. A driver claim (`accept` from `requested`) can be released (`cancel` → `requested`).
 
@@ -137,8 +155,14 @@ Every admin control below has one owner page, one config path and one defined ef
 | Pickup pay (Pricing › Pickup pay) | `driver.pickupPay` | — | Pickup pay line on offers | Added to driver earnings |
 | Live cancel fees per category (Dispatch › Rider cancel fees › Live) | `rider.cancelFees.live[categoryId]` + `driver.cancelFees.live` | Fee preview before cancel | Island fee | `riderCancelFee()` + came-closer check |
 | Reservation cancel fees per category (… › Reservations) | `rider.cancelFees.reservation[categoryId]` | Free-until time, late fee | Island fee | Late fee |
-| Waiting & no-show (Dispatch › Waiting at pickup; money in Pricing) | `rider.waiting`, `driver.waiting` | Waiting clock, price/min | Waiting clock, no-show button time | Waiting charge, no-show fee, driver share |
-| Stops (Dispatch › Stops) | `rider.booking.maxStops` | Max stops | Stop marks | Stop pricing |
+| Waiting & no-show (Dispatch › Waiting at pickup; money in Pricing) | `rider.waiting`, `driver.waiting` (+ `byCategory`) | Waiting clock, price/min per category | Waiting clock, no-show button at the category free wait | Waiting charge (100% driver), no-show fee, driver share per country |
+| Stops (Dispatch › Stops) | `rider.booking.maxStops`, `driver.booking.maxStops` | Max stops | Stop marks | Stop pricing |
+| Pickup move after accept (Dispatch) | `rider.booking.maxPickupMoveMeters`, `driver.booking.maxPickupMoveMeters` | Move pickup up to N m, further = cancel/rebook | Notified of the move | Rejects a bigger move |
+| Tips (Pricing, per country) | `rider.tips` | Tip options | — | Tip limits |
+| Raise-offer steps (Pricing, per country) | `rider.raiseSteps` | Quick "+" steps while searching | — | Fare raise |
+| Promo cap (Riders › Promotions, per country) | `rider.promoCap` | Shown in local money | — | Caps the discount |
+| Driver bonus limits (Pricing, per country) | `driver.driverBonus` | — | — | Admin "add money to trip" limits |
+| Default languages (Settings, per country) | `rider.languages`, `driver.languages` | Default app language | Default app language | — |
 | Offer modes, timers, offer card (Dispatch › Modes) | `driver.offers` | — | Radar/Exclusive timers, card fields, auto-offline | Dispatch |
 | Exclusive reasons (Dispatch) | `driver.offers.exclusiveReasons` | — | Reason line on Exclusive | — |
 | Destination mode, next trips (Dispatch) | `driver.destinationMode`, `driver.nextTrips` | — | Filters, limits | Dispatch filter |
@@ -146,7 +170,7 @@ Every admin control below has one owner page, one config path and one defined ef
 | Ride check thresholds (Safety) | `rider.rideCheck`, `driver.rideCheck` | Ride check prompts | Ride check prompts | Triggers |
 | Driving / rest hours (Dispatch › Rest) | `driver.drivingLimits` | — | Driving-time row, forced rest | Blocks going online |
 | Feature flags (Config, one registry) | `rider.features`, `driver.features` | Scheduled rides, wallet, PIN, share trip, payment methods | Scheduled rides, performance cards | Gates commands |
-| Payment methods per zone (Finance) | `rider.paymentMethods` | Methods offered | Cash collect allowed | Payment routing |
+| Payment methods per zone (Finance) | `rider.paymentMethods`, `driver.paymentMethods` | Methods offered (wallet first) | Cash collect allowed | Payment routing |
 | App texts and notices (Content) | `driver.texts`, `driver.notices` | — | Island/notice texts | — |
 | App update (Config › Updates) | `rider.appUpdate`, `driver.appUpdate` | Force/soft update | Force/soft update | — |
 | Account status (Riders/Drivers/Fleet) | entity status | Suspended screen | On hold / suspended, can't go online | Blocks commands |
@@ -160,30 +184,58 @@ Every admin control below has one owner page, one config path and one defined ef
 Two versioned documents per zone, built by the Admin exporters, read by the apps through a repository (local seed today, `GET /rider/config?zoneId` and `GET /driver/config?zoneId` later):
 
 ```
-RiderAppConfig  { version, publishedAt, zoneId, currency, timeZone,
+RiderAppConfig  { version, publishedAt, zoneId, currency, timeZone, country, languages,
   catalog: { categories: [{ id, label, seats, sort }] },
   features: { scheduledRides, wallet, pin, shareTrip, … },
-  paymentMethods: [ids],
-  booking: { maxStops, bookingHorizonDays },
+  paymentMethods: [ZonePaymentMethod],          // cash | card | apple_pay | google_pay
+  wallet: { usedFirst: bool },                  // one balance per currency; on/off is features.wallet
+  tips: [AmountOption], raiseSteps: [AmountOption], promoCap: Money | null,
+  booking: { maxStops, bookingHorizonDays, maxPickupMoveMeters },
   cancelFees: { live: { [categoryId]: FeeRule }, reservation: { [categoryId]: FeeRule } },
-  waiting: { freeWaitMin, perMin: Money, noShowAfterMin, noShowFee: Money },
+  waiting: { freeWaitMin, perMin: Money, noShowAfterMin, noShowFee: Money, byCategory: { [categoryId]: CategoryWaiting } },
   cancelReasons: [{ code, title }],
   rideCheck: {...}, appUpdate: {...} }
 
-DriverAppConfig { version, publishedAt, zoneId, currency, timeZone,
-  catalog, features,
-  offers: { radarSeconds, exclusiveSeconds, offerCard: {...}, exclusiveReasons: [...], autoOffline: {...} },
+DriverAppConfig { version, publishedAt, zoneId, currency, timeZone, country, languages,
+  catalog, features, paymentMethods: [ZonePaymentMethod],
+  booking: { maxStops, maxPickupMoveMeters },
+  offers: { radarSeconds, exclusiveSeconds, offerCard: {...}, exclusiveReasons: [...], autoOffline: { missedExclusive, … } },
   pickupPay: { perKm: Money, perMin: Money, freeKm, freeMin, ranges: [...], display: total | breakdown },
+  driverBonus: { defaultLimit: Money, hardMax: Money },
   cancelFees: { live: {...}, reservation: {...} },
-  waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct },
+  waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct, driverShareWaitPct, byCategory: { [categoryId]: CategoryWaiting } },
   destinationMode: {...}, nextTrips: {...},
   cancelReasons: { driverBeforeTrip, driverDuringTrip, driverNextTrip, scheduled, noShow },
   drivingLimits: {...}, rideCheck: {...}, texts: {...}, notices: {...}, appUpdate: {...} }
 
+languages      { available: [Language], default: { rider: Language, driver: Language, admin: Language } }   // Language = en | fr | sv
+AmountOption   { amount: Money, enabled: bool }       // in the zone's currency; disabled options are not shown
+CategoryWaiting { freeWaitMin, perMin: Money, noShowAfterMin, noShowFee: Money }   // noShowAfterMin = freeWaitMin (Q41)
 FeeRule { freeMin: int, type: fixed | percent, value: number, min: Money | null, max: Money | null }
    // live: freeMin = minutes after accept; reservation: freeMin = minutes before pickup
    // fixed: value is minor units; percent: value is 0–100 of the fare, rounded half-up to a whole minor unit, then clamped to min/max
 ```
+
+Per-zone settings (owner round 2; defaults in `contract.json#configDefaults`, used by the Admin exporter where no setting exists yet and by the apps when a field is missing or invalid):
+
+| Field | Rider | Driver | Default |
+|---|---|---|---|
+| `country` (ISO 3166 alpha-2), `timeZone` (IANA) | ✓ | ✓ | Z001 `SE` Europe/Stockholm · FR-PC `FR` Europe/Paris · TN-TC `TN` Africa/Tunis |
+| `languages` | ✓ | ✓ | available `en, fr, sv`; default `sv` in SE, `fr` in FR and TN (rider, driver and admin) |
+| `tips` | ✓ | — | SE 10 / 20 / 30 kr · FR 1 / 2 / 5 € · TN 1 / 2 / 3 DT |
+| `raiseSteps` | ✓ | — | SE +50 / 100 / 150 / 200 kr · FR +2 / 4 / 6 / 8 € · TN +2 / 4 / 6 / 8 DT |
+| `paymentMethods` | ✓ | ✓ | `cash, card, apple_pay, google_pay` in every country |
+| `wallet.usedFirst` | ✓ | — | `true` (one wallet per currency) |
+| `promoCap` | ✓ | — | `null` (no cap) until Admin sets one per country |
+| `booking.maxStops` | ✓ | ✓ | 3 |
+| `booking.maxPickupMoveMeters` | ✓ | ✓ | 500 (further = cancel and rebook; the driver is notified) |
+| `waiting.byCategory[].freeWaitMin` = `noShowAfterMin` | ✓ | ✓ | 5 min, `xl` 3 min |
+| `waiting.byCategory[].perMin` (waiting fee after the free wait) | ✓ | ✓ | from Pricing; `driverShareWaitPct` 100 |
+| `waiting.driverSharePct` (no-show fee share, per country) | — | ✓ | 80 |
+| `offers.autoOffline.missedExclusive` (missed/declined exclusive offers in a row → offline) | — | ✓ | 3 |
+| `driverBonus.defaultLimit` / `hardMax` | — | ✓ | SE 200 / 1000 kr · FR 20 / 95 € · TN 60 / 300 DT |
+
+All Money above is in the zone's currency; an amount in another currency is invalid and falls back to the default. The top-level `waiting` terms are the headline category's (`economy`, else the first).
 
 Cancel reasons: the rider document lists `{code, title}` in the rider's language; the driver document lists codes per group and the titles come from `texts`. Unknown keys are ignored; missing keys fall back to the app's seed. `version` only increases; apps keep the last good document.
 
@@ -193,6 +245,6 @@ Rider: `POST /quotes`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (ro
 
 Driver: `POST /driver/availability`, `POST /driver/location`, `GET /driver/offers`, `GET /driver/offers/stream`, `POST /offers/{id}/accept|decline`, `POST /trips/{id}/{head-to-pickup|arrive|board|start|complete|cancel|no-show}`, `POST /trips/{id}/pin/verify`, `GET /driver/reservations`, `GET /driver/config`, `GET /driver/earnings`, `/driver/profile`, `/driver/vehicles`, `/driver/documents`, `/driver/payouts`, `POST /trips/{id}/rating`.
 
-Admin: cursor lists `GET /admin/{trips|riders|drivers|vehicles|payments|refunds|payouts|tickets|incidents}?cursor&filter`, `GET /admin/trips/{id}`, trip commands `POST /admin/trips/{id}/{cancel|reassign|assign|no-show|complete|refund|adjust}`, `POST /admin/{drivers|riders}/{id}/status`, `POST /admin/vehicles/{id}/review`, `POST /admin/documents/{id}/review`, config `GET|PUT /admin/config/{doc}` (draft) + `POST /admin/config/{doc}/publish` (approval), `GET /admin/audit?cursor`, `GET /admin/approvals`, `POST /admin/approvals/{id}/{approve|reject}`. Permissions: write actions need `*.edit` permissions; refunds above the role limit return `202 pending_approval`.
+Admin: cursor lists `GET /admin/{trips|riders|drivers|vehicles|payments|refunds|payouts|tickets|incidents}?cursor&filter`, `GET /admin/trips/{id}`, trip commands `POST /admin/trips/{id}/{cancel|reassign|assign|radar-group|driver-bonus|no-show|complete|refund|adjust}`, dispatch `GET /admin/trips/{id}/offers`, `GET /admin/trips/{id}/nearby-drivers`, `GET /admin/dispatch/stream`, `POST /admin/{drivers|riders}/{id}/status`, `POST /admin/vehicles/{id}/review`, `POST /admin/documents/{id}/review`, config `GET|PUT /admin/config/{doc}` (draft) + `POST /admin/config/{doc}/publish` (approval), `GET /admin/audit?cursor`, `GET /admin/approvals`, `POST /admin/approvals/{id}/{approve|reject}`. Permissions: write actions need `*.edit` permissions; refunds above the role limit return `202 pending_approval`.
 
 Auth (all apps): bearer token; actor and scope come from the token, never from the body.

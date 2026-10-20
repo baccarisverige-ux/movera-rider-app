@@ -1,5 +1,5 @@
 {
- "version": "0.3.1",
+ "version": "0.4.0",
  "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled. Optional 'rating' maps a rater (rider | driver) to 'allowed' or 'invalid_transition' for a rating sent after the last step (contract.json#ratingAllowed: the trip's status plus the command that ended it).",
  "scenarios": [
   {
@@ -1001,6 +1001,113 @@
     "rider": "invalid_transition",
     "driver": "invalid_transition"
    }
+  },
+  {
+   "id": "admin_direct_assign_locked_after_accept",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "assign",
+     "admin",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "assign",
+     "admin",
+     "invalid_transition"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "assign",
+     "admin",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "admin_radar_groups_repeat_until_accept",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "assign",
+     "admin",
+     "offered"
+    ],
+    [
+     "offer_lapsed",
+     "system",
+     "searching"
+    ],
+    [
+     "assign",
+     "admin",
+     "offered"
+    ],
+    [
+     "assign",
+     "admin",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "assign",
+     "admin",
+     "invalid_transition"
+    ],
+    [
+     "arrive",
+     "driver",
+     "invalid_transition"
+    ]
+   ]
   }
  ]
 }

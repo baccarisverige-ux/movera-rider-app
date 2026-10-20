@@ -1,11 +1,11 @@
-# Movera API v0.3.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.4.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.3.1
+  version: 0.4.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.3.1 in this folder; this file must agree with them.
+    v0.4.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -23,7 +23,7 @@ info:
 
 
     Auth: bearer JWT. Actor (rider|driver|admin), subject id, zone scope and admin role/permissions come from the token, never
-    from the body. Token issuance (OTP/refresh) is out of scope for v0.3.'
+    from the body. Token issuance (OTP/refresh) is out of scope for v0.4.'
 servers:
 - url: https://api.dev.movera.invalid/api/v1
   description: Placeholder; no backend exists.
@@ -47,6 +47,7 @@ tags:
 - name: Driver · Account
 - name: Admin · Lists
 - name: Admin · Trips
+- name: Admin · Dispatch
 - name: Admin · People
 - name: Admin · Config
 - name: Admin · Governance
@@ -54,7 +55,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.3.1
+  version: 0.4.0
   source: contract.json
 paths:
   /quotes:
@@ -3314,7 +3315,7 @@ paths:
   /admin/trips/{tripId}/assign:
     post:
       operationId: adminAssignTrip
-      summary: Offer the trip to one driver (Assigned by Movera)
+      summary: 'Direct assign: exclusive offer to one driver (Assigned by Movera)'
       tags:
       - Admin · Trips
       x-actor:
@@ -3344,6 +3345,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/radar-group:
+    post:
+      operationId: adminSendRadarGroup
+      summary: Send the trip to a radar group of up to 10 drivers
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-transition: assign
+      x-permission: trips.edit
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRadarGroupCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRadarGroup'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3546,6 +3594,196 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/driver-bonus:
+    post:
+      operationId: adminAddDriverBonus
+      summary: Add money to the trip for the driver (paid by Movera)
+      description: Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.edit
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDriverBonusCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/offers:
+    get:
+      operationId: adminListTripOffers
+      summary: Offers of a trip (who has it, countdown)
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/nearby-drivers:
+    get:
+      operationId: adminNearbyDrivers
+      summary: Active drivers near the trip's pickup
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - radius
+          - zone
+          - zone_and_neighbours
+          default: radius
+      - name: radiusKm
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0.1
+          maximum: 100
+          examples:
+          - 5
+          - 7
+          - 10
+        description: Presets 5 / 7 / 10 km or any number (scope=radius).
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearbyDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/stream:
+    get:
+      operationId: adminStreamDispatch
+      summary: Admin dispatch feed (offers, lock, driver bonus)
+      tags:
+      - Realtime
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/After'
+      - $ref: '#/components/parameters/LastEventId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events. Each SSE `data:` line is one JSON AdminDispatchEvent; `id:` is the sequence;
+                  heartbeat comments every 15 s.
+              x-sse-data: '#/components/schemas/AdminDispatchEvent'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDispatchEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -4282,7 +4520,7 @@ components:
       required: false
       schema:
         type: string
-        const: '0.3'
+        const: '0.4'
     Cursor:
       name: cursor
       in: query
@@ -4520,14 +4758,40 @@ components:
       type: string
       enum:
       - card
-      - swish
-      - klarna
-      - apple
-      - google
-      - paypal
+      - apple_pay
+      - google_pay
       - cash
       - wallet
-      description: Payment method kind. A saved card is `card` + `paymentMethodId`.
+      x-aliases:
+        apple: apple_pay
+        google: google_pay
+      description: Payment method kind. A saved card is `card` + `paymentMethodId`. `wallet` is the rider's balance in one
+        currency (used first); v0.3 ids are accepted on read as x-aliases for one release.
+    ZonePaymentMethod:
+      type: string
+      enum:
+      - cash
+      - card
+      - apple_pay
+      - google_pay
+      description: 'Owner Q7 (final): every country offers exactly these methods, in this order; config paymentMethods is
+        a subset. No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet,
+        wallet.usedFirst).'
+    Language:
+      type: string
+      enum:
+      - en
+      - fr
+      - sv
+      description: App languages (owner Q48/Q49). Admin sets the default per country for each app; the user can change it.
+    CountryCode:
+      type: string
+      pattern: ^[A-Z]{2}$
+      examples:
+      - SE
+      - FR
+      - TN
+      description: ISO 3166-1 alpha-2 country of the zone.
     Place:
       type: object
       description: 'A place on a route: pickup, dropoff or stop (stops are ordered).'
@@ -5090,6 +5354,11 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        acceptedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: When a driver accepted; null before. The live free-cancel clock (FeeRule.freeMin) counts from it.
         riderId:
           $ref: '#/components/schemas/Id'
         driverId:
@@ -5123,6 +5392,10 @@ components:
           $ref: '#/components/schemas/Money'
         commission:
           $ref: '#/components/schemas/Money'
+        driverBonus:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Movera-paid extra for the driver (admin / driver view only). Never part of the rider's fare.
         paymentMethod:
           $ref: '#/components/schemas/PaymentMethod'
         paymentMethodId:
@@ -5180,13 +5453,37 @@ components:
         expiresAt:
           $ref: '#/components/schemas/Timestamp'
         fare:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Trip fare as the driver sees it, driverBonus included.
         driverEarnings:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Driver net, driverBonus included.
         pickupPay:
           $ref: '#/components/schemas/Money'
         fareBoost:
           $ref: '#/components/schemas/Money'
+        driverBonus:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Movera-paid extra (admin "add money to trip"), already in fare and driverEarnings. The rider never
+            pays it.
+        priority:
+          type: boolean
+          default: false
+          description: Show the "Priority" badge (red) on the offer card.
+        source:
+          type: string
+          enum:
+          - system
+          - admin
+          default: system
+          description: admin = direct assign (kind=assigned, exclusive) or radar group (kind=radar, groupId).
+        groupId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: Admin radar group this offer belongs to (contract.json#adminDispatch.radarGroup).
         pickup:
           $ref: '#/components/schemas/Place'
         dropoff:
@@ -5623,10 +5920,10 @@ components:
           - rider
           - driver
         stars:
-          type: number
-          minimum: 0.5
+          type: integer
+          minimum: 1
           maximum: 5
-          multipleOf: 0.5
+          description: Whole stars (contract.json#ratings).
         tags:
           type: array
           items:
@@ -6216,8 +6513,26 @@ components:
         offRouteKm:
           type: number
           minimum: 0
+    CategoryWaiting:
+      type: object
+      description: Waiting terms of one category. Default free wait 5 min, xl 3 min (contract.json#configDefaults).
+      properties:
+        freeWaitMin:
+          type: number
+          minimum: 0
+        perMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Waiting fee per minute after the free wait.
+        noShowAfterMin:
+          type: number
+          minimum: 0
+          description: 'Equals freeWaitMin (owner Q41): the no-show button appears when the free wait ends.'
+        noShowFee:
+          $ref: '#/components/schemas/Money'
     RiderWaiting:
       type: object
+      description: Top-level terms are the headline category's (economy, else the first).
       properties:
         freeWaitMin:
           type: number
@@ -6229,6 +6544,13 @@ components:
           minimum: 0
         noShowFee:
           $ref: '#/components/schemas/Money'
+        byCategory:
+          type: object
+          description: CategoryWaiting per categoryId.
+          propertyNames:
+            $ref: '#/components/schemas/CategoryId'
+          additionalProperties:
+            $ref: '#/components/schemas/CategoryWaiting'
     DriverWaiting:
       allOf:
       - $ref: '#/components/schemas/RiderWaiting'
@@ -6238,6 +6560,65 @@ components:
             type: number
             minimum: 0
             maximum: 100
+            description: Driver's share of the no-show fee, per country (default 80).
+          driverShareWaitPct:
+            type: number
+            minimum: 0
+            maximum: 100
+            description: Driver's share of the waiting fee (100).
+    AmountOption:
+      type: object
+      description: One admin-editable amount (tip or raise-offer step) in the zone's currency.
+      required:
+      - amount
+      - enabled
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        enabled:
+          type: boolean
+          description: Disabled options are not shown.
+    Languages:
+      type: object
+      description: App languages and the country's default per app (owner Q48/Q49).
+      required:
+      - available
+      - default
+      properties:
+        available:
+          type: array
+          items:
+            $ref: '#/components/schemas/Language'
+          uniqueItems: true
+          minItems: 1
+        default:
+          type: object
+          required:
+          - rider
+          - driver
+          - admin
+          properties:
+            rider:
+              $ref: '#/components/schemas/Language'
+            driver:
+              $ref: '#/components/schemas/Language'
+            admin:
+              $ref: '#/components/schemas/Language'
+    DriverBonusLimits:
+      type: object
+      description: Movera-paid driver bonus ("add money to trip") limits per country.
+      required:
+      - defaultLimit
+      - hardMax
+      properties:
+        defaultLimit:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Above this the admin is told to adjust the limit in Pricing.
+        hardMax:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: The limit can never be set above this.
     RiderAppConfig:
       type: object
       description: Per-zone rider document built by Admin exporters. Unknown keys are ignored; missing keys fall back to the
@@ -6264,7 +6645,13 @@ components:
           pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
           examples:
           - Europe/Stockholm
-          description: IANA zone for wall-clock rules.
+          - Europe/Paris
+          - Africa/Tunis
+          description: IANA zone of the zone, for wall-clock rules and booking times.
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        languages:
+          $ref: '#/components/schemas/Languages'
         catalog:
           $ref: '#/components/schemas/CategoryCatalog'
         features:
@@ -6283,8 +6670,30 @@ components:
         paymentMethods:
           type: array
           items:
-            $ref: '#/components/schemas/PaymentMethod'
+            $ref: '#/components/schemas/ZonePaymentMethod'
           uniqueItems: true
+          description: Methods offered in the zone; the wallet is separate.
+        wallet:
+          type: object
+          properties:
+            usedFirst:
+              type: boolean
+              description: The balance (one per currency, no conversion) pays first.
+        tips:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmountOption'
+          description: Tip options in admin order.
+        raiseSteps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmountOption'
+          description: Raise-offer quick steps while searching, in admin order.
+        promoCap:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+          description: Most a promotion may take off one trip in this country; null = no cap set.
         booking:
           type: object
           properties:
@@ -6295,6 +6704,10 @@ components:
             bookingHorizonDays:
               type: integer
               minimum: 0
+            maxPickupMoveMeters:
+              type: integer
+              minimum: 0
+              description: How far the rider may move the pickup after accept; further = cancel and rebook.
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
@@ -6342,7 +6755,13 @@ components:
           pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
           examples:
           - Europe/Stockholm
-          description: IANA zone for wall-clock rules.
+          - Europe/Paris
+          - Africa/Tunis
+          description: IANA zone of the zone, for wall-clock rules and booking times.
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        languages:
+          $ref: '#/components/schemas/Languages'
         catalog:
           $ref: '#/components/schemas/CategoryCatalog'
         features:
@@ -6354,6 +6773,23 @@ components:
               type: boolean
           additionalProperties:
             type: boolean
+        paymentMethods:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZonePaymentMethod'
+          uniqueItems: true
+          description: Methods offered in the zone; the wallet is separate.
+        booking:
+          type: object
+          properties:
+            maxStops:
+              type: integer
+              minimum: 0
+              maximum: 10
+            maxPickupMoveMeters:
+              type: integer
+              minimum: 0
+              description: Pickup move limit after accept; the driver is notified of a move.
         offers:
           type: object
           properties:
@@ -6399,6 +6835,7 @@ components:
                 missedExclusive:
                   type: integer
                   minimum: 0
+                  description: Missed or declined exclusive offers in a row before the driver is set offline (default 3).
                 hiddenComesBackMin:
                   type: number
                   minimum: 0
@@ -6435,6 +6872,8 @@ components:
               enum:
               - total
               - breakdown
+        driverBonus:
+          $ref: '#/components/schemas/DriverBonusLimits'
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
@@ -6872,6 +7311,16 @@ components:
             items:
               $ref: '#/components/schemas/Quote'
       description: Page<Quote>
+    AdminDispatchEventPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/AdminDispatchEvent'
+      description: Page<AdminDispatchEvent>
     TripCommand:
       type: object
       description: Body of driver trip commands.
@@ -7060,10 +7509,10 @@ components:
       description: stars required unless skip=true.
       properties:
         stars:
-          type: number
-          minimum: 0.5
+          type: integer
+          minimum: 1
           maximum: 5
-          multipleOf: 0.5
+          description: Whole stars (contract.json#ratings).
         tags:
           type: array
           items:
@@ -7373,7 +7822,8 @@ components:
           maxLength: 1000
     AdminAssignCommand:
       type: object
-      description: Offers the trip to one driver (offer kind=assigned); the driver still accepts.
+      description: 'Direct assign: an exclusive offer to one driver (offer kind=assigned, source=admin); the driver accepts
+        or declines. 409 invalid_transition once a driver has accepted (locked).'
       required:
       - expectedVersion
       - driverId
@@ -7387,6 +7837,170 @@ components:
         note:
           type: string
           maxLength: 1000
+        driverBonus:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Movera-paid extra for the driver, in the zone's currency; over driverBonus.defaultLimit → 400 invalid_request.
+        priority:
+          type: boolean
+          description: Show the Priority badge on the offer.
+    AdminRadarGroupCommand:
+      type: object
+      description: 'Radar group: one radar offer per chosen driver on the zone''s normal timer; the first to accept wins.
+        Repeatable until locked.'
+      required:
+      - expectedVersion
+      - driverIds
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        driverIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+        note:
+          type: string
+          maxLength: 1000
+        driverBonus:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Movera-paid extra for the driver, in the zone's currency; over driverBonus.defaultLimit → 400 invalid_request.
+        priority:
+          type: boolean
+          description: Show the Priority badge on the offer.
+    AdminRadarGroup:
+      type: object
+      required:
+      - groupId
+      - tripId
+      - offers
+      - expiresAt
+      - projection
+      properties:
+        groupId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        offers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offer'
+        expiresAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: Countdown end shown to the admin.
+        projection:
+          $ref: '#/components/schemas/TripProjection'
+    AdminDriverBonusCommand:
+      type: object
+      description: Add money to the trip for the driver (paid by Movera). Open offers are updated (offer_updated) with the
+        new fare.
+      required:
+      - expectedVersion
+      - amount
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        amount:
+          $ref: '#/components/schemas/Money'
+        priority:
+          type: boolean
+        note:
+          type: string
+          maxLength: 1000
+    NearbyDriver:
+      type: object
+      required:
+      - driverId
+      - firstName
+      - onlineStatus
+      - distanceMeters
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+        onlineStatus:
+          $ref: '#/components/schemas/DriverOnlineStatus'
+        location:
+          $ref: '#/components/schemas/GeoFix'
+        distanceMeters:
+          type: integer
+          minimum: 0
+        pickupEtaSeconds:
+          $ref: '#/components/schemas/DurationSeconds'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        categoryIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+        openOfferId:
+          $ref: '#/components/schemas/Id'
+    NearbyDriverList:
+      type: object
+      required:
+      - items
+      - scope
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NearbyDriver'
+        scope:
+          type: string
+          enum:
+          - radius
+          - zone
+          - zone_and_neighbours
+        radiusKm:
+          type: number
+          minimum: 0
+    AdminDispatchEvent:
+      type: object
+      description: 'Admin dispatch feed: offers sent, declined, expired, withdrawn or accepted, the lock, and driver bonuses.'
+      required:
+      - eventId
+      - sequence
+      - kind
+      - tripId
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        sequence:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - offer_sent
+          - offer_declined
+          - offer_expired
+          - offer_withdrawn
+          - offer_accepted
+          - assignment_locked
+          - driver_bonus_added
+        tripId:
+          $ref: '#/components/schemas/Id'
+        groupId:
+          $ref: '#/components/schemas/Id'
+        offer:
+          $ref: '#/components/schemas/Offer'
+        projection:
+          $ref: '#/components/schemas/TripProjection'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
     AdminNoShowCommand:
       type: object
       required:
