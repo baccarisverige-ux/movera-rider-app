@@ -1,0 +1,398 @@
+/* Rider Google Maps gesture layer for google_maps_flutter_web 0.5.14+2.
+ * Same camera rules as the driver app (web/driver_map_camera.js there):
+ * tilt follows zoom on every frame of a pinch or wheel zoom, tilt never
+ * blocks zoom, and a programmatic camera step is instant (no panTo glide
+ * between the frames of an ease). Uses public Maps JS APIs only.
+ */
+(() => {
+  'use strict';
+  // Maps JavaScript may arrive after this file (async/defer). Install once
+  // it is there; until then ready() is false and Dart skips every call.
+  let sdk = null;
+  const states = new Map();
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const delta = (a, b) => ((b - a + 540) % 360) - 180;
+  const touchPose = touches => {
+    const a = touches[0], b = touches[1] || a;
+    return {x: (a.clientX + b.clientX) / 2,
+      y: (a.clientY + b.clientY) / 2, ay: a.clientY, by: b.clientY,
+      span: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+      angle: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180 / Math.PI};
+  };
+  // Tilt follows zoom on every rider map (lib/core/maps/camera_tilt.dart
+  // tiltForZoom; keep both in step, and in step with the driver app):
+  // 0 deg at zoom 12, then proportional to zoom up to 67.5 deg at zoom
+  // 15.5, under the SDKs' own per-zoom limit.
+  const MAX_TILT = 67.5, FLAT_ZOOM = 12, FULL_TILT_ZOOM = 15.5;
+  const sdkMaxTilt = zoom => zoom <= 10 ? 30 : zoom <= 14 ?
+    30 + (zoom - 10) / 4 * 15 : zoom < 15.5 ?
+    45 + (zoom - 14) / 1.5 * (MAX_TILT - 45) : MAX_TILT;
+  const tiltForZoom = zoom => Number.isFinite(zoom) ?
+    Math.min(MAX_TILT * clamp((zoom - FLAT_ZOOM) /
+      (FULL_TILT_ZOOM - FLAT_ZOOM), 0, 1), sdkMaxTilt(zoom)) : 0;
+  // A zoom step carries the tilt along the curve in the same camera move,
+  // so the horizon rises as the rider zooms in and flattens as they zoom
+  // out, frame by frame. A tilt set by hand is kept as an offset.
+  // Rounding residue (1e-16) would keep a zoomed-out map a hair tilted.
+  const tiltWithZoom = (tilt, from, to) => {
+    const next = clamp(tilt + tiltForZoom(to) - tiltForZoom(from), 0, sdkMaxTilt(to));
+    return next < 1e-9 ? 0 : next;
+  };
+  function pan(state, dx, dy) {
+    const projection = state.overlay.getProjection();
+    if (!projection) return;
+    const center = projection.fromLatLngToContainerPixel(state.map.getCenter());
+    if (!center) return;
+    const target = projection.fromContainerPixelToLatLng(
+      new sdk.Point(center.x - dx, center.y - dy));
+    if (target) state.map.moveCamera({center: target});
+  }
+  function install(map, div, id) {
+    const state = {map, div, callbacks: new Set(), claim: false,
+      gesturesEnabled: true, scroll: true, zoom: true, rotate: true, tilt: true,
+      tiltFollowsZoom: true};
+    const supports3D = () => map.getRenderingType?.() === sdk.RenderingType.VECTOR;
+    state.supports3D = supports3D;
+    const overlay = new sdk.OverlayView();
+    overlay.onAdd = () => {};
+    overlay.draw = () => {};
+    overlay.onRemove = () => {};
+    overlay.setMap(map);
+    state.overlay = overlay;
+    states.set(id, state);
+    const nativeMove = map.moveCamera.bind(map);
+    const nativePanTo = typeof map.panTo === 'function'
+      ? map.panTo.bind(map)
+      : latLng => nativeMove({center: latLng});
+    // Flutter web applies a camera position with zoom/heading/tilt setters
+    // and then panTo, which glides. One frame of an app ease claims the
+    // next pan so the frame lands at once, exactly where it was asked.
+    map.panTo = latLng => {
+      if (!state.claim) { nativePanTo(latLng); return; }
+      state.claim = false;
+      nativeMove({center: latLng});
+    };
+    let previous, travel = 0, startedAt = 0, maxTouches = 0, lastTap = -Infinity;
+    let lastTapPoint = null, lastTwoFingerPoint = null;
+    let touchReleased = false;
+    // A short but real pinch is not a two-finger tap: its fractional zoom
+    // must not be followed by a full-level zoom-out on release.
+    let multiTouchMoved = false;
+    // A cancelled multi-touch stream must not be completed by a later
+    // touchend as a stationary two-finger tap.
+    let cancelledTouchSequence = false;
+    let touchOnControl = false;
+    let pointerOrigin = null;
+    let pointerReleased = false;
+    const nativeCameraControl = target => {
+      if (!target?.closest) return false;
+      if (target.closest('.gm-bundled-control, .gm-control-active')) return true;
+      const button = target.closest('button[aria-label], button[title], [role="button"][aria-label]');
+      if (!button) return false;
+      const name = (button.getAttribute?.('aria-label') ||
+          button.getAttribute?.('title') || '').toLowerCase();
+      return /zoom|förstora|förminska/.test(name);
+    };
+    state.setGesturesEnabled = enabled => {
+      state.gesturesEnabled = !!enabled;
+      if (!enabled) {
+        state.stopWheel?.();
+        previous = null; pointerOrigin = null;
+        touchReleased = false; pointerReleased = false;
+        multiTouchMoved = false; cancelledTouchSequence = false;
+        touchOnControl = false;
+        lastTap = -Infinity; lastTapPoint = null;
+      }
+    };
+    // The rider moved the map by hand: Dart stops steering the camera.
+    const release = () => {
+      if (!state.gesturesEnabled) return;
+      state.claim = false;
+      state.callbacks.forEach(callback => callback());
+    };
+    const releaseTouch = () => {
+      if (!touchReleased) { touchReleased = true; release(); }
+    };
+    // moveCamera({zoom}) scales about the map center; a pinch scales about
+    // the point between the fingers. Compensate in screen pixels so the
+    // road under the fingers stays there.
+    const zoomAt = (amount, x, y, camera = {}, gestureX = 0, gestureY = 0) => {
+      const current = Number(map.getZoom());
+      if (!Number.isFinite(current)) return;
+      const next = state.zoom ? clamp(current + amount, 3, 21) : current;
+      if (supports3D() && state.tiltFollowsZoom && !('tilt' in camera)) {
+        camera = {...camera, tilt: tiltWithZoom(map.getTilt() || 0, current, next)};
+      }
+      map.moveCamera({...camera, zoom: next});
+      let panX = state.scroll ? gestureX : 0, panY = state.scroll ? gestureY : 0;
+      const width = div.clientWidth, height = div.clientHeight;
+      if (width > 0 && height > 0 && Number.isFinite(x) &&
+          Number.isFinite(y) && next !== current) {
+        const rect = div.getBoundingClientRect?.() || {left: 0, top: 0};
+        const scale = 2 ** (next - current);
+        const localX = clamp(x - rect.left, 0, width);
+        const localY = clamp(y - rect.top, 0, height);
+        panX += (1 - scale) * (localX - width / 2);
+        panY += (1 - scale) * (localY - height / 2);
+      }
+      if (panX || panY) pan(state, panX, panY);
+    };
+    div.style.touchAction = 'none';
+    div.addEventListener('pointerdown', event => {
+      if (!state.gesturesEnabled) return;
+      if (nativeCameraControl(event.target)) { release(); pointerOrigin = null; return; }
+      if (event.pointerType === 'touch') return;
+      pointerOrigin = {x: event.clientX, y: event.clientY};
+      pointerReleased = false;
+    }, {capture: true});
+    div.addEventListener('pointermove', event => {
+      if (!state.gesturesEnabled || !pointerOrigin || pointerReleased) return;
+      if (Math.hypot(event.clientX - pointerOrigin.x,
+          event.clientY - pointerOrigin.y) >= 6) {
+        pointerReleased = true;
+        release();
+      }
+    }, {capture: true});
+    const clearPointer = () => { pointerOrigin = null; pointerReleased = false; };
+    div.addEventListener('pointerup', clearPointer, {capture: true});
+    div.addEventListener('pointercancel', clearPointer, {capture: true});
+    div.addEventListener('dblclick', release, {capture: true});
+    // Wheel / trackpad zoom on a vector map: Google's wheel animation would
+    // zoom with a fixed tilt, so this layer glides toward the wheel's goal,
+    // about the cursor, with the tilt bound to the zoom on every frame.
+    let wheelGoal = null, wheelPoint = null, wheelFrame = 0, wheelSet = null;
+    const stopWheel = () => {
+      if (wheelFrame) globalThis.cancelAnimationFrame?.(wheelFrame);
+      wheelFrame = 0; wheelGoal = null; wheelSet = null;
+    };
+    state.stopWheel = stopWheel;
+    const wheelTick = () => {
+      wheelFrame = 0;
+      const current = Number(map.getZoom());
+      // Someone else moved the camera (recenter), or Maps capped the zoom.
+      if (wheelGoal == null || !Number.isFinite(current) ||
+          (wheelSet != null && Math.abs(current - wheelSet) > .001)) {
+        stopWheel();
+        return;
+      }
+      const left = wheelGoal - current;
+      const step = Math.abs(left) < .01 ? left : left * .35;
+      zoomAt(step, wheelPoint.x, wheelPoint.y);
+      wheelSet = Number(map.getZoom());
+      if (Math.abs(left) < .01) { stopWheel(); return; }
+      wheelFrame = globalThis.requestAnimationFrame(wheelTick);
+    };
+    div.addEventListener('wheel', event => {
+      if (!state.gesturesEnabled || !state.zoom) return;
+      release();
+      if (!supports3D() || typeof globalThis.requestAnimationFrame !== 'function') return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      const unit = event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 800 : 1;
+      const current = Number(map.getZoom());
+      if (!Number.isFinite(current)) return;
+      const step = clamp(-(event.deltaY || 0) * unit / 150, -1, 1);
+      wheelGoal = clamp((wheelGoal ?? current) + step, 3, 21);
+      wheelPoint = {x: event.clientX, y: event.clientY};
+      if (!wheelFrame) {
+        wheelSet = null;
+        wheelFrame = globalThis.requestAnimationFrame(wheelTick);
+      }
+    }, {capture: true, passive: false});
+    // Own touch geometry so zoom, tilt and rotation happen in one gesture.
+    // Mouse and keyboard gestures stay with Google Maps.
+    div.addEventListener('touchstart', event => {
+      if (!state.gesturesEnabled || cancelledTouchSequence) return;
+      // Let the browser synthesize clicks for Maps' own +/- controls.
+      if (nativeCameraControl(event.target)) {
+        touchOnControl = true;
+        previous = null;
+        return;
+      }
+      if (touchOnControl) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      state.stopWheel?.();
+      if (!previous) {
+        startedAt = performance.now(); maxTouches = 0;
+        travel = 0; touchReleased = false; multiTouchMoved = false;
+        lastTwoFingerPoint = null;
+      }
+      maxTouches = Math.max(maxTouches, event.touches.length);
+      if (event.touches.length > 1) releaseTouch();
+      previous = {...touchPose(event.touches), count: event.touches.length};
+      if (previous.count > 1) lastTwoFingerPoint = {x: previous.x, y: previous.y};
+    }, {capture: true, passive: false});
+    div.addEventListener('touchmove', event => {
+      if (!state.gesturesEnabled || touchOnControl || cancelledTouchSequence) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      const next = {...touchPose(event.touches), count: event.touches.length};
+      if (next.count > 1) lastTwoFingerPoint = {x: next.x, y: next.y};
+      if (!previous || previous.count !== next.count) { previous = next; return; }
+      travel += Math.hypot(next.x - previous.x, next.y - previous.y) +
+          Math.abs(next.span - previous.span);
+      if (next.count > 1 && (travel > 2 ||
+          Math.abs(delta(previous.angle, next.angle)) > 1.5)) {
+        multiTouchMoved = true;
+      }
+      if (next.count > 1 || travel >= 6) releaseTouch();
+      if (!touchReleased) { previous = next; return; }
+      if (next.count > 1) {
+        const twist = state.rotate ? delta(previous.angle, next.angle) : 0;
+        // Overlapping touches can briefly report a zero span (log2(0)), and
+        // sparse frames can leap: bound the zoom step per event.
+        const ratio = previous.span >= 5 && next.span >= 5
+          ? next.span / previous.span : 1;
+        const zoomDelta = clamp(Math.log2(ratio), -0.4, 0.4);
+        const vertical = next.y - previous.y;
+        // Tilt follows zoom by itself; a hand tilt is only a deliberate
+        // two-finger drag: both fingers up (or both down) together, mostly
+        // vertical, with no pinch or twist in the frame. A pinch whose
+        // fingers drift vertically stays a zoom: hand tilt never takes a
+        // frame's zoom, and every other frame binds the tilt to the zoom.
+        const dyA = next.ay - previous.ay, dyB = next.by - previous.by;
+        const tilting = state.tilt && Math.sign(dyA) === Math.sign(dyB) &&
+          Math.min(Math.abs(dyA), Math.abs(dyB)) > 1 &&
+          Math.abs(vertical) > 2 * Math.abs(next.x - previous.x) &&
+          Math.abs(twist) < 2 && Math.abs(zoomDelta) < .01;
+        // Zoom about the *previous* focal point; the midpoint translation
+        // then carries that road point to the fingers' new position.
+        zoomAt(zoomDelta, previous.x, previous.y,
+          supports3D() ? {
+            heading: ((map.getHeading() || 0) - twist + 360) % 360,
+            ...(tilting ? {tilt: clamp((map.getTilt() || 0) - vertical * .3, 0,
+              sdkMaxTilt(Number(map.getZoom())))} : {})
+          } : {},
+          tilting ? 0 : next.x - previous.x,
+          tilting ? 0 : next.y - previous.y);
+      } else if (state.scroll) pan(state, next.x - previous.x, next.y - previous.y);
+      previous = next;
+    }, {capture: true, passive: false});
+    const end = event => {
+      if (event.type === 'touchcancel') {
+        // An OS interruption can leave one finger on the map. Discard all
+        // tap and pinch history until the final touch lifts.
+        cancelledTouchSequence = event.touches.length > 0;
+        previous = null; touchReleased = false; multiTouchMoved = false;
+        lastTwoFingerPoint = null; maxTouches = 0; travel = 0;
+        lastTap = -Infinity; lastTapPoint = null; touchOnControl = false;
+        return;
+      }
+      if (cancelledTouchSequence) {
+        if (!event.touches.length) cancelledTouchSequence = false;
+        return;
+      }
+      if (touchOnControl) {
+        if (!event.touches.length) touchOnControl = false;
+        return;
+      }
+      if (!state.gesturesEnabled) { previous = null; return; }
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (event.touches.length) {
+        // A two-finger tap ends one finger at a time: keep its midpoint.
+        if (previous?.count > 1) lastTwoFingerPoint = {x: previous.x, y: previous.y};
+        previous = {...touchPose(event.touches), count: event.touches.length};
+        return;
+      }
+      if (state.zoom && previous && performance.now() - startedAt < 300 && travel < 8) {
+        if (maxTouches > 1) {
+          // Two stationary fingers zoom out one level; a subtle pinch
+          // already moved the camera and is not undone here.
+          if (!multiTouchMoved) {
+            releaseTouch();
+            const focus = lastTwoFingerPoint || previous;
+            zoomAt(-1, focus.x, focus.y);
+          }
+          lastTap = -Infinity; lastTapPoint = null;
+        } else {
+          const now = performance.now();
+          const nearby = lastTapPoint != null &&
+            Math.hypot(previous.x - lastTapPoint.x, previous.y - lastTapPoint.y) <= 32;
+          if (now - lastTap < 300 && nearby) {
+            releaseTouch();
+            zoomAt(1, previous.x, previous.y);
+            lastTap = -Infinity; lastTapPoint = null;
+          } else {
+            lastTap = now;
+            lastTapPoint = {x: previous.x, y: previous.y};
+          }
+        }
+      } else {
+        lastTap = -Infinity; lastTapPoint = null;
+      }
+      previous = null; touchReleased = false; multiTouchMoved = false;
+      lastTwoFingerPoint = null;
+    };
+    div.addEventListener('touchend', end, {capture: true, passive: false});
+    div.addEventListener('touchcancel', end, {capture: true, passive: false});
+    // Flutter removes the platform view at dispose: release JS state.
+    let wasConnected = div.isConnected;
+    const observer = new MutationObserver(() => {
+      wasConnected ||= div.isConnected;
+      if (wasConnected && !div.isConnected) {
+        overlay.setMap(null); state.callbacks.clear();
+        if (states.get(id) === state) states.delete(id);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, {childList: true, subtree: true});
+  }
+  function installSdk() {
+    sdk = globalThis.google.maps;
+    const NativeMap = sdk.Map;
+    sdk.Map = new Proxy(NativeMap, {
+      construct(target, args) {
+        const [div, options = {}] = args;
+        const match = /^plugins\.flutter\.io\/google_maps_(\d+)$/.exec(div?.id || '');
+        // Fractional zoom: pinch and app eases move in small steps (raster
+        // tiles default to whole levels, so 11.7 would snap to 12).
+        const map = Reflect.construct(target, [div,
+          match ? {...options, isFractionalZoomEnabled: true} : options]);
+        if (match) install(map, div, Number(match[1]));
+        return map;
+      }
+    });
+  }
+  const sdkLoaded = () => typeof globalThis.google?.maps?.Map === 'function' &&
+    typeof globalThis.google.maps.OverlayView === 'function';
+  if (sdkLoaded()) installSdk();
+  else {
+    const poll = setInterval(() => {
+      if (!sdkLoaded()) return;
+      clearInterval(poll);
+      installSdk();
+    }, 25);
+  }
+  globalThis.riderMapCamera = {
+    ready() { return sdk !== null; },
+    has(id) { return states.has(id); },
+    // True on a vector map, false on raster, null while Google decides.
+    supports3D(id) {
+      const state = states.get(id); if (!state) return null;
+      const type = state.map.getRenderingType?.();
+      return type === sdk.RenderingType.VECTOR ? true :
+        type === sdk.RenderingType.RASTER ? false : null;
+    },
+    gestures(id, scroll, zoom, rotate, tilt) {
+      const state = states.get(id); if (!state) return;
+      Object.assign(state, {scroll: !!scroll, zoom: !!zoom, rotate: !!rotate, tilt: !!tilt});
+      state.setGesturesEnabled(!!(scroll || zoom || rotate || tilt));
+    },
+    // Pickup pin screens stay flat while the rider zooms them.
+    tiltFollowsZoom(id, enabled) {
+      const state = states.get(id); if (state) state.tiltFollowsZoom = !!enabled;
+    },
+    listen(id, callback) {
+      const state = states.get(id); state?.callbacks.add(callback);
+      return () => state?.callbacks.delete(callback);
+    },
+    claim(id) {
+      const state = states.get(id); if (state) state.claim = true;
+    },
+    // Test/verification hook: the live camera of a map.
+    camera(id) {
+      const state = states.get(id); if (!state) return null;
+      const m = state.map;
+      return {zoom: Number(m.getZoom()), tilt: m.getTilt() || 0,
+        heading: m.getHeading() || 0, vector: state.supports3D()};
+    },
+  };
+})();
