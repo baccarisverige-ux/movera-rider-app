@@ -180,7 +180,7 @@ DriverAppConfig { version, publishedAt, zoneId, currency, timeZone,
 
 FeeRule { freeMin: int, type: fixed | percent, value: number, min: Money | null, max: Money | null }
    // live: freeMin = minutes after accept; reservation: freeMin = minutes before pickup
-   // fixed: value is minor units; percent: value is 0–100 of the fare, rounded to the currency step, then clamped to min/max
+   // fixed: value is minor units; percent: value is 0–100 of the fare, rounded half-up to a whole minor unit, then clamped to min/max
 ```
 
 Cancel reasons: the rider document lists `{code, title}` in the rider's language; the driver document lists codes per group and the titles come from `texts`. Unknown keys are ignored; missing keys fall back to the app's seed. `version` only increases; apps keep the last good document.
