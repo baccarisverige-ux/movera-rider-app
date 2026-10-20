@@ -38,6 +38,31 @@
     const next = clamp(tilt + tiltForZoom(to) - tiltForZoom(from), 0, sdkMaxTilt(to));
     return next < 1e-9 ? 0 : next;
   };
+  // The locate flight (lib/core/maps/map_camera_motion.dart flightEase;
+  // keep both in step): three phases of equal length at an even speed, the
+  // first and last at SLOW of the middle one, joined by short smoothstep
+  // blends. It leaves at once and lands at the slow speed: no creep, no cut.
+  const SLOW = .8, RISE_FROM = .25, RISE_TO = .40, FALL_FROM = .60, FALL_TO = .75;
+  const bumpIntegral = x => {
+    const w = RISE_TO - RISE_FROM;
+    const rise = u => w * (u * u * u - u * u * u * u / 2);
+    if (x <= RISE_FROM) return 0;
+    if (x <= RISE_TO) return rise((x - RISE_FROM) / w);
+    const full = rise(1);
+    if (x <= FALL_FROM) return full + (x - RISE_TO);
+    const plateau = full + (FALL_FROM - RISE_TO);
+    if (x <= FALL_TO) { const u = (x - FALL_FROM) / w; return plateau + w * u - rise(u); }
+    return plateau + w - full;
+  };
+  const flightEase = t => {
+    const x = clamp(t, 0, 1);
+    return (SLOW * x + (1 - SLOW) * bumpIntegral(x)) / (SLOW + (1 - SLOW) * .35);
+  };
+  // A ground step looks 2^zoom times bigger on screen: spread the pan so
+  // its on-screen speed stays even while the camera zooms.
+  const panShare = (zoomShare, dz) => Math.abs(dz) < 1e-3 ? zoomShare :
+    (1 - 2 ** (-dz * clamp(zoomShare, 0, 1))) / (1 - 2 ** (-dz));
+  const angleDelta = (from, to) => (to - from + 540) % 360 - 180;
   function pan(state, dx, dy) {
     const projection = state.overlay.getProjection();
     if (!projection) return;
@@ -104,10 +129,62 @@
         lastTap = -Infinity; lastTapPoint = null;
       }
     };
+    // A locate flight on the browser's frame clock: one moveCamera per
+    // painted frame (a Dart timer stutters in Safari). Each frame closes
+    // the share of the remaining way the ease covers, so a retargeted goal
+    // is turned to smoothly; tilt rides the zoom as in Dart's _blend.
+    let flight = null;
+    const endFlight = landed => {
+      const f = flight; if (!f) return;
+      flight = null;
+      if (f.frame) globalThis.cancelAnimationFrame?.(f.frame);
+      f.resolve(landed);
+    };
+    const tiltFor = zoom => state.tiltFollowsZoom &&
+      map.getRenderingType?.() !== sdk.RenderingType.RASTER ? tiltForZoom(zoom) : 0;
+    state.cancelFlight = () => endFlight(false);
+    state.retarget = to => { if (flight) flight.to = to; };
+    state.flight = (to, ms) => new Promise(resolve => {
+      endFlight(false);
+      const f = flight = {to, ms, resolve, started: null, prev: 0, frame: 0};
+      const tick = now => {
+        if (flight !== f) return;
+        // The first frame already moves, like the Dart loop's frame 0.
+        if (f.started == null) f.started = now - 16;
+        const after = flightEase((now - f.started) / ms);
+        const before = f.prev; f.prev = after;
+        const goal = f.to;
+        if (after >= 1) {
+          flight = null;
+          nativeMove({center: {lat: goal.lat, lng: goal.lng}, zoom: goal.zoom,
+            heading: goal.heading, tilt: clamp(goal.tilt, 0, sdkMaxTilt(goal.zoom))});
+          resolve(true);
+          return;
+        }
+        const share = (after - before) / (1 - before);
+        const c = map.getCenter(), zoom = Number(map.getZoom());
+        const heading = map.getHeading() || 0, tilt = map.getTilt() || 0;
+        if (!c || !Number.isFinite(zoom)) { f.frame = globalThis.requestAnimationFrame(tick); return; }
+        const dz = goal.zoom - zoom, p = panShare(share, dz);
+        const nextZoom = zoom + dz * share;
+        const fromOffset = tilt - tiltFor(zoom), toOffset = goal.tilt - tiltFor(goal.zoom);
+        const nextTilt = clamp(tiltFor(nextZoom) + fromOffset + (toOffset - fromOffset) * share,
+          0, sdkMaxTilt(nextZoom));
+        nativeMove({
+          center: {lat: c.lat() + (goal.lat - c.lat()) * p, lng: c.lng() + (goal.lng - c.lng()) * p},
+          zoom: nextZoom,
+          heading: (heading + angleDelta(heading, goal.heading) * share + 360) % 360,
+          tilt: nextTilt < 1e-9 ? 0 : nextTilt,
+        });
+        f.frame = globalThis.requestAnimationFrame(tick);
+      };
+      f.frame = globalThis.requestAnimationFrame(tick);
+    });
     // The rider moved the map by hand: Dart stops steering the camera.
     const release = () => {
       if (!state.gesturesEnabled) return;
       state.claim = false;
+      endFlight(false);
       state.callbacks.forEach(callback => callback());
     };
     const releaseTouch = () => {
@@ -386,6 +463,20 @@
     },
     claim(id) {
       const state = states.get(id); if (state) state.claim = true;
+    },
+    // Flies the camera on the frame clock; resolves true when it lands,
+    // false when cancelled (a finger, a newer command). Null: no such map
+    // or no frame clock, and Dart steps the flight itself.
+    flight(id, lat, lng, zoom, heading, tilt, ms) {
+      const state = states.get(id);
+      if (!state || typeof globalThis.requestAnimationFrame !== 'function') return null;
+      return state.flight({lat, lng, zoom, heading, tilt}, ms);
+    },
+    retarget(id, lat, lng, zoom, heading, tilt) {
+      states.get(id)?.retarget({lat, lng, zoom, heading, tilt});
+    },
+    cancelFlight(id) {
+      states.get(id)?.cancelFlight();
     },
     // Test/verification hook: the live camera of a map.
     camera(id) {

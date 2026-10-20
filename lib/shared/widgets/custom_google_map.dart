@@ -199,7 +199,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // While the app glides the camera, the echoes of its own frames are
     // late copies of poses it already knows: they must not become the
     // origin of the next frame.
-    if (view != null && !view.easing) view.pose = position;
+    if (view != null && !view.easing && !view.isLateEcho(position)) {
+      view.pose = position;
+    }
     widget.onCameraMove?.call(position);
   }
 
