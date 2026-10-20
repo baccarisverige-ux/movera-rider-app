@@ -20,6 +20,7 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/map_camera_controller.dart' show recenterZoom;
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -391,6 +392,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       await AppScope.instance.maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
         zoom: homeOpeningZoom,
+        follow: true,
       );
     } catch (_) {
       if (!mounted) return;
@@ -1618,9 +1620,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       // No fix yet: the map keeps its current camera.
     }
     if (target == null) return;
+    // Like the driver app: a smooth glide to street zoom, leaning with the
+    // tilt of that zoom (tiltForZoom).
     await AppScope.instance.maps.animateCamera(
       GeoPoint(target.latitude, target.longitude),
-      zoom: 17,
+      zoom: recenterZoom,
       bearing: _locationHeading,
     );
     if (mounted) setState(() => _showRecenterButton = false);
@@ -1873,6 +1877,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 AppScope.instance.maps.animateCamera(
                                   GeoPoint(target.latitude, target.longitude),
                                   zoom: homeOpeningZoom,
+                                  follow: true,
                                 );
                               }
                             },

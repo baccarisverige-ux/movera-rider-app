@@ -8,15 +8,22 @@ def step(status, command, actor, kind):
         if t['command'] == command and t['actor'] == actor and status in t['from'] and t.get('when', kind) == kind:
             return t['to']
     return None
+def may_rate(rater, status, ended_by):
+    return any(r['rater'] == rater and r['status'] == status and r.get('command', ended_by) == ended_by
+               for r in c['ratingAllowed']['rules'])
 bad = 0
 for s in json.load(open('fixtures/scenarios.json'))['scenarios']:
-    st = 'draft'
+    st, ended_by = 'draft', None
     for cmd, actor, expect in s['steps']:
         nxt = step(st, cmd, actor, s['kind'])
         got = nxt if nxt else 'invalid_transition'
         if got != expect:
             bad += 1; print('SCENARIO', s['id'], cmd, actor, 'from', st, 'expected', expect, 'got', got)
-        if nxt: st = nxt
+        if nxt: st, ended_by = nxt, cmd
+    for rater, expect in s.get('rating', {}).items():
+        got = 'allowed' if st in term and may_rate(rater, st, ended_by) else 'invalid_transition'
+        if got != expect:
+            bad += 1; print('RATING', s['id'], rater, 'after', st, 'by', ended_by, 'expected', expect, 'got', got)
 after = set(c['realtime']['afterTerminal'])
 for case in json.load(open('fixtures/events.json'))['cases']:
     last, seen, terminal = 0, set(), False

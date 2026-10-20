@@ -53,9 +53,9 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, ({double lat, double lng, double meters})> _driven = {};
 
   /// Trips the rider ended early. R-O6 (owner decision): they are rated on
-  /// the normal trip-end screen, so the feedback route accepts them like a
-  /// completed trip. Contract v0.3.0 allows rating only after `completed`
-  /// (`ratingTransitions`): this stand-in is ahead of the contract here.
+  /// the normal trip-end screen. The projection does not say which command
+  /// ended a `cancelled_by_rider` trip, so the server remembers it for
+  /// `contract.json#ratingAllowed` (v0.3.1).
   final Set<String> _endedEarly = {};
 
   /// The distance [tripId] has been driven on board, in metres (R-O1).
@@ -1486,12 +1486,15 @@ class InProcessMockClient extends http.BaseClient {
     'retryable': false,
   };
 
-  /// R-O6: an ended-early trip is rated like a completed one.
+  /// `contract.json#ratingAllowed`: the rider rates a completed trip and
+  /// one they ended early (R-O6), never a plain cancel.
   bool _rateable(Map<String, dynamic> ride, String tripId) {
     final status = _statusOf(ride);
-    return status == TripStatus.completed ||
-        (status == TripStatus.cancelledByRider &&
-            _endedEarly.contains(tripId));
+    return TripRatingRules.allows(
+      TripActor.rider,
+      status,
+      endedBy: _endedEarly.contains(tripId) ? 'end_early' : null,
+    );
   }
 
   /// R-O1: adds the stretch from the last on-board fix to ([lat], [lng]).

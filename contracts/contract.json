@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -471,7 +471,7 @@
     {
       "from": "not_requested",
       "to": "pending",
-      "when": "trip completed"
+      "when": "trip completed, or (rider rating only) trip ended early by the rider: see ratingAllowed"
     },
     {
       "from": "pending",
@@ -482,6 +482,25 @@
       "to": "skipped"
     }
   ],
+  "ratingAllowed": {
+    "note": "Who may rate a trip once it is over, and after what. A rating is allowed when the rater, the trip's terminal status and (if given) the command that ended the trip all match one row; anything else is 409 invalid_transition. A plain rider cancel (command cancel) is never rated.",
+    "rules": [
+      {
+        "rater": "rider",
+        "status": "completed"
+      },
+      {
+        "rater": "driver",
+        "status": "completed"
+      },
+      {
+        "rater": "rider",
+        "status": "cancelled_by_rider",
+        "command": "end_early",
+        "note": "the rider ended the trip early (POST /trips/{tripId}/end-early) and gets the normal rating screen"
+      }
+    ]
+  },
   "cancelReasons": {
     "rider": [
       "pickup_incorrect",

@@ -61,14 +61,14 @@ class TripTransition {
 }
 
 /// The single trip state machine, a pure mirror of
-/// `contract.json#transitions` (v0.3.0). A contract test checks this table
+/// `contract.json#transitions` (v0.3.1). A contract test checks this table
 /// row by row against the shipped `contracts/contract.json` and replays
 /// `fixtures/scenarios.json` through [TripStateMachine.apply].
 ///
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.3.0';
+  static const contractVersion = '0.3.1';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -192,4 +192,42 @@ abstract final class TripStateMachine {
     }
     return null;
   }
+}
+
+/// One row of `contract.json#ratingAllowed.rules`: [rater] may rate a trip
+/// that ended in [status], through [command] when it is set.
+class TripRatingRule {
+  const TripRatingRule(this.rater, this.status, {this.command});
+
+  final TripActor rater;
+  final TripStatus status;
+  final String? command;
+}
+
+/// Who may rate a finished trip, a pure mirror of
+/// `contract.json#ratingAllowed` (v0.3.1). The rider rates a completed trip
+/// and one they ended early (`end_early` → `cancelled_by_rider`); a plain
+/// rider `cancel` is never rated. Anything else is `409 invalid_transition`.
+/// A contract test checks the rows and replays the `rating` cases of
+/// `fixtures/scenarios.json`.
+abstract final class TripRatingRules {
+  static const List<TripRatingRule> rules = [
+    TripRatingRule(TripActor.rider, TripStatus.completed),
+    TripRatingRule(TripActor.driver, TripStatus.completed),
+    TripRatingRule(
+      TripActor.rider,
+      TripStatus.cancelledByRider,
+      command: 'end_early',
+    ),
+  ];
+
+  /// Whether [rater] may rate a trip in [status] that [endedBy] (the
+  /// command that ended it, when known) brought there.
+  static bool allows(TripActor rater, TripStatus status, {String? endedBy}) =>
+      rules.any(
+        (rule) =>
+            rule.rater == rater &&
+            rule.status == status &&
+            (rule.command == null || rule.command == endedBy),
+      );
 }

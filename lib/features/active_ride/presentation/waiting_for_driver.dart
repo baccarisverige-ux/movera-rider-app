@@ -2132,10 +2132,13 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       bottomObstruction: widget.cameraBottomPadding,
     );
     unawaited(
+      // A follow update: it leaves a map the rider is holding or has just
+      // moved alone (the camera never moves under a finger).
       AppScope.instance.maps.fitBounds(
         fit.southwest,
         fit.northeast,
         padding: fit.padding,
+        follow: true,
       ),
     );
   }

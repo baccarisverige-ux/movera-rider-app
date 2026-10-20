@@ -8,6 +8,8 @@ import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
+import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -39,8 +41,7 @@ class RideCompleted extends StatefulWidget {
   /// shows what they pay for the distance driven, instead of dropping them
   /// on Home. R-O6 (owner decision): it is the normal trip-end screen, with
   /// rating and tip, and the waybill marks the trip "Ended early" with the
-  /// km driven. Contract v0.3.0 allows rating only after `completed`; the
-  /// in-process stand-in accepts it for an ended-early trip.
+  /// km driven. Contract v0.3.1 (`ratingAllowed`) lets the rider rate it.
   final EndedEarlyTrip? endedEarly;
 
   final RideStatus status;
@@ -273,9 +274,15 @@ class _RideCompletedState extends State<RideCompleted> {
   Widget build(BuildContext context) {
     final spec = _spec;
     final endedEarly = widget.endedEarly != null;
-    // R-O6: an ended-early trip is over and its price known: rate now.
+    // R-O6: an ended-early trip is over and its price known: rate now
+    // (contract.json#ratingAllowed: rider, cancelled_by_rider via end_early).
     final canRate =
-        endedEarly ||
+        (endedEarly &&
+            TripRatingRules.allows(
+              TripActor.rider,
+              TripStatus.cancelledByRider,
+              endedBy: 'end_early',
+            )) ||
         _status == RideStatus.ratingPending ||
         (widget.feedbackAvailableOnCompletion &&
             _status == RideStatus.tripCompleted);
