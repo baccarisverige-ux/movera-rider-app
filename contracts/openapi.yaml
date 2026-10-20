@@ -1,11 +1,11 @@
-# Movera API v0.3.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.3.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.3.0
+  version: 0.3.1
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.3.0 in this folder; this file must agree with them.
+    v0.3.1 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -54,7 +54,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.3.0
+  version: 0.3.1
   source: contract.json
 paths:
   /quotes:
@@ -460,8 +460,9 @@ paths:
     post:
       operationId: rateTrip
       summary: Rate the other party (and optionally tip)
-      description: 'Not a lifecycle command: allowed after completed; moves ratingStatus pending → submitted|skipped and emits
-        rating_updated.'
+      description: 'Not a lifecycle command: allowed after completed, and for the rider also after a trip the rider ended
+        early (cancelled_by_rider via end_early; a plain cancel is 409 invalid_transition). See RatingStatus x-rating-allowed.
+        Moves ratingStatus pending → submitted|skipped and emits rating_updated.'
       tags:
       - Trips
       x-actor:
@@ -4659,12 +4660,22 @@ components:
       x-transitions:
       - from: not_requested
         to: pending
-        when: trip completed
+        when: 'trip completed, or (rider rating only) trip ended early by the rider: see ratingAllowed'
       - from: pending
         to: submitted
       - from: pending
         to: skipped
-      description: Rating machine; changes after `completed` via `rating_updated`.
+      x-rating-allowed:
+      - rater: rider
+        status: completed
+      - rater: driver
+        status: completed
+      - rater: rider
+        status: cancelled_by_rider
+        command: end_early
+        note: the rider ended the trip early (POST /trips/{tripId}/end-early) and gets the normal rating screen
+      description: 'Rating machine; changes after `completed` (rider also after a trip the rider ended early) via `rating_updated`.
+        Who may rate after what: x-rating-allowed (contract.json#ratingAllowed).'
     DriverAccountStatus:
       type: string
       enum:

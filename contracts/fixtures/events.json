@@ -1,5 +1,5 @@
 {
- "version": "0.3.0",
+ "version": "0.3.1",
  "note": "Realtime gate cases. Feed events in order to a fresh gate; 'expect' is the disposition: accepted | accepted_with_gap | duplicate | blocked_after_terminal | invalid. 'status'/'paymentStatus'/'ratingStatus' at the top level are test shorthand for projection.status / projection.paymentStatus / projection.ratingStatus.",
  "cases": [
   {

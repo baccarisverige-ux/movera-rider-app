@@ -1,4 +1,4 @@
-"""Generates contracts/openapi.yaml (v0.3.0) from contract.json + hand-written surface.
+"""Generates contracts/openapi.yaml (v0.3.1) from contract.json + hand-written surface.
 Enums are read from contract.json so they stay byte-exact."""
 import json, sys, yaml
 from collections import OrderedDict
@@ -74,8 +74,9 @@ S["TripStatus"] = s("Single trip lifecycle. Payment and rating are NOT statuses 
 S["TripKind"] = s(enum=["live", "scheduled"])
 S["PaymentStatus"] = s("Payment machine; changes after `completed` via `payment_updated`.", enum=C["paymentStatus"],
                        **{"x-transitions": C["paymentTransitions"]})
-S["RatingStatus"] = s("Rating machine; changes after `completed` via `rating_updated`.", enum=C["ratingStatus"],
-                      **{"x-transitions": C["ratingTransitions"]})
+S["RatingStatus"] = s("Rating machine; changes after `completed` (rider also after a trip the rider ended early) via `rating_updated`. "
+                      "Who may rate after what: x-rating-allowed (contract.json#ratingAllowed).", enum=C["ratingStatus"],
+                      **{"x-transitions": C["ratingTransitions"], "x-rating-allowed": C["ratingAllowed"]["rules"]})
 S["DriverAccountStatus"] = s("Account state, owned by Admin.", enum=C["driverAccountStatus"])
 S["DriverOnlineStatus"] = s("Availability state, owned by the backend from driver commands.", enum=C["driverOnlineStatus"])
 S["OfferKind"] = s(enum=C["offerKind"])
@@ -607,7 +608,9 @@ op("get", "/trips/{tripId}/pin", "getTripPin", "Get the per-trip PIN to show the
    params=TID, ok=(200, "PinCode"))
 op("post", "/trips/{tripId}/rating", "rateTrip", "Rate the other party (and optionally tip)", ["rider", "driver"], "Trips",
    params=TID, body="RatingRequest", ok=(201, "Rating"), mutation=True,
-   desc="Not a lifecycle command: allowed after completed; moves ratingStatus pending → submitted|skipped and emits rating_updated.")
+   desc="Not a lifecycle command: allowed after completed, and for the rider also after a trip the rider ended early "
+        "(cancelled_by_rider via end_early; a plain cancel is 409 invalid_transition). See RatingStatus x-rating-allowed. "
+        "Moves ratingStatus pending → submitted|skipped and emits rating_updated.")
 op("get", "/rider/trips", "listRiderTrips", "Rider trip history and reservations", ["rider"], "Rider · Booking",
    params=[pref("Cursor"), pref("Limit"), q("status", ref("TripStatus"), multi=True), q("kind", ref("TripKind")), pref("From"), pref("To")],
    ok=(200, "TripProjectionPage"))
@@ -799,11 +802,11 @@ doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
     "title": "Movera API",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": (
         "**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter) and "
         "Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + "
-        "`CONTRACT.md` v0.3.0 in this folder; this file must agree with them.\n\n"
+        "`CONTRACT.md` v0.3.1 in this folder; this file must agree with them.\n\n"
         "Wire rules: ids match `" + ID_PATTERN + "`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is "
         "`Money {amountMinor, currency}`; keys camelCase, enum values snake_case. Success responses are the bare resource; errors are `Error`.\n\n"
         "Every mutation needs `Idempotency-Key`. Trip, offer, driver, rider, vehicle and config commands send `expectedVersion`; a stale "
@@ -831,7 +834,7 @@ def to_plain(x):
 
 class D(yaml.SafeDumper):
     def ignore_aliases(self, data): return True
-header = "# Movera API v0.3.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
+header = "# Movera API v0.3.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
 with open(OUT, "w") as f:
     f.write(header)
     yaml.dump(to_plain(doc), f, Dumper=D, sort_keys=False, allow_unicode=True, width=120)
