@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
@@ -13,6 +15,7 @@ class RideDetailsSheet extends StatelessWidget {
     this.stops = const <RouteStop>[],
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     required this.notes,
     this.allowCancel = true,
@@ -24,6 +27,9 @@ class RideDetailsSheet extends StatelessWidget {
   final List<RouteStop> stops;
   final String rideType;
   final double price;
+
+  /// ISO-4217 code of [price].
+  final String currency;
   final String paymentMethod;
   final RideNotes notes;
   final bool allowCancel;
@@ -86,7 +92,7 @@ class RideDetailsSheet extends StatelessWidget {
               address: destinationAddress,
             ),
             const SizedBox(height: 16),
-            _kv(rideType, '${price.toStringAsFixed(0)} kr'),
+            _kv(rideType, formatMajor(price, currency)),
             const SizedBox(height: 8),
             _kv('Payment', paymentMethod),
             if (!notes.isEmpty) ...[

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
@@ -8,6 +9,7 @@ import 'package:movera_rider/features/destination_search/presentation/route_pick
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -132,6 +134,8 @@ Future<void> _creditWallet(RefundDestination? refundTo, RouteChangeQuote quote) 
   if (refundTo != RefundDestination.wallet || quote.differenceKr >= 0) return;
   try {
     final wallet = AppScope.instance.walletController;
+    // The wallet holds one currency; it never takes another (Q7).
+    if (wallet.currency != quote.currency) return;
     final previous = await wallet.loadBalance();
     await wallet.refund(previous: previous, amount: -quote.differenceKr);
   } catch (_) {
@@ -146,13 +150,15 @@ void showRouteUpdated(
   required bool driverAssigned,
   String paymentMethod = '',
   double differenceKr = 0,
+  String currency = Money.defaultCurrency,
   RefundDestination? refundTo,
 }) {
   final parts = <String>[
     driverAssigned ? 'Route updated · your driver has been told' : 'Route updated',
   ];
   if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
-    final kr = '${differenceKr.abs().round()} kr';
+    // [differenceKr] is in whole units of [currency].
+    final kr = formatMajor(differenceKr.abs(), currency);
     if (differenceKr > 0) {
       parts.add('$kr charged to $paymentMethod');
     } else if ((refundTo ?? lastRefundDestination) == RefundDestination.wallet) {

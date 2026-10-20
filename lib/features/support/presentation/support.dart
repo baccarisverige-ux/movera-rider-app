@@ -1102,7 +1102,7 @@ class _RideRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              ride.failed ? 'Failed' : formatKr(ride.price),
+              ride.failed ? 'Failed' : formatMajor(ride.price, ride.currency),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],

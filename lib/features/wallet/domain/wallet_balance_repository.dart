@@ -14,6 +14,10 @@ abstract interface class WalletBalanceRepository {
   /// with nowhere authoritative to credit the money, and no ride is debited.
   bool get available;
 
+  /// ISO-4217 code of the balance and every movement. A balance pays only
+  /// trips in this currency; the app never converts (Q7).
+  String get currency;
+
   Future<double> loadBalance();
 
   /// Records a captured top-up of [amount] kr and returns the new balance.

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -40,7 +41,10 @@ class MonthRideStats {
   final int rides;
   final double spentMinorless;
   final List<int> ridesPerWeek;
-  final String currency;
+
+  /// The currency of [spentMinorless]; null when the month's rides were in
+  /// more than one.
+  final String? currency;
 
   /// Completed Electric rides this month: the only ones that avoid
   /// tailpipe CO₂ (FLOW-13; petrol rides used to count too).
@@ -81,6 +85,7 @@ class MonthRideStats {
     var electric = 0;
     var spent = 0.0;
     var currency = 'SEK';
+    final currencies = <String>{};
     for (final ride in rides) {
       if (!ride.status.isCompleted) continue;
       final at = ride.scheduledPickupAt;
@@ -89,6 +94,7 @@ class MonthRideStats {
       if (ride.categoryId == 'electric') electric++;
       spent += ride.price;
       currency = ride.currency;
+      currencies.add(ride.currency);
       weeks[(at.day - 1) ~/ 7]++;
     }
     return MonthRideStats(
@@ -96,15 +102,17 @@ class MonthRideStats {
       rides: count,
       spentMinorless: spent,
       ridesPerWeek: weeks,
-      currency: currency,
+      // Rides in several currencies have no one total (no conversion).
+      currency: currencies.length > 1 ? null : currency,
       electricRides: electric,
     );
   }
 
   String get pillText {
     final rideWord = rides == 1 ? 'ride' : 'rides';
-    final unit = currency == 'SEK' ? 'kr' : currency;
-    return '$rides $rideWord · $unit ${spentMinorless.round()}';
+    final code = currency;
+    if (code == null) return '$rides $rideWord';
+    return '$rides $rideWord · ${currencySymbol(code)} ${spentMinorless.round()}';
   }
 }
 

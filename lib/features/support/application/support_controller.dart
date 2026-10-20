@@ -40,6 +40,7 @@ class SupportController {
       title: to.isEmpty ? ride.categoryName : 'To $to',
       when: ride.scheduledPickupAt.toLocal(),
       price: ride.price,
+      currency: ride.currency,
       image: ride.categoryImage,
       cancelled: ride.status.isCancelled,
     );

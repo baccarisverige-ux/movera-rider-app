@@ -31,6 +31,7 @@ class RouteChangeQuote {
     this.newTotalMinor,
     this.differenceMinor,
     this.expectedVersion,
+    this.currency = Money.defaultCurrency,
   });
 
   final String pickupAddress;
@@ -38,8 +39,12 @@ class RouteChangeQuote {
   final String destinationAddress;
   final GeoPoint destinationPoint;
   final List<RouteStop> stops;
+  /// Whole units of [currency] (the trip's, Q7).
   final double oldPriceKr;
   final double newPriceKr;
+
+  /// ISO-4217 code of every amount of this change.
+  final String currency;
 
   /// ARCH-14 / contract C-7: the server's id for this priced change, when it
   /// sends one. Apply sends it back with the amounts, so the server applies
@@ -161,6 +166,7 @@ class RouteChangeController {
       stops: located,
       oldPriceKr: ride.price,
       newPriceKr: ride.price,
+      currency: ride.currency,
     );
     final version = _session?.projectionVersionOf(id);
     final response = await _send(
@@ -169,7 +175,7 @@ class RouteChangeController {
         body: {...draft.toRequest(), 'expectedVersion': ?version},
       ),
     );
-    final price = _newPrice(response);
+    final price = _newPrice(response, ride.currency);
     final quoteId = response['routeQuoteId'];
     return RouteChangeQuote(
       pickupAddress: draft.pickupAddress,
@@ -185,9 +191,13 @@ class RouteChangeController {
       newTotalMinor: price?.amountMinor,
       differenceMinor:
           (Money.tryParse(response['difference']) ??
-                  Money.tryMinor(response['differenceMinor']))
+                  Money.tryMinor(
+                    response['differenceMinor'],
+                    response['currency'] ?? ride.currency,
+                  ))
               ?.amountMinor,
       expectedVersion: version,
+      currency: ride.currency,
     );
   }
 
@@ -205,7 +215,9 @@ class RouteChangeController {
       'routeChange': true,
       // ARCH-14: the change and the price the rider confirmed, together.
       if (quote.routeQuoteId != null) 'routeQuoteId': quote.routeQuoteId,
-      'expectedTotalMinor': quote.newTotalMinor ?? (quote.newPriceKr * 100).round(),
+      'expectedTotalMinor':
+          quote.newTotalMinor ??
+          Money.fromLegacyMajor(quote.newPriceKr, quote.currency).amountMinor,
       if (quote.differenceMinor != null)
         'expectedDifferenceMinor': quote.differenceMinor,
       // ARCH-9: the method by id. The label stays until the backend
@@ -232,7 +244,8 @@ class RouteChangeController {
       ),
     );
     _session?.observeProjection(response);
-    final newPrice = _newPrice(response)?.major ?? quote.newPriceKr;
+    final newPrice =
+        _newPrice(response, ride.currency)?.major ?? quote.newPriceKr;
     final serverRide = response['ride'];
     final serverMax = serverRide is Map ? serverRide['maxOfferMinor'] : null;
     final updated = ride.copyWith(
@@ -250,18 +263,26 @@ class RouteChangeController {
           ? serverMax.round()
           : ride.maxOfferMinor == null
           ? null
-          : (FareRules.maximum(newPrice) * 100).round(),
+          : Money.fromLegacyMajor(FareRules.maximum(newPrice), ride.currency)
+                .amountMinor,
     );
     await RideSnapshotStore.save(updated);
     return updated;
   }
 
-  /// ARCH-11: the new total in minor units wins; the legacy whole-kronor
-  /// field is read only when the server sends nothing else.
-  static Money? _newPrice(Map<String, dynamic> response) =>
-      Money.tryParse(response['newTotal']) ??
-      Money.tryMinor(response['newTotalMinor']) ??
-      Money.tryLegacyMajor(response['newPriceKr']);
+  /// ARCH-11: the new total in minor units wins; the legacy whole-unit
+  /// field is read only when the server sends nothing else. A total in
+  /// another currency than the trip's ([currency]) is not its price.
+  static Money? _newPrice(Map<String, dynamic> response, String currency) {
+    final price =
+        Money.tryParse(response['newTotal']) ??
+        Money.tryMinor(
+          response['newTotalMinor'],
+          response['currency'] ?? currency,
+        ) ??
+        Money.tryLegacyMajor(response['newPriceKr'], currency);
+    return price != null && price.currency == currency ? price : null;
+  }
 
   Future<GeoPoint> _locate(String address) async {
     final PlaceResult? found;

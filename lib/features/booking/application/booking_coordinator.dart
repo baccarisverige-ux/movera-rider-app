@@ -147,6 +147,7 @@ class BookingCoordinator {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
   }) {
     if (_inflight != null) return _inflight!;
     if (scheduledAt == null && _findingAlreadyActive) {
@@ -188,7 +189,7 @@ class BookingCoordinator {
         'quoteExpiresAt': quoteExpiresAt?.toUtc().toIso8601String(),
         'quoteTotalMinor': quoteTotalMinor,
         if (quoteTotalMinor != null)
-          'fare': Money(quoteTotalMinor).toJson(),
+          'fare': Money(quoteTotalMinor, quoteCurrency).toJson(),
       },
     };
     // RC-04: a retry of an unfinished attempt resends its first body.
@@ -249,6 +250,7 @@ class BookingCoordinator {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -275,6 +277,7 @@ class BookingCoordinator {
       quoteSignedPayload: quoteSignedPayload,
       quoteExpiresAt: quoteExpiresAt,
       quoteTotalMinor: quoteTotalMinor,
+      quoteCurrency: quoteCurrency,
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
@@ -308,6 +311,7 @@ class BookingCoordinator {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -370,9 +374,11 @@ class BookingCoordinator {
           quoteSignedPayload: quoteSignedPayload,
           quoteExpiresAt: quoteExpiresAt,
           quoteTotalMinor: quoteTotalMinor,
+          quoteCurrency: quoteCurrency,
           stops: stops,
         );
-        final effectivePrice = binding.totalMinor / 100;
+        // Whole units of the quote's currency (Q7: the pickup's zone).
+        final effectivePrice = binding.total.major;
         // "Use wallet balance first": the part the rider was shown, never
         // more than the fare, and nothing when the rider switched it off.
         final walletMinor = useWalletFirst
@@ -392,6 +398,7 @@ class BookingCoordinator {
           quoteSignedPayload: binding.signedPayload,
           quoteExpiresAt: binding.expiresAt,
           quoteTotalMinor: binding.totalMinor,
+          quoteCurrency: binding.currency,
           rideTypeLabel: rideTypeLabel,
           paymentMethodLabel: paymentMethodLabel,
           notes: notes,
@@ -511,6 +518,7 @@ class BookingCoordinator {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
     List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final supplied = <Object?>[
@@ -530,6 +538,7 @@ class BookingCoordinator {
         signedPayload: quoteSignedPayload!,
         expiresAt: quoteExpiresAt!,
         totalMinor: quoteTotalMinor!,
+        currency: quoteCurrency,
       );
       binding.validate(requestedPrice: requestedPrice);
       return binding;
@@ -561,6 +570,7 @@ class BookingCoordinator {
       signedPayload: quote.signedPayload ?? '',
       expiresAt: quote.expiresAt,
       totalMinor: quote.totalMinor,
+      currency: quote.currency,
     )..validate();
 
     _autoQuoteIntent = baseIntent;
@@ -602,6 +612,7 @@ class BookingCoordinator {
     required String quoteSignedPayload,
     required DateTime quoteExpiresAt,
     required int quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -618,8 +629,10 @@ class BookingCoordinator {
         // either returns the ride it already created or refuses it.
         (!isReplay && !quoteExpiresAt.isAfter(DateTime.now())) ||
         quoteTotalMinor <= 0 ||
-        // ARCH-11: the shown price must be the quote, compared in öre.
-        Money.fromLegacyMajor(price).amountMinor != quoteTotalMinor) {
+        // ARCH-11: the shown price must be the quote, compared in minor
+        // units of the quote's currency.
+        Money.fromLegacyMajor(price, quoteCurrency).amountMinor !=
+            quoteTotalMinor) {
       throw StateError('A fresh authoritative quote is required for booking');
     }
 
@@ -635,8 +648,9 @@ class BookingCoordinator {
         'destinationLat': destinationLat,
         'destinationLng': destinationLng,
         'categoryId': rideType,
-        // Contract v0.3.0: the confirmed fare as Money (it equals the quote).
-        'fare': Money(quoteTotalMinor).toJson(),
+        // Contract v0.3.0: the confirmed fare as Money (it equals the
+        // quote, in the quote's currency).
+        'fare': Money(quoteTotalMinor, quoteCurrency).toJson(),
         'paymentMethodId': paymentMethod,
         'quoteId': quoteId,
         'quoteSignedPayload': quoteSignedPayload,
@@ -680,7 +694,9 @@ class BookingCoordinator {
     // ARCH-20: the offer ceiling comes from the server when it says, else
     // from the booked fare, once; a raised offer never moves it.
     final maxOfferMinor =
-        _maxOfferMinorFrom(json) ?? (FareRules.maximum(price) * 100).round();
+        _maxOfferMinorFrom(json) ??
+        Money.fromLegacyMajor(FareRules.maximum(price), quoteCurrency)
+            .amountMinor;
     session
       ..bookedCategoryId = rideType
       ..bookedPaymentMethodId = paymentMethod
@@ -708,6 +724,7 @@ class BookingCoordinator {
         destinationLng: destinationLng,
         rideType: rideTypeLabel ?? rideType,
         price: price,
+        currency: quoteCurrency,
         paymentMethod: paymentMethodLabel ?? paymentMethod,
         rideId: id,
         notes: notes,
@@ -808,12 +825,18 @@ class _BookingQuoteBinding {
     required this.signedPayload,
     required this.expiresAt,
     required this.totalMinor,
+    this.currency = Money.defaultCurrency,
   });
 
   final String id;
   final String signedPayload;
   final DateTime expiresAt;
   final int totalMinor;
+
+  /// The quote's currency (Q7: the pickup's zone).
+  final String currency;
+
+  Money get total => Money(totalMinor, currency);
 
   void validate({double? requestedPrice}) {
     if (id.trim().isEmpty ||
@@ -823,7 +846,8 @@ class _BookingQuoteBinding {
       throw StateError('A fresh authoritative quote is required for booking');
     }
     if (requestedPrice != null &&
-        (requestedPrice * 100).round() != totalMinor) {
+        Money.fromLegacyMajor(requestedPrice, currency).amountMinor !=
+            totalMinor) {
       throw StateError('Selected fare no longer matches the authoritative quote');
     }
   }

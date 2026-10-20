@@ -68,6 +68,7 @@ abstract final class ReservationLiveRide {
       destinationPosition: _point(ride.destination),
       rideType: ride.categoryName,
       price: ride.price,
+      currency: ride.currency,
       paymentMethod: ride.paymentMethod,
       notes: notesOf(ride),
       driver: ride.driver == null ? null : driverOf(ride.driver!),

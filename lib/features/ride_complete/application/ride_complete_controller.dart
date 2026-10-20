@@ -1,8 +1,10 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class RideCompleteController {
@@ -44,7 +46,12 @@ class RideCompleteController {
       _ride.persistCompletedStatus(status, rideId: rideId);
   DriverProfile? driver() => _drivers.current();
   TripReceipt? receipt() => _trips.last();
-  List<String> tips() => _tips.amounts();
+  /// The tip options are kronor amounts ([TipCatalog]). A trip in another
+  /// currency (Q7) offers none until its amounts are agreed.
+  List<String> tips() {
+    final currency = LastCompletedRide.value?.currency ?? Money.defaultCurrency;
+    return currency == Money.defaultCurrency ? _tips.amounts() : const [];
+  }
 
   Future<void> submitDispute({
     required String rideId,

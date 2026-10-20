@@ -118,6 +118,7 @@ class RideCatalogController extends ChangeNotifier {
           x.note != y.note ||
           x.etaMin != y.etaMin ||
           x.price != y.price ||
+          x.currency != y.currency ||
           x.seats != y.seats ||
           x.badge != y.badge ||
           x.glyph != y.glyph ||
@@ -198,8 +199,9 @@ class RideCatalogJson {
     if (enabled is bool && !enabled) return null;
     // Contract v0.3.0: `price: Money`; a bare number is the pre-v0.3 kronor.
     final rawPrice = row['price'];
-    final price = Money.fromWire(rawPrice)?.major ??
-        (rawPrice is num ? rawPrice.toDouble() : null);
+    final listPrice = Money.fromWire(rawPrice) ??
+        (rawPrice is num ? Money.fromLegacyMajor(rawPrice) : null);
+    final price = listPrice?.major;
     if (price == null || price < 0) return null;
     final etaMin = ((row['etaMin'] as num?)?.toInt() ?? 0).clamp(0, 999);
     final seats = ((row['seats'] as num?)?.toInt() ?? 4).clamp(1, 99);
@@ -211,6 +213,7 @@ class RideCatalogJson {
       arrival: '$etaMin min',
       etaMin: etaMin,
       price: price,
+      currency: listPrice!.currency,
       seats: seats,
       badge: _string(row['badge']),
       glyph: glyphFor(_string(row['glyph'])),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 
@@ -11,16 +13,29 @@ class PriceBumpCard extends StatefulWidget {
     required this.currentPrice,
     required this.steps,
     required this.maxPrice,
+    this.currency = Money.defaultCurrency,
     this.busy = false,
     required this.onConfirm,
+    this.onConfirmIncrease,
     required this.onKeepWaiting,
   });
 
   final double currentPrice;
   final List<int> steps;
   final double maxPrice;
+
+  /// Q7: the trip's currency. Prices, steps and the typed price are whole
+  /// units of it.
+  final String currency;
   final bool busy;
+
+  /// The raise in whole units of [currency], when [onConfirmIncrease] is
+  /// not given.
   final ValueChanged<int> onConfirm;
+
+  /// The raise as Money in [currency]: the typed total less the current
+  /// fare, to the minor unit (a 24.60 € fare raised to 30 € is +5.40 €).
+  final ValueChanged<Money>? onConfirmIncrease;
   final VoidCallback onKeepWaiting;
 
   @override
@@ -34,21 +49,56 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   int get _current => widget.currentPrice.round();
 
+  int get _unitMinor => Money.minorPerMajor(widget.currency);
+
+  bool get _kronor => widget.currency == Money.defaultCurrency;
+
+  /// [major] in minor units. A kronor fare counts from the whole krona
+  /// shown, as before; euros and dinars to the minor unit.
+  int _minorOf(double major) => _kronor
+      ? major.round() * _unitMinor
+      : Money.fromLegacyMajor(major, widget.currency).amountMinor;
+
+  int get _currentMinor => _minorOf(widget.currentPrice);
+
+  /// [amount] whole units of the trip's currency, as the fare is shown.
+  String _money(num amount) => formatMajor(amount, widget.currency);
+
+  /// The symbol after the typed price: "kr", "€", "DT".
+  String get _unit => _money(0).split(' ').last;
+
   int? get _typedTotal {
     final raw = _price.text.trim();
     if (raw.isEmpty) return null;
     return int.tryParse(raw);
   }
 
+  /// The raise in minor units of the trip's currency.
   int? get _increase {
     final total = _typedTotal;
-    if (total == null) return _selectedStep;
-    final extra = total - _current;
-    if (extra <= 0 || total > widget.maxPrice.round()) return null;
+    final step = _selectedStep;
+    if (total == null) return step == null ? null : step * _unitMinor;
+    final extra = total * _unitMinor - _currentMinor;
+    if (extra <= 0 || total * _unitMinor > _minorOf(widget.maxPrice)) {
+      return null;
+    }
     return extra;
   }
 
-  bool get _canConfirm => _increase != null && _increase! > 0;
+  bool get _canConfirm =>
+      _increase != null &&
+      _increase! > 0 &&
+      (widget.onConfirmIncrease != null || _increase! % _unitMinor == 0);
+
+  void _confirm() {
+    final increase = _increase!;
+    final callback = widget.onConfirmIncrease;
+    if (callback != null) {
+      callback(Money(increase, widget.currency));
+    } else {
+      widget.onConfirm(increase ~/ _unitMinor);
+    }
+  }
 
   @override
   void dispose() {
@@ -79,7 +129,6 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   @override
   Widget build(BuildContext context) {
-    final next = _current + (_increase ?? 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -128,7 +177,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Current $_current kr',
+          'Current ${_money(widget.currentPrice)}',
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -148,7 +197,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 if (i > row) const SizedBox(width: 8),
                 Expanded(
                   child: _Step(
-                    label: '+${widget.steps[i]} kr',
+                    label: '+${_money(widget.steps[i])}',
                     selected: _selectedStep == widget.steps[i],
                     onTap: widget.busy
                         ? null
@@ -189,7 +238,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
               // UI-6: was 0xFF9AA3A9 (2.41:1 on the 0xFFF6F8FA fill).
               color: MoveraTokens.subtleOnFill,
             ),
-            suffixText: 'kr',
+            suffixText: _unit,
             suffixStyle: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -220,9 +269,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           width: double.infinity,
           height: 48,
           child: FilledButton(
-            onPressed: !widget.busy && _canConfirm
-                ? () => widget.onConfirm(_increase!)
-                : null,
+            onPressed: !widget.busy && _canConfirm ? _confirm : null,
             style: FilledButton.styleFrom(
               backgroundColor: MoveraTokens.cta,
               disabledBackgroundColor: MoveraTokens.line,
@@ -240,7 +287,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                     ),
                   )
                 : Text(
-                    _canConfirm ? 'Confirm $next kr' : 'Set new price',
+                    _canConfirm
+                        ? 'Confirm ${formatMoney(Money(_currentMinor + _increase!, widget.currency), whole: true)}'
+                        : 'Set new price',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,

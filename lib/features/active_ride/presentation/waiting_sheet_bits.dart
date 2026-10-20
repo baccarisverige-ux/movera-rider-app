@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
@@ -102,6 +103,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.onMore,
   });
 
@@ -114,6 +116,9 @@ class WaitingRideDetailsCard extends StatelessWidget {
   /// The part of [price] booked to the Movera Wallet, in öre.
   final int walletAmountMinor;
   final double price;
+
+  /// ISO-4217 code of [price] (the trip's zone).
+  final String currency;
   final VoidCallback onMore;
 
   @override
@@ -155,6 +160,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
                   bookedPaymentLine(
                     paymentMethod: paymentMethod,
                     priceKr: price,
+                    currency: currency,
                     walletMinor: walletAmountMinor,
                   ),
                   style: waitingText(

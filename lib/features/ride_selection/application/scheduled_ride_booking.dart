@@ -53,7 +53,8 @@ class ScheduledRideBooking {
     final dropoff = when.add(Duration(minutes: ride.etaMin));
     final quoted = quotedPrice(selection, ride.id);
     // A caller's price (the reviewed draft) must still be the quoted one.
-    if (price != null && (price * 100).round() != (quoted * 100).round()) {
+    if (price != null &&
+        selection.moneyOf(price) != selection.moneyOf(quoted)) {
       throw ScheduledQuoteRequiredException(ride.id);
     }
     final nextPrice = quoted;
@@ -70,6 +71,7 @@ class ScheduledRideBooking {
           categoryImage: ride.image,
           passengerCount: ride.seats,
           price: nextPrice,
+          currency: selection.currency,
           paymentMethod: payment.name,
           note: note,
         ),
@@ -86,6 +88,7 @@ class ScheduledRideBooking {
         categoryImage: ride.image,
         passengerCount: ride.seats,
         price: nextPrice,
+        currency: selection.currency,
         paymentMethod: payment.name,
         note: note,
         parentReservationId: parentReservationId,

@@ -6,6 +6,7 @@ class SupportRide {
     required this.when,
     required this.price,
     required this.image,
+    this.currency = 'SEK',
     this.cancelled = false,
     this.failed = false,
     this.extra,
@@ -17,7 +18,9 @@ class SupportRide {
 
   final String title;
   final DateTime when;
+  /// Whole units of [currency] (the ride's).
   final double price;
+  final String currency;
   final String image;
   final bool cancelled;
   final bool failed;
@@ -54,10 +57,10 @@ class SupportRide {
 
   String get priceLabel {
     if (cancelled) {
-      final zero = formatKr(0);
+      final zero = formatMajor(0, currency);
       return extra == null ? '$zero · Cancelled' : '$zero · Cancelled · $extra';
     }
     if (failed) return 'Failed';
-    return formatKr(price);
+    return formatMajor(price, currency);
   }
 }

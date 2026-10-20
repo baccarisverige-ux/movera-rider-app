@@ -3,6 +3,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -160,10 +161,16 @@ class ReservationDraft {
 }
 
 class ReservationPriceChange {
-  const ReservationPriceChange({required this.previous, required this.next});
+  const ReservationPriceChange({
+    required this.previous,
+    required this.next,
+    this.currency = 'SEK',
+  });
 
+  /// Whole units of [currency] (the ride's).
   final double previous;
   final double next;
+  final String currency;
 
   double get delta => next - previous;
 
@@ -171,9 +178,9 @@ class ReservationPriceChange {
 
   String get summary {
     if (unchanged) return 'Price unchanged';
-    final amount = delta.abs().toStringAsFixed(0);
-    if (delta > 0) return 'Your updated ride costs $amount kr more.';
-    return 'Your updated ride costs $amount kr less.';
+    final amount = formatMajor(delta.abs(), currency);
+    if (delta > 0) return 'Your updated ride costs $amount more.';
+    return 'Your updated ride costs $amount less.';
   }
 }
 
@@ -189,6 +196,7 @@ class ReservationPatch {
     this.passengerCount,
     this.paymentMethod,
     this.price,
+    this.currency,
     this.note,
     this.status,
     this.driver,
@@ -206,6 +214,9 @@ class ReservationPatch {
   final int? passengerCount;
   final String? paymentMethod;
   final double? price;
+
+  /// ISO-4217 code of [price], when it changes with it.
+  final String? currency;
   final String? note;
   final ReservationStatus? status;
   final ReservationDriver? driver;

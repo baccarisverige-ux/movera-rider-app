@@ -3,6 +3,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
@@ -33,7 +35,6 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
-import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -185,6 +186,7 @@ class _RideOption {
     required this.seats,
     this.badge,
     this.glyph,
+    this.currency = Money.defaultCurrency,
   });
 
   final String id;
@@ -194,6 +196,9 @@ class _RideOption {
   final String arrival;
   final int etaMin;
   final double price;
+
+  /// The list price's currency ([RideCatalogItem.currency]).
+  final String currency;
   final int seats;
   final String? badge;
   final IconData? glyph;
@@ -231,6 +236,7 @@ class _SelectRideState extends State<SelectRide>
         arrival: ride.arrival,
         etaMin: ride.etaMin,
         price: ride.price,
+        currency: ride.currency,
         seats: ride.seats,
         badge: ride.badge,
         glyph: _glyphIcon(ride.glyph),
@@ -305,6 +311,11 @@ class _SelectRideState extends State<SelectRide>
     _pickupPosition = widget.pickupPosition;
     _nextMapReadyWatch = Stopwatch()..start();
     _pickupConfirmed = widget.pickupAlreadyConfirmed;
+    // Q7: the pickup's zone decides the currency of every price here.
+    _selection.currency = RiderZones.at(
+      _pickupPosition.latitude,
+      _pickupPosition.longitude,
+    ).currency;
     _sheetSlide = AnimationController(
       vsync: this,
       duration: MoveraDurations.sheetOpen,
@@ -316,7 +327,11 @@ class _SelectRideState extends State<SelectRide>
     if (widget.initialRideId != null) {
       final ride = _selection.rideByIdOrNull(widget.initialRideId!);
       if (ride != null) {
-        _selection.selectRide(ride.id, ride.price);
+        _selection.selectRide(
+          ride.id,
+          ride.price,
+          catalogCurrency: ride.currency,
+        );
       }
     }
     _selection.ensureCatalogSelection();
@@ -471,13 +486,17 @@ class _SelectRideState extends State<SelectRide>
   }
 
   SetPickupFare _fareFor(RideQuote quote) {
-    final total = quote.totalMinor / 100;
-    final discount = quote.discountMinor / 100;
+    final total = Money(quote.totalMinor, quote.currency).major;
+    final discount = Money(quote.discountMinor, quote.currency).major;
     return SetPickupFare(
       totalKr: total,
       discountKr: discount,
       promotionPercent: discount > 0 ? _promotion?.percentOff : null,
-      walletKr: _selection.walletSplitFor(quote.totalMinor).walletMinor / 100,
+      walletKr: Money(
+        _selection.walletSplitFor(quote.totalMinor).walletMinor,
+        quote.currency,
+      ).major,
+      currency: quote.currency,
     );
   }
 
@@ -596,6 +615,11 @@ class _SelectRideState extends State<SelectRide>
   double _priceFor(_RideOption ride) =>
       _selection.priceFor(ride.id, ride.price);
 
+  /// Whether [ride] has a price in this pickup's currency yet (a list price
+  /// in kronor is never shown for a pickup priced in euros or dinars).
+  bool _hasPrice(_RideOption ride) =>
+      _selection.hasPriceFor(ride.id, catalogCurrency: ride.currency);
+
   void _selectRide(String id) {
     _RideOption? selected;
     for (final ride in _allRides) {
@@ -606,7 +630,11 @@ class _SelectRideState extends State<SelectRide>
     }
     if (selected == null) return;
     setState(() {
-      _selection.selectRide(selected!.id, selected.price);
+      _selection.selectRide(
+        selected!.id,
+        selected.price,
+        catalogCurrency: selected.currency,
+      );
     });
   }
 
@@ -639,7 +667,9 @@ class _SelectRideState extends State<SelectRide>
     return shortenPlace(cleaned);
   }
 
-  String _kr(double value) => formatKr(value);
+  /// [value] whole units of this pickup's currency, as the fare is shown.
+  String _kr(double value) =>
+      formatMoney(_selection.moneyOf(value), whole: true);
 
   /// UI-10: a price never takes more than 30% of the screen width; at large
   /// text it shrinks to fit instead of pushing the ride row off screen.
@@ -1000,6 +1030,7 @@ class _SelectRideState extends State<SelectRide>
       if (!mounted) return;
       setState(() {
         _selection.useWalletFirst = walletFirst;
+        _selection.walletCurrency = wallet.currency;
         _selection.setWalletBalance(balance);
       });
     } catch (error) {
@@ -1240,6 +1271,7 @@ class _SelectRideState extends State<SelectRide>
         promotionPercent: quote != null && quote.discountMinor > 0
             ? promotion?.percentOff
             : null,
+        currency: _selection.currency,
       ),
       payment: paymentLine(),
       brandMark: _brandMark,
@@ -1252,9 +1284,8 @@ class _SelectRideState extends State<SelectRide>
         totalKr: fare.totalKr,
         discountKr: fare.discountKr,
         promotionPercent: fare.promotionPercent,
-        walletKr:
-            _selection.walletSplitFor(krToMinor(fare.totalKr)).walletMinor /
-            100,
+        walletKr: _selection.walletAppliedKr(fare.totalKr),
+        currency: fare.currency,
       ),
       initialBagLevel: _notes.bagLevel,
       home: home,
@@ -1444,7 +1475,7 @@ class _SelectRideState extends State<SelectRide>
         final authoritativePrice = bookable.price;
         final shown = spot.fareTotalKr;
         if (shown != null &&
-            krToMinor(shown) != quote.totalMinor &&
+            _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
             !await _acceptNewPrice(shown, authoritativePrice)) {
           if (mounted) setState(() {});
           return;
@@ -1473,6 +1504,7 @@ class _SelectRideState extends State<SelectRide>
             quoteSignedPayload: quote.signedPayload,
             quoteExpiresAt: quote.expiresAt,
             quoteTotalMinor: quote.totalMinor,
+            quoteCurrency: quote.currency,
             rideTypeLabel: selected.name,
             paymentMethodLabel: payment.name,
             notes: _notes,
@@ -1543,6 +1575,7 @@ class _SelectRideState extends State<SelectRide>
                 destinationPosition: widget.destinationPosition,
                 rideType: selected.name,
                 price: authoritativePrice,
+                currency: quote.currency,
                 paymentMethod: payment.name,
                 walletAmountMinor: walletSplit.walletMinor,
                 notes: _notes,
@@ -2073,9 +2106,12 @@ class _SelectRideState extends State<SelectRide>
     for (final ride in _allRides) {
       final quote = _selection.authoritativeQuotes[ride.id];
       if (quote == null) continue;
-      final discounted = quote.totalMinor / 100;
+      final discounted = Money(quote.totalMinor, quote.currency).major;
       prices[ride.id] = (
-        original: discounted + quote.discountMinor / 100,
+        original: Money(
+          quote.totalMinor + quote.discountMinor,
+          quote.currency,
+        ).major,
         discounted: discounted,
       );
     }
@@ -2092,6 +2128,7 @@ class _SelectRideState extends State<SelectRide>
           PromotionCategory(id: ride.id, name: ride.name),
       ],
       prices: _promotionPrices(),
+      currency: _selection.currency,
     );
   }
 
@@ -2099,7 +2136,7 @@ class _SelectRideState extends State<SelectRide>
   double _discountFor(_RideOption ride) {
     final quote = _selection.authoritativeQuotes[ride.id];
     if (quote == null || quote.discountMinor <= 0) return 0;
-    return quote.discountMinor / 100;
+    return Money(quote.discountMinor, quote.currency).major;
   }
 
   Widget _rideTile(_RideOption ride, {required double detail}) {
@@ -2226,7 +2263,9 @@ class _SelectRideState extends State<SelectRide>
                           _fitPrice(
                             context,
                             Text(
-                              _kr(price),
+                              // No quote yet for a pickup outside the
+                              // list's currency: no price, not a wrong one.
+                              _hasPrice(ride) ? _kr(price) : '…',
                               style: _text(16, weight: FontWeight.w600),
                             ),
                           ),
@@ -2257,8 +2296,14 @@ class _SelectRideState extends State<SelectRide>
                         ],
                       ),
                       if (selected &&
-                          _selection.walletSplitFor(krToMinor(price)).usesWallet)
+                          _selection
+                              .walletSplitFor(
+                                _selection.moneyOf(price).amountMinor,
+                              )
+                              .usesWallet)
                         _walletLine(price),
+                      if (selected && _walletOtherCurrency)
+                        _walletCurrencyNote(),
                       // Description and badge come in as the sheet opens fully.
                       ClipRect(
                         child: Align(
@@ -2322,8 +2367,30 @@ class _SelectRideState extends State<SelectRide>
 
   /// Under the selected ride: what the wallet covers and what is left to
   /// pay. The list price itself stays the real fare.
+  /// The rider has wallet money and wants it used, but it is in another
+  /// currency than this trip: it is not used (no conversion).
+  bool get _walletOtherCurrency =>
+      _selection.useWalletFirst &&
+      _selection.walletBalance > 0 &&
+      !_selection.walletMatchesTrip &&
+      _selection.walletEnabled;
+
+  Widget _walletCurrencyNote() => Padding(
+    key: const ValueKey('select-ride-wallet-currency-note'),
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      'Your wallet balance is in ${_selection.walletCurrency} and can’t pay '
+      'a ride in ${_selection.currency}.',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _text(12, color: _muted),
+    ),
+  );
+
   Widget _walletLine(double price) {
-    final split = _selection.walletSplitFor(krToMinor(price));
+    final split = _selection.walletSplitFor(
+      _selection.moneyOf(price).amountMinor,
+    );
     const green = Color(0xFF079A60);
     return Padding(
       key: const ValueKey('select-ride-wallet-line'),

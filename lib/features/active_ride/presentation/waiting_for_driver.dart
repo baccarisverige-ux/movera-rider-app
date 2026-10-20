@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -129,6 +130,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.destinationPosition,
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
@@ -148,7 +150,12 @@ class WaitingForDriver extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final String rideType;
+
+  /// The fare in whole units of [currency].
   final double price;
+
+  /// Q7: the trip's currency (its pickup's zone).
+  final String currency;
   final String paymentMethod;
 
   /// The part of the fare booked to the Movera Wallet, in öre.
@@ -612,6 +619,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       destinationPosition: _destinationPosition,
       rideType: widget.rideType,
       price: _price,
+      currency: widget.currency,
       paymentMethod: widget.paymentMethod,
       walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
@@ -705,19 +713,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_isInTrip) {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
-      return 'Booked price for the whole trip: ${formatKr(_price)}. Your '
-          'receipt shows what you pay.';
+      return 'Booked price for the whole trip: '
+          '${formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true)}. '
+          'Your receipt shows what you pay.';
     }
     try {
       final stored = await RouteChangeController.storedRide();
       final category =
           AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
       if (category == null) return null;
-      final config = await AppScope.instance.riderConfig.current();
+      // Q7: the fee rules of the trip's own zone, in its currency.
+      final zone = RiderZones.byCurrency(widget.currency) ??
+          RiderZones.at(_pickupPosition.latitude, _pickupPosition.longitude);
+      final config = await AppScope.instance.riderConfig.forZone(zone.id);
+      // Never a fee from another currency's rules.
+      if (config.currency != widget.currency) return null;
       final preview = LiveCancelFeePreview.of(
         config,
         categoryId: category,
-        fare: Money.fromLegacyMajor(_price, config.currency),
+        fare: Money.fromLegacyMajor(_price, widget.currency),
         acceptedAt: _acceptedAt,
         now: DateTime.now(),
       );
@@ -956,6 +970,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         destinationLng: _destinationPosition.longitude,
         stops: _stops,
         price: _price,
+        currency: widget.currency,
       );
     }
     if (rideId == null || rideId.trim().isEmpty) return null;
@@ -970,6 +985,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       destinationLng: _destinationPosition.longitude,
       rideType: widget.rideType,
       price: _price,
+      currency: widget.currency,
       paymentMethod: widget.paymentMethod,
       rideId: rideId,
       notes: widget.notes,
@@ -1016,6 +1032,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           driverAssigned: true,
           paymentMethod: widget.paymentMethod,
           differenceKr: updated.price - ride.price,
+          currency: updated.currency,
         );
       }
     } finally {
@@ -1808,6 +1825,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         paymentMethod: widget.paymentMethod,
         walletAmountMinor: widget.walletAmountMinor,
         price: _price,
+        currency: widget.currency,
         driver: driver,
         rideId: _rideId,
         status: _tracking.status,
@@ -1839,6 +1857,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             paymentMethod: widget.paymentMethod,
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
+            currency: widget.currency,
             onMore: _openDetails,
           ),
           WaitingNotesAndPin(notes: widget.notes),

@@ -21,7 +21,8 @@ abstract final class RideProjection {
     final status = RideStatusWire.fromProjection(ride);
     final pickup = _place(ride, 'pickup');
     final destination = _place(ride, 'destination');
-    final price = _price(ride);
+    final fare = _fare(ride);
+    final price = fare?.major;
     if (id == null ||
         status == null ||
         pickup == null ||
@@ -57,6 +58,7 @@ abstract final class RideProjection {
       rideType: _string(ride['categoryName']) ?? categoryId ?? 'Movera',
       categoryId: categoryId,
       price: price,
+      currency: fare!.currency,
       paymentMethod:
           _string(ride['paymentMethodLabel']) ?? paymentMethodId ?? '',
       paymentMethodId: paymentMethodId,
@@ -111,18 +113,24 @@ abstract final class RideProjection {
     ];
   }
 
-  /// Kronor for the snapshot: `totalMinor` (C-0 money) first, then a
-  /// `{amountMinor, currency}` total, then the legacy whole-kronor `price`.
-  static double? _price(Map<String, dynamic> ride) {
+  /// The trip's fare with its currency (Q7: the pickup's zone): `fare:
+  /// Money` first, then `totalMinor` + `currency`, then a `total` Money,
+  /// then the legacy whole-unit `price` in the flat `currency` (kronor
+  /// when absent).
+  static Money? _fare(Map<String, dynamic> ride) {
     // Contract v0.3.0: `fare: Money` is the authoritative fare.
     final fare = Money.fromWire(ride['fare']);
-    if (fare != null) return fare.major;
+    if (fare != null) return fare;
     final minor = Money.tryMinor(ride['totalMinor'], ride['currency']);
-    if (minor != null) return minor.major;
+    if (minor != null) return minor;
     final total = Money.tryParse(ride['total']);
-    if (total != null) return total.major;
+    if (total != null) return total;
     final legacy = ride['price'] ?? ride['bookedPrice'];
-    return legacy is num ? legacy.toDouble() : null;
+    if (legacy is! num) return null;
+    return Money.fromLegacyMajor(
+      legacy,
+      Money.normalizeCurrency(ride['currency']) ?? Money.defaultCurrency,
+    );
   }
 
   static String? _string(Object? raw) {

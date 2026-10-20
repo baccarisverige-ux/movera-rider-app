@@ -218,6 +218,7 @@ abstract final class OnDemandRideHistoryStore {
           : snapshot.rideType,
       categoryImage: _categoryImage(snapshot.rideType),
       price: snapshot.price,
+      currency: snapshot.currency,
       paymentMethod: snapshot.paymentMethod,
       status: reservationStatus,
       driver: _driver(snapshot),

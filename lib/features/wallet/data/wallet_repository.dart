@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_balance_repository.dart';
@@ -149,6 +150,10 @@ class LocalWalletRepository implements WalletBalanceRepository {
   @override
   bool get available => true;
 
+  /// The device-local ledger holds kronor.
+  @override
+  String get currency => 'SEK';
+
   @override
   Future<double> loadBalance() => _source.loadBalance();
 
@@ -161,8 +166,9 @@ class LocalWalletRepository implements WalletBalanceRepository {
     try {
       if (previous != null) await previous;
       final current = await _source.loadBalance();
-      final nextMinor = (current * 100).round() + (deltaKr * 100).round();
-      final next = nextMinor / 100;
+      final nextMinor = Money.fromLegacyMajor(current, currency).amountMinor +
+          Money.fromLegacyMajor(deltaKr, currency).amountMinor;
+      final next = Money(nextMinor, currency).major;
       await _source.saveBalance(next);
       return next;
     } finally {
@@ -201,6 +207,9 @@ class DisabledWalletRepository
 
   @override
   bool get available => false;
+
+  @override
+  String get currency => 'SEK';
 
   @override
   Future<double> loadBalance() async => 0;

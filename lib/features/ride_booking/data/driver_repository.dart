@@ -100,7 +100,8 @@ class TripReceiptRepository {
 
   final TripReceipt? _receipt;
 
-  /// The receipt for the ride just completed, in SEK. Null when no ride has
+  /// The receipt for the ride just completed, in its own currency (Q7: the
+  /// pickup's zone). Null when no ride has
   /// finished, so the screen keeps its honest empty state.
   TripReceipt? last() {
     final injected = _receipt;
@@ -113,7 +114,9 @@ class TripReceiptRepository {
     return TripReceipt(
       pickup: ride.pickupAddress,
       destination: ride.destinationAddress,
-      total: charged != null ? formatMoney(charged) : formatKr(ride.price),
+      total: charged != null
+          ? formatMoney(charged)
+          : formatMoney(ride.fare, whole: true),
       method: ride.paymentMethod,
       // The local completion snapshot only knows the booked/quoted amount,
       // unless the server already said what the rider pays (end-early).

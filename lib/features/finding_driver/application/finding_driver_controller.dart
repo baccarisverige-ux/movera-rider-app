@@ -12,6 +12,7 @@ import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
@@ -201,12 +202,16 @@ class FindingDriverController {
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
+
+  /// Q7: the currency of this trip (its pickup's zone). [currentPrice] and
+  /// [maxOfferPrice] are whole units of it.
+  String get currency => _snapshot?.currency ?? Money.defaultCurrency;
   /// ARCH-20: the ceiling the booking carries (server or booked fare), so a
   /// raised offer plus a reload does not lift it; the catalog rule only for
   /// a snapshot without one.
   double get maxOfferPrice {
     final minor = _snapshot?.maxOfferMinor;
-    if (minor != null) return minor / 100;
+    if (minor != null) return Money(minor, currency).major;
     return FareRules.maximum(_catalogPrice ?? currentPrice);
   }
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
@@ -237,6 +242,7 @@ class FindingDriverController {
     required double destinationLng,
     required String rideType,
     required double price,
+    String currency = Money.defaultCurrency,
     required String paymentMethod,
     int walletAmountMinor = 0,
     RideNotes notes = RideNotes.empty,
@@ -276,6 +282,7 @@ class FindingDriverController {
         destinationLng: destinationLng,
         rideType: rideType,
         price: price,
+        currency: currency,
         paymentMethod: paymentMethod,
         rideId: ride.rideId,
         notes: notes,
@@ -764,13 +771,23 @@ class FindingDriverController {
     _reportQa();
   }
 
-  Future<bool> confirmPriceIncrease(int kr) async {
-    if (kr <= 0) return false;
+  /// Raises the offer by [kr] whole units of the trip's [currency]
+  /// (kronor, euros, dinars).
+  Future<bool> confirmPriceIncrease(int kr) {
+    if (kr <= 0) return Future.value(false);
+    return confirmPriceIncreaseBy(Money.fromLegacyMajor(kr, currency));
+  }
+
+  /// Raises the offer by [increase], in the trip's [currency] (a raise in
+  /// another currency is refused here, never converted).
+  Future<bool> confirmPriceIncreaseBy(Money increase) async {
+    if (!increase.isPositive || increase.currency != currency) return false;
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
     final catalog = _catalogPrice ?? snapshot.price;
-    final next = snapshot.price + kr;
+    final next = Money(snapshot.fare.amountMinor + increase.amountMinor, currency)
+        .major;
     if (next > maxOfferPrice ||
         (snapshot.maxOfferMinor == null &&
             !FareRules.allowsTotal(total: next, catalog: catalog))) {
@@ -790,7 +807,6 @@ class FindingDriverController {
     // The client-computed total is a preview for the button label, never a
     // value the server is asked to accept. The fare shown afterwards is the
     // one the server's response actually carries.
-    final increase = Money(kr * 100);
     final intent = jsonEncode({
       'rideId': id,
       'fromPrice': snapshot.price,
@@ -825,14 +841,15 @@ class FindingDriverController {
             'Offer sent. Your fare will update once Movera confirms it.';
         AppLog.warning(
           'ride.offer.price_unconfirmed',
-          extra: {'rideId': id, 'increaseKr': kr},
+          extra: {'rideId': id, 'increase': increase.majorString},
         );
         _onTick?.call(elapsedSeconds);
         _reportQa();
         return true;
       }
       _priceUpdated = true;
-      offerConfirmation = 'Updated offer: ${serverPrice.round()} kr';
+      offerConfirmation =
+          'Updated offer: ${formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true)}';
       editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
@@ -846,7 +863,7 @@ class FindingDriverController {
         'ride.offer.updated',
         extra: {
           'rideId': id,
-          'increaseKr': kr,
+          'increase': increase.majorString,
           'serverPrice': serverPrice,
           if (serverPrice != next) 'previewPrice': next,
         },
@@ -896,10 +913,13 @@ class FindingDriverController {
 
   /// The fare the server says the ride now has, from a PATCH response's
   /// `ride.price` (or a top-level `price`). Null when absent or unusable.
-  static double? _serverPrice(Map<String, dynamic> response) {
+  double? _serverPrice(Map<String, dynamic> response) {
     final ride = response['ride'];
     final fare = Money.fromWire(ride is Map ? ride['fare'] : response['fare']);
-    if (fare != null) return fare.isPositive ? fare.major : null;
+    // A fare in another currency is not this trip's price.
+    if (fare != null) {
+      return fare.isPositive && fare.currency == currency ? fare.major : null;
+    }
     final raw = ride is Map ? ride['price'] : response['price'];
     if (raw is! num) return null;
     final value = raw.toDouble();

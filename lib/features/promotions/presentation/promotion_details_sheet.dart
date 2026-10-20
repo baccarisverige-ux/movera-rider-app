@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 
 /// A ride's price before and after the promotion, in kr.
@@ -30,6 +31,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     required this.categories,
     this.prices = const {},
     this.now,
+    this.currency = Money.defaultCurrency,
   });
 
   static const Color _ink = Color(0xFF1D252C);
@@ -46,6 +48,9 @@ class PromotionDetailsSheet extends StatelessWidget {
   /// Current quote prices by category id; empty when no destination is set.
   final Map<String, PromotionPrice> prices;
 
+  /// ISO-4217 code of [prices] (the pickup's zone).
+  final String currency;
+
   /// Clock for the "days left" line; tests pin it.
   final DateTime? now;
 
@@ -56,6 +61,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     RiderPromotion promotion, {
     List<PromotionCategory>? categories,
     Map<String, PromotionPrice> prices = const {},
+    String currency = Money.defaultCurrency,
   }) {
     final list =
         categories ??
@@ -69,6 +75,7 @@ class PromotionDetailsSheet extends StatelessWidget {
         promotion: promotion,
         categories: list,
         prices: prices,
+        currency: currency,
       ),
     );
   }
@@ -103,7 +110,8 @@ class PromotionDetailsSheet extends StatelessWidget {
     return 'Valid until ${_date(ends)} · $days ${days == 1 ? 'day' : 'days'} left';
   }
 
-  static String _kr(double kr) => formatSek((kr * 100).round());
+  String _kr(double major) =>
+      formatMoney(Money.fromLegacyMajor(major, currency), whole: true);
 
   TextStyle _t(double size, {FontWeight w = FontWeight.w500, Color c = _ink}) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: w, color: c);

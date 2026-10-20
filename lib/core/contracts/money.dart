@@ -55,6 +55,13 @@ class Money {
   /// Minor units per major unit is `10^exponent`; unknown codes use 2.
   static int exponentOf(String currency) => exponents[currency] ?? 2;
 
+  /// Minor units in one major unit of [currency]: 100 öre, 100 cents,
+  /// 1000 millimes.
+  static int minorPerMajor(String currency) => _pow10(exponentOf(currency));
+
+  /// Nothing, in [currency].
+  const Money.zero(this.currency) : amountMinor = 0;
+
   /// The contract wire shape, strictly (`fixtures/money.json`): an
   /// integer `amountMinor` and an upper-case ISO-4217 `currency`. A float,
   /// a lower-case code, a missing currency or another key (`minorUnits`)

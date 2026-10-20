@@ -115,6 +115,7 @@ class _CaptureBooking extends BookingController {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = 'SEK',
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,

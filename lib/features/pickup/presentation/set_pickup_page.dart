@@ -21,6 +21,7 @@ import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -89,22 +90,35 @@ class SetPickupFare {
     this.discountKr = 0,
     this.promotionPercent,
     this.walletKr = 0,
+    this.currency = Money.defaultCurrency,
   });
 
+  /// Amounts are whole units of [currency] (the pickup's zone, Q7).
   final double totalKr;
   final double discountKr;
   final int? promotionPercent;
 
-  /// The part of the total taken from the Movera Wallet first.
+  /// The part of the total taken from the Movera Wallet first (0 when the
+  /// wallet holds another currency).
   final double walletKr;
+
+  /// ISO-4217 code of every amount above.
+  final String currency;
 
   double get remainderKr => totalKr - walletKr;
 
-  /// The same split in öre, for display: its parts add up to the total.
-  WalletSplit get split => WalletSplit.booked(
-    totalMinor: krToMinor(totalKr),
-    walletMinor: krToMinor(walletKr),
-  );
+  /// The same split in minor units, for display: its parts add up to the
+  /// total. The wallet holds kronor, so it only splits a kronor fare.
+  WalletSplit get split => currency == Money.defaultCurrency
+      ? WalletSplit.booked(
+          totalMinor: krToMinor(totalKr),
+          walletMinor: krToMinor(walletKr),
+        )
+      : WalletSplit.none(Money.fromLegacyMajor(totalKr, currency).amountMinor);
+
+  /// [major] whole units of [currency], as the fare is shown.
+  String format(double major) =>
+      formatMoney(Money.fromLegacyMajor(major, currency), whole: true);
 }
 
 /// The payment line at the bottom of the sheet.
@@ -1357,17 +1371,17 @@ class _SetPickupPageState extends State<SetPickupPage>
       child: Column(
         children: [
           if (hasDiscount) ...[
-            _priceRow('Ride price', formatKr(fare.totalKr + fare.discountKr)),
+            _priceRow('Ride price', fare.format(fare.totalKr + fare.discountKr)),
             _priceRow(
               fare.promotionPercent == null
                   ? 'Promotion'
                   : 'Promotion ${fare.promotionPercent}%',
-              '-${formatKr(fare.discountKr)}',
+              '-${fare.format(fare.discountKr)}',
               color: _accent,
             ),
             const Divider(height: 12, color: _line),
           ],
-          _priceRow('Total', formatKr(fare.totalKr), bold: true),
+          _priceRow('Total', fare.format(fare.totalKr), bold: true),
           if (fare.split.usesWallet) ...[
             const Divider(height: 12, color: _line),
             _priceRow(
