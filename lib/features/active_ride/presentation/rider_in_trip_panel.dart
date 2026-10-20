@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -14,6 +15,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.driver,
     required this.rideId,
     this.status = RideStatus.tripInProgress,
@@ -31,6 +33,9 @@ class RiderInTripPanel extends StatelessWidget {
   /// The part of [price] booked to the Movera Wallet, in öre.
   final int walletAmountMinor;
   final double price;
+
+  /// ISO-4217 code of [price] (the trip's zone).
+  final String currency;
   final MatchedDriver? driver;
   final String? rideId;
   final RideStatus status;
@@ -119,6 +124,7 @@ class RiderInTripPanel extends StatelessWidget {
             '$rideType · ${bookedPaymentLine(
               paymentMethod: paymentMethod,
               priceKr: price,
+              currency: currency,
               walletMinor: walletAmountMinor,
             )}',
             key: const ValueKey<String>('trip-summary-line'),

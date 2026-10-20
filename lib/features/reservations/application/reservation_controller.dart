@@ -118,8 +118,21 @@ class ReservationController extends ChangeNotifier {
       _rules.cancelTermsFor(
         ride,
         now ?? _clock(),
-        categoryRule: _config?.reservationFeeFor(ride.categoryId),
+        categoryRule: _configFor(
+          ride.currency,
+        )?.reservationFeeFor(ride.categoryId),
       );
+
+  /// Q7: the config of the ride's own zone: the loaded one when it is in
+  /// the ride's currency, else the seed of the zone with that currency.
+  /// Never a rule in another currency.
+  RiderAppConfig? _configFor(String currency) {
+    final config = _config;
+    if (config != null && config.currency == currency) return config;
+    // Without a loaded config a kronor ride keeps the single rule, as before.
+    if (config == null && currency == Money.defaultCurrency) return null;
+    return SeedRiderConfigRepository.seedForCurrency(currency);
+  }
 
   /// Whether the rider sees [ride]'s driver: from the moment a driver
   /// accepts, or only once on the way when admin turned that off.

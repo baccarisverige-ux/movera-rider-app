@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -55,6 +56,7 @@ class FindingDrivers extends StatefulWidget {
     required this.destinationPosition,
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
@@ -92,7 +94,12 @@ class FindingDrivers extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final String rideType;
+
+  /// The fare in whole units of [currency].
   final double price;
+
+  /// Q7: the trip's currency (its pickup's zone).
+  final String currency;
   final String paymentMethod;
   final RideNotes notes;
   final RideRealtime? realtime;
@@ -106,6 +113,11 @@ class FindingDrivers extends StatefulWidget {
 }
 
 class _FindingDriversState extends State<FindingDrivers> {
+  /// The trip's currency: the one the search holds once it started (a
+  /// restored or re-requested trip keeps its own), else the widget's.
+  String get _currency =>
+      _match.ownershipSnapshot?.currency ?? widget.currency;
+
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   late final FindingDriverController _match =
@@ -191,6 +203,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       destinationLng: _destinationPosition.longitude,
       rideType: widget.rideType,
       price: effectivePrice,
+      currency: _currency,
       paymentMethod: widget.paymentMethod,
       walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
@@ -341,6 +354,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         destinationLng: ended.destinationLng,
         rideType: ended.categoryId!,
         price: ended.price,
+        quoteCurrency: ended.currency,
         paymentMethod: ended.paymentMethodId!,
         rideTypeLabel: widget.rideType,
         paymentMethodLabel: widget.paymentMethod,
@@ -524,6 +538,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           destinationPosition: _destinationPosition,
           rideType: widget.rideType,
           price: _match.currentPrice,
+          currency: _match.currency,
           paymentMethod: widget.paymentMethod,
           walletAmountMinor: widget.walletAmountMinor,
           notes: widget.notes,
@@ -672,6 +687,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         driverAssigned: _match.matchCount > 0,
         paymentMethod: widget.paymentMethod,
         differenceKr: updated.price - ride.price,
+        currency: updated.currency,
       );
     }
     if (_match.matchCount == 1) _matchedPending = true;
@@ -689,6 +705,16 @@ class _FindingDriversState extends State<FindingDrivers> {
     _roadRoutePoints = null;
     _loadMapBits();
     if (_mapReady) unawaited(_refreshRoadRoute());
+  }
+
+  Future<void> _raiseOffer(Future<bool> raise) async {
+    final updated = await raise;
+    if (!mounted) return;
+    setState(() {});
+    _showEditFeedback(
+      success: updated,
+      fallback: updated ? 'Offer updated' : 'Couldn’t update offer. Try again.',
+    );
   }
 
   void _showEditFeedback({
@@ -1029,19 +1055,16 @@ class _FindingDriversState extends State<FindingDrivers> {
             PriceBumpCard(
               currentPrice: _match.currentPrice,
               maxPrice: _match.maxOfferPrice,
+              currency: _match.currency,
               busy: _match.editInFlight,
-              steps: const [50, 100, 150, 200],
-              onConfirm: (kr) async {
-                final updated = await _match.confirmPriceIncrease(kr);
-                if (!mounted) return;
-                setState(() {});
-                _showEditFeedback(
-                  success: updated,
-                  fallback: updated
-                      ? 'Offer updated'
-                      : 'Couldn’t update offer. Try again.',
-                );
-              },
+              // Kronor steps; another currency has no agreed steps yet, so
+              // the rider types the new price.
+              steps: _match.currency == Money.defaultCurrency
+                  ? const [50, 100, 150, 200]
+                  : const [],
+              onConfirm: (kr) => _raiseOffer(_match.confirmPriceIncrease(kr)),
+              onConfirmIncrease: (increase) =>
+                  _raiseOffer(_match.confirmPriceIncreaseBy(increase)),
               onKeepWaiting: () {
                 _match.dismissPriceBump();
                 setState(() {});
@@ -1084,6 +1107,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                         bookedPaymentLine(
                           paymentMethod: widget.paymentMethod,
                           priceKr: _match.currentPrice,
+                          currency: _match.currency,
                           walletMinor: widget.walletAmountMinor,
                           separator: '  ·  ',
                         ),

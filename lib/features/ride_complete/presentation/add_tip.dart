@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -28,7 +29,11 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
     final selected = _selected == amount ? null : amount;
     setState(() => _selected = selected);
     widget.onTipChanged?.call(
-      selected == null ? null : int.parse(selected.split(' ').first) * 100,
+      // The options are whole kronor ("20 kr", [TipCatalog]).
+      selected == null
+          ? null
+          : Money.fromLegacyMajor(int.parse(selected.split(' ').first))
+                .amountMinor,
     );
   }
 

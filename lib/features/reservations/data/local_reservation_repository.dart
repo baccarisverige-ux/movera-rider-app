@@ -203,6 +203,7 @@ class LocalReservationRepository implements ReservationRepository {
         passengerCount: patch.passengerCount,
         paymentMethod: patch.paymentMethod,
         price: patch.price,
+        currency: patch.currency,
         note: patch.note,
         status: patch.status,
         driver: patch.driver,

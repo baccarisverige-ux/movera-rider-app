@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -20,13 +21,19 @@ class CatalogQuoteRepository implements QuoteRepository {
     List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final kr = pricesKr[rideType] ?? 259;
+    // Q7: the pickup's zone decides the currency (the list price in it).
+    final zone = RiderZones.at(pickupPoint?.latitude, pickupPoint?.longitude);
+    final list = MockZoneRates(
+      catalogKronor: kr,
+      currency: zone.currency,
+    ).listMinor;
     return RideQuote(
       id: 'q_fallback_$rideType',
       rideType: rideType,
-      totalMinor: kr * 100,
-      currency: 'SEK',
+      totalMinor: list,
+      currency: zone.currency,
       expiresAt: DateTime.now().add(const Duration(minutes: 2)),
-      baseMinor: kr * 100,
+      baseMinor: list,
       signedPayload: 'fallback',
     );
   }

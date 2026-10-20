@@ -27,7 +27,9 @@ abstract final class ReservationFormat {
   /// ended-early trip), else the booked price.
   static String price(Reservation ride) {
     final charged = ride.chargedFare;
-    return charged != null ? formatMoney(charged) : formatKr(ride.price);
+    return charged != null
+        ? formatMoney(charged)
+        : formatMajor(ride.price, ride.currency);
   }
 
   /// UI-06: the chip on a finished ride in History. Driver-dispatch badges
@@ -105,7 +107,9 @@ abstract final class ReservationFormat {
   static const String notifyWhenAssigned =
       "We'll notify you as soon as a driver is assigned.";
 
-  static String kr(double amount) => formatKr(amount);
+  /// [amount] whole units of [currency] (kronor unless the ride says).
+  static String kr(double amount, [String currency = 'SEK']) =>
+      formatMajor(amount, currency);
 
   static String remainingCompact(DateTime when, {DateTime? now}) {
     final left = when.difference(now ?? DateTime.now());

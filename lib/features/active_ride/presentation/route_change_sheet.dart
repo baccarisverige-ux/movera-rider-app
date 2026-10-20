@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -68,14 +69,21 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   static const Color _accent = Color(0xFF2D5878);
 
   bool _paymentStep = false;
-  RefundDestination _refundTo = RefundDestination.wallet;
+
+  /// The wallet takes refunds only in its own currency (no conversion).
+  late final bool _walletRefund =
+      quote.currency == AppScope.instance.walletController.currency;
+  late RefundDestination _refundTo = _walletRefund
+      ? RefundDestination.wallet
+      : RefundDestination.originalMethod;
 
   RouteChangeQuote get quote => widget.quote;
   String get paymentMethod => widget.paymentMethod;
   bool get _cash => isCashPayment(widget.paymentMethodId ?? paymentMethod);
   double get _diff => quote.differenceKr;
 
-  String _kr(double value) => formatKr(value);
+  /// [value] whole units of the trip's currency, as the fare is shown.
+  String _kr(double value) => formatMajor(value, quote.currency);
 
   void _confirmRoute() {
     if (_cash || _diff.abs() < 0.5) {
@@ -237,15 +245,17 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           ),
         ),
         if (!more) ...[
-          const SizedBox(height: 14),
-          _refundOption(
-            RefundDestination.wallet,
-            key: const ValueKey('refund-to-wallet'),
-            title: 'Movera Wallet',
-            subtitle:
-                'Available immediately and used first on your next ride.',
-            icon: Icons.account_balance_wallet_outlined,
-          ),
+          if (_walletRefund) ...[
+            const SizedBox(height: 14),
+            _refundOption(
+              RefundDestination.wallet,
+              key: const ValueKey('refund-to-wallet'),
+              title: 'Movera Wallet',
+              subtitle:
+                  'Available immediately and used first on your next ride.',
+              icon: Icons.account_balance_wallet_outlined,
+            ),
+          ],
           const SizedBox(height: 8),
           _refundOption(
             RefundDestination.originalMethod,

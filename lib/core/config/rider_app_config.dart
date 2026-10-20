@@ -308,6 +308,10 @@ class RiderAppConfig {
 abstract class RiderConfigRepository {
   /// The last good document. Never throws: the seed is always there.
   Future<RiderAppConfig> current();
+
+  /// The document of zone [zoneId] (Q7: the pickup's zone), or [current]
+  /// when there is none for that zone. Never throws.
+  Future<RiderAppConfig> forZone(String zoneId);
 }
 
 /// The seed document the app ships with (Stockholm zone). Same values as
@@ -318,8 +322,105 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
 
   static final RiderAppConfig seed = RiderAppConfig.fromJson(seedDocument)!;
 
+  /// The seed of each zone the app knows (`RiderZones`): Stockholm's
+  /// [seedDocument], and Paris Centre and Tunis Centre with their own
+  /// currency, waiting and cancel fees as Admin exports them
+  /// (`test/fixtures/admin_config/rider_app_config.<zone>.json`; a test
+  /// keeps them equal).
+  static final Map<String, RiderAppConfig> zoneSeeds = {
+    seed.zoneId: seed,
+    for (final overrides in [_franceOverrides, _tunisiaOverrides])
+      overrides['zoneId'] as String: RiderAppConfig.fromJson({
+        ...seedDocument,
+        ...overrides,
+      })!,
+  };
+
+  /// The seed of [zoneId], else Stockholm's.
+  static RiderAppConfig seedFor(String? zoneId) => zoneSeeds[zoneId] ?? seed;
+
+  /// The seed whose prices are in [currency], or null.
+  static RiderAppConfig? seedForCurrency(String currency) {
+    for (final config in zoneSeeds.values) {
+      if (config.currency == currency) return config;
+    }
+    return null;
+  }
+
   @override
   Future<RiderAppConfig> current() async => seed;
+
+  @override
+  Future<RiderAppConfig> forZone(String zoneId) async => seedFor(zoneId);
+
+  static const Map<String, Object?> _franceOverrides = {
+    'zoneId': 'FR-PC',
+    'currency': 'EUR',
+    'timeZone': 'Europe/Paris',
+    'waiting': {
+      'freeWaitMin': 2,
+      'perMin': {'amountMinor': 115, 'currency': 'EUR'},
+      'noShowAfterMin': 5,
+      'noShowFee': {'amountMinor': 615, 'currency': 'EUR'},
+    },
+    'cancelFees': {
+      'live': {
+        'economy': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+        'comfort': {'freeMin': 2, 'type': 'fixed', 'value': 430, 'min': null, 'max': null},
+        'premium': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 475, 'currency': 'EUR'}, 'max': {'amountMinor': 1425, 'currency': 'EUR'}},
+        'priority': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+        'xl': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 475, 'currency': 'EUR'}, 'max': {'amountMinor': 1425, 'currency': 'EUR'}},
+        'electric': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+        'pet': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+        'child_seat': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+      },
+      'reservation': {
+        'economy': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+        'comfort': {'freeMin': 60, 'type': 'fixed', 'value': 570, 'min': null, 'max': null},
+        'premium': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 760, 'currency': 'EUR'}, 'max': {'amountMinor': 2850, 'currency': 'EUR'}},
+        'priority': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+        'xl': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 760, 'currency': 'EUR'}, 'max': {'amountMinor': 2850, 'currency': 'EUR'}},
+        'electric': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+        'pet': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+        'child_seat': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+      },
+    },
+  };
+
+  static const Map<String, Object?> _tunisiaOverrides = {
+    'zoneId': 'TN-TC',
+    'currency': 'TND',
+    'timeZone': 'Africa/Tunis',
+    'waiting': {
+      'freeWaitMin': 2,
+      'perMin': {'amountMinor': 3700, 'currency': 'TND'},
+      'noShowAfterMin': 5,
+      'noShowFee': {'amountMinor': 19500, 'currency': 'TND'},
+    },
+    'cancelFees': {
+      'live': {
+        'economy': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+        'comfort': {'freeMin': 2, 'type': 'fixed', 'value': 13500, 'min': null, 'max': null},
+        'premium': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 15000, 'currency': 'TND'}, 'max': {'amountMinor': 45000, 'currency': 'TND'}},
+        'priority': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+        'xl': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 15000, 'currency': 'TND'}, 'max': {'amountMinor': 45000, 'currency': 'TND'}},
+        'electric': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+        'pet': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+        'child_seat': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+      },
+      'reservation': {
+        'economy': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+        'comfort': {'freeMin': 60, 'type': 'fixed', 'value': 18000, 'min': null, 'max': null},
+        'premium': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 24000, 'currency': 'TND'}, 'max': {'amountMinor': 90000, 'currency': 'TND'}},
+        'priority': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+        'xl': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 24000, 'currency': 'TND'}, 'max': {'amountMinor': 90000, 'currency': 'TND'}},
+        'electric': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+        'pet': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+        'child_seat': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+      },
+    },
+  };
+
 
   static const Map<String, Object?> seedDocument = {
     'version': 12,

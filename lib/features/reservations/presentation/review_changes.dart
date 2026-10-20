@@ -22,6 +22,7 @@ class ReviewChangesPage extends StatelessWidget {
     final change = ReservationPriceChange(
       previous: original.price,
       next: draft.price,
+      currency: original.currency,
     );
     final policy = controller?.policy;
     final top = MediaQuery.paddingOf(context).top;
@@ -76,6 +77,7 @@ class ReviewChangesPage extends StatelessWidget {
                   destination: original.destination.label,
                   category: original.categoryName,
                   price: original.price,
+                  currency: original.currency,
                 ),
                 const SizedBox(height: 12),
                 _CompareCard(
@@ -85,6 +87,7 @@ class ReviewChangesPage extends StatelessWidget {
                   destination: draft.destination.label,
                   category: draft.categoryName,
                   price: draft.price,
+                  currency: draft.currency,
                   highlight: true,
                 ),
                 const SizedBox(height: 20),
@@ -95,17 +98,17 @@ class ReviewChangesPage extends StatelessWidget {
                 const SizedBox(height: 14),
                 _PriceLine(
                   label: 'Previous price',
-                  value: ReservationFormat.kr(change.previous),
+                  value: ReservationFormat.kr(change.previous, change.currency),
                 ),
                 _PriceLine(
                   label: 'New reservation price',
-                  value: ReservationFormat.kr(change.next),
+                  value: ReservationFormat.kr(change.next, change.currency),
                 ),
                 _PriceLine(
                   label: 'Price difference',
                   value: change.unchanged
-                      ? '0 kr'
-                      : '${change.delta > 0 ? '+' : '−'}${change.delta.abs().toStringAsFixed(0)} kr',
+                      ? ReservationFormat.kr(0, change.currency)
+                      : '${change.delta > 0 ? '+' : '−'}${ReservationFormat.kr(change.delta.abs(), change.currency)}',
                   strong: true,
                 ),
                 if (policy?.changeCharge == null)
@@ -183,6 +186,7 @@ class _CompareCard extends StatelessWidget {
     required this.destination,
     required this.category,
     required this.price,
+    this.currency = 'SEK',
     this.highlight = false,
   });
 
@@ -192,6 +196,7 @@ class _CompareCard extends StatelessWidget {
   final String destination;
   final String category;
   final double price;
+  final String currency;
   final bool highlight;
 
   @override
@@ -222,7 +227,7 @@ class _CompareCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '$category  ·  ${ReservationFormat.kr(price)}',
+            '$category  ·  ${ReservationFormat.kr(price, currency)}',
             style: reservationText(15, weight: FontWeight.w700),
           ),
           const SizedBox(height: 4),

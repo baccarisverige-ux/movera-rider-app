@@ -7,6 +7,7 @@ import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
@@ -219,7 +220,7 @@ class InProcessMockClient extends http.BaseClient {
       'seats': seats,
       'etaMin': etaMin,
       // The list price as Money (contract v0.3.0).
-      'price': _money(price * 100),
+      'price': _money(price * Money.minorPerMajor(currency)),
       'description': description,
       'badge': badge,
       'glyph': glyph,
@@ -599,14 +600,14 @@ class InProcessMockClient extends http.BaseClient {
         );
       } else if ((rating == null && tipMinor == null) ||
           (rating != null && (rating is! num || rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) ||
-          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != 'SEK'))) {
+          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != _currencyOf(ride)))) {
         status = 400;
         payload = _error('invalid_request', requestId, reason: 'invalid_feedback');
       } else {
         ride['feedback'] = {
           if (rating != null) 'rating': rating,
           if (tipMinor != null) 'tipMinor': tipMinor,
-          if (tipMinor != null) 'currency': 'SEK',
+          if (tipMinor != null) 'currency': _currencyOf(ride),
         };
         if (rating != null) {
           // ratingTransitions: (not_requested →) pending → submitted.
@@ -802,8 +803,7 @@ class InProcessMockClient extends http.BaseClient {
               .add(const Duration(minutes: 5))
               .toUtc()
               .toIso8601String();
-          final newTotalMinor =
-              ((pricing['newPriceKr'] as double) * 100).round();
+          final newTotalMinor = pricing['newMinor'] as int;
           routeQuotes[quoteId] = {
             'rideId': parts[4],
             'route': _routeFingerprint(body),
@@ -850,9 +850,10 @@ class InProcessMockClient extends http.BaseClient {
           ride['destinationLat'] = body['destinationLat'];
           ride['destinationLng'] = body['destinationLng'];
           ride['stops'] = pricing['stops'];
-          final newMinor = ((pricing['newPriceKr'] as double) * 100).round();
+          final newMinor = pricing['newMinor'] as int;
+          final rideCurrency = _currencyOf(ride);
           _setFare(ride, newMinor);
-          ride['maxOfferMinor'] = _maxOfferMinorFor(newMinor);
+          ride['maxOfferMinor'] = _maxOfferMinorFor(newMinor, rideCurrency);
           _touch(ride);
           // The driver app is told on its next poll; the log is what admin
           // reads later.
@@ -867,12 +868,14 @@ class InProcessMockClient extends http.BaseClient {
               ? methodId == 'cash'
               : method.toLowerCase() == 'cash' ||
                     method.toLowerCase().contains('pay in car');
-          final difference = pricing['differenceKr'] as double;
-          if (!cash && difference.abs() >= 0.5) {
+          final difference = pricing['differenceMinor'] as int;
+          // Half a major unit or more (50 öre, 50 cents, 500 millimes).
+          if (!cash &&
+              difference.abs() * 2 >= Money.minorPerMajor(rideCurrency)) {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
               'at': ride['updatedAt'],
               'method': method,
-              'amount': _money((difference * 100).round()),
+              'amount': _money(difference, rideCurrency),
               'status': difference > 0 ? 'captured' : 'refunded',
               if (difference < 0)
                 // wallet: credited at once; originalMethod: 2–3 business days.
@@ -883,8 +886,8 @@ class InProcessMockClient extends http.BaseClient {
             'at': ride['updatedAt'],
             'destinationAddress': body['destinationAddress'],
             'stops': pricing['stops'],
-            'newTotal': _money(newMinor),
-            'difference': _money(((pricing['differenceKr'] as double) * 100).round()),
+            'newTotal': _money(newMinor, rideCurrency),
+            'difference': _money(difference, rideCurrency),
           });
           payload = {
             'code': 'OK',
@@ -909,7 +912,7 @@ class InProcessMockClient extends http.BaseClient {
           );
         } else if ((body.containsKey('offerIncrease') ||
                 body.containsKey('offerIncreaseKr')) &&
-            _offerIncreaseMinor(body) == null) {
+            _offerIncreaseMinor(body, _currencyOf(ride)) == null) {
           status = 422;
           payload = _error(
             'invalid_request',
@@ -917,7 +920,10 @@ class InProcessMockClient extends http.BaseClient {
             reason: 'invalid_offer',
             message: 'Offer increase must be a positive whole amount',
           );
-        } else if (_offerAboveMaximum(ride, _offerIncreaseMinor(body))) {
+        } else if (_offerAboveMaximum(
+          ride,
+          _offerIncreaseMinor(body, _currencyOf(ride)),
+        )) {
           // ARCH-20: the ceiling holds on the server, whatever the client
           // computed after a reload.
           status = 409;
@@ -932,11 +938,12 @@ class InProcessMockClient extends http.BaseClient {
           // D-012: the server prices an offer bump itself from the rider's
           // intent (offerIncreaseKr). A client-sent `price` is never treated
           // as authority and is ignored. The ceiling is checked above.
-          final increase = _offerIncreaseMinor(body);
+          final rideCurrency = _currencyOf(ride);
+          final increase = _offerIncreaseMinor(body, rideCurrency);
           final fare = _fareMinor(ride);
           if (increase != null && fare != null) {
             _setFare(ride, fare + increase);
-            ride['offerIncrease'] = _money(increase);
+            ride['offerIncrease'] = _money(increase, rideCurrency);
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -1174,8 +1181,9 @@ class InProcessMockClient extends http.BaseClient {
     return _json(status, payload, requestId);
   }
 
-  /// Demo-only places around Södertälje and Stockholm, so address search can
-  /// be tried on GitHub Pages. The live API searches real addresses.
+  /// Demo-only places around Södertälje and Stockholm (and a few in Paris
+  /// and Tunis), so address search can be tried on GitHub Pages. The live
+  /// API searches real addresses.
   static const List<(String, String, double, double)> _demoPlaces = [
     ('Klockarvägen 37', '151 59 Södertälje', 59.1955, 17.6253),
     ('Klockarvägen 98', 'Södertälje', 59.1949, 17.6301),
@@ -1192,6 +1200,12 @@ class InProcessMockClient extends http.BaseClient {
     ('Södertälje Centrum', 'Storgatan, Södertälje', 59.1960, 17.6260),
     ('Svarvarvägen 5', '142 50 Stockholm', 59.2089, 17.9466),
     ('Mall of Scandinavia', 'Stjärntorget 2, Solna', 59.3700, 18.0050),
+    // Q7: places in the Paris Centre and Tunis Centre zones, so a demo trip
+    // can be priced in euros or dinars.
+    ('Gare du Nord', '18 Rue de Dunkerque, Paris', 48.8809, 2.3553),
+    ('Musée du Louvre', 'Rue de Rivoli, Paris', 48.8606, 2.3376),
+    ('Avenue Habib Bourguiba', 'Tunis', 36.8008, 10.1865),
+    ('Médina de Tunis', 'Tunis', 36.7983, 10.1700),
   ];
 
   static String _fold(String value) {
@@ -1510,22 +1524,24 @@ class InProcessMockClient extends http.BaseClient {
     final category = CategoryIds.canonical(
       (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
     );
-    final rates = MockCategoryRates(catalogMajor: _catalogPriceKr(category));
+    // Q7: in the trip's own currency, at the zone's rates.
+    final code = _currencyOf(ride);
+    final rates = _ratesFor(category, code);
     final tripId = (ride['tripId'] ?? ride['id']).toString();
     final meters = drivenMetersOf(tripId);
-    final base = rates.baseFare(currency);
-    final distance = rates.distanceFare(meters, currency);
+    final base = rates.baseFare;
+    final distance = rates.distanceFare(meters);
     final total = base.amountMinor + distance.amountMinor;
     if (total <= currentMinor) {
-      return (fare: Money(total, currency), base: base, distance: distance);
+      return (fare: Money(total, code), base: base, distance: distance);
     }
     // Capped at the agreed fare: ending early never costs more than the
     // whole trip (a detour, a promotion or a lower offer).
     final cappedDistance = math.max(0, currentMinor - base.amountMinor);
     return (
-      fare: Money(currentMinor, currency),
-      base: Money(currentMinor - cappedDistance, currency),
-      distance: Money(cappedDistance, currency),
+      fare: Money(currentMinor, code),
+      base: Money(currentMinor - cappedDistance, code),
+      distance: Money(cappedDistance, code),
     );
   }
 
@@ -1537,14 +1553,17 @@ class InProcessMockClient extends http.BaseClient {
   Money? _riderCancelFee(Map<String, dynamic> ride) {
     final fareMinor = _fareMinor(ride);
     if (fareMinor == null) return null;
-    final fare = Money(fareMinor, currency);
+    // Q7: the fee rule of the trip's own zone, in its currency.
+    final code = _currencyOf(ride);
+    final config = _configFor(code);
+    final fare = Money(fareMinor, code);
     final category = CategoryIds.canonical(
       (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
     );
     final now = _clock();
     Money? fee;
     if (_kindOf(ride) == TripKind.scheduled) {
-      final rule = riderConfig.reservationFeeFor(category);
+      final rule = config.reservationFeeFor(category);
       final pickup = WireTime.tryParse(ride['scheduledAt']);
       if (rule == null || pickup == null) return null;
       if (ride['driver'] == null && !now.isBefore(pickup)) return null;
@@ -1554,7 +1573,7 @@ class InProcessMockClient extends http.BaseClient {
         pickup.difference(now).inMinutes,
       );
     } else {
-      final rule = riderConfig.liveFeeFor(category);
+      final rule = config.liveFeeFor(category);
       final accepted = _acceptedAt[(ride['tripId'] ?? ride['id']).toString()];
       if (rule == null || accepted == null) return null;
       fee = CancelFeeCalculator.live(
@@ -1734,25 +1753,60 @@ class InProcessMockClient extends http.BaseClient {
     return fare + increaseMinor > max;
   }
 
-  /// The highest fare a rider may offer for a ride priced [fareMinor]:
-  /// 1.8×, in whole kronor.
-  static int _maxOfferMinorFor(int fareMinor) =>
-      ((fareMinor / 100 * 1.8).roundToDouble() * 100).round();
+  /// The highest fare a rider may offer for a ride priced [fareMinor] in
+  /// [code]: 1.8×, in whole major units (kronor, euros, dinars).
+  static int _maxOfferMinorFor(int fareMinor, String code) {
+    final unit = Money.minorPerMajor(code);
+    return (fareMinor * 1.8 / unit).round() * unit;
+  }
 
-  static Map<String, Object> _money(int amountMinor) => {
+  /// Money on the wire, in [code] (the home currency unless a trip or a
+  /// zone says otherwise).
+  static Map<String, Object> _money(int amountMinor, [String code = currency]) => {
     'amountMinor': amountMinor,
-    'currency': currency,
+    'currency': code,
   };
 
+  /// Q7: the currency of a stored trip, set at booking from its quote (the
+  /// pickup's zone): its fare's, else its flat `currency`, else the home
+  /// currency (a trip a test seeded by hand).
+  static String _currencyOf(Map<String, dynamic> ride) {
+    final fare = ride['fare'];
+    final code = Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
+        Money.normalizeCurrency(ride['currency']);
+    return code ?? currency;
+  }
+
+  /// Q7: the zone of the pickup a request names (`pickupLat`/`pickupLng`).
+  static RiderZone _zoneOf(Map<String, dynamic> body) => RiderZones.at(
+    (body['pickupLat'] as num?)?.toDouble(),
+    (body['pickupLng'] as num?)?.toDouble(),
+  );
+
+  /// The stand-in's rates for [category] in [code] ([MockZoneRates]).
+  MockZoneRates _ratesFor(String category, String code) => MockZoneRates(
+    catalogKronor: _catalogPriceKr(category),
+    currency: code,
+  );
+
+  /// The config document cancel fees are charged from for a trip in
+  /// [code]: [riderConfig] when it is in that currency (tests replace it),
+  /// else the seed of the zone with that currency.
+  RiderAppConfig _configFor(String code) => riderConfig.currency == code
+      ? riderConfig
+      : SeedRiderConfigRepository.seedForCurrency(code) ?? riderConfig;
+
   /// The trip fare in minor units (`fare: Money`). A ride a test seeded
-  /// with the pre-v0.3 kronor `price` is read once from it.
+  /// with the pre-v0.3 whole-unit `price` is read once from it.
   static int? _fareMinor(Map<String, dynamic> ride) {
     final fare = ride['fare'];
     if (fare is Map && fare['amountMinor'] is int) {
       return fare['amountMinor'] as int;
     }
     final legacy = ride['price'];
-    return legacy is num ? (legacy * 100).round() : null;
+    return legacy is num
+        ? Money.fromLegacyMajor(legacy, _currencyOf(ride)).amountMinor
+        : null;
   }
 
   /// The fare at booking, before offers and route changes.
@@ -1762,46 +1816,52 @@ class InProcessMockClient extends http.BaseClient {
       return booked['amountMinor'] as int;
     }
     final legacy = ride['bookedPrice'];
-    return legacy is num ? (legacy * 100).round() : _fareMinor(ride);
+    return legacy is num
+        ? Money.fromLegacyMajor(legacy, _currencyOf(ride)).amountMinor
+        : _fareMinor(ride);
   }
 
-  /// Contract money on the wire: `fare: Money`, never kronor doubles.
+  /// Contract money on the wire: `fare: Money` in the trip's currency,
+  /// never whole-unit doubles.
   static void _setFare(Map<String, dynamic> ride, int amountMinor) {
-    ride['fare'] = _money(amountMinor);
+    ride['fare'] = _money(amountMinor, _currencyOf(ride));
     ride.remove('price');
   }
 
-  /// The rider's offer raise as minor units: `offerIncrease: Money`, or the
-  /// pre-v0.3 whole-kronor `offerIncreaseKr` (compatibility). Null when it
-  /// is not a positive whole-kronor amount.
-  static int? _offerIncreaseMinor(Map<String, dynamic> body) {
+  /// The rider's offer raise as minor units: `offerIncrease: Money` in the
+  /// trip's currency [code], or the pre-v0.3 whole-kronor `offerIncreaseKr`
+  /// (compatibility, kronor trips only). Null when it is not positive and
+  /// on the zone's price step (a whole krona, 0.05 €, 0.1 DT).
+  static int? _offerIncreaseMinor(Map<String, dynamic> body, String code) {
+    final step = MockZoneCurrency.of(code).stepMinor;
     final money = body['offerIncrease'];
     if (money is Map) {
       final minor = money['amountMinor'];
-      if (minor is int && minor > 0 && minor % 100 == 0 &&
-          money['currency'] == currency) {
+      if (minor is int && minor > 0 && minor % step == 0 &&
+          money['currency'] == code) {
         return minor;
       }
       return null;
     }
     final kr = body['offerIncreaseKr'];
-    if (kr is num && kr > 0 && kr == kr.roundToDouble()) {
-      return (kr * 100).round();
+    if (code == currency && kr is num && kr > 0 && kr == kr.roundToDouble()) {
+      return Money.fromLegacyMajor(kr, code).amountMinor;
     }
     return null;
   }
 
   /// A route-change price on the wire: Money plus the flat minor fields
-  /// (next to `currency`), no kronor doubles.
+  /// (next to `currency`), no whole-unit doubles.
   static Map<String, Object?> _pricingWire(Map<String, dynamic> pricing) {
-    final newMinor = ((pricing['newPriceKr'] as double) * 100).round();
-    final differenceMinor = ((pricing['differenceKr'] as double) * 100).round();
+    final newMinor = pricing['newMinor'] as int;
+    final differenceMinor = pricing['differenceMinor'] as int;
+    final code = pricing['currency'] as String;
     return {
-      'newTotal': _money(newMinor),
-      'difference': _money(differenceMinor),
+      'newTotal': _money(newMinor, code),
+      'difference': _money(differenceMinor, code),
       'newTotalMinor': newMinor,
       'differenceMinor': differenceMinor,
-      'currency': currency,
+      'currency': code,
       'routeKm': pricing['routeKm'],
       'stops': pricing['stops'],
     };
@@ -1843,9 +1903,7 @@ class InProcessMockClient extends http.BaseClient {
     }
     final quoted = quote['newTotalMinor'] as int;
     final expected = (body['expectedTotalMinor'] as num?)?.round();
-    final now =
-        ((_routeChangePricing(ride, body)['newPriceKr'] as double) * 100)
-            .round();
+    final now = _routeChangePricing(ride, body)['newMinor'] as int;
     if ((expected != null && expected != quoted) || now != quoted) {
       return 'route_quote_price_changed';
     }
@@ -1866,13 +1924,19 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// New price for a changed route: the booked price, plus 25 kr per stop
-  /// and 12 kr per extra kilometre beyond what was booked. Shorter routes
-  /// get the difference back.
+  /// and 12 kr per extra kilometre beyond what was booked, in the trip's
+  /// currency ([MockZoneRates]: 2.40 € and 1.15 € in Paris). Shorter routes
+  /// get the difference back. Minor units, on the zone's price step.
   Map<String, dynamic> _routeChangePricing(
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final bookedPrice = (_bookedMinor(ride) ?? 0) / 100;
+    final code = _currencyOf(ride);
+    final rates = _ratesFor(
+      (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+      code,
+    );
+    final bookedMinor = _bookedMinor(ride) ?? 0;
     final pLat = (body['pickupLat'] ?? ride['pickupLat']) as num?;
     final pLng = (body['pickupLng'] ?? ride['pickupLng']) as num?;
     final dLat = body['destinationLat'] as num;
@@ -1899,17 +1963,17 @@ class InProcessMockClient extends http.BaseClient {
       routeKm += _km(lat, lng, dLat, dLng);
     }
     final bookedKm = (ride['bookedKm'] as num?)?.toDouble() ?? routeKm;
-    final newPrice =
-        (bookedPrice +
-                stops.length * 25 +
-                (routeKm - bookedKm) * MockCategoryRates.perKmMajor)
-            .clamp(bookedPrice * 0.5, double.infinity)
-            .roundToDouble();
-    final currentMinor = _fareMinor(ride);
-    final current = currentMinor == null ? bookedPrice : currentMinor / 100;
+    final newMinor = rates.roundToStep(
+      (bookedMinor +
+              stops.length * rates.convertKronor(25) +
+              (routeKm - bookedKm) * rates.perKmMinor)
+          .clamp(bookedMinor * 0.5, double.infinity),
+    );
+    final currentMinor = _fareMinor(ride) ?? bookedMinor;
     return {
-      'newPriceKr': newPrice,
-      'differenceKr': newPrice - current,
+      'newMinor': newMinor,
+      'differenceMinor': newMinor - currentMinor,
+      'currency': code,
       'routeKm': double.parse(routeKm.toStringAsFixed(2)),
       'stops': stops,
     };
@@ -1918,9 +1982,6 @@ class InProcessMockClient extends http.BaseClient {
   /// The catalog price covers a trip this long ([MockCategoryRates]).
   static const _catalogTripMeters = MockCategoryRates.includedMeters;
 
-  int _fareKr(String rideType, int distanceMeters) => MockCategoryRates(
-    catalogMajor: _catalogPriceKr(rideType),
-  ).quoteMajor(distanceMeters);
 
   /// Pickup → stops → destination in metres, or null without the points.
   int? _routedMeters(Map<String, dynamic> body) {
@@ -1958,17 +2019,25 @@ class InProcessMockClient extends http.BaseClient {
         _routedMeters(body) ??
         (body['distanceMeters'] as num?)?.round() ??
         _catalogTripMeters;
-    final catalogMinor = _catalogPriceKr(rideType) * 100;
-    final fullMinor = _fareKr(rideType, distanceMeters) * 100;
-    // Demo promotion: discounts the ride types it names, capped per ride.
+    // Q7: the pickup's zone decides the currency, and the price is the
+    // zone's own ([MockZoneRates]), not a converted kronor amount.
+    final zone = _zoneOf(body);
+    final rates = _ratesFor(rideType, zone.currency);
+    final catalogMinor = rates.listMinor;
+    final fullMinor = rates.quote(distanceMeters).amountMinor;
+    // Demo promotion: discounts the ride types it names, capped per ride
+    // (the cap is in kronor, so it is the zone's own amount elsewhere).
     final promo = activePromotion;
     final eligible =
         promo != null &&
         (promo['rideTypes'] as List? ?? const []).contains(rideType);
+    final cap = (promo?['maxDiscountMinor'] as num?)?.round();
     final discountMinor = eligible
         ? ((fullMinor * (promo['percentOff'] as num) / 100).round()).clamp(
             0,
-            (promo['maxDiscountMinor'] as num?)?.round() ?? fullMinor,
+            cap == null
+                ? fullMinor
+                : rates.convertKronor(Money(cap, currency).major),
           )
         : 0;
     final minor = fullMinor - discountMinor;
@@ -1979,10 +2048,11 @@ class InProcessMockClient extends http.BaseClient {
       'rideType': rideType,
       // Contract v0.3.0 Quote.total; the flat minor fields sit next to
       // `currency` for pre-v0.3 readers.
-      'total': _money(minor),
+      'total': _money(minor, zone.currency),
       'totalMinor': minor,
       'amountMinor': minor,
-      'currency': currency,
+      'currency': zone.currency,
+      'zoneId': zone.id,
       // ARCH-11: RFC 3339 UTC with offset, like a real server.
       'expiresAt': WireTime.format(DateTime.now().add(const Duration(minutes: 2))),
       'expiresInSec': 120,
@@ -2035,16 +2105,23 @@ class InProcessMockClient extends http.BaseClient {
     if (serverTotal == null || serverTotal != quotedTotal) {
       return 'quote_amount_mismatch';
     }
+    final quoteCurrency = (quote['currency'] as String?) ?? currency;
 
     final categoryId = CategoryIds.canonical((body['categoryId'] ?? '').toString());
     if (quote['rideType'] != categoryId) return 'quote_category_mismatch';
 
-    // The fare the rider confirmed: `fare: Money`, or the pre-v0.3 kronor
-    // `price` (compatibility).
+    // The fare the rider confirmed: `fare: Money` in the quote's currency,
+    // or the pre-v0.3 whole-unit `price` (compatibility).
     final fare = body['fare'];
+    if (fare is Map && fare['currency'] != quoteCurrency) {
+      return 'quote_price_mismatch';
+    }
     final submittedMinor = fare is Map && fare['amountMinor'] is int
         ? fare['amountMinor'] as int
-        : (body['price'] is num ? ((body['price'] as num) * 100).round() : null);
+        : (body['price'] is num
+              ? Money.fromLegacyMajor(body['price'] as num, quoteCurrency)
+                    .amountMinor
+              : null);
     if (submittedMinor == null || submittedMinor != serverTotal) {
       return 'quote_price_mismatch';
     }
@@ -2053,9 +2130,12 @@ class InProcessMockClient extends http.BaseClient {
     // exceed the fare, and is zero when the rider switched it off.
     final walletMinor = (body['walletAmountMinor'] as num?)?.round() ?? 0;
     final walletFirst = body['useWalletFirst'] == true;
+    // The wallet holds kronor: it never pays part of a trip in another
+    // currency (no conversion).
     if (walletMinor < 0 ||
         walletMinor > serverTotal ||
-        (!walletFirst && walletMinor != 0)) {
+        (!walletFirst && walletMinor != 0) ||
+        (walletMinor > 0 && quoteCurrency != currency)) {
       return 'wallet_amount_invalid';
     }
 
@@ -2086,6 +2166,7 @@ class InProcessMockClient extends http.BaseClient {
       )!;
     }
     final id = 'ride_$requestId';
+    final code = _bookingCurrency(body);
     return {
       'id': id,
       'tripId': id,
@@ -2108,12 +2189,15 @@ class InProcessMockClient extends http.BaseClient {
       // new write uses the canonical backend vocabulary above.
       'rideType': categoryId,
       'paymentMethod': paymentMethodId,
-      // Contract v0.3.0: Money on the wire, no kronor doubles.
-      if (_bookingFareMinor(body) case final minor?) ...{
-        'fare': _money(minor),
-        'bookedFare': _money(minor),
+      // Contract v0.3.0: Money on the wire, no whole-unit doubles, in the
+      // currency of the pickup's zone (Q7). The flat `currency` sits next to
+      // the flat minor fields for older readers.
+      'currency': code,
+      if (_bookingFareMinor(body, code) case final minor?) ...{
+        'fare': _money(minor, code),
+        'bookedFare': _money(minor, code),
         // ARCH-20 / contract C-4: the server owns the offer ceiling.
-        'maxOfferMinor': _maxOfferMinorFor(minor),
+        'maxOfferMinor': _maxOfferMinorFor(minor, code),
       },
       'bookedKm':
           body['pickupLat'] is num &&
@@ -2184,16 +2268,26 @@ class InProcessMockClient extends http.BaseClient {
     );
   }
 
-  /// The booked fare: `fare: Money`, else the quote total, else the
-  /// pre-v0.3 kronor `price`.
-  static int? _bookingFareMinor(Map<String, dynamic> body) {
+  /// The booked fare in [code]: `fare: Money`, else the pre-v0.3
+  /// whole-unit `price`, else the quote total.
+  static int? _bookingFareMinor(Map<String, dynamic> body, String code) {
     final fare = body['fare'];
     if (fare is Map && fare['amountMinor'] is int) {
       return fare['amountMinor'] as int;
     }
     final price = body['price'];
-    if (price is num) return (price * 100).round();
+    if (price is num) return Money.fromLegacyMajor(price, code).amountMinor;
     final quoted = body['quoteTotalMinor'];
     return quoted is int ? quoted : null;
+  }
+
+  /// Q7: a booking's currency is its quote's (the pickup's zone), else the
+  /// confirmed fare's, else the zone of its pickup.
+  String _bookingCurrency(Map<String, dynamic> body) {
+    final quote = quotes[body['quoteId']];
+    final fare = body['fare'];
+    return Money.normalizeCurrency(quote?['currency']) ??
+        Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
+        _zoneOf(body).currency;
   }
 }

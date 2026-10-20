@@ -157,7 +157,7 @@ void main() {
       expect(Money.fromLegacyMajor(12.5, 'TND').amountMinor, 12500);
       expect(Money.fromLegacyMajor(1.5, 'SEK'), const Money(150));
       expect(Money.fromLegacyMajor(2.35, 'eur'), const Money(235, 'EUR'));
-      expect(formatMoney(Money.fromLegacyMajor(19.5, 'TND')), '19.500 DT');
+      expect(formatMoney(Money.fromLegacyMajor(19.5, 'TND')), '19,500 DT');
     });
 
     test('a TND reservation fee is worked out in millimes', () {
@@ -182,7 +182,7 @@ void main() {
       ).cancelTermsFor(_ride(price: 300.5, currency: 'TND'), now: _before(90));
       // 25% of 300.500 DT, half-up to a millime: 75.125 DT (not 7.512).
       expect(terms.fee, const Money(75125, 'TND'));
-      expect(formatMoney(terms.fee!), '75.125 DT');
+      expect(formatMoney(terms.fee!), '75,125 DT');
     });
 
     test('a projection total in TND reads back in dinars', () {

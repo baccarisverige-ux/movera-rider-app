@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
@@ -33,7 +34,9 @@ class RideSelectionController {
     SavedCardsController? savedCards,
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
-  }) : _store = store ?? RideSelectionRepository(),
+    String currency = Money.defaultCurrency,
+  }) : _currency = currency,
+       _store = store ?? RideSelectionRepository(),
        _catalog = catalog ?? (store == null ? AppScope.instance.catalog : null),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
@@ -50,6 +53,35 @@ class RideSelectionController {
   final FeatureFlags _flags;
   final DefaultPaymentStore? _paymentStore;
   final SavedCardsController _savedCards;
+
+  /// Q7: the currency of the pickup's zone. Every price below is in whole
+  /// units of it. Select Ride sets it from the pickup; a quote the server
+  /// prices in another currency moves it (the server decides). A change
+  /// drops the prices held in the old currency.
+  String get currency => _currency;
+  String _currency;
+  set currency(String value) {
+    if (value == _currency) return;
+    _currency = value;
+    offeredPrices.clear();
+  }
+
+  /// The Movera Wallet's currency. The local ledger holds kronor.
+  String walletCurrency = Money.defaultCurrency;
+
+  /// Whether the wallet can pay this trip: only in its own currency. The
+  /// app never converts between currencies.
+  bool get walletMatchesTrip => walletCurrency == currency;
+
+  /// Whether this build offers the wallet at all.
+  bool get walletEnabled => _flags.enableWallet;
+
+  /// [major] whole units of [currency] as Money.
+  Money moneyOf(double major) => Money.fromLegacyMajor(major, currency);
+
+  /// [quote]'s total in whole units of its currency.
+  static double majorOf(RideQuote quote) =>
+      Money(quote.totalMinor, quote.currency).major;
 
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
@@ -112,12 +144,14 @@ class RideSelectionController {
     if (current != null) return current;
     final fallback = catalog.first;
     selectedRideId = fallback.id;
-    offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    if (fallback.currency == currency) {
+      offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    }
     return fallback;
   }
 
-  /// Movera Wallet balance in kr, once known. The wallet is only offered
-  /// when there is money in it.
+  /// Movera Wallet balance in whole units of [walletCurrency], once known.
+  /// The wallet is only offered when there is money in it.
   double walletBalance = 0;
 
   /// "Use wallet balance first": the balance is taken off the fare before
@@ -127,17 +161,22 @@ class RideSelectionController {
   /// The part of [priceKr] the wallet covers for the current payment
   /// choice, or 0. Paying the whole ride from the wallet is its own method
   /// and is not a split.
+  /// [priceKr] is in whole units of [currency].
   double walletAppliedKr(double priceKr) =>
-      walletSplitFor(krToMinor(priceKr)).walletMinor / 100;
+      Money(walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor, currency)
+          .major;
 
   /// What the chosen method is charged after the wallet part.
-  double remainderKr(double priceKr) =>
-      walletSplitFor(krToMinor(priceKr)).remainderMinor / 100;
+  double remainderKr(double priceKr) => Money(
+    walletSplitFor(moneyOf(priceKr).amountMinor).remainderMinor,
+    currency,
+  ).major;
 
-  /// The wallet / method split of [totalMinor], worked out in öre so the
-  /// parts always add up to the total.
+  /// The wallet / method split of [totalMinor] (minor units of [currency]),
+  /// worked out in minor units so the parts always add up to the total.
+  /// None when the wallet holds another currency.
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst || !_flags.enableWallet) {
+    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
       return WalletSplit.none(totalMinor);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {
@@ -145,7 +184,8 @@ class RideSelectionController {
     }
     return WalletSplit.of(
       totalMinor: totalMinor,
-      balanceMinor: krToMinor(walletBalance),
+      balanceMinor: Money.fromLegacyMajor(walletBalance, walletCurrency)
+          .amountMinor,
     );
   }
 
@@ -200,7 +240,8 @@ class RideSelectionController {
             (!mobile || platform == TargetPlatform.android);
       }
       if (item.brand == 'wallet') {
-        return _flags.enableWallet && walletBalance > 0;
+        // A kronor balance cannot pay a trip in euros or dinars.
+        return _flags.enableWallet && walletBalance > 0 && walletMatchesTrip;
       }
       return true;
     }).toList();
@@ -388,7 +429,10 @@ class RideSelectionController {
   /// the exact pin, so booking sends that quote.
   void adoptQuote(String rideId, RideQuote quote) {
     if (_disposed) return;
-    offeredPrices[rideId] = quote.totalMinor / 100;
+    // The server priced the pickup in another zone's currency: every
+    // price held so far was in the old one, and is dropped.
+    currency = quote.currency;
+    offeredPrices[rideId] = majorOf(quote);
     quoteIds[rideId] = quote.id;
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
@@ -412,9 +456,10 @@ class RideSelectionController {
     }
     if (!quoteIsFresh(id, now: now)) return false;
     if (quote.rideType != id) return false;
+    if (quote.currency != currency) return false;
     final offered = offeredPrices[id];
     if (offered == null) return false;
-    return (offered * 100).round() == quote.totalMinor;
+    return moneyOf(offered).amountMinor == quote.totalMinor;
   }
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
@@ -435,13 +480,26 @@ class RideSelectionController {
   double? authoritativePriceFor(String id, {DateTime? now}) {
     if (!quoteIsAvailable(id, now: now)) return null;
     final quote = authoritativeQuotes[id]!;
-    return quote.totalMinor / 100;
+    return majorOf(quote);
   }
 
-  void selectRide(String id, double catalog) {
+  /// Selects [id]. [catalog] is its list price, held as the price only when
+  /// it is in this pickup's currency ([catalogCurrency]).
+  void selectRide(
+    String id,
+    double catalog, {
+    String catalogCurrency = Money.defaultCurrency,
+  }) {
     selectedRideId = id;
-    offeredPrices.putIfAbsent(id, () => catalog);
+    if (catalogCurrency == currency) {
+      offeredPrices.putIfAbsent(id, () => catalog);
+    }
   }
+
+  /// Whether [id] has a price to show in this pickup's currency: a quote,
+  /// or a list price in the same currency.
+  bool hasPriceFor(String id, {required String catalogCurrency}) =>
+      offeredPrices.containsKey(id) || catalogCurrency == currency;
 
   RidePaymentItem? selectedPaymentItem() {
     final list = payments();

@@ -65,3 +65,113 @@ class MockCategoryRates {
     return unit;
   }
 }
+
+/// How the stand-in prices a zone whose currency is not the krona: Admin's
+/// default prices for the zone (`src/pricing/zonePricing.ts`, `CURRENCY`):
+/// a kronor amount times the market's rate, rounded to its price step.
+/// Paris: × 0.095, to 0.05 €; Tunis: × 0.3, to 0.1 DT. Stockholm is the
+/// kronor table itself, to the krona. The cancel fees in the zones' config
+/// documents follow the same rule (35 kr → 3.35 € → 10.5 DT).
+class MockZoneCurrency {
+  const MockZoneCurrency._(
+    this.currency, {
+    required this.rateNumerator,
+    required this.rateDenominator,
+    required this.stepMinor,
+  });
+
+  static const sek = MockZoneCurrency._(
+    'SEK',
+    rateNumerator: 1,
+    rateDenominator: 1,
+    stepMinor: 100,
+  );
+  static const eur = MockZoneCurrency._(
+    'EUR',
+    rateNumerator: 95,
+    rateDenominator: 1000,
+    stepMinor: 5,
+  );
+  static const tnd = MockZoneCurrency._(
+    'TND',
+    rateNumerator: 3,
+    rateDenominator: 10,
+    stepMinor: 100,
+  );
+
+  /// The table for [currency]; an unknown code prices like the krona.
+  static MockZoneCurrency of(String currency) => switch (currency) {
+    'EUR' => eur,
+    'TND' => tnd,
+    _ => sek,
+  };
+
+  final String currency;
+  final int rateNumerator;
+  final int rateDenominator;
+
+  /// The price step, in minor units (1 kr, 0.05 €, 0.1 DT).
+  final int stepMinor;
+
+  /// [kronor] (whole kr) in this currency's minor units, on the step.
+  int fromKronor(num kronor) {
+    final unit = Money.minorPerMajor(currency);
+    final exact = kronor * rateNumerator * unit / rateDenominator;
+    return roundToStep(exact);
+  }
+
+  /// [minor] rounded half-up to the price step (never below one step for
+  /// a positive amount).
+  int roundToStep(num minor) {
+    final steps = (minor / stepMinor).round();
+    return steps * stepMinor;
+  }
+}
+
+/// [MockCategoryRates] in a zone's own currency: the kronor rates converted
+/// once with [MockZoneCurrency], every result on the zone's price step. In
+/// Stockholm it prices exactly like [MockCategoryRates] (same formula, in
+/// öre).
+class MockZoneRates {
+  MockZoneRates({required int catalogKronor, required String currency})
+    : _money = MockZoneCurrency.of(currency),
+      currency = MockZoneCurrency.of(currency).currency,
+      listMinor = MockZoneCurrency.of(currency).fromKronor(catalogKronor),
+      perKmMinor = MockZoneCurrency.of(
+        currency,
+      ).fromKronor(MockCategoryRates.perKmMajor);
+
+  final MockZoneCurrency _money;
+  final String currency;
+
+  /// The category's list price, for [MockCategoryRates.includedMeters].
+  final int listMinor;
+  final int perKmMinor;
+
+  /// A trip of no distance: the list price less the kilometres it covers.
+  int get baseMinor =>
+      listMinor - MockCategoryRates.includedMeters * perKmMinor ~/ 1000;
+
+  /// A quote for [meters], on the price step, never below 60% of the list
+  /// price (the [MockCategoryRates.quoteMajor] formula).
+  Money quote(int meters) {
+    final extraKm = (meters - MockCategoryRates.includedMeters) / 1000;
+    final minor = _money.roundToStep(listMinor + extraKm * perKmMinor);
+    final minimum = _money.roundToStep(listMinor * 0.6);
+    return Money(minor < minimum ? minimum : minor, currency);
+  }
+
+  Money get baseFare => Money(baseMinor, currency);
+
+  /// [meters] × the per-km rate, rounded half-up to a whole minor unit.
+  Money distanceFare(int meters) {
+    final scaled = (meters < 0 ? 0 : meters) * perKmMinor;
+    return Money((scaled + 500) ~/ 1000, currency);
+  }
+
+  /// [kronor] in this zone's money, on its step (a stop fee, a cap).
+  int convertKronor(num kronor) => _money.fromKronor(kronor);
+
+  /// [minor] on this zone's price step.
+  int roundToStep(num minor) => _money.roundToStep(minor);
+}
