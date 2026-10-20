@@ -15,6 +15,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({
@@ -45,7 +46,7 @@ class NotificationScreen extends StatelessWidget {
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  tooltip: 'Back',
+                  tooltip: context.l10n.back,
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     size: ResSize.h * 20,
@@ -56,7 +57,7 @@ class NotificationScreen extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: TextWidget(
-                      text: 'Notification',
+                      text: context.l10n.notification,
                       color: AppColor.primary,
                       fontSize: 18,
                       fontWeight: fwSemiBold,
@@ -76,11 +77,11 @@ class NotificationScreen extends StatelessWidget {
                 builder: (context, snapshot) {
                   final items = snapshot.data ?? const <AppNotification>[];
                   if (items.isEmpty) {
-                    return const MoveraEmptyState(
+                    return MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
-                      title: "You're all caught up.",
+                      title: context.l10n.allCaughtUp,
                       message:
-                          'Ride and account updates will appear here when they arrive.',
+                          context.l10n.notificationsEmptyBody,
                     );
                   }
                   return ListView.builder(

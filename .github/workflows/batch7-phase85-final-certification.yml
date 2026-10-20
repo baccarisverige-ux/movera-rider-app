@@ -203,6 +203,9 @@ jobs:
               geolocation: { latitude: 59.33258, longitude: 18.0649 },
               permissions: ['geolocation'],
             });
+            // Round 4: the app speaks the zone's language (sv in Stockholm); these
+            // checks read the English copy, so pin the rider's choice to English.
+            await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
             const page = await context.newPage();
             const errors = [];
             page.on('pageerror', error => errors.push({

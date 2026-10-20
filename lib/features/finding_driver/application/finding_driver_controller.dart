@@ -35,6 +35,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What happened when the rider cancelled the search (cancel-first).
 enum SearchCancelResult {
@@ -223,14 +224,14 @@ class FindingDriverController {
       ? stillLookingCopy
       : SearchCopy.forElapsed(elapsedSeconds);
 
-  static const cancellingCopy = SearchCopy(
-    headline: 'Cancelling your ride…',
-    subtitle: 'We’ll confirm it with Movera as soon as you’re back online.',
+  static SearchCopy get cancellingCopy => SearchCopy(
+    headline: L10n.current.findCancelling,
+    subtitle: L10n.current.findCancelOffline,
   );
 
-  static const stillLookingCopy = SearchCopy(
-    headline: 'Still looking for a driver',
-    subtitle: 'No driver has accepted yet. Your request is still active.',
+  static SearchCopy get stillLookingCopy => SearchCopy(
+    headline: L10n.current.stillLooking,
+    subtitle: L10n.current.stillLookingActive,
   );
 
   void startFrom({
@@ -688,8 +689,8 @@ class FindingDriverController {
     final editToken = _beginEdit();
     if (editToken == null) {
       editFeedback = _assigned || _assignmentPending
-          ? 'Driver assigned before the pickup change could be applied.'
-          : 'Couldn’t update pickup. Try again.';
+          ? L10n.current.editPickupTooLate
+          : L10n.current.editPickupFailed;
       _onTick?.call(elapsedSeconds);
       return false;
     }
@@ -741,14 +742,14 @@ class FindingDriverController {
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
-      editFeedback = 'Pickup updated';
+      editFeedback = L10n.current.pickupUpdated;
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
     } catch (error) {
       editFeedback = _staleEdit(error, _pickupMutation)
           ? rideJustChangedMessage
-          : 'Couldn’t update pickup. Try again.';
+          : L10n.current.editPickupFailed;
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return false;
@@ -796,8 +797,8 @@ class FindingDriverController {
     final editToken = _beginEdit();
     if (editToken == null) {
       editFeedback = _assigned || _assignmentPending
-          ? 'Driver assigned before the offer change could be applied.'
-          : 'Couldn’t update offer. Try again.';
+          ? L10n.current.editOfferTooLate
+          : L10n.current.editOfferFailed;
       _onTick?.call(elapsedSeconds);
       return false;
     }
@@ -838,7 +839,7 @@ class FindingDriverController {
         // assuming the preview total is what happened.
         offerConfirmation = null;
         editFeedback =
-            'Offer sent. Your fare will update once Movera confirms it.';
+            L10n.current.offerSentUnconfirmed;
         AppLog.warning(
           'ride.offer.price_unconfirmed',
           extra: {'rideId': id, 'increase': increase.majorString},
@@ -849,7 +850,7 @@ class FindingDriverController {
       }
       _priceUpdated = true;
       offerConfirmation =
-          'Updated offer: ${formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true)}';
+          L10n.current.offerUpdatedTo(formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true));
       editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
@@ -874,7 +875,7 @@ class FindingDriverController {
     } catch (error) {
       editFeedback = _staleEdit(error, _priceMutation)
           ? rideJustChangedMessage
-          : 'Couldn’t update offer. Try again.';
+          : L10n.current.editOfferFailed;
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return false;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/l10n/generated/app_localizations.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
@@ -25,20 +25,25 @@ class MoveraApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     registerSessionExpiredNavigation();
+    final language = AppScope.instance.language;
     return MoveraScreenUtilInit(
-      builder: (_, child) {
-        return MaterialApp(
-          onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+      builder: (_, child) => ListenableBuilder(
+        listenable: language,
+        builder: (context, _) => MaterialApp(
+          onGenerateTitle: (context) => context.l10n.appTitle,
           navigatorKey: moveraNavigatorKey,
           navigatorObservers: [_homeHistoryObserver],
-          locale: const Locale('en'),
+          // Q48: the rider's choice, else the pickup zone's default.
+          locale: language.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
+          builder: (context, child) =>
+              LanguageRebuild(code: language.code, child: child!),
           home: RideRestoreGate(key: RideRestoreGate.gateKey),
-        );
-      },
+        ),
+      ),
     );
   }
 }

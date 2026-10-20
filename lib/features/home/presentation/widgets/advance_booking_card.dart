@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The "Plan ahead. Ride on time." schedule-a-ride promo card.
 class AdvanceBookingCard extends StatelessWidget {
@@ -60,7 +61,7 @@ class AdvanceBookingCard extends StatelessWidget {
             ),
             8.height,
             TextWidget(
-              text: 'Plan ahead. Ride on time.',
+              text: context.l10n.advancePlanAhead,
               color: _premiumInk,
               fontSize: 15.5,
               fontWeight: fwBold,
@@ -70,7 +71,7 @@ class AdvanceBookingCard extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
               child: TextWidget(
                 text:
-                    'Book your ride in advance and we’ll help arrange a driver for the time you choose.',
+                    context.l10n.advanceBody,
                 color: _premiumMuted,
                 fontSize: 11,
                 fontWeight: fwNormal,
@@ -87,7 +88,7 @@ class AdvanceBookingCard extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: TextWidget(
-                text: 'Schedule a ride',
+                text: context.l10n.scheduleARide,
                 color: AppColor.white,
                 fontSize: 12.5,
                 fontWeight: fwSemiBold,

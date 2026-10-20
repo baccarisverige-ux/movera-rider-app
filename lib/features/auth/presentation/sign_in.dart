@@ -14,6 +14,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart'
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Step 1 for everyone: one phone field for new and returning riders, with
 /// Apple and Google underneath.
@@ -94,7 +95,7 @@ class _SignInState extends State<SignIn>
     if (_busy != null) return;
     final number = swedishNumberFromField(_phone.text);
     if (number == null) {
-      setState(() => _phoneError = 'Enter a valid Swedish mobile number.');
+      setState(() => _phoneError = context.l10n.invalidSwedishMobile);
       return;
     }
     setState(() {
@@ -165,9 +166,9 @@ class _SignInState extends State<SignIn>
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Enter your phone number', style: AuthText.cardTitle()),
+          Text(context.l10n.enterPhone, style: AuthText.cardTitle()),
           const SizedBox(height: 2),
-          Text("We'll text you a 4-digit code.", style: AuthText.cardSub()),
+          Text(context.l10n.textFourDigitCode, style: AuthText.cardSub()),
           const SizedBox(height: 14),
           AuthPhoneField(
             controller: _phone,
@@ -178,7 +179,7 @@ class _SignInState extends State<SignIn>
           if (_phoneError != null) AuthErrorText(_phoneError!),
           const SizedBox(height: 12),
           AuthPrimaryButton(
-            label: 'Continue',
+            label: context.l10n.continueLabel,
             busy: _busy == _Busy.phone,
             onPressed: idle ? _continue : null,
           ),
@@ -210,19 +211,19 @@ class _SignInState extends State<SignIn>
           const SizedBox(height: 12),
           Text.rich(
             TextSpan(
-              text: 'By continuing you agree to our ',
+              text: context.l10n.byContinuing,
               children: [
                 TextSpan(
-                  text: 'Terms',
+                  text: context.l10n.termsLink,
                   recognizer: _termsTap,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     color: AuthColors.ink,
                   ),
                 ),
-                const TextSpan(text: ' and '),
+                TextSpan(text: context.l10n.and),
                 TextSpan(
-                  text: 'Privacy Policy',
+                  text: context.l10n.privacyPolicy,
                   recognizer: _privacyTap,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,

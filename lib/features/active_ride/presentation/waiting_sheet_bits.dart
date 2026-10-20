@@ -13,8 +13,10 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
-String shortPickupPlace(String value) {
+String shortPickupPlace(String raw) {
+  final value = L10n.place(raw);
   final noisy = RegExp(
     r'^(sweden|sverige|stockholms?\s*län|stockholm\s*county|'
     r'kommun|municipality|county|län|europe)$',
@@ -72,7 +74,7 @@ class WaitingShareButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Share trip',
+      label: context.l10n.shareTrip,
       child: Material(
         color: const Color(0xFFF6F8FA),
         shape: const CircleBorder(),
@@ -146,8 +148,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   inTrip && destinationAddress?.trim().isNotEmpty == true
-                      ? 'To ${shortPickupPlace(destinationAddress!)}'
-                      : 'Meet at ${shortPickupPlace(pickupAddress)}',
+                      ? context.l10n.toPlace(shortPickupPlace(destinationAddress!))
+                      : context.l10n.meetAt(shortPickupPlace(pickupAddress)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: waitingText(
@@ -175,7 +177,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
           IconButton(
             onPressed: onMore,
             icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: 'Ride details',
+            tooltip: context.l10n.rideDetails,
           ),
         ],
       ),
@@ -234,11 +236,11 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
           border: Border.all(color: MoveraTokens.line),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const MoveraEmptyState(
+        child: MoveraEmptyState(
           icon: Icons.person_search_outlined,
-          title: 'Driver details unavailable',
+          title: context.l10n.driverDetailsUnavailable,
           message:
-              'Verified driver and vehicle information will appear here when matching confirms them.',
+              context.l10n.driverDetailsUnavailableBody,
           compact: true,
         ),
       );
@@ -321,7 +323,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                       ),
                       if (d.tripsLabel != null)
                         Text(
-                          d.tripsLabel!,
+                          context.l10n.driverTripCount(d.tripCount!),
                           style: waitingText(
                             12,
                             color: const Color(0xFF5C656C),
@@ -401,7 +403,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Message',
+                            context.l10n.message,
                             style: waitingText(14, weight: FontWeight.w600),
                           ),
                           if (unreadMessages > 0) ...[
@@ -437,13 +439,13 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
               _IconChip(
                 icon: Icons.phone_outlined,
                 onTap: onCall,
-                semanticLabel: 'Call driver',
+                semanticLabel: context.l10n.callDriver,
               ),
               const SizedBox(width: 8),
               _IconChip(
                 icon: Icons.more_horiz_rounded,
                 onTap: onMore,
-                semanticLabel: 'More options',
+                semanticLabel: context.l10n.moreOptions,
               ),
             ],
           ),
@@ -517,7 +519,7 @@ class WaitingNotesAndPin extends StatelessWidget {
         notesContent,
         if (safety.loading || !safety.hasLoaded) ...[
           const SizedBox(height: 12),
-          Text('Loading PIN…',
+          Text(context.l10n.loadingPin,
               style: waitingText(12, color: const Color(0xFF5C656C))),
         ] else if (safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
@@ -533,8 +535,8 @@ class WaitingNotesAndPin extends StatelessWidget {
               children: [
                 Text(
                   safety.pin.isAvailable
-                      ? 'Show this PIN to your driver'
-                      : 'PIN unavailable — verify plate and driver name',
+                      ? context.l10n.showPinToDriver
+                      : context.l10n.pinUnavailable,
                   style: waitingText(12, color: const Color(0xFF5C656C)),
                 ),
                 if (safety.pin.isAvailable)

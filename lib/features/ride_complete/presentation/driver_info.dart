@@ -7,6 +7,7 @@ import 'package:movera_rider/shared/formatters/name_format.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Riders recognise a trip by when it happened, not by a database key. Keep a
 /// short tail so support can still match it to the full id.
@@ -26,11 +27,11 @@ class RideCompletedDriverInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     final driver = AppScope.instance.rideComplete.driver();
     if (driver == null) {
-      return const MoveraEmptyState(
+      return MoveraEmptyState(
         icon: Icons.person_search_outlined,
-        title: 'Driver details unavailable',
+        title: context.l10n.driverDetailsUnavailable,
         message:
-            'Verified driver and vehicle information will appear here when it is available for this ride.',
+            context.l10n.driverDetailsUnavailableReceipt,
         compact: true,
       );
     }
@@ -77,7 +78,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
             children: [
               Expanded(
                 child: TextWidget(
-                  text: 'Trip completed',
+                  text: context.l10n.tripCompleted,
                   color: AppColor.title,
                   fontSize: 14,
                   fontWeight: fwMedium,
@@ -103,7 +104,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
             children: [
               Expanded(
                 child: TextWidget(
-                  text: 'Date & Time',
+                  text: context.l10n.dateAndTime,
                   color: AppColor.title,
                   fontSize: 14,
                   fontWeight: fwMedium,

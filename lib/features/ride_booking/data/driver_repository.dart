@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class DriverProfile {
   const DriverProfile({
@@ -60,13 +61,8 @@ class DriverRepository {
   }
 
   static String _completedAtLabel(DateTime when) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hh = when.hour.toString().padLeft(2, '0');
-    final mm = when.minute.toString().padLeft(2, '0');
-    return '${when.day} ${months[when.month - 1]} ${when.year}, $hh:$mm';
+    // "5 Jan 2026, 08:05" in the app language (intl's month names).
+    return '${L10n.formatDate(when, 'd MMM yyyy')}, ${L10n.formatTime(when)}';
   }
 }
 

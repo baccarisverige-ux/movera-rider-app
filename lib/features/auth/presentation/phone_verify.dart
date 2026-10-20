@@ -15,6 +15,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart'
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Step 2: enter the 4-digit code. Verify unlocks at four digits; resend
 /// unlocks when the server's retry window has passed.
@@ -89,7 +90,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     if (_resending) return;
     final phone = _phone?.trim();
     if (phone == null || phone.isEmpty) {
-      setState(() => _error = 'Go back and enter your phone number again.');
+      setState(() => _error = context.l10n.reenterPhone);
       return;
     }
     setState(() {
@@ -103,7 +104,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       _pin.clear();
       setState(() {
         _challenge = next;
-        _info = 'New code sent.';
+        _info = context.l10n.newCodeSent;
       });
       _startResendWindow(next.retryAfter);
     } catch (error) {
@@ -119,11 +120,11 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     final challenge = _challenge;
     final code = _pin.text.trim();
     if (challenge == null) {
-      setState(() => _error = 'Go back and request a new code.');
+      setState(() => _error = context.l10n.requestNewCode);
       return;
     }
     if (challenge.isExpired) {
-      setState(() => _error = 'This code has expired. Tap Resend code for a new one.');
+      setState(() => _error = context.l10n.codeExpired);
       return;
     }
     if (!RidePin.isValidFormat(code)) return;
@@ -160,13 +161,13 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     return AuthScaffold(
       step: 2,
       onBack: () => Navigator.of(context).maybePop(),
-      headline: 'Enter your ',
-      headlineAccent: 'code',
+      headline: context.l10n.enterYourCodeHead,
+      headlineAccent: context.l10n.enterYourCodeAccent,
       lede: phone == null || phone.trim().isEmpty
-          ? const Text("We've sent a code to your phone.")
+          ? Text(context.l10n.codeSentToPhone)
           : Text.rich(
               TextSpan(
-                text: 'Sent to ',
+                text: context.l10n.sentTo,
                 children: [
                   TextSpan(
                     text: SwedishPhone.display(phone.trim()),
@@ -210,21 +211,21 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             ),
           if (AppEnv.current.authPreview) ...[
             const SizedBox(height: 12),
-            const AuthNote(
+            AuthNote(
               icon: Icons.info_outline_rounded,
-              text: 'Demo verification code: 1234',
+              text: context.l10n.demoCode,
             ),
           ],
           const SizedBox(height: 16),
           Center(child: _resendRow()),
           const SizedBox(height: 16),
-          const AuthNote(
+          AuthNote(
             icon: Icons.verified_user_outlined,
-            text: 'Movera will never call or text you asking for this code.',
+            text: context.l10n.neverAskCode,
           ),
           const SizedBox(height: 14),
           AuthPrimaryButton(
-            label: 'Verify',
+            label: context.l10n.verify,
             showArrow: false,
             busy: _submitting,
             onPressed: complete ? _verify : null,
@@ -274,7 +275,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
           const SizedBox(width: 7),
           Text.rich(
             TextSpan(
-              text: 'Resend code in ',
+              text: context.l10n.resendCodeIn,
               children: [
                 TextSpan(
                   text: '$mm:$ss',
@@ -299,7 +300,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         minimumSize: const Size(0, 36),
       ),
       child: Text(
-        'Resend code',
+        context.l10n.resendCode,
         style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600),
       ),
     );

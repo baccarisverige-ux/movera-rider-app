@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Asks why the rider is cancelling.
 ///
@@ -77,7 +78,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   onPressed: () =>
                       Navigator.pop(context, const CancelOutcome.cancel()),
                   child: Text(
-                    'Skip',
+                    context.l10n.skip,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF5C656C),
@@ -87,8 +88,8 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                 Expanded(
                   child: Text(
                     widget.phase == CancelPhase.inTrip
-                        ? 'Why are you ending the trip?'
-                        : 'Why are you cancelling?',
+                        ? context.l10n.whyEndingTrip
+                        : context.l10n.whyCancelling,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
@@ -103,13 +104,12 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             const SizedBox(height: 4),
             Text(
               widget.committed
-                  ? 'Your request is cancelled. Telling us why is optional '
-                        'and helps us improve matching.'
+                  ? context.l10n.cancelWhyCommitted
                   : widget.phase == CancelPhase.reservation
-                  ? 'Optional. This helps us improve scheduled rides.'
+                  ? context.l10n.cancelWhyReservation
                   : widget.phase == CancelPhase.inTrip
-                  ? 'Optional. This helps us understand trips that end early.'
-                  : 'Optional. This helps us improve matching.',
+                  ? context.l10n.cancelWhyInTrip
+                  : context.l10n.cancelWhyMatching,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: const Color(0xFF5C656C),
@@ -198,10 +198,10 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                 ),
                 child: Text(
                   widget.committed
-                      ? 'Send'
+                      ? context.l10n.send
                       : widget.phase == CancelPhase.inTrip
-                      ? 'End trip'
-                      : 'Cancel ride',
+                      ? context.l10n.endTrip
+                      : context.l10n.cancelRide,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -224,7 +224,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                     ),
                   ),
                   child: Text(
-                    'Keep ride',
+                    context.l10n.keepRide,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -262,7 +262,7 @@ class _DestinationChangeOffer extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Change destination instead?',
+              context.l10n.changeDestinationInstead,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -282,7 +282,7 @@ class _DestinationChangeOffer extends StatelessWidget {
               ),
             ),
             child: Text(
-              'Change destination',
+              context.l10n.changeDestination,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

@@ -5,6 +5,7 @@ import 'package:movera_rider/features/profile/presentation/account_widgets.dart'
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class PrivacyPage extends StatefulWidget {
   const PrivacyPage({super.key, this.controller});
@@ -42,17 +43,17 @@ class _PrivacyPageState extends State<PrivacyPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHeadline(
-            'Privacy',
-            body: 'What Movera keeps, and how we reach you.',
+          AccountHeadline(
+            context.l10n.accountPrivacy,
+            body: context.l10n.privacyBody,
           ),
           const SizedBox(height: 18),
           AccountGroup(
             children: [
               AccountTile(
                 mark: const AccountIcon(Icons.description_outlined),
-                title: 'Privacy notice',
-                body: 'What we store and how you control it',
+                title: context.l10n.accountPrivacyNotice,
+                body: context.l10n.privacyNoticeBody,
                 showDivider: false,
                 onTap: () {
                   Navigator.push(
@@ -69,7 +70,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 20, 10),
             child: Text(
-              'How we reach you',
+              context.l10n.howWeReachYou,
               style: accountText(
                 13,
                 weight: FontWeight.w600,
@@ -81,8 +82,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
             children: [
               AccountTile(
                 mark: const AccountIcon(Icons.notifications_none_rounded),
-                title: 'Ride updates',
-                body: 'Pickup, driver, and reservation alerts',
+                title: context.l10n.rideUpdates,
+                body: context.l10n.rideUpdatesBody,
                 trailing: Switch.adaptive(
                   value: ride.rideUpdates,
                   activeThumbColor: adaptiveSwitchThumbColor(
@@ -99,8 +100,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.mail_outline_rounded),
-                title: 'Email',
-                body: 'Receipts and account notes',
+                title: context.l10n.email,
+                body: context.l10n.emailBody,
                 trailing: Switch.adaptive(
                   value: ride.emailUpdates,
                   activeThumbColor: adaptiveSwitchThumbColor(
@@ -117,8 +118,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.local_offer_outlined),
-                title: 'Offers',
-                body: 'Occasional Movera news. Off by default',
+                title: context.l10n.offers,
+                body: context.l10n.offersBody,
                 showDivider: false,
                 trailing: Switch.adaptive(
                   value: ride.promotions,
@@ -140,7 +141,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 20, 10),
             child: Text(
-              'Apps with access',
+              context.l10n.appsWithAccess,
               style: accountText(
                 13,
                 weight: FontWeight.w600,
@@ -148,11 +149,11 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ),
             ),
           ),
-          const MoveraEmptyState(
+          MoveraEmptyState(
             icon: Icons.apps_outlined,
-            title: 'No connected apps',
+            title: context.l10n.noConnectedApps,
             message:
-                'No third-party apps can read this Movera account yet.',
+                context.l10n.noConnectedAppsBody,
             compact: true,
           ),
         ],

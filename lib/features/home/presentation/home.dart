@@ -64,6 +64,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
 
@@ -194,7 +195,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (!mounted) return;
       MoveraToast.show(
         context,
-        'Your ride search was interrupted. Book again when you are ready.',
+        context.l10n.homeSearchInterrupted,
         duration: const Duration(seconds: 8),
       );
     });
@@ -331,7 +332,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final known = _tripPickupLatLng ?? _currentLatLng;
     if (known != null) return known;
     final hint = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) MoveraToast.show(context, 'Finding your location…');
+      if (mounted) MoveraToast.show(context, context.l10n.homeFindingLocation);
     });
     final deadline = DateTime.now().add(const Duration(seconds: 8));
     try {
@@ -404,8 +405,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   String _shortAddress(String? address, {int maxLength = 24}) {
-    final value = address?.trim() ?? '';
-    if (value.isEmpty) return 'Set location';
+    final value = L10n.place(address?.trim() ?? '');
+    if (value.isEmpty) return context.l10n.setLocation;
     return value.length <= maxLength
         ? value
         : '${value.substring(0, maxLength - 1)}…';
@@ -414,15 +415,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String _targetTitle(String target, String? customType) {
     switch (target) {
       case 'pickup':
-        return 'Choose pickup';
+        return context.l10n.choosePickup;
       case 'home':
-        return 'Set Home address';
+        return context.l10n.setHomeAddress;
       case 'work':
-        return 'Set Work address';
+        return context.l10n.setWorkAddress;
       case 'custom':
-        return 'Set ${_placeLabel(customType ?? 'other')} address';
+        return context.l10n.setPlaceAddress(_placeLabel(customType ?? 'other'));
       default:
-        return 'Where to?';
+        return context.l10n.whereTo;
     }
   }
 
@@ -576,7 +577,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           return null;
         case GeocodeNotFound():
           if (mounted) {
-            MoveraToast.show(context, 'Choose a valid destination address.');
+            MoveraToast.show(context, context.l10n.homeChooseValidDestination);
           }
           return null;
       }
@@ -757,8 +758,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         initialAddress: cleanAddress.isEmpty
             ? (_pickupAddress ?? 'Current location')
             : cleanAddress,
-        title: isDestination ? 'Confirm destination' : 'Confirm pickup spot',
-        confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
+        title: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickupSpot,
+        confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
         refreshCurrentLocation: chosen == null,
@@ -839,7 +840,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final geocoded = outcome.valueOrNull;
       if (geocoded == null) {
         if (mounted && outcome is GeocodeNotFound) {
-          MoveraToast.show(context, 'Choose a valid destination address.');
+          MoveraToast.show(context, context.l10n.homeChooseValidDestination);
         }
         return null;
       }
@@ -1005,8 +1006,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (pickupPosition == null || destinationPosition == null || !mounted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please choose a valid pickup and destination.'),
+            SnackBar(
+              content: Text(context.l10n.homeChooseValidRoute),
             ),
           );
         }
@@ -1140,7 +1141,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 onPressed: () => Navigator.pop(sheetContext),
                                 icon: const Icon(Icons.close_rounded),
                                 color: _premiumInk,
-                                tooltip: 'Close',
+                                tooltip: context.l10n.close,
                               ),
                             ],
                           ),
@@ -1169,7 +1170,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               fontWeight: FontWeight.w500,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Search or enter an address',
+                              hintText: context.l10n.searchOrEnterAddress,
                               hintStyle: TextStyle(
                                 color: _premiumMuted.withValues(alpha: 0.72),
                                 fontSize: ResSize.setSp(14),
@@ -1185,7 +1186,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                         controller.clear();
                                         setModalState(() => query = '');
                                       },
-                                      tooltip: 'Clear',
+                                      tooltip: context.l10n.clear,
                                       icon: const Icon(Icons.close_rounded),
                                     ),
                               filled: true,
@@ -1238,7 +1239,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                             CrossAxisAlignment.start,
                                         children: [
                                           TextWidget(
-                                            text: 'Use current location',
+                                            text: context.l10n.useCurrentLocation,
                                             color: _premiumInk,
                                             fontSize: 12.5,
                                             fontWeight: fwSemiBold,
@@ -1248,7 +1249,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                             text:
                                                 _placeOrNull(_pickupAddress) ==
                                                     null
-                                                ? 'Finding your address…'
+                                                ? context.l10n.findingYourAddress
                                                 : _shortAddress(
                                                     _pickupAddress,
                                                     maxLength: 38,
@@ -1270,7 +1271,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Align(
                               alignment: Alignment.centerLeft,
                               child: TextWidget(
-                                text: 'Recent addresses',
+                                text: context.l10n.recentAddresses,
                                 color: _premiumMuted,
                                 fontSize: 10.5,
                                 fontWeight: fwSemiBold,
@@ -1327,7 +1328,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                   width: double.infinity,
                                   child: Center(
                                     child: TextWidget(
-                                      text: 'Use this address',
+                                      text: context.l10n.useThisAddress,
                                       color: Colors.white,
                                       fontSize: 12.5,
                                       fontWeight: fwSemiBold,
@@ -1357,7 +1358,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _openAddPlacePicker() async {
     if (_savedPlaces.length >= _maxCustomPlaces) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can save up to 8 custom places.')),
+        SnackBar(content: Text(context.l10n.homeMaxCustomPlaces)),
       );
       return;
     }
@@ -1405,7 +1406,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextWidget(
-                    text: 'What place do you want to save?',
+                    text: context.l10n.homeWhatPlaceToSave,
                     color: _premiumInk,
                     fontSize: 17,
                     fontWeight: fwBold,
@@ -1462,19 +1463,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String _placeLabel(String type) {
     switch (type) {
       case 'gym':
-        return 'Gym';
+        return context.l10n.placeGym;
       case 'mall':
-        return 'Mall';
+        return context.l10n.placeMall;
       case 'school':
-        return 'School';
+        return context.l10n.placeSchool;
       case 'airport':
-        return 'Airport';
+        return context.l10n.placeAirport;
       case 'family':
-        return 'Family';
+        return context.l10n.placeFamily;
       case 'restaurant':
-        return 'Restaurant';
+        return context.l10n.placeRestaurant;
       default:
-        return 'Other';
+        return context.l10n.placeOther;
     }
   }
 
@@ -1899,10 +1900,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           bottom: _sheetMinPixels + ResSize.h * 14,
                           child: PointerInterceptor(
                             child: Tooltip(
-                              message: 'Recenter map on your location',
+                              message: context.l10n.homeRecenterMap,
                               child: Semantics(
                                 button: true,
-                                label: 'Recenter map on your location',
+                                label: context.l10n.homeRecenterMap,
                                 child: Material(
                                   color: Colors.white,
                                   shape: const CircleBorder(),
@@ -1980,9 +1981,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       // reconstructing this subtree on every drag tick.
                       final premiumToggleHandle = Semantics(
                         button: true,
-                        label: 'Toggle home panel',
+                        label: context.l10n.homeTogglePanel,
                         child: Tooltip(
-                          message: 'Toggle home panel',
+                          message: context.l10n.homeTogglePanel,
                           child: InkWell(
                             onTap: _toggleHomeSheet,
                             borderRadius: BorderRadius.circular(14),
@@ -2248,7 +2249,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarHome,
-                                label: 'Home',
+                                label: context.l10n.navHome,
                                 active: true,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
@@ -2260,7 +2261,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarWallet,
-                                label: 'Payment',
+                                label: context.l10n.navPayment,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openPayment,
@@ -2269,7 +2270,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarCalendar,
-                                label: 'Schedule ride',
+                                label: context.l10n.navScheduleRide,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openSchedule,
@@ -2278,7 +2279,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarUser,
-                                label: 'Account',
+                                label: context.l10n.navAccount,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openAccount,

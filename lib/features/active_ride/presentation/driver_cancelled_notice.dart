@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// How long the notice stays up. Long enough to read two short lines.
 const Duration driverCancelledNoticeDuration = Duration(seconds: 6);
@@ -35,11 +36,9 @@ class DriverCancelledNotice extends StatelessWidget {
   final String? driverName;
 
   String get title =>
-      driverName == null ? 'Your driver cancelled' : '$driverName cancelled';
+      driverName == null ? L10n.current.driverCancelled : L10n.current.nameCancelled(driverName!);
 
-  static const body =
-      'Finding you another driver now. Your pickup, destination and price '
-      'stay the same.';
+  static String get body => L10n.current.driverCancelledBody;
 
   @override
   Widget build(BuildContext context) {

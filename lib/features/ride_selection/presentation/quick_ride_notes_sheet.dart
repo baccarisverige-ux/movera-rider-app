@@ -7,6 +7,7 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 Future<RideNotes?> showQuickRideNotesSheet(
   BuildContext context, {
@@ -61,11 +62,11 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    const items = [
-      (key: 'bags', label: 'Bags', art: AppAssets.noteBags),
-      (key: 'pet', label: 'Pet', art: AppAssets.notePet),
-      (key: 'baby', label: 'Baby', art: AppAssets.noteBaby),
-      (key: 'child', label: 'Child', art: AppAssets.noteChild),
+    final items = [
+      (key: 'bags', label: context.l10n.notesBags, art: AppAssets.noteBags),
+      (key: 'pet', label: context.l10n.notesPet, art: AppAssets.notePet),
+      (key: 'baby', label: context.l10n.notesBaby, art: AppAssets.noteBaby),
+      (key: 'child', label: context.l10n.notesChild, art: AppAssets.noteChild),
     ];
     return PointerInterceptor(
       child: Padding(
@@ -86,12 +87,12 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Anything we should know?',
+              context.l10n.notesTitle,
               style: _text(22, weight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
-              'Optional. Your driver will see this.',
+              context.l10n.notesBody,
               style: _text(13.5, color: const Color(0xFF5C656C)),
             ),
             const SizedBox(height: 18),
@@ -149,7 +150,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
               child: TextButton(
                 onPressed: () => Navigator.pop(context, RideNotes.empty),
                 child: Text(
-                  'None / Skip',
+                  context.l10n.notesSkip,
                   style: _text(
                     14,
                     weight: FontWeight.w600,
@@ -171,7 +172,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
                   ),
                 ),
                 child: Text(
-                  'Find driver',
+                  context.l10n.findDriver,
                   style: _text(
                     16,
                     weight: FontWeight.w600,

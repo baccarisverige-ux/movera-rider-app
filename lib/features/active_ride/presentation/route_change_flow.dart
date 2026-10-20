@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Which row of the ride details the rider tapped.
 enum RouteChangeEntry { pickup, destination, newStop, stop }
@@ -47,7 +48,7 @@ Future<RideSnapshot?> openRouteChange(
     final draft = await Navigator.of(context).push<Map<String, dynamic>>(
       BottomToTopTransition(
         RoutePickerPage(
-          pageTitle: 'Change route',
+          pageTitle: context.l10n.changeRoute,
           pickupAddress: ride.pickupAddress,
           destinationAddress: ride.destinationAddress,
           stops: [for (final stop in ride.stops) stop.address],
@@ -58,7 +59,7 @@ Future<RideSnapshot?> openRouteChange(
             RouteChangeEntry.pickup when !pickupLocked => 'pickup',
             _ => 'destination',
           },
-          finishLabel: 'See new price',
+          finishLabel: context.l10n.seeNewPrice,
           capture: capture,
           here: GeoPoint(ride.pickupLat, ride.pickupLng),
           homeAddress: places.homeAddress,
@@ -76,8 +77,8 @@ Future<RideSnapshot?> openRouteChange(
               initialAddress: address.isEmpty
                   ? (pickup ? ride.pickupAddress : ride.destinationAddress)
                   : address,
-              title: pickup ? 'Confirm pickup spot' : 'Confirm destination',
-              confirmLabel: pickup ? 'Confirm pickup' : 'Confirm destination',
+              title: pickup ? context.l10n.confirmPickupSpot : context.l10n.confirmDestination,
+              confirmLabel: pickup ? context.l10n.confirmPickup : context.l10n.confirmDestination,
             );
             if (result == null) return null;
             return RoutePickerMapPick(
@@ -179,17 +180,17 @@ void showRouteUpdated(
   RefundDestination? refundTo,
 }) {
   final parts = <String>[
-    driverAssigned ? 'Route updated · your driver has been told' : 'Route updated',
+    driverAssigned ? context.l10n.routeUpdatedDriverTold : context.l10n.routeUpdated,
   ];
   if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
     // [differenceKr] is in whole units of [currency].
     final kr = formatMajor(differenceKr.abs(), currency);
     if (differenceKr > 0) {
-      parts.add('$kr charged to $paymentMethod');
+      parts.add(context.l10n.chargedTo(kr, paymentMethod));
     } else if ((refundTo ?? lastRefundDestination) == RefundDestination.wallet) {
-      parts.add('$kr credited to your Movera Wallet');
+      parts.add(context.l10n.creditedToWallet(kr));
     } else {
-      parts.add('$kr refunded to $paymentMethod within 2 to 3 business days');
+      parts.add(context.l10n.refundedToDays(kr, paymentMethod));
     }
   }
   ScaffoldMessenger.maybeOf(context)
@@ -260,7 +261,7 @@ Set<Marker> routeStopMarkers(List<RouteStop> stops) => {
     Marker(
       markerId: MarkerId('stop-$i'),
       position: LatLng(stops[i].latitude, stops[i].longitude),
-      infoWindow: InfoWindow(title: 'Stop ${i + 1}', snippet: stops[i].address),
+      infoWindow: InfoWindow(title: L10n.current.stopNumber('${i + 1}'), snippet: stops[i].address),
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
     ),
 };

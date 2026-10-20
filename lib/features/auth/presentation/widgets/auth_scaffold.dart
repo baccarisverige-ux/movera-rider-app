@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Shared layout of every sign-in step: progress, wordmark, a headline whose
 /// last words are green, the illustration, and a white card holding the form.
@@ -141,7 +142,7 @@ class AuthScaffold extends StatelessWidget {
                               foregroundColor: AuthColors.deepGreen,
                             ),
                             onPressed: () => enterMoveraApp(context),
-                            child: const Text('Skip for now (demo)'),
+                            child: Text(context.l10n.skipDemo),
                           ),
                         ],
                       ],
@@ -185,7 +186,7 @@ class _TopBar extends StatelessWidget {
                     elevation: 0,
                     shadowColor: Colors.transparent,
                     child: IconButton(
-                      tooltip: 'Back',
+                      tooltip: context.l10n.back,
                       padding: EdgeInsets.zero,
                       icon: const Icon(
                         Icons.chevron_left_rounded,
@@ -198,7 +199,7 @@ class _TopBar extends StatelessWidget {
           ),
           Expanded(
             child: Semantics(
-              label: 'Step $step of $totalSteps',
+              label: context.l10n.stepOf('$step', '$totalSteps'),
               excludeSemantics: true,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

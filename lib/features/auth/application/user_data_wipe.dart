@@ -26,6 +26,8 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 /// - `movera_onboarding_done`: the intro was seen on this device.
 /// - `movera_ride_catalog_v1`: the public ride categories from the admin
 ///   panel; no rider data in it.
+/// - `movera_app_language`: the app language picked in Account (Q48); Sign
+///   in speaks it too.
 ///
 /// Removed (per user):
 /// - `movera_profile_v1` (name, photo, settings), `movera_rider_fingerprint`
@@ -65,6 +67,7 @@ abstract final class UserDataWipe {
   static const deviceKeys = <String>{
     'movera_onboarding_done',
     'movera_ride_catalog_v1',
+    'movera_app_language',
   };
 
   static const _flushBudget = Duration(seconds: 5);

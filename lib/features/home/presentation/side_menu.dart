@@ -11,6 +11,7 @@ import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/language_picker.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
@@ -27,6 +28,7 @@ import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The rider's menu as a full-screen page: name and photo, Wallet, four
 /// picture tiles, six illustrated cards, then the account rows.
@@ -108,7 +110,7 @@ class RiderMenuPage extends StatelessWidget {
               ..._accountRows(context),
               const SizedBox(height: 22),
               Text(
-                'Movera Rider v$appVersion',
+                context.l10n.menuAppVersion(appVersion),
                 style: _text(13, color: MoveraTokens.subtle),
               ),
             ],
@@ -139,7 +141,7 @@ class RiderMenuPage extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Semantics(
         button: true,
-        label: 'Back',
+        label: context.l10n.back,
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
@@ -171,7 +173,7 @@ class RiderMenuPage extends StatelessWidget {
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
     final first = profile.name.trim().split(RegExp(r'\s+')).first;
-    final greeting = first.isEmpty ? controller.displayName() : 'Hi $first';
+    final greeting = first.isEmpty ? controller.displayName() : L10n.current.menuHiName(first);
 
     return Row(
       children: [
@@ -235,7 +237,7 @@ class RiderMenuPage extends StatelessWidget {
           Expanded(
             child: Semantics(
               button: true,
-              label: 'Where to?',
+              label: context.l10n.whereTo,
               child: Material(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
@@ -262,7 +264,7 @@ class RiderMenuPage extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Where to?',
+                              context.l10n.whereTo,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: _text(16, color: _muted),
@@ -275,7 +277,7 @@ class RiderMenuPage extends StatelessWidget {
                             // UI-4: the chip stays 29 px tall; its target
                             // is 44 px, the height of the search box.
                             child: MoveraHitArea(
-                              label: 'Later',
+                              label: context.l10n.later,
                               onTap: () => go(onSchedule),
                               minWidth: 0,
                               child: Material(
@@ -293,7 +295,7 @@ class RiderMenuPage extends StatelessWidget {
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: Text(
-                                        'Later',
+                                        context.l10n.later,
                                         maxLines: 1,
                                         style: _text(
                                           12,
@@ -380,7 +382,7 @@ class RiderMenuPage extends StatelessWidget {
     final amount = balance == null ? null : formatMoney(balance, whole: true);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
-      label: amount == null ? 'Wallet' : 'Wallet, $amount',
+      label: amount == null ? context.l10n.menuWallet : context.l10n.menuWalletWithAmount(amount),
       onTap: () async {
         await _pushPage(context, const WalletAndPaymentsScreen());
         // A top-up in Wallet shows here on the way back.
@@ -398,7 +400,7 @@ class RiderMenuPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Wallet', style: _text(18, weight: FontWeight.w600)),
+                    Text(context.l10n.menuWallet, style: _text(18, weight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     if (amount == null)
                       const SizedBox(height: 18)
@@ -422,18 +424,18 @@ class RiderMenuPage extends StatelessWidget {
   /// Two columns of picture tiles.
   Widget _tiles(BuildContext context) {
     final items = <(String, String, VoidCallback)>[
-      ('Ride History', 'order_ride', () => _pushPage(context, RideHistory())),
+      (context.l10n.menuRideHistory, 'order_ride', () => _pushPage(context, RideHistory())),
       (
-        'Notifications',
+        context.l10n.menuNotifications,
         'notify',
         () => _pushPage(context, const NotificationScreen()),
       ),
       (
-        'Saved Places',
+        context.l10n.menuSavedPlaces,
         'current_location',
         () => _pushPage(context, SavedPlaces()),
       ),
-      ('Support', 'questions', () => _pushPage(context, const SupportHome())),
+      (context.l10n.menuSupport, 'questions', () => _pushPage(context, const SupportHome())),
     ];
     Widget tile((String, String, VoidCallback) item) {
       return _tap(
@@ -490,13 +492,11 @@ class RiderMenuPage extends StatelessWidget {
   List<Widget> _featureCards(BuildContext context) {
     final promotion = AppScope.instance.promotion.active;
     final promoBody = promotion == null
-        ? 'Offers you can use are applied automatically to your ride.'
-        : '${promotion.percentOff}% off your next ${promotion.ridesTotal} rides'
-              ' · ${promotion.ridesLeft} left. We apply the offer that saves you'
-              ' the most.';
+        ? context.l10n.menuPromoBodyNone
+        : context.l10n.menuPromoBody('${promotion.percentOff}', '${promotion.ridesTotal}', '${promotion.ridesLeft}');
     final cards = <_FeatureCard>[
       _FeatureCard(
-        title: 'Your promotions',
+        title: context.l10n.menuYourPromos,
         body: promoBody,
         picture: 'discount',
         isNew: promotion != null,
@@ -509,56 +509,56 @@ class RiderMenuPage extends StatelessWidget {
         },
       ),
       _FeatureCard(
-        title: 'Safety checkup',
-        body: 'Add a trusted contact and set your safety preferences.',
+        title: context.l10n.menuSafetyCheckup,
+        body: context.l10n.menuSafetyCheckupBody,
         picture: 'protection_enabled',
         pictureWidth: 84,
         onTap: () => _pushPage(context, const SafetyHub()),
       ),
       _FeatureCard(
-        title: 'Movera Family',
-        body: 'Coming soon: book and follow rides for your family.',
+        title: context.l10n.menuFamily,
+        body: context.l10n.menuFamilyBody,
         picture: 'family',
         onTap: () => _pushPage(
           context,
-          const HelpArticle(
-            title: 'Movera Family',
+          HelpArticle(
+            title: context.l10n.menuFamily,
             body:
-                'Soon you will be able to add family members to your account and book rides for them, with the trip and the driver visible to you from start to finish. We will let you know the moment it is ready.',
+                context.l10n.menuFamilyArticle,
           ),
         ),
       ),
       _FeatureCard(
-        title: 'Invite friends',
+        title: context.l10n.menuInviteFriends,
         // FLOW-16: no reward exists yet, so the card promises none.
-        body: 'Coming soon: invite friends to Movera.',
+        body: context.l10n.menuInviteFriendsBody,
         picture: 'referral',
         onTap: () => _pushPage(context, const ReferAndEarn()),
       ),
       _FeatureCard(
-        title: 'Movera Business',
-        body: 'Coming soon: keep work rides and receipts separate.',
+        title: context.l10n.menuBusiness,
+        body: context.l10n.menuBusinessBody,
         picture: 'travel_mode',
         pictureWidth: 96,
         onTap: () => _pushPage(
           context,
-          const HelpArticle(
-            title: 'Movera Business',
+          HelpArticle(
+            title: context.l10n.menuBusiness,
             body:
-                'A business profile keeps your work rides apart from your personal ones, with monthly receipts ready for expensing. It is on its way; we will let you know when it opens.',
+                context.l10n.menuBusinessArticle,
           ),
         ),
       ),
       _FeatureCard(
-        title: 'Greener rides',
-        body: 'Choose Electric for fossil-free rides.',
+        title: context.l10n.menuGreener,
+        body: context.l10n.menuGreenerBody,
         picture: 'nature',
         onTap: () => _pushPage(
           context,
-          const HelpArticle(
-            title: 'Greener rides',
+          HelpArticle(
+            title: context.l10n.menuGreener,
             body:
-                'Choose the Electric category to ride emission-free. Soon your receipts will show the CO₂ you saved on every trip and over the year.',
+                context.l10n.menuGreenerArticle,
           ),
         ),
       ),
@@ -605,7 +605,7 @@ class RiderMenuPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'NEW',
+                            L10n.current.newBadge,
                             style: _text(
                               11,
                               weight: FontWeight.w700,
@@ -642,54 +642,63 @@ class RiderMenuPage extends StatelessWidget {
     final rows = <(String, String, String, VoidCallback)>[
       (
         AppAssets.solarUserRounded,
-        'Personal info',
-        'Name, phone, email, language',
+        context.l10n.accountPersonalInfo,
+        context.l10n.accountPersonalInfoBody,
         () => _pushPage(
           context,
           PersonalInfoPage(controller: profile, securityController: security),
         ),
       ),
       (
+        AppAssets.solarGlobal,
+        context.l10n.language,
+        // Q48: "FR · Français"; the rider's choice wins over the zone.
+        AppScope.instance.language.language.label,
+        () => unawaited(
+          pickAppLanguage(context, profile: profile),
+        ),
+      ),
+      (
         AppAssets.solarShieldCheck,
-        'Security',
-        'Passkeys, 2-step, devices',
+        context.l10n.accountSecurity,
+        context.l10n.accountSecurityBody,
         () => _pushPage(context, SecurityPage(securityController: security)),
       ),
       (
         AppAssets.solarLock,
-        'Privacy',
-        'How Movera uses your data',
+        context.l10n.accountPrivacy,
+        context.l10n.accountPrivacyBody,
         () => _pushPage(context, PrivacyPage(controller: profile)),
       ),
       (
         AppAssets.solarDocument,
-        'Terms',
-        'How Movera rides work',
+        context.l10n.accountTerms,
+        context.l10n.accountTermsBody,
         () => _pushPage(context, const AccountLegalPage(kind: 'terms')),
       ),
       (
         AppAssets.solarInfoCircle,
-        'Privacy notice',
-        'What we keep and why',
+        context.l10n.accountPrivacyNotice,
+        context.l10n.accountPrivacyNoticeBody,
         () => _pushPage(context, const AccountLegalPage(kind: 'privacy')),
       ),
       (
         AppAssets.solarBuildings,
-        'About Movera',
-        'Company information',
+        context.l10n.menuAboutMovera,
+        context.l10n.menuAboutBody,
         () => _pushPage(
           context,
-          const HelpArticle(
-            title: 'About Movera',
+          HelpArticle(
+            title: context.l10n.menuAboutMovera,
             body:
-                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.',
+                context.l10n.menuAboutArticle,
           ),
         ),
       ),
       (
         AppAssets.solarArrowLeft,
-        'Sign out',
-        'Remove your data from this device',
+        context.l10n.accountSignOut,
+        context.l10n.accountSignOutBody,
         () => unawaited(confirmAndSignOut(context)),
       ),
     ];

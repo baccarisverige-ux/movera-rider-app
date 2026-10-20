@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// ARCH-3: shown when a search has gone on for a while without a driver.
 /// The request is still active on the server; the rider chooses to keep
@@ -30,7 +31,7 @@ class StillLookingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Still looking for a driver',
+            context.l10n.stillLooking,
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -40,8 +41,7 @@ class StillLookingCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'No driver has accepted yet. You can keep searching or cancel '
-            'the request.',
+            context.l10n.stillLookingBody,
             style: GoogleFonts.poppins(
               fontSize: 13,
               height: 1.35,
@@ -63,7 +63,7 @@ class StillLookingCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Cancel request',
+                    context.l10n.cancelRequest,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -85,7 +85,7 @@ class StillLookingCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Keep searching',
+                    context.l10n.keepSearching,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,

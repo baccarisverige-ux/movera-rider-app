@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// "Add card" (demo). The form validates the number (Visa / Mastercard,
 /// Luhn), expiry, CVC and name, then saves a reference (brand, last four,
@@ -123,7 +124,7 @@ class _AddCardPageState extends State<AddCardPage> {
     final digits = _digits;
     if (CardInput.brandRejected(digits)) return CardInput.brandError;
     final done = digits.length == 16 || (!_numberFocus.hasFocus && digits.isNotEmpty);
-    if (done && !_numberOk) return 'Check the card number';
+    if (done && !_numberOk) return context.l10n.cardCheckNumber;
     return null;
   }
 
@@ -133,16 +134,16 @@ class _AddCardPageState extends State<AddCardPage> {
     final complete = raw.length == 4 || !_expiryFocus.hasFocus;
     if (!complete) return null;
     final e = _parsedExpiry;
-    if (e == null) return 'Use MM/YY';
+    if (e == null) return context.l10n.cardUseMmYy;
     if (!CardInput.expiryInFuture(e.month, e.year, now: widget.now)) {
-      return 'This card has expired';
+      return context.l10n.cardExpired;
     }
     return null;
   }
 
   String? get _cvcError {
     if (_cvc.text.isEmpty || _cvcFocus.hasFocus) return null;
-    return _cvcOk ? null : '3 digits';
+    return _cvcOk ? null : context.l10n.cardCvc3;
   }
 
   // ---- save -------------------------------------------------------------
@@ -166,13 +167,13 @@ class _AddCardPageState extends State<AddCardPage> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _saveError = e.message?.toString() ?? 'Check the card details';
+        _saveError = e.message?.toString() ?? context.l10n.cardCheckDetails;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _saveError = 'We could not save this card. Try again.';
+        _saveError = context.l10n.cardSaveFailed;
       });
     }
   }
@@ -346,7 +347,7 @@ class _AddCardPageState extends State<AddCardPage> {
             children: [
               Expanded(
                 child: Text(
-                  holder.isEmpty ? 'NAME ON CARD' : holder.toUpperCase(),
+                  holder.isEmpty ? context.l10n.cardNameOnCardUpper : holder.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _t(11, c: Colors.white70),
@@ -383,7 +384,7 @@ class _AddCardPageState extends State<AddCardPage> {
         elevation: 0,
         centerTitle: true,
         foregroundColor: _ink,
-        title: Text('Add card', style: _t(18, w: FontWeight.w700)),
+        title: Text(context.l10n.addCard, style: _t(18, w: FontWeight.w700)),
       ),
       body: SafeArea(
         child: ListView(
@@ -393,7 +394,7 @@ class _AddCardPageState extends State<AddCardPage> {
             const SizedBox(height: 22),
             _input(
               key: const ValueKey('add-card-number'),
-              label: 'Card number',
+              label: context.l10n.cardNumber,
               hint: '1234 5678 9012 3456',
               controller: _number,
               focus: _numberFocus,
@@ -409,8 +410,8 @@ class _AddCardPageState extends State<AddCardPage> {
                 Expanded(
                   child: _input(
                     key: const ValueKey('add-card-expiry'),
-                    label: 'Expiry',
-                    hint: 'MM/YY',
+                    label: context.l10n.cardExpiry,
+                    hint: context.l10n.cardMmYy,
                     controller: _expiry,
                     focus: _expiryFocus,
                     next: _cvcFocus,
@@ -439,8 +440,8 @@ class _AddCardPageState extends State<AddCardPage> {
             const SizedBox(height: 10),
             _input(
               key: const ValueKey('add-card-holder'),
-              label: 'Name on card',
-              hint: 'Your name',
+              label: context.l10n.cardNameOnCard,
+              hint: context.l10n.yourName,
               controller: _holder,
               focus: _holderFocus,
               keyboard: TextInputType.name,
@@ -459,7 +460,7 @@ class _AddCardPageState extends State<AddCardPage> {
                   const Icon(Icons.lock_outline_rounded, color: _accent, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(AddCardPage.demoNote, style: _t(12.5, c: _accent)),
+                    child: Text(context.l10n.addCardDemoNote, style: _t(12.5, c: _accent)),
                   ),
                 ],
               ),
@@ -491,7 +492,7 @@ class _AddCardPageState extends State<AddCardPage> {
                         ),
                       )
                     : Text(
-                        'Save card',
+                        context.l10n.saveCard,
                         style: _t(16, w: FontWeight.w600, c: Colors.white),
                       ),
               ),

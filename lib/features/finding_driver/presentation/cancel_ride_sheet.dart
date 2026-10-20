@@ -5,6 +5,7 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Confirm cancel, then collect the rider's final decision.
 ///
@@ -166,13 +167,12 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
     // UI-01: on board this is the contract's end-early, not a cancel: the
     // trip ends here and the rider pays for the distance driven.
     final body = inTrip
-        ? 'Your driver will drop you off as soon as it is safe. You pay for '
-              'the distance driven so far.'
+        ? context.l10n.cancelBodyInTrip
         : matched
-        ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
+        ? context.l10n.cancelBodyMatched
         : takingLonger
-        ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
-        : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
+        ? context.l10n.cancelBodyTakingLonger
+        : context.l10n.cancelBodySearching;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: Column(
@@ -184,7 +184,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               const SizedBox(width: 40),
               Expanded(
                 child: Text(
-                  inTrip ? 'End trip here?' : 'Cancel ride?',
+                  inTrip ? context.l10n.endTripHereQ : context.l10n.cancelRideQ,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
@@ -196,15 +196,15 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               IconButton(
                 onPressed: _busy ? null : () => _close(false),
                 icon: const Icon(Icons.close_rounded),
-                tooltip: 'Close',
+                tooltip: context.l10n.close,
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             inTrip
-                ? 'End your trip before the destination?'
-                : 'Are you sure you want to cancel?',
+                ? context.l10n.endBeforeDestinationQ
+                : context.l10n.sureToCancelQ,
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -260,7 +260,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          inTrip ? 'Ending trip…' : 'Cancelling…',
+                          inTrip ? context.l10n.endingTrip : context.l10n.cancelling,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -270,7 +270,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                       ],
                     )
                   : Text(
-                      inTrip ? 'End trip here' : 'Cancel request',
+                      inTrip ? context.l10n.endTripHere : context.l10n.cancelRequest,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
@@ -292,10 +292,10 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               ),
               child: Text(
                 (matched || inTrip)
-                    ? 'Keep ride'
+                    ? context.l10n.keepRide
                     : takingLonger
-                    ? 'Keep searching'
-                    : 'Wait for driver',
+                    ? context.l10n.keepSearching
+                    : context.l10n.waitForDriver,
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,

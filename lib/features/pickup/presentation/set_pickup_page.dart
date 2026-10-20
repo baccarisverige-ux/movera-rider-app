@@ -27,6 +27,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The map point [pixelsAboveCentre] above the camera [target] on screen,
 /// at [zoom] (Web Mercator). The map fills the screen like every other map
@@ -175,7 +176,7 @@ class SetPickupPage extends StatefulWidget {
     this.spotsController,
     this.initialIsCurrentLocation = true,
     this.positionIsFallback = false,
-    this.confirmLabel = 'Confirm and search',
+    this.confirmLabel,
     this.scheduledPickup,
     this.geocoding,
     this.stops = const <String>[],
@@ -199,7 +200,7 @@ class SetPickupPage extends StatefulWidget {
     PickupSpotsController? spotsController,
     bool initialIsCurrentLocation = true,
     bool positionIsFallback = false,
-    String confirmLabel = 'Confirm and search',
+    String? confirmLabel,
     DateTime? scheduledPickup,
     List<String> stops = const <String>[],
   }) async {
@@ -264,7 +265,7 @@ class SetPickupPage extends StatefulWidget {
   final bool initialIsCurrentLocation;
 
   /// Button text: "Confirm and search" now, "Confirm and schedule" later.
-  final String confirmLabel;
+  final String? confirmLabel;
 
   /// For a ride booked for later: the chosen pickup time. The pin and the
   /// header then show that time instead of the driver's minutes.
@@ -451,9 +452,9 @@ class _SetPickupPageState extends State<SetPickupPage>
   String get _timesLine {
     final scheduled = widget.scheduledPickup;
     if (scheduled != null) {
-      return 'Pickup ${_clock(scheduled)} · Arrive $_arriveClock';
+      return context.l10n.pickupAtArriveAt(_clock(scheduled), _arriveClock);
     }
-    return 'Driver arrives in ${widget.ride.etaMin} min · Arrive $_arriveClock';
+    return context.l10n.driverArrivesInArriveAt('${widget.ride.etaMin}', _arriveClock);
   }
 
   bool _isAwayFrom(LatLng a, LatLng b) =>
@@ -632,8 +633,8 @@ class _SetPickupPageState extends State<SetPickupPage>
     final position = result.position;
     if (position == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Current location is unavailable. Move the map instead.'),
+        SnackBar(
+          content: Text(context.l10n.locationUnavailableMoveMap),
         ),
       );
       return;
@@ -671,7 +672,7 @@ class _SetPickupPageState extends State<SetPickupPage>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Pickup address', style: _text(18, weight: FontWeight.w600)),
+                Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 TextField(
                   controller: controller,
@@ -679,7 +680,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                   textInputAction: TextInputAction.search,
                   onSubmitted: (value) => Navigator.pop(sheetContext, value),
                   decoration: InputDecoration(
-                    hintText: 'Search address',
+                    hintText: context.l10n.searchAddress,
                     prefixIcon: const Icon(Icons.search_rounded),
                     filled: true,
                     fillColor: _field,
@@ -702,7 +703,7 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (!mounted) return;
     if (found == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Address not found. Move the map instead.')),
+        SnackBar(content: Text(context.l10n.addressNotFoundMoveMap)),
       );
       return;
     }
@@ -905,7 +906,7 @@ class _SetPickupPageState extends State<SetPickupPage>
             children: [
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
                 icon: const Icon(Icons.arrow_back_rounded, color: _ink),
               ),
               const SizedBox(width: 4),
@@ -949,7 +950,7 @@ class _SetPickupPageState extends State<SetPickupPage>
             child: MoveraIconButton.round(
               icon: Icons.my_location_rounded,
               onPressed: _useCurrentLocation,
-              label: 'My location',
+              label: context.l10n.myLocation,
               iconSize: 20,
             ),
           ),
@@ -1005,7 +1006,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                       children: [
                         Expanded(
                           child: Text(
-                            'Pickup spot',
+                            context.l10n.pickupSpot,
                             style: _text(13.5, weight: FontWeight.w600, color: _muted),
                           ),
                         ),
@@ -1106,12 +1107,12 @@ class _SetPickupPageState extends State<SetPickupPage>
   Widget _pickupCard() {
     final spot = _selectedSpot;
     final subtitle = _resolving
-        ? 'Finding the address…'
+        ? context.l10n.findingTheAddress
         : spot != null
         ? spot.subtitle
         : _atCurrentLocation
-        ? 'Your current location'
-        : 'Drag the map to adjust';
+        ? context.l10n.yourCurrentLocation
+        : context.l10n.dragMapToAdjust;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -1148,7 +1149,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
               ),
               const SizedBox(width: 8),
-              Text('Change', style: _text(14, weight: FontWeight.w600, color: _accent)),
+              Text(context.l10n.change, style: _text(14, weight: FontWeight.w600, color: _accent)),
             ],
           ),
         ),
@@ -1221,14 +1222,14 @@ class _SetPickupPageState extends State<SetPickupPage>
                   key: ValueKey('set-pickup-spot-${spot.id}'),
                 ),
               ),
-            _chip('On map', () => _settleSheet(false), icon: Icons.add_rounded),
+            _chip(context.l10n.onMap, () => _settleSheet(false), icon: Icons.add_rounded),
           ],
         ),
       ),
     );
   }
 
-  static const _bagLabels = ['No', '1–2', '3+'];
+  List<String> get _bagLabels => [context.l10n.bagsNone, '1–2', '3+'];
 
   /// On the short sheet the bags sit at the top right; a tap cycles
   /// No → 1–2 → 3+. The chip fades away as the sheet opens, where the full
@@ -1245,7 +1246,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       },
       child: Semantics(
         button: true,
-        label: 'Bags: ${_bagLabels[_bags]}',
+        label: context.l10n.bagsLabel(_bagLabels[_bags]),
         child: GestureDetector(
           key: const ValueKey('set-pickup-bags-chip'),
           onTap: () {
@@ -1269,7 +1270,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _bags == 0 ? 'Bags' : '${_bagLabels[_bags]} bags',
+                  _bags == 0 ? context.l10n.notesBags : context.l10n.bagsCount(_bagLabels[_bags]),
                   style: _text(
                     12.5,
                     weight: FontWeight.w600,
@@ -1285,14 +1286,14 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Widget _bagsRow() {
-    const labels = _bagLabels;
+    final labels = _bagLabels;
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Row(
         children: [
           const Icon(Icons.luggage_rounded, color: _accent, size: 22),
           const SizedBox(width: 8),
-          Expanded(child: Text('Bags?', style: _text(15, weight: FontWeight.w600))),
+          Expanded(child: Text(context.l10n.bagsQuestion, style: _text(15, weight: FontWeight.w600))),
           for (var i = 0; i < labels.length; i++)
             Padding(
               padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
@@ -1370,27 +1371,27 @@ class _SetPickupPageState extends State<SetPickupPage>
       child: Column(
         children: [
           if (hasDiscount) ...[
-            _priceRow('Ride price', fare.format(fare.totalKr + fare.discountKr)),
+            _priceRow(context.l10n.ridePrice, fare.format(fare.totalKr + fare.discountKr)),
             _priceRow(
               fare.promotionPercent == null
-                  ? 'Promotion'
-                  : 'Promotion ${fare.promotionPercent}%',
+                  ? context.l10n.promotion
+                  : context.l10n.promotionPercent('${fare.promotionPercent}'),
               '-${fare.format(fare.discountKr)}',
               color: _accent,
             ),
             const Divider(height: 12, color: _line),
           ],
-          _priceRow('Total', fare.format(fare.totalKr), bold: true),
+          _priceRow(context.l10n.total, fare.format(fare.totalKr), bold: true),
           if (fare.split.usesWallet) ...[
             const Divider(height: 12, color: _line),
             _priceRow(
-              'Movera Wallet',
+              context.l10n.moveraWallet,
               '-${fare.split.walletLabel}',
               color: _walletGreen,
               key: const ValueKey('set-pickup-wallet-part'),
             ),
             _priceRow(
-              fare.split.paidByWallet ? 'Nothing more to pay' : _payment.name,
+              fare.split.paidByWallet ? context.l10n.nothingMoreToPay : _payment.name,
               fare.split.remainderLabel,
               key: const ValueKey('set-pickup-remainder'),
             ),
@@ -1399,7 +1400,7 @@ class _SetPickupPageState extends State<SetPickupPage>
             Padding(
               padding: const EdgeInsets.only(top: 2, bottom: 4),
               child: Text(
-                'Updating price…',
+                context.l10n.updatingPrice,
                 key: const ValueKey('set-pickup-requoting'),
                 style: _text(12.5, color: _muted),
               ),
@@ -1434,7 +1435,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
               ),
               if (widget.onChangePayment != null)
-                Text('Change ›', style: _text(14, weight: FontWeight.w600, color: _accent)),
+                Text(context.l10n.changeArrow, style: _text(14, weight: FontWeight.w600, color: _accent)),
             ],
           ),
         ),
@@ -1464,7 +1465,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
               )
             : Text(
-                widget.confirmLabel,
+                widget.confirmLabel ?? context.l10n.confirmAndSearch,
                 style: _text(16, weight: FontWeight.w600, color: Colors.white),
               ),
       ),

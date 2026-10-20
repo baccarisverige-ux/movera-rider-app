@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Opens the app's page in system Settings (notifications live there).
 typedef AppSettingsOpener = Future<bool> Function();
@@ -87,12 +88,10 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _blocked ? 'Notifications are off' : 'Get ride updates';
+    final title = _blocked ? context.l10n.pushOff : context.l10n.pushGetUpdates;
     final body = _blocked
-        ? 'Turn on notifications for Movera in Settings to hear when your '
-              'driver is assigned, arriving and waiting. Then tap Try again.'
-        : 'Movera lets you know when your driver is assigned, arriving and '
-              'waiting, even when the app is closed. Your phone asks next.';
+        ? context.l10n.pushBlockedBody
+        : context.l10n.pushBody;
     return MoveraSheet(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
@@ -127,7 +126,7 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
             if (_failed) ...[
               const SizedBox(height: 8),
               Text(
-                'Notifications could not be turned on. Try again later.',
+                context.l10n.pushFailed,
                 style: GoogleFonts.poppins(
                   fontSize: 12.5,
                   color: const Color(0xFF9A3412),
@@ -149,7 +148,7 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
                 ),
                 onPressed: _busy ? null : (_blocked ? _openSettings : _turnOn),
                 child: Text(
-                  _blocked ? 'Open settings' : 'Turn on notifications',
+                  _blocked ? context.l10n.openSettings : context.l10n.pushTurnOn,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -166,7 +165,7 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
                       key: const ValueKey('push-primer-retry'),
                       onPressed: _busy ? null : _turnOn,
                       style: TextButton.styleFrom(foregroundColor: _ink),
-                      child: const Text('Try again'),
+                      child: Text(context.l10n.tryAgain),
                     ),
                   ),
                 Expanded(
@@ -174,7 +173,7 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
                     key: const ValueKey('push-primer-not-now'),
                     onPressed: _busy ? null : _notNow,
                     style: TextButton.styleFrom(foregroundColor: _muted),
-                    child: const Text('Not now'),
+                    child: Text(context.l10n.notNow),
                   ),
                 ),
               ],
@@ -236,7 +235,7 @@ class _PushStatusBannerState extends State<PushStatusBanner> {
                 color: _ink,
               ),
               title: Text(
-                'Ride updates are off',
+                context.l10n.pushRideUpdatesOff,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -245,8 +244,8 @@ class _PushStatusBannerState extends State<PushStatusBanner> {
               ),
               subtitle: Text(
                 blocked
-                    ? 'Turn them on in Settings.'
-                    : 'Hear when your driver is on the way.',
+                    ? context.l10n.pushTurnOnInSettings
+                    : context.l10n.pushHearDriver,
                 style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
               ),
               trailing: const Icon(Icons.chevron_right_rounded, color: _muted),

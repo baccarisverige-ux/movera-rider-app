@@ -5,6 +5,7 @@ import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The menu/account pill in Home's top-right corner.
 class PremiumTopActions extends StatelessWidget {
@@ -87,8 +88,8 @@ class PremiumTopActions extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _target('Menu', onMenuTap),
-              _target('Account', onAccountTap),
+              _target(context.l10n.menu, onMenuTap),
+              _target(context.l10n.navAccount, onAccountTap),
             ],
           ),
         ),

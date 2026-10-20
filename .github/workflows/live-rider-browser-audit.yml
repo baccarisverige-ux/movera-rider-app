@@ -42,6 +42,9 @@ jobs:
             hasTouch: true,
             locale: 'en-US',
           });
+          // Round 4: the app speaks the zone's language (sv in Stockholm); these
+          // checks read the English copy, so pin the rider's choice to English.
+          await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
           const page = await context.newPage();
           const pageErrors = [];
           const consoleErrors = [];

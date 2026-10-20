@@ -20,6 +20,7 @@ import 'package:movera_rider/features/ride_selection/data/ride_selection_reposit
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -218,7 +219,7 @@ class RideSelectionController {
       RidePaymentItem(
         brand: card.methodBrand,
         name: card.displayName,
-        detail: 'Expires ${card.expiryLabel}',
+        detail: L10n.current.cardExpires(card.expiryLabel),
       ),
   ];
 

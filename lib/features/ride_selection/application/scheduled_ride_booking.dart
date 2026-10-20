@@ -8,7 +8,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 /// scheduled mode never starts a live Finding Driver search.
 class ScheduledRideBooking {
   static String ctaLabel(BookingMode mode, String categoryName) =>
-      '${mode.ctaVerb} $categoryName';
+      mode.ctaLabel(categoryName);
 
   /// ARCH-16: the price a scheduled ride is booked at is the server's
   /// current quote for [categoryId], never the catalog list price. Throws

@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider was doing when sign-in failed.
 enum AuthAction { sendCode, verifyCode, providerSignIn }
@@ -12,14 +13,14 @@ enum AuthAction { sendCode, verifyCode, providerSignIn }
 String authErrorMessage(Object error, AuthAction action, {String? provider}) {
   switch (riderErrorKind(error)) {
     case RiderErrorKind.offline:
-      return 'No connection. Check your internet and try again.';
+      return L10n.current.errOffline;
     case RiderErrorKind.rateLimited:
       final wait = riderRetryWait(error);
       return wait == null
-          ? 'Too many tries. Wait a moment and try again.'
-          : 'Too many tries. Try again in $wait.';
+          ? L10n.current.errTooManyWait
+          : L10n.current.errTooManyIn(wait);
     case RiderErrorKind.serverTrouble:
-      return 'Movera is having trouble right now. Try again in a moment.';
+      return L10n.current.errServer;
     case RiderErrorKind.refused:
     case RiderErrorKind.unknown:
       break;
@@ -29,18 +30,18 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
     // the server's lower-case reason beside it.
     switch (error.detail) {
       case 'invalid_otp':
-        return "That code isn't right. Check it and try again.";
+        return L10n.current.errWrongCode;
       case 'otp_expired':
       case 'invalid_otp_session':
-        return 'This code has expired. Tap Resend code for a new one.';
+        return L10n.current.codeExpired;
       case 'invalid_phone':
-        return 'Enter a valid Swedish mobile number.';
+        return L10n.current.invalidSwedishMobile;
     }
   }
   return switch (action) {
-    AuthAction.sendCode => "Couldn't send the code. Try again.",
-    AuthAction.verifyCode => "Couldn't check the code. Try again.",
+    AuthAction.sendCode => L10n.current.errSendCode,
+    AuthAction.verifyCode => L10n.current.errCheckCode,
     AuthAction.providerSignIn =>
-      "Couldn't sign in with ${provider ?? 'that account'}. Try again.",
+      L10n.current.errProvider(provider ?? L10n.current.thatAccount),
   };
 }
