@@ -109,10 +109,17 @@ jobs:
           async function openHome(page, name) {
             const errors = [];
             page.on('pageerror', error => errors.push(String(error)));
+            // 'load', not 'networkidle': the live map keeps fetching tiles,
+            // so the network may never go quiet. Wait for the app instead.
             await page.goto(base + `?critical=${name}&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
+            await page.waitForFunction(
+              () => document.querySelector('flt-semantics-placeholder, flutter-view, flt-glass-pane'),
+              null,
+              { timeout: 90000 },
+            );
             await page.waitForTimeout(4500);
             await enableA11y(page);
             await skipAuthPreview(page);
