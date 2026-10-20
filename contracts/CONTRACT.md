@@ -1,4 +1,4 @@
-# Movera shared contract v0.3.0
+# Movera shared contract v0.3.1
 
 One contract for **Rider** (Flutter), **Driver** (Flutter) and **Admin** (React/TS), so one future backend can serve all three.
 This folder is copied byte-for-byte into each repo at `contracts/`. Each repo runs contract tests that (1) check its copy matches `contracts/CHECKSUMS` and (2) replay `fixtures/*.json` through its own code. Change the contract here first, bump `version`, then copy to all three repos.
@@ -10,7 +10,7 @@ Files:
 | `contract.json` | Machine-readable source of truth: enums, terminal set, transition table, cancel codes, realtime rules, error codes, currencies, categories |
 | `CONTRACT.md` | This document: entities, lifecycle per app, events, admin control matrix, config documents, API surface |
 | `openapi.yaml` | REST + realtime surface v0.3 (all three apps) |
-| `fixtures/scenarios.json` | Trip lifecycle scenarios (commands × actors → status or `invalid_transition`) |
+| `fixtures/scenarios.json` | Trip lifecycle scenarios (commands × actors → status or `invalid_transition`), plus who may rate the trip afterwards (`rating`) |
 | `fixtures/events.json` | Realtime gate cases (accepted / gap / duplicate / blocked / invalid) |
 | `fixtures/money.json` | Money minor-unit cases incl. TND (3 decimals) |
 | `fixtures/config/*.json` | Sample `RiderAppConfig` and `DriverAppConfig` documents |
@@ -71,6 +71,8 @@ Status enums (exact values in `contract.json`): `TripStatus` (19), `PaymentStatu
 
 **Payment and rating are not trip statuses.** After `completed` they change as fields on the projection (`payment_updated`, `rating_updated` events) and are never blocked by the terminal rule. Rider UI states like `paymentProcessing`, `ratingPending`, `paymentFailed` are derived: `completed + paymentStatus`, `completed + ratingStatus`.
 
+**Who may rate** (`contract.json#ratingAllowed`): the rider and the driver after `completed`; the rider also after a trip the rider ended early (`end_early` → `cancelled_by_rider`, `POST /trips/{id}/end-early`), with the normal rating screen. `ratingStatus` then goes `pending → submitted | skipped` and `rating_updated` passes the terminal gate as usual. A plain rider `cancel` (also `cancelled_by_rider`) is never rated, and the driver does not rate an ended-early trip; any other rating is `409 invalid_transition`. The marker is the command that ended the trip: `end_early` is only allowed on board and `cancel` by the rider only before boarding, so the server knows which one ended it.
+
 ## 3. Trip lifecycle (single state machine)
 
 The transition table is `contract.json#transitions`: `command × actor × from[] → to`, with `when: live | scheduled` where the target differs. Anything not in the table is `409 invalid_transition` and the status does not change.
@@ -96,7 +98,7 @@ Terminal: completed · cancelled_by_rider · cancelled_by_driver · cancelled_by
 | near_dropoff (system) | in_trip | approaching_dropoff | "Almost there" | "Arriving" | — |
 | complete (driver; admin from onboard+) | in_trip, approaching_dropoff | completed | Receipt, pay, rate | Earnings, rate rider | Money split, can refund |
 | cancel (rider) | requested … arrived | cancelled_by_rider | Fee shown first (rules §5) | Island "Rider cancelled · +X kr / no fee" | Cancel check, can waive fee |
-| end_early (rider) | rider_onboard … approaching_dropoff | cancelled_by_rider | Pays distance driven | Island "Rider ended trip" | Trip review |
+| end_early (rider) | rider_onboard … approaching_dropoff | cancelled_by_rider | Pays distance driven, rates the trip | Island "Rider ended trip" | Trip review |
 | cancel (driver), live | accepted, driver_to_pickup, arrived | **searching** (reassign) | "Finding a new driver" | Back online; counts in cancel rate | Cancel rate, cancel reason |
 | cancel (driver), scheduled | accepted | **requested** | Reservation still booked | Leaves Accepted | Late-cancel count |
 | cancel (driver), scheduled, on the way | driver_to_pickup, arrived | **searching** | "Finding a new driver" | Back online; counts | Late-cancel count |

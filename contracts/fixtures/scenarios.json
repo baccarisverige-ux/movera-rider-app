@@ -1,6 +1,6 @@
 {
- "version": "0.3.0",
- "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled.",
+ "version": "0.3.1",
+ "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled. Optional 'rating' maps a rater (rider | driver) to 'allowed' or 'invalid_transition' for a rating sent after the last step (contract.json#ratingAllowed: the trip's status plus the command that ended it).",
  "scenarios": [
   {
    "id": "happy_path",
@@ -891,6 +891,116 @@
      "accepted"
     ]
    ]
+  },
+  {
+   "id": "rider_rates_trip_ended_early",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "board",
+     "driver",
+     "rider_onboard"
+    ],
+    [
+     "start_trip",
+     "driver",
+     "in_trip"
+    ],
+    [
+     "end_early",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ],
+   "rating": {
+    "rider": "allowed",
+    "driver": "invalid_transition"
+   }
+  },
+  {
+   "id": "plain_rider_cancel_is_not_rated",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "head_to_pickup",
+     "driver",
+     "driver_to_pickup"
+    ],
+    [
+     "arrive",
+     "driver",
+     "arrived"
+    ],
+    [
+     "cancel",
+     "rider",
+     "cancelled_by_rider"
+    ]
+   ],
+   "rating": {
+    "rider": "invalid_transition",
+    "driver": "invalid_transition"
+   }
   }
  ]
 }

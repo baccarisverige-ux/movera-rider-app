@@ -9,7 +9,7 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 
 import 'contract_fixtures.dart';
 
-/// Contract v0.3.0 lifecycle: the Dart enums and the transition engine are
+/// Contract v0.3.1 lifecycle: the Dart enums and the transition engine are
 /// checked against the shipped `contracts/contract.json` and replay
 /// `fixtures/scenarios.json` with the reference engine's answers.
 void main() {
@@ -115,6 +115,65 @@ void main() {
                 '${status.wireName}',
           );
           if (next != null) status = next;
+        }
+      }
+    });
+
+    test('rating rules equal contract.json#ratingAllowed row by row', () {
+      final rows = [
+        for (final row in (contract['ratingAllowed'] as Map)['rules'] as List)
+          (row['rater'] as String, row['status'] as String,
+            row['command'] as String?),
+      ];
+      final ours = [
+        for (final rule in TripRatingRules.rules)
+          (rule.rater.wireName, rule.status.wireName, rule.command),
+      ];
+      expect(ours, rows);
+    });
+
+    test('replays the rating cases of fixtures/scenarios.json', () {
+      final fixture = contractJson('fixtures/scenarios.json')!
+          as Map<String, dynamic>;
+      final cases = [
+        for (final scenario in fixture['scenarios'] as List)
+          if ((scenario as Map)['rating'] != null) scenario,
+      ];
+      expect(
+        cases.map((s) => s['id']),
+        containsAll([
+          'rider_rates_trip_ended_early',
+          'plain_rider_cancel_is_not_rated',
+        ]),
+      );
+      for (final scenario in cases) {
+        final kind = TripKindWire.parse(scenario['kind'])!;
+        var status = TripStatus.draft;
+        String? endedBy;
+        for (final step in scenario['steps'] as List) {
+          final [command, actor, _] = List<String>.from(step as List);
+          final next = TripStateMachine.apply(
+            status,
+            command,
+            TripActorWire.parse(actor)!,
+            kind: kind,
+          );
+          if (next != null) (status, endedBy) = (next, command);
+        }
+        for (final MapEntry(key: rater, value: expected)
+            in (scenario['rating'] as Map).entries) {
+          final allowed = status.isTerminal &&
+              TripRatingRules.allows(
+                TripActorWire.parse(rater)!,
+                status,
+                endedBy: endedBy,
+              );
+          expect(
+            allowed ? 'allowed' : 'invalid_transition',
+            expected,
+            reason: '${scenario['id']}: $rater rates after '
+                '${status.wireName} by $endedBy',
+          );
         }
       }
     });
