@@ -5,6 +5,7 @@ import 'package:movera_rider/features/reservations/domain/reservation_policy.dar
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduledRideTermsPage extends StatelessWidget {
   const ScheduledRideTermsPage({super.key, this.controller, this.policy});
@@ -37,14 +38,14 @@ class ScheduledRideTermsPage extends StatelessWidget {
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close_rounded, color: kReservationInk),
-            tooltip: 'Close',
+            tooltip: context.l10n.close,
           ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 40),
               children: [
                 Text(
-                  'Scheduled ride terms',
+                  context.l10n.resTermsTitle,
                   style: reservationText(
                     30,
                     weight: FontWeight.w700,
@@ -53,8 +54,9 @@ class ScheduledRideTermsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '${ReservationFormat.cancelRule(rules)} Other fees and time '
-                  'windows apply only when they are shown before booking.',
+                  context.l10n.resTermsOtherFees(
+                    ReservationFormat.cancelRule(rules),
+                  ),
                   key: const Key('scheduled-terms-cancel-rule'),
                   style: reservationText(
                     14,

@@ -1,3 +1,5 @@
+import 'package:movera_rider/l10n/l10n.dart';
+
 class RideNotes {
   const RideNotes({
     this.bags = false,
@@ -38,6 +40,24 @@ class RideNotes {
       if (child) 'Child',
     ];
   }
+
+  /// A [selected] label ('Bags 3+', 'Pet', ...) in the app language; the
+  /// English label stays what is saved and sent.
+  static String labelFor(String label) => switch (label) {
+    'Bags 3+' => '${L10n.current.notesBags} 3+',
+    'Bags' => L10n.current.notesBags,
+    'Pet' => L10n.current.notesPet,
+    'Baby' => L10n.current.notesBaby,
+    'Child' => L10n.current.notesChild,
+    _ => label,
+  };
+
+  /// A saved ride note ("Leave at the gate · Bags · Pet") with its
+  /// [selected] labels in the app language; the rider's own words stay.
+  static String displayNote(String note) => [
+    for (final part in note.split(' · '))
+      [for (final item in part.split(', ')) labelFor(item)].join(', '),
+  ].join(' · ');
 
   RideNotes copyWith({bool? bags, bool? pet, bool? baby, bool? child}) {
     return RideNotes(

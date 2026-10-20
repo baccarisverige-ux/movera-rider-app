@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const _ink = Color(0xFF1D252C);
 const _muted = Color(0xFF5C656C);
@@ -130,8 +131,11 @@ class _RecordTile extends StatelessWidget {
     );
     return Semantics(
       container: true,
-      label:
-          'Ride check at $time, ${record.trigger.label}. ${record.answerSummary}',
+      label: context.l10n.rcEntrySemantics(
+        time,
+        record.trigger.label,
+        record.answerSummary,
+      ),
       excludeSemantics: true,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -163,7 +167,7 @@ class _RecordTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ride check',
+                    context.l10n.rcRideCheck,
                     style: style(14.5, weight: FontWeight.w600),
                   ),
                   Text(
@@ -174,7 +178,7 @@ class _RecordTile extends StatelessWidget {
                   Text(record.answerSummary, style: style(13)),
                   if (record.alerted)
                     Text(
-                      'Movera safety team alerted',
+                      context.l10n.rcAlertSentTitle,
                       style: style(12, weight: FontWeight.w600, color: _alert),
                     ),
                 ],

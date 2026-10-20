@@ -15,6 +15,7 @@ import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyController extends ChangeNotifier {
   SafetyController._({
@@ -92,22 +93,21 @@ class SafetyController extends ChangeNotifier {
   RideCheckPolicy get rideCheckPolicy => _session.rideCheck;
 
   String pinStatusLabel() =>
-      preferences.pinRequired ? 'On' : 'Off';
+      preferences.pinRequired ? L10n.current.on : L10n.current.off;
 
   String contactsStatusLabel() {
-    if (contacts.isEmpty) return 'None added';
-    if (contacts.length == 1) return '1 contact';
-    return '${contacts.length} contacts';
+    if (contacts.isEmpty) return L10n.current.safetyContactsNone;
+    return L10n.current.safetyContactsCount(contacts.length);
   }
 
   String shareStatusLabel() {
-    if (!preferences.tripShareEnabled) return 'Off';
+    if (!preferences.tripShareEnabled) return L10n.current.off;
     return preferences.tripShareMode == TripShareMode.auto
-        ? 'Every ride'
-        : 'Manual';
+        ? L10n.current.safetyShareEveryRide
+        : L10n.current.safetyShareManual;
   }
 
-  String rideCheckStatusLabel() => rideCheckPolicy.enabled ? 'On' : 'Off';
+  String rideCheckStatusLabel() => rideCheckPolicy.enabled ? L10n.current.on : L10n.current.off;
 
   List<RideCheckEvent> pendingRideCheckEvents(String rideId) =>
       rideCheck.events().where((event) =>
@@ -178,7 +178,7 @@ class SafetyController extends ChangeNotifier {
       // A check queued by `moveraSimulateRideCheck` opens on the ride's own
       // screen (RideCheckController), not here.
     } catch (err) {
-      error = 'Could not load Safety preferences.';
+      error = L10n.current.safetyLoadFailed;
       AppLog.error('safety.load_failed');
     } finally {
       loading = false;
@@ -194,7 +194,7 @@ class SafetyController extends ChangeNotifier {
       record(SafetyKind.ridePin);
       AppLog.info('safety.pin.required', extra: {'on': value});
     } catch (_) {
-      error = 'Could not update PIN verification.';
+      error = L10n.current.safetyPinUpdateFailed;
     }
     notifyListeners();
   }
@@ -205,7 +205,7 @@ class SafetyController extends ChangeNotifier {
       await _session.rotatePin();
       AppLog.info('safety.pin.rotated');
     } catch (_) {
-      error = 'Could not change PIN.';
+      error = L10n.current.safetyPinChangeFailed;
     }
     notifyListeners();
   }
@@ -229,7 +229,7 @@ class SafetyController extends ChangeNotifier {
       error = err.message;
       rethrow;
     } catch (_) {
-      error = 'Could not save that contact.';
+      error = L10n.current.safetyContactSaveFailed;
       rethrow;
     } finally {
       notifyListeners();
@@ -253,7 +253,7 @@ class SafetyController extends ChangeNotifier {
     try {
       await _session.deleteContact(id);
     } catch (_) {
-      error = 'Could not delete that contact.';
+      error = L10n.current.safetyContactDeleteFailed;
       rethrow;
     } finally {
       notifyListeners();
@@ -267,7 +267,7 @@ class SafetyController extends ChangeNotifier {
     try {
       await _session.setPrimary(id);
     } catch (_) {
-      error = 'Could not change the primary contact.';
+      error = L10n.current.safetyPrimaryChangeFailed;
       rethrow;
     } finally {
       notifyListeners();
@@ -289,7 +289,7 @@ class SafetyController extends ChangeNotifier {
         ),
       );
     } catch (_) {
-      error = 'Could not update trip sharing.';
+      error = L10n.current.safetyShareUpdateFailed;
     }
     notifyListeners();
   }
@@ -316,7 +316,7 @@ class SafetyController extends ChangeNotifier {
     try {
       await rideCheck.setEnabled(enabled);
     } catch (_) {
-      error = 'Could not update RideCheck.';
+      error = L10n.current.safetyRideCheckUpdateFailed;
     }
     notifyListeners();
   }

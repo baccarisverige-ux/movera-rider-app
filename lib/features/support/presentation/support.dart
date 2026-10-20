@@ -8,6 +8,7 @@ import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Loads the rides Support can be asked about.
 typedef SupportRidesLoader = Future<List<SupportRide>> Function();
@@ -62,13 +63,13 @@ class SupportHome extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded, color: ink),
-                  tooltip: 'Close',
+                  tooltip: context.l10n.close,
                 ),
                 const Spacer(),
                 Flexible(
                   child: _PillButton(
                     icon: Icons.mail_outline_rounded,
-                    label: 'Messages',
+                    label: context.l10n.supportMessages,
                     onTap: () => guardedPush(
                       context,
                       RightToLeftTransition(const SupportMessages()),
@@ -86,7 +87,7 @@ class SupportHome extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Help',
+                        context.l10n.supportHelp,
                         style: text(
                           34,
                           weight: FontWeight.w700,
@@ -95,7 +96,7 @@ class SupportHome extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'What can we help with?',
+                        context.l10n.supportWhatHelp,
                         style: text(16, color: muted),
                       ),
                     ],
@@ -109,7 +110,7 @@ class SupportHome extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Select a ride',
+                    context.l10n.supportSelectARide,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text(16, weight: FontWeight.w700),
@@ -117,7 +118,7 @@ class SupportHome extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 MoveraHitArea(
-                  label: 'View all rides',
+                  label: context.l10n.supportViewAllRides,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
@@ -126,7 +127,7 @@ class SupportHome extends StatelessWidget {
                   ),
                   child: ExcludeSemantics(
                     child: Text(
-                      'View all',
+                      context.l10n.supportViewAll,
                       style: text(14, weight: FontWeight.w500, color: muted),
                     ),
                   ),
@@ -139,11 +140,10 @@ class SupportHome extends StatelessWidget {
               builder: (context, all) {
                 final recent = all.take(3).toList();
                 if (recent.isEmpty) {
-                  return const _EmptyCard(
+                  return _EmptyCard(
                     icon: Icons.inbox_outlined,
-                    title: 'No rides to review',
-                    subtitle:
-                        'Your completed and cancelled rides will appear here.',
+                    title: context.l10n.supportNoRidesToReview,
+                    subtitle: context.l10n.supportRidesAppearHere,
                   );
                 }
                 return Column(
@@ -162,7 +162,7 @@ class SupportHome extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Browse all help topics',
+              context.l10n.supportBrowseTopics,
               style: text(16, weight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
@@ -171,7 +171,7 @@ class SupportHome extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _TopicChip(
-                  label: 'Rides',
+                  label: context.l10n.rides,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
@@ -180,27 +180,25 @@ class SupportHome extends StatelessWidget {
                   ),
                 ),
                 _TopicChip(
-                  label: 'Payments',
+                  label: context.l10n.payments,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
-                      const HelpArticle(
-                        title: 'Payments and pricing',
-                        body:
-                            'Your price is shown before you book and on your receipt. If a charge looks wrong, open the ride in Help or in Ride history and send us a message about it.',
+                      HelpArticle(
+                        title: context.l10n.supportPaymentsTitle,
+                        body: context.l10n.supportPaymentsBody,
                       ),
                     ),
                   ),
                 ),
                 _TopicChip(
-                  label: 'Account',
+                  label: context.l10n.navAccount,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
-                      const HelpArticle(
-                        title: 'Account and data',
-                        body:
-                            'You can see and edit your name and other profile details in Account.',
+                      HelpArticle(
+                        title: context.l10n.supportAccountTitle,
+                        body: context.l10n.supportAccountBody,
                       ),
                     ),
                   ),
@@ -208,10 +206,13 @@ class SupportHome extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 28),
-            Text('Something else', style: text(16, weight: FontWeight.w700)),
+            Text(
+              context.l10n.supportSomethingElse,
+              style: text(16, weight: FontWeight.w700),
+            ),
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Support messaging',
+              title: context.l10n.supportMessaging,
               icon: Icons.headset_mic_rounded,
               onTap: () => guardedPush(
                 context,
@@ -220,7 +221,7 @@ class SupportHome extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Browse help articles',
+              title: context.l10n.supportBrowseArticles,
               icon: Icons.menu_book_rounded,
               onTap: () => guardedPush(
                 context,
@@ -230,16 +231,16 @@ class SupportHome extends StatelessWidget {
             if (support.available) ...[
               const SizedBox(height: 10),
               _ActionCard(
-                title: 'Email support',
+                title: context.l10n.supportEmail,
                 icon: Icons.mail_outline_rounded,
                 onTap: () async {
                   final opened = await support.openEmail(
-                    subject: 'Movera support',
+                    subject: context.l10n.supportEmailSubject,
                   );
                   if (!opened && context.mounted) {
                     MoveraToast.show(
                       context,
-                      'No mail app opened. Write to ${support.email}.',
+                      context.l10n.supportNoMailApp(support.email),
                     );
                   }
                 },
@@ -247,7 +248,7 @@ class SupportHome extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Cases',
+              title: context.l10n.supportCases,
               icon: Icons.forum_outlined,
               onTap: () => guardedPush(
                 context,
@@ -267,13 +268,13 @@ class HowCanWeHelp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'How can we help you?',
+      title: context.l10n.supportHowHelp,
       trailing: _exit(context),
       child: ListView(
         children: [
           _LineItem(
             icon: Icons.directions_car_filled_outlined,
-            title: 'I need help with a ride',
+            title: context.l10n.supportHelpWithRide,
             onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SelectSupportRide()),
@@ -281,7 +282,7 @@ class HowCanWeHelp extends StatelessWidget {
           ),
           _LineItem(
             icon: Icons.chat_bubble_outline_rounded,
-            title: 'Something else',
+            title: context.l10n.supportSomethingElse,
             onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SupportChat()),
@@ -302,7 +303,7 @@ class SelectSupportRide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Select ride',
+      title: context.l10n.supportSelectRide,
       trailing: _exit(context),
       child: _SupportRides(
         load: loadRides ?? SupportHome.rides,
@@ -320,10 +321,10 @@ class SelectSupportRide extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         if (grouped.isEmpty)
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.event_busy_outlined,
-            title: 'No rides yet',
-            subtitle: 'Your completed and cancelled rides will appear here.',
+            title: context.l10n.supportNoRidesYet,
+            subtitle: context.l10n.supportRidesAppearHere,
           )
         else
           for (final entry in grouped.entries) ...[
@@ -352,14 +353,15 @@ class SelectIssue extends StatelessWidget {
 
   final SupportRide ride;
 
-  static const issues = [
-    'I was charged more than expected',
-    'I was charged twice',
-    'I lost an item',
-    'My ride happened without me',
-    'The driver didn’t meet expectations',
-    'I was wrongly charged a wait time fee',
-    'I have a question about tips',
+  /// The issues in the app language, in the order of [_codes].
+  static List<String> get issues => [
+    L10n.current.issueChargedMore,
+    L10n.current.issueChargedTwice,
+    L10n.current.issueLostItem,
+    L10n.current.issueRideWithoutMe,
+    L10n.current.issueDriverExpectations,
+    L10n.current.issueWaitFee,
+    L10n.current.issueTips,
   ];
 
   static const _codes = [
@@ -390,7 +392,7 @@ class SelectIssue extends StatelessWidget {
           _CompactTrip(ride: ride),
           const SizedBox(height: 28),
           Text(
-            'Select an issue',
+            context.l10n.supportSelectIssue,
             style: SupportHome.text(22, weight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
@@ -403,7 +405,7 @@ class SelectIssue extends StatelessWidget {
               ),
             ),
           _LineItem(
-            title: 'Something else',
+            title: context.l10n.supportSomethingElse,
             accent: true,
             onTap: () => guardedPush(
               context,
@@ -419,37 +421,23 @@ class SelectIssue extends StatelessWidget {
 class HelpArticles extends StatelessWidget {
   const HelpArticles({super.key});
 
-  static const topics = [
-    (
-      'About Movera',
-      'Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.',
-    ),
-    (
-      'App and features',
-      'Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.',
-    ),
-    (
-      'Account and data',
-      'You can see and edit your name and other profile details in Account.',
-    ),
-    (
-      'Payments and pricing',
-      'Your price is shown before you book and on your receipt. If a charge looks wrong, open the ride in Help or in Ride history and send us a message about it.',
-    ),
-    (
-      'Using Movera',
-      'Confirm pickup, choose a ride category, and follow the booking flow shown in the app.',
-    ),
-    (
-      'Safety',
-      'Use the available Safety tools in the app if you need safety-related help during a ride.',
-    ),
-  ];
+  /// (title, body) of each article, in the app language.
+  static List<(String, String)> get topics {
+    final l = L10n.current;
+    return [
+      (l.helpAboutTitle, l.helpAboutBody),
+      (l.helpAppTitle, l.helpAppBody),
+      (l.supportAccountTitle, l.supportAccountBody),
+      (l.supportPaymentsTitle, l.supportPaymentsBody),
+      (l.helpUsingTitle, l.helpUsingBody),
+      (l.safetyTitle, l.helpSafetyBody),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Help articles',
+      title: context.l10n.helpArticles,
       trailing: _exit(context),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
@@ -502,7 +490,7 @@ class HelpArticle extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Support options',
+                  context.l10n.supportOptions,
                   style: SupportHome.text(
                     15.5,
                     weight: FontWeight.w600,
@@ -524,26 +512,30 @@ class SupportMessages extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Support messages',
+      title: context.l10n.supportMessagesTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Text('Active', style: SupportHome.text(18, weight: FontWeight.w700)),
+          Text(
+            context.l10n.supportActive,
+            style: SupportHome.text(18, weight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.forum_outlined,
-            title: 'No active cases',
-            subtitle:
-                'Messages you send about a ride go to the Movera team for review.',
+            title: context.l10n.supportNoActiveCases,
+            subtitle: context.l10n.supportActiveBody,
           ),
           const SizedBox(height: 28),
-          Text('Closed', style: SupportHome.text(18, weight: FontWeight.w700)),
+          Text(
+            context.l10n.supportClosed,
+            style: SupportHome.text(18, weight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.inventory_2_outlined,
-            title: 'No closed cases',
-            subtitle:
-                'You have no closed support cases.',
+            title: context.l10n.supportNoClosedCases,
+            subtitle: context.l10n.supportClosedBody,
           ),
         ],
       ),
@@ -666,7 +658,7 @@ class _SupportChatState extends State<SupportChat> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = "Couldn't send. Check your connection and try again.";
+        _error = context.l10n.supportSendFailed;
       });
     }
   }
@@ -693,15 +685,15 @@ class _SupportChatState extends State<SupportChat> {
                       Icons.close_rounded,
                       color: SupportHome.ink,
                     ),
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                   ),
                   Text(
-                    'Help',
+                    context.l10n.supportHelp,
                     style: SupportHome.text(18, weight: FontWeight.w600),
                   ),
                   const Spacer(),
                   _PillButton(
-                    label: 'Close',
+                    label: context.l10n.close,
                     onTap: () => Navigator.pop(context),
                   ),
                 ],
@@ -800,8 +792,8 @@ class _SupportChatState extends State<SupportChat> {
       onSubmitted: (_) => _submit(),
       decoration: InputDecoration(
         hintText: widget.issue == null
-            ? 'Tell us what happened'
-            : 'Add details (optional)',
+            ? context.l10n.supportTellWhatHappened
+            : context.l10n.supportAddDetails,
         hintStyle: SupportHome.text(14, color: SupportHome.muted),
         filled: true,
         fillColor: SupportHome.soft,
@@ -824,7 +816,7 @@ class _SupportChatState extends State<SupportChat> {
               )
             : IconButton(
                 key: const ValueKey('support-message-send'),
-                tooltip: 'Send to Movera',
+                tooltip: context.l10n.supportSendToMovera,
                 onPressed: _canSubmit ? _submit : null,
                 icon: Icon(
                   Icons.send_rounded,
@@ -836,27 +828,27 @@ class _SupportChatState extends State<SupportChat> {
   }
 
   Widget _doneButton(BuildContext context) => _wideButton(
-    label: 'Done',
+    label: context.l10n.done,
     onPressed: () => Navigator.pop(context),
   );
 
   Widget _noRideActions(BuildContext context, SupportContact contact) {
     if (contact.available) {
       return _wideButton(
-        label: 'Email support',
+        label: context.l10n.supportEmail,
         onPressed: () async {
-          final opened = await contact.openEmail(subject: 'Movera support');
+          final opened = await contact.openEmail(subject: context.l10n.supportEmailSubject);
           if (!opened && context.mounted) {
             MoveraToast.show(
               context,
-              'No mail app opened. Write to ${contact.email}.',
+              context.l10n.supportNoMailApp(contact.email),
             );
           }
         },
       );
     }
     return _wideButton(
-      label: 'Choose a ride',
+      label: context.l10n.supportChooseRide,
       onPressed: () => guardedPush(
         context,
         RightToLeftTransition(const SelectSupportRide()),
@@ -943,7 +935,7 @@ class _SupportScaffold extends StatelessWidget {
                       Icons.arrow_back_rounded,
                       color: SupportHome.ink,
                     ),
-                    tooltip: 'Back',
+                    tooltip: context.l10n.back,
                   ),
                   const Spacer(),
                   if (trailing != null) trailing!,
@@ -974,7 +966,7 @@ Widget _exit(BuildContext context) {
   return TextButton(
     onPressed: () => Navigator.popUntil(context, AppRoutes.isHomeRoute),
     child: Text(
-      'Exit',
+      context.l10n.supportExit,
       style: SupportHome.text(
         14,
         weight: FontWeight.w600,
@@ -1102,7 +1094,7 @@ class _RideRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              ride.failed ? 'Failed' : formatMajor(ride.price, ride.currency),
+              ride.failed ? context.l10n.supportFailed : formatMajor(ride.price, ride.currency),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],

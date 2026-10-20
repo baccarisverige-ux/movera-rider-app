@@ -15,6 +15,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 enum RideCheckStep { main, followUp }
 
@@ -480,7 +481,7 @@ class RideCheckController extends ChangeNotifier {
     } on EmergencyCallException catch (error) {
       failure = error.message;
     } catch (error) {
-      failure = 'Could not open the phone dialer. Dial 112 yourself.';
+      failure = L10n.current.rcDialerFailed;
       AppLog.warning(
         'safety.ridecheck.dialer_failed',
         extra: {'error': '$error'},
@@ -585,7 +586,7 @@ class RideCheckController extends ChangeNotifier {
       String note;
       try {
         await _audio.stop();
-        note = 'Recording saved on this phone only.';
+        note = L10n.current.rcRecordingSaved;
       } on SafetyAudioException catch (error) {
         note = error.message;
       }
@@ -597,12 +598,12 @@ class RideCheckController extends ChangeNotifier {
       await _audio.start(rideId: current.rideId, deviceOnly: true);
     } on SafetyAudioException catch (error) {
       note = switch (error.code) {
-        'UNSUPPORTED' => "Recording isn't available on this device.",
-        'MIC_DENIED' => 'Allow the microphone to record.',
-        _ => "Couldn't start recording. Try again.",
+        'UNSUPPORTED' => L10n.current.rcRecordingUnsupported,
+        'MIC_DENIED' => L10n.current.rcAllowMicrophone,
+        _ => L10n.current.rcRecordingStartFailed,
       };
     } catch (error) {
-      note = "Couldn't start recording. Try again.";
+      note = L10n.current.rcRecordingStartFailed;
       AppLog.warning(
         'safety.ridecheck.record_failed',
         extra: {'error': '$error'},

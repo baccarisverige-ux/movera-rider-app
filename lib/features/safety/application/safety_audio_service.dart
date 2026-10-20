@@ -2,6 +2,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'safety_recorder.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyAudioException implements Exception {
   const SafetyAudioException(this.code, this.message);
@@ -36,18 +37,21 @@ class SafetyAudioService {
     bool deviceOnly = false,
   }) async {
     if (!supported || !_recorder.supported) {
-      throw const SafetyAudioException(
+      throw SafetyAudioException(
         'UNSUPPORTED',
-        'Audio recording is not available on this platform.',
+        L10n.current.audioUnsupported,
       );
     }
     if (isRecording) {
-      throw const SafetyAudioException('ALREADY_RECORDING', 'Already recording.');
+      throw SafetyAudioException(
+        'ALREADY_RECORDING',
+        L10n.current.audioAlreadyRecording,
+      );
     }
     if (!await _recorder.requestPermission()) {
-      throw const SafetyAudioException(
+      throw SafetyAudioException(
         'MIC_DENIED',
-        'Microphone permission is required to record.',
+        L10n.current.audioMicRequired,
       );
     }
     final recording = deviceOnly
@@ -58,9 +62,9 @@ class SafetyAudioService {
     } catch (_) {
       await _recorder.cancel();
       await _store.deleteAudio(recording);
-      throw const SafetyAudioException(
+      throw SafetyAudioException(
         'START_FAILED',
-        'Could not start microphone recording.',
+        L10n.current.audioStartFailed,
       );
     }
     _active = recording.copyWith(
@@ -72,7 +76,10 @@ class SafetyAudioService {
   Future<AudioRecording> stop() async {
     final current = _active;
     if (current == null) {
-      throw const SafetyAudioException('NOT_RECORDING', 'Nothing to stop.');
+      throw SafetyAudioException(
+        'NOT_RECORDING',
+        L10n.current.audioNothingToStop,
+      );
     }
     final ended = DateTime.now().toUtc();
     final started = current.createdAt ?? ended;
@@ -80,10 +87,7 @@ class SafetyAudioService {
     final path = await _recorder.stop();
     _active = null;
     if (path == null) {
-      throw const SafetyAudioException(
-        'NO_AUDIO',
-        'No audio file was captured.',
-      );
+      throw SafetyAudioException('NO_AUDIO', L10n.current.audioNoFile);
     }
     AudioRecording next;
     try {
@@ -96,15 +100,12 @@ class SafetyAudioService {
           ? await _store.completeDeviceAudio(captured)
           : await _store.completeAudio(captured);
     } catch (_) {
-      throw const SafetyAudioException(
-        'SAVE_FAILED',
-        'Audio was captured on this device, but its record could not be saved.',
-      );
+      throw SafetyAudioException('SAVE_FAILED', L10n.current.audioSaveFailed);
     }
     if (autoUpload) {
-      throw const SafetyAudioException(
+      throw SafetyAudioException(
         'UPLOAD_DISABLED',
-        'Automatic upload is not enabled.',
+        L10n.current.audioUploadDisabled,
       );
     }
     return next;

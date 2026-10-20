@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCheckPage extends StatefulWidget {
   const RideCheckPage({super.key, required this.controller});
@@ -48,7 +49,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
         ? t.finishFarFromDropoffKm.toStringAsFixed(0)
         : t.finishFarFromDropoffKm.toStringAsFixed(1);
     return SafetyScaffold(
-      title: 'RideCheck',
+      title: context.l10n.rideCheckTitle,
       solarBack: true,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -56,8 +57,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
           const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'When something on a trip looks wrong, Ride check asks if '
-            'everything is OK. You can call 112 from it at any time.',
+            context.l10n.rcPageIntro,
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
@@ -69,7 +69,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
               children: [
                 Expanded(
                   child: Text(
-                    'RideCheck alerts',
+                    context.l10n.rcAlertsToggle,
                     style: SafetyUi.text(15.5, weight: FontWeight.w500),
                   ),
                 ),
@@ -96,40 +96,36 @@ class _RideCheckPageState extends State<RideCheckPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'What RideCheck looks for',
+                  context.l10n.rcLooksFor,
                   style: SafetyUi.text(15, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Set by Movera.',
+                  context.l10n.rcSetByMovera,
                   style: SafetyUi.text(12.5, color: SafetyUi.muted),
                 ),
                 const SizedBox(height: 6),
                 _TriggerLine(
-                  title: 'Finished far from drop-off',
-                  body:
-                      'Your driver finishes the trip more than $finishKm km '
-                      'from your drop-off.',
+                  title: context.l10n.rcFinishedFarTitle,
+                  body: context.l10n.rcFinishedFarBody(finishKm),
                   on: t.droppedFarEnabled,
                 ),
                 _TriggerLine(
-                  title: 'Long stop',
-                  body:
-                      'The car stops for more than ${t.longStopMinutes} min, '
-                      'not at a '
-                      'planned stop or in traffic.',
+                  title: context.l10n.rcTriggerLongStop,
+                  body: context.l10n.rcLongStopBody('${t.longStopMinutes}'),
                   on: t.longStopEnabled,
                 ),
                 _TriggerLine(
-                  title: 'Off the route',
-                  body:
-                      'More than $km km off the route, or the trip '
-                      '${t.longerThanExpectedPercent}% longer than expected.',
+                  title: context.l10n.rcTriggerOffRoute,
+                  body: context.l10n.rcOffRouteBody(
+                    km,
+                    '${t.longerThanExpectedPercent}',
+                  ),
                   on: t.offRouteEnabled,
                 ),
                 _TriggerLine(
-                  title: 'Possible crash',
-                  body: 'A very hard stop. The card opens at once.',
+                  title: context.l10n.rcTriggerPossibleCrash,
+                  body: context.l10n.rcCrashBody,
                   on: t.possibleCrashEnabled,
                 ),
               ],
@@ -143,20 +139,17 @@ class _RideCheckPageState extends State<RideCheckPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'What happens',
+                  context.l10n.rcWhatHappens,
                   style: SafetyUi.text(15, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'The card stays until you answer. If you tap an accident, '
-                  'someone hurt or feeling unsafe, the Movera safety team is '
-                  'alerted with the trip, driver and rider details.',
+                  context.l10n.rcWhatHappensBody1,
                   style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Movera never calls 112 for you: Call 112 opens your '
-                  'phone. Audio you record is saved only on this phone.',
+                  context.l10n.rcWhatHappensBody2,
                   style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
                 ),
               ],
@@ -172,21 +165,21 @@ class _RideCheckPageState extends State<RideCheckPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Try it (demo)',
+                    context.l10n.rcTryDemo,
                     style: SafetyUi.text(15, weight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Plays a made-up trip and shows what you would see.',
+                    context.l10n.rcTryDemoBody,
                     style: SafetyUi.text(12.5, color: SafetyUi.muted),
                   ),
                   const SizedBox(height: 6),
                   _DemoLine(
-                    title: 'Driver finished far from drop-off',
+                    title: context.l10n.rcDemoDroppedFar,
                     onTap: () => _playDemo(RideCheckTrigger.droppedFar),
                   ),
                   _DemoLine(
-                    title: 'Long stop',
+                    title: context.l10n.rcTriggerLongStop,
                     onTap: () => _playDemo(RideCheckTrigger.longStop),
                   ),
                 ],
@@ -238,7 +231,7 @@ class _DemoLine extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Text(
-              'Play',
+              context.l10n.rcPlay,
               style: SafetyUi.text(
                 13,
                 weight: FontWeight.w600,
@@ -281,7 +274,7 @@ class _TriggerLine extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            on ? 'On' : 'Off',
+            on ? context.l10n.on : context.l10n.off,
             style: SafetyUi.text(
               13,
               weight: FontWeight.w600,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class NotificationsRepository {
   NotificationsRepository({DateTime Function()? now})
@@ -82,11 +83,6 @@ class NotificationsRepository {
     _changes.add(all());
   }
 
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
   /// FLOW-18: only today's items show just the time; older ones say which
   /// day ("Yesterday 14:05", "3 Oct 14:05", "3 Oct 2025 14:05").
   String _formatTime(DateTime time) {
@@ -98,8 +94,8 @@ class NotificationsRepository {
     final day = DateTime(time.year, time.month, time.day);
     final daysAgo = today.difference(day).inDays;
     if (daysAgo <= 0) return clock;
-    if (daysAgo == 1) return 'Yesterday $clock';
-    final date = '${time.day} ${_months[time.month - 1]}';
+    if (daysAgo == 1) return L10n.current.notifYesterday(clock);
+    final date = L10n.formatDate(time, 'd MMM');
     if (time.year != now.year) return '$date ${time.year} $clock';
     return '$date $clock';
   }

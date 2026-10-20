@@ -144,7 +144,7 @@ class RiderProfileData {
       email: map['email'] as String? ?? fallback.email,
       phone: map['phone'] as String? ?? fallback.phone,
       gender: map['gender'] as String? ?? fallback.gender,
-      language: map['language'] as String? ?? fallback.language,
+      language: languageCode(map['language'] as String?),
       photoAsset: map['photoAsset'] as String? ?? fallback.photoAsset,
       passkeyEnabled: map['passkeyEnabled'] == true,
       twoStepEnabled: map['twoStepEnabled'] == true,
@@ -170,13 +170,30 @@ class RiderProfileData {
     );
   }
 
+  /// `RiderProfileUpdate.language` is a code (`^[a-z]{2}(-[A-Z]{2})?$`):
+  /// English until the rider picks a language.
+  static const defaultLanguage = 'en';
+
+  /// [value] as a language code. Profiles saved before round 4 hold the
+  /// language's name ('English'); those, and anything else that is not a
+  /// code, become the code the server accepts.
+  static String languageCode(String? value) {
+    final raw = value?.trim() ?? '';
+    if (RegExp(r'^[a-z]{2}(-[A-Z]{2})?$').hasMatch(raw)) return raw;
+    return switch (raw.toLowerCase()) {
+      'français' || 'francais' || 'french' => 'fr',
+      'svenska' || 'swedish' => 'sv',
+      _ => defaultLanguage,
+    };
+  }
+
   static RiderProfileData defaults() {
     return RiderProfileData(
       name: '',
       email: '',
       phone: '',
       gender: '',
-      language: 'English',
+      language: defaultLanguage,
       photoAsset: '',
       passwordUpdatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );

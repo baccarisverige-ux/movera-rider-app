@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/location/location_access_issue.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/core/location/location_access_issue.dart';
 
@@ -59,35 +60,23 @@ class LocationAccessNotice extends StatelessWidget {
   static const Color _muted = Color(0xFF5C656C);
 
   String get _title => switch (issue) {
-    LocationAccessIssue.denied => 'Location access needed',
-    LocationAccessIssue.deniedForever => 'Location access is off',
-    LocationAccessIssue.servicesOff => 'Location is turned off',
+    LocationAccessIssue.denied => L10n.current.locNeededTitle,
+    LocationAccessIssue.deniedForever => L10n.current.locOffTitle,
+    LocationAccessIssue.servicesOff => L10n.current.locServicesOffTitle,
   };
 
   String get _body {
     if (isWeb) {
       return switch (issue) {
-        LocationAccessIssue.denied =>
-          'Movera uses your location to set your pickup. Allow it when your '
-              'browser asks, or set your pickup on the map.',
-        LocationAccessIssue.deniedForever =>
-          'Allow location for this site in your browser settings, then try '
-              'again. You can also set your pickup on the map.',
-        LocationAccessIssue.servicesOff =>
-          'Turn on location for this device, then try again. You can also '
-              'set your pickup on the map.',
+        LocationAccessIssue.denied => L10n.current.locWebDenied,
+        LocationAccessIssue.deniedForever => L10n.current.locWebDeniedForever,
+        LocationAccessIssue.servicesOff => L10n.current.locWebServicesOff,
       };
     }
     return switch (issue) {
-      LocationAccessIssue.denied =>
-        'Movera uses your location to set your pickup and show your driver '
-            'where to meet you. You can also set your pickup on the map.',
-      LocationAccessIssue.deniedForever =>
-        'Allow Movera to use your location in Settings, or set your pickup '
-            'on the map.',
-      LocationAccessIssue.servicesOff =>
-        'Turn on Location Services in Settings, or set your pickup on the '
-            'map.',
+      LocationAccessIssue.denied => L10n.current.locDenied,
+      LocationAccessIssue.deniedForever => L10n.current.locDeniedForever,
+      LocationAccessIssue.servicesOff => L10n.current.locServicesOffBody,
     };
   }
 
@@ -102,12 +91,12 @@ class LocationAccessNotice extends StatelessWidget {
     final String actionLabel;
     final VoidCallback? action;
     if (openSettings != null) {
-      actionLabel = 'Open settings';
+      actionLabel = context.l10n.locOpenSettings;
       action = () => openSettings();
     } else {
       actionLabel = issue == LocationAccessIssue.denied
-          ? 'Allow location'
-          : 'Try again';
+          ? context.l10n.locAllow
+          : context.l10n.tryAgain;
       action = onRetry;
     }
     return Semantics(
@@ -174,7 +163,7 @@ class LocationAccessNotice extends StatelessWidget {
               ),
               if (onDismiss != null)
                 IconButton(
-                  tooltip: 'Dismiss',
+                  tooltip: context.l10n.dismiss,
                   onPressed: onDismiss,
                   icon: const Icon(Icons.close_rounded, color: _muted),
                 ),

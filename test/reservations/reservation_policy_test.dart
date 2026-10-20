@@ -3,7 +3,7 @@ import 'package:movera_rider/features/reservations/data/reservation_policy_catal
 
 void main() {
   test('unpublished policy does not invent fees or windows', () {
-    const policy = ReservationPolicyCatalog.current;
+    final policy = ReservationPolicyCatalog.current;
     expect(policy.version, 'unpublished.v1');
     expect(policy.freeCancellationMinutes, isNull);
     expect(policy.cancellationFee, isNull);

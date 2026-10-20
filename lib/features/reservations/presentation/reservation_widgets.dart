@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color kReservationInk = Color(0xFF172127);
 // UI-6: was 0xFF7B858B (3.77:1 on white); now ≥ 4.5:1 on kReservationSoft.
@@ -425,7 +426,7 @@ class ReservationEditChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
               child: Text(
-                'Edit reservation',
+                context.l10n.resEdit,
                 style: reservationText(13, weight: FontWeight.w600),
               ),
             ),
@@ -457,7 +458,7 @@ class ReservationEditButton extends StatelessWidget {
           ),
         ),
         child: Text(
-          'Edit reservation',
+          context.l10n.resEdit,
           style: reservationText(
             14.5,
             weight: FontWeight.w600,

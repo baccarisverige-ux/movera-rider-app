@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What kind of failure a rider action hit, as far as the app can tell
 /// without backend-specific reasons.
@@ -51,7 +52,7 @@ RiderErrorKind riderErrorKind(Object error) {
 /// R-O2 (owner's wording): what the rider is told when a command was
 /// refused because the trip changed just before it (`409 version_mismatch`),
 /// or a queued one was dropped because it no longer applies.
-const String rideJustChangedMessage = 'Your ride just changed, check it again.';
+String get rideJustChangedMessage => L10n.current.rideJustChanged;
 
 /// How long Movera asked the rider to wait, as "45 seconds", or null.
 String? riderRetryWait(Object error) {
@@ -59,5 +60,5 @@ String? riderRetryWait(Object error) {
   final wait = error.retryAfter;
   if (wait == null || wait <= Duration.zero) return null;
   final s = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
-  return s == 1 ? '1 second' : '$s seconds';
+  return L10n.current.retrySeconds(s);
 }

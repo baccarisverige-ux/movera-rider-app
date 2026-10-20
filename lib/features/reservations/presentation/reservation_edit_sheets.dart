@@ -6,6 +6,7 @@ import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.d
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Asks the rider to confirm cancelling [ride], showing what it costs
 /// ([terms]) before they confirm.
@@ -36,12 +37,15 @@ Future<CancelOutcome> showCancelReservationFlow(
             ),
             const SizedBox(height: 16),
             Text(
-              'Cancel reservation?',
+              context.l10n.resCancelQ,
               style: reservationText(20, weight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Your ride for ${ReservationFormat.weekdayDate(ride.scheduledPickupAt)} at ${ReservationFormat.time(ride.scheduledPickupAt)} will move to history. It will not be deleted.',
+              context.l10n.resCancelBody(
+                ReservationFormat.weekdayDate(ride.scheduledPickupAt),
+                ReservationFormat.time(ride.scheduledPickupAt),
+              ),
               style: reservationText(
                 14,
                 color: kReservationMuted,
@@ -64,7 +68,7 @@ Future<CancelOutcome> showCancelReservationFlow(
                   ),
                 ),
                 child: Text(
-                  'Cancel reservation',
+                  context.l10n.cancelReservation,
                   style: reservationText(
                     15,
                     weight: FontWeight.w600,
@@ -86,7 +90,7 @@ Future<CancelOutcome> showCancelReservationFlow(
                   ),
                 ),
                 child: Text(
-                  'Keep reservation',
+                  context.l10n.resKeep,
                   style: reservationText(
                     16,
                     weight: FontWeight.w600,
