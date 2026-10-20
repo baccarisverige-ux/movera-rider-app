@@ -5,13 +5,16 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 
-/// Q1: a small swap between each two neighbouring addresses, one global
-/// "reverse trip", and a re-quote after either.
+/// Q1 (owner, revised): one swap. With stops it swaps the last stop and
+/// the destination only; with no stops pickup and drop-off. A swap
+/// re-quotes ("See prices").
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   const here = GeoPoint(59.33, 18.06);
+  final stopSwap = find.byKey(const ValueKey('route-picker-swap-stop'));
+  final pickupSwap = find.byTooltip('Swap pickup and destination');
 
   Future<void> pump(
     WidgetTester tester, {
@@ -53,7 +56,7 @@ void main() {
       field.controller!.text,
   ];
 
-  testWidgets('the neighbour swap swaps those two addresses only', (
+  testWidgets('with stops there is one swap: last stop and destination', (
     tester,
   ) async {
     await pump(
@@ -62,19 +65,15 @@ void main() {
       onFinish: (_) async => null,
     );
     expect(route(tester), ['Home', 'Shop', 'Gym', 'Work']);
-    // One small swap between each two neighbours.
-    for (var i = 0; i < 3; i++) {
-      expect(find.byKey(ValueKey('route-picker-swap-$i')), findsOneWidget);
-    }
-    await tester.tap(find.byKey(const ValueKey('route-picker-swap-1')));
+    expect(stopSwap, findsOneWidget);
+    expect(pickupSwap, findsNothing);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
+    await tester.tap(stopSwap);
     await tester.pump();
-    expect(route(tester), ['Home', 'Gym', 'Shop', 'Work']);
-    await tester.tap(find.byKey(const ValueKey('route-picker-swap-2')));
-    await tester.pump();
-    expect(route(tester), ['Home', 'Gym', 'Work', 'Shop']);
+    expect(route(tester), ['Home', 'Shop', 'Work', 'Gym']);
   });
 
-  testWidgets('the global button reverses the whole trip and re-quotes it', (
+  testWidgets('the stop swap re-quotes and never moves the pickup', (
     tester,
   ) async {
     RoutePickerSelection? sent;
@@ -85,34 +84,68 @@ void main() {
         return null;
       },
     );
-    // Home has no finish button until the route changed.
     expect(find.byKey(const ValueKey('route-picker-done')), findsNothing);
-    await tester.tap(find.byTooltip('Reverse trip'));
+    await tester.tap(stopSwap);
     await tester.pump();
-    expect(route(tester), ['Work', 'Shop', 'Home']);
+    expect(route(tester), ['Home', 'Work', 'Shop']);
+    await tester.tap(find.byKey(const ValueKey('route-picker-done')));
+    await tester.pumpAndSettle();
+    expect(sent?.pickup, 'Home');
+    expect(sent?.pickupPoint, here);
+    expect(sent?.stops, ['Work']);
+    expect(sent?.destination, 'Shop');
+    // The old stop has no point; it is located from its address.
+    expect(sent?.destinationPoint, isNull);
+  });
 
+  testWidgets('without stops the swap is pickup and drop-off, re-quoted', (
+    tester,
+  ) async {
+    RoutePickerSelection? sent;
+    await pump(
+      tester,
+      stops: const [],
+      onFinish: (selection) async {
+        sent = selection;
+        return null;
+      },
+    );
+    expect(stopSwap, findsNothing);
+    await tester.tap(pickupSwap);
+    await tester.pump();
+    expect(route(tester), ['Work', 'Home']);
     await tester.tap(find.byKey(const ValueKey('route-picker-done')));
     await tester.pumpAndSettle();
     expect(sent?.pickup, 'Work');
-    expect(sent?.stops, ['Shop']);
     expect(sent?.destination, 'Home');
-    // The GPS point travels with the old pickup; the new pickup has none
-    // and is located from its address.
     expect(sent?.destinationPoint, here);
-    expect(sent?.pickupPoint, isNull);
   });
 
-  testWidgets('a locked pickup keeps its place: no swap touches it', (
+  testWidgets('a locked pickup without stops cannot be swapped', (
     tester,
   ) async {
+    await pump(
+      tester,
+      stops: const [],
+      pickupLocked: true,
+      finishLabel: 'See new price',
+      onFinish: (_) async => null,
+    );
+    final swap = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.swap_vert_rounded),
+    );
+    expect(swap.onPressed, isNull);
+  });
+
+  testWidgets('a locked pickup still lets the last stop and destination swap',
+      (tester) async {
     await pump(
       tester,
       pickupLocked: true,
       finishLabel: 'See new price',
       onFinish: (_) async => null,
     );
-    expect(find.byKey(const ValueKey('route-picker-swap-0')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('route-picker-swap-1')));
+    await tester.tap(stopSwap);
     await tester.pump();
     expect(route(tester), ['Home', 'Work', 'Shop']);
   });
