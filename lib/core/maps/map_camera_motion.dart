@@ -174,11 +174,11 @@ CameraPosition _approach(
   );
 }
 
-/// Ease-in-out of a flight at progress [t] (0..1): smooth start, smooth
-/// landing (zero speed at both ends).
+/// Ease-in-out (smoothstep) of a flight at progress [t] (0..1): zero
+/// speed at both ends, a peak of 1.5x the mean speed (no zoom leap).
 double flightEase(double t) {
   final x = t.clamp(0.0, 1.0);
-  return x < .5 ? 4 * x * x * x : 1 - math.pow(-2 * x + 2, 3) / 2;
+  return x * x * (3 - 2 * x);
 }
 
 /// [share] (0..1) of the way from [from] to [to]; the tilt rides the zoom
