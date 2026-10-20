@@ -40,6 +40,17 @@ String formatMoney(Money money, {bool whole = false}) {
   }
 }
 
+/// [money] the short way for amounts a rider picks from a row (tips,
+/// raise steps, a promo cap): a whole amount drops its zeros ("5 €",
+/// "2 DT", "20 kr"); any other amount is [formatMoney] ("2,50 €").
+String formatMoneyShort(Money money) {
+  if (money.amountMinor % Money.minorPerMajor(money.currency) != 0) {
+    return formatMoney(money);
+  }
+  final whole = money.amountMinor ~/ Money.minorPerMajor(money.currency);
+  return '$whole ${currencySymbol(money.currency)}';
+}
+
 /// The symbol of [currency]: "kr", "€", "DT", else the code itself.
 String currencySymbol(String currency) => switch (currency) {
   'SEK' => 'kr',

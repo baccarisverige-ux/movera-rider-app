@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 
@@ -8,9 +9,16 @@ import 'package:movera_rider/core/config/zone_clock.dart';
 class PickupSchedule {
   const PickupSchedule(this.timeZone);
 
-  /// The schedule of the zone a pickup at [lat], [lng] is in.
-  factory PickupSchedule.at(double? lat, double? lng) =>
-      PickupSchedule(RiderZones.at(lat, lng).timeZone);
+  /// The schedule of the zone a pickup at [lat], [lng] is in, in the time
+  /// zone its config names ([config] when the caller has the zone's
+  /// document, else the built-in seed's).
+  factory PickupSchedule.at(double? lat, double? lng, {RiderAppConfig? config}) {
+    final zone = RiderZones.at(lat, lng);
+    final document = config != null && config.zoneId == zone.id
+        ? config
+        : SeedRiderConfigRepository.seedFor(zone.id);
+    return PickupSchedule(document.timeZone);
+  }
 
   static const stockholm = PickupSchedule(ZoneClock.stockholm);
 

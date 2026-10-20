@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -21,6 +23,9 @@ class PriceBumpCard extends StatefulWidget {
   });
 
   final double currentPrice;
+
+  /// Quick raise steps in whole units of [currency] (the zone's
+  /// `raiseSteps`, owner Q6; see [wholeSteps]).
   final List<int> steps;
   final double maxPrice;
 
@@ -37,6 +42,30 @@ class PriceBumpCard extends StatefulWidget {
   /// fare, to the minor unit (a 24.60 € fare raised to 30 € is +5.40 €).
   final ValueChanged<Money>? onConfirmIncrease;
   final VoidCallback onKeepWaiting;
+
+  /// The enabled raise steps of a zone ([steps]) as whole units of
+  /// [currency]: a step in another currency is never shown, and one that is
+  /// not a whole unit is left out (the price field takes whole units).
+  static List<int> wholeSteps(Iterable<Money> steps, String currency) {
+    final unit = Money.minorPerMajor(currency);
+    return [
+      for (final step in steps)
+        if (step.currency == currency &&
+            step.amountMinor > 0 &&
+            step.amountMinor % unit == 0)
+          step.amountMinor ~/ unit,
+    ];
+  }
+
+  /// Q6: the raise steps to offer on a trip in [currency]: the enabled
+  /// `raiseSteps` of the zone's [config] when it is in [currency], else
+  /// the built-in seed's (until the config is read).
+  static List<int> stepsFor(RiderAppConfig? config, String currency) {
+    final source = config?.currency == currency
+        ? config
+        : seedConfigForTrip(currency);
+    return wholeSteps(source?.enabledRaiseSteps ?? const <Money>[], currency);
+  }
 
   @override
   State<PriceBumpCard> createState() => _PriceBumpCardState();
@@ -77,7 +106,13 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
   int? get _increase {
     final total = _typedTotal;
     final step = _selectedStep;
-    if (total == null) return step == null ? null : step * _unitMinor;
+    if (total == null) {
+      if (step == null) return null;
+      final increase = step * _unitMinor;
+      return _currentMinor + increase > _minorOf(widget.maxPrice)
+          ? null
+          : increase;
+    }
     final extra = total * _unitMinor - _currentMinor;
     if (extra <= 0 || total * _unitMinor > _minorOf(widget.maxPrice)) {
       return null;
@@ -110,7 +145,12 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
   void _selectStep(int step) {
     setState(() {
       _selectedStep = step;
-      _price.text = '${_current + step}';
+      // A fare with cents (24,60 €) raised by a whole step is 26,60 €: the
+      // field shows it exactly and the step is the raise.
+      _price.text = _currentMinor % _unitMinor == 0
+          ? '${_current + step}'
+          : Money(_currentMinor + step * _unitMinor, widget.currency)
+                .majorString;
       _price.selection = TextSelection.collapsed(offset: _price.text.length);
     });
   }
@@ -197,7 +237,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 if (i > row) const SizedBox(width: 8),
                 Expanded(
                   child: _Step(
-                    label: '+${_money(widget.steps[i])}',
+                    label: '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
                     selected: _selectedStep == widget.steps[i],
                     onTap: widget.busy
                         ? null

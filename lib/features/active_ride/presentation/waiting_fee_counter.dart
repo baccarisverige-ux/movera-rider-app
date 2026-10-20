@@ -1,0 +1,175 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+
+/// Where the waiting clock is at one instant (owner Q41/Q42).
+class WaitingFeeState {
+  const WaitingFeeState._({
+    required this.freeLeft,
+    required this.over,
+    required this.fee,
+  });
+
+  /// The waiting clock at [now] for a driver waiting since [since], with
+  /// [freeWaitMin] free minutes and then [perMin] for each whole minute.
+  factory WaitingFeeState.at({
+    required DateTime since,
+    required DateTime now,
+    required int freeWaitMin,
+    required Money perMin,
+  }) {
+    var waited = now.difference(since);
+    if (waited.isNegative) waited = Duration.zero;
+    final free = Duration(minutes: freeWaitMin);
+    if (waited < free) {
+      return WaitingFeeState._(
+        freeLeft: free - waited,
+        over: Duration.zero,
+        fee: Money(0, perMin.currency),
+      );
+    }
+    final over = waited - free;
+    return WaitingFeeState._(
+      freeLeft: Duration.zero,
+      over: over,
+      fee: Money(perMin.amountMinor * over.inMinutes, perMin.currency),
+    );
+  }
+
+  /// Free waiting still left; zero once the fee runs.
+  final Duration freeLeft;
+
+  /// How long past the free wait.
+  final Duration over;
+
+  /// The waiting fee so far: [over]'s whole minutes at the per-minute rate.
+  final Money fee;
+
+  bool get charging => freeLeft == Duration.zero;
+}
+
+/// "m:ss".
+String formatWaitClock(Duration value) {
+  final seconds = value.inSeconds;
+  final minutes = seconds ~/ 60;
+  final rest = (seconds % 60).toString().padLeft(2, '0');
+  return '$minutes:$rest';
+}
+
+/// The live waiting clock on the Waiting sheet while the driver is at the
+/// pickup: the free wait counting down, then (Q42) the waiting fee counting
+/// up at the category's per-minute rate from the zone's config. The fee is
+/// a preview; the trip's fare lines show what is charged.
+class WaitingFeeCounter extends StatefulWidget {
+  const WaitingFeeCounter({
+    super.key,
+    required this.since,
+    required this.freeWaitMin,
+    required this.perMin,
+    this.clock,
+  });
+
+  /// When the driver's waiting clock started.
+  final DateTime since;
+  final int freeWaitMin;
+
+  /// The category's waiting fee per minute, in the trip's currency.
+  final Money perMin;
+
+  /// Test seam for "now".
+  final DateTime Function()? clock;
+
+  static const counterKey = ValueKey('waiting-fee-counter');
+
+  @override
+  State<WaitingFeeCounter> createState() => _WaitingFeeCounterState();
+}
+
+class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
+  Timer? _tick;
+
+  DateTime _now() => (widget.clock ?? DateTime.now)();
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = WaitingFeeState.at(
+      since: widget.since,
+      now: _now(),
+      freeWaitMin: widget.freeWaitMin,
+      perMin: widget.perMin,
+    );
+    final rate = '${formatMoneyShort(widget.perMin)}/min';
+    final charging = state.charging;
+    const muted = Color(0xFF5C656C);
+    const warm = Color(0xFFB4452B);
+    final title = charging
+        ? 'Waiting fee ${formatMoney(state.fee, whole: true)}'
+        : 'Free waiting · ${formatWaitClock(state.freeLeft)} left';
+    final detail = charging
+        ? '${formatWaitClock(state.over)} after the free '
+              '${widget.freeWaitMin} min · $rate'
+        : 'Then $rate waiting fee';
+    return Semantics(
+      container: true,
+      liveRegion: charging,
+      label: '$title. $detail',
+      child: ExcludeSemantics(
+        child: Container(
+          key: WaitingFeeCounter.counterKey,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: BoxDecoration(
+            color: charging ? const Color(0xFFFDF1EE) : const Color(0xFFF1F5F7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: charging ? const Color(0xFFF2D3CB) : const Color(0xFFE2E7EB),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                charging ? Icons.timer_outlined : Icons.hourglass_bottom_rounded,
+                size: 18,
+                color: charging ? warm : muted,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: waitingText(
+                        14,
+                        weight: FontWeight.w600,
+                        color: charging ? warm : null,
+                      ),
+                    ),
+                    Text(detail, style: waitingText(12, color: muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -17,7 +17,7 @@ class LocalPaymentRepository implements PaymentRepository {
       PaymentMethod(id: 'apple', kind: PaymentMethodKind.applePay, label: 'Apple Pay'),
       PaymentMethod(id: 'google', kind: PaymentMethodKind.googlePay, label: 'Google Pay'),
       PaymentMethod(id: 'card', kind: PaymentMethodKind.card, label: 'Card'),
-      PaymentMethod(id: 'cash', kind: PaymentMethodKind.cash, label: 'Pay in car'),
+      PaymentMethod(id: 'cash', kind: PaymentMethodKind.cash, label: 'Cash'),
     ];
   }
 

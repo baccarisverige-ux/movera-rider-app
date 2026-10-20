@@ -24,6 +24,8 @@ import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// The rider's menu as a full-screen page: name and photo, Wallet, four
@@ -372,10 +374,10 @@ class RiderMenuPage extends StatelessWidget {
 
   Widget _walletTile(
     BuildContext context,
-    double? balance,
+    Money? balance,
     VoidCallback reload,
   ) {
-    final amount = balance == null ? null : formatKr(balance);
+    final amount = balance == null ? null : formatMoney(balance, whole: true);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
       label: amount == null ? 'Wallet' : 'Wallet, $amount',
@@ -809,7 +811,7 @@ class _WalletBalance extends StatefulWidget {
 
   final Widget Function(
     BuildContext context,
-    double? balance,
+    Money? balance,
     VoidCallback reload,
   )
   builder;
@@ -819,9 +821,16 @@ class _WalletBalance extends StatefulWidget {
 }
 
 class _WalletBalanceState extends State<_WalletBalance> {
-  late Future<double> _balance = _load();
+  late Future<Money> _balance = _load();
 
-  Future<double> _load() => AppScope.instance.walletController.loadBalance();
+  /// Q8: the balance of the zone the rider is in (one per currency).
+  Future<Money> _load() async {
+    final zone = await currentRiderZone();
+    final wallet = AppScope.instance.walletController.forCurrency(
+      zone.currency,
+    );
+    return Money.fromLegacyMajor(await wallet.loadBalance(), zone.currency);
+  }
 
   void _reload() {
     if (!mounted) return;
@@ -834,7 +843,7 @@ class _WalletBalanceState extends State<_WalletBalance> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<double>(
+    return FutureBuilder<Money>(
       future: _balance,
       builder: (context, snapshot) =>
           widget.builder(context, snapshot.data, _reload),

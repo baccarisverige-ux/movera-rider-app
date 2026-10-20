@@ -42,7 +42,7 @@ class ApiPaymentMethodRepository
       final json = await _api.get(path);
       _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
     } catch (error) {
-      // The last known choice (or the caller's Pay in car fallback) stands.
+      // The last known choice (or the caller's Cash fallback) stands.
       AppLog.warning(
         'payments.default_read_failed',
         extra: {'error': '$error'},

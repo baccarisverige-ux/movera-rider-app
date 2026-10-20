@@ -5,7 +5,7 @@ import 'package:movera_rider/features/active_ride/application/route_change_contr
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 
-/// True for "Pay in car": the price is only shown, nothing is charged now.
+/// True for "Cash": the price is only shown, nothing is charged now.
 bool isCashPayment(String paymentMethod) {
   final m = paymentMethod.trim().toLowerCase();
   return m == 'cash' || m.contains('pay in car');
@@ -39,7 +39,7 @@ class RouteChangeSheet extends StatefulWidget {
   final RouteChangeQuote quote;
   final String paymentMethod;
 
-  /// ARCH-9: the booked method's id; decides "Pay in car" when known.
+  /// ARCH-9: the booked method's id; decides "Cash" when known.
   final String? paymentMethodId;
 
   static Future<RouteChangeDecision> confirm(
@@ -70,9 +70,11 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
 
   bool _paymentStep = false;
 
-  /// The wallet takes refunds only in its own currency (no conversion).
-  late final bool _walletRefund =
-      quote.currency == AppScope.instance.walletController.currency;
+  /// Q8: the refund goes to the wallet balance of the trip's own currency
+  /// (one per currency, no conversion), where this build has a wallet.
+  late final bool _walletRefund = AppScope.instance.walletController
+      .forCurrency(quote.currency)
+      .available;
   late RefundDestination _refundTo = _walletRefund
       ? RefundDestination.wallet
       : RefundDestination.originalMethod;

@@ -675,16 +675,14 @@ class ReservationPaymentMark extends StatelessWidget {
         'assets/images/google_pay_brand.png',
         fit: BoxFit.contain,
       );
-    } else if (lower.contains('swish')) {
-      logo = SvgPicture.asset(
-        'assets/images/swish_brand.svg',
-        fit: BoxFit.cover,
-      );
     } else if (lower.contains('visa')) {
       logo = Image.asset(AppAssets.visa, fit: BoxFit.contain);
     } else if (lower.contains('master') || lower.contains('card')) {
       logo = Image.asset(AppAssets.mastercard, fit: BoxFit.contain);
-    } else if (lower.contains('cash') || lower.contains('pay in car')) {
+    } else if (lower.contains('cash') ||
+        lower.contains('pay in car') ||
+        // Swish was removed (owner Q7); an old booking reads as Cash.
+        lower.contains('swish')) {
       background = const Color(0xFFEEF6F0);
       logo = const Icon(
         Icons.payments_outlined,

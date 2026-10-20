@@ -63,8 +63,8 @@ void main() {
                     fare: fare,
                     payment: const SetPickupPayment(
                       brand: 'cash',
-                      name: 'Pay in car',
-                      detail: 'Cash, card or Swish to the driver',
+                      name: 'Cash',
+                      detail: 'Pay the driver in cash',
                     ),
                     brandMark: (_) => const Icon(Icons.directions_car),
                     onChangePayment: () async => null,
@@ -114,7 +114,7 @@ void main() {
     expect(find.text('Promotion 30%'), findsOneWidget);
     expect(find.text('-102 kr'), findsOneWidget);
     expect(find.text('237 kr'), findsOneWidget);
-    expect(find.text('Pay in car'), findsOneWidget);
+    expect(find.text('Cash'), findsOneWidget);
     expect(find.text('Confirm and search'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-pin')), findsOneWidget);
   });
@@ -154,7 +154,7 @@ void main() {
                   fare: const SetPickupFare(totalKr: 199),
                   payment: const SetPickupPayment(
                     brand: 'cash',
-                    name: 'Pay in car',
+                    name: 'Cash',
                     detail: '',
                   ),
                   brandMark: (_) => const SizedBox(),

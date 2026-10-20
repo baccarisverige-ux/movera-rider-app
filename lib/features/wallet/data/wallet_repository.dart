@@ -43,7 +43,22 @@ class WalletPaymentSettings {
 }
 
 class WalletStore implements WalletBalanceSource {
+  /// [currency]: which of the rider's balances this store reads (Q8: one
+  /// per currency). The kronor balance keeps its original key.
+  WalletStore({this.currency = Money.defaultCurrency});
+
+  final String currency;
+
   static const balanceKey = 'movera_wallet_balance';
+
+  /// Where the balance in [currency] is stored: [balanceKey] for kronor
+  /// (unchanged), `movera_wallet_balance.EUR` and so on for the others.
+  static String balanceKeyFor(String currency) =>
+      currency == Money.defaultCurrency ? balanceKey : '$balanceKey.$currency';
+
+  /// The store of the balance in [currency]; settings are shared.
+  WalletStore inCurrency(String currency) =>
+      currency == this.currency ? this : WalletStore(currency: currency);
   static const _legacyVoucherKeys = [
     'movera_voucher_code',
     'movera_voucher_amount',
@@ -54,13 +69,13 @@ class WalletStore implements WalletBalanceSource {
   @override
   Future<double> loadBalance() async {
     final prefs = await PreferencesStore.load();
-    return prefs.getDouble(balanceKey) ?? 0;
+    return prefs.getDouble(balanceKeyFor(currency)) ?? 0;
   }
 
   @override
   Future<void> saveBalance(double value) async {
     final prefs = await PreferencesStore.load();
-    await prefs.setDouble(balanceKey, value);
+    await prefs.setDouble(balanceKeyFor(currency), value);
   }
 
   static const _removedMethods = {'paypal', 'klarna', 'swish'};
@@ -74,7 +89,7 @@ class WalletStore implements WalletBalanceSource {
       await prefs.remove('movera_payment_methods');
     }
     final savedDefault = prefs.getString('movera_default_payment');
-    // Pay in car is the default; removed methods (PayPal, Klarna, Swish)
+    // Cash is the default; removed methods (PayPal, Klarna, Swish)
     // and unverified local cards fall back to it.
     final defaultMethod = savedDefault == null ||
             _removedMethods.contains(savedDefault) ||
@@ -121,6 +136,21 @@ class WalletStore implements WalletBalanceSource {
     await prefs.setDouble(balanceKey, kr);
   }
 
+  /// Every balance the device holds, by currency (Q8), kronor first.
+  static Future<Map<String, double>> balancesByCurrency() async {
+    final prefs = await PreferencesStore.load();
+    final out = <String, double>{
+      Money.defaultCurrency: prefs.getDouble(balanceKey) ?? 0,
+    };
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith('$balanceKey.')) continue;
+      final code = key.substring(balanceKey.length + 1);
+      if (!RegExp(r'^[A-Z]{3}$').hasMatch(code)) continue;
+      out[code] = prefs.getDouble(key) ?? 0;
+    }
+    return out;
+  }
+
   Future<void> _removeLegacyVoucherState(dynamic prefs) async {
     for (final key in _legacyVoucherKeys) {
       await prefs.remove(key);
@@ -138,10 +168,26 @@ class WalletStore implements WalletBalanceSource {
 /// ride charge or a refund that lands while the Wallet page is open is
 /// never overwritten by a top-up computed from the page's stale balance.
 class LocalWalletRepository implements WalletBalanceRepository {
-  LocalWalletRepository([WalletBalanceSource? source])
-      : _source = source ?? WalletStore();
+  LocalWalletRepository([WalletBalanceSource? source, this.currency = Money.defaultCurrency])
+      : _source = source ?? WalletStore(currency: currency);
 
   final WalletBalanceSource _source;
+
+  /// Q8: the balance of [currency] is its own store. A [WalletStore] source
+  /// moves to that currency's key; any other source (a test's) is only
+  /// used for its own currency, and the other currencies use the device's
+  /// stores.
+  @override
+  WalletBalanceRepository inCurrency(String currency) {
+    if (currency == this.currency) return this;
+    final source = _source;
+    return LocalWalletRepository(
+      source is WalletStore
+          ? source.inCurrency(currency)
+          : WalletStore(currency: currency),
+      currency,
+    );
+  }
 
   /// The movement in progress, shared by every instance: they all write the
   /// one stored balance. Cleared as soon as that movement ends.
@@ -150,9 +196,9 @@ class LocalWalletRepository implements WalletBalanceRepository {
   @override
   bool get available => true;
 
-  /// The device-local ledger holds kronor.
+  /// The currency of this balance (one ledger per currency, Q8).
   @override
-  String get currency => 'SEK';
+  final String currency;
 
   @override
   Future<double> loadBalance() => _source.loadBalance();
@@ -203,13 +249,17 @@ class LocalWalletRepository implements WalletBalanceRepository {
 /// server ledger exists.
 class DisabledWalletRepository
     implements WalletBalanceRepository, FeatureOffRepository {
-  const DisabledWalletRepository();
+  const DisabledWalletRepository([this.currency = Money.defaultCurrency]);
 
   @override
   bool get available => false;
 
   @override
-  String get currency => 'SEK';
+  final String currency;
+
+  @override
+  WalletBalanceRepository inCurrency(String currency) =>
+      DisabledWalletRepository(currency);
 
   @override
   Future<double> loadBalance() async => 0;

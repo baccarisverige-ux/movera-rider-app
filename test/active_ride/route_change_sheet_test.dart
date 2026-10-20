@@ -56,11 +56,11 @@ void main() {
     return result;
   }
 
-  testWidgets('Pay in car: the price is shown and one confirm is enough',
+  testWidgets('Cash: the price is shown and one confirm is enough',
       (tester) async {
     final result = await pump(
       tester,
-      paymentMethod: 'Pay in car',
+      paymentMethod: 'Cash',
       act: () async {
         expect(find.byKey(const ValueKey('route-change-price')), findsOneWidget);
         expect(find.text('369 kr'), findsOneWidget);

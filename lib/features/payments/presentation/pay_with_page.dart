@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
@@ -31,6 +32,7 @@ class PayWithPage extends StatefulWidget {
     required this.walletBalance,
     required this.promotion,
     required this.brandMark,
+    this.walletCurrency = Money.defaultCurrency,
     this.useWalletFirst = true,
     this.onWalletFirstChanged,
     this.savedCards,
@@ -48,6 +50,9 @@ class PayWithPage extends StatefulWidget {
 
   /// Shown only when the wallet has money in it.
   final double walletBalance;
+
+  /// Q8: the currency of [walletBalance] (the trip's).
+  final String walletCurrency;
   final RiderPromotion? promotion;
   final Widget Function(String brand) brandMark;
 
@@ -58,6 +63,7 @@ class PayWithPage extends StatefulWidget {
     required double walletBalance,
     required RiderPromotion? promotion,
     required Widget Function(String brand) brandMark,
+    String walletCurrency = Money.defaultCurrency,
     bool useWalletFirst = true,
     ValueChanged<bool>? onWalletFirstChanged,
     SavedCardsController? savedCards,
@@ -70,6 +76,7 @@ class PayWithPage extends StatefulWidget {
           walletBalance: walletBalance,
           promotion: promotion,
           brandMark: brandMark,
+          walletCurrency: walletCurrency,
           useWalletFirst: useWalletFirst,
           onWalletFirstChanged: onWalletFirstChanged,
           savedCards: savedCards,
@@ -216,7 +223,7 @@ class _PayWithPageState extends State<PayWithPage> {
               _section('Movera Wallet'),
               _row(
                 leading: brandMark('wallet'),
-                title: 'Balance: ${formatKr(walletBalance)}',
+                title: 'Balance: ${formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency), whole: true)}',
                 subtitle: 'Tap to pay this ride from your balance',
                 trailing: _radio(selectedBrand == 'wallet'),
                 onTap: () => Navigator.of(context).pop('wallet'),

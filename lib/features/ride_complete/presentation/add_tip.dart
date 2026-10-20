@@ -6,6 +6,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
@@ -21,20 +22,43 @@ class RideCompletedAddTip extends StatefulWidget {
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final RideCompleteController _ctl =
       widget.controller ?? AppScope.instance.rideComplete;
-  late final List<String> _amounts = _ctl.tips();
+  /// Q5: the trip zone's tips, in its currency. The seed shows on the
+  /// first frame; the zone's config replaces it once read.
+  late List<Money> _amounts = _ctl.initialTips();
   late final String? _driverName = _ctl.driver()?.name;
-  String? _selected;
+  Money? _selected;
 
-  void _choose(String amount) {
+  @override
+  void initState() {
+    super.initState();
+    _loadTips();
+  }
+
+  Future<void> _loadTips() async {
+    final List<Money> amounts;
+    try {
+      amounts = await _ctl.tips();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _sameAmounts(amounts, _amounts)) return;
+    setState(() {
+      _amounts = amounts;
+      if (_selected != null && !amounts.contains(_selected)) {
+        _selected = null;
+        widget.onTipChanged?.call(null);
+      }
+    });
+  }
+
+  static bool _sameAmounts(List<Money> a, List<Money> b) =>
+      a.length == b.length &&
+      [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((same) => same);
+
+  void _choose(Money amount) {
     final selected = _selected == amount ? null : amount;
     setState(() => _selected = selected);
-    widget.onTipChanged?.call(
-      // The options are whole kronor ("20 kr", [TipCatalog]).
-      selected == null
-          ? null
-          : Money.fromLegacyMajor(int.parse(selected.split(' ').first))
-                .amountMinor,
-    );
+    widget.onTipChanged?.call(selected?.amountMinor);
   }
 
   @override
@@ -70,7 +94,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
               children: [
                 for (final amount in _amounts)
                   _TipChip(
-                    amount: amount,
+                    amount: formatMoneyShort(amount),
                     selected: _selected == amount,
                     onTap: () => _choose(amount),
                   ),
@@ -81,7 +105,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           TextWidget(
             text: _selected == null
                 ? 'Tip is optional.'
-                : '$_selected selected.',
+                : '${formatMoneyShort(_selected!)} selected.',
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,

@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -160,6 +162,8 @@ class MockRideRealtime implements RideRealtime {
     held = false;
     _assignmentInFlight = false;
     _rideId = rideId;
+    _acceptedAt = null;
+    _waitingSince = null;
     _committedTarget = null;
     // A new ride starts a new commit queue (an older ride's pending commit
     // must never hold this one back).
@@ -316,6 +320,17 @@ class MockRideRealtime implements RideRealtime {
     }
     _sequence = sequence ?? _sequence + 1;
     if (signal == null) _commit(status);
+    // Contract v0.4.0: the projection stamps the accept (Q12) and the start
+    // of the waiting clock (Q42); a new search clears both.
+    if (status.isSearching) {
+      _acceptedAt = null;
+      _waitingSince = null;
+    } else if (status.isMatched) {
+      _acceptedAt ??= DateTime.now().toUtc();
+    }
+    if (status == RideStatus.driverWaiting) {
+      _waitingSince ??= DateTime.now().toUtc();
+    }
     lastStatus = status;
     if (driver != null) lastDriver = driver;
     if (latitude != null) lastLat = latitude;
@@ -338,6 +353,11 @@ class MockRideRealtime implements RideRealtime {
         locationAt: lastLocationAt,
         signal: signal,
         message: message,
+        payload: {
+          if (_acceptedAt case final at?) acceptedAtKey: WireTime.format(at),
+          if (_waitingSince case final at?)
+            waitingArrivedAtKey: WireTime.format(at),
+        },
       ),
     );
     if (status.isTerminal) {
@@ -346,6 +366,10 @@ class MockRideRealtime implements RideRealtime {
       unsubscribe();
     }
   }
+
+  /// When this ride's driver accepted and started waiting (UTC).
+  DateTime? _acceptedAt;
+  DateTime? _waitingSince;
 
   void _emit(RideStatus status) {
     final eta = _etaSeconds();
@@ -417,6 +441,8 @@ class MockRideRealtime implements RideRealtime {
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
+    _acceptedAt = null;
+    _waitingSince = null;
     _progress = 0;
     _tripStartLat = null;
     _tripStartLng = null;

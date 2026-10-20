@@ -1,20 +1,55 @@
 /// Wall-clock time in a Rider zone's IANA time zone, with no extra package
 /// (Q9: booking times are the pickup zone's local time).
 ///
-/// Only the zones the Rider serves are known (`rider_zones.dart`):
-/// Europe/Stockholm and Europe/Paris follow the EU rule (CET, CEST from
-/// the last Sunday of March 01:00 UTC to the last Sunday of October 01:00
-/// UTC); Africa/Tunis is UTC+1 all year (no DST since 2009). Any other id
-/// is read as Europe/Stockholm, the home zone.
+/// The zone's id comes from its config document (`RiderAppConfig.timeZone`,
+/// set by Admin). The ids below are known: the European ones follow the EU
+/// rule (summer time from the last Sunday of March 01:00 UTC to the last
+/// Sunday of October 01:00 UTC) on top of their standard offset (WET 0,
+/// CET +1, EET +2); the African ones keep one offset all year
+/// (Africa/Tunis UTC+1, no DST since 2009). Any other id is read as
+/// Europe/Stockholm, the home zone.
 abstract final class ZoneClock {
   static const stockholm = 'Europe/Stockholm';
   static const paris = 'Europe/Paris';
   static const tunis = 'Africa/Tunis';
 
+  /// Standard offset, in hours, of the zones on the EU summer-time rule.
+  static const _euStandardHours = <String, int>{
+    'Europe/Lisbon': 0, 'Europe/London': 0, 'Europe/Dublin': 0,
+    'Atlantic/Canary': 0, 'Atlantic/Madeira': 0,
+    stockholm: 1, paris: 1, 'Europe/Berlin': 1, 'Europe/Madrid': 1,
+    'Europe/Rome': 1, 'Europe/Amsterdam': 1, 'Europe/Brussels': 1,
+    'Europe/Luxembourg': 1, 'Europe/Monaco': 1, 'Europe/Vienna': 1,
+    'Europe/Zurich': 1, 'Europe/Copenhagen': 1, 'Europe/Oslo': 1,
+    'Europe/Prague': 1, 'Europe/Warsaw': 1, 'Europe/Budapest': 1,
+    'Europe/Malta': 1, 'Europe/Ljubljana': 1, 'Europe/Zagreb': 1,
+    'Europe/Bratislava': 1, 'Europe/Belgrade': 1,
+    'Europe/Helsinki': 2, 'Europe/Athens': 2, 'Europe/Bucharest': 2,
+    'Europe/Sofia': 2, 'Europe/Riga': 2, 'Europe/Tallinn': 2,
+    'Europe/Vilnius': 2, 'Asia/Nicosia': 2,
+  };
+
+  /// Zones with one offset all year, in hours.
+  static const _fixedHours = <String, int>{
+    tunis: 1,
+    'Africa/Algiers': 1,
+    'Africa/Lagos': 1,
+    'UTC': 0,
+    'Etc/UTC': 0,
+  };
+
+  /// Whether [timeZone] is one this clock knows (else it reads as
+  /// Europe/Stockholm).
+  static bool knows(String timeZone) =>
+      _euStandardHours.containsKey(timeZone) ||
+      _fixedHours.containsKey(timeZone);
+
   /// The zone's offset from UTC at [instant].
   static Duration offsetAt(String timeZone, DateTime instant) {
-    if (timeZone == tunis) return const Duration(hours: 1);
-    return Duration(hours: _euSummer(instant.toUtc()) ? 2 : 1);
+    final fixed = _fixedHours[timeZone];
+    if (fixed != null) return Duration(hours: fixed);
+    final standard = _euStandardHours[timeZone] ?? _euStandardHours[stockholm]!;
+    return Duration(hours: standard + (_euSummer(instant.toUtc()) ? 1 : 0));
   }
 
   /// The wall-clock time in [timeZone] at [instant], as a plain (local,

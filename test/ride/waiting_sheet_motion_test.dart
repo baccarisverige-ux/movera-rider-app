@@ -53,7 +53,7 @@ void main() {
           destinationPosition: LatLng(59.3326, 18.0649),
           rideType: 'Movera',
           price: 259,
-          paymentMethod: 'Pay in car',
+          paymentMethod: 'Cash',
           driver: driver,
         ),
       ),

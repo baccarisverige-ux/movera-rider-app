@@ -91,8 +91,11 @@ enum RouteChangeFailure {
 }
 
 class RouteChangeException implements Exception {
-  const RouteChangeException(this.failure);
+  const RouteChangeException(this.failure, {this.maxPickupMoveMeters});
   final RouteChangeFailure failure;
+
+  /// The zone's limit behind [RouteChangeFailure.pickupTooFar] (Q40).
+  final int? maxPickupMoveMeters;
 
   String get message => switch (failure) {
     RouteChangeFailure.pickupLocked =>
@@ -106,7 +109,7 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.stale => rideJustChangedMessage,
     RouteChangeFailure.pickupTooFar =>
       'Your driver is on the way, so the pickup can only move up to '
-          '${RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters} m. To be '
+          '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters} m. To be '
           'picked up further away, cancel this ride and book a new one.',
   };
 }
@@ -161,7 +164,10 @@ class RouteChangeController {
               pickupAt.longitude,
             ) >
             maxPickupMoveMeters) {
-      throw const RouteChangeException(RouteChangeFailure.pickupTooFar);
+      throw RouteChangeException(
+        RouteChangeFailure.pickupTooFar,
+        maxPickupMoveMeters: maxPickupMoveMeters,
+      );
     }
     final destination = destinationAddress.trim();
     final destinationAt = destination == ride.destinationAddress

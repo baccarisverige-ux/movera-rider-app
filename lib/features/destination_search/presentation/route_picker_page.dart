@@ -5,6 +5,8 @@ import 'package:movera_rider/features/home/application/home_places_controller.da
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/destination_search/application/compact_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -123,7 +125,29 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   static const Color _accent = Color(0xFF2D5878);
   static const Color _pickupGreen = Color(0xFF079A60);
   static const Color _destinationBlue = Color(0xFF1769E8);
-  static const int _maxStops = 3;
+
+  /// Q39: the pickup zone's `booking.maxStops` (Admin, per zone); the
+  /// contract default until the zone's config is read.
+  int _maxStops = ZoneDefaults.maxStops;
+
+  /// The zone [_loadMaxStops] last read, so a new pickup in the same zone
+  /// is not read again.
+  String? _maxStopsZone;
+
+  Future<void> _loadMaxStops() async {
+    final point = _pickupPoint;
+    if (point == null) return;
+    final zoneId = RiderZones.at(point.latitude, point.longitude).id;
+    if (zoneId == _maxStopsZone) return;
+    _maxStopsZone = zoneId;
+    try {
+      final config = await AppScope.instance.riderConfig.forZone(zoneId);
+      if (!mounted || _maxStopsZone != zoneId) return;
+      setState(() => _maxStops = config.maxStops);
+    } catch (_) {
+      // The default stays.
+    }
+  }
 
   /// Fields show the short "street, city" form; the full geocoder address
   /// is what the booking receives when the rider leaves the text as is.
@@ -184,6 +208,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void initState() {
     super.initState();
     _pickupPoint = widget.here;
+    unawaited(_loadMaxStops());
     if (widget.openWithNewStop &&
         widget.stopsSupported &&
         _stops.length < _maxStops) {
@@ -311,6 +336,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _destinationPoint = pickupPoint;
       _rerouted = true;
     });
+    unawaited(_loadMaxStops());
   }
 
   void _addStop() {
@@ -341,6 +367,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         _pickup.text = _show(address);
         _pickupPoint = point;
       });
+      unawaited(_loadMaxStops());
       if (_destination.text.trim().isEmpty) {
         _activate('destination');
         _destinationFocus.requestFocus();

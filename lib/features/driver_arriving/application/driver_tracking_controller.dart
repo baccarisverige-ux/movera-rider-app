@@ -38,6 +38,15 @@ class DriverTrackingController {
   RideRealtimeSignal? lastSignal;
   String? signalMessage;
 
+  /// Q12: when the driver accepted, from the projection's `acceptedAt`.
+  /// Null when the server has not said (the caller falls back to when it
+  /// first saw the driver).
+  DateTime? acceptedAt;
+
+  /// Q42: when the driver's waiting clock started: the projection's
+  /// `waiting.arrivedAt`, else when this app first saw the driver waiting.
+  DateTime? waitingSince;
+
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
@@ -122,6 +131,18 @@ class DriverTrackingController {
           reassignedByAdmin = event.isAdminReassign;
           _lastVersion = eventVersion;
           _lastServerTime = event.serverTime ?? _lastServerTime;
+          if (event.status.isSearching ||
+              event.status == RideStatus.cancelledByDriver) {
+            // Back in dispatch: the next accept starts new clocks.
+            acceptedAt = null;
+            waitingSince = null;
+          }
+          acceptedAt = event.acceptedAt ?? acceptedAt;
+          if (event.waitingArrivedAt != null) {
+            waitingSince = event.waitingArrivedAt;
+          } else if (event.status == RideStatus.driverWaiting) {
+            waitingSince ??= DateTime.now();
+          }
         }
         if (event.driver != null) driver = event.driver;
         final incomingLocationAt = event.locationAt ?? event.at;

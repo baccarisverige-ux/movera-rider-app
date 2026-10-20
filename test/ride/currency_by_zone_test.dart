@@ -408,8 +408,12 @@ void main() {
         expect(formatMoney(preview.fee), endsWith(market.symbol));
       });
 
-      test('a kronor wallet never pays part of the trip', () async {
-        SharedPreferences.setMockInitialValues({WalletStore.balanceKey: 500.0});
+      test('Q8: only the wallet of the trip currency pays; kronor never do',
+          () async {
+        SharedPreferences.setMockInitialValues({
+          WalletStore.balanceKey: 500.0,
+          WalletStore.balanceKeyFor(market.currency): 100.0,
+        });
         final quote = await quoteIn(market);
         final selection = RideSelectionController(
           flags: const FeatureFlags(),
@@ -424,9 +428,9 @@ void main() {
           isNot(contains('wallet')),
         );
 
-        // The server refuses a wallet part on a trip in another currency.
-        final error = await refused(
-          api.post(
+        // The server takes a wallet part in the trip's own currency (Q8:
+        // one wallet per currency, no conversion).
+        final created = await api.post(
             '/api/v1/rides',
             body: {
               'categoryId': 'economy',
@@ -445,11 +449,11 @@ void main() {
               'useWalletFirst': true,
               'walletAmountMinor': 1000,
             },
-          ),
         );
-        expect(error.detail, 'wallet_amount_invalid');
+        expect(created['ride'], isNotNull);
 
-        // And a completed trip in it is never taken off the balance.
+        // A completed wallet trip is taken off that currency's balance,
+        // never off the kronor one.
         final snapshot = RideSnapshot(
           status: RideStatus.paymentFinalized,
           savedAt: DateTime.now(),
@@ -467,11 +471,16 @@ void main() {
           rideId: 'paid-elsewhere',
         );
         final wallet = WalletController();
+        final fare = Money(quote.totalMinor, quote.currency);
         expect(
           await wallet.chargeCompletedRide(snapshot, rideId: 'paid-elsewhere'),
-          isNull,
+          closeTo(100 - fare.major, 1e-6),
         );
         expect(await wallet.loadBalance(), 500.0);
+        expect(
+          await wallet.forCurrency(market.currency).loadBalance(),
+          closeTo(100 - fare.major, 1e-6),
+        );
       });
 
       testWidgets('the receipt, the waybill and History', (tester) async {
@@ -610,10 +619,12 @@ void main() {
   });
 
   testWidgets(
-    'Select Ride in Paris: euro prices, no wallet split, euro booking',
+    'Select Ride in Paris: euro prices, the euro wallet first, euro booking',
     (tester) async {
+      // Q8: 100,5 kr never pay a euro trip; the 5 € wallet does, first.
       SharedPreferences.setMockInitialValues(<String, Object>{
         WalletStore.balanceKey: 100.5,
+        WalletStore.balanceKeyFor('EUR'): 5.0,
       });
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -658,11 +669,12 @@ void main() {
       expect(find.textContaining(RegExp(r'\d kr\b')), findsNothing);
       expect(
         find.byKey(const ValueKey('select-ride-wallet-line')),
-        findsNothing,
+        findsWidgets,
       );
+      expect(find.textContaining('Wallet −5,00 €'), findsWidgets);
       expect(
         find.byKey(const ValueKey('select-ride-wallet-currency-note')),
-        findsOneWidget,
+        findsNothing,
       );
 
       await tester.tap(find.text('Select Movera'));
@@ -671,8 +683,13 @@ void main() {
       }
       expect(find.byType(SetPickupPage), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('set-pickup-wallet-part')),
-        findsNothing,
+        tester.widget<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('set-pickup-wallet-part')),
+            matching: find.text('-5,00 €'),
+          ),
+        ),
+        isNotNull,
       );
       expect(find.text(price), findsWidgets);
       await tester.tap(find.byKey(const ValueKey('set-pickup-confirm')));
@@ -683,7 +700,7 @@ void main() {
       expect(booking.quoteCurrency, 'EUR');
       expect(booking.quoteTotalMinor, quote.totalMinor);
       expect(booking.price, Money(quote.totalMinor, 'EUR').major);
-      expect(booking.walletAmountMinor, 0);
+      expect(booking.walletAmountMinor, 500);
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(seconds: 2));
       }

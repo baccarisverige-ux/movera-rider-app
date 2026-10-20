@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -66,12 +67,28 @@ class RideSelectionController {
     offeredPrices.clear();
   }
 
-  /// The Movera Wallet's currency. The local ledger holds kronor.
+  /// The currency of [walletBalance]: the trip's (Q8: one balance per
+  /// currency), once Select Ride has read it.
   String walletCurrency = Money.defaultCurrency;
 
   /// Whether the wallet can pay this trip: only in its own currency. The
   /// app never converts between currencies.
   bool get walletMatchesTrip => walletCurrency == currency;
+
+  /// Q7 FINAL: the contract payment methods the pickup zone's config
+  /// offers (`cash`, `card`, `apple_pay`, `google_pay`). Select Ride sets
+  /// it from the zone's config; the wallet is separate.
+  List<String> zonePaymentMethods = ZoneDefaults.paymentMethods;
+
+  /// The contract zone method a payment row is ([zonePaymentMethods]), or
+  /// null for the wallet (never a zone method).
+  static String? zoneMethodOf(String brand) {
+    if (brand == 'cash') return 'cash';
+    if (brand == 'cards' || brand.startsWith('card')) return 'card';
+    if (brand == 'apple') return 'apple_pay';
+    if (brand == 'google') return 'google_pay';
+    return null;
+  }
 
   /// Whether this build offers the wallet at all.
   bool get walletEnabled => _flags.enableWallet;
@@ -174,18 +191,19 @@ class RideSelectionController {
 
   /// The wallet / method split of [totalMinor] (minor units of [currency]),
   /// worked out in minor units so the parts always add up to the total.
-  /// None when the wallet holds another currency.
+  /// None until the balance of this trip's currency is known (Q8).
   WalletSplit walletSplitFor(int totalMinor) {
     if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
-      return WalletSplit.none(totalMinor);
+      return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {
-      return WalletSplit.none(totalMinor);
+      return WalletSplit.none(totalMinor, currency);
     }
     return WalletSplit.of(
       totalMinor: totalMinor,
       balanceMinor: Money.fromLegacyMajor(walletBalance, walletCurrency)
           .amountMinor,
+      currency: currency,
     );
   }
 
@@ -229,6 +247,10 @@ class RideSelectionController {
       }
       return [item];
     }).where((item) {
+      final zoneMethod = zoneMethodOf(item.brand);
+      if (zoneMethod != null && !zonePaymentMethods.contains(zoneMethod)) {
+        return false;
+      }
       if (item.brand == 'cash') return _flags.enableCash;
       // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
       if (item.brand == 'apple') {
@@ -240,14 +262,14 @@ class RideSelectionController {
             (!mobile || platform == TargetPlatform.android);
       }
       if (item.brand == 'wallet') {
-        // A kronor balance cannot pay a trip in euros or dinars.
+        // Q8: the balance of the trip's own currency; no conversion.
         return _flags.enableWallet && walletBalance > 0 && walletMatchesTrip;
       }
       return true;
     }).toList();
   }
 
-  /// Pay in car is the default until the rider picks something else.
+  /// Cash is the default until the rider picks something else.
   void _selectDefaultPayment() {
     final list = payments();
     final i = list.indexWhere((item) => item.brand == 'cash');
@@ -524,9 +546,10 @@ class RideSelectionController {
   void selectPaymentNamed(String? name) {
     final needle = name?.trim();
     if (needle == null || needle.isEmpty) return;
-    // Bookings saved before the change said "Cash" or "Swish".
+    // Bookings saved before the change said "Pay in car" or "Swish"
+    // (removed, owner Q7): both are Cash now.
     final legacy = needle.toLowerCase();
-    if (legacy == 'cash' || legacy == 'swish') {
+    if (legacy == 'cash' || legacy == 'swish' || legacy == 'pay in car') {
       selectPaymentByBrand('cash');
       return;
     }
@@ -555,6 +578,19 @@ class RideSelectionController {
       selectPaymentByBrand(saved);
     }
     selectedPaymentItem();
+  }
+
+  /// Q7: the zone's payment methods. Keeps the chosen method when it is
+  /// still offered, else falls back to the default.
+  void setZonePaymentMethods(List<String> methods) {
+    final current = selectedPaymentItem()?.brand;
+    zonePaymentMethods = List.unmodifiable(methods);
+    final list = payments();
+    if (current != null && list.any((item) => item.brand == current)) {
+      selectPaymentByBrand(current);
+    } else {
+      _selectDefaultPayment();
+    }
   }
 
   /// Keeps the chosen method when the list changes (e.g. the wallet appears).

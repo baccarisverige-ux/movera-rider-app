@@ -162,8 +162,9 @@ class RideSelectionRepository {
     ),
   ];
 
-  /// Ride payment methods. PayPal, Klarna and Swish as its own method were
-  /// removed (owner request); Swish is paid to the driver under Pay in car.
+  /// Ride payment methods (owner Q7 FINAL): Cash, Card, Apple Pay and
+  /// Google Pay in every country, as the zone's config lists them, plus the
+  /// Movera Wallet balance. No Swish, Klarna or PayPal anywhere.
   List<RidePaymentItem> payments() => const [
     RidePaymentItem(
       brand: 'wallet',
@@ -183,8 +184,8 @@ class RideSelectionRepository {
     RidePaymentItem(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),
     RidePaymentItem(
       brand: 'cash',
-      name: 'Pay in car',
-      detail: 'Cash, card or Swish to the driver',
+      name: 'Cash',
+      detail: 'Pay the driver in cash',
     ),
   ];
 }

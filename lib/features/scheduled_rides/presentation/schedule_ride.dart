@@ -2,7 +2,8 @@ import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -69,6 +70,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
   );
   bool _nextInFlight = false;
   bool _mapParked = false;
+
+  /// The pickup zone's time zone from its config, once read (Q9).
+  String? _pickupTimeZone;
 
   @override
   void initState() {
@@ -200,7 +204,16 @@ class _ScheduleRideState extends State<ScheduleRide> {
       address: spot.address,
     );
     _syncRouteToSession();
-    setState(() => currentStep = 1);
+    // Q9: the pickup zone's time zone, as its config names it.
+    final timeZone = await AppScope.instance.riderConfig.timeZoneAt(
+      spot.position.latitude,
+      spot.position.longitude,
+    );
+    if (!mounted) return;
+    setState(() {
+      _pickupTimeZone = timeZone;
+      currentStep = 1;
+    });
   }
 
   void goToPreviousStep() {
@@ -247,7 +260,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
       session: _session,
       tripMinutes: _tripMinutes,
       // Q9: the pickup zone's local time.
-      timeZone: RiderZones.at(_session.pickupLat, _session.pickupLng).timeZone,
+      timeZone:
+          _pickupTimeZone ??
+          PickupSchedule.at(_session.pickupLat, _session.pickupLng).timeZone,
     );
   }
 
