@@ -12,6 +12,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyException implements Exception {
   const SafetyException(this.code, this.message);
@@ -130,18 +131,21 @@ class SafetyStore {
   }) async {
     await _ensure();
     if (_cache.contacts.length >= kMaxEmergencyContacts) {
-      throw const SafetyException('CONTACT_LIMIT', 'You can add up to 5 emergency contacts.');
+      throw SafetyException('CONTACT_LIMIT', L10n.current.contactLimit);
     }
     final e164 = SwedishPhone.toE164(phone);
     if (e164 == null) {
-      throw const SafetyException('INVALID_PHONE', 'Enter a Swedish mobile number.');
+      throw SafetyException('INVALID_PHONE', L10n.current.contactInvalidPhone);
     }
     if (_cache.contacts.any((c) => c.phoneE164 == e164)) {
-      throw const SafetyException('DUPLICATE_PHONE', 'That number is already saved.');
+      throw SafetyException(
+        'DUPLICATE_PHONE',
+        L10n.current.contactDuplicatePhone,
+      );
     }
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
-      throw const SafetyException('INVALID_NAME', 'Enter a contact name.');
+      throw SafetyException('INVALID_NAME', L10n.current.contactInvalidName);
     }
     final now = DateTime.now().toUtc();
     final contact = EmergencyContact(
@@ -188,13 +192,16 @@ class SafetyStore {
             ? contact.phoneE164
             : null);
     if (e164 == null) {
-      throw const SafetyException('INVALID_PHONE', 'Enter a Swedish mobile number.');
+      throw SafetyException('INVALID_PHONE', L10n.current.contactInvalidPhone);
     }
     if (contact.name.trim().isEmpty) {
-      throw const SafetyException('INVALID_NAME', 'Enter a contact name.');
+      throw SafetyException('INVALID_NAME', L10n.current.contactInvalidName);
     }
     if (_cache.contacts.any((c) => c.phoneE164 == e164 && c.id != contact.id)) {
-      throw const SafetyException('DUPLICATE_PHONE', 'That number is already saved.');
+      throw SafetyException(
+        'DUPLICATE_PHONE',
+        L10n.current.contactDuplicatePhone,
+      );
     }
     final next = contact.copyWith(
       phoneE164: e164,
@@ -245,7 +252,7 @@ class SafetyStore {
 
   Future<TripShare> startShare(String rideId, {List<String>? contactIds}) async {
     if (rideId.trim().isEmpty) {
-      throw const SafetyException('NO_RIDE', 'Sharing starts when a ride is active.');
+      throw SafetyException('NO_RIDE', L10n.current.shareNoRide);
     }
     final ids = contactIds ??
         _cache.contacts.where((c) => c.shareTrips && c.isEnabled).map((c) => c.id).toList();

@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 Future<void> showReservationBookedPopup(BuildContext context) {
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
-    barrierLabel: 'Ride scheduled',
+    barrierLabel: context.l10n.resRideScheduled,
     barrierColor: Colors.black.withValues(alpha: 0.45),
     transitionDuration: const Duration(milliseconds: 280),
     pageBuilder: (context, animation, secondary) {
@@ -69,13 +70,13 @@ class _ReservationBookedPopupState extends State<ReservationBookedPopup> {
                 Image.asset(AppAssets.sucess, height: 92, fit: BoxFit.contain),
                 const SizedBox(height: 16),
                 Text(
-                  'You’re booked',
+                  context.l10n.resBooked,
                   textAlign: TextAlign.center,
                   style: reservationText(22, weight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your scheduled ride is confirmed.',
+                  context.l10n.resBookedBody,
                   textAlign: TextAlign.center,
                   style: reservationText(
                     14,

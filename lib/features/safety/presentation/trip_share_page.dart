@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class TripSharePage extends StatefulWidget {
   const TripSharePage({super.key, required this.controller});
@@ -40,14 +41,14 @@ class _TripSharePageState extends State<TripSharePage> {
     final prefs = _ctl.preferences;
     final shareable = _ctl.contacts.where((c) => c.isEnabled).toList();
     return SafetyScaffold(
-      title: 'Share trip status',
+      title: context.l10n.safetyShareTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
           const Center(child: SafetyMark(SafetyMarks.share, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Share your active ride with people you trust.',
+            context.l10n.shareIntro,
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
@@ -61,7 +62,7 @@ class _TripSharePageState extends State<TripSharePage> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Trip sharing',
+                        context.l10n.protectSharingTitle,
                         style: SafetyUi.text(15.5, weight: FontWeight.w500),
                       ),
                     ),
@@ -83,11 +84,11 @@ class _TripSharePageState extends State<TripSharePage> {
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'Automatically share every ride',
+                    context.l10n.shareAuto,
                     style: SafetyUi.text(15),
                   ),
                   subtitle: Text(
-                    'When a ride starts, selected contacts can follow it.',
+                    context.l10n.shareAutoBody,
                     style: SafetyUi.text(12.5, color: SafetyUi.muted),
                   ),
                   value: prefs.tripShareMode == TripShareMode.auto,
@@ -112,12 +113,12 @@ class _TripSharePageState extends State<TripSharePage> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Trusted contacts',
+            context.l10n.shareTrusted,
             style: SafetyUi.text(16, weight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
-            'A live tracking link is created only when a ride is shared. Movera does not publish a public URL from this screen.',
+            context.l10n.shareLinkNote,
             style: SafetyUi.text(13, color: SafetyUi.muted, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -126,10 +127,10 @@ class _TripSharePageState extends State<TripSharePage> {
             child: shareable.isEmpty
                 ? MoveraEmptyState(
                     icon: Icons.group_add_outlined,
-                    title: 'No trusted contacts yet',
+                    title: context.l10n.shareEmptyTitle,
                     message:
-                        'Add an emergency contact first, then choose who can follow your rides.',
-                    actionLabel: 'Add emergency contact',
+                        context.l10n.shareEmptyBody,
+                    actionLabel: context.l10n.shareAddContact,
                     onAction: () {
                       Navigator.push(
                         context,

@@ -23,11 +23,16 @@ void main() {
       'homeCo2Kg', 'perMinRate', 'menuAppVersion', 'destinationLabel',
       'minLineBreak', 'durMin', 'durH', 'durHMin', 'notification',
       'enterYourCodeAccent', 'date',
+      // Round 4 finish: names and words French shares with English.
+      'rideCheckTitle', 'safetyContactsCount', 'rcHeadAccident',
+      'supportMessages', 'polPromotionsTitle',
     },
     'sv': {
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',
       'homeCo2Kg', 'perMinRate', 'menuAppVersion', 'destinationLabel',
       'minLineBreak', 'genderMan', 'durMin', 'durH', 'durHMin',
+      // Round 4 finish: names and words Swedish shares with English.
+      'rideCheckTitle', 'relationshipPartner', 'supportEmailSubject',
     },
   };
 

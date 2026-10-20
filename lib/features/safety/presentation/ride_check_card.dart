@@ -9,6 +9,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Ride check colours, from the approved mockup (rc3).
 abstract final class RideCheckColors {
@@ -54,34 +55,41 @@ String _reasonIcon(RideCheckTrigger trigger) => switch (trigger) {
       final distance = formatRideCheckDistance(reason.distanceMeters ?? 0);
       final place = reason.destinationLabel;
       return (
-        before: 'Your trip ended ',
+        before: L10n.current.rcReasonEndedBefore,
         bold: distance,
-        after: place == null ? ' from your drop-off' : ' from $place',
+        after: place == null
+            ? L10n.current.rcReasonFromDropoff
+            : L10n.current.rcReasonFromPlace(place),
       );
     case RideCheckTrigger.longStop:
       final place = reason.place;
       return (
-        before: 'Your car has stopped for ',
-        bold:
-            '${reason.stoppedMinutes ?? RideCheckTriggerSettings.defaultLongStopMinutes} min',
+        before: L10n.current.rcReasonStoppedBefore,
+        bold: L10n.current.durMin(
+          '${reason.stoppedMinutes ?? RideCheckTriggerSettings.defaultLongStopMinutes}',
+        ),
         after: place == null ? '' : ' · $place',
       );
     case RideCheckTrigger.offRoute:
       final percent = reason.longerPercent;
       if (percent != null && reason.distanceMeters == null) {
         return (
-          before: 'Your trip is taking ',
+          before: L10n.current.rcReasonLongerBefore,
           bold: '$percent%',
-          after: ' longer than expected',
+          after: L10n.current.rcReasonLongerAfter,
         );
       }
       return (
-        before: 'Your car is ',
+        before: L10n.current.rcReasonOffRouteBefore,
         bold: formatRideCheckDistance(reason.distanceMeters ?? 2000),
-        after: ' off the route',
+        after: L10n.current.rcReasonOffRouteAfter,
       );
     case RideCheckTrigger.possibleCrash:
-      return (before: 'We noticed a ', bold: 'very hard stop', after: '');
+      return (
+        before: L10n.current.rcReasonCrashBefore,
+        bold: L10n.current.rcReasonCrashBold,
+        after: '',
+      );
   }
 }
 
@@ -329,7 +337,7 @@ class _IslandPill extends StatelessWidget {
           const _PulseDot(),
           const SizedBox(width: 8),
           Text(
-            'Is everything OK?',
+            context.l10n.rcIsEverythingOk,
             style: _text(12.5, weight: FontWeight.w600),
           ),
         ],
@@ -361,7 +369,7 @@ class RideCheckCard extends StatelessWidget {
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
-      label: 'Ride check',
+      label: context.l10n.rcRideCheck,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: radius,
@@ -420,8 +428,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = heading == null
-        ? 'RIDE CHECK'
-        : 'RIDE CHECK · ${heading!.toUpperCase()}';
+        ? context.l10n.rcHeaderCaps
+        : context.l10n.rcHeaderCapsWith(heading!.toUpperCase());
     return Row(
       children: [
         const AppIconAsset(
@@ -519,8 +527,8 @@ class _MainStep extends StatelessWidget {
     final crash = session.trigger == RideCheckTrigger.possibleCrash;
     final reason = rideCheckReasonText(session.trigger, session.reason);
     final happening = session.trigger == RideCheckTrigger.droppedFar
-        ? 'Or tell us what happened'
-        : "Or tell us what's happening";
+        ? context.l10n.rcTellWhatHappened
+        : context.l10n.rcTellWhatsHappening;
     return Column(
       key: const ValueKey<String>('ride-check-main'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -528,7 +536,7 @@ class _MainStep extends StatelessWidget {
         const _Header(),
         const SizedBox(height: 8),
         Text(
-          'Is everything OK?',
+          context.l10n.rcIsEverythingOk,
           style: _text(
             25,
             weight: FontWeight.w700,
@@ -580,7 +588,7 @@ class _MainStep extends StatelessWidget {
           const SizedBox(height: 9),
           _BigButton(
             key: const ValueKey<String>('ride-check-ok'),
-            label: "I'm OK",
+            label: context.l10n.rcImOk,
             icon: AppAssets.solarCheckCircle,
             onTap: controller.imOk,
           ),
@@ -590,7 +598,7 @@ class _MainStep extends StatelessWidget {
               Expanded(
                 child: _BigButton(
                   key: const ValueKey<String>('ride-check-call-112'),
-                  label: 'Call 112',
+                  label: context.l10n.rcCall112,
                   icon: AppAssets.solarPhoneCalling,
                   red: true,
                   onTap: controller.call112,
@@ -600,7 +608,7 @@ class _MainStep extends StatelessWidget {
               Expanded(
                 child: _BigButton(
                   key: const ValueKey<String>('ride-check-ok'),
-                  label: "I'm OK",
+                  label: context.l10n.rcImOk,
                   icon: AppAssets.solarCheckCircle,
                   onTap: controller.imOk,
                 ),
@@ -638,12 +646,12 @@ class _MainStep extends StatelessWidget {
           const SizedBox(height: 12),
           _BigButton(
             key: const ValueKey<String>('ride-check-done'),
-            label: 'Done',
+            label: context.l10n.done,
             height: 48,
             onTap: controller.done,
           ),
         ],
-        const _Footer('Your answer is saved to this trip.'),
+        _Footer(context.l10n.rcAnswerSaved),
       ],
     );
   }
@@ -668,7 +676,7 @@ class _FollowUpStep extends StatelessWidget {
       key: ValueKey<String>('ride-check-follow-up-${row.wire}'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Header(heading: followUp.heading),
+        _Header(heading: followUp.displayHeading),
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 10, 0, 14),
           child: Row(
@@ -689,7 +697,7 @@ class _FollowUpStep extends StatelessWidget {
           ),
         ),
         if (followUp.thanksOnly) ...[
-          Text(row.label, style: _question(first: true)),
+          Text(row.displayLabel, style: _question(first: true)),
           const SizedBox(height: 10),
           Text(
             rideCheckThanksLine,
@@ -698,7 +706,7 @@ class _FollowUpStep extends StatelessWidget {
         ],
         for (final (index, question) in questions.indexed) ...[
           if (index > 0) const SizedBox(height: 18),
-          Text(question.text, style: _question(first: index == 0)),
+          Text(question.displayText, style: _question(first: index == 0)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -709,7 +717,7 @@ class _FollowUpStep extends StatelessWidget {
                     key: ValueKey<String>(
                       'ride-check-option-${question.id}-${option.id.name}',
                     ),
-                    label: option.label,
+                    label: option.displayLabel,
                     selected: session.choices[question.id] == option.id,
                     onTap: () => controller.choose(question.id, option.id),
                   ),
@@ -738,7 +746,7 @@ class _FollowUpStep extends StatelessWidget {
           _AlertBanner(session: session, controller: controller),
         ],
         if (followUp.asksForNote) ...[
-          Text('What happened?', style: _question(first: true)),
+          Text(context.l10n.rcWhatHappened, style: _question(first: true)),
           const SizedBox(height: 10),
           _NoteField(initial: session.note, onChanged: controller.setNote),
         ],
@@ -747,11 +755,11 @@ class _FollowUpStep extends StatelessWidget {
         const SizedBox(height: 14),
         _BigButton(
           key: const ValueKey<String>('ride-check-done'),
-          label: 'Done',
+          label: context.l10n.done,
           height: 48,
           onTap: controller.done,
         ),
-        const _Footer('Your answers are saved to this trip.'),
+        _Footer(context.l10n.rcAnswersSaved),
       ],
     );
   }
@@ -831,8 +839,7 @@ class _Call112Now extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label:
-          'Call 112 now. If someone is hurt or in danger, call emergency services.',
+      label: context.l10n.rcCall112NowSemantics,
       excludeSemantics: true,
       child: Material(
         key: const ValueKey<String>('ride-check-call-112-now'),
@@ -865,12 +872,12 @@ class _Call112Now extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Call 112 now',
+                        context.l10n.rcCall112Now,
                         style: _text(18, weight: FontWeight.w700, height: 1.2),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'If someone is hurt or in danger, call emergency services.',
+                        context.l10n.rcCall112NowBody,
                         style: _text(
                           12.5,
                           color: const Color(0xEBFFFFFF),
@@ -900,16 +907,16 @@ class _AlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final (title, body) = switch (session.alertState) {
       RideCheckAlertState.sent || RideCheckAlertState.none => (
-        'Movera safety team alerted',
-        'Trip, driver and rider details were sent.',
+        context.l10n.rcAlertSentTitle,
+        context.l10n.rcAlertSentBody,
       ),
       RideCheckAlertState.sending => (
-        'Alerting the Movera safety team…',
-        'Sending trip, driver and rider details.',
+        context.l10n.rcAlertSendingTitle,
+        context.l10n.rcAlertSendingBody,
       ),
       RideCheckAlertState.failed => (
-        "Couldn't reach Movera",
-        'Call 112 if you need help. Tap to try again.',
+        context.l10n.rcAlertFailedTitle,
+        context.l10n.rcAlertFailedBody,
       ),
     };
     final banner = Container(
@@ -1004,8 +1011,8 @@ class _RecordAudioState extends State<_RecordAudio> {
         Semantics(
           button: true,
           label: recording
-              ? 'Stop recording. Saved only on this phone.'
-              : 'Record audio. Saved only on this phone.',
+              ? context.l10n.rcStopRecordingSemantics
+              : context.l10n.rcRecordAudioSemantics,
           excludeSemantics: true,
           child: Material(
             key: const ValueKey<String>('ride-check-record'),
@@ -1044,14 +1051,14 @@ class _RecordAudioState extends State<_RecordAudio> {
                             children: [
                               TextSpan(
                                 text: recording
-                                    ? 'Recording $clock'
-                                    : 'Record audio',
+                                    ? context.l10n.rcRecordingClock(clock)
+                                    : context.l10n.rcRecordAudio,
                                 style: _text(13.5, weight: FontWeight.w600),
                               ),
                               TextSpan(
                                 text: recording
-                                    ? ' · tap to stop'
-                                    : ' · saved only on this phone',
+                                    ? context.l10n.rcTapToStop
+                                    : context.l10n.rcSavedOnPhone,
                               ),
                             ],
                           ),
@@ -1081,7 +1088,7 @@ class _RowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: row.label,
+      label: row.displayLabel,
       excludeSemantics: true,
       child: InkWell(
         key: ValueKey<String>('ride-check-row-${row.wire}'),
@@ -1117,7 +1124,7 @@ class _RowTile extends StatelessWidget {
               const SizedBox(width: 11),
               Expanded(
                 child: Text(
-                  row.label,
+                  row.displayLabel,
                   style: _text(15, weight: FontWeight.w500, height: 1.3),
                 ),
               ),
@@ -1220,7 +1227,7 @@ class _NoteFieldState extends State<_NoteField> {
       cursorColor: Colors.white,
       style: _text(14.5, height: 1.35),
       decoration: InputDecoration(
-        hintText: 'A few words',
+        hintText: context.l10n.rcAFewWords,
         hintStyle: _text(14.5, color: const Color(0x73FFFFFF)),
         counterStyle: _text(11, color: const Color(0x73FFFFFF)),
         filled: true,

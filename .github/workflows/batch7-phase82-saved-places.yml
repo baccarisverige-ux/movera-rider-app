@@ -44,6 +44,11 @@ jobs:
 
       - name: Real Save Edit Delete guards
         run: |
-          grep -q "child: Text(_saving ? 'Saving…' : 'Save')" lib/features/saved_places/presentation/add_place.dart
+          # Round 4: the labels come from l10n; check the code still shows
+          # Saving…/Save and an Edit action, and that English reads so.
+          grep -q "child: Text(_saving ? context.l10n.saving : context.l10n.save)" lib/features/saved_places/presentation/add_place.dart
+          grep -q '"saving": "Saving…"' lib/l10n/app_en.arb
+          grep -q '"save": "Save"' lib/l10n/app_en.arb
           grep -q "_places.remove(" lib/features/saved_places/presentation/saved_places.dart
-          grep -q "Edit " lib/features/saved_places/presentation/saved_places.dart
+          grep -q "context.l10n.spEditPlace(place.title)" lib/features/saved_places/presentation/saved_places.dart
+          grep -q '"spEditPlace": "Edit {place}"' lib/l10n/app_en.arb

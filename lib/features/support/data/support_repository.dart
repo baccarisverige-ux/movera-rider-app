@@ -1,13 +1,10 @@
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SupportChatScript {
-  const SupportChatScript({
-    required this.welcome,
-    this.issueAck =
-        'Add any details below, then send it to Movera. The ride details are included.',
-    this.followUp =
-        'Sent to Movera. The team reviews it together with this ride’s details.',
-  });
+  SupportChatScript({required this.welcome, String? issueAck, String? followUp})
+    : issueAck = issueAck ?? L10n.current.supportIssueAck,
+      followUp = followUp ?? L10n.current.supportFollowUp;
 
   final String welcome;
   final String issueAck;
@@ -20,14 +17,8 @@ class SupportChatScript {
 class SupportRepository {
   SupportChatScript chat({SupportRide? ride}) {
     if (ride != null) {
-      return const SupportChatScript(
-        welcome: 'Tell us what happened on this ride.',
-      );
+      return SupportChatScript(welcome: L10n.current.supportWelcomeRide);
     }
-    return const SupportChatScript(
-      welcome:
-          'To send Movera a message from the app, choose the ride it’s about. '
-          'Help articles and the Safety tools are always available.',
-    );
+    return SupportChatScript(welcome: L10n.current.supportWelcomeGeneral);
   }
 }

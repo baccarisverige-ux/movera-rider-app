@@ -4,6 +4,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReviewChangesPage extends StatelessWidget {
   const ReviewChangesPage({
@@ -40,11 +41,11 @@ class ReviewChangesPage extends StatelessWidget {
                   Icons.arrow_back_rounded,
                   color: kReservationInk,
                 ),
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
               ),
               Expanded(
                 child: Text(
-                  'Review your changes',
+                  context.l10n.resReviewChanges,
                   textAlign: TextAlign.center,
                   style: reservationText(16, weight: FontWeight.w600),
                 ),
@@ -62,7 +63,7 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Check the updated trip details and price before confirming.',
+                  context.l10n.resReviewIntro,
                   style: reservationText(
                     14.5,
                     color: kReservationMuted,
@@ -71,7 +72,7 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 _CompareCard(
-                  title: 'Current reservation',
+                  title: context.l10n.resCurrent,
                   when: original.scheduledPickupAt,
                   pickup: original.pickup.label,
                   destination: original.destination.label,
@@ -81,7 +82,7 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _CompareCard(
-                  title: 'Updated reservation',
+                  title: context.l10n.resUpdated,
                   when: draft.scheduledPickupAt,
                   pickup: draft.pickup.label,
                   destination: draft.destination.label,
@@ -97,15 +98,15 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 _PriceLine(
-                  label: 'Previous price',
+                  label: context.l10n.resPreviousPrice,
                   value: ReservationFormat.kr(change.previous, change.currency),
                 ),
                 _PriceLine(
-                  label: 'New reservation price',
+                  label: context.l10n.resNewPrice,
                   value: ReservationFormat.kr(change.next, change.currency),
                 ),
                 _PriceLine(
-                  label: 'Price difference',
+                  label: context.l10n.resPriceDifference,
                   value: change.unchanged
                       ? ReservationFormat.kr(0, change.currency)
                       : '${change.delta > 0 ? '+' : '−'}${ReservationFormat.kr(change.delta.abs(), change.currency)}',
@@ -116,7 +117,7 @@ class ReviewChangesPage extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
                       policy?.changeChargeSummary ??
-                          'No additional change charge',
+                          context.l10n.resNoChangeCharge,
                       style: reservationText(13, color: kReservationMuted),
                     ),
                   ),
@@ -141,7 +142,7 @@ class ReviewChangesPage extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Confirm changes',
+                      context.l10n.resConfirmChanges,
                       style: reservationText(
                         15,
                         weight: FontWeight.w600,
@@ -164,7 +165,7 @@ class ReviewChangesPage extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Keep current reservation',
+                      context.l10n.resKeepCurrent,
                       style: reservationText(15, weight: FontWeight.w600),
                     ),
                   ),

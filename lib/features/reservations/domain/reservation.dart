@@ -4,6 +4,7 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -177,10 +178,10 @@ class ReservationPriceChange {
   bool get unchanged => delta.abs() < 0.5;
 
   String get summary {
-    if (unchanged) return 'Price unchanged';
+    if (unchanged) return L10n.current.resPriceUnchanged;
     final amount = formatMajor(delta.abs(), currency);
-    if (delta > 0) return 'Your updated ride costs $amount more.';
-    return 'Your updated ride costs $amount less.';
+    if (delta > 0) return L10n.current.resCostsMore(amount);
+    return L10n.current.resCostsLess(amount);
   }
 }
 

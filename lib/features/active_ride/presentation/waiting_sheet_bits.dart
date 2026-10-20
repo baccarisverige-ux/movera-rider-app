@@ -489,7 +489,7 @@ class WaitingNotesAndPin extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        label,
+                        RideNotes.labelFor(label),
                         style: waitingText(
                           12,
                           weight: FontWeight.w600,

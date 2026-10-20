@@ -3,6 +3,7 @@ import 'package:movera_rider/features/history/application/on_demand_history_cont
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/support/data/support_repository.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SupportController {
   SupportController({
@@ -37,7 +38,7 @@ class SupportController {
     final to = ride.destination.label.trim();
     return SupportRide(
       id: ride.reservationId,
-      title: to.isEmpty ? ride.categoryName : 'To $to',
+      title: to.isEmpty ? ride.categoryName : L10n.current.toPlace(to),
       when: ride.scheduledPickupAt.toLocal(),
       price: ride.price,
       currency: ride.currency,

@@ -113,7 +113,7 @@ class RideDetailsSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        label,
+                        RideNotes.labelFor(label),
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
