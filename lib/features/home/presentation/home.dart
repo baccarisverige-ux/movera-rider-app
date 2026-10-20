@@ -1672,11 +1672,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// running recenter.
   static const double _recenterRefineMeters = 15;
 
+  /// North-up, like the driver app's Home locate: the map does not turn
+  /// with the compass; the puck shows the heading.
   Future<void> _flyToUser(LatLng target, {required bool follow}) {
     return AppScope.instance.maps.animateCamera(
       GeoPoint(target.latitude, target.longitude),
       zoom: recenterZoom,
-      bearing: _locationHeading,
+      bearing: 0,
       follow: follow,
     );
   }

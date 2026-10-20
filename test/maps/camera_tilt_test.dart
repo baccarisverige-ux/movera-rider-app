@@ -3,6 +3,7 @@
 // nothing moves under a finger, no stale pose restored on idle, one
 // continuous glide that a newer goal retargets instead of restarting.
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -324,6 +325,51 @@ void main() {
       }
       mapViewOf(fake).interrupt();
       await tester.pump(cameraEaseFrame);
+    });
+
+    testWidgets('a recenter flight lands in about 1 s, smoothly', (
+      tester,
+    ) async {
+      final fake = _FakeMap();
+      final view = mapViewOf(fake)
+        ..pose = const CameraPosition(target: _stockholm, zoom: 11.7);
+      var done = false;
+      unawaited(
+        easeCameraTo(
+          fake,
+          CameraPosition(
+            target: const LatLng(59.345, 18.09),
+            zoom: 15,
+            tilt: tiltForZoom(15),
+          ),
+          duration: cameraFlightDuration,
+        ).then((_) => done = true),
+      );
+      await _frames(tester, done: () => done);
+      expect(done, isTrue);
+      final poses = fake.poses;
+      final frames = cameraFlightDuration.inMicroseconds ~/
+          cameraEaseFrame.inMicroseconds;
+      // It used to creep on to the 240-frame cap (about 4-5 s).
+      expect(poses.length, inInclusiveRange(frames - 2, frames + 2));
+      final zooms = [for (final p in poses) _zoom(p)];
+      for (var i = 1; i < zooms.length; i++) {
+        expect(zooms[i], greaterThanOrEqualTo(zooms[i - 1]));
+        expect(
+          _tilt(poses[i]),
+          closeTo(tiltForZoom(zooms[i]), 1e-6),
+          reason: 'tilt rides with the zoom',
+        );
+      }
+      final steps = [
+        for (var i = 1; i < zooms.length; i++) zooms[i] - zooms[i - 1],
+      ];
+      final fastest = steps.reduce(math.max);
+      // Eased in and out: slow first and last steps, no snap onto the goal.
+      expect(steps.first, lessThan(fastest * 0.1));
+      expect(steps.last, lessThan(fastest * 0.1));
+      expect(zooms.last, 15);
+      expect(view.easing, isFalse);
     });
 
     testWidgets('a finger stops a running glide at once', (tester) async {
