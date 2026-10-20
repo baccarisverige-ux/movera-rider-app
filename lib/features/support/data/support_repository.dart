@@ -1,24 +1,24 @@
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SupportChatScript {
-  const SupportChatScript({
-    required this.welcome,
-    this.issueAck =
-        'Support messaging isn’t connected in this build yet, so this message can’t be sent to a support agent.',
-    this.followUp =
-        'Please use the available help and safety tools in the app until support messaging is connected.',
-  });
+  SupportChatScript({required this.welcome, String? issueAck, String? followUp})
+    : issueAck = issueAck ?? L10n.current.supportIssueAck,
+      followUp = followUp ?? L10n.current.supportFollowUp;
 
   final String welcome;
   final String issueAck;
   final String followUp;
 }
 
+/// What the Support message screen says (UI-03, UI-09: no build-state
+/// wording). There is no live agent: a message about a ride goes to
+/// Movera's review queue.
 class SupportRepository {
   SupportChatScript chat({SupportRide? ride}) {
-    return const SupportChatScript(
-      welcome:
-          'Movera support messaging isn’t connected in this build yet. You can still browse help articles and use the available safety tools in the app.',
-    );
+    if (ride != null) {
+      return SupportChatScript(welcome: L10n.current.supportWelcomeRide);
+    }
+    return SupportChatScript(welcome: L10n.current.supportWelcomeGeneral);
   }
 }

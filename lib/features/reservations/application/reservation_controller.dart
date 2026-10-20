@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -18,12 +19,16 @@ class ReservationController extends ChangeNotifier {
     ReservationDispatch? mockDispatch,
     ScheduledRideRulesSource? rulesSource,
     ScheduledRideRules rules = ScheduledRideRules.defaults,
+    RiderAppConfig? config,
+    Future<RiderAppConfig> Function()? configLoader,
   }) : _store = store ?? LocalReservationRepository(),
        _clock = clock ?? DateTime.now,
        _environment = environment,
        _mockDispatch = mockDispatch,
        _rulesSource = rulesSource,
-       _rules = rules;
+       _rules = rules,
+       _config = config,
+       _configLoader = configLoader;
 
   final ReservationRepository _store;
   final DateTime Function() _clock;
@@ -33,6 +38,11 @@ class ReservationController extends ChangeNotifier {
   /// fee, when the driver shows). Defaults until [refreshRules] reads them.
   final ScheduledRideRulesSource? _rulesSource;
   ScheduledRideRules _rules;
+
+  /// The zone's rider config (CONTRACT.md §6). Its reservation cancel fees
+  /// are per category (X3) and take precedence over [_rules]' single fee.
+  RiderAppConfig? _config;
+  final Future<RiderAppConfig> Function()? _configLoader;
 
   /// Simulated dispatch (Batch 10 Phase 109). Composed in `di.dart` only for
   /// mock-transport builds, and additionally ignored here unless the
@@ -68,6 +78,7 @@ class ReservationController extends ChangeNotifier {
   /// Reads the current rules. When they cannot be read, the ones already
   /// held stay in force.
   Future<void> refreshRules() async {
+    await _refreshConfig();
     final source = _rulesSource;
     if (source == null) return;
     try {
@@ -84,9 +95,44 @@ class ReservationController extends ChangeNotifier {
     }
   }
 
-  /// What cancelling [ride] costs the rider right now.
+  Future<void> _refreshConfig() async {
+    final loader = _configLoader;
+    if (loader == null) return;
+    try {
+      final next = await loader();
+      if (identical(next, _config)) return;
+      _config = next;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'reservation.config.refresh_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// What cancelling [ride] costs the rider right now: the zone's rule for
+  /// the ride's category when the config has one (X3), else [rules].
   ReservationCancelTerms cancelTermsFor(Reservation ride, {DateTime? now}) =>
-      _rules.cancelTermsFor(ride, now ?? _clock());
+      _rules.cancelTermsFor(
+        ride,
+        now ?? _clock(),
+        categoryRule: _configFor(
+          ride.currency,
+        )?.reservationFeeFor(ride.categoryId),
+      );
+
+  /// Q7: the config of the ride's own zone: the loaded one when it is in
+  /// the ride's currency, else the seed of the zone with that currency.
+  /// Never a rule in another currency.
+  RiderAppConfig? _configFor(String currency) {
+    final config = _config;
+    if (config != null && config.currency == currency) return config;
+    // Without a loaded config a kronor ride keeps the single rule, as before.
+    if (config == null && currency == Money.defaultCurrency) return null;
+    return SeedRiderConfigRepository.seedForCurrency(currency);
+  }
 
   /// Whether the rider sees [ride]'s driver: from the moment a driver
   /// accepts, or only once on the way when admin turned that off.

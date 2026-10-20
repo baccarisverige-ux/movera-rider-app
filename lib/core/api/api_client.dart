@@ -9,8 +9,12 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ApiClient {
+  /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
+  static const apiVersion = '0.4';
+
   ApiClient({
     http.Client? client,
     AppEnv? env,
@@ -77,7 +81,7 @@ class ApiClient {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Request-Id': requestId,
-        'X-Api-Version': 'v1',
+        'X-Api-Version': apiVersion,
         if (access != null) 'Authorization': 'Bearer $access',
         if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       };
@@ -113,7 +117,7 @@ class ApiClient {
           // ordinary network error it can retry.
           throw ApiError(
             code: 'NETWORK',
-            message: "Couldn't reach Movera. Check your connection.",
+            message: L10n.current.apiUnreachable,
             requestId: requestId,
           );
         }
@@ -250,16 +254,28 @@ class ApiClient {
   ApiError _errorFromResponse(http.Response response, String requestId) {
     String code = 'HTTP_${response.statusCode}';
     String message = 'Request failed';
+    String? reason;
+    Map<String, dynamic>? projection;
     try {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
         final rawCode = decoded['code'] ?? decoded['error'];
         final rawMessage = decoded['message'];
+        final rawReason = decoded['reason'];
         if (rawCode is String && rawCode.trim().isNotEmpty) {
           code = rawCode.trim();
         }
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
+        }
+        if (rawReason is String && rawReason.trim().isNotEmpty) {
+          reason = rawReason.trim();
+        }
+        // Contract errors shape: a 409 carries the current resource; the
+        // pre-v0.3 mock also echoed it as `ride`.
+        final rawProjection = decoded['projection'] ?? decoded['ride'];
+        if (rawProjection is Map) {
+          projection = Map<String, dynamic>.from(rawProjection);
         }
       }
     } catch (_) {
@@ -272,6 +288,8 @@ class ApiClient {
       requestId: requestId,
       statusCode: response.statusCode,
       retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
+      reason: reason,
+      projection: projection,
     );
   }
 

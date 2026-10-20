@@ -90,7 +90,8 @@ void main() {
   testWidgets(
     'PRE15 lifecycle graph: every canonical status is reachable and terminals stay immutable',
     (tester) async {
-      expect(RideStatus.values.length, 27);
+      // 27 + the four distinct terminal causes of contract v0.3.0.
+      expect(RideStatus.values.length, 31);
 
       for (final target in RideStatus.values) {
         final path = pathFromIdleTo(target);
@@ -530,7 +531,7 @@ void main() {
           scheduledPickupAt: now.add(const Duration(minutes: 2)),
           pickup: const ReservationPlace(label: 'Home'),
           destination: const ReservationPlace(label: 'Arlanda Airport'),
-          categoryId: 'movera',
+          categoryId: 'economy',
           categoryName: 'Movera',
           categoryImage: 'assets/images/rides/movera.webp',
           price: 349,

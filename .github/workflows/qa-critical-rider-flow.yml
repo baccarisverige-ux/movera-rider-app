@@ -92,6 +92,9 @@ jobs:
               geolocation: { latitude: 59.33258, longitude: 18.0649 },
               permissions: ['geolocation'],
             });
+            // Round 4: the app speaks the zone's language (sv in Stockholm); these
+            // checks read the English copy, so pin the rider's choice to English.
+            await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
             if (standalone) {
               await context.addInitScript(() => {
                 Object.defineProperty(navigator, 'standalone', {
@@ -106,57 +109,73 @@ jobs:
           async function openHome(page, name) {
             const errors = [];
             page.on('pageerror', error => errors.push(String(error)));
+            // 'load', not 'networkidle': the live map keeps fetching tiles,
+            // so the network may never go quiet. Wait for the app instead.
             await page.goto(base + `?critical=${name}&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
+            await page.waitForFunction(
+              () => document.querySelector('flt-semantics-placeholder, flutter-view, flt-glass-pane'),
+              null,
+              { timeout: 90000 },
+            );
             await page.waitForTimeout(4500);
             await enableA11y(page);
+            await skipAuthPreview(page);
             if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
+          }
+
+          // The installed (standalone) demo starts at the sign-in preview
+          // (web/index.html adds auth_preview=1 for home-screen launches), so
+          // a rider there passes it with 'Skip for now (demo)'. A browser tab
+          // opens on Home and this does nothing.
+          async function skipAuthPreview(page) {
+            const skip = page.getByRole('button', { name: 'Skip for now (demo)', exact: true });
+            if (!(await skip.count())) return;
+            await skip.first().click();
+            await waitOwner(page, 'home', 'Skip sign-in preview');
+            await page.waitForTimeout(1200);
+          }
+
+          // Tap a control by its accessible name (string = exact, RegExp =
+          // pattern). Fixed coordinates silently land on whatever moved there.
+          async function tapNamed(page, name, label, timeout = 10000) {
+            const button = page.getByRole('button', typeof name === 'string' ? { name, exact: true } : { name });
+            await button.first().waitFor({ state: 'visible', timeout }).catch(() => {
+              throw new Error(`${label}: button ${name} not found`);
+            });
+            await button.first().click();
           }
 
           async function openSelection(page, name) {
             await openHome(page, name);
-            const where = page.getByText('Where to', { exact: false });
-            if (await where.count()) await where.last().click();
-            else await page.mouse.click(190, 708);
+            await tapNamed(page, 'Where to?', `${name}: Home`);
             await page.waitForTimeout(1200);
 
-            let inputs = page.locator(
+            const inputs = page.locator(
               'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
             );
-            let count = await inputs.count().catch(() => 0);
-            if (!count) {
-              await page.mouse.click(185, 274);
-              await page.waitForTimeout(400);
-              inputs = page.locator(
-                'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
-              );
-              count = await inputs.count();
-            }
-            if (!count) throw new Error(`${name}: visible destination input missing`);
+            await inputs.last().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
+              throw new Error(`${name}: visible destination input missing`);
+            });
             await inputs.last().pressSequentially('Stockholm Central Station', { delay: 10 });
-            await page.waitForTimeout(700);
+            await page.waitForTimeout(1500);
 
-            const next = page.getByText('Next', { exact: true });
-            if (await next.count()) await next.last().click();
-            else await page.mouse.click(195, 804);
-            await page.waitForTimeout(3500);
-            await waitOwner(page, 'pickup', `${name}: pickup`);
-
-            await page.mouse.click(195, 797);
-            await page.waitForTimeout(7000);
-            await waitOwner(page, 'select_ride', `${name}: selection`);
+            // The route planner has no Next button: picking a suggestion is the
+            // step. With a location fix Home goes straight to the categories
+            // (Select ride); the pickup spot is confirmed after the ride is
+            // chosen (see bookFromSelection).
+            await tapNamed(page, /^Stockholm Central Station\b/, `${name}: destination suggestion`);
+            await waitOwner(page, 'select_ride', `${name}: selection`, 20000);
+            await page.waitForTimeout(1500);
           }
 
           async function bookFromSelection(page, name) {
-            const select = page.getByText('Select Movera', { exact: true });
-            if (await select.count()) await select.last().click();
-            else {
-              await page.mouse.click(195, 808);
-              await page.waitForTimeout(900);
-              await page.mouse.click(195, 808);
-            }
+            await tapNamed(page, 'Select Movera', `${name}: Select ride`);
+            await waitOwner(page, 'pickup', `${name}: pickup`);
+            await page.waitForTimeout(1200);
+            await tapNamed(page, 'Confirm and search', `${name}: Confirm pickup`);
             await waitOwner(page, 'finding', `${name}: finding`, 15000);
           }
 
@@ -196,7 +215,10 @@ jobs:
           }
 
           function balanceFromStorage(snapshot) {
-            const entries = Object.entries(snapshot);
+            // Round 2: one balance per currency. The unsuffixed key is SEK
+            // (Stockholm); '.EUR', '.TND' and so on are the others.
+            const entries = Object.entries(snapshot)
+              .filter(([key]) => key.endsWith('movera_wallet_balance'));
             if (!entries.length) return 0;
             const raw = entries[0][1];
             const candidates = [raw];
@@ -229,12 +251,30 @@ jobs:
             await openSelection(page, 'payment');
             await page.screenshot({ path: 'qa-critical-payment-before.png', fullPage: true });
 
-            await page.touchscreen.tap(350, 666);
-            await page.waitForTimeout(700);
-            await page.screenshot({ path: 'qa-critical-payment-picker.png', fullPage: true });
-
-            await page.touchscreen.tap(180, 792);
-            await page.waitForTimeout(700);
+            // Round 2: the methods are Cash, Card, Apple Pay and Google Pay;
+            // the row under the categories opens the 'Pay with' sheet and
+            // picking a method closes it. Switch away first so choosing Cash
+            // is a real change, then pick Cash.
+            const paymentRow = /^(Cash|Card|Apple Pay|Google Pay)\b/;
+            async function pickPayment(method, tag) {
+              await tapNamed(page, paymentRow, 'Payment: Select ride payment row');
+              await page.waitForTimeout(900);
+              await page.screenshot({ path: `qa-critical-payment-picker-${tag}.png`, fullPage: true });
+              await tapNamed(page, new RegExp(`^${method}\\b`), `Payment: Pay with ${method}`);
+              await page.waitForTimeout(900);
+              // The sheet is closed (the categories are back) and the row
+              // under them names the new method.
+              await page.getByRole('button', { name: 'Select Movera', exact: true }).first()
+                .waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
+                  throw new Error(`Payment: 'Pay with' sheet did not close after ${method}`);
+                });
+              const row = page.getByRole('button', { name: new RegExp(`^${method}\\b`) });
+              await row.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
+                throw new Error(`Payment: Select ride row did not switch to ${method}`);
+              });
+            }
+            await pickPayment('Apple Pay', 'apple');
+            await pickPayment('Cash', 'cash');
             await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
 
             await bookFromSelection(page, 'payment');
@@ -266,42 +306,28 @@ jobs:
             await enterFinding(page, 'cancel-standalone');
             await page.screenshot({ path: 'qa-critical-cancel-finding.png', fullPage: true });
 
+            // Finding's top-left action is 'Cancel request', Waiting's is
+            // 'Cancel ride'; the confirmation's destructive button is
+            // 'Cancel request'. The modal hides the screen below from the
+            // semantics tree, so each name has one match at a time.
             async function openCurrentCancel() {
-              const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
-              if (owner === 'waiting') {
-                const cancel = page.getByLabel('Cancel ride', { exact: true });
-                if (await cancel.count()) await cancel.last().click();
-                else await page.touchscreen.tap(36, 32);
-              } else {
-                await page.touchscreen.tap(36, 32);
-              }
-              await page.waitForTimeout(700);
+              await tapNamed(page, /^(Cancel request|Cancel ride)$/, 'Standalone Cancel: open cancel');
+              await page.waitForTimeout(900);
             }
 
             async function confirmFirstCancelStep() {
-              const request = page.getByText('Cancel request', { exact: true });
-              if (await request.count()) {
-                await request.last().click();
-                return;
-              }
-              const ride = page.getByText('Cancel ride', { exact: true });
-              if (await ride.count()) {
-                await ride.last().click();
-                return;
-              }
-              // Flutter canvas semantics do not always expose modal button text.
-              // The viewport is fixed at 390x844 and this is the proven
-              // destructive-button center used by the existing live QA.
-              await page.touchscreen.tap(195, 739);
+              await tapNamed(page, /^(Cancel request|Cancel ride)$/, 'Standalone Cancel: confirm cancel');
             }
 
             // First pass: abandon cancellation. The active ride must survive.
+            // Since Finding commits the cancel first and only then asks why
+            // (the reason is optional feedback, so Skip/Send/dismiss all
+            // leave the ride cancelled), abandoning happens on the
+            // confirmation itself: 'Wait for driver' / 'Keep searching' /
+            // 'Keep ride'.
             await openCurrentCancel();
             await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
-            await confirmFirstCancelStep();
-            await page.waitForTimeout(1000);
-            await page.screenshot({ path: 'qa-critical-cancel-reason.png', fullPage: true });
-            await page.keyboard.press('Escape');
+            await tapNamed(page, /^(Wait for driver|Keep searching|Keep ride)$/, 'Standalone Cancel: keep ride');
             await page.waitForTimeout(1500);
 
             const afterAbortOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
@@ -321,16 +347,9 @@ jobs:
             // Second pass: complete cancellation explicitly, then Home must be stable.
             await openCurrentCancel();
             await confirmFirstCancelStep();
-            await page.waitForTimeout(700);
-            const skip = page.getByText('Skip', { exact: true });
-            if (await skip.count()) {
-              await skip.last().click();
-            } else {
-              // Flutter canvas semantics may hide the header action. The
-              // critical QA viewport is fixed at 390x844; evidence from this
-              // exact sheet places Skip safely at this stable target.
-              await page.touchscreen.tap(48, 254);
-            }
+            await page.waitForTimeout(1000);
+            await page.screenshot({ path: 'qa-critical-cancel-reason.png', fullPage: true });
+            await tapNamed(page, 'Skip', 'Standalone Cancel: reason sheet');
 
             await page.waitForFunction(
               () => (window.moveraMapOwner || 'none') === 'home',
@@ -361,17 +380,19 @@ jobs:
             // scenario was written, and fixed coordinates silently landed on
             // Ride History instead of Wallet.
             async function tapButton(name, label) {
-              const button = page.getByRole('button', { name, exact: true });
+              const button = page.getByRole('button', typeof name === 'string' ? { name, exact: true } : { name });
               await button.first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
                 throw new Error(`Standalone Wallet: ${label} button '${name}' not found`);
               });
               await button.first().click();
             }
+            const amountLabel = value => new RegExp(`^(kr\\s?${value}|${value}\\s?kr)$`);
             async function openAddFunds(tag) {
-              await page.touchscreen.tap(300, 88);
+              await tapButton('Menu', 'Home');
               await page.waitForTimeout(700);
               await page.screenshot({ path: `qa-critical-wallet-menu${tag}.png`, fullPage: true });
-              await tapButton('Wallet', 'side menu');
+              // Round 2: the menu row carries the balance ('Wallet, 50 kr').
+              await tapButton(/^Wallet\b/, 'side menu');
               await page.waitForTimeout(1500);
               await page.screenshot({ path: `qa-critical-wallet-page${tag}.png`, fullPage: true });
               await tapButton('Add funds (demo)', 'wallet page');
@@ -383,7 +404,8 @@ jobs:
 
             // Phase 76: picking an amount only selects it; the simulated
             // payment runs on 'Simulate top-up'.
-            await tapButton('kr 200', 'amount');
+            // Amounts use formatMoney for the wallet currency ('200 kr').
+            await tapButton(amountLabel(200), 'amount');
             await page.waitForTimeout(400);
             const selected = balanceFromStorage(await walletStorage(page));
             if (selected !== before) {
@@ -404,6 +426,7 @@ jobs:
             await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
             await page.waitForTimeout(4500);
             await enableA11y(page);
+            await skipAuthPreview(page);
             const persistedStorage = await walletStorage(page);
             const persisted = balanceFromStorage(persistedStorage);
             if (persisted !== after) {
@@ -412,7 +435,7 @@ jobs:
 
             // Dismissing the sheet, even with an amount picked, must not pay.
             await openAddFunds('-dismiss');
-            await tapButton('kr 500', 'amount');
+            await tapButton(amountLabel(500), 'amount');
             await page.waitForTimeout(400);
             await page.screenshot({ path: 'qa-critical-wallet-dismiss-before.png', fullPage: true });
             await page.keyboard.press('Escape');

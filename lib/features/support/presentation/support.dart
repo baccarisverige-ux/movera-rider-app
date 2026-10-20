@@ -4,8 +4,11 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/application/support_contact.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Loads the rides Support can be asked about.
 typedef SupportRidesLoader = Future<List<SupportRide>> Function();
@@ -60,13 +63,13 @@ class SupportHome extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded, color: ink),
-                  tooltip: 'Close',
+                  tooltip: context.l10n.close,
                 ),
                 const Spacer(),
                 Flexible(
                   child: _PillButton(
                     icon: Icons.mail_outline_rounded,
-                    label: 'Messages',
+                    label: context.l10n.supportMessages,
                     onTap: () => guardedPush(
                       context,
                       RightToLeftTransition(const SupportMessages()),
@@ -84,7 +87,7 @@ class SupportHome extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Help',
+                        context.l10n.supportHelp,
                         style: text(
                           34,
                           weight: FontWeight.w700,
@@ -93,7 +96,7 @@ class SupportHome extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'What can we help with?',
+                        context.l10n.supportWhatHelp,
                         style: text(16, color: muted),
                       ),
                     ],
@@ -107,23 +110,26 @@ class SupportHome extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Select a ride',
+                    context.l10n.supportSelectARide,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text(16, weight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(width: 12),
-                GestureDetector(
+                MoveraHitArea(
+                  label: context.l10n.supportViewAllRides,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
                       SelectSupportRide(loadRides: loadRides),
                     ),
                   ),
-                  child: Text(
-                    'View all',
-                    style: text(14, weight: FontWeight.w500, color: muted),
+                  child: ExcludeSemantics(
+                    child: Text(
+                      context.l10n.supportViewAll,
+                      style: text(14, weight: FontWeight.w500, color: muted),
+                    ),
                   ),
                 ),
               ],
@@ -134,11 +140,10 @@ class SupportHome extends StatelessWidget {
               builder: (context, all) {
                 final recent = all.take(3).toList();
                 if (recent.isEmpty) {
-                  return const _EmptyCard(
+                  return _EmptyCard(
                     icon: Icons.inbox_outlined,
-                    title: 'No rides to review',
-                    subtitle:
-                        'Your completed and cancelled rides will appear here.',
+                    title: context.l10n.supportNoRidesToReview,
+                    subtitle: context.l10n.supportRidesAppearHere,
                   );
                 }
                 return Column(
@@ -157,7 +162,7 @@ class SupportHome extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Browse all help topics',
+              context.l10n.supportBrowseTopics,
               style: text(16, weight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
@@ -166,7 +171,7 @@ class SupportHome extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _TopicChip(
-                  label: 'Rides',
+                  label: context.l10n.rides,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
@@ -175,27 +180,25 @@ class SupportHome extends StatelessWidget {
                   ),
                 ),
                 _TopicChip(
-                  label: 'Payments',
+                  label: context.l10n.payments,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
-                      const HelpArticle(
-                        title: 'Payments and pricing',
-                        body:
-                            'Payment and pricing help will use your real booking and payment data when those support services are connected.',
+                      HelpArticle(
+                        title: context.l10n.supportPaymentsTitle,
+                        body: context.l10n.supportPaymentsBody,
                       ),
                     ),
                   ),
                 ),
                 _TopicChip(
-                  label: 'Account',
+                  label: context.l10n.navAccount,
                   onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
-                      const HelpArticle(
-                        title: 'Account and data',
-                        body:
-                            'Update the account information that is available in the app. Support will only show account or trip details when real data is available.',
+                      HelpArticle(
+                        title: context.l10n.supportAccountTitle,
+                        body: context.l10n.supportAccountBody,
                       ),
                     ),
                   ),
@@ -203,10 +206,13 @@ class SupportHome extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 28),
-            Text('Something else', style: text(16, weight: FontWeight.w700)),
+            Text(
+              context.l10n.supportSomethingElse,
+              style: text(16, weight: FontWeight.w700),
+            ),
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Support messaging',
+              title: context.l10n.supportMessaging,
               icon: Icons.headset_mic_rounded,
               onTap: () => guardedPush(
                 context,
@@ -215,7 +221,7 @@ class SupportHome extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Browse help articles',
+              title: context.l10n.supportBrowseArticles,
               icon: Icons.menu_book_rounded,
               onTap: () => guardedPush(
                 context,
@@ -225,16 +231,16 @@ class SupportHome extends StatelessWidget {
             if (support.available) ...[
               const SizedBox(height: 10),
               _ActionCard(
-                title: 'Email support',
+                title: context.l10n.supportEmail,
                 icon: Icons.mail_outline_rounded,
                 onTap: () async {
                   final opened = await support.openEmail(
-                    subject: 'Movera support',
+                    subject: context.l10n.supportEmailSubject,
                   );
                   if (!opened && context.mounted) {
                     MoveraToast.show(
                       context,
-                      'No mail app opened. Write to ${support.email}.',
+                      context.l10n.supportNoMailApp(support.email),
                     );
                   }
                 },
@@ -242,7 +248,7 @@ class SupportHome extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Cases',
+              title: context.l10n.supportCases,
               icon: Icons.forum_outlined,
               onTap: () => guardedPush(
                 context,
@@ -262,13 +268,13 @@ class HowCanWeHelp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'How can we help you?',
+      title: context.l10n.supportHowHelp,
       trailing: _exit(context),
       child: ListView(
         children: [
           _LineItem(
             icon: Icons.directions_car_filled_outlined,
-            title: 'I need help with a ride',
+            title: context.l10n.supportHelpWithRide,
             onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SelectSupportRide()),
@@ -276,7 +282,7 @@ class HowCanWeHelp extends StatelessWidget {
           ),
           _LineItem(
             icon: Icons.chat_bubble_outline_rounded,
-            title: 'Something else',
+            title: context.l10n.supportSomethingElse,
             onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SupportChat()),
@@ -297,7 +303,7 @@ class SelectSupportRide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Select ride',
+      title: context.l10n.supportSelectRide,
       trailing: _exit(context),
       child: _SupportRides(
         load: loadRides ?? SupportHome.rides,
@@ -315,10 +321,10 @@ class SelectSupportRide extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         if (grouped.isEmpty)
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.event_busy_outlined,
-            title: 'No rides yet',
-            subtitle: 'Your completed and cancelled rides will appear here.',
+            title: context.l10n.supportNoRidesYet,
+            subtitle: context.l10n.supportRidesAppearHere,
           )
         else
           for (final entry in grouped.entries) ...[
@@ -347,15 +353,33 @@ class SelectIssue extends StatelessWidget {
 
   final SupportRide ride;
 
-  static const issues = [
-    'I was charged more than expected',
-    'I was charged twice',
-    'I lost an item',
-    'My ride happened without me',
-    'The driver didn’t meet expectations',
-    'I was wrongly charged a wait time fee',
-    'I have a question about tips',
+  /// The issues in the app language, in the order of [_codes].
+  static List<String> get issues => [
+    L10n.current.issueChargedMore,
+    L10n.current.issueChargedTwice,
+    L10n.current.issueLostItem,
+    L10n.current.issueRideWithoutMe,
+    L10n.current.issueDriverExpectations,
+    L10n.current.issueWaitFee,
+    L10n.current.issueTips,
   ];
+
+  static const _codes = [
+    'charged_more_than_expected',
+    'charged_twice',
+    'lost_item',
+    'ride_without_me',
+    'driver_expectations',
+    'wait_time_fee',
+    'tips_question',
+  ];
+
+  /// The reason sent with the message for [issue] ("Something else" and
+  /// free text: `other`).
+  static String codeFor(String? issue) {
+    final index = issue == null ? -1 : issues.indexOf(issue);
+    return index < 0 ? 'other' : _codes[index];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +392,7 @@ class SelectIssue extends StatelessWidget {
           _CompactTrip(ride: ride),
           const SizedBox(height: 28),
           Text(
-            'Select an issue',
+            context.l10n.supportSelectIssue,
             style: SupportHome.text(22, weight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
@@ -381,7 +405,7 @@ class SelectIssue extends StatelessWidget {
               ),
             ),
           _LineItem(
-            title: 'Something else',
+            title: context.l10n.supportSomethingElse,
             accent: true,
             onTap: () => guardedPush(
               context,
@@ -397,37 +421,23 @@ class SelectIssue extends StatelessWidget {
 class HelpArticles extends StatelessWidget {
   const HelpArticles({super.key});
 
-  static const topics = [
-    (
-      'About Movera',
-      'Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.',
-    ),
-    (
-      'App and features',
-      'Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.',
-    ),
-    (
-      'Account and data',
-      'Your account only shows information that is actually available in this build. You can edit supported profile fields from Account.',
-    ),
-    (
-      'Payments and pricing',
-      'Pricing and payment support will use the real booking and payment record when those services are connected.',
-    ),
-    (
-      'Using Movera',
-      'Confirm pickup, choose a ride category, and follow the booking flow shown in the app.',
-    ),
-    (
-      'Safety',
-      'Use the available Safety tools in the app if you need safety-related help during a ride.',
-    ),
-  ];
+  /// (title, body) of each article, in the app language.
+  static List<(String, String)> get topics {
+    final l = L10n.current;
+    return [
+      (l.helpAboutTitle, l.helpAboutBody),
+      (l.helpAppTitle, l.helpAppBody),
+      (l.supportAccountTitle, l.supportAccountBody),
+      (l.supportPaymentsTitle, l.supportPaymentsBody),
+      (l.helpUsingTitle, l.helpUsingBody),
+      (l.safetyTitle, l.helpSafetyBody),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Help articles',
+      title: context.l10n.helpArticles,
       trailing: _exit(context),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
@@ -480,7 +490,7 @@ class HelpArticle extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Support options',
+                  context.l10n.supportOptions,
                   style: SupportHome.text(
                     15.5,
                     weight: FontWeight.w600,
@@ -502,26 +512,30 @@ class SupportMessages extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SupportScaffold(
-      title: 'Support messages',
+      title: context.l10n.supportMessagesTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Text('Active', style: SupportHome.text(18, weight: FontWeight.w700)),
+          Text(
+            context.l10n.supportActive,
+            style: SupportHome.text(18, weight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.forum_outlined,
-            title: 'No active cases',
-            subtitle:
-                'Support messaging is not connected in this build, so no active conversations are shown.',
+            title: context.l10n.supportNoActiveCases,
+            subtitle: context.l10n.supportActiveBody,
           ),
           const SizedBox(height: 28),
-          Text('Closed', style: SupportHome.text(18, weight: FontWeight.w700)),
+          Text(
+            context.l10n.supportClosed,
+            style: SupportHome.text(18, weight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
-          const _EmptyCard(
+          _EmptyCard(
             icon: Icons.inventory_2_outlined,
-            title: 'No closed cases',
-            subtitle:
-                'Closed support conversations will appear here when real support messaging is connected.',
+            title: context.l10n.supportNoClosedCases,
+            subtitle: context.l10n.supportClosedBody,
           ),
         ],
       ),
@@ -529,15 +543,133 @@ class SupportMessages extends StatelessWidget {
   }
 }
 
-class SupportChat extends StatelessWidget {
-  const SupportChat({super.key, this.ride, this.issue});
+/// Sends a rider's message about a ride to Movera (`POST
+/// /rides/{id}/disputes`, the same review queue as "Report an issue" on the
+/// receipt).
+typedef SupportMessageSender =
+    Future<void> Function({
+      required String rideId,
+      required String reason,
+      String? detail,
+    });
+
+/// UI-03: the in-app way to reach Movera about a ride. It used to be a
+/// chat whose input read "Support messaging unavailable" — a dead end for a
+/// rider with a money problem when the build has no support email. Now a
+/// ride issue is a short message form sent to Movera's review queue; with no
+/// ride picked it points to the ride list (and to email when configured).
+class SupportChat extends StatefulWidget {
+  const SupportChat({
+    super.key,
+    this.ride,
+    this.issue,
+    this.contact,
+    this.send,
+  });
 
   final SupportRide? ride;
   final String? issue;
 
+  /// Defaults to the support address this build was given, if any.
+  final SupportContact? contact;
+
+  /// Defaults to the ride dispute endpoint.
+  final SupportMessageSender? send;
+
+  /// The trip id a Support row stands for (History keys on-demand rides as
+  /// `ondemand-<tripId>`). Null when the row has no id.
+  static String? tripIdOf(SupportRide? ride) {
+    final id = ride?.id?.trim();
+    if (id == null || id.isEmpty) return null;
+    const prefix = 'ondemand-';
+    final trip = id.startsWith(prefix) ? id.substring(prefix.length) : id;
+    return trip.isEmpty ? null : trip;
+  }
+
+  @override
+  State<SupportChat> createState() => _SupportChatState();
+}
+
+class _SupportChatState extends State<SupportChat> {
+  final TextEditingController _detail = TextEditingController();
+  bool _sending = false;
+  bool _sent = false;
+  String? _sentText;
+  String? _error;
+
+  String? get _tripId => SupportChat.tripIdOf(widget.ride);
+
+  @override
+  void initState() {
+    super.initState();
+    _detail.addListener(_onDetailChanged);
+  }
+
+  @override
+  void dispose() {
+    _detail
+      ..removeListener(_onDetailChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onDetailChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _canSubmit =>
+      !_sending &&
+      !_sent &&
+      (widget.issue != null || _detail.text.trim().isNotEmpty);
+
+  Future<void> _submit() async {
+    final tripId = _tripId;
+    if (tripId == null || !_canSubmit) return;
+    final detail = _detail.text.trim();
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      final send =
+          widget.send ??
+          ({required String rideId, required String reason, String? detail}) =>
+              AppScope.instance.rideComplete.submitDispute(
+                rideId: rideId,
+                reason: reason,
+                detail: detail,
+              );
+      await send(
+        rideId: tripId,
+        reason: SelectIssue.codeFor(widget.issue),
+        detail: [
+          if (widget.issue != null) widget.issue!,
+          if (detail.isNotEmpty) detail,
+        ].join('\n'),
+      );
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _sent = true;
+        _sentText = detail.isEmpty ? null : detail;
+      });
+      _detail.clear();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _error = context.l10n.supportSendFailed;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final script = AppScope.instance.support.chat(ride: ride);
+    final ride = widget.ride;
+    final issue = widget.issue;
+    final canSend = _tripId != null;
+    final contact = widget.contact ?? const SupportContact();
+    final script = AppScope.instance.support.chat(ride: canSend ? ride : null);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -553,15 +685,15 @@ class SupportChat extends StatelessWidget {
                       Icons.close_rounded,
                       color: SupportHome.ink,
                     ),
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                   ),
                   Text(
-                    'Help',
+                    context.l10n.supportHelp,
                     style: SupportHome.text(18, weight: FontWeight.w600),
                   ),
                   const Spacer(),
                   _PillButton(
-                    label: 'Close',
+                    label: context.l10n.close,
                     onTap: () => Navigator.pop(context),
                   ),
                 ],
@@ -580,7 +712,7 @@ class SupportChat extends StatelessWidget {
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFD5E3EC)),
                       ),
-                      child: _RideCard(ride: ride!, compact: true),
+                      child: _RideCard(ride: ride, compact: true),
                     ),
                     const SizedBox(height: 18),
                   ],
@@ -599,35 +731,24 @@ class SupportChat extends StatelessWidget {
                             ),
                             if (issue != null) ...[
                               const SizedBox(height: 14),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    14,
-                                    12,
-                                    14,
-                                    12,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 280,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: SupportHome.ink,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    issue!,
-                                    style: SupportHome.text(
-                                      14,
-                                      height: 1.4,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              _Bubble(text: issue),
+                            ],
+                            if (canSend && !_sent) ...[
                               const SizedBox(height: 12),
                               Text(
                                 script.issueAck,
+                                style: SupportHome.text(15, height: 1.45),
+                              ),
+                            ],
+                            if (_sent) ...[
+                              if (_sentText != null) ...[
+                                const SizedBox(height: 12),
+                                _Bubble(text: _sentText!),
+                              ],
+                              const SizedBox(height: 12),
+                              Text(
+                                script.followUp,
+                                key: const ValueKey('support-message-sent'),
                                 style: SupportHome.text(15, height: 1.45),
                               ),
                             ],
@@ -639,31 +760,146 @@ class SupportChat extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: TextField(
-                enabled: false,
-                decoration: InputDecoration(
-                  hintText: 'Support messaging unavailable',
-                  hintStyle: SupportHome.text(14, color: SupportHome.muted),
-                  filled: true,
-                  fillColor: SupportHome.soft,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  suffixIcon: const Icon(
-                    Icons.send_rounded,
-                    color: SupportHome.muted,
-                  ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: Text(
+                  _error!,
+                  key: const ValueKey('support-message-error'),
+                  style: SupportHome.text(13, color: const Color(0xFFB42318)),
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: canSend
+                  ? (_sent ? _doneButton(context) : _composer())
+                  : _noRideActions(context, contact),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _composer() {
+    return TextField(
+      key: const ValueKey('support-message-field'),
+      controller: _detail,
+      enabled: !_sending,
+      minLines: 1,
+      maxLines: 4,
+      textInputAction: TextInputAction.send,
+      onSubmitted: (_) => _submit(),
+      decoration: InputDecoration(
+        hintText: widget.issue == null
+            ? context.l10n.supportTellWhatHappened
+            : context.l10n.supportAddDetails,
+        hintStyle: SupportHome.text(14, color: SupportHome.muted),
+        filled: true,
+        fillColor: SupportHome.soft,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
+        ),
+        suffixIcon: _sending
+            ? const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : IconButton(
+                key: const ValueKey('support-message-send'),
+                tooltip: context.l10n.supportSendToMovera,
+                onPressed: _canSubmit ? _submit : null,
+                icon: Icon(
+                  Icons.send_rounded,
+                  color: _canSubmit ? SupportHome.ink : SupportHome.muted,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _doneButton(BuildContext context) => _wideButton(
+    label: context.l10n.done,
+    onPressed: () => Navigator.pop(context),
+  );
+
+  Widget _noRideActions(BuildContext context, SupportContact contact) {
+    if (contact.available) {
+      return _wideButton(
+        label: context.l10n.supportEmail,
+        onPressed: () async {
+          final opened = await contact.openEmail(subject: context.l10n.supportEmailSubject);
+          if (!opened && context.mounted) {
+            MoveraToast.show(
+              context,
+              context.l10n.supportNoMailApp(contact.email),
+            );
+          }
+        },
+      );
+    }
+    return _wideButton(
+      label: context.l10n.supportChooseRide,
+      onPressed: () => guardedPush(
+        context,
+        RightToLeftTransition(const SelectSupportRide()),
+      ),
+    );
+  }
+
+  Widget _wideButton({required String label, required VoidCallback onPressed}) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: SupportHome.cta,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(26),
+          ),
+        ),
+        child: Text(
+          label,
+          style: SupportHome.text(
+            15.5,
+            weight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        constraints: const BoxConstraints(maxWidth: 280),
+        decoration: BoxDecoration(
+          color: SupportHome.ink,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          text,
+          style: SupportHome.text(14, height: 1.4, color: Colors.white),
         ),
       ),
     );
@@ -699,7 +935,7 @@ class _SupportScaffold extends StatelessWidget {
                       Icons.arrow_back_rounded,
                       color: SupportHome.ink,
                     ),
-                    tooltip: 'Back',
+                    tooltip: context.l10n.back,
                   ),
                   const Spacer(),
                   if (trailing != null) trailing!,
@@ -730,7 +966,7 @@ Widget _exit(BuildContext context) {
   return TextButton(
     onPressed: () => Navigator.popUntil(context, AppRoutes.isHomeRoute),
     child: Text(
-      'Exit',
+      context.l10n.supportExit,
       style: SupportHome.text(
         14,
         weight: FontWeight.w600,
@@ -858,7 +1094,7 @@ class _RideRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              ride.failed ? 'Failed' : 'kr ${ride.price.toStringAsFixed(2)}',
+              ride.failed ? context.l10n.supportFailed : formatMajor(ride.price, ride.currency),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],

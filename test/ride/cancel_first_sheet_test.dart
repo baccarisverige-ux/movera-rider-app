@@ -161,11 +161,14 @@ void main() {
 
     await tester.tap(find.text('open-active-trip-cancel'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel ride'));
+    // UI-01: on board this ends the trip early (paid by distance).
+    expect(find.text('End trip here?'), findsOneWidget);
+    expect(find.textContaining('pay for the distance driven'), findsOneWidget);
+    await tester.tap(find.text('End trip here'));
     await tester.pumpAndSettle();
 
     expect(committed, isFalse);
-    expect(find.text('Why are you cancelling?'), findsOneWidget);
+    expect(find.text('Why are you ending the trip?'), findsOneWidget);
 
     await tester.tap(find.text('Keep ride'));
     await tester.pumpAndSettle();

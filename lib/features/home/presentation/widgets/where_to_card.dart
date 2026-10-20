@@ -7,6 +7,7 @@ import 'package:movera_rider/features/home/presentation/widgets/short_address.da
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The "Where to? / Later" card on Home's collapsed sheet.
 class WhereToCard extends StatelessWidget {
@@ -56,8 +57,8 @@ class WhereToCard extends StatelessWidget {
                   button: true,
                   excludeSemantics: true,
                   label: destinationAddress == null
-                      ? 'Where to?'
-                      : 'Destination ${shortAddress(destinationAddress, maxLength: 28)}',
+                      ? context.l10n.whereTo
+                      : context.l10n.destinationLabel(shortAddress(destinationAddress, maxLength: 28)),
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
                     child: Row(
@@ -71,7 +72,7 @@ class WhereToCard extends StatelessWidget {
                         Expanded(
                           child: TextWidget(
                             text: destinationAddress == null
-                                ? 'Where to?'
+                                ? context.l10n.whereTo
                                 : shortAddress(
                                     destinationAddress,
                                     maxLength: 28,
@@ -96,7 +97,7 @@ class WhereToCard extends StatelessWidget {
               child: Semantics(
                 button: true,
                 excludeSemantics: true,
-                label: 'Schedule for later',
+                label: context.l10n.scheduleForLater,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
                     minWidth: 48,
@@ -128,7 +129,7 @@ class WhereToCard extends StatelessWidget {
                           ),
                           4.width,
                           TextWidget(
-                            text: 'Later',
+                            text: context.l10n.later,
                             color: _premiumInk,
                             fontSize: 9.2,
                             fontWeight: fwSemiBold,

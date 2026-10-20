@@ -5,6 +5,8 @@ import 'package:movera_rider/features/home/application/home_places_controller.da
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/destination_search/application/compact_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -14,6 +16,7 @@ import 'package:movera_rider/features/destination_search/application/destination
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider picked on [RoutePickerPage].
 class RoutePickerSelection {
@@ -55,7 +58,7 @@ class RoutePickerPage extends StatefulWidget {
     required this.homeAddress,
     required this.workAddress,
     this.savedPlaces = const [],
-    this.pageTitle = RoutePickerPage.title,
+    this.pageTitle,
     this.pickupLocked = false,
     this.openWithNewStop = false,
     this.finishLabel,
@@ -82,7 +85,7 @@ class RoutePickerPage extends StatefulWidget {
   final List<String> recent;
 
   /// Header text; "Change route" while a ride is live.
-  final String pageTitle;
+  final String? pageTitle;
 
   /// The driver is already at the pickup: it is shown but cannot change.
   final bool pickupLocked;
@@ -109,7 +112,6 @@ class RoutePickerPage extends StatefulWidget {
   final Future<Map<String, dynamic>?> Function(RoutePickerSelection selection)
   onFinish;
 
-  static const String title = 'Plan your ride';
 
   @override
   State<RoutePickerPage> createState() => _RoutePickerPageState();
@@ -123,7 +125,29 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   static const Color _accent = Color(0xFF2D5878);
   static const Color _pickupGreen = Color(0xFF079A60);
   static const Color _destinationBlue = Color(0xFF1769E8);
-  static const int _maxStops = 3;
+
+  /// Q39: the pickup zone's `booking.maxStops` (Admin, per zone); the
+  /// contract default until the zone's config is read.
+  int _maxStops = ZoneDefaults.maxStops;
+
+  /// The zone [_loadMaxStops] last read, so a new pickup in the same zone
+  /// is not read again.
+  String? _maxStopsZone;
+
+  Future<void> _loadMaxStops() async {
+    final point = _pickupPoint;
+    if (point == null) return;
+    final zoneId = RiderZones.at(point.latitude, point.longitude).id;
+    if (zoneId == _maxStopsZone) return;
+    _maxStopsZone = zoneId;
+    try {
+      final config = await AppScope.instance.riderConfig.forZone(zoneId);
+      if (!mounted || _maxStopsZone != zoneId) return;
+      setState(() => _maxStops = config.maxStops);
+    } catch (_) {
+      // The default stays.
+    }
+  }
 
   /// Fields show the short "street, city" form; the full geocoder address
   /// is what the booking receives when the rider leaves the text as is.
@@ -163,6 +187,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   bool _searching = false;
   bool _showAll = false;
   bool _finishing = false;
+
+  /// The rider reordered the route with a swap: the price must be quoted
+  /// again, so the bottom button is offered even where it usually is not.
+  bool _rerouted = false;
   GeoPoint? _pickupPoint;
   GeoPoint? _destinationPoint;
   late String? _home = widget.homeAddress;
@@ -180,6 +208,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void initState() {
     super.initState();
     _pickupPoint = widget.here;
+    unawaited(_loadMaxStops());
     if (widget.openWithNewStop &&
         widget.stopsSupported &&
         _stops.length < _maxStops) {
@@ -279,7 +308,24 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     _onTyped('');
   }
 
+  /// Q1 (owner, revised): one swap. With stops it swaps the last stop and
+  /// the destination only (the pickup never moves, so a locked pickup
+  /// does not block it); with no stops it swaps pickup and destination.
+  /// Either way the price is quoted again ("See prices").
   void _swap() {
+    if (_stops.isNotEmpty) {
+      final last = _stops.last;
+      final lastText = last.text;
+      setState(() {
+        last.text = _destination.text;
+        _destination.text = lastText;
+        // A stop has no map point; the new destination is located from
+        // its address.
+        _destinationPoint = null;
+        _rerouted = true;
+      });
+      return;
+    }
     if (widget.pickupLocked) return;
     final pickupText = _pickup.text;
     final pickupPoint = _pickupPoint;
@@ -288,7 +334,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _pickupPoint = _destinationPoint;
       _destination.text = pickupText;
       _destinationPoint = pickupPoint;
+      _rerouted = true;
     });
+    unawaited(_loadMaxStops());
   }
 
   void _addStop() {
@@ -319,6 +367,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         _pickup.text = _show(address);
         _pickupPoint = point;
       });
+      unawaited(_loadMaxStops());
       if (_destination.text.trim().isEmpty) {
         _activate('destination');
         _destinationFocus.requestFocus();
@@ -342,24 +391,46 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing || _destination.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _finishing = true);
-    final draft = await widget.onFinish(
-      RoutePickerSelection(
-        pickup: _expand(_pickup.text),
-        pickupPoint: _pickupPoint,
-        destination: _expand(_destination.text),
-        destinationPoint: _destinationPoint,
-        stops: [
-          for (final c in _stops)
-            if (c.text.trim().isNotEmpty) _expand(c.text),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (draft != null) {
-      Navigator.of(context).pop(draft);
-    } else {
-      setState(() => _finishing = false);
+    Map<String, dynamic>? draft;
+    try {
+      draft = await widget.onFinish(
+        RoutePickerSelection(
+          pickup: _expand(_pickup.text),
+          pickupPoint: _pickupPoint,
+          destination: _expand(_destination.text),
+          destinationPoint: _destinationPoint,
+          stops: [
+            for (final c in _stops)
+              if (c.text.trim().isNotEmpty) _expand(c.text),
+          ],
+        ),
+      );
+    } catch (_) {
+      // UI-02: a failed lookup (offline, timeout) used to leave the picker
+      // busy for good, ignoring every later tap. Say so and stay usable.
+      if (mounted) _showFinishFailed();
+    } finally {
+      if (mounted && draft == null) setState(() => _finishing = false);
     }
+    if (!mounted || draft == null) return;
+    Navigator.of(context).pop(draft);
+  }
+
+  void _showFinishFailed() {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('route-picker-finish-failed'),
+          content: Text(
+            context.l10n.routeCouldNotReach,
+          ),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(label: context.l10n.tryAgain, onPressed: _finish),
+        ),
+      );
   }
 
   Future<void> _pickOnMap() async {
@@ -462,7 +533,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           if (active && controller.text.isNotEmpty)
             // UI-4: a 44 x 44 target (was 34 x 22); the circle stays put.
             MoveraHitArea(
-              label: 'Clear',
+              label: context.l10n.clear,
               onTap: _clear,
               alignment: Alignment.centerRight,
               child: Container(
@@ -482,7 +553,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             ),
           if (locked)
             Tooltip(
-              message: 'Your driver is already on the way to this pickup',
+              message: context.l10n.routeDriverOnTheWay,
               child: Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Icon(
@@ -499,14 +570,14 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               icon: const Icon(Icons.close_rounded),
               color: _muted,
               iconSize: 18,
-              tooltip: 'Remove stop',
+              tooltip: context.l10n.removeStop,
             )
           else if (active)
             // UI-4: a 44 x 44 target (was 42 x 38); the badge stays put.
             MoveraHitArea(
               label: field == 'pickup'
-                  ? 'Set pickup on map'
-                  : 'Choose destination on map',
+                  ? context.l10n.setPickupOnMap
+                  : context.l10n.chooseDestinationOnMap,
               onTap: _pickOnMap,
               alignment: Alignment.centerRight,
               child: PremiumRouteLocationBadge(
@@ -527,10 +598,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         focus: _pickupFocus,
         // GPS without a street name still works as the pickup point.
         hint: widget.pickupAddress != null
-            ? 'Pickup'
+            ? context.l10n.pickup
             : widget.here != null
-            ? 'Your current location'
-            : 'Finding your address…',
+            ? context.l10n.yourCurrentLocation
+            : context.l10n.findingYourAddress,
         leading: Container(
           width: 22,
           height: 22,
@@ -556,7 +627,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           controller: _stops[i],
           focus: _stopFocus[i],
           stop: i,
-          hint: 'Stop ${i + 1}',
+          hint: context.l10n.stopNumber('${i + 1}'),
           leading: Container(
             width: 14,
             height: 14,
@@ -570,7 +641,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         field: 'destination',
         controller: _destination,
         focus: _destinationFocus,
-        hint: 'Where to?',
+        hint: context.l10n.whereTo,
         leading: const Icon(Icons.search_rounded, color: _ink, size: 24),
       ),
     ];
@@ -583,7 +654,19 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               color: _box,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(children: rows),
+            child: Stack(
+              children: [
+                Column(children: rows),
+                // Q1: with stops, the one swap sits between the last stop
+                // and the destination.
+                if (_stops.isNotEmpty)
+                  Positioned(
+                    left: 5,
+                    top: 56.0 * (_stops.length + 1) - 22,
+                    child: _stopSwap(),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 6),
@@ -592,7 +675,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             SizedBox(
               height: 56,
               child: IconButton(
-                tooltip: 'Add stop',
+                tooltip: context.l10n.addStop,
                 onPressed: widget.stopsSupported && _stops.length < _maxStops
                     ? _addStop
                     : null,
@@ -600,18 +683,37 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 color: _ink,
               ),
             ),
-            SizedBox(
-              height: 56,
-              child: IconButton(
-                tooltip: 'Swap pickup and destination',
-                onPressed: widget.pickupLocked ? null : _swap,
-                icon: const Icon(Icons.swap_vert_rounded, size: 26),
-                color: _ink,
+            if (_stops.isEmpty)
+              SizedBox(
+                height: 56,
+                child: IconButton(
+                  tooltip: context.l10n.swapPickupDestination,
+                  onPressed: widget.pickupLocked ? null : _swap,
+                  icon: const Icon(Icons.swap_vert_rounded, size: 26),
+                  color: _ink,
+                ),
               ),
-            ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _stopSwap() {
+    return MoveraHitArea(
+      key: const ValueKey('route-picker-swap-stop'),
+      label: context.l10n.swapStopDestination,
+      onTap: _swap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: _line, width: 1.2),
+        ),
+        child: const Icon(Icons.swap_vert_rounded, size: 16, color: _muted),
+      ),
     );
   }
 
@@ -715,7 +817,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           icon: Icons.near_me_outlined,
           iconColor: _accent,
           title: Text(
-            'My location',
+            context.l10n.myLocation,
             style: _t(16, weight: FontWeight.w600, color: _accent),
           ),
           subtitle: compactAddress(widget.pickupAddress),
@@ -724,8 +826,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       );
     }
     for (final (target, label, value) in [
-      ('home', 'Home', _home),
-      ('work', 'Work', _work),
+      ('home', context.l10n.placeHome, _home),
+      ('work', context.l10n.placeWork, _work),
     ]) {
       final set = value != null && value.trim().isNotEmpty;
       rows.add(
@@ -737,7 +839,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             color: _ink,
           ),
           title: Text(
-            set ? label : 'Set $label',
+            set ? label : context.l10n.routeSetFavourite(label),
             style: _t(
               16,
               weight: set ? FontWeight.w500 : FontWeight.w600,
@@ -746,7 +848,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           ),
           subtitle: set
               ? compactAddress(value)
-              : 'Add your ${label.toLowerCase()} address',
+              : context.l10n.routeAddFavouriteAddress(label.toLowerCase()),
           onTap: set ? () => _choose(value) : () => _setFavourite(target),
         ),
       );
@@ -782,7 +884,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 2),
           child: Text(
-            'Recent',
+            context.l10n.recent,
             style: _t(13, weight: FontWeight.w600, color: _muted),
           ),
         ),
@@ -850,7 +952,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         _row(
           icon: Icons.search_rounded,
           iconColor: _ink,
-          title: Text('Show more results', style: _t(16)),
+          title: Text(context.l10n.showMoreResults, style: _t(16)),
           onTap: () => setState(() => _showAll = true),
           last: true,
         ),
@@ -878,10 +980,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           padding: const EdgeInsets.symmetric(vertical: 22),
           child: Column(
             children: [
-              Text('No address found', style: _t(16, weight: FontWeight.w600)),
+              Text(context.l10n.noAddressFound, style: _t(16, weight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(
-                'Check the spelling or choose the place on the map.',
+                context.l10n.noAddressFoundBody,
                 textAlign: TextAlign.center,
                 style: _t(13.5, weight: FontWeight.w400, color: _muted),
               ),
@@ -889,7 +991,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               OutlinedButton.icon(
                 onPressed: _pickOnMap,
                 icon: const Icon(Icons.map_outlined, size: 18),
-                label: const Text('Try the map'),
+                label: Text(context.l10n.tryTheMap),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _accent,
                   side: const BorderSide(color: _accent),
@@ -931,7 +1033,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                       children: [
                         const SizedBox(width: 4),
                         IconButton(
-                          tooltip: 'Close',
+                          tooltip: context.l10n.close,
                           onPressed: () => Navigator.of(context).maybePop(),
                           icon: const Icon(Icons.close_rounded, size: 26),
                           color: _ink,
@@ -939,7 +1041,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                         Expanded(
                           child: Center(
                             child: Text(
-                              widget.pageTitle,
+                              widget.pageTitle ?? context.l10n.planYourRide,
                               style: _t(18, weight: FontWeight.w700),
                             ),
                           ),
@@ -963,7 +1065,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 ),
               ],
             ),
-            if (widget.finishLabel != null &&
+            if ((widget.finishLabel != null || _rerouted) &&
                 !typing &&
                 _destination.text.trim().isNotEmpty)
               Positioned(
@@ -982,7 +1084,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                       ),
                     ),
                     child: Text(
-                      widget.finishLabel!,
+                      widget.finishLabel ?? context.l10n.seePrices,
                       style: _t(
                         16,
                         weight: FontWeight.w600,

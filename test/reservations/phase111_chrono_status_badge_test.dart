@@ -46,7 +46,7 @@ void main() {
         estimatedDropoffAt: pickupAt.add(const Duration(minutes: 30)),
         pickup: const ReservationPlace(label: 'Klockarvägen 37'),
         destination: const ReservationPlace(label: 'Arlanda Express'),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 522,

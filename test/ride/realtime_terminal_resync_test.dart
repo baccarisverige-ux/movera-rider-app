@@ -4,6 +4,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class ImmediateRealtimeConnection extends RealtimeConnection {
@@ -23,7 +24,7 @@ Future<(ApiClient, MockRideRealtime, String)> harness() async {
   final quoteResponse = await api.post(
     '/api/v1/quotes',
     body: <String, dynamic>{
-      'rideType': 'movera',
+      'rideType': 'economy',
       'pickup': <String, dynamic>{'lat': 59.3293, 'lng': 18.0686},
       'destination': <String, dynamic>{'lat': 59.3326, 'lng': 18.0649},
     },
@@ -32,7 +33,7 @@ Future<(ApiClient, MockRideRealtime, String)> harness() async {
   final created = await api.post(
     '/api/v1/rides',
     body: <String, dynamic>{
-      'categoryId': 'movera',
+      'categoryId': 'economy',
       'price': 259,
       'paymentMethod': 'apple_pay',
       'pickupAddress': 'Pickup',
@@ -61,17 +62,23 @@ Future<void> setServerStatus(
 ) async {
   await api.post(
     '/api/v1/rides/$rideId/status',
-    body: <String, dynamic>{'status': status.name},
+    // The simulator walks the trip there through the transition table.
+    body: <String, dynamic>{'status': status.tripStatus.wireName},
   );
 }
 
 void main() {
+  // Contract v0.3.0: every terminal cause the server can reach from a
+  // search, by its own UI state (a driver drop before pickup is not one: the
+  // trip goes back to searching).
   for (final terminal in <RideStatus>[
     RideStatus.cancelledByRider,
-    RideStatus.cancelledByDriver,
+    RideStatus.endedByDriver,
     RideStatus.cancelledBySystem,
+    RideStatus.cancelledByAdmin,
+    RideStatus.noShow,
+    RideStatus.tripFailed,
     RideStatus.noDriverFound,
-    RideStatus.bookingExpired,
   ]) {
     test('resync delivers authoritative ${terminal.name} exactly once', () async {
       final (api, realtime, rideId) = await harness();

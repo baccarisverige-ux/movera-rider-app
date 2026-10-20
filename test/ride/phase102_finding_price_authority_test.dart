@@ -15,6 +15,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../mock_fare.dart';
 
 RideSnapshot _snap() => RideSnapshot(
   status: RideStatus.findingDriver,
@@ -79,7 +80,10 @@ void main() {
 
     expect(await controller.confirmPriceIncrease(20), isTrue);
 
-    expect(bodies.single, {'offerIncreaseKr': 20});
+    // Contract v0.3.0: the raise as Money, not kronor.
+    expect(bodies.single, {
+      'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
+    });
     expect(bodies.single.containsKey('price'), isFalse);
     controller.dispose();
     rt.dispose();
@@ -143,16 +147,16 @@ void main() {
     final api = ApiClient(client: backend);
 
     await api.patch('/api/v1/rides/r1', body: {'price': 9999});
-    expect(backend.rides['r1']!['price'], 259);
+    expect(mockFareKr(backend.rides['r1']!), 259);
 
     await api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': 20});
-    expect(backend.rides['r1']!['price'], 279);
+    expect(mockFareKr(backend.rides['r1']!), 279);
 
     await expectLater(
       api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': -50}),
       throwsA(anything),
     );
-    expect(backend.rides['r1']!['price'], 279);
+    expect(mockFareKr(backend.rides['r1']!), 279);
   });
 
   testWidgets('the bump card says the final fare is server-confirmed',

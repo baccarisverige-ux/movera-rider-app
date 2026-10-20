@@ -59,7 +59,7 @@ void main() {
       api: ApiClient(client: backend),
     );
 
-    expect(backend.rides['r-ok']!['status'], 'cancelledByRider');
+    expect(backend.rides['r-ok']!['status'], 'cancelled_by_rider');
     expect(await PendingCancelStore.all(), isEmpty);
   });
 }

@@ -9,6 +9,9 @@ import 'package:movera_rider/features/reservations/presentation/reservation_form
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideScheduledPage extends StatefulWidget {
   const RideScheduledPage({
@@ -106,7 +109,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
       return Scaffold(
         backgroundColor: Colors.white,
         body: Center(
-          child: Text('Reservation not found', style: reservationText(16)),
+          child: Text(context.l10n.resNotFound, style: reservationText(16)),
         ),
       );
     }
@@ -148,7 +151,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Your ride is scheduled',
+                  context.l10n.resScheduledTitle,
                   textAlign: TextAlign.center,
                   style: reservationText(
                     26,
@@ -194,28 +197,28 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                         const SizedBox(height: 8),
                         ReservationFact(
                           asset: AppAssets.scheduleCalendar,
-                          label: 'Pickup',
+                          label: context.l10n.pickup,
                           value:
                               '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
                         ),
                         ReservationFact(
                           asset: AppAssets.gps,
-                          label: 'From',
+                          label: context.l10n.resFrom,
                           value: ReservationFormat.shortPlace(
                             ride.pickup.label,
                           ),
                         ),
                         ReservationFact(
                           asset: AppAssets.location,
-                          label: 'To',
+                          label: context.l10n.resTo,
                           value: ReservationFormat.shortPlace(
                             ride.destination.label,
                           ),
                         ),
                         ReservationFact(
                           asset: AppAssets.payment,
-                          label: 'Payment',
-                          value: ride.paymentMethod,
+                          label: context.l10n.navPayment,
+                          value: paymentLabelFor(ride.paymentMethod),
                           trailing: ReservationPaymentMark(
                             method: ride.paymentMethod,
                           ),
@@ -223,8 +226,8 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                         if (ride.hasPreferences)
                           ReservationFact(
                             asset: AppAssets.note,
-                            label: 'Preferences',
-                            value: ride.note!.trim(),
+                            label: context.l10n.resPreferences,
+                            value: RideNotes.displayNote(ride.note!.trim()),
                           ),
                       ],
                     ),
@@ -243,11 +246,14 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
               top: false,
               child: Column(
                 children: [
-                  ReservationFillButton(label: 'Done', onTap: _closeHome),
+                  ReservationFillButton(
+                    label: context.l10n.done,
+                    onTap: _closeHome,
+                  ),
                   if (ride.status.canEdit) ...[
                     const SizedBox(height: 10),
                     ReservationGhostButton(
-                      label: 'Edit reservation',
+                      label: context.l10n.resEdit,
                       onTap: () => _editReservation(ride),
                     ),
                   ],
@@ -293,11 +299,11 @@ class _ReturnRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Plan a return ride',
+                      context.l10n.resPlanReturn,
                       style: reservationText(15, weight: FontWeight.w700),
                     ),
                     Text(
-                      'Choose category, then confirm a new reservation',
+                      context.l10n.resPlanReturnBody,
                       style: reservationText(12.5, color: kReservationMuted),
                     ),
                   ],

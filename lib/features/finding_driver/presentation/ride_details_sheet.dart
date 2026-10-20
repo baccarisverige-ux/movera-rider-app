@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The route and the money of the current ride, read-only. Changing the
 /// route happens on the route screen (the three dots on the ride card).
@@ -13,6 +16,7 @@ class RideDetailsSheet extends StatelessWidget {
     this.stops = const <RouteStop>[],
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     required this.notes,
     this.allowCancel = true,
@@ -24,6 +28,9 @@ class RideDetailsSheet extends StatelessWidget {
   final List<RouteStop> stops;
   final String rideType;
   final double price;
+
+  /// ISO-4217 code of [price].
+  final String currency;
   final String paymentMethod;
   final RideNotes notes;
   final bool allowCancel;
@@ -49,7 +56,7 @@ class RideDetailsSheet extends StatelessWidget {
                 const SizedBox(width: 48),
                 Expanded(
                   child: Text(
-                    'Ride details',
+                    context.l10n.rideDetails,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 18,
@@ -61,7 +68,7 @@ class RideDetailsSheet extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Close',
+                  tooltip: context.l10n.close,
                 ),
               ],
             ),
@@ -75,7 +82,7 @@ class RideDetailsSheet extends StatelessWidget {
               _RouteRow(
                 key: ValueKey('ride-details-stop-$i'),
                 kind: _RowKind.stop,
-                label: 'Stop ${i + 1}',
+                label: context.l10n.stopNumber('${i + 1}'),
                 address: stops[i].address,
               ),
             ],
@@ -86,9 +93,9 @@ class RideDetailsSheet extends StatelessWidget {
               address: destinationAddress,
             ),
             const SizedBox(height: 16),
-            _kv(rideType, '${price.toStringAsFixed(0)} kr'),
+            _kv(rideType, formatMajor(price, currency)),
             const SizedBox(height: 8),
-            _kv('Payment', paymentMethod),
+            _kv(context.l10n.navPayment, paymentMethod),
             if (!notes.isEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
@@ -106,7 +113,7 @@ class RideDetailsSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        label,
+                        RideNotes.labelFor(label),
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -132,7 +139,7 @@ class RideDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Cancel trip',
+                    context.l10n.cancelTrip,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -154,7 +161,7 @@ class RideDetailsSheet extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Close',
+                  context.l10n.close,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,

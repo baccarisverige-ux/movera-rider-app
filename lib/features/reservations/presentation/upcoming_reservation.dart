@@ -19,6 +19,9 @@ import 'package:movera_rider/features/reservations/presentation/scheduled_ride_t
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class UpcomingReservationPage extends StatefulWidget {
   const UpcomingReservationPage({
@@ -187,7 +190,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
       return Scaffold(
         backgroundColor: Colors.white,
         body: Center(
-          child: Text('Reservation not found', style: reservationText(16)),
+          child: Text(context.l10n.resNotFound, style: reservationText(16)),
         ),
       );
     }
@@ -207,11 +210,11 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   Icons.arrow_back_rounded,
                   color: kReservationInk,
                 ),
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
               ),
               Expanded(
                 child: Text(
-                  'SCHEDULE',
+                  context.l10n.resScheduleCaps,
                   textAlign: TextAlign.center,
                   style: reservationText(
                     10,
@@ -230,8 +233,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
               children: [
                 Text(
                   ride.status.isCancelled
-                      ? 'Cancelled reservation'
-                      : 'Upcoming ride',
+                      ? context.l10n.resCancelledReservation
+                      : context.l10n.resUpcomingRide,
                   style: reservationText(
                     28,
                     weight: FontWeight.w700,
@@ -261,7 +264,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                             style: reservationText(20, weight: FontWeight.w700),
                           ),
                           Text(
-                            '${ride.passengerCount} seats  ·  ${ride.paymentMethod}',
+                            context.l10n.resSeatsPayment(
+                              ride.passengerCount,
+                              paymentLabelFor(ride.paymentMethod),
+                            ),
                             style: reservationText(
                               12.5,
                               color: kReservationMuted,
@@ -315,7 +321,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ] else if (ride.driverAssigned) ...[
                   const SizedBox(height: 14),
                   Text(
-                    'Driver details appear when your driver is on the way.',
+                    context.l10n.resDriverOnTheWay,
                     style: reservationText(
                       13,
                       color: kReservationMuted,
@@ -326,32 +332,32 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 const SizedBox(height: 22),
                 ReservationFact(
                   asset: AppAssets.scheduleCalendar,
-                  label: 'Scheduled for',
+                  label: context.l10n.resScheduledFor,
                   value:
                       '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
                 ),
                 ReservationFact(
                   asset: AppAssets.gps,
-                  label: 'Pickup at',
+                  label: context.l10n.resPickupAt,
                   value: ride.pickup.label,
                 ),
                 ReservationFact(
                   asset: AppAssets.location,
-                  label: 'Drop-off at',
+                  label: context.l10n.resDropoffAt,
                   value: ride.destination.label,
                 ),
                 ReservationFact(
                   asset: AppAssets.payment,
-                  label: 'Payment method',
-                  value: ride.paymentMethod,
+                  label: context.l10n.paymentMethod,
+                  value: paymentLabelFor(ride.paymentMethod),
                   trailing: ReservationPaymentMark(method: ride.paymentMethod),
                 ),
                 if (ride.hasPreferences) ...[
                   const SizedBox(height: 12),
                   ReservationFact(
                     asset: AppAssets.note,
-                    label: 'Preferences',
-                    value: ride.note!.trim(),
+                    label: context.l10n.resPreferences,
+                    value: RideNotes.displayNote(ride.note!.trim()),
                   ),
                 ],
                 if (ride.status.isCancelled &&
@@ -359,7 +365,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ReservationFact(
                     key: const Key('reservation-cancellation-fee'),
                     asset: AppAssets.payment,
-                    label: 'Cancellation fee',
+                    label: context.l10n.resCancellationFee,
                     value: ReservationFormat.money(ride.cancellationFee!),
                   ),
                 ],
@@ -372,7 +378,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    'Need another ride?',
+                    context.l10n.resNeedAnother,
                     style: reservationText(18, weight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
@@ -398,14 +404,14 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Plan a return ride',
+                                    context.l10n.resPlanReturn,
                                     style: reservationText(
                                       15,
                                       weight: FontWeight.w600,
                                     ),
                                   ),
                                   Text(
-                                    'Choose category, then confirm a new reservation',
+                                    context.l10n.resPlanReturnBody,
                                     style: reservationText(
                                       12.5,
                                       color: kReservationMuted,
@@ -425,7 +431,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    'Things to know',
+                    context.l10n.resThingsToKnow,
                     style: reservationText(18, weight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
@@ -443,7 +449,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                       controller: _reservations,
                     ),
                     child: Text(
-                      'View scheduled ride terms',
+                      context.l10n.resViewTerms,
                       style: reservationText(
                         14.5,
                         weight: FontWeight.w600,
@@ -465,7 +471,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                         ),
                       ),
                       child: Text(
-                        'Cancel reservation',
+                        context.l10n.cancelReservation,
                         style: reservationText(
                           15,
                           weight: FontWeight.w600,
@@ -495,7 +501,7 @@ class ReservationDriverCard extends StatelessWidget {
     return Semantics(
       container: true,
       label: [
-        'Your driver ${driver.displayFirstName}',
+        context.l10n.resYourDriverName(driver.displayFirstName),
         if (car != null) car,
         if (driver.plate != null) 'plate ${driver.plate}',
       ].join(', '),
@@ -510,7 +516,7 @@ class ReservationDriverCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'YOUR DRIVER',
+              context.l10n.resYourDriverCaps,
               style: reservationText(
                 10.5,
                 weight: FontWeight.w600,
@@ -645,21 +651,21 @@ class _KnowCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _KnowItem(index: '01', title: 'Waiting time', body: waiting),
+          _KnowItem(index: '01', title: context.l10n.resWaitingTime, body: waiting),
           const Divider(
             height: 1,
             indent: 20,
             endIndent: 20,
             color: kReservationLine,
           ),
-          _KnowItem(index: '02', title: 'Cancellation', body: cancellation),
+          _KnowItem(index: '02', title: context.l10n.resCancellation, body: cancellation),
           const Divider(
             height: 1,
             indent: 20,
             endIndent: 20,
             color: kReservationLine,
           ),
-          _KnowItem(index: '03', title: 'Pricing', body: pricing),
+          _KnowItem(index: '03', title: context.l10n.resPricing, body: pricing),
         ],
       ),
     );

@@ -1,7 +1,11 @@
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
@@ -16,6 +20,7 @@ import 'package:movera_rider/features/ride_selection/data/ride_selection_reposit
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -31,7 +36,9 @@ class RideSelectionController {
     SavedCardsController? savedCards,
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
-  }) : _store = store ?? RideSelectionRepository(),
+    String currency = Money.defaultCurrency,
+  }) : _currency = currency,
+       _store = store ?? RideSelectionRepository(),
        _catalog = catalog ?? (store == null ? AppScope.instance.catalog : null),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
@@ -49,6 +56,51 @@ class RideSelectionController {
   final DefaultPaymentStore? _paymentStore;
   final SavedCardsController _savedCards;
 
+  /// Q7: the currency of the pickup's zone. Every price below is in whole
+  /// units of it. Select Ride sets it from the pickup; a quote the server
+  /// prices in another currency moves it (the server decides). A change
+  /// drops the prices held in the old currency.
+  String get currency => _currency;
+  String _currency;
+  set currency(String value) {
+    if (value == _currency) return;
+    _currency = value;
+    offeredPrices.clear();
+  }
+
+  /// The currency of [walletBalance]: the trip's (Q8: one balance per
+  /// currency), once Select Ride has read it.
+  String walletCurrency = Money.defaultCurrency;
+
+  /// Whether the wallet can pay this trip: only in its own currency. The
+  /// app never converts between currencies.
+  bool get walletMatchesTrip => walletCurrency == currency;
+
+  /// Q7 FINAL: the contract payment methods the pickup zone's config
+  /// offers (`cash`, `card`, `apple_pay`, `google_pay`). Select Ride sets
+  /// it from the zone's config; the wallet is separate.
+  List<String> zonePaymentMethods = ZoneDefaults.paymentMethods;
+
+  /// The contract zone method a payment row is ([zonePaymentMethods]), or
+  /// null for the wallet (never a zone method).
+  static String? zoneMethodOf(String brand) {
+    if (brand == 'cash') return 'cash';
+    if (brand == 'cards' || brand.startsWith('card')) return 'card';
+    if (brand == 'apple') return 'apple_pay';
+    if (brand == 'google') return 'google_pay';
+    return null;
+  }
+
+  /// Whether this build offers the wallet at all.
+  bool get walletEnabled => _flags.enableWallet;
+
+  /// [major] whole units of [currency] as Money.
+  Money moneyOf(double major) => Money.fromLegacyMajor(major, currency);
+
+  /// [quote]'s total in whole units of its currency.
+  static double majorOf(RideQuote quote) =>
+      Money(quote.totalMinor, quote.currency).major;
+
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
   final Map<String, DateTime> quoteExpiresAt = {};
@@ -58,7 +110,7 @@ class RideSelectionController {
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
   bool _disposed = false;
   bool usedFallback = false;
-  String selectedRideId = 'movera';
+  String selectedRideId = CategoryIds.economy;
   int selectedPayment = 1;
   DateTime? scheduledFor;
   BookingMode bookingMode;
@@ -110,12 +162,14 @@ class RideSelectionController {
     if (current != null) return current;
     final fallback = catalog.first;
     selectedRideId = fallback.id;
-    offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    if (fallback.currency == currency) {
+      offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    }
     return fallback;
   }
 
-  /// Movera Wallet balance in kr, once known. The wallet is only offered
-  /// when there is money in it.
+  /// Movera Wallet balance in whole units of [walletCurrency], once known.
+  /// The wallet is only offered when there is money in it.
   double walletBalance = 0;
 
   /// "Use wallet balance first": the balance is taken off the fare before
@@ -125,25 +179,32 @@ class RideSelectionController {
   /// The part of [priceKr] the wallet covers for the current payment
   /// choice, or 0. Paying the whole ride from the wallet is its own method
   /// and is not a split.
+  /// [priceKr] is in whole units of [currency].
   double walletAppliedKr(double priceKr) =>
-      walletSplitFor(krToMinor(priceKr)).walletMinor / 100;
+      Money(walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor, currency)
+          .major;
 
   /// What the chosen method is charged after the wallet part.
-  double remainderKr(double priceKr) =>
-      walletSplitFor(krToMinor(priceKr)).remainderMinor / 100;
+  double remainderKr(double priceKr) => Money(
+    walletSplitFor(moneyOf(priceKr).amountMinor).remainderMinor,
+    currency,
+  ).major;
 
-  /// The wallet / method split of [totalMinor], worked out in öre so the
-  /// parts always add up to the total.
+  /// The wallet / method split of [totalMinor] (minor units of [currency]),
+  /// worked out in minor units so the parts always add up to the total.
+  /// None until the balance of this trip's currency is known (Q8).
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst || !_flags.enableWallet) {
-      return WalletSplit.none(totalMinor);
+    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
+      return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {
-      return WalletSplit.none(totalMinor);
+      return WalletSplit.none(totalMinor, currency);
     }
     return WalletSplit.of(
       totalMinor: totalMinor,
-      balanceMinor: krToMinor(walletBalance),
+      balanceMinor: Money.fromLegacyMajor(walletBalance, walletCurrency)
+          .amountMinor,
+      currency: currency,
     );
   }
 
@@ -158,7 +219,7 @@ class RideSelectionController {
       RidePaymentItem(
         brand: card.methodBrand,
         name: card.displayName,
-        detail: 'Expires ${card.expiryLabel}',
+        detail: L10n.current.cardExpires(card.expiryLabel),
       ),
   ];
 
@@ -187,6 +248,10 @@ class RideSelectionController {
       }
       return [item];
     }).where((item) {
+      final zoneMethod = zoneMethodOf(item.brand);
+      if (zoneMethod != null && !zonePaymentMethods.contains(zoneMethod)) {
+        return false;
+      }
       if (item.brand == 'cash') return _flags.enableCash;
       // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
       if (item.brand == 'apple') {
@@ -198,13 +263,14 @@ class RideSelectionController {
             (!mobile || platform == TargetPlatform.android);
       }
       if (item.brand == 'wallet') {
-        return _flags.enableWallet && walletBalance > 0;
+        // Q8: the balance of the trip's own currency; no conversion.
+        return _flags.enableWallet && walletBalance > 0 && walletMatchesTrip;
       }
       return true;
     }).toList();
   }
 
-  /// Pay in car is the default until the rider picks something else.
+  /// Cash is the default until the rider picks something else.
   void _selectDefaultPayment() {
     final list = payments();
     final i = list.indexWhere((item) => item.brand == 'cash');
@@ -275,6 +341,8 @@ class RideSelectionController {
     int distanceMeters = 3000,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    // Audit finding B7 / contract §3: quotes MUST include the stops.
+    List<RouteStop> stops = const <RouteStop>[],
     int parallelism = PerformanceBudgets.quoteParallelism,
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
@@ -297,6 +365,7 @@ class RideSelectionController {
             distanceMeters: distanceMeters,
             pickupPoint: pickupPoint,
             destinationPoint: destinationPoint,
+            stops: stops,
             timeout: timeout,
           ),
         ),
@@ -312,6 +381,7 @@ class RideSelectionController {
     required int distanceMeters,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
     required Duration timeout,
   }) async {
     if (generation != _quoteGeneration) return;
@@ -324,6 +394,7 @@ class RideSelectionController {
           destination: destination,
           pickupPoint: pickupPoint,
           destinationPoint: destinationPoint,
+          stops: stops,
         ),
         timeout,
       );
@@ -353,6 +424,7 @@ class RideSelectionController {
     String? destination,
     GeoPoint? pickupPoint,
     GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     if (_disposed) return null;
@@ -366,6 +438,7 @@ class RideSelectionController {
         destination: destination,
         pickupPoint: pickupPoint,
         destinationPoint: destinationPoint,
+        stops: stops,
       ),
       timeout,
     );
@@ -379,7 +452,10 @@ class RideSelectionController {
   /// the exact pin, so booking sends that quote.
   void adoptQuote(String rideId, RideQuote quote) {
     if (_disposed) return;
-    offeredPrices[rideId] = quote.totalMinor / 100;
+    // The server priced the pickup in another zone's currency: every
+    // price held so far was in the old one, and is dropped.
+    currency = quote.currency;
+    offeredPrices[rideId] = majorOf(quote);
     quoteIds[rideId] = quote.id;
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
@@ -403,9 +479,10 @@ class RideSelectionController {
     }
     if (!quoteIsFresh(id, now: now)) return false;
     if (quote.rideType != id) return false;
+    if (quote.currency != currency) return false;
     final offered = offeredPrices[id];
     if (offered == null) return false;
-    return (offered * 100).round() == quote.totalMinor;
+    return moneyOf(offered).amountMinor == quote.totalMinor;
   }
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
@@ -426,13 +503,26 @@ class RideSelectionController {
   double? authoritativePriceFor(String id, {DateTime? now}) {
     if (!quoteIsAvailable(id, now: now)) return null;
     final quote = authoritativeQuotes[id]!;
-    return quote.totalMinor / 100;
+    return majorOf(quote);
   }
 
-  void selectRide(String id, double catalog) {
+  /// Selects [id]. [catalog] is its list price, held as the price only when
+  /// it is in this pickup's currency ([catalogCurrency]).
+  void selectRide(
+    String id,
+    double catalog, {
+    String catalogCurrency = Money.defaultCurrency,
+  }) {
     selectedRideId = id;
-    offeredPrices.putIfAbsent(id, () => catalog);
+    if (catalogCurrency == currency) {
+      offeredPrices.putIfAbsent(id, () => catalog);
+    }
   }
+
+  /// Whether [id] has a price to show in this pickup's currency: a quote,
+  /// or a list price in the same currency.
+  bool hasPriceFor(String id, {required String catalogCurrency}) =>
+      offeredPrices.containsKey(id) || catalogCurrency == currency;
 
   RidePaymentItem? selectedPaymentItem() {
     final list = payments();
@@ -457,9 +547,10 @@ class RideSelectionController {
   void selectPaymentNamed(String? name) {
     final needle = name?.trim();
     if (needle == null || needle.isEmpty) return;
-    // Bookings saved before the change said "Cash" or "Swish".
+    // Bookings saved before the change said "Pay in car" or "Swish"
+    // (removed, owner Q7): both are Cash now.
     final legacy = needle.toLowerCase();
-    if (legacy == 'cash' || legacy == 'swish') {
+    if (legacy == 'cash' || legacy == 'swish' || legacy == 'pay in car') {
       selectPaymentByBrand('cash');
       return;
     }
@@ -488,6 +579,19 @@ class RideSelectionController {
       selectPaymentByBrand(saved);
     }
     selectedPaymentItem();
+  }
+
+  /// Q7: the zone's payment methods. Keeps the chosen method when it is
+  /// still offered, else falls back to the default.
+  void setZonePaymentMethods(List<String> methods) {
+    final current = selectedPaymentItem()?.brand;
+    zonePaymentMethods = List.unmodifiable(methods);
+    final list = payments();
+    if (current != null && list.any((item) => item.brand == current)) {
+      selectPaymentByBrand(current);
+    } else {
+      _selectDefaultPayment();
+    }
   }
 
   /// Keeps the chosen method when the list changes (e.g. the wallet appears).

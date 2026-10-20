@@ -1,0 +1,60 @@
+name: Rider languages (en, fr, sv)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/l10n/**'
+      - 'l10n.yaml'
+      - 'tool/gen_l10n_messages.py'
+      - 'test/l10n/**'
+      - '.github/workflows/rider-l10n.yml'
+  pull_request:
+    paths:
+      - 'lib/l10n/**'
+      - 'l10n.yaml'
+      - 'tool/gen_l10n_messages.py'
+      - 'test/l10n/**'
+      - '.github/workflows/rider-l10n.yml'
+  workflow_dispatch:
+
+jobs:
+  l10n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # gen-l10n ignores a key a translation has but English lacks, so the
+      # exact key sets are compared here; the Dart tests cover the rest.
+      - name: Same keys in every ARB, test list up to date
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, sys
+          arbs = {p.stem.split('_')[-1]: json.loads(p.read_text(encoding='utf-8'))
+                  for p in sorted(pathlib.Path('lib/l10n').glob('app_*.arb'))}
+          if set(arbs) != {'en', 'fr', 'sv'}:
+              sys.exit(f'::error::expected app_en/fr/sv.arb, found {sorted(arbs)}')
+          keys = {l: {k for k in d if not k.startswith('@')} for l, d in arbs.items()}
+          for lang in ('fr', 'sv'):
+              missing, extra = keys['en'] - keys[lang], keys[lang] - keys['en']
+              if missing or extra:
+                  sys.exit(f'::error::{lang}: missing {sorted(missing)} extra {sorted(extra)}')
+          print(f"{len(keys['en'])} messages in en, fr and sv")
+          PY
+          cp test/l10n/all_messages.g.dart /tmp/all_messages.g.dart
+          python3 tool/gen_l10n_messages.py
+          diff -u /tmp/all_messages.g.dart test/l10n/all_messages.g.dart || {
+            echo "::error::Run python3 tool/gen_l10n_messages.py and commit the result."
+            exit 1
+          }
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: flutter test test/l10n

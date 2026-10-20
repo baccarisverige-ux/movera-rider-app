@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// A ride's price before and after the promotion, in kr.
 typedef PromotionPrice = ({double original, double discounted});
@@ -30,6 +33,8 @@ class PromotionDetailsSheet extends StatelessWidget {
     required this.categories,
     this.prices = const {},
     this.now,
+    this.currency = Money.defaultCurrency,
+    this.cap,
   });
 
   static const Color _ink = Color(0xFF1D252C);
@@ -46,6 +51,14 @@ class PromotionDetailsSheet extends StatelessWidget {
   /// Current quote prices by category id; empty when no destination is set.
   final Map<String, PromotionPrice> prices;
 
+  /// ISO-4217 code of [prices] (the pickup's zone).
+  final String currency;
+
+  /// Q10: the most a promotion takes off one trip in this zone, set by
+  /// Admin per country (`RiderAppConfig.promoCap`), in [currency]. Null:
+  /// no cap is set, and none is shown.
+  final Money? cap;
+
   /// Clock for the "days left" line; tests pin it.
   final DateTime? now;
 
@@ -56,54 +69,53 @@ class PromotionDetailsSheet extends StatelessWidget {
     RiderPromotion promotion, {
     List<PromotionCategory>? categories,
     Map<String, PromotionPrice> prices = const {},
-  }) {
+    String? currency,
+  }) async {
     final list =
         categories ??
         [
           for (final ride in AppScope.instance.rideCatalog.rides())
             PromotionCategory(id: ride.id, name: ride.name),
         ];
+    // Without a trip, the zone the rider is in decides the money.
+    final code = currency ?? (await currentRiderZone()).currency;
+    Money? cap;
+    try {
+      cap = (await AppScope.instance.riderConfig.forTrip(currency: code))
+          ?.promoCap;
+    } catch (_) {
+      cap = null;
+    }
+    if (!context.mounted) return;
     return MoveraSheet.show<void>(
       context: context,
       builder: (_) => PromotionDetailsSheet(
         promotion: promotion,
         categories: list,
         prices: prices,
+        currency: code,
+        cap: cap,
       ),
     );
   }
 
-  static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _date(DateTime d) =>
-      '${d.day} ${_months[d.month - 1]} ${d.year}';
+  /// "30 Nov 2026" in the app language.
+  static String _date(DateTime d) => L10n.formatDate(d, 'd MMM y');
 
   /// "Valid until 30 Nov 2026 · 48 days left", "Ends today" or "Expired".
   static String validityText(RiderPromotion promotion, DateTime now) {
     final ends = promotion.endsAt?.toLocal();
-    if (ends == null) return 'No end date';
-    if (!now.isBefore(ends)) return 'Expired ${_date(ends)}';
+    if (ends == null) return L10n.current.noEndDate;
+    if (!now.isBefore(ends)) return L10n.current.expiredOn(_date(ends));
     final today = DateTime(now.year, now.month, now.day);
     final last = DateTime(ends.year, ends.month, ends.day);
     final days = last.difference(today).inDays;
-    if (days <= 0) return 'Ends today';
-    return 'Valid until ${_date(ends)} · $days ${days == 1 ? 'day' : 'days'} left';
+    if (days <= 0) return L10n.current.endsToday;
+    return L10n.current.validUntilDays(_date(ends), days);
   }
 
-  static String _kr(double kr) => formatSek((kr * 100).round());
+  String _kr(double major) =>
+      formatMoney(Money.fromLegacyMajor(major, currency), whole: true);
 
   TextStyle _t(double size, {FontWeight w = FontWeight.w500, Color c = _ink}) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: w, color: c);
@@ -118,7 +130,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     final left = promotion.ridesLeft.clamp(0, promotion.ridesTotal);
     final used = (promotion.ridesTotal - left).clamp(0, 999);
     final inset = MediaQuery.paddingOf(context).bottom;
-    final max = promotion.maxDiscountMinor;
+    final max = cap != null && cap!.currency == currency ? cap : null;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: SingleChildScrollView(
@@ -151,8 +163,7 @@ class PromotionDetailsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${promotion.percentOff}% off · $left of '
-                    '${promotion.ridesTotal} rides left',
+                    L10n.current.promoOffLeftOf('${promotion.percentOff}', '$left', '${promotion.ridesTotal}'),
                     style: _t(13, c: _muted),
                   ),
                 ),
@@ -168,10 +179,10 @@ class PromotionDetailsSheet extends StatelessWidget {
                   ),
                   child: Text(
                     expired
-                        ? 'Expired'
+                        ? L10n.current.expired
                         : usedUp
-                        ? 'All used'
-                        : '$left left',
+                        ? L10n.current.allUsed
+                        : L10n.current.nLeft('$left'),
                     style: _t(
                       12,
                       w: FontWeight.w600,
@@ -201,11 +212,14 @@ class PromotionDetailsSheet extends StatelessWidget {
             ),
             if (max != null) ...[
               const SizedBox(height: 6),
-              _meta(Icons.sell_outlined, 'Max ${formatSek(max)} off per ride'),
+              _meta(
+                Icons.sell_outlined,
+                L10n.current.maxOffPerRide(formatMoneyShort(max)),
+              ),
             ],
             const SizedBox(height: 18),
             Text(
-              'Your prices with this promotion',
+              L10n.current.pricesWithPromo,
               style: _t(15, w: FontWeight.w600),
             ),
             const SizedBox(height: 6),
@@ -213,7 +227,7 @@ class PromotionDetailsSheet extends StatelessWidget {
             if (prices.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'Prices show once you choose a destination.',
+                L10n.current.pricesAfterDestination,
                 style: _t(12.5, c: _muted),
               ),
             ],
@@ -240,7 +254,7 @@ class PromotionDetailsSheet extends StatelessWidget {
                 ),
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  'Got it',
+                  L10n.current.gotIt,
                   style: _t(15, w: FontWeight.w600, c: Colors.white),
                 ),
               ),
@@ -269,7 +283,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     final Widget trailing;
     if (price == null) {
       trailing = Text(
-        included ? 'Included' : 'Not included',
+        included ? L10n.current.included : L10n.current.notIncluded,
         style: _t(
           13,
           w: included ? FontWeight.w600 : FontWeight.w500,
@@ -282,14 +296,13 @@ class PromotionDetailsSheet extends StatelessWidget {
         children: [
           Text(_kr(price.original), style: _t(14, w: FontWeight.w600)),
           const SizedBox(width: 8),
-          Text('Not included', style: _t(12, c: _muted)),
+          Text(L10n.current.notIncluded, style: _t(12, c: _muted)),
         ],
       );
     } else {
       trailing = Semantics(
         label:
-            'Was ${_kr(price.original)}, now ${_kr(price.discounted)} '
-            'with the promotion',
+            L10n.current.wasNowPromo(_kr(price.original), _kr(price.discounted)),
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -4,6 +4,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReviewChangesPage extends StatelessWidget {
   const ReviewChangesPage({
@@ -22,6 +23,7 @@ class ReviewChangesPage extends StatelessWidget {
     final change = ReservationPriceChange(
       previous: original.price,
       next: draft.price,
+      currency: original.currency,
     );
     final policy = controller?.policy;
     final top = MediaQuery.paddingOf(context).top;
@@ -39,11 +41,11 @@ class ReviewChangesPage extends StatelessWidget {
                   Icons.arrow_back_rounded,
                   color: kReservationInk,
                 ),
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
               ),
               Expanded(
                 child: Text(
-                  'Review your changes',
+                  context.l10n.resReviewChanges,
                   textAlign: TextAlign.center,
                   style: reservationText(16, weight: FontWeight.w600),
                 ),
@@ -61,7 +63,7 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Check the updated trip details and price before confirming.',
+                  context.l10n.resReviewIntro,
                   style: reservationText(
                     14.5,
                     color: kReservationMuted,
@@ -70,21 +72,23 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 _CompareCard(
-                  title: 'Current reservation',
+                  title: context.l10n.resCurrent,
                   when: original.scheduledPickupAt,
                   pickup: original.pickup.label,
                   destination: original.destination.label,
                   category: original.categoryName,
                   price: original.price,
+                  currency: original.currency,
                 ),
                 const SizedBox(height: 12),
                 _CompareCard(
-                  title: 'Updated reservation',
+                  title: context.l10n.resUpdated,
                   when: draft.scheduledPickupAt,
                   pickup: draft.pickup.label,
                   destination: draft.destination.label,
                   category: draft.categoryName,
                   price: draft.price,
+                  currency: draft.currency,
                   highlight: true,
                 ),
                 const SizedBox(height: 20),
@@ -94,18 +98,18 @@ class ReviewChangesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 _PriceLine(
-                  label: 'Previous price',
-                  value: ReservationFormat.kr(change.previous),
+                  label: context.l10n.resPreviousPrice,
+                  value: ReservationFormat.kr(change.previous, change.currency),
                 ),
                 _PriceLine(
-                  label: 'New reservation price',
-                  value: ReservationFormat.kr(change.next),
+                  label: context.l10n.resNewPrice,
+                  value: ReservationFormat.kr(change.next, change.currency),
                 ),
                 _PriceLine(
-                  label: 'Price difference',
+                  label: context.l10n.resPriceDifference,
                   value: change.unchanged
-                      ? '0 kr'
-                      : '${change.delta > 0 ? '+' : '−'}${change.delta.abs().toStringAsFixed(0)} kr',
+                      ? ReservationFormat.kr(0, change.currency)
+                      : '${change.delta > 0 ? '+' : '−'}${ReservationFormat.kr(change.delta.abs(), change.currency)}',
                   strong: true,
                 ),
                 if (policy?.changeCharge == null)
@@ -113,7 +117,7 @@ class ReviewChangesPage extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
                       policy?.changeChargeSummary ??
-                          'No additional change charge',
+                          context.l10n.resNoChangeCharge,
                       style: reservationText(13, color: kReservationMuted),
                     ),
                   ),
@@ -138,7 +142,7 @@ class ReviewChangesPage extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Confirm changes',
+                      context.l10n.resConfirmChanges,
                       style: reservationText(
                         15,
                         weight: FontWeight.w600,
@@ -161,7 +165,7 @@ class ReviewChangesPage extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Keep current reservation',
+                      context.l10n.resKeepCurrent,
                       style: reservationText(15, weight: FontWeight.w600),
                     ),
                   ),
@@ -183,6 +187,7 @@ class _CompareCard extends StatelessWidget {
     required this.destination,
     required this.category,
     required this.price,
+    this.currency = 'SEK',
     this.highlight = false,
   });
 
@@ -192,6 +197,7 @@ class _CompareCard extends StatelessWidget {
   final String destination;
   final String category;
   final double price;
+  final String currency;
   final bool highlight;
 
   @override
@@ -222,7 +228,7 @@ class _CompareCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '$category  ·  ${ReservationFormat.kr(price)}',
+            '$category  ·  ${ReservationFormat.kr(price, currency)}',
             style: reservationText(15, weight: FontWeight.w700),
           ),
           const SizedBox(height: 4),

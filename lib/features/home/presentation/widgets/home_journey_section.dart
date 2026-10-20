@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -13,6 +15,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const _ink = Color(0xFF1D252C);
 // UI-6: was 0xFF6B757D (4.27:1 on the card fill).
@@ -30,17 +33,18 @@ class MonthRideStats {
   const MonthRideStats({
     required this.month,
     required this.rides,
-    required this.spentMinorless,
+    required this.spent,
     required this.ridesPerWeek,
-    required this.currency,
     this.electricRides = 0,
   });
 
   final DateTime month;
   final int rides;
-  final double spentMinorless;
+
+  /// Q11: what the month cost, one total per currency (never converted),
+  /// in the card's order: SEK, EUR, TND, then any other code.
+  final List<Money> spent;
   final List<int> ridesPerWeek;
-  final String currency;
 
   /// Completed Electric rides this month: the only ones that avoid
   /// tailpipe CO₂ (FLOW-13; petrol rides used to count too).
@@ -53,22 +57,8 @@ class MonthRideStats {
 
   double get co2AvoidedKg => electricRides * co2PerRideKg;
 
-  static const _names = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
-  String get monthName => _names[month.month - 1];
+  /// The month's name in the app language ("October", "octobre").
+  String get monthName => L10n.formatDate(month, 'MMMM');
 
   static int weeksIn(DateTime month) {
     final days = DateTime(month.year, month.month + 1, 0).day;
@@ -79,32 +69,46 @@ class MonthRideStats {
     final weeks = List<int>.filled(weeksIn(now), 0);
     var count = 0;
     var electric = 0;
-    var spent = 0.0;
-    var currency = 'SEK';
+    final totals = <String, Money>{};
     for (final ride in rides) {
       if (!ride.status.isCompleted) continue;
       final at = ride.scheduledPickupAt;
       if (at.year != now.year || at.month != now.month) continue;
       count++;
       if (ride.categoryId == 'electric') electric++;
-      spent += ride.price;
-      currency = ride.currency;
+      final price = Money.fromLegacyMajor(ride.price, ride.currency);
+      final total = totals[price.currency];
+      totals[price.currency] = total == null ? price : total + price;
       weeks[(at.day - 1) ~/ 7]++;
     }
     return MonthRideStats(
       month: DateTime(now.year, now.month),
       rides: count,
-      spentMinorless: spent,
+      spent: totals.values.toList()..sort(_byCurrency),
       ridesPerWeek: weeks,
-      currency: currency,
       electricRides: electric,
     );
   }
 
+  static const _currencyOrder = ['SEK', 'EUR', 'TND'];
+
+  static int _byCurrency(Money a, Money b) {
+    int rank(String code) {
+      final i = _currencyOrder.indexOf(code);
+      return i < 0 ? _currencyOrder.length : i;
+    }
+
+    final byRank = rank(a.currency).compareTo(rank(b.currency));
+    return byRank != 0 ? byRank : a.currency.compareTo(b.currency);
+  }
+
+  /// "3 rides · 820 kr · 24,00 €": the ride count, then each currency's
+  /// total in the app's one money format.
   String get pillText {
-    final rideWord = rides == 1 ? 'ride' : 'rides';
-    final unit = currency == 'SEK' ? 'kr' : currency;
-    return '$rides $rideWord · $unit ${spentMinorless.round()}';
+    return [
+      L10n.current.homeRideCount(rides),
+      for (final total in spent) formatMoney(total, whole: true),
+    ].join(' · ');
   }
 }
 
@@ -204,7 +208,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
         Padding(
           padding: EdgeInsets.only(left: ResSize.w * 2, bottom: ResSize.h * 7),
           child: TextWidget(
-            text: 'START YOUR JOURNEY',
+            text: context.l10n.homeStartYourJourney,
             color: _label,
             fontSize: 10.5,
             fontWeight: fwSemiBold,
@@ -215,7 +219,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
           children: [
             Expanded(
               child: _JourneyCard(
-                title: 'Catch your flight',
+                title: context.l10n.homeCatchFlight,
                 picture: 'at_the_airport',
                 onTap: widget.onOpenSchedule,
               ),
@@ -223,7 +227,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
             SizedBox(width: ResSize.w * 8),
             Expanded(
               child: _JourneyCard(
-                title: 'Comfort car',
+                title: context.l10n.homeComfortCar,
                 picture: 'by_the_road',
                 onTap: _rideType('comfort'),
               ),
@@ -231,7 +235,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
             SizedBox(width: ResSize.w * 8),
             Expanded(
               child: _JourneyCard(
-                title: 'Highly rated chauffeur',
+                title: context.l10n.homeTopChauffeur,
                 picture: 'well_done',
                 onTap: _rideType('premium'),
               ),
@@ -282,7 +286,7 @@ class _MonthCard extends StatelessWidget {
             children: [
               Expanded(
                 child: TextWidget(
-                  text: 'Your ${stats.monthName}',
+                  text: context.l10n.homeYourMonth(stats.monthName),
                   color: _ink,
                   fontSize: 13.5,
                   fontWeight: fwSemiBold,
@@ -321,7 +325,7 @@ class _MonthCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: TextWidget(
-                          text: 'Rides per week',
+                          text: context.l10n.homeRidesPerWeek,
                           color: _muted,
                           fontSize: 10,
                           fontWeight: fwNormal,
@@ -359,13 +363,13 @@ class _MonthCard extends StatelessWidget {
                             children: [
                               TextWidget(
                                 text:
-                                    '${stats.co2AvoidedKg.toStringAsFixed(1)} kg',
+                                    context.l10n.homeCo2Kg(stats.co2AvoidedKg.toStringAsFixed(1)),
                                 color: _ink,
                                 fontSize: 14,
                                 fontWeight: fwBold,
                               ),
                               TextWidget(
-                                text: 'est. CO₂ avoided',
+                                text: context.l10n.homeCo2Avoided,
                                 color: _muted,
                                 fontSize: 9,
                                 fontWeight: fwNormal,
@@ -548,13 +552,13 @@ class _HelpRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: 'Help centre',
+                      text: context.l10n.helpCentre,
                       color: _ink,
                       fontSize: 12.5,
                       fontWeight: fwSemiBold,
                     ),
                     TextWidget(
-                      text: 'Answers to common questions, any time',
+                      text: context.l10n.helpCentreBody,
                       color: _muted,
                       fontSize: 10,
                       fontWeight: fwNormal,

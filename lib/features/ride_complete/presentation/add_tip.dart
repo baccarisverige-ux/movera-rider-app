@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
   const RideCompletedAddTip({super.key, this.controller, this.onTipChanged});
@@ -20,16 +23,43 @@ class RideCompletedAddTip extends StatefulWidget {
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final RideCompleteController _ctl =
       widget.controller ?? AppScope.instance.rideComplete;
-  late final List<String> _amounts = _ctl.tips();
+  /// Q5: the trip zone's tips, in its currency. The seed shows on the
+  /// first frame; the zone's config replaces it once read.
+  late List<Money> _amounts = _ctl.initialTips();
   late final String? _driverName = _ctl.driver()?.name;
-  String? _selected;
+  Money? _selected;
 
-  void _choose(String amount) {
+  @override
+  void initState() {
+    super.initState();
+    _loadTips();
+  }
+
+  Future<void> _loadTips() async {
+    final List<Money> amounts;
+    try {
+      amounts = await _ctl.tips();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _sameAmounts(amounts, _amounts)) return;
+    setState(() {
+      _amounts = amounts;
+      if (_selected != null && !amounts.contains(_selected)) {
+        _selected = null;
+        widget.onTipChanged?.call(null);
+      }
+    });
+  }
+
+  static bool _sameAmounts(List<Money> a, List<Money> b) =>
+      a.length == b.length &&
+      [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((same) => same);
+
+  void _choose(Money amount) {
     final selected = _selected == amount ? null : amount;
     setState(() => _selected = selected);
-    widget.onTipChanged?.call(
-      selected == null ? null : int.parse(selected.split(' ').first) * 100,
-    );
+    widget.onTipChanged?.call(selected?.amountMinor);
   }
 
   @override
@@ -39,18 +69,18 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
         Center(
           child: TextWidget(
             text: _driverName == null
-                ? 'Tip your driver'
-                : 'Tip $_driverName',
+                ? context.l10n.tipYourDriver
+                : context.l10n.tipName(_driverName),
             color: AppColor.title,
             fontSize: 16,
             fontWeight: fwSemiBold,
           ),
         ),
         if (_amounts.isEmpty)
-          const MoveraEmptyState(
+          MoveraEmptyState(
             icon: Icons.volunteer_activism_outlined,
-            title: 'Tips unavailable',
-            message: "Tipping isn't available in this build.",
+            title: context.l10n.tipsUnavailable,
+            message: context.l10n.tipsUnavailableBody,
             compact: true,
           )
         else ...[
@@ -65,7 +95,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
               children: [
                 for (final amount in _amounts)
                   _TipChip(
-                    amount: amount,
+                    amount: formatMoneyShort(amount),
                     selected: _selected == amount,
                     onTap: () => _choose(amount),
                   ),
@@ -75,8 +105,8 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           const SizedBox(height: 10),
           TextWidget(
             text: _selected == null
-                ? 'Tip is optional.'
-                : '$_selected selected.',
+                ? context.l10n.tipOptional
+                : context.l10n.tipSelected(formatMoneyShort(_selected!)),
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,
@@ -104,7 +134,7 @@ class _TipChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Tip $amount',
+      label: context.l10n.tipAmount(amount),
       child: Material(
         color: selected ? accent : Colors.white,
         borderRadius: BorderRadius.circular(A11y.minTap / 2),

@@ -13,7 +13,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final _now = DateTime(2026, 10, 14, 12);
 
-Reservation _ride(String id, String category) => Reservation(
+Reservation _ride(
+  String id,
+  String category, {
+  double price = 200,
+  String currency = 'SEK',
+}) => Reservation(
   reservationId: id,
   createdAt: DateTime(2026, 10, 1),
   scheduledPickupAt: DateTime(2026, 10, 3, 8),
@@ -22,7 +27,8 @@ Reservation _ride(String id, String category) => Reservation(
   categoryId: category,
   categoryName: category,
   categoryImage: 'assets/images/rides/movera.webp',
-  price: 200,
+  price: price,
+  currency: currency,
   paymentMethod: 'Cash',
   status: ReservationStatus.completed,
 );
@@ -50,12 +56,21 @@ void main() {
 
   test('FLOW-13: CO₂ avoided counts Electric rides only', () {
     final stats = MonthRideStats.fromRides([
-      _ride('a', 'movera'),
+      _ride('a', 'economy'),
       _ride('b', 'premium'),
       _ride('c', 'electric'),
     ], _now);
     expect(stats.rides, 3);
     expect(stats.co2AvoidedKg, closeTo(MonthRideStats.co2PerRideKg, 1e-9));
+  });
+
+  test('Q11: the month shows one total per currency, never converted', () {
+    final stats = MonthRideStats.fromRides([
+      _ride('a', 'economy', price: 24, currency: 'EUR'),
+      _ride('b', 'economy', price: 500),
+      _ride('c', 'economy', price: 320),
+    ], _now);
+    expect(stats.pillText, '3 rides · 820 kr · 24,00 €');
   });
 
   testWidgets('FLOW-13: the month card refreshes when a ride is archived and '
@@ -73,13 +88,13 @@ void main() {
         changes: changes.stream,
       ),
     );
-    expect(find.text('0 rides · kr 0'), findsOneWidget);
+    expect(find.text('0 rides'), findsOneWidget);
     expect(find.text('est. CO₂ avoided'), findsOneWidget);
 
     rides.add(_ride('a', 'electric'));
     changes.add(null);
     await tester.pumpAndSettle();
-    expect(find.text('1 ride · kr 200'), findsOneWidget);
+    expect(find.text('1 ride · 200 kr'), findsOneWidget);
     expect(find.text('0.4 kg'), findsOneWidget);
   });
 
@@ -124,7 +139,7 @@ void main() {
     tester,
   ) async {
     await pumpMenu(tester);
-    expect(find.textContaining('kr 50'), findsNothing);
+    expect(find.textContaining('50 kr'), findsNothing);
     expect(find.text('Coming soon: invite friends to Movera.'), findsOneWidget);
   });
 

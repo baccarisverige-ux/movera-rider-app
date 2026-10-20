@@ -5,6 +5,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedGiveReview extends StatefulWidget {
   const RideCompletedGiveReview({super.key, this.onRatingChanged});
@@ -28,7 +29,7 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
         24.height,
         Center(
           child: TextWidget(
-            text: "How was your trip",
+            text: context.l10n.howWasTrip,
             color: AppColor.title,
             fontSize: 20,
             fontWeight: fwSemiBold,
@@ -37,7 +38,7 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
         1.height,
         Center(
           child: TextWidget(
-            text: "Give rating to your driver",
+            text: context.l10n.rateYourDriver,
             color: AppColor.subtitle,
             fontSize: 14,
             fontWeight: fwNormal,
@@ -50,7 +51,8 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
             minRating: 1,
             glow: false,
             direction: Axis.horizontal,
-            allowHalfRating: true,
+            // Q38: whole stars only.
+            allowHalfRating: false,
             unratedColor: Color(0xff909090),
             itemCount: 5,
             itemSize: ResSize.h * 37,

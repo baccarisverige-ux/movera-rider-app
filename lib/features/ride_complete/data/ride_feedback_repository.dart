@@ -1,5 +1,6 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 
 /// Sends optional post-trip feedback through the same API transport as the ride.
 /// An acknowledgement is required before the completion screen closes.
@@ -12,11 +13,14 @@ class RideFeedbackRepository {
     required String rideId,
     double? rating,
     int? tipMinor,
+    String tipCurrency = Money.defaultCurrency,
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
     if (rating == null && tipMinor == null) return;
-    if (rating != null && (rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) {
+    // Q38 / X20: whole stars only, 1 to 5.
+    if (rating != null &&
+        (rating < 1 || rating > 5 || rating != rating.roundToDouble())) {
       throw ArgumentError.value(rating, 'rating');
     }
     if (tipMinor != null && (tipMinor <= 0 || tipMinor > 999900)) {
@@ -25,9 +29,11 @@ class RideFeedbackRepository {
     final response = await _api.post(
       '/api/v1/rides/${Uri.encodeComponent(rideId)}/feedback',
       body: {
-        if (rating != null) 'rating': rating,
+        // Contract `Rating.stars`: a whole number, sent as an integer.
+        if (rating != null) 'rating': rating.round(),
         if (tipMinor != null) 'tipMinor': tipMinor,
-        if (tipMinor != null) 'currency': 'SEK',
+        // Q5: the trip's currency (the server refuses any other).
+        if (tipMinor != null) 'currency': tipCurrency,
       },
       idempotencyKey: idempotencyKey,
     );

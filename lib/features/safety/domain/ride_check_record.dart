@@ -2,6 +2,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// `payload.kind` of a safety event that is a Ride check.
 const rideCheckEventKind = 'ridecheck';
@@ -89,12 +90,24 @@ class RideCheckAnswer {
   final String? value;
   final String? question;
 
-  /// "Is anyone hurt? Yes", or the row / action label.
+  /// "Is anyone hurt? Yes", or the row / action label, in the app
+  /// language (the saved [label] and [question] stay as they were sent).
   String get summary => switch (kind) {
-    RideCheckAnswerKind.question => '${question ?? id} $label',
+    RideCheckAnswerKind.ok => L10n.current.rcImOk,
+    RideCheckAnswerKind.call112 => L10n.current.rcCalled112,
+    RideCheckAnswerKind.row => _rowLabel(id) ?? label,
+    RideCheckAnswerKind.question =>
+      '${rideCheckQuestionText(id) ?? question ?? id} '
+          '${rideCheckOptionText(value ?? '') ?? label}',
     RideCheckAnswerKind.note => '“$label”',
-    _ => label,
   };
+
+  static String? _rowLabel(String wire) {
+    for (final row in rideCheckAllRows) {
+      if (row.wire == wire) return row.displayLabel;
+    }
+    return null;
+  }
 
   Map<String, dynamic> toJson() => {
     'kind': kind.name,
@@ -352,7 +365,7 @@ class RideCheckRecord {
   /// hurt? Yes".
   String get answerSummary => answered
       ? answers.map((answer) => answer.summary).join(' · ')
-      : 'No answer yet';
+      : L10n.current.rcNoAnswerYet;
 
   /// Null when [event] is not a Ride check.
   static RideCheckRecord? fromEvent(RideCheckEvent event) {

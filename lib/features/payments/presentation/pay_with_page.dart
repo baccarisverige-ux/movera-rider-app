@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
@@ -7,6 +8,8 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// One payment method shown on [PayWithPage].
 class PayWithMethod {
@@ -31,6 +34,7 @@ class PayWithPage extends StatefulWidget {
     required this.walletBalance,
     required this.promotion,
     required this.brandMark,
+    this.walletCurrency = Money.defaultCurrency,
     this.useWalletFirst = true,
     this.onWalletFirstChanged,
     this.savedCards,
@@ -48,6 +52,9 @@ class PayWithPage extends StatefulWidget {
 
   /// Shown only when the wallet has money in it.
   final double walletBalance;
+
+  /// Q8: the currency of [walletBalance] (the trip's).
+  final String walletCurrency;
   final RiderPromotion? promotion;
   final Widget Function(String brand) brandMark;
 
@@ -58,6 +65,7 @@ class PayWithPage extends StatefulWidget {
     required double walletBalance,
     required RiderPromotion? promotion,
     required Widget Function(String brand) brandMark,
+    String walletCurrency = Money.defaultCurrency,
     bool useWalletFirst = true,
     ValueChanged<bool>? onWalletFirstChanged,
     SavedCardsController? savedCards,
@@ -70,6 +78,7 @@ class PayWithPage extends StatefulWidget {
           walletBalance: walletBalance,
           promotion: promotion,
           brandMark: brandMark,
+          walletCurrency: walletCurrency,
           useWalletFirst: useWalletFirst,
           onWalletFirstChanged: onWalletFirstChanged,
           savedCards: savedCards,
@@ -201,7 +210,7 @@ class _PayWithPageState extends State<PayWithPage> {
             Align(
               alignment: Alignment.centerLeft,
               child: IconButton(
-                tooltip: 'Close',
+                tooltip: context.l10n.close,
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded, size: 26),
                 color: _ink,
@@ -209,15 +218,15 @@ class _PayWithPageState extends State<PayWithPage> {
               ),
             ),
             Text(
-              'Pay with',
+              context.l10n.payWith,
               style: _t(30, w: FontWeight.w700).copyWith(letterSpacing: -0.6),
             ),
             if (hasWallet) ...[
-              _section('Movera Wallet'),
+              _section(context.l10n.moveraWallet),
               _row(
                 leading: brandMark('wallet'),
-                title: 'Balance: ${formatKr(walletBalance)}',
-                subtitle: 'Tap to pay this ride from your balance',
+                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency), whole: true)),
+                subtitle: context.l10n.walletTapToPay,
                 trailing: _radio(selectedBrand == 'wallet'),
                 onTap: () => Navigator.of(context).pop('wallet'),
               ),
@@ -227,20 +236,20 @@ class _PayWithPageState extends State<PayWithPage> {
                 value: _walletFirst,
                 onChanged: _toggleWalletFirst,
                 activeTrackColor: const Color(0xFF11181D),
-                title: Text('Use wallet balance first', style: _t(15, w: FontWeight.w600)),
+                title: Text(context.l10n.walletFirst, style: _t(15, w: FontWeight.w600)),
                 subtitle: Text(
-                  'Your balance is taken off every fare; the rest goes to the method you choose.',
+                  context.l10n.walletFirstBody,
                   style: _t(12.5, c: _muted),
                 ),
               ),
             ],
-            _section('Payment methods'),
+            _section(context.l10n.paymentMethods),
             for (final method in rideMethods)
               _row(
                 key: ValueKey('pay-with-${method.brand}'),
                 leading: brandMark(method.brand),
-                title: method.name,
-                subtitle: method.detail,
+                title: paymentNameFor(method.brand, method.name),
+                subtitle: paymentDetailFor(method.brand, method.detail),
                 trailing: _radio(selectedBrand == method.brand),
                 onTap: () => Navigator.of(context).pop(method.brand),
               ),
@@ -248,23 +257,23 @@ class _PayWithPageState extends State<PayWithPage> {
               _row(
                 key: const ValueKey('pay-with-add'),
                 leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
-                title: 'Add payment method',
+                title: context.l10n.addPaymentMethod,
                 onTap: _addCard,
               ),
-            _section('Vouchers'),
+            _section(context.l10n.vouchers),
             if (promo != null)
               _row(
                 leading: Image.asset(AppAssets.promoCard, width: 40, height: 28),
                 title: promo.title,
                 subtitle:
-                    '${promo.ridesLeft} ${promo.ridesLeft == 1 ? 'ride' : 'rides'} left',
+                    context.l10n.ridesLeft(promo.ridesLeft),
                 trailing: const Icon(Icons.chevron_right_rounded, color: _muted),
                 onTap: () => PromotionDetailsSheet.open(context, promo),
               ),
             _row(
               leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
-              title: 'Add voucher code',
-              subtitle: 'Voucher codes open soon',
+              title: context.l10n.addVoucherCode,
+              subtitle: context.l10n.voucherSoon,
             ),
           ],
         ),

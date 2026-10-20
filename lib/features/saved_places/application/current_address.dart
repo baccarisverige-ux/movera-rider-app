@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Turns the device position into a street address for a saved place.
 typedef CurrentAddressResolver = Future<String> Function();
@@ -31,25 +32,17 @@ Future<String> resolveCurrentAddress({
   final Position position;
   try {
     if (!await loc.isLocationServiceEnabled()) {
-      throw const CurrentAddressException(
-        'Location is turned off. Turn it on, or search for the address.',
-      );
+      throw CurrentAddressException(L10n.current.spLocationOff);
     }
     var permission = await loc.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await loc.requestPermission();
     }
     if (permission == LocationPermission.deniedForever) {
-      throw const CurrentAddressException(
-        'Location access is off for Movera. Allow it in Settings, or search '
-        'for the address.',
-      );
+      throw CurrentAddressException(L10n.current.spLocationDeniedForever);
     }
     if (permission == LocationPermission.denied) {
-      throw const CurrentAddressException(
-        'Allow location access to use where you are, or search for the '
-        'address.',
-      );
+      throw CurrentAddressException(L10n.current.spLocationDenied);
     }
     position = await loc
         .getCurrentPosition(
@@ -62,9 +55,7 @@ Future<String> resolveCurrentAddress({
   } on CurrentAddressException {
     rethrow;
   } catch (_) {
-    throw const CurrentAddressException(
-      'We couldn’t find where you are. Search for the address instead.',
-    );
+    throw CurrentAddressException(L10n.current.spWhereYouAreNotFound);
   }
   String? address;
   try {
@@ -76,9 +67,7 @@ Future<String> resolveCurrentAddress({
   }
   final clean = address?.trim() ?? '';
   if (clean.isEmpty || clean.toLowerCase() == 'current location') {
-    throw const CurrentAddressException(
-      'We couldn’t find an address for where you are. Search for it instead.',
-    );
+    throw CurrentAddressException(L10n.current.spNoAddressHere);
   }
   return clean;
 }

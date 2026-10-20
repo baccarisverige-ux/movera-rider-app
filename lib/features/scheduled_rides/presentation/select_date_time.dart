@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
@@ -21,6 +23,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   /// hides the row rather than showing a made-up time.
   final int? tripMinutes;
 
+  /// Q9: the pickup zone's IANA time zone; every time on this screen is
+  /// that zone's wall-clock time.
+  final String timeZone;
+
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
@@ -30,6 +36,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.popOnConfirm = false,
     this.now,
     this.tripMinutes,
+    this.timeZone = ZoneClock.stockholm,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -39,9 +46,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     DateTime? initial,
     DateTime Function()? now,
     int? tripMinutes,
+    String timeZone = ZoneClock.stockholm,
   }) {
     final session = ScheduledRideSession();
-    if (initial != null) session.captureSchedule(initial);
+    if (initial != null) session.captureSchedule(initial, timezone: timeZone);
     return Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
         builder: (_) => ScheduleDateTimeSelector(
@@ -50,6 +58,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           popOnConfirm: true,
           now: now,
           tripMinutes: tripMinutes,
+          timeZone: timeZone,
           onConfirm: () {},
         ),
       ),
@@ -68,6 +77,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   static const Color _surface = Color(0xFFF5F5F3);
   static const Color _line = Color(0xFFE7E7E4);
 
+  late final PickupSchedule _schedule = PickupSchedule(widget.timeZone);
   late DateTime _selectedDateTime;
   bool _pickupMode = true;
   bool _continuing = false;
@@ -80,14 +90,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final existing = widget.session?.scheduledAt;
     final now = widget.now?.call();
     if (existing != null) {
-      final corrected = StockholmSchedule.clampPickup(existing, now);
+      final corrected = _schedule.clampPickup(existing, now);
       _selectedDateTime = corrected;
       if (corrected != existing) {
         _pickupCorrectionMessage =
-            'Pickup time updated to the next available slot.';
+            context.l10n.pickupTimeUpdated;
       }
     } else {
-      _selectedDateTime = StockholmSchedule.defaultPickup(now);
+      _selectedDateTime = _schedule.defaultPickup(now);
     }
     _commitSchedule();
   }
@@ -102,12 +112,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     if (_continuing) return;
 
     final now = widget.now?.call();
-    if (!StockholmSchedule.isLegalPickup(_selectedDateTime, now)) {
-      final corrected = StockholmSchedule.clampPickup(_selectedDateTime, now);
+    if (!_schedule.isLegalPickup(_selectedDateTime, now)) {
+      final corrected = _schedule.clampPickup(_selectedDateTime, now);
       setState(() {
         _selectedDateTime = corrected;
         _pickupCorrectionMessage =
-            'Pickup time updated to the next available slot.';
+            context.l10n.pickupTimeUpdated;
       });
       _commitSchedule();
       return;
@@ -127,7 +137,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   void _applyPickedDateTime(DateTime candidate) {
-    final corrected = StockholmSchedule.clampPickup(
+    final corrected = _schedule.clampPickup(
       candidate,
       widget.now?.call(),
     );
@@ -135,7 +145,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       _selectedDateTime = corrected;
       _pickupCorrectionMessage = corrected == candidate
           ? null
-          : 'Pickup time updated to the next available slot.';
+          : context.l10n.pickupTimeUpdated;
     });
     _commitSchedule();
   }
@@ -143,7 +153,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   void _commitSchedule() {
     widget.session?.captureSchedule(
       _selectedDateTime,
-      timezone: 'Europe/Stockholm',
+      timezone: widget.timeZone,
     );
   }
 
@@ -163,10 +173,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
-    final first = StockholmSchedule.stockholmNow(widget.now?.call());
+    final first = _schedule.zoneNow(widget.now?.call());
     final last = first.add(const Duration(days: 365));
     if (draftDate.isBefore(first)) {
-      draftDate = StockholmSchedule.clampPickup(draftDate, widget.now?.call());
+      draftDate = _schedule.clampPickup(draftDate, widget.now?.call());
     }
     final result = await MoveraSheet.show<DateTime>(
       context: context,
@@ -199,12 +209,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     Row(
                       children: [
                         Text(
-                          'Select date',
+                          context.l10n.selectDate,
                           style: _style(16, weight: FontWeight.w600),
                         ),
                         const Spacer(),
                         Text(
-                          DateFormat('d MMM yyyy').format(draftDate),
+                          L10n.formatDate(draftDate, 'd MMM yyyy'),
                           style: _style(
                             11,
                             weight: FontWeight.w500,
@@ -246,7 +256,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       children: [
                         Expanded(
                           child: _sheetAction(
-                            label: 'Cancel',
+                            label: context.l10n.cancel,
                             filled: false,
                             onTap: () => Navigator.pop(sheetContext),
                           ),
@@ -254,7 +264,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _sheetAction(
-                            label: 'Done',
+                            label: context.l10n.done,
                             filled: true,
                             onTap: () => Navigator.pop(sheetContext, draftDate),
                           ),
@@ -282,7 +292,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Future<void> _chooseTime() async {
-    final min = StockholmSchedule.timePickerMinFor(
+    final min = _schedule.timePickerMinFor(
       _selectedDateTime,
       widget.now?.call(),
     );
@@ -324,7 +334,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                 Row(
                   children: [
                     Text(
-                      'Select time',
+                      context.l10n.selectTime,
                       style: _style(16, weight: FontWeight.w600),
                     ),
                     const Spacer(),
@@ -401,7 +411,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                   children: [
                     Expanded(
                       child: _sheetAction(
-                        label: 'Cancel',
+                        label: context.l10n.cancel,
                         filled: false,
                         onTap: () => Navigator.pop(sheetContext),
                       ),
@@ -409,7 +419,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: _sheetAction(
-                        label: 'Done',
+                        label: context.l10n.done,
                         filled: true,
                         onTap: () => Navigator.pop(
                           sheetContext,
@@ -493,7 +503,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       _header(context),
                       const SizedBox(height: 30),
                       Text(
-                        'When should we\npick you up?',
+                        context.l10n.whenPickUp,
                         style: _style(
                           29,
                           weight: FontWeight.w700,
@@ -502,7 +512,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ),
                       const SizedBox(height: 9),
                       Text(
-                        'Choose a date and time for your scheduled ride.',
+                        context.l10n.chooseDateTime,
                         style: _style(
                           12.5,
                           weight: FontWeight.w400,
@@ -519,7 +529,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ],
                       const SizedBox(height: 25),
                       Text(
-                        'You can cancel without a fee before a driver is assigned. Final terms are shown before booking.',
+                        context.l10n.cancelBeforeAssigned,
                         style: _style(
                           10.5,
                           weight: FontWeight.w400,
@@ -565,7 +575,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           ),
         ),
         const Spacer(),
-        Text('Schedule ride', style: _style(12, weight: FontWeight.w600)),
+        Text(context.l10n.navScheduleRide, style: _style(12, weight: FontWeight.w600)),
         const Spacer(),
         const SizedBox(width: 42),
       ],
@@ -583,12 +593,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       child: Row(
         children: [
           _modeOption(
-            label: 'Pickup at',
+            label: context.l10n.pickupAtMode,
             selected: _pickupMode,
             onTap: () => setState(() => _pickupMode = true),
           ),
           _modeOption(
-            label: 'Arrive by',
+            label: context.l10n.arriveByMode,
             selected: !_pickupMode,
             onTap: () => setState(() => _pickupMode = false),
           ),
@@ -657,14 +667,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         children: [
           _selectionRow(
             icon: Icons.calendar_today_outlined,
-            label: 'Date',
-            value: DateFormat('EEE, d MMMM').format(_selectedDateTime),
+            label: context.l10n.date,
+            value: L10n.formatDate(_selectedDateTime, 'EEE, d MMMM'),
             onTap: _chooseDate,
           ),
           const Divider(height: 1, indent: 58, endIndent: 16, color: _line),
           _selectionRow(
             icon: Icons.schedule_rounded,
-            label: 'Time',
+            label: context.l10n.time,
             value: DateFormat('HH:mm').format(_selectedDateTime),
             onTap: _chooseTime,
           ),
@@ -726,7 +736,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _pickupMode ? 'Estimated arrival' : 'Estimated pickup',
+              _pickupMode ? context.l10n.estimatedArrival : context.l10n.estimatedPickup,
               style: _style(11, weight: FontWeight.w500, color: _muted),
             ),
           ),
@@ -740,7 +750,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = StockholmSchedule.isLegalPickup(
+    final legal = _schedule.isLegalPickup(
       _selectedDateTime,
       widget.now?.call(),
     );
@@ -796,7 +806,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ),
                     ),
                     child: Text(
-                      _continuing ? 'Continuing…' : 'Continue',
+                      _continuing ? context.l10n.continuing : context.l10n.continueLabel,
                       style: _style(
                         14,
                         weight: FontWeight.w600,

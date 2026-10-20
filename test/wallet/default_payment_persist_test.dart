@@ -17,7 +17,7 @@ void main() {
   test('ride selection restores the saved payment brand', () async {
     final memory = MemoryDefaultPaymentStore('cards');
     final selection = RideSelectionController(paymentStore: memory);
-    // Pay in car is the default until the saved choice is restored.
+    // Cash is the default until the saved choice is restored.
     expect(selection.payments()[selection.selectedPayment].brand, 'cash');
 
     await selection.restoreDefaultPayment();

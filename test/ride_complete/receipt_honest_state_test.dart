@@ -62,7 +62,7 @@ void main() {
       pickup: 'Stockholm Central',
       destination: 'Arlanda Terminal 5',
       total: '522 kr',
-      method: 'Swish',
+      method: 'Cash',
     );
     final controller = RideCompleteController(
       trips: const TripReceiptRepository(receipt: receipt),
@@ -76,7 +76,7 @@ void main() {
     expect(find.text('Arlanda Terminal 5'), findsOneWidget);
     expect(find.text('522 kr'), findsOneWidget);
     expect(find.text('Total payment'), findsOneWidget);
-    expect(find.text('Swish'), findsOneWidget);
+    expect(find.text('Cash'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsNothing);
   });
 }

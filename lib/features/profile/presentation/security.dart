@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/domain/account_security.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SecurityPage extends StatefulWidget {
   const SecurityPage({super.key, this.securityController});
@@ -40,9 +41,9 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   String _passwordLine(DateTime? when, bool supported) {
-    if (!supported) return 'Unavailable until secure account service is connected';
-    if (when == null) return 'Not set';
-    return 'Last changed ${when.day}/${when.month}/${when.year}';
+    if (!supported) return context.l10n.comingSoon;
+    if (when == null) return context.l10n.notSet;
+    return context.l10n.lastChanged(L10n.formatDate(when, 'yMd'));
   }
 
   @override
@@ -58,18 +59,18 @@ class _SecurityPageState extends State<SecurityPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
           children: [
-            const AccountHeadline(
-              'Security',
-              body: 'How you sign in to Movera.',
+            AccountHeadline(
+              context.l10n.accountSecurity,
+              body: context.l10n.securityBody,
             ),
             const SizedBox(height: 18),
             AccountGroup(
               children: [
                 AccountTile(
                   mark: const AccountIcon(Icons.shield_outlined),
-                  title: 'Security controls unavailable',
+                  title: context.l10n.securityUnavailable,
                   body: _security.errorMessage ??
-                      'Movera could not verify account security with the server.',
+                      context.l10n.securityUnavailableBody,
                   showDivider: false,
                   onTap: _security.loading
                       ? null
@@ -88,22 +89,22 @@ class _SecurityPageState extends State<SecurityPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHeadline('Security', body: 'How you sign in to Movera.'),
+          AccountHeadline(context.l10n.accountSecurity, body: context.l10n.securityBody),
           const SizedBox(height: 18),
           AccountGroup(
             children: [
               AccountTile(
                 mark: const AccountIcon(Icons.key_outlined),
-                title: 'Passkeys',
+                title: context.l10n.passkeys,
                 body: caps.passkeys
                     ? (security.passkeyEnabled
-                        ? 'Ready on this device'
-                        : 'No passkey configured')
-                    : 'Unavailable until secure account service is connected',
+                        ? context.l10n.passkeyReady
+                        : context.l10n.noPasskey)
+                    : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.password_outlined),
-                title: 'Password',
+                title: context.l10n.password,
                 body: _passwordLine(
                   security.passwordUpdatedAt,
                   caps.password,
@@ -111,26 +112,26 @@ class _SecurityPageState extends State<SecurityPage> {
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phonelink_lock_outlined),
-                title: 'Authenticator',
+                title: context.l10n.authenticator,
                 body: caps.authenticator
                     ? (security.authenticatorEnabled
-                        ? 'One-time codes are on'
-                        : 'Not configured')
-                    : 'Unavailable until secure account service is connected',
+                        ? context.l10n.otpOn
+                        : context.l10n.notConfigured)
+                    : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.security_outlined),
-                title: '2-step verification',
+                title: context.l10n.twoStep,
                 body: caps.twoStep
-                    ? (security.twoStepEnabled ? 'On' : 'Off')
-                    : 'Unavailable until secure account service is connected',
+                    ? (security.twoStepEnabled ? context.l10n.on : context.l10n.off)
+                    : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phone_iphone_outlined),
-                title: 'Recovery phone',
+                title: context.l10n.recoveryPhone,
                 body: caps.recoveryPhone
-                    ? (security.recoveryPhone ?? 'Not configured')
-                    : 'Unavailable until secure account service is connected',
+                    ? (security.recoveryPhone ?? context.l10n.notConfigured)
+                    : context.l10n.comingSoon,
                 showDivider: false,
               ),
             ],
@@ -139,7 +140,7 @@ class _SecurityPageState extends State<SecurityPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 20, 10),
             child: Text(
-              'Connected accounts',
+              context.l10n.connectedAccounts,
               style: accountText(
                 13,
                 weight: FontWeight.w600,
@@ -153,15 +154,15 @@ class _SecurityPageState extends State<SecurityPage> {
                 mark: Image.asset(AppAssets.google, height: 20),
                 title: 'Google',
                 body: caps.connectedAccounts
-                    ? (security.googleConnected ? 'Connected' : 'Not connected')
-                    : 'Unavailable until secure account service is connected',
+                    ? (security.googleConnected ? context.l10n.connected : context.l10n.notConnected)
+                    : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: Image.asset(AppAssets.apple, height: 20),
                 title: 'Apple',
                 body: caps.connectedAccounts
-                    ? (security.appleConnected ? 'Connected' : 'Not connected')
-                    : 'Unavailable until secure account service is connected',
+                    ? (security.appleConnected ? context.l10n.connected : context.l10n.notConnected)
+                    : context.l10n.comingSoon,
                 showDivider: false,
               ),
             ],
@@ -170,7 +171,7 @@ class _SecurityPageState extends State<SecurityPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 20, 10),
             child: Text(
-              'Login activity',
+              context.l10n.loginActivity,
               style: accountText(
                 13,
                 weight: FontWeight.w600,
@@ -180,11 +181,11 @@ class _SecurityPageState extends State<SecurityPage> {
           ),
           AccountGroup(
             children: security.sessions.isEmpty
-                ? const [
+                ? [
                     AccountTile(
                       mark: AccountIcon(Icons.devices_outlined),
-                      title: 'No server session activity available',
-                      body: 'Movera has no session records to show.',
+                      title: context.l10n.noSignInActivity,
+                      body: context.l10n.noSessionRecords,
                       showDivider: false,
                     ),
                   ]
@@ -201,27 +202,28 @@ class _SecurityPageState extends State<SecurityPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: AccountTile(
-                title: 'Sign out other devices',
+                title: context.l10n.signOutOtherDevices,
                 body: !caps.signOutOtherDevices
-                    ? 'Unavailable until reauthentication is connected'
+                    ? context.l10n.comingSoon
                     : !caps.reauthentication
-                        ? 'Unavailable until reauthentication is connected'
+                        ? context.l10n.comingSoon
                         : !security.hasFreshReauthentication
-                            ? 'Reauthenticate before revoking other sessions'
-                            : 'Server will revoke every session except this one.',
+                            ? context.l10n.reauthBeforeRevoke
+                            : context.l10n.serverRevokesOthers,
                 showDivider: false,
                 onTap: caps.signOutOtherDevices &&
                         caps.reauthentication &&
                         security.hasFreshReauthentication &&
                         !_security.loading
                     ? () async {
+                        final signOutOthers = context.l10n.signOutOthers;
                         final confirm = await showAccountChoice(
                           context,
-                          title: 'Sign out other devices?',
-                          options: const ['Sign out others', 'Cancel'],
+                          title: context.l10n.signOutOtherDevicesQ,
+                          options: [signOutOthers, context.l10n.cancel],
                           selected: '',
                         );
-                        if (confirm != 'Sign out others') return;
+                        if (confirm != signOutOthers) return;
                         await _security.signOutOtherDevices();
                       }
                     : null,
@@ -256,7 +258,7 @@ class _LoginTile extends StatelessWidget {
       mark: const AccountIcon(Icons.smartphone_outlined),
       title: session.device,
       body: session.current
-          ? 'This session  ·  ${session.place}'
+          ? context.l10n.thisSession(session.place)
           : '${session.place}  ·  ${session.source}',
       showDivider: showDivider,
     );

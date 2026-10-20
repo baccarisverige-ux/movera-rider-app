@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -36,10 +37,50 @@ class DriverTrackingController {
   RideStatus status = RideStatus.driverAssigned;
   RideRealtimeSignal? lastSignal;
   String? signalMessage;
+
+  /// Q12: when the driver accepted, from the projection's `acceptedAt`.
+  /// Null when the server has not said (the caller falls back to when it
+  /// first saw the driver).
+  DateTime? acceptedAt;
+
+  /// Q42: when the driver's waiting clock started: the projection's
+  /// `waiting.arrivedAt`, else when this app first saw the driver waiting.
+  DateTime? waitingSince;
+
+  /// Q13: the last accepted back-to-searching came from an admin reassign,
+  /// so the rider is not told their driver cancelled.
+  bool reassignedByAdmin = false;
   RideStatus? _lastPersistedStatus;
   int? _lastVersion;
   DateTime? _lastServerTime;
   void Function()? onChange;
+
+  /// R-O1: how far the driver has driven with the rider on board, in
+  /// metres: the route progress summed from the driver's fixes since the
+  /// first one after boarding. Contract v0.3.0 has no driven distance on
+  /// the projection, so this is what the ended-early receipt shows. In
+  /// memory: a reload mid-trip counts from the next fix again.
+  int get drivenMeters => _drivenMeters.round();
+  double _drivenMeters = 0;
+  double? _drivenFromLat;
+  double? _drivenFromLng;
+
+  static const _onBoard = {
+    RideStatus.tripStarted,
+    RideStatus.tripInProgress,
+    RideStatus.approachingDropoff,
+  };
+
+  void _trackDriven(double lat, double lng) {
+    if (!_onBoard.contains(status)) return;
+    final fromLat = _drivenFromLat;
+    final fromLng = _drivenFromLng;
+    if (fromLat != null && fromLng != null) {
+      _drivenMeters += GeoDistance.metersBetween(fromLat, fromLng, lat, lng);
+    }
+    _drivenFromLat = lat;
+    _drivenFromLng = lng;
+  }
 
   /// Re-evaluates staleness on a timer, independent of new fixes arriving.
   /// Without this, a marker whose updates simply stopped (a dropped
@@ -87,8 +128,21 @@ class DriverTrackingController {
           status = event.status;
           lastSignal = event.signal;
           signalMessage = event.message;
+          reassignedByAdmin = event.isAdminReassign;
           _lastVersion = eventVersion;
           _lastServerTime = event.serverTime ?? _lastServerTime;
+          if (event.status.isSearching ||
+              event.status == RideStatus.cancelledByDriver) {
+            // Back in dispatch: the next accept starts new clocks.
+            acceptedAt = null;
+            waitingSince = null;
+          }
+          acceptedAt = event.acceptedAt ?? acceptedAt;
+          if (event.waitingArrivedAt != null) {
+            waitingSince = event.waitingArrivedAt;
+          } else if (event.status == RideStatus.driverWaiting) {
+            waitingSince ??= DateTime.now();
+          }
         }
         if (event.driver != null) driver = event.driver;
         final incomingLocationAt = event.locationAt ?? event.at;
@@ -96,6 +150,7 @@ class DriverTrackingController {
         final isNewerFix = currentLocationAt == null ||
             !incomingLocationAt.isBefore(currentLocationAt);
         if (event.latitude != null && event.longitude != null && isNewerFix) {
+          _trackDriven(event.latitude!, event.longitude!);
           eta = DriverEta.fromFix(
             latitude: event.latitude!,
             longitude: event.longitude!,

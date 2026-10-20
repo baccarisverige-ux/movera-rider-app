@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/screen_scale.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Pumps [screen] the way the app does (UI-11): the production ScreenUtil
 /// setup from lib/app/screen_scale.dart, a [viewport] at 1 dpr and a
@@ -13,6 +14,7 @@ Future<void> pumpMoveraScreen(
   double textScale = 1,
   bool useAppNavigatorKey = false,
   Key? key,
+  Locale? locale,
 }) async {
   tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1;
@@ -23,6 +25,14 @@ Future<void> pumpMoveraScreen(
       key: key,
       builder: (_, __) => MaterialApp(
         navigatorKey: useAppNavigatorKey ? moveraNavigatorKey : null,
+        // Round 4: a [locale] pumps the screen in that app language.
+        locale: locale,
+        localizationsDelegates: locale == null
+            ? null
+            : AppLocalizations.localizationsDelegates,
+        supportedLocales: locale == null
+            ? const [Locale('en', 'US')]
+            : AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

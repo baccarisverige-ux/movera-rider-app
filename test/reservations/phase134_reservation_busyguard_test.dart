@@ -26,7 +26,7 @@ void main() {
         scheduledPickupAt: DateTime(2026, 9, 23, 6, 55),
         pickup: const ReservationPlace(label: 'Klockarvägen 37'),
         destination: const ReservationPlace(label: 'Arlanda Express'),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 522,

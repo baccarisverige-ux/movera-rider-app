@@ -10,6 +10,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// First Apple or Google sign-in: a phone number is required once, so the
 /// driver and Safety features can always reach the rider. There is no skip.
@@ -50,7 +51,7 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
     if (_busy) return;
     final number = swedishNumberFromField(_phone.text);
     if (number == null) {
-      setState(() => _error = 'Enter a valid Swedish mobile number.');
+      setState(() => _error = context.l10n.invalidSwedishMobile);
       return;
     }
     setState(() => _busy = true);
@@ -76,14 +77,14 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
   Widget build(BuildContext context) {
     final link = widget.link;
     final who = link.name == null
-        ? 'Signed in with ${link.providerLabel}'
-        : 'Signed in as ${link.name}';
+        ? context.l10n.signedInWith(link.providerLabel)
+        : context.l10n.signedInAs(link.name!);
     return AuthScaffold(
       step: 1,
       onBack: () => Navigator.of(context).maybePop(),
-      headline: 'One number.\n',
-      headlineAccent: 'Every ride.',
-      lede: const Text('Your driver uses it to reach you at pickup.'),
+      headline: context.l10n.oneNumberHead,
+      headlineAccent: context.l10n.oneNumberAccent,
+      lede: Text(context.l10n.driverUsesPhone),
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -130,9 +131,9 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
             ),
           ),
           const SizedBox(height: 14),
-          Text('Add your phone number', style: AuthText.cardTitle()),
+          Text(context.l10n.addYourPhone, style: AuthText.cardTitle()),
           const SizedBox(height: 2),
-          Text("Only needed once. We'll text you a code.", style: AuthText.cardSub()),
+          Text(context.l10n.onlyOnceCode, style: AuthText.cardSub()),
           const SizedBox(height: 14),
           AuthPhoneField(
             controller: _phone,
@@ -143,7 +144,7 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
           if (_error != null) AuthErrorText(_error!),
           const SizedBox(height: 12),
           AuthPrimaryButton(
-            label: 'Send code',
+            label: context.l10n.sendCode,
             busy: _busy,
             onPressed: _sendCode,
           ),

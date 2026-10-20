@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 
@@ -19,7 +20,7 @@ void main() {
   };
 
   const categories = [
-    PromotionCategory(id: 'movera', name: 'Movera'),
+    PromotionCategory(id: 'economy', name: 'Movera'),
     PromotionCategory(id: 'comfort', name: 'Comfort'),
     PromotionCategory(id: 'priority', name: 'Priority'),
     PromotionCategory(id: 'premium', name: 'Premium'),
@@ -30,6 +31,8 @@ void main() {
     required RiderPromotion promotion,
     Map<String, PromotionPrice> prices = const {},
     DateTime? now,
+    String currency = 'SEK',
+    Money? cap,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -40,6 +43,8 @@ void main() {
               categories: categories,
               prices: prices,
               now: now ?? DateTime(2026, 10, 13, 9),
+              currency: currency,
+              cap: cap,
             ),
           ),
         ),
@@ -54,8 +59,10 @@ void main() {
     await pump(
       tester,
       promotion: RiderPromotion.fromJson(json)!,
+      // Q10: the zone's cap from its config, in local money.
+      cap: const Money(5000, 'SEK'),
       prices: const {
-        'movera': (original: 259, discounted: 259),
+        'economy': (original: 259, discounted: 259),
         'comfort': (original: 339, discounted: 289),
         'priority': (original: 289, discounted: 239),
         'premium': (original: 369, discounted: 319),
@@ -64,16 +71,16 @@ void main() {
     expect(find.text('30% off · 4 of 5 rides left'), findsOneWidget);
     expect(find.text('4 left'), findsOneWidget);
     expect(find.text('Valid until 30 Nov 2026 · 48 days left'), findsOneWidget);
-    expect(find.text('Max kr 50 off per ride'), findsOneWidget);
+    expect(find.text('Max 50 kr off per ride'), findsOneWidget);
     expect(find.text('Your prices with this promotion'), findsOneWidget);
     // Comfort: struck-through original, bold discounted price.
-    final struck = tester.widget<Text>(find.text('kr 339'));
+    final struck = tester.widget<Text>(find.text('339 kr'));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
-    // Comfort's discounted price comes before Priority's original kr 289.
-    final bold = tester.widget<Text>(find.text('kr 289').first);
+    // Comfort's discounted price comes before Priority's original 289 kr.
+    final bold = tester.widget<Text>(find.text('289 kr').first);
     expect(bold.style?.fontWeight, FontWeight.w700);
     // Movera is not in the promotion: full price, "Not included".
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.text('Not included'), findsOneWidget);
     expect(find.text('Included'), findsNothing);
     expect(
@@ -97,7 +104,7 @@ void main() {
       find.text('Prices show once you choose a destination.'),
       findsOneWidget,
     );
-    expect(find.textContaining('kr 3'), findsNothing);
+    expect(find.textContaining(RegExp(r'(^|\s)3\d* kr')), findsNothing);
   });
 
   testWidgets('ends today and expired states', (tester) async {
@@ -124,5 +131,40 @@ void main() {
       ),
       'No end date',
     );
+  });
+
+  testWidgets('Q10: the cap is the zone config\'s, in local money', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'EUR',
+      cap: const Money(500, 'EUR'),
+    );
+    expect(find.text('Max 5 € off per ride'), findsOneWidget);
+
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'TND',
+      cap: const Money(15000, 'TND'),
+    );
+    expect(find.text('Max 15 DT off per ride'), findsOneWidget);
+  });
+
+  testWidgets('Q10: no cap set, no cap text (the promotion\'s own is not shown)',
+      (tester) async {
+    await pump(tester, promotion: RiderPromotion.fromJson(json)!);
+    expect(find.textContaining('off per ride'), findsNothing);
+
+    // A cap in another currency than the zone's is never shown.
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'EUR',
+      cap: const Money(5000, 'SEK'),
+    );
+    expect(find.textContaining('off per ride'), findsNothing);
   });
 }

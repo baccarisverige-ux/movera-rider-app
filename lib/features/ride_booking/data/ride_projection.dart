@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -15,11 +16,13 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 /// the ride surfaces cannot do without is missing.
 abstract final class RideProjection {
   static RideSnapshot? toSnapshot(Map<String, dynamic> ride, {DateTime? now}) {
-    final id = _string(ride['id'] ?? ride['tripId'] ?? ride['rideId']);
-    final status = RideStatusWire.parse(ride['status']);
+    // tripId is canonical; id / rideId are legacy aliases (contract v0.3.0).
+    final id = _string(ride['tripId'] ?? ride['id'] ?? ride['rideId']);
+    final status = RideStatusWire.fromProjection(ride);
     final pickup = _place(ride, 'pickup');
     final destination = _place(ride, 'destination');
-    final price = _price(ride);
+    final fare = _fare(ride);
+    final price = fare?.major;
     if (id == null ||
         status == null ||
         pickup == null ||
@@ -28,7 +31,9 @@ abstract final class RideProjection {
       return null;
     }
     final rawDriver = ride['driver'];
-    final categoryId = _string(ride['categoryId'] ?? ride['rideType']);
+    final rawCategory = _string(ride['categoryId'] ?? ride['rideType']);
+    final categoryId =
+        rawCategory == null ? null : CategoryIds.canonical(rawCategory);
     final paymentMethodId = _string(
       ride['paymentMethodId'] ?? ride['paymentMethod'],
     );
@@ -53,6 +58,7 @@ abstract final class RideProjection {
       rideType: _string(ride['categoryName']) ?? categoryId ?? 'Movera',
       categoryId: categoryId,
       price: price,
+      currency: fare!.currency,
       paymentMethod:
           _string(ride['paymentMethodLabel']) ?? paymentMethodId ?? '',
       paymentMethodId: paymentMethodId,
@@ -107,15 +113,24 @@ abstract final class RideProjection {
     ];
   }
 
-  /// Kronor for the snapshot: `totalMinor` (C-0 money) first, then a
-  /// `{amountMinor, currency}` total, then the legacy whole-kronor `price`.
-  static double? _price(Map<String, dynamic> ride) {
-    final minor = ride['totalMinor'];
-    if (minor is num) return minor / 100;
-    final total = Money.tryParse(ride['total']);
-    if (total != null) return total.amountMinor / 100;
+  /// The trip's fare with its currency (Q7: the pickup's zone): `fare:
+  /// Money` first, then `totalMinor` + `currency`, then a `total` Money,
+  /// then the legacy whole-unit `price` in the flat `currency` (kronor
+  /// when absent).
+  static Money? _fare(Map<String, dynamic> ride) {
+    // Contract v0.3.0: `fare: Money` is the authoritative fare.
+    final fare = Money.fromWire(ride['fare']);
+    if (fare != null) return fare;
+    final minor = Money.tryMinor(ride['totalMinor'], ride['currency']);
+    if (minor != null) return minor;
+    final total = Money.fromWire(ride['total']);
+    if (total != null) return total;
     final legacy = ride['price'] ?? ride['bookedPrice'];
-    return legacy is num ? legacy.toDouble() : null;
+    if (legacy is! num) return null;
+    return Money.fromLegacyMajor(
+      legacy,
+      Money.normalizeCurrency(ride['currency']) ?? Money.defaultCurrency,
+    );
   }
 
   static String? _string(Object? raw) {

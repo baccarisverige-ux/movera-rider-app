@@ -10,6 +10,7 @@ class RideCatalogItem {
     required this.seats,
     this.badge,
     this.glyph,
+    this.currency = 'SEK',
   });
 
   final String id;
@@ -18,7 +19,13 @@ class RideCatalogItem {
   final String note;
   final String arrival;
   final int etaMin;
+
+  /// The list price in whole units of [currency].
   final double price;
+
+  /// ISO-4217 code of [price]. The list is not per zone: a pickup in a
+  /// zone with another currency shows the quote, never this price.
+  final String currency;
   final int seats;
   final String? badge;
   final String? glyph;

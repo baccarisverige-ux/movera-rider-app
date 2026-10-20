@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -53,6 +54,7 @@ import 'package:movera_rider/features/payments/domain/payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
@@ -169,6 +171,9 @@ class AppScope {
       rulesSource: flags.scheduledRides || flags.bookingLater
           ? ApiScheduledRideRulesSource(api)
           : null,
+      // X3: reservation cancel fees per category from the rider config.
+      config: SeedRiderConfigRepository.seed,
+      configLoader: () => riderConfig.current(),
     );
     // FLOW-7: the name, language and consents go to the server; the device
     // copy is the cache. With the mock transport the in-process mock
@@ -186,9 +191,19 @@ class AppScope {
     routing = RoutingService(api: api);
     RoutingService.defaultProvider ??= () => AppScope.instance.routing;
     quotes = ApiQuoteRepository(api: api);
+    // R-O2: the transports report the trip's projection version, which
+    // the rider's commands send back as `expectedVersion`.
     rideRealtime = environment.allowsMockTransport
-        ? MockRideRealtime(api: api, connection: realtime)
-        : ApiRideRealtime(api: api, connection: realtime);
+        ? MockRideRealtime(
+            api: api,
+            connection: realtime,
+            onProjectionVersion: ride.observeProjectionVersion,
+          )
+        : ApiRideRealtime(
+            api: api,
+            connection: realtime,
+            onProjectionVersion: ride.observeProjectionVersion,
+          );
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search, api: api);
@@ -312,6 +327,9 @@ class AppScope {
     balances: walletBalances,
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
+
+  /// The app language: the rider's choice, else the zone default (Q48).
+  late final AppLanguageController language = AppLanguageController();
   late final PickupSpotsController pickupSpots = PickupSpotsController();
   late final SupportController support = SupportController();
   late final OnboardingController onboarding = OnboardingController();
@@ -321,6 +339,10 @@ class AppScope {
   /// Ride categories from the server (admin panel), with cache and built-in
   /// fallbacks. Loaded at bootstrap and again when Select Ride opens.
   late final RideCatalogController catalog = RideCatalogController(api: api);
+
+  /// RiderAppConfig (contract v0.3.0 §6): the local seed today,
+  /// `GET /rider/config?zoneId` once a backend serves it.
+  RiderConfigRepository riderConfig = const SeedRiderConfigRepository();
 
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).

@@ -2,6 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -20,6 +26,7 @@ import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
@@ -57,6 +64,7 @@ import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// D-016: how long the driver marker eases towards a new fix. Following the
 /// actual interval between fixes (clamped) removes the move-then-stall rhythm
@@ -125,6 +133,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.destinationPosition,
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
@@ -144,7 +153,12 @@ class WaitingForDriver extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final String rideType;
+
+  /// The fare in whole units of [currency].
   final double price;
+
+  /// Q7: the trip's currency (its pickup's zone).
+  final String currency;
   final String paymentMethod;
 
   /// The part of the fare booked to the Movera Wallet, in öre.
@@ -195,6 +209,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
+  StreamSubscription<({String rideId, bool stale})>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -233,7 +248,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
     }
+    _outboxSub = ActiveRideController.queuedCancelNotices.listen(
+      _onQueuedCancelNotice,
+    );
     final rideId = _rideId;
+    if (rideId != null && rideId.trim().isNotEmpty) {
+      // R-O2: a queued cancel the launch flush refused or dropped before
+      // this screen existed (a cold restore) is told now.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final stale = ActiveRideController.takeQueuedCancelNotice(
+          rideId.trim(),
+        );
+        if (stale != null) _showQueuedCancelNotice(stale: stale);
+      });
+    }
     if (rideId != null && rideId.trim().isNotEmpty) {
       _tracking.start(
         rideId: rideId,
@@ -246,6 +274,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         _rideCheckPlan(),
       );
       _startRideCheckStillTimer(rideId.trim());
+      unawaited(_loadWaitingTerms());
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -255,6 +284,71 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   bool _missingRideId = false;
+
+  /// Q41/Q42: the waiting terms of the trip's category in its zone (free
+  /// wait, then the fee per minute), once the zone's config is read.
+  RiderCategoryWaiting? _waitingTerms;
+
+  Future<void> _loadWaitingTerms() async {
+    try {
+      final stored = await RouteChangeController.storedRide();
+      final category =
+          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      if (category == null) return;
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: widget.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      final terms = config?.waiting?.forCategory(category);
+      if (!mounted || terms == null) return;
+      // Never a rate in another currency than the trip's.
+      if (terms.perMin.currency != widget.currency) return;
+      setState(() => _waitingTerms = terms);
+    } catch (_) {
+      // No counter without terms.
+    }
+  }
+
+  /// The live waiting clock while the driver is at the pickup (Q42).
+  Widget? _waitingFeeCounter() {
+    final terms = _waitingTerms;
+    if (terms == null ||
+        !terms.perMin.isPositive ||
+        _tracking.status != RideStatus.driverWaiting) {
+      return null;
+    }
+    return WaitingFeeCounter(
+      since: _tracking.waitingSince ?? DateTime.now(),
+      freeWaitMin: terms.freeWaitMin,
+      perMin: terms.perMin,
+    );
+  }
+
+  /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
+  /// the server once it was sent. The ride goes on; say so.
+  void _onQueuedCancelNotice(({String rideId, bool stale}) notice) {
+    if (!mounted || _leaving) return;
+    if (notice.rideId != _rideId?.trim()) return;
+    ActiveRideController.takeQueuedCancelNotice(notice.rideId);
+    _showQueuedCancelNotice(stale: notice.stale);
+  }
+
+  void _showQueuedCancelNotice({required bool stale}) {
+    if (!mounted || _leaving) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          stale
+              // R-O2: dropped before it was sent; the trip moved on.
+              ? rideJustChangedMessage
+              : context.l10n.cancelFailedStillOn,
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
 
   /// RIDE-7: the stage this ride is already known to be in (a restore seeds
   /// the session from the snapshot), so tracking starts there.
@@ -343,7 +437,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     required MatchedDriver? driver,
     required DriverEta? eta,
   }) {
-    final headline = eta?.headline(status: status) ?? 'Driver found';
+    final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
@@ -393,7 +487,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("Sent to driver · I'm on the way"),
+        content: Text(context.l10n.sentOnTheWay),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
@@ -505,6 +599,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_researching) return;
     _researching = true;
     final lostDriver = _tracking.driver ?? widget.driver;
+    final byAdmin = _tracking.reassignedByAdmin;
     _tracking.dispose();
 
     // The rider is not asked anything: their ride is still on, so the search
@@ -514,7 +609,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _researching = false;
       return;
     }
-    showDriverCancelledNotice(context, driverName: lostDriver?.firstName);
+    // Q13: an admin reassign is not the driver's doing; the rider just sees
+    // the search, then the next driver assigned.
+    if (!byAdmin) {
+      showDriverCancelledNotice(context, driverName: lostDriver?.firstName);
+    }
 
     await _parkMapForStageChange();
     if (!mounted) {
@@ -569,6 +668,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       destinationPosition: _destinationPosition,
       rideType: widget.rideType,
       price: _price,
+      currency: widget.currency,
       paymentMethod: widget.paymentMethod,
       walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
@@ -648,14 +748,75 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
+  /// When this screen first saw the driver accepted: the fallback start of
+  /// the live free-cancel window when the projection has no `acceptedAt`.
+  /// A reload restarts it, so the preview errs toward "free"; the server's
+  /// own `cancellation.fee` is what is charged.
+  final DateTime _shownAt = DateTime.now();
+
+  /// Q12: the free-cancel clock counts from the driver's accept, as the
+  /// server stamped it (`TripProjection.acceptedAt`), else from [_shownAt].
+  DateTime get _acceptedAt => _tracking.acceptedAt ?? _shownAt;
+
+  /// The fee line shown before the rider confirms a cancel (contract
+  /// v0.3.0 §5), from the shared calculator and the rider config. Null when
+  /// on board (that is end-early: the distance driven) or when no rule
+  /// applies.
+  Future<String?> _cancelFeeNote() async {
+    if (_isInTrip) {
+      // UI-01: end-early. The amount is the server's (the trip's `fare`
+      // once it ends); the receipt that follows shows it.
+      return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
+    }
+    try {
+      final stored = await RouteChangeController.storedRide();
+      final category =
+          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      if (category == null) return null;
+      // Q7: the fee rules of the trip's own zone, in its currency.
+      final zone = RiderZones.byCurrency(widget.currency) ??
+          RiderZones.at(_pickupPosition.latitude, _pickupPosition.longitude);
+      final config = await AppScope.instance.riderConfig.forZone(zone.id);
+      // Never a fee from another currency's rules.
+      if (config.currency != widget.currency) return null;
+      final preview = LiveCancelFeePreview.of(
+        config,
+        categoryId: category,
+        fare: Money.fromLegacyMajor(_price, widget.currency),
+        acceptedAt: _acceptedAt,
+        now: DateTime.now(),
+      );
+      if (preview == null) return null;
+      if (preview.fee.isPositive) {
+        return L10n.current.cancelCostsNow(formatMoney(preview.fee));
+      }
+      final left = preview.freeMinutesLeft;
+      return left <= 1
+          ? L10n.current.cancelFreeUnderMinute
+          : L10n.current.cancelFreeMinutes('$left');
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _confirmCancel() async {
     if (_leaving) return;
+    final feeNote = await _cancelFeeNote();
+    if (!mounted || _leaving) return;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
       phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
+      feeNote: feeNote,
+      offerDestinationChange: _routeEditable,
     );
-    if (!outcome.cancelled || !mounted) return;
+    if (!mounted) return;
+    if (outcome.changeDestination) {
+      // Q2: the rider chose to change the destination instead.
+      await _changeRoute(null, RouteChangeEntry.destination);
+      return;
+    }
+    if (!outcome.cancelled) return;
     _leaving = true;
     setState(() {});
 
@@ -674,7 +835,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // D-013: the server is asked first; local state only commits once it
       // has answered. Show that the request is in flight meanwhile.
       setState(() => _cancelling = true);
-      final result = await _ride.markCancelled(reasonId: outcome.reasonId);
+      final result = await _ride.markCancelled(
+        reasonId: outcome.reasonId,
+        // R-O1: nothing tracked (for example right after a reload) is
+        // shown as the rule, not as "0.0 km".
+        drivenMeters: _isInTrip && _tracking.drivenMeters > 0
+            ? _tracking.drivenMeters
+            : null,
+      );
       if (!mounted) return;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
@@ -687,6 +855,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
+      final endedEarly = _ride.endedEarly;
+      if (endedEarly != null) {
+        // UI-01: an on-board end is a finished trip with a receipt, not a
+        // silent return to Home.
+        _openEndedEarlySummary(endedEarly);
+        return;
+      }
       RideNavigator.home(context);
     } catch (error, stack) {
       final scheduled = widget.onCancel != null;
@@ -706,7 +881,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           content: Text(
             scheduled
                 ? reservationErrorMessage(error, ReservationAction.cancel)
-                : "Couldn't cancel. Your ride is still on — try again.",
+                : context.l10n.cancelFailedTryAgain,
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -714,12 +889,59 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
   }
 
+  /// The trip summary after the rider ended the trip on board (UI-01),
+  /// placed like the completion screen: replacing Waiting.
+  void _openEndedEarlySummary(EndedEarlyTrip trip) {
+    final summary = RideCompleted(
+      status: RideStatus.cancelledByRider,
+      rideId: trip.rideId,
+      endedEarly: trip,
+      persistOnDemandState: false,
+      showConnectionBanner: false,
+      onClose: (context) async {
+        _ride.leaveEndedEarlySummary();
+        RideNavigator.home(context);
+      },
+    );
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop() &&
+        RideRestoreCoordinator.instance.replaceRootSurface(
+          summary,
+          RestoredSurface.complete,
+        )) {
+      return;
+    }
+    navigator.pushReplacement(
+      RideStageTransition(
+        summary,
+        settings: const RouteSettings(name: AppRoutes.rideCompleted),
+      ),
+    );
+  }
+
   void _showCancelProblem(RideCancelOutcome result) {
-    final message = result == RideCancelOutcome.rejected
-        ? 'This ride can no longer be cancelled.'
-        : "We couldn't reach Movera to confirm your cancellation. Your ride "
-              "is still active until it's confirmed — we'll retry "
-              "automatically when you're back online.";
+    if (result == RideCancelOutcome.stale) {
+      // X7: the trip changed under the cancel. Read it again; the rider
+      // decides again from what it shows now (nothing is re-sent).
+      final id = _rideId?.trim();
+      if (id != null && id.isNotEmpty) {
+        unawaited(
+          _realtime.reconnectAndResync(id).catchError((Object error) {
+            AppLog.warning(
+              'ride.cancel.resync_failed',
+              extra: {'rideId': id, 'error': error.toString()},
+            );
+          }),
+        );
+      }
+    }
+    final message = switch (result) {
+      RideCancelOutcome.rejected => context.l10n.cancelNoLonger,
+      // R-O2 (owner's words): the trip changed just before the tap.
+      RideCancelOutcome.stale => rideJustChangedMessage,
+      _ =>
+        context.l10n.cancelUnconfirmedOffline,
+    };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -729,7 +951,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
-  /// D-014: leaving the "Can't track this ride" screen must not silently
+  /// D-014: leaving the context.l10n.cantTrackRide screen must not silently
   /// orphan a live server ride. Try a real server cancel with any ride id
   /// still on record first; only then wipe local state and go Home.
   Future<void> _leaveUntrackedRide() async {
@@ -804,6 +1026,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         destinationLng: _destinationPosition.longitude,
         stops: _stops,
         price: _price,
+        currency: widget.currency,
       );
     }
     if (rideId == null || rideId.trim().isEmpty) return null;
@@ -818,6 +1041,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       destinationLng: _destinationPosition.longitude,
       rideType: widget.rideType,
       price: _price,
+      currency: widget.currency,
       paymentMethod: widget.paymentMethod,
       rideId: rideId,
       notes: widget.notes,
@@ -853,6 +1077,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               ride: ride,
               entry: entry,
               pickupLocked: !_pickupEditable,
+              driverAccepted: true,
             );
       if (!mounted) return;
       if (updated != null) _applyRouteChange(updated);
@@ -864,6 +1089,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           driverAssigned: true,
           paymentMethod: widget.paymentMethod,
           differenceKr: updated.price - ride.price,
+          currency: updated.currency,
         );
       }
     } finally {
@@ -1031,6 +1257,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   @override
   void dispose() {
+    unawaited(_outboxSub?.cancel());
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _settleTimer?.cancel();
@@ -1183,17 +1410,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 children: [
                   MoveraEmptyState(
                     icon: Icons.error_outline_rounded,
-                    title: "Can't track this ride",
+                    title: context.l10n.cantTrackRide,
                     message:
-                        "We lost track of which ride this is, so driver "
-                        'updates can\'t load. Try again, or go back to Home.',
-                    actionLabel: 'Retry',
+                        context.l10n.cantTrackRideBody,
+                    actionLabel: context.l10n.retry,
                     onAction: _retryTracking,
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _cancelling ? null : _leaveUntrackedRide,
-                    child: Text(_cancelling ? 'Leaving…' : 'Go home'),
+                    child: Text(_cancelling ? context.l10n.leaving : context.l10n.goHome),
                   ),
                 ],
               ),
@@ -1208,8 +1434,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: _tracking.status) ??
         (driver == null
-            ? 'Driver details will appear when matching confirms them.'
-            : 'Leave now to meet ${driver.displayFirstName}');
+            ? context.l10n.driverDetailsLater
+            : context.l10n.etaLeaveNowName(driver.displayFirstName));
     final media = MediaQuery.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
@@ -1270,7 +1496,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     MoveraIconButton.round(
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
-                      label: 'Cancel ride',
+                      // UI-01: on board this ends the trip early.
+                      label: _isInTrip ? context.l10n.endTrip : context.l10n.cancelRide,
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
@@ -1322,7 +1549,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 child: MoveraIconButton.round(
                   icon: Icons.my_location_rounded,
                   onPressed: _recenterMap,
-                  label: 'Recenter map',
+                  label: context.l10n.recenterMap,
                 ),
               ),
             ),
@@ -1417,7 +1644,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 child: PointerInterceptor(
                   child: Semantics(
                     liveRegion: true,
-                    label: 'Cancelling your ride',
+                    label: context.l10n.cancellingYourRideLabel,
                     child: const ColoredBox(
                       color: Color(0x66000000),
                       child: Center(child: _CancellingCard()),
@@ -1438,8 +1665,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   String? _tripHeadline(DriverEta? eta, RideStatus status) {
     final seconds = eta?.seconds;
     if (!DriverEta.isInTrip(status) || seconds == null) return null;
-    return 'Arrive by '
-        '${clockTime(DateTime.now().add(Duration(seconds: seconds)))}';
+    return context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(seconds: seconds))));
   }
 
   /// Headline for the sheet: the arrival time during the trip, the stage
@@ -1449,10 +1675,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (live != null) return live;
     if (DriverEta.isInTrip(status)) {
       return status == RideStatus.approachingDropoff
-          ? 'Approaching destination'
-          : 'Ride in progress';
+          ? context.l10n.approachingDestination
+          : context.l10n.etaRideInProgress;
     }
-    return eta?.headline(status: status) ?? 'Driver found';
+    return eta?.headline(status: status) ?? context.l10n.driverFound;
   }
 
   double _sheetOffset(MediaQueryData media) {
@@ -1654,6 +1880,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         paymentMethod: widget.paymentMethod,
         walletAmountMinor: widget.walletAmountMinor,
         price: _price,
+        currency: widget.currency,
         driver: driver,
         rideId: _rideId,
         status: _tracking.status,
@@ -1677,6 +1904,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             onMore: _openDetails,
           ),
           const SizedBox(height: 12),
+          if (_waitingFeeCounter() case final counter?) ...[
+            counter,
+            const SizedBox(height: 12),
+          ],
           WaitingRideDetailsCard(
             rideType: widget.rideType,
             pickupAddress: _pickupAddress,
@@ -1685,6 +1916,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             paymentMethod: widget.paymentMethod,
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
+            currency: widget.currency,
             onMore: _openDetails,
           ),
           WaitingNotesAndPin(notes: widget.notes),
@@ -1959,10 +2191,13 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       bottomObstruction: widget.cameraBottomPadding,
     );
     unawaited(
+      // A follow update: it leaves a map the rider is holding or has just
+      // moved alone (the camera never moves under a finger).
       AppScope.instance.maps.fitBounds(
         fit.southwest,
         fit.northeast,
         padding: fit.padding,
+        follow: true,
       ),
     );
   }
@@ -2006,8 +2241,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
                   ),
             ),
           );
-    final pickupLabel = '$toPickupMin\nmin';
-    final arriveLabel = 'Arrive by ${clockTime(arrive)}';
+    final pickupLabel = context.l10n.minLineBreak('$toPickupMin');
+    final arriveLabel = context.l10n.arriveBy(clockTime(arrive));
     final key = '$inTrip|$pickupLabel|$arriveLabel';
     if (key == _timePinKey) return;
     _timePinKey = key;
@@ -2215,8 +2450,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
                   color: Colors.black.withValues(alpha: 0.62),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  'Approximate route',
+                child: Text(
+                  context.l10n.approximateRoute,
                   style: TextStyle(color: Colors.white, fontSize: 11),
                 ),
               ),
@@ -2248,7 +2483,7 @@ class _CancellingCard extends StatelessWidget {
             const SizedBox(width: 12),
             Flexible(
               child: Text(
-                'Cancelling your ride…',
+                context.l10n.findCancelling,
                 style: waitingText(15, weight: FontWeight.w600),
               ),
             ),
@@ -2271,7 +2506,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       container: true,
-      label: 'Live updates paused. Driver position may be out of date.',
+      label: context.l10n.livePaused,
       child: DecoratedBox(
         key: const ValueKey('waiting-live-feed-degraded'),
         decoration: BoxDecoration(
@@ -2291,7 +2526,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
               Expanded(
                 child: ExcludeSemantics(
                   child: Text(
-                    'Live updates paused. Driver position may be out of date.',
+                    context.l10n.livePaused,
                     style: waitingText(12.5, color: Colors.white),
                   ),
                 ),
@@ -2299,7 +2534,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
-                child: const Text('Retry'),
+                child: Text(context.l10n.retry),
               ),
             ],
           ),

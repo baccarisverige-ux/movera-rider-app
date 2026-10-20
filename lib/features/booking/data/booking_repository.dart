@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -23,6 +24,7 @@ class BookingRepository {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = Money.defaultCurrency,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -44,6 +46,7 @@ class BookingRepository {
       quoteSignedPayload: quoteSignedPayload,
       quoteExpiresAt: quoteExpiresAt,
       quoteTotalMinor: quoteTotalMinor,
+      quoteCurrency: quoteCurrency,
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,

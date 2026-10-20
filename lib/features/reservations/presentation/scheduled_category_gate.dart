@@ -7,6 +7,7 @@ import 'package:movera_rider/features/reservations/presentation/ride_scheduled.d
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// After Plan your ride + calendar, open the same category cards as Book now
 /// with bookingMode = scheduled so the CTA is Schedule [category].
@@ -27,7 +28,7 @@ Future<void> openScheduledCategorySelector(
   // CODE-5: never book a pickup at a made-up point either.
   if (!context.mounted) return;
   if (pickupPosition == null) {
-    MoveraToast.show(context, 'Choose a valid pickup address.');
+    MoveraToast.show(context, context.l10n.resValidPickup);
     return;
   }
   // Never book to a made-up point: a destination we cannot find on the map
@@ -35,7 +36,7 @@ Future<void> openScheduledCategorySelector(
   final destinationPosition = await findScheduledPoint(destinationLabel);
   if (!context.mounted) return;
   if (destinationPosition == null) {
-    MoveraToast.show(context, 'Choose a valid destination address.');
+    MoveraToast.show(context, context.l10n.resValidDestination);
     return;
   }
 

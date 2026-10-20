@@ -34,11 +34,19 @@ jobs:
         run: flutter pub get
 
       - name: Build explicit demo Flutter web
+        env:
+          # Same Google Cloud Map ID (cloud-based styling) as the driver app.
+          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
         run: |
+          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
+            exit 1
+          fi
           flutter build web --release \
             -t lib/main_demo.dart \
             --dart-define=MOVERA_FLAVOR=demo \
-            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid
+            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid \
+            --dart-define=MOVERA_GOOGLE_MAP_ID=${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
           printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
 
       - name: Configure Google Maps for web
@@ -94,6 +102,11 @@ jobs:
           index_text = index_text.replace(
               'flutter_bootstrap.js',
               versioned_bootstrap,
+          )
+          # Pages caches plain names: version the map gesture layer too.
+          index_text = index_text.replace(
+              'src="rider_map_camera.js"',
+              f'src="rider_map_camera.js?v={version}"',
           )
           index.write_text(index_text)
           PY

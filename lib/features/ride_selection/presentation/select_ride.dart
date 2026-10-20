@@ -3,6 +3,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
@@ -15,8 +19,11 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart'
+    show routeStopMarkers;
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/straight_line.dart';
@@ -30,7 +37,6 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
-import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -56,6 +62,8 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -82,6 +90,7 @@ class SelectRide extends StatefulWidget {
     this.realtime,
     this.pickupAlreadyConfirmed = false,
     this.pickupIsFallback = false,
+    this.geocoding,
   });
 
   /// Whether [origin] has the exact points a return ride needs (CODE-5).
@@ -105,7 +114,7 @@ class SelectRide extends StatefulWidget {
       throw ArgumentError.value(
         origin.reservationId,
         'origin',
-        'A return ride needs the exact pickup and drop-off points.',
+        L10n.current.selectReturnNeedsPoints,
       );
     }
     final returnPickup = LatLng(
@@ -162,6 +171,9 @@ class SelectRide extends StatefulWidget {
   /// the rider moves the pin or their location arrives.
   final bool pickupIsFallback;
 
+  /// Looks the stops up; defaults to the app's geocoder.
+  final GeocodingRepository? geocoding;
+
   @override
   State<SelectRide> createState() => _SelectRideState();
 }
@@ -178,6 +190,7 @@ class _RideOption {
     required this.seats,
     this.badge,
     this.glyph,
+    this.currency = Money.defaultCurrency,
   });
 
   final String id;
@@ -187,6 +200,9 @@ class _RideOption {
   final String arrival;
   final int etaMin;
   final double price;
+
+  /// The list price's currency ([RideCatalogItem.currency]).
+  final String currency;
   final int seats;
   final String? badge;
   final IconData? glyph;
@@ -224,6 +240,7 @@ class _SelectRideState extends State<SelectRide>
         arrival: ride.arrival,
         etaMin: ride.etaMin,
         price: ride.price,
+        currency: ride.currency,
         seats: ride.seats,
         badge: ride.badge,
         glyph: _glyphIcon(ride.glyph),
@@ -298,6 +315,11 @@ class _SelectRideState extends State<SelectRide>
     _pickupPosition = widget.pickupPosition;
     _nextMapReadyWatch = Stopwatch()..start();
     _pickupConfirmed = widget.pickupAlreadyConfirmed;
+    // Q7: the pickup's zone decides the currency of every price here.
+    _selection.currency = RiderZones.at(
+      _pickupPosition.latitude,
+      _pickupPosition.longitude,
+    ).currency;
     _sheetSlide = AnimationController(
       vsync: this,
       duration: MoveraDurations.sheetOpen,
@@ -309,7 +331,11 @@ class _SelectRideState extends State<SelectRide>
     if (widget.initialRideId != null) {
       final ride = _selection.rideByIdOrNull(widget.initialRideId!);
       if (ride != null) {
-        _selection.selectRide(ride.id, ride.price);
+        _selection.selectRide(
+          ride.id,
+          ride.price,
+          catalogCurrency: ride.currency,
+        );
       }
     }
     _selection.ensureCatalogSelection();
@@ -333,6 +359,30 @@ class _SelectRideState extends State<SelectRide>
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
+    unawaited(_loadZoneConfig());
+  }
+
+  /// The pickup zone's config: its payment methods (Q7) and time zone (Q9).
+  RiderAppConfig? _zoneConfig;
+
+  Future<void> _loadZoneConfig() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: _selection.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (!mounted || config == null) return;
+      setState(() {
+        _zoneConfig = config;
+        _selection.setZonePaymentMethods(config.paymentMethods);
+      });
+    } catch (error) {
+      AppLog.warning(
+        'select_ride.zone_config_failed',
+        extra: {'error': '$error'},
+      );
+    }
   }
 
   Future<void> _loadRoutePins() async {
@@ -413,7 +463,12 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadQuotes() async {
     final generation = _selection.beginQuotes();
+    // Quotes include the stops (audit finding B7, contract §3), so the price
+    // shown is the price of the route booked.
+    final stops = await _routeStops();
+    if (!mounted) return;
     await _selection.loadQuotes(
+      stops: stops,
       generation: generation,
       pickup: widget.pickupAddress,
       destination: widget.destinationAddress,
@@ -441,7 +496,9 @@ class _SelectRideState extends State<SelectRide>
   /// and adopt the quote, so Confirm books the price shown there. Goes
   /// through the selection, which keeps only the latest pin's answer.
   Future<SetPickupFare?> _requoteFromPin(_RideOption ride, LatLng pin) async {
+    final stops = await _routeStops();
     final pending = _selection.quoteFromPin(
+      stops: stops,
       rideId: ride.id,
       distanceMeters: straightLineMeters(pin, widget.destinationPosition),
       pickup: coordinatePickupAddress(pin),
@@ -457,13 +514,17 @@ class _SelectRideState extends State<SelectRide>
   }
 
   SetPickupFare _fareFor(RideQuote quote) {
-    final total = quote.totalMinor / 100;
-    final discount = quote.discountMinor / 100;
+    final total = Money(quote.totalMinor, quote.currency).major;
+    final discount = Money(quote.discountMinor, quote.currency).major;
     return SetPickupFare(
       totalKr: total,
       discountKr: discount,
       promotionPercent: discount > 0 ? _promotion?.percentOff : null,
-      walletKr: _selection.walletSplitFor(quote.totalMinor).walletMinor / 100,
+      walletKr: Money(
+        _selection.walletSplitFor(quote.totalMinor).walletMinor,
+        quote.currency,
+      ).major,
+      currency: quote.currency,
     );
   }
 
@@ -498,10 +559,12 @@ class _SelectRideState extends State<SelectRide>
     final current = _bookableQuote(ride.id);
     if (current != null) return current;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Refreshing price…')),
+      SnackBar(content: Text(context.l10n.refreshingPrice)),
     );
     try {
+      final stops = await _routeStops();
       await _selection.quoteFromPin(
+        stops: stops,
         rideId: ride.id,
         distanceMeters: straightLineMeters(
           _pickupPosition,
@@ -526,21 +589,20 @@ class _SelectRideState extends State<SelectRide>
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const ValueKey('select-ride-price-updated'),
-        title: Text('Price updated', style: _text(18, weight: FontWeight.w600)),
+        title: Text(context.l10n.priceUpdated, style: _text(18, weight: FontWeight.w600)),
         content: Text(
-          'The price for this pickup is now ${_kr(next)} '
-          '(was ${_kr(shown)}).',
+          context.l10n.priceUpdatedBody(_kr(next), _kr(shown)),
           style: _text(14.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now'),
+            child: Text(context.l10n.notNow),
           ),
           FilledButton(
             key: const ValueKey('select-ride-price-accept'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Book for ${_kr(next)}'),
+            child: Text(context.l10n.bookForPrice(_kr(next))),
           ),
         ],
       ),
@@ -580,6 +642,11 @@ class _SelectRideState extends State<SelectRide>
   double _priceFor(_RideOption ride) =>
       _selection.priceFor(ride.id, ride.price);
 
+  /// Whether [ride] has a price in this pickup's currency yet (a list price
+  /// in kronor is never shown for a pickup priced in euros or dinars).
+  bool _hasPrice(_RideOption ride) =>
+      _selection.hasPriceFor(ride.id, catalogCurrency: ride.currency);
+
   void _selectRide(String id) {
     _RideOption? selected;
     for (final ride in _allRides) {
@@ -590,7 +657,11 @@ class _SelectRideState extends State<SelectRide>
     }
     if (selected == null) return;
     setState(() {
-      _selection.selectRide(selected!.id, selected.price);
+      _selection.selectRide(
+        selected!.id,
+        selected.price,
+        catalogCurrency: selected.currency,
+      );
     });
   }
 
@@ -619,11 +690,13 @@ class _SelectRideState extends State<SelectRide>
 
   String _compactAddress(String value) {
     final cleaned = value.trim();
-    if (cleaned.isEmpty) return 'Unknown place';
+    if (cleaned.isEmpty) return context.l10n.unknownPlace;
     return shortenPlace(cleaned);
   }
 
-  String _kr(double value) => formatKr(value);
+  /// [value] whole units of this pickup's currency, as the fare is shown.
+  String _kr(double value) =>
+      formatMoney(_selection.moneyOf(value), whole: true);
 
   /// UI-10: a price never takes more than 30% of the screen width; at large
   /// text it shrinks to fit instead of pushing the ride row off screen.
@@ -775,9 +848,9 @@ class _SelectRideState extends State<SelectRide>
   String _timesFor(_RideOption ride) {
     final scheduled = _scheduledPickup;
     if (scheduled != null) {
-      return 'Pickup ${clockTime(scheduled)} · Arrive ${_arrivalFor(ride)}';
+      return context.l10n.pickupAtArriveAt(clockTime(scheduled), _arrivalFor(ride));
     }
-    return '${ride.etaMin} min · Arrive ${_arrivalFor(ride)}';
+    return context.l10n.etaMinArriveAt('${ride.etaMin}', _arrivalFor(ride));
   }
 
   /// Pins carry the chosen ride's times; rebuilt when the choice changes.
@@ -796,7 +869,7 @@ class _SelectRideState extends State<SelectRide>
         RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
         RouteTimeMarker.createIcon(
           pickup: false,
-          label: 'Arrive by ${_arrivalFor(ride)}',
+          label: context.l10n.arriveBy(_arrivalFor(ride)),
         ),
       ]);
       if (!mounted || key != _timePinKey) return;
@@ -871,6 +944,7 @@ class _SelectRideState extends State<SelectRide>
         context,
         initial: initial,
         tripMinutes: _tripMinutes(),
+        timeZone: _pickupSchedule.timeZone,
       );
       if (when == null || !mounted) return;
       // Only the time here; the pickup is set once, on Set pickup after
@@ -911,15 +985,15 @@ class _SelectRideState extends State<SelectRide>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'When do you want to ride?',
+                    context.l10n.whenDoYouWantToRide,
                     style: _text(20, weight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(height: 12),
                 _sheetChoice(
                   icon: Icons.bolt_rounded,
-                  title: 'Book now',
-                  subtitle: 'Request a driver right away',
+                  title: context.l10n.bookNow,
+                  subtitle: context.l10n.bookNowBody,
                   selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
                     setState(() => _selection.setBookingMode(BookingMode.now));
@@ -928,8 +1002,8 @@ class _SelectRideState extends State<SelectRide>
                 ),
                 _sheetChoice(
                   icon: Icons.calendar_month_rounded,
-                  title: 'Book for later',
-                  subtitle: 'Choose a date and pickup time',
+                  title: context.l10n.bookForLater,
+                  subtitle: context.l10n.bookForLaterBody,
                   selected: _selection.bookingMode == BookingMode.scheduled,
                   onTap: () {
                     chooseLaterAfterClose = true;
@@ -961,6 +1035,7 @@ class _SelectRideState extends State<SelectRide>
       ],
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
+      walletCurrency: _selection.walletCurrency,
       promotion: _promotion,
       brandMark: _brandMark,
       useWalletFirst: _selection.useWalletFirst,
@@ -978,12 +1053,16 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadWalletBalance() async {
     try {
-      final wallet = AppScope.instance.walletController;
+      // Q8: the balance of this trip's currency (one wallet per currency).
+      final wallet = AppScope.instance.walletController.forCurrency(
+        _selection.currency,
+      );
       final balance = await wallet.loadBalance();
       final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
       setState(() {
         _selection.useWalletFirst = walletFirst;
+        _selection.walletCurrency = wallet.currency;
         _selection.setWalletBalance(balance);
       });
     } catch (error) {
@@ -1014,9 +1093,16 @@ class _SelectRideState extends State<SelectRide>
     if (widget.parentReservationId == null) return false;
     final when = _selection.scheduledFor;
     return when != null &&
-        (!StockholmSchedule.isLegalPickup(when) ||
+        (!_pickupSchedule.isLegalPickup(when) ||
             !StockholmSchedule.isOnGrid(when));
   }
+
+  /// Q9: Book later times are the pickup zone's wall-clock time.
+  PickupSchedule get _pickupSchedule => PickupSchedule.at(
+    _pickupPosition.latitude,
+    _pickupPosition.longitude,
+    config: _zoneConfig,
+  );
 
   Future<void> _bookScheduled() async {
     try {
@@ -1045,7 +1131,7 @@ class _SelectRideState extends State<SelectRide>
           if (ride == null) return;
           final spot = await _openSetPickup(
             ride,
-            confirmLabel: 'Confirm and schedule',
+            confirmLabel: context.l10n.confirmAndSchedule,
             scheduledPickup: _selection.scheduledFor,
           );
           if (spot == null || !mounted) return;
@@ -1059,6 +1145,7 @@ class _SelectRideState extends State<SelectRide>
           final when = await ScheduleDateTimeSelector.choose(
             context,
             initial: _selection.scheduledFor,
+            timeZone: _pickupSchedule.timeZone,
           );
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
@@ -1144,15 +1231,15 @@ class _SelectRideState extends State<SelectRide>
     final selected = _selectedRideOrNull;
     if (selected == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No ride category is available. Try again.'),
+        SnackBar(
+          content: Text(context.l10n.noRideCategory),
         ),
       );
       return;
     }
     if (!_selection.quoteIsAvailable(selected.id)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Price unavailable. Refreshing fare…')),
+        SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
       );
       unawaited(_loadQuotes());
       return;
@@ -1187,7 +1274,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<SetPickupResult?> _openSetPickup(
     _RideOption ride, {
-    String confirmLabel = 'Confirm and search',
+    String? confirmLabel,
     DateTime? scheduledPickup,
   }) async {
     final home = await _homePosition();
@@ -1198,7 +1285,7 @@ class _SelectRideState extends State<SelectRide>
       final item = _selection.selectedPaymentItem();
       return SetPickupPayment(
         brand: item?.brand ?? 'cash',
-        name: item?.name ?? 'Pay in car',
+        name: item?.name ?? context.l10n.payCash,
         detail: item?.detail ?? '',
       );
     }
@@ -1209,6 +1296,7 @@ class _SelectRideState extends State<SelectRide>
       initialAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
       destinationPosition: widget.destinationPosition,
+      stops: [for (final stop in _locatedStops) stop.address],
       ride: SetPickupRide(
         name: ride.name,
         image: ride.image,
@@ -1223,6 +1311,7 @@ class _SelectRideState extends State<SelectRide>
         promotionPercent: quote != null && quote.discountMinor > 0
             ? promotion?.percentOff
             : null,
+        currency: _selection.currency,
       ),
       payment: paymentLine(),
       brandMark: _brandMark,
@@ -1235,9 +1324,8 @@ class _SelectRideState extends State<SelectRide>
         totalKr: fare.totalKr,
         discountKr: fare.discountKr,
         promotionPercent: fare.promotionPercent,
-        walletKr:
-            _selection.walletSplitFor(krToMinor(fare.totalKr)).walletMinor /
-            100,
+        walletKr: _selection.walletAppliedKr(fare.totalKr),
+        currency: fare.currency,
       ),
       initialBagLevel: _notes.bagLevel,
       home: home,
@@ -1250,17 +1338,37 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  Future<List<RouteStop>>? _stopsLookup;
+
+  /// [_locateStops], looked up once per screen and shared by quoting and
+  /// booking so both price the same route.
+  Future<List<RouteStop>> _routeStops() {
+    if (widget.stops.every((stop) => stop.trim().isEmpty)) {
+      return Future.value(const <RouteStop>[]);
+    }
+    return _stopsLookup ??= _locateStops();
+  }
+
+  /// The stops that made it into the quote, for the map and the header.
+  List<RouteStop> _locatedStops = const [];
+
   /// The stops the rider typed on Plan your ride, with their map points;
   /// an address that cannot be found is left out rather than blocking the
-  /// booking.
+  /// booking — and the rider is told (UI-04), never silently.
   Future<List<RouteStop>> _locateStops() async {
     final located = <RouteStop>[];
+    final notFound = <String>[];
+    final failed = <String>[];
     for (final address in widget.stops) {
       final clean = address.trim();
       if (clean.isEmpty) continue;
       try {
-        final found = await AppScope.instance.geocoding.forward(clean);
-        if (found == null) continue;
+        final found = await (widget.geocoding ?? AppScope.instance.geocoding)
+            .forward(clean);
+        if (found == null) {
+          notFound.add(clean);
+          continue;
+        }
         located.add(
           RouteStop(
             address: clean,
@@ -1269,10 +1377,48 @@ class _SelectRideState extends State<SelectRide>
           ),
         );
       } catch (_) {
-        // Skip the stop; the driver still gets the pickup and destination.
+        // Left out of this price; the rider can try the lookup again.
+        failed.add(clean);
       }
     }
+    if (mounted) {
+      setState(() {
+        _locatedStops = List.unmodifiable(located);
+        _stopsNotice = _stopsLeftOutNotice(notFound: notFound, failed: failed);
+        _stopsRetry = failed.isNotEmpty;
+      });
+    }
     return located;
+  }
+
+  /// UI-04: which stops the price leaves out, said where the stops are
+  /// shown (under the destination), so it never covers Book.
+  String? _stopsNotice;
+  bool _stopsRetry = false;
+
+  static String? _stopsLeftOutNotice({
+    required List<String> notFound,
+    required List<String> failed,
+  }) {
+    String quoted(List<String> stops) =>
+        stops.map((stop) => '“${shortenPlace(stop)}”').join(', ');
+    if (failed.isNotEmpty) {
+      return L10n.current.stopLookupFailed(quoted(failed));
+    }
+    if (notFound.isNotEmpty) {
+      return L10n.current.stopNotFound(quoted(notFound));
+    }
+    return null;
+  }
+
+  void _retryStops() {
+    setState(() {
+      _stopsNotice = null;
+      _stopsRetry = false;
+    });
+    // Look the stops up again and price the new route.
+    _stopsLookup = null;
+    unawaited(_loadQuotes());
   }
 
   void _bookNow() {
@@ -1287,8 +1433,8 @@ class _SelectRideState extends State<SelectRide>
         quote.signedPayload == null ||
         quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fare changed or expired. Refreshing price…'),
+        SnackBar(
+          content: Text(context.l10n.fareChangedRefreshing),
         ),
       );
       _releaseBookingLock();
@@ -1298,7 +1444,7 @@ class _SelectRideState extends State<SelectRide>
     final paymentItem = _selection.selectedPaymentItem();
     if (paymentItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No payment method is available.')),
+        SnackBar(content: Text(context.l10n.noPaymentMethod)),
       );
       _releaseBookingLock();
       return;
@@ -1325,7 +1471,7 @@ class _SelectRideState extends State<SelectRide>
           payment = _PaymentOption(
             brand: card.methodBrand,
             name: card.displayName,
-            detail: 'Expires ${card.expiryLabel}',
+            detail: context.l10n.cardExpires(card.expiryLabel),
           );
         }
         // Set pickup every time; the current location is preselected.
@@ -1356,8 +1502,8 @@ class _SelectRideState extends State<SelectRide>
         if (!mounted) return;
         if (bookable == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Price unavailable. Refreshing fare…'),
+            SnackBar(
+              content: Text(context.l10n.priceUnavailableRefreshing),
             ),
           );
           unawaited(_loadQuotes());
@@ -1367,7 +1513,7 @@ class _SelectRideState extends State<SelectRide>
         final authoritativePrice = bookable.price;
         final shown = spot.fareTotalKr;
         if (shown != null &&
-            krToMinor(shown) != quote.totalMinor &&
+            _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
             !await _acceptNewPrice(shown, authoritativePrice)) {
           if (mounted) setState(() {});
           return;
@@ -1376,7 +1522,7 @@ class _SelectRideState extends State<SelectRide>
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);
 
-        final stops = await _locateStops();
+        final stops = await _routeStops();
         if (!mounted) return;
 
         String rideId;
@@ -1396,6 +1542,7 @@ class _SelectRideState extends State<SelectRide>
             quoteSignedPayload: quote.signedPayload,
             quoteExpiresAt: quote.expiresAt,
             quoteTotalMinor: quote.totalMinor,
+            quoteCurrency: quote.currency,
             rideTypeLabel: selected.name,
             paymentMethodLabel: payment.name,
             notes: _notes,
@@ -1405,12 +1552,16 @@ class _SelectRideState extends State<SelectRide>
           if (rideId.trim().isEmpty) {
             throw StateError('Booking response did not contain a ride id.');
           }
-        } catch (_) {
+        } catch (error) {
           if (!mounted) return;
+          // RC-09: a booking that may exist on the server is not "refused".
+          final uncertain = BookingController.mayHaveBooked(error);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'We could not book this ride. Check the fare and try again.',
+                uncertain
+                    ? context.l10n.bookingUncertain
+                    : context.l10n.bookingFailed,
               ),
             ),
           );
@@ -1460,6 +1611,7 @@ class _SelectRideState extends State<SelectRide>
                 destinationPosition: widget.destinationPosition,
                 rideType: selected.name,
                 price: authoritativePrice,
+                currency: quote.currency,
                 paymentMethod: payment.name,
                 walletAmountMinor: walletSplit.walletMinor,
                 notes: _notes,
@@ -1525,6 +1677,8 @@ class _SelectRideState extends State<SelectRide>
                                   ? RouteTimeMarker.anchor
                                   : const Offset(0.5, 0.5),
                             ),
+                          // UI-08: the stops are on the map while booking.
+                          ...routeStopMarkers(_locatedStops),
                         },
                         polylines: styledRoute(
                           routePolyline(
@@ -1661,8 +1815,8 @@ class _SelectRideState extends State<SelectRide>
                                     Semantics(
                                       button: true,
                                       label: v > 0.98
-                                          ? 'Show fewer rides'
-                                          : 'Show all rides',
+                                          ? context.l10n.showFewerRides
+                                          : context.l10n.showAllRides,
                                       child: GestureDetector(
                                         key: const ValueKey(
                                           'select-ride-sheet-handle',
@@ -1697,7 +1851,7 @@ class _SelectRideState extends State<SelectRide>
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              'Choose your ride',
+                                              context.l10n.chooseYourRide,
                                               style: _text(
                                                 22,
                                                 weight: FontWeight.w700,
@@ -1842,7 +1996,7 @@ class _SelectRideState extends State<SelectRide>
       borderRadius: BorderRadius.circular(22),
       elevation: 0,
       child: Container(
-        height: 50,
+        constraints: const BoxConstraints(minHeight: 50),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(22),
@@ -1860,17 +2014,56 @@ class _SelectRideState extends State<SelectRide>
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-              tooltip: 'Back',
+              tooltip: context.l10n.back,
             ),
             Expanded(
-              child: Text(
-                _compactAddress(widget.destinationAddress),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _text(15, weight: FontWeight.w500),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _compactAddress(widget.destinationAddress),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(15, weight: FontWeight.w500),
+                  ),
+                  // UI-08: the stops the price includes.
+                  if (viaStopsLine(_locatedStops.map((s) => s.address))
+                      case final via?)
+                    Text(
+                      via,
+                      key: const ValueKey('select-ride-via-stops'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(12, color: _muted),
+                    ),
+                  if (_stopsNotice case final notice?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 6),
+                      child: Text(
+                        notice,
+                        key: const ValueKey('select-ride-stops-left-out'),
+                        style: _text(
+                          12,
+                          weight: FontWeight.w500,
+                          color: const Color(0xFFB42318),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
+            if (_stopsRetry)
+              TextButton(
+                key: const ValueKey('select-ride-stops-retry'),
+                onPressed: _retryStops,
+                child: Text(
+                  context.l10n.tryAgain,
+                  style: _text(13, weight: FontWeight.w600, color: _ink),
+                ),
+              )
+            else
+              const SizedBox(width: 8),
           ],
         ),
       ),
@@ -1883,20 +2076,20 @@ class _SelectRideState extends State<SelectRide>
       child: Row(
         children: [
           _filterChip(
-            label: 'Recommended',
+            label: context.l10n.filterRecommended,
             selected: _filter == SelectRideFilter.recommended,
             onTap: () => setState(() => _filter = SelectRideFilter.recommended),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Faster',
+            label: context.l10n.filterFaster,
             icon: Icons.schedule_rounded,
             selected: _filter == SelectRideFilter.faster,
             onTap: () => setState(() => _filter = SelectRideFilter.faster),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Cheaper',
+            label: context.l10n.filterCheaper,
             icon: Icons.payments_outlined,
             selected: _filter == SelectRideFilter.cheaper,
             onTap: () => setState(() => _filter = SelectRideFilter.cheaper),
@@ -1949,9 +2142,12 @@ class _SelectRideState extends State<SelectRide>
     for (final ride in _allRides) {
       final quote = _selection.authoritativeQuotes[ride.id];
       if (quote == null) continue;
-      final discounted = quote.totalMinor / 100;
+      final discounted = Money(quote.totalMinor, quote.currency).major;
       prices[ride.id] = (
-        original: discounted + quote.discountMinor / 100,
+        original: Money(
+          quote.totalMinor + quote.discountMinor,
+          quote.currency,
+        ).major,
         discounted: discounted,
       );
     }
@@ -1968,6 +2164,7 @@ class _SelectRideState extends State<SelectRide>
           PromotionCategory(id: ride.id, name: ride.name),
       ],
       prices: _promotionPrices(),
+      currency: _selection.currency,
     );
   }
 
@@ -1975,7 +2172,7 @@ class _SelectRideState extends State<SelectRide>
   double _discountFor(_RideOption ride) {
     final quote = _selection.authoritativeQuotes[ride.id];
     if (quote == null || quote.discountMinor <= 0) return 0;
-    return quote.discountMinor / 100;
+    return Money(quote.discountMinor, quote.currency).major;
   }
 
   Widget _rideTile(_RideOption ride, {required double detail}) {
@@ -2102,7 +2299,9 @@ class _SelectRideState extends State<SelectRide>
                           _fitPrice(
                             context,
                             Text(
-                              _kr(price),
+                              // No quote yet for a pickup outside the
+                              // list's currency: no price, not a wrong one.
+                              _hasPrice(ride) ? _kr(price) : '…',
                               style: _text(16, weight: FontWeight.w600),
                             ),
                           ),
@@ -2133,8 +2332,14 @@ class _SelectRideState extends State<SelectRide>
                         ],
                       ),
                       if (selected &&
-                          _selection.walletSplitFor(krToMinor(price)).usesWallet)
+                          _selection
+                              .walletSplitFor(
+                                _selection.moneyOf(price).amountMinor,
+                              )
+                              .usesWallet)
                         _walletLine(price),
+                      if (selected && _walletOtherCurrency)
+                        _walletCurrencyNote(),
                       // Description and badge come in as the sheet opens fully.
                       ClipRect(
                         child: Align(
@@ -2198,8 +2403,29 @@ class _SelectRideState extends State<SelectRide>
 
   /// Under the selected ride: what the wallet covers and what is left to
   /// pay. The list price itself stays the real fare.
+  /// The rider has wallet money and wants it used, but it is in another
+  /// currency than this trip: it is not used (no conversion).
+  bool get _walletOtherCurrency =>
+      _selection.useWalletFirst &&
+      _selection.walletBalance > 0 &&
+      !_selection.walletMatchesTrip &&
+      _selection.walletEnabled;
+
+  Widget _walletCurrencyNote() => Padding(
+    key: const ValueKey('select-ride-wallet-currency-note'),
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      context.l10n.walletWrongCurrency(_selection.walletCurrency, _selection.currency),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _text(12, color: _muted),
+    ),
+  );
+
   Widget _walletLine(double price) {
-    final split = _selection.walletSplitFor(krToMinor(price));
+    final split = _selection.walletSplitFor(
+      _selection.moneyOf(price).amountMinor,
+    );
     const green = Color(0xFF079A60);
     return Padding(
       key: const ValueKey('select-ride-wallet-line'),
@@ -2215,12 +2441,11 @@ class _SelectRideState extends State<SelectRide>
           Expanded(
             child: split.paidByWallet
                 ? Text(
-                    'Paid by wallet',
+                    context.l10n.paidByWallet,
                     style: _text(12, weight: FontWeight.w600, color: green),
                   )
                 : Text(
-                    'Wallet −${formatKr(split.walletKr)} · '
-                    'you pay ${formatKr(split.remainderKr)}',
+                    context.l10n.walletSplit(split.walletLabel, split.remainderLabel),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _text(12, weight: FontWeight.w500, color: green),
@@ -2267,7 +2492,7 @@ class _SelectRideState extends State<SelectRide>
                       child: Center(
                         child: Text(
                           selected == null
-                              ? 'No rides available'
+                              ? context.l10n.noRidesAvailable
                               : _selection.bookingMode.ctaLabel(selected.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -2286,7 +2511,7 @@ class _SelectRideState extends State<SelectRide>
               // UI-5: the icon-only button has a name for screen readers.
               Semantics(
                 button: true,
-                label: 'Book now or later',
+                label: context.l10n.bookNowOrLater,
                 child: Material(
                   color: _cta,
                   shape: const CircleBorder(),
@@ -2316,7 +2541,7 @@ class _SelectRideState extends State<SelectRide>
   Widget _paymentButton() {
     final item = _selection.selectedPaymentItem();
     final method = item == null
-        ? const _PaymentOption(brand: 'cash', name: 'Pay in car', detail: '')
+        ? _PaymentOption(brand: 'cash', name: context.l10n.payCash, detail: '')
         : _PaymentOption(
             brand: item.brand,
             name: item.name,
@@ -2344,7 +2569,7 @@ class _SelectRideState extends State<SelectRide>
                       children: [
                         Flexible(
                           child: Text(
-                            method.name,
+                            paymentNameFor(method.brand, method.name),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _text(15, weight: FontWeight.w600),
@@ -2358,7 +2583,7 @@ class _SelectRideState extends State<SelectRide>
                       ],
                     ),
                     Text(
-                      method.detail,
+                      paymentDetailFor(method.brand, method.detail),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _text(

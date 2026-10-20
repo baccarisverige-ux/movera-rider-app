@@ -3,6 +3,7 @@ import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/shared/models/saved_places.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SavedPlacesController {
   SavedPlacesController({HomeAddressRepository? store})
@@ -12,10 +13,19 @@ class SavedPlacesController {
   final List<PlaceShortcut> _shortcuts = <PlaceShortcut>[];
 
   List<SavedPlacesModel> options() => [
-    SavedPlacesModel(title: 'Add Home', icon: Icons.house_rounded),
-    SavedPlacesModel(title: 'Add Work', icon: Icons.work_outline_rounded),
-    SavedPlacesModel(title: 'Add School', icon: Icons.bookmark_outline_rounded),
-    SavedPlacesModel(title: 'Add Gym', icon: Icons.bookmark_outline_rounded),
+    SavedPlacesModel(title: L10n.current.spAddHome, icon: Icons.house_rounded),
+    SavedPlacesModel(
+      title: L10n.current.spAddWork,
+      icon: Icons.work_outline_rounded,
+    ),
+    SavedPlacesModel(
+      title: L10n.current.spAddSchool,
+      icon: Icons.bookmark_outline_rounded,
+    ),
+    SavedPlacesModel(
+      title: L10n.current.spAddGym,
+      icon: Icons.bookmark_outline_rounded,
+    ),
   ];
 
   List<PlaceShortcut> shortcuts() =>
@@ -59,14 +69,14 @@ class SavedPlacesController {
     if (clean.kind == 'home') {
       home = clean.subtitle;
       saved = PlaceShortcut(
-        title: 'Home',
+        title: L10n.current.placeHome,
         subtitle: clean.subtitle,
         kind: 'home',
       );
     } else if (clean.kind == 'office') {
       work = clean.subtitle;
       saved = PlaceShortcut(
-        title: 'Work',
+        title: L10n.current.placeWork,
         subtitle: clean.subtitle,
         kind: 'office',
       );
@@ -141,11 +151,23 @@ class SavedPlacesController {
     final result = <PlaceShortcut>[];
     final home = snapshot.home?.trim();
     if (home?.isNotEmpty == true) {
-      result.add(PlaceShortcut(title: 'Home', subtitle: home!, kind: 'home'));
+      result.add(
+        PlaceShortcut(
+          title: L10n.current.placeHome,
+          subtitle: home!,
+          kind: 'home',
+        ),
+      );
     }
     final work = snapshot.work?.trim();
     if (work?.isNotEmpty == true) {
-      result.add(PlaceShortcut(title: 'Work', subtitle: work!, kind: 'office'));
+      result.add(
+        PlaceShortcut(
+          title: L10n.current.placeWork,
+          subtitle: work!,
+          kind: 'office',
+        ),
+      );
     }
     final places = _withIds(snapshot.places);
     for (final item in places) {
@@ -173,8 +195,8 @@ class SavedPlacesController {
   }
 
   String _labelForKind(String kind) {
-    if (kind == 'office') return 'Work';
-    if (kind == 'home') return 'Home';
+    if (kind == 'office') return L10n.current.placeWork;
+    if (kind == 'home') return L10n.current.placeHome;
     return kind
         .split('-')
         .where((part) => part.isNotEmpty)

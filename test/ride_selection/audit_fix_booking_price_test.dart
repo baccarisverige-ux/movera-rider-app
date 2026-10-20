@@ -115,6 +115,7 @@ class _CaptureBooking extends BookingController {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    String quoteCurrency = 'SEK',
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -198,7 +199,7 @@ void main() {
     final selection = selectionWith(quotes);
     final booking = _CaptureBooking();
     await openSetPickup(tester, selection, booking);
-    expect(find.text('kr 259'), findsWidgets);
+    expect(find.text('259 kr'), findsWidgets);
 
     final map = tester.widget<CustomGoogleMap>(
       find.byKey(const ValueKey('set-pickup-map')),
@@ -212,8 +213,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     // The re-quote went through the selection's own repository.
-    expect(find.text('kr 301'), findsWidgets);
-    final pinQuoteId = 'quote-movera-${quotes.calls}';
+    expect(find.text('301 kr'), findsWidgets);
+    final pinQuoteId = 'quote-economy-${quotes.calls}';
 
     await confirm(tester);
     expect(booking.submits, 1);
@@ -285,7 +286,7 @@ void main() {
       await confirm(tester);
       expect(quotes.calls, greaterThan(callsBefore));
       expect(booking.submits, 1);
-      expect(booking.quoteId, isNot('quote-movera-1'));
+      expect(booking.quoteId, isNot('quote-economy-1'));
       expect(booking.quoteExpiresAt!.isAfter(DateTime.now()), isTrue);
       expect(booking.price, 259);
       for (var i = 0; i < 5; i++) {
@@ -328,14 +329,14 @@ void main() {
       );
       addTearDown(selection.dispose);
 
-      final a = selection.quoteFromPin(rideId: 'movera', distanceMeters: 1);
-      final b = selection.quoteFromPin(rideId: 'movera', distanceMeters: 2);
+      final a = selection.quoteFromPin(rideId: 'economy', distanceMeters: 1);
+      final b = selection.quoteFromPin(rideId: 'economy', distanceMeters: 2);
       answers[1].complete(_quote('pin-b', 30100));
       expect(await b, isNotNull);
       answers[0].complete(_quote('pin-a', 28000));
       expect(await a, isNull);
-      expect(selection.authoritativeQuotes['movera']!.id, 'pin-b');
-      expect(selection.offeredPrices['movera'], 301);
+      expect(selection.authoritativeQuotes['economy']!.id, 'pin-b');
+      expect(selection.offeredPrices['economy'], 301);
     });
 
     test(
@@ -356,14 +357,14 @@ void main() {
           parallelism: 100,
         );
         final listCount = answers.length;
-        final pin = selection.quoteFromPin(rideId: 'movera', distanceMeters: 2);
+        final pin = selection.quoteFromPin(rideId: 'economy', distanceMeters: 2);
         answers.last.complete(_quote('pin', 30100));
         await pin;
         for (var i = 0; i < listCount; i++) {
           answers[i].complete(_quote('old-$i', 25900));
         }
         await load;
-        expect(selection.authoritativeQuotes['movera']!.id, 'pin');
+        expect(selection.authoritativeQuotes['economy']!.id, 'pin');
       },
     );
   });
@@ -371,7 +372,7 @@ void main() {
 
 RideQuote _quote(String id, int minor) => RideQuote(
   id: id,
-  rideType: 'movera',
+  rideType: 'economy',
   totalMinor: minor,
   currency: 'SEK',
   expiresAt: DateTime.now().add(const Duration(minutes: 5)),

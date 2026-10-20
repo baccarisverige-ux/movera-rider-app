@@ -57,7 +57,7 @@ class ApiQuoteRepository implements QuoteRepository {
       // ARCH-11 / contract C-0: integer minor units and an ISO-4217 code,
       // either as a `total` Money object or as `totalMinor` + `currency`.
       final total =
-          Money.tryParse(map['total']) ??
+          Money.fromWire(map['total']) ??
           Money.tryMinor(
             map['totalMinor'] ?? map['amountMinor'],
             map['currency'] ?? Money.defaultCurrency,

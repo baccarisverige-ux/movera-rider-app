@@ -16,6 +16,7 @@ import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RiderSearchPickupLocation extends StatefulWidget {
   const RiderSearchPickupLocation({
@@ -76,8 +77,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     if (found == null) {
       setState(() {
         _searching = false;
-        _searchError =
-            'We couldn’t find that address. Try a street name and city.';
+        _searchError = context.l10n.spAddressNotFound;
       });
       return;
     }
@@ -101,7 +101,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     } on CurrentAddressException catch (e) {
       error = e.message;
     } catch (_) {
-      error = 'We couldn’t find where you are. Search for the address instead.';
+      error = L10n.current.spWhereYouAreNotFound;
     }
     if (!mounted) return;
     setState(() {
@@ -126,12 +126,12 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     final homeSubtitle = _shortcutSubtitle(
       shortcuts,
       'home',
-      fallback: 'Not saved yet',
+      fallback: context.l10n.spNotSavedYet,
     );
     final workSubtitle = _shortcutSubtitle(
       shortcuts,
       'office',
-      fallback: 'Not saved yet',
+      fallback: context.l10n.spNotSavedYet,
     );
 
     return Scaffold(
@@ -182,7 +182,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       borderWidth: 0,
                       borderRadius: 0,
                       contentHorizPadding: 10,
-                      hint: 'Pickup location',
+                      hint: context.l10n.spPickupLocation,
                       contentVertPadding: 0,
                       fontSize: 16,
                       textColor: AppColor.black,
@@ -195,7 +195,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                         children: [
                           IconButton(
                             key: const ValueKey('saved-place-search'),
-                            tooltip: 'Search address',
+                            tooltip: context.l10n.spSearchAddress,
                             onPressed: _searching
                                 ? null
                                 : () => unawaited(_submitQuery()),
@@ -246,7 +246,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   Expanded(
                     child: _buildSavedPlace(
                       icon: AppAssets.home,
-                      title: 'Home',
+                      title: context.l10n.placeHome,
                       subtitle: homeSubtitle,
                       isLeftRounded: true,
                       onTap: () => _onShortcutTap(subtitle: homeSubtitle),
@@ -256,7 +256,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   Expanded(
                     child: _buildSavedPlace(
                       icon: AppAssets.office,
-                      title: 'Work',
+                      title: context.l10n.placeWork,
                       subtitle: workSubtitle,
                       onTap: () => _onShortcutTap(subtitle: workSubtitle),
                     ),
@@ -264,7 +264,8 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   2.width,
                   InkWell(
                     // Was dead while the Home and Work chips beside it worked.
-                    onTap: () => _onShortcutTap(subtitle: 'Not saved yet'),
+                    onTap: () =>
+                        _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
                     child: _buildFavorite(),
                   ),
                 ],
@@ -284,7 +285,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: 'Your last trip',
+                      text: context.l10n.spYourLastTrip,
                       color: AppColor.black,
                       fontSize: 16,
                       fontWeight: fwSemiBold,
@@ -292,16 +293,15 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                     10.height,
                     _buildEmptyState(
                       icon: Icons.history_rounded,
-                      title: 'No recent trips yet',
-                      subtitle:
-                          'Completed trips will appear here when real ride history is available.',
+                      title: context.l10n.spNoRecentTrips,
+                      subtitle: context.l10n.spNoRecentTripsBody,
                     ),
                   ],
                 ),
               ),
               24.height,
               TextWidget(
-                text: 'Search results',
+                text: context.l10n.spSearchResults,
                 color: AppColor.black,
                 fontSize: 16,
                 fontWeight: fwSemiBold,
@@ -321,9 +321,8 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               ],
               _buildEmptyState(
                 icon: Icons.search_off_rounded,
-                title: 'No search results',
-                subtitle:
-                    'Suggestions aren’t available yet. Type a full address and press Search.',
+                title: context.l10n.spNoSearchResults,
+                subtitle: context.l10n.spNoSuggestionsBody,
                 backgroundColor: const Color(0xffF5F4F1),
               ),
               20.height,
@@ -335,7 +334,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   }
 
   void _onShortcutTap({required String subtitle}) {
-    final saved = subtitle.trim().isNotEmpty && subtitle != 'Not saved yet';
+    final saved = subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
     if (saved) {
       Navigator.maybePop(context, subtitle);
       return;
@@ -435,7 +434,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
             Image.asset(AppAssets.star, height: ResSize.h * 18),
             4.height,
             TextWidget(
-              text: 'Favorite',
+              text: context.l10n.spFavorite,
               fontSize: 12,
               fontWeight: fwSemiBold,
               color: const Color(0xff5E5E5E),

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -5,6 +6,7 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RiderInTripPanel extends StatelessWidget {
   const RiderInTripPanel({
@@ -14,6 +16,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.driver,
     required this.rideId,
     this.status = RideStatus.tripInProgress,
@@ -31,6 +34,9 @@ class RiderInTripPanel extends StatelessWidget {
   /// The part of [price] booked to the Movera Wallet, in öre.
   final int walletAmountMinor;
   final double price;
+
+  /// ISO-4217 code of [price] (the trip's zone).
+  final String currency;
   final MatchedDriver? driver;
   final String? rideId;
   final RideStatus status;
@@ -77,7 +83,7 @@ class RiderInTripPanel extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            approaching ? 'NEAR DESTINATION' : 'ON TRIP',
+                            approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
                             style: waitingText(
                               11,
                               weight: FontWeight.w700,
@@ -91,8 +97,8 @@ class RiderInTripPanel extends StatelessWidget {
                     Text(
                       headline ??
                           (approaching
-                              ? 'Approaching destination'
-                              : 'Ride in progress'),
+                              ? context.l10n.approachingDestination
+                              : context.l10n.etaRideInProgress),
                       style: waitingText(23, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
@@ -119,6 +125,7 @@ class RiderInTripPanel extends StatelessWidget {
             '$rideType · ${bookedPaymentLine(
               paymentMethod: paymentMethod,
               priceKr: price,
+              currency: currency,
               walletMinor: walletAmountMinor,
             )}',
             key: const ValueKey<String>('trip-summary-line'),
@@ -159,7 +166,7 @@ class RiderInTripPanel extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Trip safety',
+                      context.l10n.tripSafety,
                       style: waitingText(14, weight: FontWeight.w700),
                     ),
                   ],
@@ -176,7 +183,8 @@ class RiderInTripPanel extends StatelessWidget {
               key: const ValueKey<String>('active-trip-cancel'),
               onPressed: onCancel,
               icon: const Icon(Icons.close_rounded, size: 18),
-              label: const Text('Cancel ride'),
+              // UI-01: on board the trip ends early (paid by distance).
+              label: Text(context.l10n.endTripHere),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFB42318),
                 side: const BorderSide(color: Color(0xFFE4B8B4)),

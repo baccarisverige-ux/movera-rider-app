@@ -22,8 +22,48 @@ class RideSession {
   bool suppressRestore = false;
 
   /// Last authoritative backend ordering metadata accepted for this ride.
+  ///
+  /// Not always the server's projection version: realtime events are
+  /// ordered here by `version ?? sequence`, and the demo transport numbers
+  /// its own events. Commands send [projectionVersionOf] instead.
   int? authoritativeVersion;
   DateTime? authoritativeUpdatedAt;
+
+  /// R-O2: the newest `TripProjection.version` seen per trip, from server
+  /// responses and the realtime transport only. It is what the rider's
+  /// commands send as `expectedVersion`, so a tap made on a screen the
+  /// trip has already moved past is refused (`409 version_mismatch`).
+  final Map<String, int> _projectionVersions = {};
+
+  /// The trip's projection version this device last saw, or null when it
+  /// has seen none (the command is then sent without one).
+  int? projectionVersionOf(String? tripId) {
+    final id = tripId?.trim();
+    if (id == null || id.isEmpty) return null;
+    return _projectionVersions[id];
+  }
+
+  /// Records [version] for [tripId]. Versions only grow: an older answer
+  /// that arrives late never moves it back.
+  void observeProjectionVersion(String? tripId, Object? version) {
+    final id = tripId?.trim();
+    if (id == null || id.isEmpty || version is! num || version < 1) return;
+    final value = version.toInt();
+    final known = _projectionVersions[id];
+    if (known == null || value > known) _projectionVersions[id] = value;
+  }
+
+  /// Records the version of a trip projection in a server response: the
+  /// bare contract projection, `{projection}` or the pre-v0.3 `{ride}`.
+  void observeProjection(Object? response) {
+    if (response is! Map) return;
+    final ride = response['projection'] ?? response['ride'] ?? response;
+    if (ride is! Map) return;
+    observeProjectionVersion(
+      (ride['tripId'] ?? ride['rideId'] ?? ride['id'])?.toString(),
+      ride['version'],
+    );
+  }
 
   /// The booked category and payment method ids of [rideId] (RIDE-19), so
   /// the search screen can request the same ride again. Set by booking and
@@ -170,6 +210,7 @@ class RideSession {
     suppressRestore = false;
     authoritativeVersion = null;
     authoritativeUpdatedAt = null;
+    _projectionVersions.clear();
     tripStatus = TripStatus.draft;
     paymentStatus = PaymentStatus.notStarted;
     ratingStatus = RatingStatus.notRequested;

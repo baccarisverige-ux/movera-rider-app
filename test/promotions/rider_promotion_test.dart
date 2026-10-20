@@ -29,11 +29,11 @@ void main() {
     })!;
     expect(p.rideTypes, ['comfort', 'priority', 'premium']);
     expect(p.appliesTo('comfort'), isTrue);
-    expect(p.appliesTo('movera'), isFalse);
+    expect(p.appliesTo('economy'), isFalse);
     // No list from the server means every category.
     final all = RiderPromotion.fromJson(json)!;
     expect(all.rideTypes, isEmpty);
-    expect(all.appliesTo('movera'), isTrue);
+    expect(all.appliesTo('economy'), isTrue);
   });
 
   test('nothing from the server means no promotion', () {

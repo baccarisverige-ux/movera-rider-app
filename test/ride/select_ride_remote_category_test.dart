@@ -48,14 +48,14 @@ class _ImmediateQuoteRepository implements QuoteRepository {
 /// A server catalog with a category the app does not ship with.
 const _serverRows = [
   {
-    'id': 'movera',
+    'id': 'economy',
     'name': 'Movera',
     'seats': 4,
     'etaMin': 8,
     'price': 259,
     'description': 'Affordable and convenient rides',
     'badge': 'RECOMMENDED',
-    'imageKey': 'movera',
+    'imageKey': 'economy',
     'order': 1,
     'enabled': true,
   },
@@ -126,7 +126,7 @@ void main() {
     }
 
     expect(catalog.source, RideCatalogSource.server);
-    expect(selection.rides().map((ride) => ride.id), ['movera', 'shuttle']);
+    expect(selection.rides().map((ride) => ride.id), ['economy', 'shuttle']);
     expect(find.text('Shuttle'), findsWidgets);
     expect(find.text('Shared shuttle rides'), findsWidgets);
     expect(find.text('Comfort'), findsNothing);

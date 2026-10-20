@@ -6,18 +6,61 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
+import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
+///
+/// Contract v0.3.0 (`contracts/contract.json`): rides are stored and sent
+/// with a snake_case `status` (`TripStatus`), `paymentStatus` and
+/// `ratingStatus` fields, `tripId` (with the legacy `rideId`/`id` aliases),
+/// and every lifecycle change goes through [TripStateMachine]: a command the
+/// table does not allow answers `409 invalid_transition` with the current
+/// `projection` and changes nothing.
 class InProcessMockClient extends http.BaseClient {
   InProcessMockClient({
     this.latency = Duration.zero,
     this.searchExpiresAfter = const Duration(minutes: 3),
     this.persistSafety = false,
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
+
+  /// The time the cancel-fee windows are measured with (tests move it).
+  final DateTime Function() _clock;
+
+  /// X7: the rider config the stand-in server charges cancel fees from
+  /// (`cancelFees.live` / `.reservation` per category). Tests may replace it.
+  RiderAppConfig riderConfig = SeedRiderConfigRepository.seed;
+
+  /// When a driver accepted each trip (the start of the live free-cancel
+  /// window). Server-side only; not part of the projection.
+  final Map<String, DateTime> _acceptedAt = {};
+
+  /// R-O1: the distance each trip has been driven with the rider on board,
+  /// summed from the driver's GPS fixes (`POST …/status` with `lat`/`lng`)
+  /// since the first fix after boarding. Server-side only; not part of the
+  /// projection (contract v0.3.0 has no driven-distance field).
+  final Map<String, ({double lat, double lng, double meters})> _driven = {};
+
+  /// Trips the rider ended early. R-O6 (owner decision): they are rated on
+  /// the normal trip-end screen. The projection does not say which command
+  /// ended a `cancelled_by_rider` trip, so the server remembers it for
+  /// `contract.json#ratingAllowed` (v0.3.1).
+  final Set<String> _endedEarly = {};
+
+  /// The distance [tripId] has been driven on board, in metres (R-O1).
+  int drivenMetersOf(String tripId) => (_driven[tripId]?.meters ?? 0).round();
 
   final Duration latency;
 
@@ -29,7 +72,13 @@ class InProcessMockClient extends http.BaseClient {
   /// A ride still searching this long after it was created reads back as
   /// `noDriverFound`, so the demo still ends when no driver is assigned.
   final Duration searchExpiresAfter;
-  final Map<String, Map<String, dynamic>> idempotency = {};
+  /// RC-12: replays by `METHOD path key`, each with the body it answered
+  /// and an encoded copy of that answer (never the live trip map, which
+  /// keeps changing). Bounded: entries older than [idempotencyTtl] go, and
+  /// past [idempotencyLimit] the oldest go first.
+  final Map<String, IdempotentReplay> idempotency = {};
+  static const idempotencyTtl = Duration(hours: 24);
+  static const idempotencyLimit = 500;
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
 
@@ -124,7 +173,7 @@ class InProcessMockClient extends http.BaseClient {
   /// `van` is not in the app's built-in list: it proves the catalog really
   /// comes from here. Tests may edit this list.
   final List<Map<String, dynamic>> rideTypes = [
-    _rideType('movera', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
+    _rideType('economy', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
         order: 1, badge: 'RECOMMENDED'),
     _rideType('comfort', 'Comfort', 4, 11, 339, 'Newer cars with extra legroom',
         order: 2),
@@ -177,8 +226,8 @@ class InProcessMockClient extends http.BaseClient {
       'name': name,
       'seats': seats,
       'etaMin': etaMin,
-      'price': price,
-      'currency': currency,
+      // The list price as Money (contract v0.3.0).
+      'price': _money(price * Money.minorPerMajor(currency)),
       'description': description,
       'badge': badge,
       'glyph': glyph,
@@ -190,10 +239,14 @@ class InProcessMockClient extends http.BaseClient {
 
   /// Catalog price in kr for [rideType]: the ride-types table first, then
   /// the dev fallback table.
-  int _catalogPriceKr(String rideType) {
+  int _catalogPriceKr(String rawType) {
+    final rideType = CategoryIds.canonical(rawType);
     for (final type in rideTypes) {
       if (type['id'] == rideType) {
         final price = type['price'];
+        if (price is Map && price['amountMinor'] is int) {
+          return (price['amountMinor'] as int) ~/ 100;
+        }
         if (price is num) return price.round();
       }
     }
@@ -223,15 +276,38 @@ class InProcessMockClient extends http.BaseClient {
 
     if (failNext) {
       failNext = false;
-      return _json(500, {
-        'code': 'SERVER_ERROR',
-        'message': 'Mock 500',
-        'requestId': requestId,
-      }, requestId);
+      return _json(
+        500,
+        _error('internal', requestId, message: 'Mock 500'),
+        requestId,
+      );
     }
 
-    if (key != null && key.isNotEmpty && idempotency.containsKey(key)) {
-      return _json(200, idempotency[key]!, requestId);
+    final replayKey = key == null || key.isEmpty ? null : '$method $path $key';
+    final bodyKey = jsonEncode(body);
+    if (replayKey != null) {
+      _evictIdempotency();
+      final replay = idempotency[replayKey];
+      if (replay != null) {
+        // Contract §1: the same key with a different body is refused.
+        if (replay.body != bodyKey) {
+          return _json(
+            409,
+            _error(
+              'conflict',
+              requestId,
+              reason: 'idempotency_key_reused',
+              message: 'This Idempotency-Key was used with another body.',
+            ),
+            requestId,
+          );
+        }
+        return _json(
+          200,
+          jsonDecode(replay.response) as Map<String, dynamic>,
+          requestId,
+        );
+      }
     }
 
     late Map<String, dynamic> payload;
@@ -243,7 +319,7 @@ class InProcessMockClient extends http.BaseClient {
       final longitude = body['longitude'];
       if (latitude is! num || longitude is! num) {
         status = 400;
-        payload = {'code': 'INVALID_COORDINATES', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_coordinates');
       } else {
         payload = {
           'code': 'OK',
@@ -262,7 +338,7 @@ class InProcessMockClient extends http.BaseClient {
       final query = body['query'];
       if (query is! String || query.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_QUERY', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_query');
       } else {
         final normalized = query.trim();
         // A known demo place geocodes to where it really is (Arlanda is not
@@ -314,11 +390,11 @@ class InProcessMockClient extends http.BaseClient {
       final linkToken = body['linkToken'];
       if (phone is! String || phone.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_PHONE', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_phone');
       } else if (linkToken != null &&
           (linkToken is! String || !pendingLinks.containsKey(linkToken))) {
         status = 400;
-        payload = {'code': 'INVALID_LINK', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_link');
       } else {
         final sessionId = 'otp_${newRequestId()}';
         final expiresAt = DateTime.now()
@@ -348,15 +424,15 @@ class InProcessMockClient extends http.BaseClient {
           code is! String ||
           session['phone'] != phone.trim()) {
         status = 400;
-        payload = {'code': 'INVALID_OTP_SESSION', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_otp_session');
       } else {
         final expiresAt = DateTime.tryParse('${session['expiresAt'] ?? ''}');
         if (expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc())) {
           status = 410;
-          payload = {'code': 'OTP_EXPIRED', 'requestId': requestId};
+          payload = _error('invalid_request', requestId, reason: 'otp_expired');
         } else if (session['code'] != code.trim()) {
           status = 401;
-          payload = {'code': 'INVALID_OTP', 'requestId': requestId};
+          payload = _error('unauthenticated', requestId, reason: 'invalid_otp');
         } else {
           otpSessions.remove(sessionId);
           final normalizedPhone = phone.trim();
@@ -381,7 +457,7 @@ class InProcessMockClient extends http.BaseClient {
       final provider = body['provider'];
       if (provider is! String || provider.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_PROVIDER', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_provider');
       } else if (!linkedProviders.contains(provider.trim())) {
         // First sign-in with this account: no session until a phone is
         // verified, only a short-lived link token.
@@ -404,7 +480,7 @@ class InProcessMockClient extends http.BaseClient {
       final refreshToken = body['refreshToken'];
       if (refreshToken is! String || !refreshToken.startsWith('mock-refresh-')) {
         status = 401;
-        payload = {'code': 'INVALID_REFRESH', 'requestId': requestId};
+        payload = _error('unauthenticated', requestId, reason: 'invalid_refresh');
       } else {
         payload = {
           'code': 'OK',
@@ -430,7 +506,7 @@ class InProcessMockClient extends http.BaseClient {
           platform is! String ||
           platform.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_push_device');
       } else {
         final normalized = token.trim();
         pushDevices[normalized] = {
@@ -449,7 +525,7 @@ class InProcessMockClient extends http.BaseClient {
       final token = body['token'];
       if (token is! String || token.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_push_device');
       } else {
         pushDevices.remove(token.trim());
         payload = {
@@ -478,11 +554,12 @@ class InProcessMockClient extends http.BaseClient {
           age <= const Duration(minutes: 5);
       if (!fresh) {
         status = 403;
-        payload = {
-          'code': 'REAUTH_REQUIRED',
-          'message': 'Fresh reauthentication is required.',
-          'requestId': requestId,
-        };
+        payload = _error(
+          'forbidden',
+          requestId,
+          reason: 'reauth_required',
+          message: 'Fresh reauthentication is required.',
+        );
       } else {
         final sessions = accountSecurity['sessions'];
         if (sessions is List) {
@@ -521,11 +598,12 @@ class InProcessMockClient extends http.BaseClient {
       final validation = _validateQuoteBinding(body);
       if (validation != null) {
         status = 409;
-        payload = {
-          'code': validation,
-          'message': 'Booking quote is missing, expired or does not match.',
-          'requestId': requestId,
-        };
+        payload = _error(
+          validation == 'wallet_amount_invalid' ? 'invalid_request' : 'conflict',
+          requestId,
+          reason: validation,
+          message: 'Booking quote is missing, expired or does not match.',
+        );
       } else {
         final ride = _ride(body, requestId);
         rides[ride['id'] as String] = ride;
@@ -541,21 +619,32 @@ class InProcessMockClient extends http.BaseClient {
       final tipMinor = body['tipMinor'];
       if (ride == null) {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
-      } else if (!['tripCompleted', 'paymentFinalized', 'ratingPending'].contains(ride['status'])) {
+        payload = _error('not_found', requestId);
+      } else if (!_rateable(ride, parts[4])) {
         status = 409;
-        payload = {'code': 'RIDE_NOT_COMPLETE', 'requestId': requestId};
+        payload = _error(
+          'invalid_transition',
+          requestId,
+          reason: 'ride_not_complete',
+          projection: ride,
+        );
       } else if ((rating == null && tipMinor == null) ||
-          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) ||
-          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != 'SEK'))) {
+          // Q38 / X20: whole stars only (1 to 5); 0.5 steps are refused.
+          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating != rating.roundToDouble())) ||
+          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != _currencyOf(ride)))) {
         status = 400;
-        payload = {'code': 'INVALID_FEEDBACK', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_feedback');
       } else {
         ride['feedback'] = {
           if (rating != null) 'rating': rating,
           if (tipMinor != null) 'tipMinor': tipMinor,
-          if (tipMinor != null) 'currency': 'SEK',
+          if (tipMinor != null) 'currency': _currencyOf(ride),
         };
+        if (rating != null) {
+          // ratingTransitions: (not_requested →) pending → submitted.
+          ride['ratingStatus'] = TripRatingStatus.submitted.wireName;
+          _touch(ride, 'rating_updated');
+        }
         payload = {'code': 'OK', 'status': 'accepted', 'requestId': requestId};
       }
     } else if (parts.length >= 6 &&
@@ -567,7 +656,7 @@ class InProcessMockClient extends http.BaseClient {
       final reason = body['reason'];
       if (reason is! String || reason.trim().isEmpty) {
         status = 400;
-        payload = {'code': 'INVALID_DISPUTE', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_dispute');
       } else {
         payload = {
           'code': 'OK',
@@ -583,23 +672,77 @@ class InProcessMockClient extends http.BaseClient {
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
-        parts.last == 'cancel' &&
+        (parts.last == 'cancel' || parts.last == 'end-early') &&
         method == 'POST') {
       final id = parts[4];
       final ride = rides[id];
+      final command = parts.last == 'end-early' ? 'end_early' : 'cancel';
+      final reasonCode = body['reasonCode'];
       if (ride == null) {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
-      } else if (ride['status'] == 'cancelledByRider') {
-        // Cancel-first: the rider's optional reason arrives after the cancel.
-        if (body['reason'] is String && ride['cancellationReason'] == null) {
-          ride['cancellationReason'] = body['reason'];
+        payload = _error('not_found', requestId);
+      } else if (reasonCode != null &&
+          !_reasonAllowed(reasonCode, command, TripActor.rider)) {
+        // X7: a reason code outside the rider group (contract.json
+        // #cancelReasons) is refused, never stored.
+        status = 400;
+        payload = _invalidReason(reasonCode, TripActor.rider, requestId);
+      } else if (_statusOf(ride) == TripStatus.cancelledByRider) {
+        // R-O3 (owner decision): cancelling a trip that is already
+        // cancelled is quietly OK: 200 with the projection, no error, no
+        // second fee, whatever version the caller last saw. It is checked
+        // before the version, so a repeat after a lost response is not
+        // refused as stale. Cancel-first: the rider's optional reason
+        // arrives after the cancel.
+        final reason = reasonCode ?? body['reason'];
+        if (reason is String && ride['cancellationReason'] == null) {
+          ride['cancellationReason'] = reason;
+          if (reasonCode is String) {
+            (ride['cancellation'] as Map?)?['reasonCode'] = reasonCode;
+          }
         }
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        status = 409;
+        payload = stale;
       } else {
-        ride['status'] = 'cancelledByRider';
-        if (body['reason'] is String) ride['cancellationReason'] = body['reason'];
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        // `cancel` before boarding, `end_early` once the rider is on board
+        // (POST .../end-early); anything else is invalid_transition.
+        // The fee is worked out before the command clears the driver.
+        final fee = command == 'cancel' ? _riderCancelFee(ride) : null;
+        // R-O1: an end-early trip costs the distance driven at the
+        // category's rates, priced before the command changes the trip.
+        final endEarlyFare = command == 'end_early'
+            ? _endEarlyFare(ride)
+            : null;
+        if (!_apply(ride, command, TripActor.rider)) {
+          status = 409;
+          payload = _invalidTransition(ride, command, requestId);
+        } else {
+          final reason = reasonCode ?? body['reason'];
+          if (reason is String) ride['cancellationReason'] = reason;
+          ride['cancellation'] = {
+            'actor': TripActor.rider.wireName,
+            'reasonCode': reasonCode is String ? reasonCode : null,
+            'at': ride['updatedAt'],
+            // Contract §6: the live or reservation FeeRule of the trip's
+            // category; null when free. End-early is not a cancel fee: the
+            // rider pays the trip's `fare` for the distance driven.
+            'fee': fee?.toJson(),
+          };
+          if (endEarlyFare != null) {
+            ride['fare'] = endEarlyFare.fare.toJson();
+            ride['fareLines'] = [
+              {'code': 'base', 'amount': endEarlyFare.base.toJson()},
+              {'code': 'distance', 'amount': endEarlyFare.distance.toJson()},
+            ];
+            // R-O6 (owner decision): the rider rates an ended-early trip on
+            // the normal trip-end screen. See [_endedEarly].
+            _endedEarly.add(id);
+            ride['ratingStatus'] = TripRatingStatus.pending.wireName;
+          }
+          payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        }
       }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
@@ -617,16 +760,53 @@ class InProcessMockClient extends http.BaseClient {
         parts[3] == 'rides' &&
         parts.last == 'status' &&
         method == 'POST') {
-      final id = parts[4];
-      final ride = rides[id] ?? {'id': id, 'version': 0};
-      ride['status'] = body['status'] ?? ride['status'];
-      ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-      ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-      if (body['driver'] is Map) ride['driver'] = body['driver'];
-      if (body['lat'] != null) ride['driverLat'] = body['lat'];
-      if (body['lng'] != null) ride['driverLng'] = body['lng'];
-      rides[id] = ride;
-      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      // Stand-in for the driver app and dispatch (demo/test only, not part
+      // of the shared contract). Body: `{command, actor}` for one command,
+      // or `{status}` (a contract name, or a legacy Rider name) to walk the
+      // trip there one legal driver/system transition at a time, and/or
+      // `{paymentStatus}` / `{ratingStatus}` after completion. Nothing here
+      // bypasses the transition table.
+      final ride = rides[parts[4]];
+      final simulatedActor =
+          TripActorWire.parse(body['actor']) ?? TripActor.driver;
+      final simulatedReason = body['reasonCode'];
+      if (ride == null) {
+        status = 404;
+        payload = _error('not_found', requestId);
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        status = 409;
+        payload = stale;
+      } else if (simulatedReason != null &&
+          (body['command'] is! String ||
+              !_reasonAllowed(
+                simulatedReason,
+                body['command'] as String,
+                simulatedActor,
+              ))) {
+        status = 400;
+        payload = _invalidReason(simulatedReason, simulatedActor, requestId);
+      } else {
+        final denied = _simulate(ride, body);
+        if (denied != null) {
+          status = 409;
+          payload = _invalidTransition(ride, denied, requestId);
+        } else {
+          if (simulatedReason is String && ride['cancellation'] is Map) {
+            (ride['cancellation'] as Map)['reasonCode'] = simulatedReason;
+          }
+          if (body['driver'] is Map) ride['driver'] = body['driver'];
+          if (body['lat'] != null) ride['driverLat'] = body['lat'];
+          if (body['lng'] != null) ride['driverLng'] = body['lng'];
+          _trackDriven(ride, body['lat'], body['lng']);
+          if (body['lat'] != null && body['command'] == null &&
+              body['status'] == null) {
+            // A GPS fix alone: a `location` event, version unchanged.
+            ride['locationAt'] = DateTime.now().toUtc().toIso8601String();
+            _sequenceEvent(ride, 'location');
+          }
+          payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        }
+      }
     } else if (parts.length == 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
@@ -637,12 +817,16 @@ class InProcessMockClient extends http.BaseClient {
       final ride = rides[parts[4]];
       if (ride == null) {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+        payload = _error('not_found', requestId);
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        // R-O2: a route quote is asked for the trip the rider sees.
+        status = 409;
+        payload = stale;
       } else {
         final denied = _routeChangeDenied(ride, body);
         if (denied != null) {
           status = 409;
-          payload = {'code': denied, 'ride': ride, 'requestId': requestId};
+          payload = _routeChangeError(denied, ride, requestId);
         } else {
           final pricing = _routeChangePricing(ride, body);
           final quoteId = 'rq_${newRequestId()}';
@@ -650,10 +834,7 @@ class InProcessMockClient extends http.BaseClient {
               .add(const Duration(minutes: 5))
               .toUtc()
               .toIso8601String();
-          final newTotalMinor =
-              ((pricing['newPriceKr'] as double) * 100).round();
-          final differenceMinor =
-              ((pricing['differenceKr'] as double) * 100).round();
+          final newTotalMinor = pricing['newMinor'] as int;
           routeQuotes[quoteId] = {
             'rideId': parts[4],
             'route': _routeFingerprint(body),
@@ -662,11 +843,9 @@ class InProcessMockClient extends http.BaseClient {
           };
           payload = {
             'code': 'OK',
-            ...pricing,
+            ..._pricingWire(pricing),
             'routeQuoteId': quoteId,
             'expiresAt': expiresAt,
-            'newTotalMinor': newTotalMinor,
-            'differenceMinor': differenceMinor,
             'requestId': requestId,
           };
         }
@@ -680,15 +859,26 @@ class InProcessMockClient extends http.BaseClient {
       final routeChange = body['routeChange'] == true;
       if (ride == null) {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+        payload = _error('not_found', requestId);
+      } else if (_versionMismatch(ride, body, requestId) case final stale?) {
+        // R-O2: a route, pickup or offer change made on a stale screen.
+        status = 409;
+        payload = stale;
       } else if (routeChange) {
         final denied =
             _routeChangeDenied(ride, body) ?? _routeQuoteDenied(id, ride, body);
         if (denied != null) {
           status = 409;
-          payload = {'code': denied, 'ride': ride, 'requestId': requestId};
+          payload = _routeChangeError(denied, ride, requestId);
         } else {
           final pricing = _routeChangePricing(ride, body);
+          final movedStatus = _statusOf(ride);
+          final moved = body['pickupAddress'] != null &&
+                  body['pickupAddress'] != ride['pickupAddress'] &&
+                  (movedStatus == TripStatus.accepted ||
+                      movedStatus == TripStatus.driverToPickup)
+              ? _pickupMoveMeters(ride, body)
+              : null;
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
             ride['pickupLat'] = body['pickupLat'];
@@ -698,14 +888,25 @@ class InProcessMockClient extends http.BaseClient {
           ride['destinationLat'] = body['destinationLat'];
           ride['destinationLng'] = body['destinationLng'];
           ride['stops'] = pricing['stops'];
-          ride['price'] = pricing['newPriceKr'];
-          ride['maxOfferMinor'] = _maxOfferMinor(pricing['newPriceKr'] as num);
-          ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-          ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+          final newMinor = pricing['newMinor'] as int;
+          final rideCurrency = _currencyOf(ride);
+          _setFare(ride, newMinor);
+          ride['maxOfferMinor'] = _maxOfferMinorFor(newMinor, rideCurrency);
+          _touch(ride);
           // The driver app is told on its next poll; the log is what admin
           // reads later.
           ride['driverNotifiedAt'] = ride['updatedAt'];
-          // Pay in car only shows the new price; any other method is
+          if (moved != null) {
+            // Q40: the driver is told the accepted pickup moved, on the
+            // same next-poll path.
+            (ride['driverNotices'] ??= <Map<String, dynamic>>[]).add({
+              'kind': 'pickup_moved',
+              'at': ride['updatedAt'],
+              'meters': moved.round(),
+              'pickupAddress': body['pickupAddress'],
+            });
+          }
+          // Cash only shows the new price; any other method is
           // charged or refunded the difference right away.
           // ARCH-9: the method id decides; the label is the old contract.
           final methodId = body['paymentMethodId']?.toString();
@@ -715,12 +916,14 @@ class InProcessMockClient extends http.BaseClient {
               ? methodId == 'cash'
               : method.toLowerCase() == 'cash' ||
                     method.toLowerCase().contains('pay in car');
-          final difference = pricing['differenceKr'] as double;
-          if (!cash && difference.abs() >= 0.5) {
+          final difference = pricing['differenceMinor'] as int;
+          // Half a major unit or more (50 öre, 50 cents, 500 millimes).
+          if (!cash &&
+              difference.abs() * 2 >= Money.minorPerMajor(rideCurrency)) {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
               'at': ride['updatedAt'],
               'method': method,
-              'amountKr': difference,
+              'amount': _money(difference, rideCurrency),
               'status': difference > 0 ? 'captured' : 'refunded',
               if (difference < 0)
                 // wallet: credited at once; originalMethod: 2–3 business days.
@@ -731,54 +934,64 @@ class InProcessMockClient extends http.BaseClient {
             'at': ride['updatedAt'],
             'destinationAddress': body['destinationAddress'],
             'stops': pricing['stops'],
-            'newPriceKr': pricing['newPriceKr'],
-            'differenceKr': pricing['differenceKr'],
+            'newTotal': _money(newMinor, rideCurrency),
+            'difference': _money(difference, rideCurrency),
           });
           payload = {
             'code': 'OK',
             'ride': ride,
-            ...pricing,
+            ..._pricingWire(pricing),
             'requestId': requestId,
           };
         }
       } else {
-        final currentStatus = ride['status'] as String?;
-        final searching =
-            currentStatus == 'findingDriver' || currentStatus == 'searchDelayed';
+        final current = _statusOf(ride);
+        final searching = current == TripStatus.requested ||
+            current == TripStatus.searching ||
+            current == TripStatus.offered;
         if (!searching) {
           status = 409;
-          payload = {
-            'code': 'RIDE_NOT_SEARCHING',
-            'message': 'Ride can only be edited while searching',
-            'ride': ride,
-            'requestId': requestId,
-          };
-        } else if (body.containsKey('offerIncreaseKr') &&
-            !_validOfferIncrease(body['offerIncreaseKr'], ride['price'])) {
+          payload = _error(
+            'invalid_transition',
+            requestId,
+            reason: 'ride_not_searching',
+            message: 'Ride can only be edited while searching',
+            projection: ride,
+          );
+        } else if ((body.containsKey('offerIncrease') ||
+                body.containsKey('offerIncreaseKr')) &&
+            _offerIncreaseMinor(body, _currencyOf(ride)) == null) {
           status = 422;
-          payload = {
-            'code': 'INVALID_OFFER',
-            'message': 'Offer increase must be a positive whole amount',
-            'requestId': requestId,
-          };
-        } else if (_offerAboveMaximum(ride, body['offerIncreaseKr'])) {
+          payload = _error(
+            'invalid_request',
+            requestId,
+            reason: 'invalid_offer',
+            message: 'Offer increase must be a positive whole amount',
+          );
+        } else if (_offerAboveMaximum(
+          ride,
+          _offerIncreaseMinor(body, _currencyOf(ride)),
+        )) {
           // ARCH-20: the ceiling holds on the server, whatever the client
           // computed after a reload.
           status = 409;
-          payload = {
-            'code': 'OFFER_ABOVE_MAXIMUM',
-            'message': 'Offer is above the maximum for this ride',
-            'ride': ride,
-            'requestId': requestId,
-          };
+          payload = _error(
+            'conflict',
+            requestId,
+            reason: 'offer_above_maximum',
+            message: 'Offer is above the maximum for this ride',
+            projection: ride,
+          );
         } else {
           // D-012: the server prices an offer bump itself from the rider's
           // intent (offerIncreaseKr). A client-sent `price` is never treated
           // as authority and is ignored. The ceiling is checked above.
-          final increase = body['offerIncreaseKr'];
-          if (increase is num) {
-            ride['price'] = (ride['price'] as num) + increase;
-            ride['offerIncreaseKr'] = increase;
+          final rideCurrency = _currencyOf(ride);
+          final increase = _offerIncreaseMinor(body, rideCurrency);
+          final fare = _fareMinor(ride);
+          if (increase != null && fare != null) {
+            _setFare(ride, fare + increase);
+            ride['offerIncrease'] = _money(increase, rideCurrency);
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -804,29 +1017,40 @@ class InProcessMockClient extends http.BaseClient {
       final ride = rides[id];
       if (ride == null) {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+        payload = _error('not_found', requestId);
       } else {
         _expireSearchIfDue(ride);
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        payload = {
+          'code': 'OK',
+          'ride': ride,
+          // The last committed event, envelope-style (contract §4).
+          'eventId': ride['eventId'],
+          'sequence': ride['sequence'],
+          'kind': ride['eventKind'],
+          'serverTime': DateTime.now().toUtc().toIso8601String(),
+          'requestId': requestId,
+        };
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
       final amountMinor = body['amountMinor'];
-      final currency = body['currency'];
+      // Q8: a zone currency (one wallet per currency, a top-up in each).
+      final currency = Money.normalizeCurrency(body['currency']);
       if (amountMinor is! int ||
           amountMinor <= 0 ||
-          currency is! String ||
-          currency.trim().toUpperCase() != 'SEK') {
+          currency == null ||
+          RiderZones.byCurrency(currency) == null) {
         status = 400;
-        payload = {
-          'code': 'INVALID_PAYMENT_INTENT',
-          'requestId': requestId,
-        };
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_payment_intent',
+        );
       } else {
         final intent = <String, dynamic>{
           'id': 'pi_$requestId',
           'status': 'requires_confirmation',
           'amountMinor': amountMinor,
-          'currency': 'SEK',
+          'currency': currency,
           // C-10 (PROPOSED): what the intent pays for.
           if (body['purpose'] is String) 'purpose': body['purpose'],
           if (body['rideId'] is String) 'rideId': body['rideId'],
@@ -846,7 +1070,7 @@ class InProcessMockClient extends http.BaseClient {
       final intent = paymentIntents[parts[4]];
       if (intent == null) {
         status = 404;
-        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+        payload = _error('not_found', requestId, reason: 'payment_not_found');
       } else {
         intent['status'] = 'succeeded';
         payload = {
@@ -863,7 +1087,7 @@ class InProcessMockClient extends http.BaseClient {
       final intent = paymentIntents[parts[4]];
       if (intent == null) {
         status = 404;
-        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+        payload = _error('not_found', requestId, reason: 'payment_not_found');
       } else {
         payload = {
           'code': 'OK',
@@ -877,6 +1101,7 @@ class InProcessMockClient extends http.BaseClient {
         'code': 'OK',
         'status': 'succeeded',
         'amountMinor': body['amountMinor'] ?? 0,
+        'currency': currency,
         'requestId': requestId,
       };
     } else if (path == '/api/v1/ride-types' && method == 'GET') {
@@ -912,7 +1137,7 @@ class InProcessMockClient extends http.BaseClient {
           name.trim().length > 80 ||
           (consents != null && consents is! Map)) {
         status = 422;
-        payload = {'code': 'INVALID_PROFILE', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_profile');
       } else {
         riderProfile = {
           'name': name.trim(),
@@ -932,8 +1157,7 @@ class InProcessMockClient extends http.BaseClient {
       // ARCH-12 / C-5 (PROPOSED): the rider's live trip, or none.
       Map<String, dynamic>? live;
       for (final ride in rides.values) {
-        final value = RideStatusWire.parse(ride['status']);
-        if (value == null || value.isTerminal || ride['scheduledAt'] != null) {
+        if (_statusOf(ride).isTerminal || ride['scheduledAt'] != null) {
           continue;
         }
         live = ride;
@@ -943,8 +1167,7 @@ class InProcessMockClient extends http.BaseClient {
       // ARCH-12 / C-5 (PROPOSED): finished trips, newest first, one page.
       final finished = [
         for (final ride in rides.values.toList().reversed)
-          if (RideStatusWire.parse(ride['status']) case final value?)
-            if (value.isTerminal || value.isCompletedSurface) ride,
+          if (_statusOf(ride).isTerminal) ride,
       ];
       payload = {
         'code': 'OK',
@@ -960,7 +1183,7 @@ class InProcessMockClient extends http.BaseClient {
           {'id': 'wallet', 'kind': 'wallet', 'label': 'Movera Wallet'},
           {'id': 'apple', 'kind': 'applePay', 'label': 'Apple Pay'},
           {'id': 'google', 'kind': 'googlePay', 'label': 'Google Pay'},
-          {'id': 'cash', 'kind': 'cash', 'label': 'Pay in car'},
+          {'id': 'cash', 'kind': 'cash', 'label': 'Cash'},
         ],
         'defaultMethodId': defaultPaymentMethodId,
         'requestId': requestId,
@@ -970,7 +1193,7 @@ class InProcessMockClient extends http.BaseClient {
       final methodId = body['methodId'];
       if (methodId is! String || methodId.trim().isEmpty) {
         status = 422;
-        payload = {'code': 'INVALID_PAYMENT_METHOD', 'requestId': requestId};
+        payload = _error('invalid_request', requestId, reason: 'invalid_payment_method');
       } else {
         defaultPaymentMethodId = methodId.trim();
         payload = {
@@ -997,18 +1220,31 @@ class InProcessMockClient extends http.BaseClient {
         }
       } else {
         status = 404;
-        payload = {'code': 'NOT_FOUND', 'path': path, 'requestId': requestId};
+        payload = _error('not_found', requestId, message: 'No route for $path');
       }
     }
 
-    if (key != null && key.isNotEmpty && status < 400) {
-      idempotency[key] = payload;
+    if (replayKey != null && status < 400) {
+      idempotency[replayKey] = IdempotentReplay(
+        body: bodyKey,
+        response: jsonEncode(payload),
+        at: _clock(),
+      );
     }
     return _json(status, payload, requestId);
   }
 
-  /// Demo-only places around Södertälje and Stockholm, so address search can
-  /// be tried on GitHub Pages. The live API searches real addresses.
+  void _evictIdempotency() {
+    final cutoff = _clock().subtract(idempotencyTtl);
+    idempotency.removeWhere((_, replay) => replay.at.isBefore(cutoff));
+    while (idempotency.length > idempotencyLimit) {
+      idempotency.remove(idempotency.keys.first);
+    }
+  }
+
+  /// Demo-only places around Södertälje and Stockholm (and a few in Paris
+  /// and Tunis), so address search can be tried on GitHub Pages. The live
+  /// API searches real addresses.
   static const List<(String, String, double, double)> _demoPlaces = [
     ('Klockarvägen 37', '151 59 Södertälje', 59.1955, 17.6253),
     ('Klockarvägen 98', 'Södertälje', 59.1949, 17.6301),
@@ -1025,6 +1261,12 @@ class InProcessMockClient extends http.BaseClient {
     ('Södertälje Centrum', 'Storgatan, Södertälje', 59.1960, 17.6260),
     ('Svarvarvägen 5', '142 50 Stockholm', 59.2089, 17.9466),
     ('Mall of Scandinavia', 'Stjärntorget 2, Solna', 59.3700, 18.0050),
+    // Q7: places in the Paris Centre and Tunis Centre zones, so a demo trip
+    // can be priced in euros or dinars.
+    ('Gare du Nord', '18 Rue de Dunkerque, Paris', 48.8809, 2.3553),
+    ('Musée du Louvre', 'Rue de Rivoli, Paris', 48.8606, 2.3376),
+    ('Avenue Habib Bourguiba', 'Tunis', 36.8008, 10.1865),
+    ('Médina de Tunis', 'Tunis', 36.7983, 10.1700),
   ];
 
   static String _fold(String value) {
@@ -1078,29 +1320,510 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   void _expireSearchIfDue(Map<String, dynamic> ride) {
-    final current = ride['status'];
-    if (current != 'findingDriver' && current != 'searchDelayed') return;
+    final current = _statusOf(ride);
+    if (current != TripStatus.searching && current != TripStatus.offered) {
+      return;
+    }
     final startedRaw = ride['searchStartedAt'];
     final started = startedRaw is String ? DateTime.tryParse(startedRaw) : null;
     if (started == null) return;
     final now = DateTime.now().toUtc();
     if (now.difference(started) < searchExpiresAfter) return;
-    ride['status'] = 'noDriverFound';
-    ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
-    ride['updatedAt'] = now.toIso8601String();
+    // `expire` (system): no driver found in time.
+    _apply(ride, 'expire', TripActor.system);
   }
 
-  static const _terminalStatuses = {
-    'tripCompleted',
-    'paymentProcessing',
-    'paymentFinalized',
-    'ratingPending',
-    'closed',
-    'cancelledByRider',
-    'cancelledByDriver',
-    'cancelledBySystem',
-    'noDriverFound',
+  /// The stored trip status. Stored rides carry a contract name; a legacy
+  /// Rider name (tests that seed `rides[...]` by hand) is read through the
+  /// UI → trip map once, then the trip is written back in contract form.
+  static TripStatus _statusOf(Map<String, dynamic> ride) {
+    final raw = ride['status'];
+    final trip = TripStatusWire.parse(raw);
+    if (trip != null) return trip;
+    final legacy = RideStatusWire.legacyName(raw);
+    return legacy?.tripStatus ?? TripStatus.draft;
+  }
+
+  static TripKind _kindOf(Map<String, dynamic> ride) =>
+      TripKindWire.parse(ride['kind']) ??
+      (ride['scheduledAt'] != null ? TripKind.scheduled : TripKind.live);
+
+  /// One committed change: version + 1, new updatedAt, and the next
+  /// server-assigned realtime `sequence` with a unique `eventId` and its
+  /// event kind (contract v0.3.0 §4; clients never number events).
+  static void _touch(
+    Map<String, dynamic> ride, [
+    String eventKind = 'trip_projection',
+  ]) {
+    ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+    ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+    _sequenceEvent(ride, eventKind);
+  }
+
+  static void _sequenceEvent(Map<String, dynamic> ride, String eventKind) {
+    final sequence = ((ride['sequence'] as num?)?.toInt() ?? 0) + 1;
+    final id = (ride['tripId'] ?? ride['id']).toString();
+    ride['sequence'] = sequence;
+    ride['eventId'] = 'ev_${id}_$sequence';
+    ride['eventKind'] = eventKind;
+  }
+
+  /// Applies [command] by [actor] through [TripStateMachine]. False (and
+  /// nothing changed) when the table does not allow it.
+  bool _apply(Map<String, dynamic> ride, String command, TripActor actor) {
+    final from = _statusOf(ride);
+    final to = TripStateMachine.apply(
+      from,
+      command,
+      actor,
+      kind: _kindOf(ride),
+    );
+    if (to == null) return false;
+    ride['status'] = to.wireName;
+    final tripId = (ride['tripId'] ?? ride['id']).toString();
+    if (to == TripStatus.accepted) {
+      final at = _clock();
+      _acceptedAt[tripId] = at;
+      // Contract v0.4.0 `TripProjection.acceptedAt` (Q12): the rider's
+      // free-cancel clock counts from it.
+      ride['acceptedAt'] = WireTime.format(at);
+    } else if (to == TripStatus.searching || to == TripStatus.requested) {
+      // Back in dispatch: the next accept starts a new free window.
+      _acceptedAt.remove(tripId);
+      ride['acceptedAt'] = null;
+      ride.remove('waiting');
+    }
+    if (to == TripStatus.arrived) {
+      // `TripProjection.waiting` (Q41/Q42): the waiting clock starts at
+      // arrival; the category's free wait comes from the zone config.
+      final at = _clock();
+      final terms = _configFor(_currencyOf(ride)).waiting?.forCategory(
+        (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+      );
+      final freeUntil = at.add(Duration(minutes: terms?.freeWaitMin ?? 5));
+      ride['waiting'] = {
+        'arrivedAt': WireTime.format(at),
+        'freeUntil': WireTime.format(freeUntil),
+        'noShowAt': WireTime.format(
+          at.add(Duration(minutes: terms?.noShowAfterMin ?? 5)),
+        ),
+        'chargedSeconds': 0,
+      };
+    }
+    if (to == TripStatus.searching && from != TripStatus.offered) {
+      // Back in dispatch (driver drop / admin reassign): the old driver is
+      // gone and the search clock restarts.
+      ride
+        ..remove('driver')
+        ..remove('driverLat')
+        ..remove('driverLng');
+      ride['searchStartedAt'] = DateTime.now().toUtc().toIso8601String();
+    }
+    if (to == TripStatus.completed) {
+      // Payment and rating start as fields once the trip is done.
+      ride['ratingStatus'] = TripRatingStatus.notRequested.wireName;
+    }
+    if (actor != TripActor.rider && to.isTerminal && to != TripStatus.completed) {
+      ride['cancellation'] ??= {
+        'actor': actor.wireName,
+        'reasonCode': null,
+        'at': DateTime.now().toUtc().toIso8601String(),
+        'fee': null,
+      };
+    }
+    _touch(
+      ride,
+      switch ((actor, command)) {
+        (TripActor.rider, 'cancel' || 'end_early') => 'rider_cancelled',
+        (TripActor.driver, 'cancel') => 'driver_cancelled',
+        _ => 'trip_projection',
+      },
+    );
+    return true;
+  }
+
+  /// `409 version_mismatch` with the projection when [body] carries an
+  /// `expectedVersion` that is not the trip's current version (contract §1
+  /// Concurrency). Null when it matches or is absent (pre-v0.3 clients).
+  static Map<String, dynamic>? _versionMismatch(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+    String requestId,
+  ) {
+    final expected = body['expectedVersion'];
+    if (expected == null) return null;
+    final current = (ride['version'] as num?)?.toInt() ?? 0;
+    if (expected is int && expected == current) return null;
+    return {
+      'code': 'version_mismatch',
+      'message': 'The trip is at version $current, not $expected.',
+      'requestId': requestId,
+      'retryable': false,
+      'projection': ride,
+      'ride': ride,
+    };
+  }
+
+  /// Whether [code] is a reason [actor] may give for [command]
+  /// (`contract.json#cancelReasons`, by actor group).
+  static bool _reasonAllowed(Object? code, String command, TripActor actor) {
+    if (code is! String) return false;
+    final groups = switch ((actor, command)) {
+      (TripActor.rider, 'cancel' || 'end_early') => [CancelReasonCodes.rider],
+      (TripActor.driver, 'no_show') => [CancelReasonCodes.noShow],
+      (TripActor.driver, 'cancel') => [
+        _driverBeforeTrip,
+        _driverDuringTrip,
+        _driverNextTrip,
+        _driverScheduled,
+      ],
+      (TripActor.admin, _) => [CancelReasonCodes.admin],
+      (TripActor.system, _) => [CancelReasonCodes.system],
+      _ => const <List<String>>[],
+    };
+    return groups.any((group) => group.contains(code));
+  }
+
+  static const _driverBeforeTrip = [
+    'rider_requested_cancel',
+    'rider_not_at_pickup',
+    'unsafe_pickup',
+    'vehicle_issue_before_start',
+    'driver_emergency_before_start',
+    'other_before_start',
+  ];
+  static const _driverDuringTrip = [
+    'rider_requested_early_end',
+    'safety_concern_on_trip',
+    'vehicle_issue_on_trip',
+    'accident_or_road_emergency',
+    'rider_behavior',
+    'trip_or_destination_issue',
+    'other_on_trip',
+  ];
+  static const _driverNextTrip = [
+    'next_trip_current_running_late',
+    'next_trip_pickup_too_far',
+    'next_trip_rider_requested',
+    'next_trip_vehicle_issue',
+    'next_trip_driver_emergency',
+    'next_trip_other',
+  ];
+  static const _driverScheduled = [
+    'scheduled_cannot_make_time',
+    'scheduled_vehicle_issue',
+    'scheduled_personal_emergency',
+    'scheduled_pickup_too_far',
+    'scheduled_trip_details',
+    'scheduled_other',
+  ];
+
+  /// Contract error body (`contract.json#errors`): `{code, message,
+  /// requestId, retryable, projection?}` with a lower-case contract [code]
+  /// (R-O4). [reason] is this stand-in's more specific cause in lower case
+  /// (`otp_expired`, `pickup_locked`, …) beside it, not a contract field;
+  /// clients fall back to [code] when a server sends none. `ride` is kept
+  /// as the pre-v0.3 alias of `projection`.
+  static Map<String, dynamic> _error(
+    String code,
+    String requestId, {
+    String? reason,
+    String? message,
+    Map<String, dynamic>? projection,
+  }) => {
+    'code': code,
+    'reason': ?reason,
+    'message': message ?? reason ?? code,
+    'requestId': requestId,
+    'retryable':
+        code == 'internal' || code == 'unavailable' || code == 'rate_limited',
+    'projection': ?projection,
+    'ride': ?projection,
   };
+
+  /// A refused route change: a stage that no longer allows it is
+  /// `invalid_transition`, a missing destination `invalid_request`, a
+  /// route quote that no longer matches `conflict`; with the projection.
+  static Map<String, dynamic> _routeChangeError(
+    String reason,
+    Map<String, dynamic> ride,
+    String requestId,
+  ) => _error(
+    switch (reason) {
+      'ride_finished' || 'pickup_locked' => 'invalid_transition',
+      'destination_required' || 'pickup_too_far' => 'invalid_request',
+      _ => 'conflict',
+    },
+    requestId,
+    reason: reason,
+    projection: ride,
+  );
+
+  static Map<String, dynamic> _invalidReason(
+    Object? code,
+    TripActor actor,
+    String requestId,
+  ) => {
+    'code': 'invalid_request',
+    'message': '$code is not a ${actor.wireName} cancel reason.',
+    'requestId': requestId,
+    'retryable': false,
+  };
+
+  /// `contract.json#ratingAllowed`: the rider rates a completed trip and
+  /// one they ended early (R-O6), never a plain cancel.
+  bool _rateable(Map<String, dynamic> ride, String tripId) {
+    final status = _statusOf(ride);
+    return TripRatingRules.allows(
+      TripActor.rider,
+      status,
+      endedBy: _endedEarly.contains(tripId) ? 'end_early' : null,
+    );
+  }
+
+  /// R-O1: adds the stretch from the last on-board fix to ([lat], [lng]).
+  /// The first fix after boarding only marks where driving started.
+  void _trackDriven(Map<String, dynamic> ride, Object? lat, Object? lng) {
+    if (lat is! num || lng is! num) return;
+    if (!tripRiderOnboardStatuses.contains(_statusOf(ride))) return;
+    final tripId = (ride['tripId'] ?? ride['id']).toString();
+    final last = _driven[tripId];
+    final meters = last == null
+        ? 0.0
+        : last.meters + _km(last.lat, last.lng, lat, lng) * 1000;
+    _driven[tripId] = (
+      lat: lat.toDouble(),
+      lng: lng.toDouble(),
+      meters: meters,
+    );
+  }
+
+  /// R-O1 (owner decision): what an ended-early trip costs. The rider pays
+  /// for the distance driven at the category's own rates, the ones the
+  /// quote engine below prices with ([MockCategoryRates]): base fare + km
+  /// driven × per-km rate, in the currency's minor units. Never more than
+  /// the trip's current fare. Null when the trip has no fare.
+  ({Money fare, Money base, Money distance})? _endEarlyFare(
+    Map<String, dynamic> ride,
+  ) {
+    final currentMinor = _fareMinor(ride);
+    if (currentMinor == null) return null;
+    final category = CategoryIds.canonical(
+      (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+    );
+    // Q7: in the trip's own currency, at the zone's rates.
+    final code = _currencyOf(ride);
+    final rates = _ratesFor(category, code);
+    final tripId = (ride['tripId'] ?? ride['id']).toString();
+    final meters = drivenMetersOf(tripId);
+    final base = rates.baseFare;
+    final distance = rates.distanceFare(meters);
+    final total = base.amountMinor + distance.amountMinor;
+    if (total <= currentMinor) {
+      return (fare: Money(total, code), base: base, distance: distance);
+    }
+    // Capped at the agreed fare: ending early never costs more than the
+    // whole trip (a detour, a promotion or a lower offer).
+    final cappedDistance = math.max(0, currentMinor - base.amountMinor);
+    return (
+      fare: Money(currentMinor, code),
+      base: Money(currentMinor - cappedDistance, code),
+      distance: Money(cappedDistance, code),
+    );
+  }
+
+  /// What a rider cancel costs now (contract §6 FeeRule, the shared
+  /// calculator): live trips from the category's live rule, counted from
+  /// the driver's accept (free before one accepted); scheduled trips from
+  /// the reservation rule, counted to pickup (free once pickup passed with
+  /// no driver). Null when free.
+  Money? _riderCancelFee(Map<String, dynamic> ride) {
+    final fareMinor = _fareMinor(ride);
+    if (fareMinor == null) return null;
+    // Q7: the fee rule of the trip's own zone, in its currency.
+    final code = _currencyOf(ride);
+    final config = _configFor(code);
+    final fare = Money(fareMinor, code);
+    final category = CategoryIds.canonical(
+      (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+    );
+    final now = _clock();
+    Money? fee;
+    if (_kindOf(ride) == TripKind.scheduled) {
+      final rule = config.reservationFeeFor(category);
+      final pickup = WireTime.tryParse(ride['scheduledAt']);
+      if (rule == null || pickup == null) return null;
+      if (ride['driver'] == null && !now.isBefore(pickup)) return null;
+      fee = CancelFeeCalculator.reservation(
+        rule,
+        fare,
+        pickup.difference(now).inMinutes,
+      );
+    } else {
+      final rule = config.liveFeeFor(category);
+      final accepted = _acceptedAt[(ride['tripId'] ?? ride['id']).toString()];
+      if (rule == null || accepted == null) return null;
+      fee = CancelFeeCalculator.live(
+        rule,
+        fare,
+        now.difference(accepted).inMinutes,
+      );
+    }
+    return fee.isPositive ? fee : null;
+  }
+
+  /// `409 invalid_transition` (contract errors shape) with the projection.
+  /// `ride` is kept as the pre-v0.3 alias of `projection`.
+  static Map<String, dynamic> _invalidTransition(
+    Map<String, dynamic> ride,
+    String command,
+    String requestId,
+  ) => {
+    'code': 'invalid_transition',
+    'message':
+        '$command is not allowed while the trip is ${_statusOf(ride).wireName}.',
+    'requestId': requestId,
+    'retryable': false,
+    'projection': ride,
+    'ride': ride,
+  };
+
+  /// The demo simulator (see the `/status` route). Returns the refused
+  /// command, or null when everything asked for was applied.
+  String? _simulate(Map<String, dynamic> ride, Map<String, dynamic> body) {
+    final command = body['command'];
+    if (command is String) {
+      final actor = TripActorWire.parse(body['actor']) ?? TripActor.driver;
+      return _apply(ride, command, actor) ? null : command;
+    }
+
+    TripStatus? target;
+    TripPaymentStatus? payment = TripPaymentStatusWire.parse(
+      body['paymentStatus'],
+    );
+    TripRatingStatus? rating = TripRatingStatusWire.parse(body['ratingStatus']);
+    final rawStatus = body['status'];
+    if (rawStatus != null) {
+      target = TripStatusWire.parse(rawStatus);
+      final legacy = target == null ? RideStatusWire.legacyName(rawStatus) : null;
+      if (legacy != null) {
+        target = legacy.tripStatus;
+        // Pre-v0.3 post-trip "statuses" are payment/rating fields now.
+        switch (legacy) {
+          case RideStatus.paymentProcessing:
+            payment ??= TripPaymentStatus.authorized;
+          case RideStatus.paymentFinalized:
+            payment ??= TripPaymentStatus.captured;
+          case RideStatus.ratingPending:
+            payment ??= TripPaymentStatus.captured;
+            rating ??= TripRatingStatus.pending;
+          case RideStatus.closed:
+            payment ??= TripPaymentStatus.captured;
+            rating ??= TripRatingStatus.skipped;
+          case RideStatus.paymentFailed:
+            payment ??= TripPaymentStatus.failed;
+          default:
+            break;
+        }
+      }
+      if (target == null) return 'status';
+    }
+
+    if (target != null && target != _statusOf(ride)) {
+      final kind = _kindOf(ride);
+      final path = TripStateMachine.pathTo(_statusOf(ride), target, kind: kind) ??
+          TripStateMachine.pathTo(
+            _statusOf(ride),
+            target,
+            kind: kind,
+            actors: TripActor.values.toSet(),
+          );
+      if (path == null) return 'status:${target.wireName}';
+      for (final (step, actor) in path) {
+        if (!_apply(ride, step, actor)) return step;
+      }
+    }
+
+    if (payment != null || rating != null) {
+      if (_statusOf(ride) != TripStatus.completed) return 'settle';
+      if (payment != null) {
+        final current = TripPaymentStatusWire.parse(ride['paymentStatus']);
+        final walk = _paymentWalk(current, payment);
+        if (walk == null) return 'payment:${payment.wireName}';
+        if (walk.isNotEmpty) {
+          ride['paymentStatus'] = payment.wireName;
+          _touch(ride, 'payment_updated');
+        }
+      }
+      if (rating != null) {
+        final current =
+            TripRatingStatusWire.parse(ride['ratingStatus']) ??
+            TripRatingStatus.notRequested;
+        if (current != rating) {
+          final allowed = tripRatingTransitions[current]?.contains(rating) ??
+              false;
+          final viaPending = current == TripRatingStatus.notRequested &&
+              rating != TripRatingStatus.pending;
+          if (!allowed && !viaPending) return 'rating:${rating.wireName}';
+          ride['ratingStatus'] = rating.wireName;
+          _touch(ride, 'rating_updated');
+        }
+      }
+    }
+    return null;
+  }
+
+  /// The payment statuses between [from] (null: no payment yet, which may
+  /// start at `pending`) and [to] along `paymentTransitions`, or null.
+  static List<TripPaymentStatus>? _paymentWalk(
+    TripPaymentStatus? from,
+    TripPaymentStatus to,
+  ) {
+    if (from == to) return const [];
+    final start = from ?? TripPaymentStatus.pending;
+    if (start == to) return [to];
+    final previous = <TripPaymentStatus, TripPaymentStatus>{};
+    final queue = [start];
+    while (queue.isNotEmpty) {
+      final at = queue.removeAt(0);
+      for (final next in tripPaymentTransitions[at] ?? const <TripPaymentStatus>{}) {
+        if (next == start || previous.containsKey(next)) continue;
+        previous[next] = at;
+        if (next == to) {
+          final walk = <TripPaymentStatus>[to];
+          var back = at;
+          while (back != start) {
+            walk.insert(0, back);
+            back = previous[back]!;
+          }
+          return walk;
+        }
+        queue.add(next);
+      }
+    }
+    return null;
+  }
+
+  /// How far (metres) [body] moves the trip's pickup, when both ends are
+  /// known.
+  static double? _pickupMoveMeters(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+  ) {
+    final fromLat = ride['pickupLat'];
+    final fromLng = ride['pickupLng'];
+    final toLat = body['pickupLat'];
+    final toLng = body['pickupLng'];
+    if (fromLat is! num || fromLng is! num || toLat is! num || toLng is! num) {
+      return null;
+    }
+    return GeoDistance.metersBetween(
+      fromLat.toDouble(),
+      fromLng.toDouble(),
+      toLat.toDouble(),
+      toLng.toDouble(),
+    );
+  }
 
   /// Pickup can move until the driver is at the door; the destination and
   /// the stops can change until the trip is over.
@@ -1108,37 +1831,157 @@ class InProcessMockClient extends http.BaseClient {
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final current = ride['status'] as String? ?? '';
-    if (_terminalStatuses.contains(current)) return 'RIDE_FINISHED';
+    final current = _statusOf(ride);
+    if (current.isTerminal) return 'ride_finished';
     final pickupChanged =
         body['pickupAddress'] != null &&
         body['pickupAddress'] != ride['pickupAddress'];
     const pickupEditable = {
-      'findingDriver',
-      'searchDelayed',
-      'driverAssigned',
-      'driverArriving',
+      TripStatus.requested,
+      TripStatus.searching,
+      TripStatus.offered,
+      TripStatus.accepted,
+      TripStatus.driverToPickup,
     };
     if (pickupChanged && !pickupEditable.contains(current)) {
-      return 'PICKUP_LOCKED';
+      return 'pickup_locked';
+    }
+    // Q40: once a driver has accepted, the pickup moves only a short way.
+    final moved = pickupChanged ? _pickupMoveMeters(ride, body) : null;
+    if (moved != null &&
+        moved > _configFor(_currencyOf(ride)).maxPickupMoveMeters &&
+        (current == TripStatus.accepted ||
+            current == TripStatus.driverToPickup)) {
+      return 'pickup_too_far';
     }
     if (body['destinationLat'] is! num || body['destinationLng'] is! num) {
-      return 'DESTINATION_REQUIRED';
+      return 'destination_required';
     }
     return null;
   }
 
-  /// ARCH-20: true when [increase] would take the fare over the ceiling.
-  static bool _offerAboveMaximum(Map<String, dynamic> ride, Object? increase) {
+  /// ARCH-20: true when [increaseMinor] would take the fare over the
+  /// ceiling.
+  static bool _offerAboveMaximum(Map<String, dynamic> ride, int? increaseMinor) {
     final max = ride['maxOfferMinor'];
-    final price = ride['price'];
-    if (increase is! num || max is! num || price is! num) return false;
-    return ((price + increase) * 100).round() > max;
+    final fare = _fareMinor(ride);
+    if (increaseMinor == null || max is! num || fare == null) return false;
+    return fare + increaseMinor > max;
   }
 
-  /// The highest fare a rider may offer for a ride priced [priceKr]: 1.8×.
-  static int _maxOfferMinor(num priceKr) =>
-      ((priceKr * 1.8).roundToDouble() * 100).round();
+  /// The highest fare a rider may offer for a ride priced [fareMinor] in
+  /// [code]: 1.8×, in whole major units (kronor, euros, dinars).
+  static int _maxOfferMinorFor(int fareMinor, String code) {
+    final unit = Money.minorPerMajor(code);
+    return (fareMinor * 1.8 / unit).round() * unit;
+  }
+
+  /// Money on the wire, in [code] (the home currency unless a trip or a
+  /// zone says otherwise).
+  static Map<String, Object> _money(int amountMinor, [String code = currency]) => {
+    'amountMinor': amountMinor,
+    'currency': code,
+  };
+
+  /// Q7: the currency of a stored trip, set at booking from its quote (the
+  /// pickup's zone): its fare's, else its flat `currency`, else the home
+  /// currency (a trip a test seeded by hand).
+  static String _currencyOf(Map<String, dynamic> ride) {
+    final fare = ride['fare'];
+    final code = Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
+        Money.normalizeCurrency(ride['currency']);
+    return code ?? currency;
+  }
+
+  /// Q7: the zone of the pickup a request names (`pickupLat`/`pickupLng`).
+  static RiderZone _zoneOf(Map<String, dynamic> body) => RiderZones.at(
+    (body['pickupLat'] as num?)?.toDouble(),
+    (body['pickupLng'] as num?)?.toDouble(),
+  );
+
+  /// The stand-in's rates for [category] in [code] ([MockZoneRates]).
+  MockZoneRates _ratesFor(String category, String code) => MockZoneRates(
+    catalogKronor: _catalogPriceKr(category),
+    currency: code,
+  );
+
+  /// The config document cancel fees are charged from for a trip in
+  /// [code]: [riderConfig] when it is in that currency (tests replace it),
+  /// else the seed of the zone with that currency.
+  RiderAppConfig _configFor(String code) => riderConfig.currency == code
+      ? riderConfig
+      : SeedRiderConfigRepository.seedForCurrency(code) ?? riderConfig;
+
+  /// The trip fare in minor units (`fare: Money`). A ride a test seeded
+  /// with the pre-v0.3 whole-unit `price` is read once from it.
+  static int? _fareMinor(Map<String, dynamic> ride) {
+    final fare = ride['fare'];
+    if (fare is Map && fare['amountMinor'] is int) {
+      return fare['amountMinor'] as int;
+    }
+    final legacy = ride['price'];
+    return legacy is num
+        ? Money.fromLegacyMajor(legacy, _currencyOf(ride)).amountMinor
+        : null;
+  }
+
+  /// The fare at booking, before offers and route changes.
+  static int? _bookedMinor(Map<String, dynamic> ride) {
+    final booked = ride['bookedFare'];
+    if (booked is Map && booked['amountMinor'] is int) {
+      return booked['amountMinor'] as int;
+    }
+    final legacy = ride['bookedPrice'];
+    return legacy is num
+        ? Money.fromLegacyMajor(legacy, _currencyOf(ride)).amountMinor
+        : _fareMinor(ride);
+  }
+
+  /// Contract money on the wire: `fare: Money` in the trip's currency,
+  /// never whole-unit doubles.
+  static void _setFare(Map<String, dynamic> ride, int amountMinor) {
+    ride['fare'] = _money(amountMinor, _currencyOf(ride));
+    ride.remove('price');
+  }
+
+  /// The rider's offer raise as minor units: `offerIncrease: Money` in the
+  /// trip's currency [code], or the pre-v0.3 whole-kronor `offerIncreaseKr`
+  /// (compatibility, kronor trips only). Null when it is not positive and
+  /// on the zone's price step (a whole krona, 0.05 €, 0.1 DT).
+  static int? _offerIncreaseMinor(Map<String, dynamic> body, String code) {
+    final step = MockZoneCurrency.of(code).stepMinor;
+    final money = body['offerIncrease'];
+    if (money is Map) {
+      final minor = money['amountMinor'];
+      if (minor is int && minor > 0 && minor % step == 0 &&
+          money['currency'] == code) {
+        return minor;
+      }
+      return null;
+    }
+    final kr = body['offerIncreaseKr'];
+    if (code == currency && kr is num && kr > 0 && kr == kr.roundToDouble()) {
+      return Money.fromLegacyMajor(kr, code).amountMinor;
+    }
+    return null;
+  }
+
+  /// A route-change price on the wire: Money plus the flat minor fields
+  /// (next to `currency`), no whole-unit doubles.
+  static Map<String, Object?> _pricingWire(Map<String, dynamic> pricing) {
+    final newMinor = pricing['newMinor'] as int;
+    final differenceMinor = pricing['differenceMinor'] as int;
+    final code = pricing['currency'] as String;
+    return {
+      'newTotal': _money(newMinor, code),
+      'difference': _money(differenceMinor, code),
+      'newTotalMinor': newMinor,
+      'differenceMinor': differenceMinor,
+      'currency': code,
+      'routeKm': pricing['routeKm'],
+      'stops': pricing['stops'],
+    };
+  }
 
   /// The route a route quote priced, to compare with the one applied.
   static String _routeFingerprint(Map<String, dynamic> body) => jsonEncode([
@@ -1165,22 +2008,20 @@ class InProcessMockClient extends http.BaseClient {
     if (quoteId == null) return null;
     final quote = routeQuotes[quoteId];
     if (quote == null || quote['rideId'] != rideId) {
-      return 'ROUTE_QUOTE_NOT_FOUND';
+      return 'route_quote_not_found';
     }
     final expiresAt = DateTime.tryParse(quote['expiresAt'] as String? ?? '');
     if (expiresAt == null || !expiresAt.isAfter(DateTime.now())) {
-      return 'ROUTE_QUOTE_EXPIRED';
+      return 'route_quote_expired';
     }
     if (quote['route'] != _routeFingerprint(body)) {
-      return 'ROUTE_QUOTE_MISMATCH';
+      return 'route_quote_mismatch';
     }
     final quoted = quote['newTotalMinor'] as int;
     final expected = (body['expectedTotalMinor'] as num?)?.round();
-    final now =
-        ((_routeChangePricing(ride, body)['newPriceKr'] as double) * 100)
-            .round();
+    final now = _routeChangePricing(ride, body)['newMinor'] as int;
     if ((expected != null && expected != quoted) || now != quoted) {
-      return 'ROUTE_QUOTE_PRICE_CHANGED';
+      return 'route_quote_price_changed';
     }
     return null;
   }
@@ -1199,16 +2040,19 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// New price for a changed route: the booked price, plus 25 kr per stop
-  /// and 12 kr per extra kilometre beyond what was booked. Shorter routes
-  /// get the difference back.
+  /// and 12 kr per extra kilometre beyond what was booked, in the trip's
+  /// currency ([MockZoneRates]: 2.40 € and 1.15 € in Paris). Shorter routes
+  /// get the difference back. Minor units, on the zone's price step.
   Map<String, dynamic> _routeChangePricing(
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final bookedPrice =
-        (ride['bookedPrice'] as num?)?.toDouble() ??
-        (ride['price'] as num?)?.toDouble() ??
-        0;
+    final code = _currencyOf(ride);
+    final rates = _ratesFor(
+      (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+      code,
+    );
+    final bookedMinor = _bookedMinor(ride) ?? 0;
     final pLat = (body['pickupLat'] ?? ride['pickupLat']) as num?;
     final pLng = (body['pickupLng'] ?? ride['pickupLng']) as num?;
     final dLat = body['destinationLat'] as num;
@@ -1235,31 +2079,25 @@ class InProcessMockClient extends http.BaseClient {
       routeKm += _km(lat, lng, dLat, dLng);
     }
     final bookedKm = (ride['bookedKm'] as num?)?.toDouble() ?? routeKm;
-    final newPrice =
-        (bookedPrice + stops.length * 25 + (routeKm - bookedKm) * 12)
-            .clamp(bookedPrice * 0.5, double.infinity)
-            .roundToDouble();
-    final current = (ride['price'] as num?)?.toDouble() ?? bookedPrice;
+    final newMinor = rates.roundToStep(
+      (bookedMinor +
+              stops.length * rates.convertKronor(25) +
+              (routeKm - bookedKm) * rates.perKmMinor)
+          .clamp(bookedMinor * 0.5, double.infinity),
+    );
+    final currentMinor = _fareMinor(ride) ?? bookedMinor;
     return {
-      'newPriceKr': newPrice,
-      'differenceKr': newPrice - current,
+      'newMinor': newMinor,
+      'differenceMinor': newMinor - currentMinor,
+      'currency': code,
       'routeKm': double.parse(routeKm.toStringAsFixed(2)),
       'stops': stops,
     };
   }
 
-  /// The catalog price covers a trip this long; the fare then moves 12 kr
-  /// per kilometre either way (the route-change rate), never below 60% of
-  /// the catalog price. So a 3 km quote is the demo list price.
-  static const _catalogTripMeters = 3000;
-  static const _krPerKm = 12;
+  /// The catalog price covers a trip this long ([MockCategoryRates]).
+  static const _catalogTripMeters = MockCategoryRates.includedMeters;
 
-  int _fareKr(String rideType, int distanceMeters) {
-    final catalogKr = _catalogPriceKr(rideType);
-    final extraKm = (distanceMeters - _catalogTripMeters) / 1000;
-    final kr = (catalogKr + extraKm * _krPerKm).round();
-    return math.max((catalogKr * 0.6).round(), kr);
-  }
 
   /// Pickup → stops → destination in metres, or null without the points.
   int? _routedMeters(Map<String, dynamic> body) {
@@ -1286,7 +2124,10 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
-    final rideType = body['rideType'] as String? ?? 'movera';
+    // Contract v0.3.0: canonical category id; `movera` is read as `economy`.
+    final rideType = CategoryIds.canonical(
+      body['rideType'] as String? ?? CategoryIds.economy,
+    );
     // ARCH-8 / contract C-2: price the route from the points (through the
     // stops) like a server would; the client's distance is only a hint for
     // callers that send no points.
@@ -1294,17 +2135,25 @@ class InProcessMockClient extends http.BaseClient {
         _routedMeters(body) ??
         (body['distanceMeters'] as num?)?.round() ??
         _catalogTripMeters;
-    final catalogMinor = _catalogPriceKr(rideType) * 100;
-    final fullMinor = _fareKr(rideType, distanceMeters) * 100;
-    // Demo promotion: discounts the ride types it names, capped per ride.
+    // Q7: the pickup's zone decides the currency, and the price is the
+    // zone's own ([MockZoneRates]), not a converted kronor amount.
+    final zone = _zoneOf(body);
+    final rates = _ratesFor(rideType, zone.currency);
+    final catalogMinor = rates.listMinor;
+    final fullMinor = rates.quote(distanceMeters).amountMinor;
+    // Demo promotion: discounts the ride types it names, capped per ride
+    // (the cap is in kronor, so it is the zone's own amount elsewhere).
     final promo = activePromotion;
     final eligible =
         promo != null &&
         (promo['rideTypes'] as List? ?? const []).contains(rideType);
+    final cap = (promo?['maxDiscountMinor'] as num?)?.round();
     final discountMinor = eligible
         ? ((fullMinor * (promo['percentOff'] as num) / 100).round()).clamp(
             0,
-            (promo['maxDiscountMinor'] as num?)?.round() ?? fullMinor,
+            cap == null
+                ? fullMinor
+                : rates.convertKronor(Money(cap, currency).major),
           )
         : 0;
     final minor = fullMinor - discountMinor;
@@ -1313,9 +2162,13 @@ class InProcessMockClient extends http.BaseClient {
       'id': id,
       'quoteId': id,
       'rideType': rideType,
+      // Contract v0.3.0 Quote.total; the flat minor fields sit next to
+      // `currency` for pre-v0.3 readers.
+      'total': _money(minor, zone.currency),
       'totalMinor': minor,
       'amountMinor': minor,
-      'currency': currency,
+      'currency': zone.currency,
+      'zoneId': zone.id,
       // ARCH-11: RFC 3339 UTC with offset, like a real server.
       'expiresAt': WireTime.format(DateTime.now().add(const Duration(minutes: 2))),
       'expiresInSec': 120,
@@ -1348,12 +2201,12 @@ class InProcessMockClient extends http.BaseClient {
         signed.isEmpty ||
         expiryRaw == null ||
         quotedTotal == null) {
-      return 'QUOTE_REQUIRED';
+      return 'quote_required';
     }
 
     final quote = quotes[quoteId];
-    if (quote == null) return 'QUOTE_NOT_FOUND';
-    if (quote['signedPayload'] != signed) return 'QUOTE_SIGNATURE_MISMATCH';
+    if (quote == null) return 'quote_not_found';
+    if (quote['signedPayload'] != signed) return 'quote_signature_mismatch';
 
     final expiresAt = DateTime.tryParse(expiryRaw);
     final serverExpiry = DateTime.tryParse(quote['expiresAt'] as String? ?? '');
@@ -1361,46 +2214,90 @@ class InProcessMockClient extends http.BaseClient {
         serverExpiry == null ||
         expiresAt.toUtc() != serverExpiry.toUtc() ||
         !serverExpiry.isAfter(DateTime.now())) {
-      return 'QUOTE_EXPIRED';
+      return 'quote_expired';
     }
 
     final serverTotal = (quote['totalMinor'] as num?)?.round();
     if (serverTotal == null || serverTotal != quotedTotal) {
-      return 'QUOTE_AMOUNT_MISMATCH';
+      return 'quote_amount_mismatch';
     }
+    final quoteCurrency = (quote['currency'] as String?) ?? currency;
 
-    final categoryId = (body['categoryId'] ?? '').toString();
-    if (quote['rideType'] != categoryId) return 'QUOTE_CATEGORY_MISMATCH';
+    final categoryId = CategoryIds.canonical((body['categoryId'] ?? '').toString());
+    if (quote['rideType'] != categoryId) return 'quote_category_mismatch';
 
-    final submittedPrice = (body['price'] as num?)?.toDouble();
-    if (submittedPrice == null ||
-        (submittedPrice * 100).round() != serverTotal) {
-      return 'QUOTE_PRICE_MISMATCH';
+    // The fare the rider confirmed: `fare: Money` in the quote's currency,
+    // or the pre-v0.3 whole-unit `price` (compatibility).
+    final fare = body['fare'];
+    if (fare is Map && fare['currency'] != quoteCurrency) {
+      return 'quote_price_mismatch';
+    }
+    final submittedMinor = fare is Map && fare['amountMinor'] is int
+        ? fare['amountMinor'] as int
+        : (body['price'] is num
+              ? Money.fromLegacyMajor(body['price'] as num, quoteCurrency)
+                    .amountMinor
+              : null);
+    if (submittedMinor == null || submittedMinor != serverTotal) {
+      return 'quote_price_mismatch';
     }
 
     // "Use wallet balance first" (contract C-3): the wallet part may not
     // exceed the fare, and is zero when the rider switched it off.
     final walletMinor = (body['walletAmountMinor'] as num?)?.round() ?? 0;
     final walletFirst = body['useWalletFirst'] == true;
+    // Q8: one wallet per currency; the wallet part is in the trip's own
+    // currency (the quote's minor units), never converted.
     if (walletMinor < 0 ||
         walletMinor > serverTotal ||
         (!walletFirst && walletMinor != 0)) {
-      return 'WALLET_AMOUNT_INVALID';
+      return 'wallet_amount_invalid';
     }
 
     return null;
   }
 
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
-    final categoryId =
-        (body['categoryId'] ?? body['rideType'] ?? 'movera').toString();
+    final categoryId = CategoryIds.canonical(
+      (body['categoryId'] ?? body['rideType'] ?? CategoryIds.economy).toString(),
+    );
     final paymentMethodId =
         (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet').toString();
+    final scheduled = body['scheduledAt'] != null;
+    // The server walks the new trip draft → quoted → requested (→ searching
+    // for a live trip) through the transition table; the client reads the
+    // status from this response and never assumes it.
+    var tripStatus = TripStatus.draft;
+    for (final (command, actor) in [
+      ('quote', TripActor.system),
+      ('request', TripActor.rider),
+      if (!scheduled) ('start_search', TripActor.system),
+    ]) {
+      tripStatus = TripStateMachine.apply(
+        tripStatus,
+        command,
+        actor,
+        kind: scheduled ? TripKind.scheduled : TripKind.live,
+      )!;
+    }
+    final id = 'ride_$requestId';
+    final code = _bookingCurrency(body);
     return {
-      'id': 'ride_$requestId',
-      'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
+      'id': id,
+      'tripId': id,
+      // Legacy read-only alias of tripId during migration.
+      'rideId': id,
+      'kind': scheduled ? TripKind.scheduled.wireName : TripKind.live.wireName,
+      'status': tripStatus.wireName,
+      'ratingStatus': TripRatingStatus.notRequested.wireName,
       'version': 1,
+      'sequence': 1,
+      'eventId': 'ev_${id}_1',
+      'eventKind': 'trip_projection',
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      // Contract v0.4.0: null until a driver accepts.
+      'acceptedAt': null,
       if (body['scheduledAt'] == null)
         'searchStartedAt': DateTime.now().toUtc().toIso8601String(),
       'categoryId': categoryId,
@@ -1409,10 +2306,16 @@ class InProcessMockClient extends http.BaseClient {
       // new write uses the canonical backend vocabulary above.
       'rideType': categoryId,
       'paymentMethod': paymentMethodId,
-      'price': body['price'],
-      'bookedPrice': body['price'],
-      // ARCH-20 / contract C-4: the server owns the offer ceiling.
-      if (body['price'] is num) 'maxOfferMinor': _maxOfferMinor(body['price']),
+      // Contract v0.3.0: Money on the wire, no whole-unit doubles, in the
+      // currency of the pickup's zone (Q7). The flat `currency` sits next to
+      // the flat minor fields for older readers.
+      'currency': code,
+      if (_bookingFareMinor(body, code) case final minor?) ...{
+        'fare': _money(minor, code),
+        'bookedFare': _money(minor, code),
+        // ARCH-20 / contract C-4: the server owns the offer ceiling.
+        'maxOfferMinor': _maxOfferMinorFor(minor, code),
+      },
       'bookedKm':
           body['pickupLat'] is num &&
               body['pickupLng'] is num &&
@@ -1482,9 +2385,42 @@ class InProcessMockClient extends http.BaseClient {
     );
   }
 
-  static bool _validOfferIncrease(Object? increase, Object? currentPrice) =>
-      increase is num &&
-      increase > 0 &&
-      increase == increase.roundToDouble() &&
-      currentPrice is num;
+  /// The booked fare in [code]: `fare: Money`, else the pre-v0.3
+  /// whole-unit `price`, else the quote total.
+  static int? _bookingFareMinor(Map<String, dynamic> body, String code) {
+    final fare = body['fare'];
+    if (fare is Map && fare['amountMinor'] is int) {
+      return fare['amountMinor'] as int;
+    }
+    final price = body['price'];
+    if (price is num) return Money.fromLegacyMajor(price, code).amountMinor;
+    final quoted = body['quoteTotalMinor'];
+    return quoted is int ? quoted : null;
+  }
+
+  /// Q7: a booking's currency is its quote's (the pickup's zone), else the
+  /// confirmed fare's, else the zone of its pickup.
+  String _bookingCurrency(Map<String, dynamic> body) {
+    final quote = quotes[body['quoteId']];
+    final fare = body['fare'];
+    return Money.normalizeCurrency(quote?['currency']) ??
+        Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
+        _zoneOf(body).currency;
+  }
+}
+
+/// One remembered answer to an idempotent request (RC-12).
+class IdempotentReplay {
+  const IdempotentReplay({
+    required this.body,
+    required this.response,
+    required this.at,
+  });
+
+  /// The request body it answered, encoded.
+  final String body;
+
+  /// The answer, encoded when it was given.
+  final String response;
+  final DateTime at;
 }

@@ -17,9 +17,9 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Records what reaches the in-process backend. [timeOutNextBooking] makes
-/// the next POST /rides reach the server (which creates the ride) and then
-/// time out on the client, like a slow network.
+/// Records what reaches the in-process backend. [timeOutBookings] makes
+/// that many next POST /rides reach the server (which creates the ride) and
+/// then time out on the client, like a slow network.
 class _Backend extends http.BaseClient {
   _Backend(this.inner);
 
@@ -27,7 +27,7 @@ class _Backend extends http.BaseClient {
   final List<String?> bookingKeys = [];
   final List<Map<String, dynamic>> bookingBodies = [];
   final List<Map<String, dynamic>> quoteBodies = [];
-  bool timeOutNextBooking = false;
+  int timeOutBookings = 0;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -41,8 +41,8 @@ class _Backend extends http.BaseClient {
     if (request.method == 'POST' && path == '/api/v1/rides') {
       bookingKeys.add(request.headers['Idempotency-Key']);
       bookingBodies.add(body);
-      if (timeOutNextBooking) {
-        timeOutNextBooking = false;
+      if (timeOutBookings > 0) {
+        timeOutBookings -= 1;
         final response = await inner.send(request);
         await response.stream.drain<void>();
         throw TimeoutException('client gave up');
@@ -77,7 +77,7 @@ void main() {
 
   Future<RideQuote> freshQuote(ApiClient api, {GeoPoint from = pickup}) =>
       ApiQuoteRepository(api: api).quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: 1500,
         pickupPoint: from,
         destinationPoint: drop,
@@ -96,7 +96,7 @@ void main() {
     pickupLng: from.longitude,
     destinationLat: to.latitude,
     destinationLng: to.longitude,
-    rideType: 'movera',
+    rideType: 'economy',
     price: quote.totalMinor / 100,
     paymentMethod: paymentMethod,
     quoteId: quote.id,
@@ -109,11 +109,13 @@ void main() {
 
   group('RIDE-3: one idempotency key per booking intent', () {
     test(
-      'a retry after a timeout reuses the key although the quote was '
-      'refreshed and the pin moved a step; the server keeps one ride',
+      'a retry after a timeout reuses the key and resends the first body '
+      'although the quote was refreshed and the pin moved a step (RC-04); '
+      'the server keeps one ride',
       () async {
         final mock = InProcessMockClient();
-        final backend = _Backend(mock)..timeOutNextBooking = true;
+        // RC-09: the booking retries once itself, so both time out.
+        final backend = _Backend(mock)..timeOutBookings = 2;
         final api = ApiClient(client: backend);
         final booking = BookingCoordinator(api: api);
 
@@ -128,8 +130,11 @@ void main() {
         expect(second.id, isNot(first.id));
         final rideId = await book(booking, second, from: nudged);
 
-        expect(backend.bookingKeys, hasLength(2));
-        expect(backend.bookingKeys[1], backend.bookingKeys[0]);
+        expect(backend.bookingKeys, hasLength(3));
+        expect(backend.bookingKeys.toSet(), hasLength(1));
+        for (final body in backend.bookingBodies) {
+          expect(jsonEncode(body), jsonEncode(backend.bookingBodies.first));
+        }
         expect(mock.rides, hasLength(1), reason: 'no second ride');
         expect(rideId, mock.rides.keys.single);
       },
@@ -157,7 +162,7 @@ void main() {
     test('a different trip, or the same trip after a booking succeeded '
         '("Try again"), gets a new key', () async {
       final mock = InProcessMockClient();
-      final backend = _Backend(mock)..timeOutNextBooking = true;
+      final backend = _Backend(mock)..timeOutBookings = 2;
       final api = ApiClient(client: backend);
       final booking = BookingCoordinator(api: api);
 
@@ -183,7 +188,7 @@ void main() {
       final api = ApiClient(client: backend);
 
       await ApiQuoteRepository(api: api).quote(
-        rideType: 'movera',
+        rideType: 'economy',
         distanceMeters: 1234,
         pickup: 'Sergels torg 1',
         destination: 'Odenplan 2',
@@ -213,13 +218,13 @@ void main() {
         final api = ApiClient(client: InProcessMockClient());
         final repo = ApiQuoteRepository(api: api);
         final honest = await repo.quote(
-          rideType: 'movera',
+          rideType: 'economy',
           distanceMeters: 30000,
           pickupPoint: pickup,
           destinationPoint: drop,
         );
         final lying = await repo.quote(
-          rideType: 'movera',
+          rideType: 'economy',
           distanceMeters: 1,
           pickupPoint: pickup,
           destinationPoint: drop,
@@ -240,7 +245,7 @@ void main() {
         pickupLng: pickup.longitude,
         destinationLat: drop.latitude,
         destinationLng: drop.longitude,
-        rideType: 'movera',
+        rideType: 'economy',
         price: 0,
         paymentMethod: 'visa',
       );
@@ -269,14 +274,14 @@ void main() {
     test('the body has the route and quote; two rides at the same time with '
         'other destinations get different keys', () async {
       final mock = InProcessMockClient();
-      final backend = _Backend(mock)..timeOutNextBooking = true;
+      final backend = _Backend(mock)..timeOutBookings = 1;
       final api = ApiClient(client: backend);
       final booking = BookingCoordinator(api: api);
       final quote = await freshQuote(api);
 
       Future<String> schedule(String destination, double lat) =>
           booking.requestBooking(
-            rideType: 'movera',
+            rideType: 'economy',
             paymentMethod: 'visa',
             scheduledAt: '2026-10-20T08:00:00Z',
             pickupAddress: 'Sergels torg 1',
@@ -305,7 +310,7 @@ void main() {
       expect(body['destinationLat'], 59.65);
       expect(body['quoteId'], quote.id);
       expect(body['quoteTotalMinor'], quote.totalMinor);
-      expect(body['categoryId'], 'movera');
+      expect(body['categoryId'], 'economy');
     });
 
     test(
@@ -318,7 +323,7 @@ void main() {
 
         await expectLater(
           booking.requestBooking(
-            rideType: 'movera',
+            rideType: 'economy',
             paymentMethod: 'visa',
             scheduledAt: '2026-10-20T08:00:00Z',
             pickupAddress: 'Sergels torg 1',
@@ -330,9 +335,9 @@ void main() {
           ),
           throwsA(
             isA<ApiError>().having(
-              (e) => e.code,
-              'code',
-              'QUOTE_AMOUNT_MISMATCH',
+              (e) => e.reason,
+              'reason',
+              'quote_amount_mismatch',
             ),
           ),
         );

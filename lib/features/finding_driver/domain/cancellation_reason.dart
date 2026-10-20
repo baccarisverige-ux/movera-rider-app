@@ -1,10 +1,28 @@
+import 'package:movera_rider/l10n/l10n.dart';
+
 enum CancelPhase { searching, matched, inTrip, reservation }
 
 class CancellationReason {
-  const CancellationReason({required this.id, required this.label});
+  const CancellationReason({required this.id, required String label})
+    : _label = label;
 
   final String id;
-  final String label;
+
+  /// English, for an id the app has no translation for.
+  final String _label;
+
+  /// What the rider reads, in the app language.
+  String get label => switch (id) {
+    'pickup_incorrect' => L10n.current.cancelReasonPickupIncorrect,
+    'wrong_ride_option' => L10n.current.cancelReasonWrongRideOption,
+    'requested_by_mistake' => L10n.current.cancelReasonByMistake,
+    'wait_too_long' => L10n.current.cancelReasonWaitTooLong,
+    'destination_change' => L10n.current.cancelReasonDestinationChange,
+    'driver_not_suitable' => L10n.current.cancelReasonDriverNotSuitable,
+    'plans_changed' => L10n.current.cancelReasonPlansChanged,
+    'something_else' => L10n.current.cancelReasonSomethingElse,
+    _ => _label,
+  };
 
   static const pickupIncorrect = CancellationReason(
     id: 'pickup_incorrect',
@@ -79,12 +97,22 @@ class CancellationReason {
 }
 
 class CancelOutcome {
-  const CancelOutcome._({required this.cancelled, this.reasonId});
+  const CancelOutcome._({
+    required this.cancelled,
+    this.reasonId,
+    this.changeDestination = false,
+  });
 
   const CancelOutcome.keep() : this._(cancelled: false);
   const CancelOutcome.cancel({String? reasonId})
     : this._(cancelled: true, reasonId: reasonId);
 
+  /// Q2: the rider took "Change destination instead?": the ride is kept and
+  /// the caller opens the route-change flow.
+  const CancelOutcome.changeDestination()
+    : this._(cancelled: false, changeDestination: true);
+
   final bool cancelled;
   final String? reasonId;
+  final bool changeDestination;
 }

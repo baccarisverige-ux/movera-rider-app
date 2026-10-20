@@ -6,6 +6,7 @@ import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/profile/application/account_deletion_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Delete account (FLOW-2): says what is deleted, asks once more, sends the
 /// request, then signs out and wipes this device.
@@ -31,18 +32,18 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
-          'Delete your account?',
+          context.l10n.deleteAccountQ,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'This can\'t be undone. You will be signed out on this device.',
+          context.l10n.deleteAccountQBody,
           style: GoogleFonts.poppins(fontSize: 13.5),
         ),
         actions: [
           TextButton(
             key: const ValueKey('delete-account-cancel'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             key: const ValueKey('delete-account-confirm'),
@@ -50,7 +51,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xFFB42318),
             ),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -76,7 +77,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       setState(() {
         _sending = false;
         _error =
-            'We couldn\'t send your request. Check your connection and try again.';
+            context.l10n.deleteSendFailed;
       });
     }
   }
@@ -90,34 +91,34 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
             child: AccountHeadline(
-              'Delete account',
-              body: 'We delete your Movera account and the data tied to it.',
+              context.l10n.accountDelete,
+              body: context.l10n.deleteBody,
             ),
           ),
-          const AccountGroup(
+          AccountGroup(
             children: [
               AccountTile(
                 mark: AccountIcon.asset(AppAssets.solarUserRounded),
-                title: 'Your profile',
-                body: 'Name, phone number, email and sign-in methods',
+                title: context.l10n.deleteYourProfile,
+                body: context.l10n.deleteYourProfileBody,
               ),
               AccountTile(
                 mark: AccountIcon.asset(AppAssets.solarMapPoint),
-                title: 'Your places',
-                body: 'Home, Work, saved places and recent addresses',
+                title: context.l10n.deleteYourPlaces,
+                body: context.l10n.deleteYourPlacesBody,
               ),
               AccountTile(
                 mark: AccountIcon.asset(AppAssets.solarWallet),
-                title: 'Payments',
-                body: 'Saved cards, wallet balance and payment settings',
+                title: context.l10n.payments,
+                body: context.l10n.deletePaymentsBody,
               ),
               AccountTile(
                 mark: AccountIcon.asset(AppAssets.solarClock),
-                title: 'Trips and safety',
-                body: 'Ride history, reservations and trusted contacts',
+                title: context.l10n.deleteTrips,
+                body: context.l10n.deleteTripsBody,
                 showDivider: false,
               ),
             ],
@@ -125,9 +126,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             child: Text(
-              'Receipts we must keep by law are kept only as long as '
-              'required. Deleting can\'t be undone, and you are signed out '
-              'on this device once the request is sent.',
+              context.l10n.deleteLegalNote,
               style: accountText(13, color: kAccountMuted, height: 1.4),
             ),
           ),
@@ -147,7 +146,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                     child: Center(child: CircularProgressIndicator()),
                   )
                 : AccountFillButton(
-                    label: 'Delete my account',
+                    label: context.l10n.deleteMyAccount,
                     onTap: _confirmAndSend,
                   ),
           ),
@@ -177,14 +176,12 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                   color: kAccountAccent,
                 ),
                 const SizedBox(height: 18),
-                const AccountHeadline(
-                  'Your deletion request was sent',
-                  body:
-                      'Movera will delete your account. You are signed out, '
-                      'and your data has been removed from this device.',
+                AccountHeadline(
+                  context.l10n.deleteSent,
+                  body: context.l10n.deleteSentBody,
                 ),
                 const Spacer(),
-                AccountFillButton(label: 'Done', onTap: _done),
+                AccountFillButton(label: context.l10n.done, onTap: _done),
               ],
             ),
           ),

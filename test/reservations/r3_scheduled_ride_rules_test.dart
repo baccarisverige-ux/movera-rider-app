@@ -25,7 +25,7 @@ void main() {
       scheduledPickupAt: pickupAt,
       pickup: const ReservationPlace(label: 'Stockholm Central'),
       destination: const ReservationPlace(label: 'Arlanda Airport'),
-      categoryId: 'movera',
+      categoryId: 'economy',
       categoryName: 'Movera',
       categoryImage: 'assets/images/rides/movera.webp',
       price: 459,
@@ -45,7 +45,7 @@ void main() {
 
   group('defaults mirror the admin defaults', () {
     test(
-      'free until 1 h before pickup, then kr 50; driver shown on accept',
+      'free until 1 h before pickup, then 50 kr; driver shown on accept',
       () {
         const rules = ScheduledRideRules.defaults;
         expect(rules.freeCancelWindow, const Duration(hours: 1));
@@ -108,8 +108,15 @@ void main() {
       expect(ReservationFormat.cancelTermsTitle(terms), contains('07:00'));
     });
 
-    test('the fee applies from the moment the window closes', () {
-      final atLine = rules.cancelTermsFor(ride(), DateTime(2026, 10, 20, 7, 0));
+    test('the fee applies once the window has closed', () {
+      // Contract v0.3.0 (fixtures/cancel_fees.json): a reservation is free
+      // while minutesBeforePickup >= freeMin, so the line itself is free.
+      final onLine = rules.cancelTermsFor(ride(), DateTime(2026, 10, 20, 7, 0));
+      expect(onLine.fee, isNull);
+      final atLine = rules.cancelTermsFor(
+        ride(),
+        DateTime(2026, 10, 20, 7, 0, 1),
+      );
       expect(atLine.fee, const Money(5000));
       final late = rules.cancelTermsFor(
         ride(driver: elin, status: ReservationStatus.driverAssigned),
@@ -118,7 +125,7 @@ void main() {
       expect(late.fee, const Money(5000));
       expect(
         ReservationFormat.cancelTermsTitle(late),
-        'Cancellation fee: kr 50',
+        'Cancellation fee: 50 kr',
       );
       expect(ReservationFormat.cancelTermsBody(late), contains('07:00'));
     });

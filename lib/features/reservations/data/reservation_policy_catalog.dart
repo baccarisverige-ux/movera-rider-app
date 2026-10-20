@@ -1,64 +1,53 @@
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReservationPolicyCatalog {
-  static const current = ReservationPolicy(
-    version: 'unpublished.v1',
-    pricingDisclaimer:
-        'Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.',
-    assignmentDisclaimer:
-        'Driver details will appear here when a driver is assigned. Assignment timing is not published yet.',
-    waitingSummary:
-        'No included waiting period is currently published.',
-    cancellationSummary:
-        'Cancelling is free until the time shown on your ride. After that, the fee shown before you confirm applies.',
-    pricingSummary:
-        'The reserved amount is for this category and route, and updates if the trip changes.',
-    sections: [
-      ReservationPolicySection(
-        title: 'Reservation pricing',
-        body:
-            'The reserved amount is an estimate for the selected Movera category and route. It can be updated if trip details change before pickup.',
-      ),
-      ReservationPolicySection(
-        title: 'When a driver may be assigned',
-        body:
-            'Assignment timing is not published yet. Driver details appear when an assignment is confirmed.',
-      ),
-      ReservationPolicySection(
-        title: 'Included waiting time',
-        body:
-            'No included waiting period is currently published. Confirmed terms will be shown before a scheduled ride is booked.',
-      ),
-      ReservationPolicySection(
-        title: 'Cancellation terms',
-        body:
-            'You can cancel a reservation from Upcoming ride. Cancelling is free until the free-cancellation time shown on the ride.',
-      ),
-      ReservationPolicySection(
-        title: 'Cancellation fees',
-        body:
-            'After the free-cancellation time, a cancellation fee applies. The amount is shown before you confirm the cancel.',
-      ),
-      ReservationPolicySection(
-        title: 'Changes to pickup, time, or destination',
-        body:
-            'You can edit a reservation by going through pickup, time, and category again. The same reservation ID is kept.',
-      ),
-      ReservationPolicySection(
-        title: 'If a driver cannot be assigned',
-        body:
-            'If no driver can be assigned, Movera will update this reservation. We do not invent a guaranteed assignment deadline here.',
-      ),
-      ReservationPolicySection(
-        title: 'Promotions',
-        body:
-            'No scheduled-ride promotion rule is published here. Only a promotion explicitly shown in confirmed booking details should be treated as applied.',
-      ),
-      ReservationPolicySection(
-        title: 'Rider responsibilities',
-        body:
-            'Be ready at the pickup point at the reserved time, keep trip details accurate, and treat drivers with care.',
-      ),
-    ],
-  );
+  /// The terms in the app language (read each time, so a language change
+  /// shows at once).
+  static ReservationPolicy get current {
+    final l = L10n.current;
+    return ReservationPolicy(
+      version: 'unpublished.v1',
+      pricingDisclaimer: l.polPricingDisclaimer,
+      assignmentDisclaimer: l.polAssignmentDisclaimer,
+      waitingSummary: l.polWaitingSummary,
+      cancellationSummary: l.polCancellationSummary,
+      pricingSummary: l.polPricingSummary,
+      sections: [
+        ReservationPolicySection(
+          title: l.polPricingTitle,
+          body: l.polPricingBody,
+        ),
+        ReservationPolicySection(
+          title: l.polAssignTitle,
+          body: l.polAssignBody,
+        ),
+        ReservationPolicySection(title: l.polWaitTitle, body: l.polWaitBody),
+        ReservationPolicySection(
+          title: l.polCancelTermsTitle,
+          body: l.polCancelTermsBody,
+        ),
+        ReservationPolicySection(
+          title: l.polCancelFeesTitle,
+          body: l.polCancelFeesBody,
+        ),
+        ReservationPolicySection(
+          title: l.polChangesTitle,
+          body: l.polChangesBody,
+        ),
+        ReservationPolicySection(
+          title: l.polNoDriverTitle,
+          body: l.polNoDriverBody,
+        ),
+        ReservationPolicySection(
+          title: l.polPromotionsTitle,
+          body: l.polPromotionsBody,
+        ),
+        ReservationPolicySection(
+          title: l.polResponsibilitiesTitle,
+          body: l.polResponsibilitiesBody,
+        ),
+      ],
+    );
+  }
 }

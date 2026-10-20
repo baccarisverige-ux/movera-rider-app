@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -56,11 +57,31 @@ class WalletController {
   final PaymentGateway? _gateway;
   final WalletBalanceRepository? _balancesOverride;
   late final WalletBalanceRepository _balances =
-      _balancesOverride ?? LocalWalletRepository(_store);
+      _balancesOverride ?? LocalWalletRepository(_store, _store.currency);
+
+  final Map<String, WalletController> _byCurrency = {};
+
+  /// Q8: the rider has one wallet balance per currency and the app never
+  /// converts. The controller of the balance in [currency] (this one when
+  /// it already is); payment settings are shared.
+  WalletController forCurrency(String currency) {
+    if (currency == this.currency) return this;
+    return _byCurrency.putIfAbsent(
+      currency,
+      () => WalletController(
+        store: _store,
+        gateway: _gateway,
+        balances: _balances.inCurrency(currency),
+      ),
+    );
+  }
 
   /// False when this build has no wallet (release until a server ledger
   /// exists).
   bool get available => _balances.available;
+
+  /// The balance's currency. It pays only trips in the same currency.
+  String get currency => _balances.currency;
   final Set<String> _topUpKeys = {};
 
   Future<WalletPaymentSettings> loadPayments() => _store.loadPayments();
@@ -130,8 +151,8 @@ class WalletController {
     final PaymentIntent intent;
     try {
       intent = await gateway.create(
-        amountMinor: (amount * 100).round(),
-        currency: 'SEK',
+        amountMinor: Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         idempotencyKey: key,
         purpose: PaymentPurpose.walletTopUp,
       );
@@ -191,7 +212,8 @@ class WalletController {
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.credit,
-        amountMinor: (amount * 100).round(),
+        amountMinor: Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );
@@ -241,6 +263,12 @@ class WalletController {
       return null;
     }
     if (!_balances.available) return null;
+    // Q8: the trip is paid from the balance of its own currency.
+    if (snapshot.currency != currency) {
+      return forCurrency(
+        snapshot.currency,
+      ).chargeCompletedRide(snapshot, rideId: id);
+    }
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the
     // fare), and the method pays the rest.
@@ -254,11 +282,11 @@ class WalletController {
     if (paidByWallet) {
       amount = snapshot.price;
     } else if (snapshot.walletAmountMinor > 0) {
-      final fareMinor = (snapshot.price * 100).round();
+      final fareMinor = snapshot.fare.amountMinor;
       final part = snapshot.walletAmountMinor < fareMinor
           ? snapshot.walletAmountMinor
           : fareMinor;
-      amount = part / 100;
+      amount = Money(part, currency).major;
     } else {
       return null;
     }
@@ -304,7 +332,8 @@ class WalletController {
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.ride,
-        amountMinor: -(amount * 100).round(),
+        amountMinor: -Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );
@@ -320,7 +349,8 @@ class WalletController {
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.refund,
-        amountMinor: (amount * 100).round(),
+        amountMinor: Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );

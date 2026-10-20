@@ -4,5 +4,2508 @@
   "whereTo": "Where to?",
   "currentLocation": "Current location",
   "findingDriver": "Finding your driver",
-  "cancelRide": "Cancel ride"
+  "cancelRide": "Cancel ride",
+  "homeSearchInterrupted": "Your ride search was interrupted. Book again when you are ready.",
+  "homeFindingLocation": "Finding your location…",
+  "setLocation": "Set location",
+  "choosePickup": "Choose pickup",
+  "setHomeAddress": "Set Home address",
+  "setWorkAddress": "Set Work address",
+  "setPlaceAddress": "Set {place} address",
+  "@setPlaceAddress": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "homeChooseValidDestination": "Choose a valid destination address.",
+  "confirmDestination": "Confirm destination",
+  "confirmPickupSpot": "Confirm pickup spot",
+  "confirmPickup": "Confirm pickup",
+  "homeChooseValidRoute": "Please choose a valid pickup and destination.",
+  "close": "Close",
+  "searchOrEnterAddress": "Search or enter an address",
+  "clear": "Clear",
+  "useCurrentLocation": "Use current location",
+  "findingYourAddress": "Finding your address…",
+  "recentAddresses": "Recent addresses",
+  "useThisAddress": "Use this address",
+  "homeMaxCustomPlaces": "You can save up to 8 custom places.",
+  "homeWhatPlaceToSave": "What place do you want to save?",
+  "placeGym": "Gym",
+  "placeMall": "Mall",
+  "placeSchool": "School",
+  "placeAirport": "Airport",
+  "placeFamily": "Family",
+  "placeRestaurant": "Restaurant",
+  "placeOther": "Other",
+  "homeRecenterMap": "Recenter map on your location",
+  "homeTogglePanel": "Toggle home panel",
+  "navHome": "Home",
+  "navPayment": "Payment",
+  "navScheduleRide": "Schedule ride",
+  "navAccount": "Account",
+  "placeHome": "Home",
+  "placeSetHome": "Set Home",
+  "placeWork": "Work",
+  "placeSetWork": "Set Work",
+  "placeAdd": "Add",
+  "placeNew": "New place",
+  "destinationLabel": "Destination {address}",
+  "@destinationLabel": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleForLater": "Schedule for later",
+  "later": "Later",
+  "addAStop": "Add a stop",
+  "menu": "Menu",
+  "advancePlanAhead": "Plan ahead. Ride on time.",
+  "advanceBody": "Book your ride in advance and we’ll help arrange a driver for the time you choose.",
+  "scheduleARide": "Schedule a ride",
+  "menuAppVersion": "Movera Rider v{version}",
+  "@menuAppVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "back": "Back",
+  "menuHiName": "Hi {name}",
+  "@menuHiName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "menuWalletWithAmount": "Wallet, {amount}",
+  "@menuWalletWithAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "menuWallet": "Wallet",
+  "menuRideHistory": "Ride History",
+  "menuNotifications": "Notifications",
+  "menuSavedPlaces": "Saved Places",
+  "menuSupport": "Support",
+  "menuPromoBodyNone": "Offers you can use are applied automatically to your ride.",
+  "menuPromoBody": "{percent}% off your next {rides} rides · {left} left. We apply the offer that saves you the most.",
+  "@menuPromoBody": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "rides": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "menuYourPromos": "Your promotions",
+  "menuSafetyCheckup": "Safety checkup",
+  "menuSafetyCheckupBody": "Add a trusted contact and set your safety preferences.",
+  "menuFamily": "Movera Family",
+  "menuFamilyBody": "Coming soon: book and follow rides for your family.",
+  "menuFamilyArticle": "Soon you will be able to add family members to your account and book rides for them, with the trip and the driver visible to you from start to finish. We will let you know the moment it is ready.",
+  "menuInviteFriends": "Invite friends",
+  "menuInviteFriendsBody": "Coming soon: invite friends to Movera.",
+  "menuBusiness": "Movera Business",
+  "menuBusinessBody": "Coming soon: keep work rides and receipts separate.",
+  "menuBusinessArticle": "A business profile keeps your work rides apart from your personal ones, with monthly receipts ready for expensing. It is on its way; we will let you know when it opens.",
+  "menuGreener": "Greener rides",
+  "menuGreenerBody": "Choose Electric for fossil-free rides.",
+  "menuGreenerArticle": "Choose the Electric category to ride emission-free. Soon your receipts will show the CO₂ you saved on every trip and over the year.",
+  "newBadge": "NEW",
+  "accountPersonalInfo": "Personal info",
+  "accountPersonalInfoBody": "Name, phone, email, language",
+  "accountSecurity": "Security",
+  "accountSecurityBody": "Passkeys, 2-step, devices",
+  "accountPrivacy": "Privacy",
+  "accountPrivacyBody": "How Movera uses your data",
+  "accountTerms": "Terms",
+  "accountTermsBody": "How Movera rides work",
+  "accountPrivacyNotice": "Privacy notice",
+  "accountPrivacyNoticeBody": "What we keep and why",
+  "menuAboutMovera": "About Movera",
+  "menuAboutBody": "Company information",
+  "menuAboutArticle": "Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.",
+  "accountSignOut": "Sign out",
+  "accountSignOutBody": "Remove your data from this device",
+  "planYourRide": "Plan your ride",
+  "routeCouldNotReach": "Couldn't reach Movera. Check your connection and try again.",
+  "tryAgain": "Try again",
+  "routeDriverOnTheWay": "Your driver is already on the way to this pickup",
+  "removeStop": "Remove stop",
+  "setPickupOnMap": "Set pickup on map",
+  "chooseDestinationOnMap": "Choose destination on map",
+  "pickup": "Pickup",
+  "yourCurrentLocation": "Your current location",
+  "stopNumber": "Stop {number}",
+  "@stopNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "addStop": "Add stop",
+  "swapPickupDestination": "Swap pickup and destination",
+  "swapStopDestination": "Swap last stop and destination",
+  "myLocation": "My location",
+  "routeSetFavourite": "Set {place}",
+  "@routeSetFavourite": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "routeAddFavouriteAddress": "Add your {place} address",
+  "@routeAddFavouriteAddress": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "recent": "Recent",
+  "showMoreResults": "Show more results",
+  "noAddressFound": "No address found",
+  "noAddressFoundBody": "Check the spelling or choose the place on the map.",
+  "tryTheMap": "Try the map",
+  "seePrices": "See prices",
+  "homeRideCount": "{count, plural, =1{1 ride} other{{count} rides}}",
+  "@homeRideCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartYourJourney": "START YOUR JOURNEY",
+  "homeCatchFlight": "Catch your flight",
+  "homeComfortCar": "Comfort car",
+  "homeTopChauffeur": "Highly rated chauffeur",
+  "homeYourMonth": "Your {month}",
+  "@homeYourMonth": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "homeRidesPerWeek": "Rides per week",
+  "homeCo2Kg": "{kg} kg",
+  "@homeCo2Kg": {
+    "placeholders": {
+      "kg": {
+        "type": "String"
+      }
+    }
+  },
+  "homeCo2Avoided": "est. CO₂ avoided",
+  "helpCentre": "Help centre",
+  "helpCentreBody": "Answers to common questions, any time",
+  "selectReturnNeedsPoints": "A return ride needs the exact pickup and drop-off points.",
+  "refreshingPrice": "Refreshing price…",
+  "priceUpdated": "Price updated",
+  "priceUpdatedBody": "The price for this pickup is now {now} (was {was}).",
+  "@priceUpdatedBody": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "was": {
+        "type": "String"
+      }
+    }
+  },
+  "notNow": "Not now",
+  "bookForPrice": "Book for {price}",
+  "@bookForPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownPlace": "Unknown place",
+  "pickupAtArriveAt": "Pickup {pickup} · Arrive {arrive}",
+  "@pickupAtArriveAt": {
+    "placeholders": {
+      "pickup": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "etaMinArriveAt": "{minutes} min · Arrive {arrive}",
+  "@etaMinArriveAt": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "arriveBy": "Arrive by {time}",
+  "@arriveBy": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "whenDoYouWantToRide": "When do you want to ride?",
+  "bookNow": "Book now",
+  "bookNowBody": "Request a driver right away",
+  "bookForLater": "Book for later",
+  "bookForLaterBody": "Choose a date and pickup time",
+  "confirmAndSchedule": "Confirm and schedule",
+  "noRideCategory": "No ride category is available. Try again.",
+  "priceUnavailableRefreshing": "Price unavailable. Refreshing fare…",
+  "confirmAndSearch": "Confirm and search",
+  "stopLookupFailed": "Couldn't look up the stop {stops} right now. It isn't in this price.",
+  "@stopLookupFailed": {
+    "placeholders": {
+      "stops": {
+        "type": "String"
+      }
+    }
+  },
+  "stopNotFound": "Couldn't find the stop {stops}. It isn't in this price — go back to change it, or book without it.",
+  "@stopNotFound": {
+    "placeholders": {
+      "stops": {
+        "type": "String"
+      }
+    }
+  },
+  "fareChangedRefreshing": "Fare changed or expired. Refreshing price…",
+  "noPaymentMethod": "No payment method is available.",
+  "cardExpires": "Expires {date}",
+  "@cardExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingUncertain": "We couldn’t confirm your booking. Check your connection and try again.",
+  "bookingFailed": "We could not book this ride. Check the fare and try again.",
+  "showFewerRides": "Show fewer rides",
+  "showAllRides": "Show all rides",
+  "chooseYourRide": "Choose your ride",
+  "filterRecommended": "Recommended",
+  "filterFaster": "Faster",
+  "filterCheaper": "Cheaper",
+  "walletWrongCurrency": "Your wallet balance is in {wallet} and can’t pay a ride in {ride}.",
+  "@walletWrongCurrency": {
+    "placeholders": {
+      "wallet": {
+        "type": "String"
+      },
+      "ride": {
+        "type": "String"
+      }
+    }
+  },
+  "paidByWallet": "Paid by wallet",
+  "walletSplit": "Wallet −{wallet} · you pay {rest}",
+  "@walletSplit": {
+    "placeholders": {
+      "wallet": {
+        "type": "String"
+      },
+      "rest": {
+        "type": "String"
+      }
+    }
+  },
+  "noRidesAvailable": "No rides available",
+  "bookNowOrLater": "Book now or later",
+  "notesBags": "Bags",
+  "notesPet": "Pet",
+  "notesBaby": "Baby",
+  "notesChild": "Child",
+  "notesTitle": "Anything we should know?",
+  "notesBody": "Optional. Your driver will see this.",
+  "notesSkip": "None / Skip",
+  "findDriver": "Find driver",
+  "ctaSchedule": "Schedule {category}",
+  "@ctaSchedule": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "ctaSelect": "Select {category}",
+  "@ctaSelect": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "payCash": "Cash",
+  "driverArrivesInArriveAt": "Driver arrives in {minutes} min · Arrive {arrive}",
+  "@driverArrivesInArriveAt": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "locationUnavailableMoveMap": "Current location is unavailable. Move the map instead.",
+  "pickupAddress": "Pickup address",
+  "searchAddress": "Search address",
+  "addressNotFoundMoveMap": "Address not found. Move the map instead.",
+  "pickupSpot": "Pickup spot",
+  "findingTheAddress": "Finding the address…",
+  "dragMapToAdjust": "Drag the map to adjust",
+  "change": "Change",
+  "onMap": "On map",
+  "bagsNone": "No",
+  "bagsLabel": "Bags: {count}",
+  "@bagsLabel": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "bagsCount": "{count} bags",
+  "@bagsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "bagsQuestion": "Bags?",
+  "ridePrice": "Ride price",
+  "promotion": "Promotion",
+  "promotionPercent": "Promotion {percent}%",
+  "@promotionPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "total": "Total",
+  "moveraWallet": "Movera Wallet",
+  "nothingMoreToPay": "Nothing more to pay",
+  "updatingPrice": "Updating price…",
+  "changeArrow": "Change ›",
+  "dragMapToMovePin": "Drag map to move pin",
+  "locServicesOff": "Turn on Location Services, then try again.",
+  "locPermissionNeeded": "Location permission is needed to use your current pickup.",
+  "locPermissionBlocked": "Location permission is blocked. Enable it in Settings or choose the pickup on the map.",
+  "locUnavailableTryAgain": "Current location is unavailable. Try again or choose the pickup on the map.",
+  "locUnavailable": "Current location is unavailable.",
+  "openSettings": "Open settings",
+  "locOffBody": "Your location is off. Drag the map, search, or use current location to set your pickup.",
+  "payWith": "Pay with",
+  "walletBalance": "Balance: {amount}",
+  "@walletBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "walletTapToPay": "Tap to pay this ride from your balance",
+  "walletFirst": "Use wallet balance first",
+  "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
+  "paymentMethods": "Payment methods",
+  "addPaymentMethod": "Add payment method",
+  "vouchers": "Vouchers",
+  "ridesLeft": "{count, plural, =1{1 ride left} other{{count} rides left}}",
+  "@ridesLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addVoucherCode": "Add voucher code",
+  "voucherSoon": "Voucher codes open soon",
+  "addCardDemoNote": "Demo: this card is stored on this device only. When the payment partner is connected, cards are saved in its secure vault and Movera never sees the full number.",
+  "cardCheckNumber": "Check the card number",
+  "cardUseMmYy": "Use MM/YY",
+  "cardExpired": "This card has expired",
+  "cardCvc3": "3 digits",
+  "cardCheckDetails": "Check the card details",
+  "cardSaveFailed": "We could not save this card. Try again.",
+  "cardNameOnCardUpper": "NAME ON CARD",
+  "addCard": "Add card",
+  "cardNumber": "Card number",
+  "cardExpiry": "Expiry",
+  "cardMmYy": "MM/YY",
+  "cardNameOnCard": "Name on card",
+  "yourName": "Your name",
+  "saveCard": "Save card",
+  "searchCheckingNearby": "We're checking nearby drivers.",
+  "searchCheckingForNearby": "Checking for nearby drivers",
+  "searchUpdateOnAccept": "We'll update you as soon as a driver accepts.",
+  "searchBestMatch": "Still looking for the best match",
+  "searchNothingToDo": "We're still searching — you don't need to do anything.",
+  "searchCheckingMoreHeadline": "We're checking more drivers nearby",
+  "searchStillActive": "Your request is still active.",
+  "searchHangTight": "Hang tight — we're working on your ride",
+  "searchCheckingMore": "We're checking more nearby drivers.",
+  "searchBusier": "It's busier than usual",
+  "searchTakingLonger": "Matching is taking a little longer",
+  "searchMoreRiders": "More riders are requesting trips right now",
+  "searchExpanding": "We're expanding the search for you.",
+  "searchExpandingHeadline": "We're expanding the search for you",
+  "cancelReasonPickupIncorrect": "Pickup point is incorrect",
+  "cancelReasonWrongRideOption": "I chose the wrong ride option",
+  "cancelReasonByMistake": "I requested the ride by mistake",
+  "cancelReasonWaitTooLong": "The wait is taking too long",
+  "cancelReasonDestinationChange": "Destination needs to be changed",
+  "cancelReasonDriverNotSuitable": "Driver/ride details are not suitable",
+  "cancelReasonPlansChanged": "Plans changed",
+  "cancelReasonSomethingElse": "Something else",
+  "etaRideInProgress": "Ride in progress",
+  "etaDriverArrived": "Driver has arrived",
+  "etaUpdatingLocation": "Updating driver location…",
+  "etaAlmostThere": "Driver is almost there",
+  "etaOnTheWay": "Driver is on the way",
+  "etaPickupInMin": "Pickup in {minutes} min",
+  "@etaPickupInMin": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "etaToDropoff": "On the way to your drop-off.",
+  "etaNameToDropoff": "{name} is taking you to drop-off.",
+  "@etaNameToDropoff": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "etaWaitingFreshLocation": "Waiting for a fresh location update.",
+  "etaDriverAtPickup": "Your driver is at the pickup.",
+  "etaNameAtPickup": "{name} is at the pickup.",
+  "@etaNameAtPickup": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "etaLeaveNow": "Leave now to meet your driver.",
+  "etaLeaveNowName": "Leave now to meet {name}",
+  "@etaLeaveNowName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "findCancelling": "Cancelling your ride…",
+  "findCancelOffline": "We’ll confirm it with Movera as soon as you’re back online.",
+  "stillLooking": "Still looking for a driver",
+  "stillLookingActive": "No driver has accepted yet. Your request is still active.",
+  "editPickupTooLate": "Driver assigned before the pickup change could be applied.",
+  "editPickupFailed": "Couldn’t update pickup. Try again.",
+  "pickupUpdated": "Pickup updated",
+  "editOfferTooLate": "Driver assigned before the offer change could be applied.",
+  "editOfferFailed": "Couldn’t update offer. Try again.",
+  "offerSentUnconfirmed": "Offer sent. Your fare will update once Movera confirms it.",
+  "offerUpdatedTo": "Updated offer: {amount}",
+  "@offerUpdatedTo": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "driverAlreadyAccepted": "A driver already accepted your ride, so it wasn’t cancelled.",
+  "rebookFailed": "We couldn’t request a new ride. Choose your route and try again.",
+  "minLineBreak": "{minutes}\nmin",
+  "@minLineBreak": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelOfflineQueued": "We couldn’t reach Movera. We’ll cancel your ride as soon as you’re back online.",
+  "cancelNoLonger": "This ride can no longer be cancelled.",
+  "driverAccepted": "A driver accepted your ride.",
+  "offerUpdated": "Offer updated",
+  "cancelRequest": "Cancel request",
+  "collapse": "Collapse",
+  "recenterMap": "Recenter map",
+  "meetAt": "Meet at {place}",
+  "@meetAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "rideDetails": "Ride details",
+  "skip": "Skip",
+  "whyEndingTrip": "Why are you ending the trip?",
+  "whyCancelling": "Why are you cancelling?",
+  "cancelWhyCommitted": "Your request is cancelled. Telling us why is optional and helps us improve matching.",
+  "cancelWhyReservation": "Optional. This helps us improve scheduled rides.",
+  "cancelWhyInTrip": "Optional. This helps us understand trips that end early.",
+  "cancelWhyMatching": "Optional. This helps us improve matching.",
+  "send": "Send",
+  "endTrip": "End trip",
+  "keepRide": "Keep ride",
+  "changeDestinationInstead": "Change destination instead?",
+  "changeDestination": "Change destination",
+  "cancelBodyInTrip": "Your driver will drop you off as soon as it is safe. You pay for the distance driven so far.",
+  "cancelBodyMatched": "Your driver is already on the way. If you cancel now, you will need to request again.",
+  "cancelBodyTakingLonger": "This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.",
+  "cancelBodySearching": "Movera is still searching for a nearby driver. Your trip should be confirmed shortly.",
+  "endTripHereQ": "End trip here?",
+  "cancelRideQ": "Cancel ride?",
+  "endBeforeDestinationQ": "End your trip before the destination?",
+  "sureToCancelQ": "Are you sure you want to cancel?",
+  "endingTrip": "Ending trip…",
+  "cancelling": "Cancelling…",
+  "endTripHere": "End trip here",
+  "keepSearching": "Keep searching",
+  "waitForDriver": "Wait for driver",
+  "offer": "Offer",
+  "keepWaiting": "Keep waiting",
+  "bumpTitle": "Want to improve your chances?",
+  "bumpBody": "Raise your offer. Nearby drivers see the new price first.",
+  "bumpCurrent": "Current {amount}",
+  "@bumpCurrent": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "bumpOrSetNew": "Or set a new price",
+  "bumpConfirm": "Confirm {amount}",
+  "@bumpConfirm": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "bumpSetNewPrice": "Set new price",
+  "bumpServerConfirms": "Movera confirms your final fare after you raise your offer.",
+  "cancelTrip": "Cancel trip",
+  "stillLookingBody": "No driver has accepted yet. You can keep searching or cancel the request.",
+  "driver": "Driver",
+  "driverTrips": "Trips",
+  "driverRating": "Rating",
+  "driverYears": "Years",
+  "vehicle": "Vehicle",
+  "driverLanguages": "Languages",
+  "termRequestEnded": "REQUEST ENDED",
+  "termNoDriverFound": "No driver found",
+  "termNoDriverFoundBody": "No driver accepted this request, so the ride did not start. You can request the same ride again or choose a different route.",
+  "termNoDriverFoundNote": "Try again keeps your pickup, destination, ride type and payment.",
+  "termNoDriverAvailable": "No driver was available",
+  "termNoDriverAvailableBody": "We could not confirm a driver for this request. The ride did not start, so you can return home and request again when you are ready.",
+  "termNoDriverAvailableNote": "Your pickup and destination can be selected again from Home.",
+  "backToHome": "Back to home",
+  "termRequestExpired": "REQUEST EXPIRED",
+  "termBookingExpired": "This booking expired",
+  "termBookingExpiredBody": "The request was not confirmed in time and is no longer active. No driver is assigned to this booking.",
+  "termBookingExpiredNote": "Return home to create a fresh request with current availability.",
+  "termPaymentEyebrow": "PAYMENT NOT COMPLETED",
+  "termPaymentTitle": "Payment could not be completed",
+  "termPaymentBody": "Movera could not finalize the payment step for this ride. The trip is not active.",
+  "termPaymentNote": "You can review your payment method before requesting another ride.",
+  "termRideEnded": "RIDE ENDED",
+  "termSystemTitle": "Movera ended this ride",
+  "termSystemBody": "The ride was closed by the platform and is no longer active. Return home before starting another request.",
+  "termSystemNote": "Your next request will start as a new trip and will not reuse this ride state.",
+  "termDriverUpdate": "DRIVER UPDATE",
+  "driverCancelled": "Your driver cancelled",
+  "termDriverCancelledBody": "This assigned driver is no longer on the ride. Movera will only continue matching when the ride flow explicitly requests a new driver.",
+  "termDriverCancelledNote": "Your ride details are kept separate from the cancelled driver assignment.",
+  "continueLabel": "Continue",
+  "termRideCancelled": "RIDE CANCELLED",
+  "cancelledByMovera": "Cancelled by Movera",
+  "termAdminBody": "Movera support cancelled this ride. It is no longer active and no driver is on the way.",
+  "termAdminNote": "Contact support from Help if you did not expect this.",
+  "termNoShowTitle": "Your driver could not find you",
+  "termNoShowBody": "The driver waited at the pickup point and the ride was closed as a no-show. A no-show fee may apply.",
+  "termNoShowNote": "You can see any fee on your receipt in History, or contact support from Help.",
+  "termFailedEyebrow": "SOMETHING WENT WRONG",
+  "termFailedTitle": "This ride could not continue",
+  "termFailedBody": "A problem on our side stopped this ride. It is no longer active.",
+  "termFailedNote": "Contact support from Help and we will sort out anything you were charged.",
+  "termEndedByDriverTitle": "Your driver ended the ride",
+  "termEndedByDriverBody": "The driver ended this ride before the destination. It is no longer active.",
+  "termEndedByDriverNote": "You pay only for the distance driven. Contact support from Help if something happened.",
+  "termGenericTitle": "This ride is no longer active",
+  "termGenericBody": "The current ride has reached a terminal state and cannot continue from this screen.",
+  "termGenericNote": "Return home before starting a new ride request.",
+  "changeRoute": "Change route",
+  "cancelFailedStillOn": "Couldn't cancel. Your ride is still on.",
+  "driverFound": "Driver found",
+  "sentOnTheWay": "Sent to driver · I'm on the way",
+  "bookedPriceWholeTrip": "Booked price for the whole trip: {amount}. Your receipt shows what you pay.",
+  "@bookedPriceWholeTrip": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelCostsNow": "Cancelling now costs {amount}.",
+  "@cancelCostsNow": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFreeUnderMinute": "Cancelling is free for less than a minute more.",
+  "cancelFreeMinutes": "Cancelling is free for {minutes} more minutes.",
+  "@cancelFreeMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFailedTryAgain": "Couldn't cancel. Your ride is still on — try again.",
+  "cancelUnconfirmedOffline": "We couldn't reach Movera to confirm your cancellation. Your ride is still active until it's confirmed — we'll retry automatically when you're back online.",
+  "cantTrackRide": "Can't track this ride",
+  "cantTrackRideBody": "We lost track of which ride this is, so driver updates can't load. Try again, or go back to Home.",
+  "retry": "Retry",
+  "leaving": "Leaving…",
+  "goHome": "Go home",
+  "driverDetailsLater": "Driver details will appear when matching confirms them.",
+  "cancellingYourRideLabel": "Cancelling your ride",
+  "approachingDestination": "Approaching destination",
+  "approximateRoute": "Approximate route",
+  "livePaused": "Live updates paused. Driver position may be out of date.",
+  "shareTrip": "Share trip",
+  "toPlace": "To {place}",
+  "@toPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "driverDetailsUnavailable": "Driver details unavailable",
+  "driverDetailsUnavailableBody": "Verified driver and vehicle information will appear here when matching confirms them.",
+  "message": "Message",
+  "callDriver": "Call driver",
+  "moreOptions": "More options",
+  "loadingPin": "Loading PIN…",
+  "showPinToDriver": "Show this PIN to your driver",
+  "pinUnavailable": "PIN unavailable — verify plate and driver name",
+  "perMinRate": "{amount}/min",
+  "@perMinRate": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingFeeAmount": "Waiting fee {amount}",
+  "@waitingFeeAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeWaitingLeft": "Free waiting · {time} left",
+  "@freeWaitingLeft": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "afterFreeWait": "{time} after the free {minutes} min · {rate}",
+  "@afterFreeWait": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "thenWaitingFee": "Then {rate} waiting fee",
+  "@thenWaitingFee": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "driverIsHere": "Your driver is here",
+  "nameIsHere": "{name} is here",
+  "@nameIsHere": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "driverWaitingAtPickup": "Your driver is waiting at the pickup point.",
+  "imOnTheWay": "I'm on the way",
+  "yourDriver": "your driver",
+  "callUnavailableTitle": "Driver calling unavailable",
+  "callUnavailableBody": "Movera has not received a backend-issued masked calling number for {driver} yet. No phone call was placed.",
+  "@callUnavailableBody": {
+    "placeholders": {
+      "driver": {
+        "type": "String"
+      }
+    }
+  },
+  "nameCancelled": "{name} cancelled",
+  "@nameCancelled": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "driverCancelledBody": "Finding you another driver now. Your pickup, destination and price stay the same.",
+  "nearDestinationUpper": "NEAR DESTINATION",
+  "onTripUpper": "ON TRIP",
+  "tripSafety": "Trip safety",
+  "seeNewPrice": "See new price",
+  "routeUpdatedDriverTold": "Route updated · your driver has been told",
+  "routeUpdated": "Route updated",
+  "chargedTo": "{amount} charged to {method}",
+  "@chargedTo": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "creditedToWallet": "{amount} credited to your Movera Wallet",
+  "@creditedToWallet": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "refundedToDays": "{amount} refunded to {method} within 2 to 3 business days",
+  "@refundedToDays": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "samePrice": "Same price as before.",
+  "moreCash": "+{amount} more. You pay the new price in the car.",
+  "@moreCash": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "lessCash": "{amount} less. You pay the new price in the car.",
+  "@lessCash": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "moreCharged": "+{amount} more, charged to {method}.",
+  "@moreCharged": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "lessReturned": "{amount} less, returned to {method}.",
+  "@lessReturned": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "newRoute": "New route",
+  "newPrice": "New price",
+  "confirmChange": "Confirm change",
+  "confirmNextPayment": "Confirm · next: payment",
+  "keepCurrentRoute": "Keep current route",
+  "confirmPayment": "Confirm payment",
+  "chooseRefund": "Choose your refund",
+  "routeChargedNow": "The additional amount for the new route is charged to your payment method now.",
+  "routeCostsLess": "Your new route costs less. Please choose how you would like to receive the difference.",
+  "paymentMethod": "Payment method",
+  "bookedPrice": "Booked price",
+  "chargedNow": "Charged now",
+  "refundAmount": "Refund amount",
+  "refundWalletBody": "Available immediately and used first on your next ride.",
+  "refundOriginalBody": "Returned to your original payment method within 2 to 3 business days.",
+  "confirmAndPay": "Confirm and pay {amount}",
+  "@confirmAndPay": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmRefundWallet": "Confirm refund to Movera Wallet",
+  "confirmRefundTo": "Confirm refund to {method}",
+  "@confirmRefundTo": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "routePickupLocked": "The driver is already at your pickup; only the destination and stops can change.",
+  "routeNoLongerChangeable": "This ride can no longer be changed.",
+  "routeAddressNotFound": "Could not find that address. Try a more exact one.",
+  "routeUpdateFailed": "Couldn’t update the route. Try again.",
+  "routePriceChanged": "The price for this route changed. Check the new price and confirm again.",
+  "routePickupTooFar": "Your driver is on the way, so the pickup can only move up to {meters} m. To be picked up further away, cancel this ride and book a new one.",
+  "@routePickupTooFar": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveWithoutSending": "Leave without sending?",
+  "leaveWithoutSendingBody": "Your rating and tip have not been sent yet. Going back now will discard them.",
+  "stay": "Stay",
+  "leave": "Leave",
+  "feedbackSaveFailed": "Couldn’t save your trip feedback or History. Try again.",
+  "tripSummary": "Trip summary",
+  "rideSummary": "Ride summary",
+  "ratingOptional": "Rating and tip are optional. Tap Done when you are finished.",
+  "ratingAfterPayment": "Rating and tip will be available after payment confirmation.",
+  "done": "Done",
+  "checkBelongings": "Make sure you have all your belongings.",
+  "tripEndedEarly": "Trip ended early",
+  "endedEarlyBody": "You ended the trip before your destination. You pay only for the distance driven.",
+  "endedEarlyBodyAmount": "You ended the trip before your destination. You pay {amount} for the distance driven.",
+  "@endedEarlyBodyAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "paidByDistance": "Paid by distance driven",
+  "youPayAmount": "You pay {amount}",
+  "@youPayAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tripComplete": "Trip complete",
+  "completeProcessingBody": "Your ride has ended. Payment confirmation is still processing.",
+  "paymentProcessing": "Payment processing",
+  "completeConfirmedBody": "Your ride has ended and the payment has been confirmed.",
+  "paymentConfirmed": "Payment confirmed",
+  "completeRateBody": "Your ride and payment are complete. You can now rate your driver.",
+  "readyForFeedback": "Ready for feedback",
+  "completeDefaultBody": "Your ride has ended. Payment status will update when it is confirmed.",
+  "tripCompleted": "Trip completed",
+  "tripDetails": "Trip Details",
+  "tripDetailsUnavailable": "Trip details unavailable",
+  "tripDetailsUnavailableBody": "Your route, payment method and price will appear here when the ride record is available.",
+  "pickupLocation": "Pickup location",
+  "destination": "Destination",
+  "endedEarly": "Ended early",
+  "totalPayment": "Total payment",
+  "reportReceiptIssue": "Report an issue with this receipt",
+  "issueSubmitted": "Issue submitted for review.",
+  "issueSubmitFailed": "Could not submit the issue. Please try again.",
+  "reportReceiptIssueTitle": "Report receipt issue",
+  "reportReceiptIssueBody": "Tell us what looks wrong. Your ride record will be reviewed.",
+  "reportReceiptIssueHint": "What is wrong with the receipt?",
+  "submitting": "Submitting…",
+  "submitIssue": "Submit issue",
+  "kmDriven": "{km} km driven",
+  "@kmDriven": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "driverDetailsUnavailableReceipt": "Verified driver and vehicle information will appear here when it is available for this ride.",
+  "dateAndTime": "Date & Time",
+  "tipYourDriver": "Tip your driver",
+  "tipName": "Tip {name}",
+  "@tipName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tipsUnavailable": "Tips unavailable",
+  "tipsUnavailableBody": "Tipping isn't available in this build.",
+  "tipOptional": "Tip is optional.",
+  "tipSelected": "{amount} selected.",
+  "@tipSelected": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tipAmount": "Tip {amount}",
+  "@tipAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "howWasTrip": "How was your trip",
+  "rateYourDriver": "Give rating to your driver",
+  "topUpUnconfirmed": "We couldn't confirm your top-up. If it went through, it will show in your balance — trying again won't charge you twice.",
+  "topUpDeclined": "The payment was declined, so you weren't charged.",
+  "topUpOffline": "No connection, so the top-up didn't go through. You weren't charged — try again when you're back online.",
+  "topUpRateLimited": "Too many tries. You weren't charged — try again {when}.",
+  "@topUpRateLimited": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "inAMoment": "in a moment",
+  "inDuration": "in {duration}",
+  "@inDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "topUpServerTrouble": "Movera is having trouble right now. You weren't charged — try again in a moment.",
+  "topUpFailed": "The top-up didn't go through. You weren't charged — try again.",
+  "walletAmount": "Wallet {amount}",
+  "@walletAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "vouchersNotYet": "Vouchers aren’t available yet",
+  "vouchersNotYetBody": "Validated Movera voucher codes will appear here when the service launches.",
+  "walletAndPayments": "Wallet & Payments",
+  "payments": "Payments",
+  "balanceIn": "Balance in {currency}",
+  "@balanceIn": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "addFunds": "Add funds",
+  "demoTopUpNote": "Demo top-up uses a simulated payment. No card or provider is charged.",
+  "simulateTopUp": "Simulate top-up",
+  "addFundsToWallet": "Add funds to your wallet",
+  "topUpForRides": "Top up for rides.",
+  "walletLoadFailed": "Couldn’t load wallet",
+  "walletLoadFailedBody": "Your balance couldn’t be read. Try again.",
+  "loadingWallet": "Loading wallet",
+  "checkingBalance": "Checking your balance.",
+  "availableBalance": "Available balance",
+  "addFundsDemo": "Add funds (demo)",
+  "addFundsUnavailable": "Add funds unavailable",
+  "vouchersUnavailable": "Vouchers unavailable",
+  "demoTopUpsSimulated": "Demo top-ups use simulated payments.",
+  "topUpsUnavailable": "Wallet top-ups are unavailable until payment processing is connected.",
+  "removeCardQ": "Remove {card}?",
+  "@removeCardQ": {
+    "placeholders": {
+      "card": {
+        "type": "String"
+      }
+    }
+  },
+  "addAgainAnyTime": "You can add it again any time.",
+  "removeCard": "Remove card",
+  "keepCard": "Keep card",
+  "howToPay": "How would you like\nto pay?",
+  "chooseDefaultMethod": "Choose the default method for your Movera rides.",
+  "paymentMethodsUpper": "PAYMENT METHODS",
+  "payFromBalance": "Pay from your balance",
+  "paysWhenSearchStarts": "Pays when the search starts",
+  "payDriverCash": "Pay the driver in cash",
+  "vouchersUpper": "VOUCHERS",
+  "paymentPrefsProtected": "Your payment preferences are protected and can be changed anytime.",
+  "profilePersonal": "Personal",
+  "profileBusiness": "Business",
+  "defaultForRides": "Default for rides",
+  "accountAddYourName": "Add your name",
+  "serverEmailUnavailable": "Server email unavailable",
+  "emailNotAdded": "Email not added",
+  "valueVerified": "{value} · Verified",
+  "@valueVerified": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "valueNotVerified": "{value} · Not verified",
+  "@valueNotVerified": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "accountHeadlineBody": "Your Movera profile and account settings.",
+  "accountFinish": "Finish your account",
+  "securityStatusUnavailableDot": "Security status unavailable.",
+  "accountFinishBody": "Add verified recovery and 2-step so this account stays yours.",
+  "accountSafety": "Safety",
+  "accountSafetyBody": "Share a trip and reach help fast",
+  "accountSupportBody": "Help with a ride or reservation",
+  "accountDelete": "Delete account",
+  "accountDeleteBody": "Ask Movera to delete your account",
+  "saveFailed": "Couldn’t save that change. Try again.",
+  "notAdded": "Not added",
+  "personalInfoBody": "Name, phone, and how we reach you.",
+  "name": "Name",
+  "enterYourName": "Enter your name",
+  "gender": "Gender",
+  "phone": "Phone",
+  "serverPhoneUnavailable": "Server phone status unavailable",
+  "email": "Email",
+  "serverEmailStatusUnavailable": "Server email status unavailable",
+  "accountCheck": "Account check",
+  "accountCheckBody": "A few steps keep this Movera account easy to recover.",
+  "phoneNumber": "Phone number",
+  "verificationUnavailable": "Verification unavailable",
+  "noPhoneAdded": "No phone added",
+  "twoStep": "2-step verification",
+  "securityStatusUnavailable": "Security status unavailable",
+  "on": "On",
+  "off": "Off",
+  "unavailable": "Unavailable",
+  "recoveryPhone": "Recovery phone",
+  "recoveryStatusUnavailable": "Recovery status unavailable",
+  "notConfigured": "Not configured",
+  "comingSoon": "Coming soon",
+  "notSet": "Not set",
+  "lastChanged": "Last changed {date}",
+  "@lastChanged": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "securityBody": "How you sign in to Movera.",
+  "securityUnavailable": "Security controls unavailable",
+  "securityUnavailableBody": "Movera could not verify account security with the server.",
+  "passkeys": "Passkeys",
+  "passkeyReady": "Ready on this device",
+  "noPasskey": "No passkey configured",
+  "password": "Password",
+  "authenticator": "Authenticator",
+  "otpOn": "One-time codes are on",
+  "connectedAccounts": "Connected accounts",
+  "connected": "Connected",
+  "notConnected": "Not connected",
+  "loginActivity": "Login activity",
+  "noSignInActivity": "No sign-in activity to show",
+  "noSessionRecords": "Movera has no session records to show.",
+  "signOutOtherDevices": "Sign out other devices",
+  "reauthBeforeRevoke": "Reauthenticate before revoking other sessions",
+  "serverRevokesOthers": "Server will revoke every session except this one.",
+  "signOutOtherDevicesQ": "Sign out other devices?",
+  "signOutOthers": "Sign out others",
+  "cancel": "Cancel",
+  "thisSession": "This session  ·  {place}",
+  "@thisSession": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "Save",
+  "legalTermsBody": "How Movera rides and reservations work.",
+  "legalPrivacyBody": "What we keep, and how you control it.",
+  "legalTermsText": "Book now and scheduled rides are separate. A reservation keeps the same ID if you edit it. Cancel before pickup according to the waiting window on the reservation.",
+  "legalPrivacyText": "Movera stores the name, phone, email, and places you save so we can run your trips. You can change communication preferences any time. Location is used for pickup, tracking, and safety tools while a ride is active.",
+  "legalTermsSummary": "This is a short summary. The full Movera terms will be published here before the service launches.",
+  "legalPrivacySummary": "This is a short summary. The full Movera privacy notice will be published here before the service launches.",
+  "privacyBody": "What Movera keeps, and how we reach you.",
+  "privacyNoticeBody": "What we store and how you control it",
+  "howWeReachYou": "How we reach you",
+  "rideUpdates": "Ride updates",
+  "rideUpdatesBody": "Pickup, driver, and reservation alerts",
+  "emailBody": "Receipts and account notes",
+  "offers": "Offers",
+  "offersBody": "Occasional Movera news. Off by default",
+  "appsWithAccess": "Apps with access",
+  "noConnectedApps": "No connected apps",
+  "noConnectedAppsBody": "No third-party apps can read this Movera account yet.",
+  "deleteAccountQ": "Delete your account?",
+  "deleteAccountQBody": "This can't be undone. You will be signed out on this device.",
+  "delete": "Delete",
+  "deleteSendFailed": "We couldn't send your request. Check your connection and try again.",
+  "deleteBody": "We delete your Movera account and the data tied to it.",
+  "deleteYourProfile": "Your profile",
+  "deleteYourProfileBody": "Name, phone number, email and sign-in methods",
+  "deleteYourPlaces": "Your places",
+  "deleteYourPlacesBody": "Home, Work, saved places and recent addresses",
+  "deletePaymentsBody": "Saved cards, wallet balance and payment settings",
+  "deleteTrips": "Trips and safety",
+  "deleteTripsBody": "Ride history, reservations and trusted contacts",
+  "deleteLegalNote": "Receipts we must keep by law are kept only as long as required. Deleting can't be undone, and you are signed out on this device once the request is sent.",
+  "deleteMyAccount": "Delete my account",
+  "deleteSent": "Your deletion request was sent",
+  "deleteSentBody": "Movera will delete your account. You are signed out, and your data has been removed from this device.",
+  "referEarn": "Refer & Earn",
+  "referNotYet": "Referrals aren’t available yet",
+  "referNotYetBody": "Your referral code and rewards will appear here when the Movera referral programme launches.",
+  "signOutQ": "Sign out?",
+  "signOutQBody": "Your saved places, cards and trips are removed from this device. Sign in with your phone number to use Movera again.",
+  "language": "Language",
+  "genderWoman": "Woman",
+  "genderMan": "Man",
+  "languageBody": "App language",
+  "payCard": "Card",
+  "locationOffSetPickup": "Location off, set pickup",
+  "resCompleted": "Completed",
+  "resCancelledFee": "Cancelled · fee {amount}",
+  "@resCancelledFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCancelled": "Cancelled",
+  "reasonNoShow": "No-show",
+  "reasonPayment": "Payment problem",
+  "reasonZoneClosed": "Service area closed",
+  "reasonError": "Something went wrong",
+  "resReservedFor": "Your ride is reserved for {date} at {time}",
+  "@resReservedFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resKeepReady": "We'll keep your reservation ready for {date} at {time}.",
+  "@resKeepReady": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resNotifyAssigned": "We'll notify you as soon as a driver is assigned.",
+  "now": "Now",
+  "durDaysHours": "{days}d {hours}h",
+  "@durDaysHours": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durDays": "{days}d",
+  "@durDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "durHoursMinutes": "{hours}h {minutes}m",
+  "@durHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "durHours": "{hours}h",
+  "@durHours": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durMinutes": "{minutes}m",
+  "@durMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "todayDate": "Today, {date}",
+  "@todayDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "tomorrowDate": "Tomorrow, {date}",
+  "@tomorrowDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupAtTime": "Pickup at {time}",
+  "@pickupAtTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dropoffAround": "Dropoff around {time}",
+  "@dropoffAround": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resStatusCancelled": "Reservation cancelled",
+  "resStatusCompleted": "Ride completed",
+  "driverAssigned": "Driver assigned",
+  "resStatusConfirmed": "Reservation confirmed",
+  "resBodyCancelled": "This reservation was cancelled. Details stay in your ride history.",
+  "resBodyCancelledReason": "Cancelled. {reason}",
+  "@resBodyCancelledReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "resBodyCompleted": "This scheduled ride is complete.",
+  "resBodyDriverAssigned": "A driver has been assigned to this reservation.",
+  "resBodyNameAssigned": "{name} is assigned to this reservation.",
+  "@resBodyNameAssigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "driverPending": "Driver pending",
+  "durMin": "{minutes} min",
+  "@durMin": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "durH": "{hours} h",
+  "@durH": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durHMin": "{hours} h {minutes} min",
+  "@durHMin": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFee": "Cancellation fee: {amount}",
+  "@cancelFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeToCancelUntil": "Free to cancel until {time}",
+  "@freeToCancelUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "freeCancellation": "Free cancellation",
+  "freeEndedPayNow": "Free cancellation ended at {until}, {before} before pickup. You pay {amount} if you cancel now.",
+  "@freeEndedPayNow": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeThatIsBefore": "That is {before} before pickup. After that, cancelling costs {amount}.",
+  "@freeThatIsBefore": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noFeeToCancel": "No fee to cancel this ride.",
+  "freeAnyTime": "Free to cancel at any time.",
+  "freeEndedCostsNow": "Free cancellation ended at {until}, {before} before pickup. Cancelling now costs {amount}.",
+  "@freeEndedCostsNow": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeUntilThen": "Free until {until} ({before} before pickup). After that, cancelling costs {amount}.",
+  "@freeUntilThen": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledCancelFree": "Cancelling a scheduled ride is free.",
+  "cancelRuleText": "Cancelling is free until {window} before pickup. After that, it costs {amount}.",
+  "@cancelRuleText": {
+    "placeholders": {
+      "window": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "driverChangedTitle": "Your driver changed",
+  "driverChangedBody": "{previous} can no longer drive you. {current} accepted your ride.",
+  "@driverChangedBody": {
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "driverLeftTitle": "Finding a new driver",
+  "driverLeftBody": "{name} can no longer drive you. We're finding you a new driver.",
+  "@driverLeftBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledRides": "Scheduled rides",
+  "historyHowBody": "Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.",
+  "historyHow": "How history works",
+  "rides": "Rides",
+  "upcoming": "Upcoming",
+  "noUpcomingRides": "No upcoming rides",
+  "noUpcomingBody": "Whatever is on your schedule, a Scheduled Ride can get you there on time",
+  "learnHow": "Learn how it works",
+  "loadingRides": "Loading rides",
+  "checkingHistory": "Checking your trip history.",
+  "historyLoadFailed": "Couldn’t load rides",
+  "historyLoadFailedBody": "Your trip history couldn’t be read. Try again.",
+  "noCompletedRides": "No completed rides yet",
+  "noCancelledRides": "No cancelled rides",
+  "noCompletedBody": "Completed trips and their real ride details will appear here.",
+  "noCancelledBody": "Trips you cancel will appear here with their recorded reason.",
+  "bookARide": "Book a ride",
+  "completedRide": "Completed ride",
+  "cancelledRide": "Cancelled ride",
+  "historyCharged": "{category} · Charged {amount}",
+  "@historyCharged": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBooked": "{category} · Booked price {amount}",
+  "@historyBooked": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEndedEarly": "You ended this trip before the destination and paid for the distance driven.",
+  "paymentMethodLine": "Payment method: {method}",
+  "@paymentMethodLine": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "reasonLine": "Reason: {reason}",
+  "@reasonLine": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "getHelpWithRide": "Get help with this ride",
+  "invalidSwedishMobile": "Enter a valid Swedish mobile number.",
+  "enterPhone": "Enter your phone number",
+  "textFourDigitCode": "We'll text you a 4-digit code.",
+  "byContinuing": "By continuing you agree to our ",
+  "termsLink": "Terms",
+  "and": " and ",
+  "privacyPolicy": "Privacy Policy",
+  "reenterPhone": "Go back and enter your phone number again.",
+  "newCodeSent": "New code sent.",
+  "requestNewCode": "Go back and request a new code.",
+  "codeExpired": "This code has expired. Tap Resend code for a new one.",
+  "enterYourCodeHead": "Enter your ",
+  "enterYourCodeAccent": "code",
+  "codeSentToPhone": "We've sent a code to your phone.",
+  "sentTo": "Sent to ",
+  "demoCode": "Demo verification code: 1234",
+  "neverAskCode": "Movera will never call or text you asking for this code.",
+  "verify": "Verify",
+  "resendCodeIn": "Resend code in ",
+  "resendCode": "Resend code",
+  "enterFirstName": "Enter your first name.",
+  "nameSaveFailed": "Couldn't save your name. Try again.",
+  "whatCallHead": "What should we\ncall ",
+  "whatCallAccent": "you?",
+  "soDriverKnows": "So your driver knows who to look for.",
+  "firstName": "First name",
+  "lastName": "Last name",
+  "letsRide": "Let's ride",
+  "brandTagline": " · Moving to a new era",
+  "signedInWith": "Signed in with {provider}",
+  "@signedInWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "signedInAs": "Signed in as {name}",
+  "@signedInAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "oneNumberHead": "One number.\n",
+  "oneNumberAccent": "Every ride.",
+  "driverUsesPhone": "Your driver uses it to reach you at pickup.",
+  "addYourPhone": "Add your phone number",
+  "onlyOnceCode": "Only needed once. We'll text you a code.",
+  "sendCode": "Send code",
+  "continueWith": "Continue with {provider}",
+  "@continueWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "sweden": "Sweden",
+  "orContinueWith": "or continue with",
+  "skipDemo": "Skip for now (demo)",
+  "stepOf": "Step {step} of {total}",
+  "@stepOf": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "errOffline": "No connection. Check your internet and try again.",
+  "errTooManyWait": "Too many tries. Wait a moment and try again.",
+  "errTooManyIn": "Too many tries. Try again in {wait}.",
+  "@errTooManyIn": {
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "errServer": "Movera is having trouble right now. Try again in a moment.",
+  "errWrongCode": "That code isn't right. Check it and try again.",
+  "errSendCode": "Couldn't send the code. Try again.",
+  "errCheckCode": "Couldn't check the code. Try again.",
+  "errProvider": "Couldn't sign in with {provider}. Try again.",
+  "@errProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "thatAccount": "that account",
+  "pickupTimeUpdated": "Pickup time updated to the next available slot.",
+  "selectDate": "Select date",
+  "selectTime": "Select time",
+  "whenPickUp": "When should we\npick you up?",
+  "chooseDateTime": "Choose a date and time for your scheduled ride.",
+  "cancelBeforeAssigned": "You can cancel without a fee before a driver is assigned. Final terms are shown before booking.",
+  "pickupAtMode": "Pickup at",
+  "arriveByMode": "Arrive by",
+  "date": "Date",
+  "time": "Time",
+  "estimatedArrival": "Estimated arrival",
+  "estimatedPickup": "Estimated pickup",
+  "continuing": "Continuing…",
+  "chronoNoDriverLabel": "No driver found. Rebook or cancel",
+  "reservationIn": "Reservation in {time}",
+  "@reservationIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chronoNoDriverRebook": "We couldn't find a driver for your scheduled pickup. Rebook for a new time or cancel this reservation.",
+  "chronoNoDriverCancel": "We couldn't find a driver for your scheduled pickup. Cancel this reservation and book again.",
+  "rebook": "Rebook",
+  "cancelReservation": "Cancel reservation",
+  "noEndDate": "No end date",
+  "expiredOn": "Expired {date}",
+  "@expiredOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "endsToday": "Ends today",
+  "validUntilDays": "{days, plural, =1{Valid until {date} · 1 day left} other{Valid until {date} · {days} days left}}",
+  "@validUntilDays": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "promoOffLeftOf": "{percent}% off · {left} of {total} rides left",
+  "@promoOffLeftOf": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "expired": "Expired",
+  "allUsed": "All used",
+  "nLeft": "{count} left",
+  "@nLeft": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "maxOffPerRide": "Max {amount} off per ride",
+  "@maxOffPerRide": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pricesWithPromo": "Your prices with this promotion",
+  "pricesAfterDestination": "Prices show once you choose a destination.",
+  "gotIt": "Got it",
+  "included": "Included",
+  "notIncluded": "Not included",
+  "wasNowPromo": "Was {was}, now {now} with the promotion",
+  "@wasNowPromo": {
+    "placeholders": {
+      "was": {
+        "type": "String"
+      },
+      "now": {
+        "type": "String"
+      }
+    }
+  },
+  "notification": "Notification",
+  "allCaughtUp": "You're all caught up.",
+  "notificationsEmptyBody": "Ride and account updates will appear here when they arrive.",
+  "driverTripCount": "{count, plural, =1{1 trip} other{{count} trips}}",
+  "@driverTripCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "safetyKit": "Safety Kit",
+  "safetyKitRecording": "Recording. It stops and is saved on this device when you tap Stop audio or close the Safety Kit.",
+  "sosRegistered": "Phone dialer opened. Movera registered your SOS.",
+  "sosNeedsRide": "Phone dialer opened. In-app SOS needs an active ride.",
+  "sosNotRegistered": "Phone dialer opened, but Movera could not register your SOS.",
+  "recordingSavedLocal": "Recording saved on this device. Automatic upload is unavailable.",
+  "recordingFailed": "Recording could not be saved. Check microphone access and try again.",
+  "tripSharingStarted": "{count, plural, =1{Trip sharing started for 1 trusted contact.} other{Trip sharing started for {count} trusted contacts.}}",
+  "@tripSharingStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tripSharingNotStarted": "Trip sharing could not be started.",
+  "tripSharingFailed": "Could not start trip sharing. Please try again.",
+  "safetyTools": "Safety tools",
+  "contact112": "Contact 112",
+  "stopAudio": "Stop audio",
+  "recordAudio": "Record audio",
+  "safetyPreferences": "Safety preferences",
+  "safetyPreferencesBody": "PIN, contacts, trip sharing and RideCheck",
+  "rtConnecting": "Connecting",
+  "rtConnectingBody": "Restoring the live ride connection.",
+  "rtReconnecting": "Reconnecting",
+  "rtReconnectingBody": "Ride details stay on screen while connection returns.",
+  "rtLost": "Connection lost",
+  "rtLostBody": "Live ride updates are temporarily unavailable.",
+  "rtProblem": "Connection problem",
+  "rtProblemBody": "Live ride updates could not be restored yet.",
+  "pushOff": "Notifications are off",
+  "pushGetUpdates": "Get ride updates",
+  "pushBlockedBody": "Turn on notifications for Movera in Settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
+  "pushBody": "Movera lets you know when your driver is assigned, arriving and waiting, even when the app is closed. Your phone asks next.",
+  "pushFailed": "Notifications could not be turned on. Try again later.",
+  "pushTurnOn": "Turn on notifications",
+  "pushRideUpdatesOff": "Ride updates are off",
+  "pushTurnOnInSettings": "Turn them on in Settings.",
+  "pushHearDriver": "Hear when your driver is on the way.",
+  "safetyTitle": "Safety",
+  "safetyHubTagline": "Quiet protection for every ride.",
+  "safetyPinTitle": "PIN verification",
+  "safetyPinSubtitle": "Verify your ride before it starts.",
+  "safetyContactsTitle": "Emergency contacts",
+  "safetyContactsSubtitle": "Choose trusted contacts for emergencies.",
+  "safetyShareTitle": "Share trip status",
+  "safetyShareSubtitle": "Let people you trust follow your ride.",
+  "rideCheckTitle": "RideCheck",
+  "safetyRideCheckSubtitle": "Checks on you if a trip looks wrong.",
+  "safetyResources": "Safety resources",
+  "safetyTipsTitle": "Safety tips",
+  "safetyTipsSubtitle": "Simple advice for a safer ride.",
+  "safetyProtectsTitle": "How Movera protects you",
+  "safetyProtectsSubtitle": "Learn about our safety features.",
+  "safetyContactsNone": "None added",
+  "safetyContactsCount": "{count, plural, =1{1 contact} other{{count} contacts}}",
+  "@safetyContactsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "safetyShareEveryRide": "Every ride",
+  "safetyShareManual": "Manual",
+  "safetyLoadFailed": "Could not load Safety preferences.",
+  "safetyPinUpdateFailed": "Could not update PIN verification.",
+  "safetyPinChangeFailed": "Could not change PIN.",
+  "safetyContactSaveFailed": "Could not save that contact.",
+  "safetyContactDeleteFailed": "Could not delete that contact.",
+  "safetyPrimaryChangeFailed": "Could not change the primary contact.",
+  "safetyShareUpdateFailed": "Could not update trip sharing.",
+  "safetyRideCheckUpdateFailed": "Could not update RideCheck.",
+  "contactDeleteQ": "Delete {name}?",
+  "@contactDeleteQ": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "contactDeleteBody": "They will no longer be one of your emergency contacts.",
+  "contactDeleteConfirm": "Delete contact",
+  "contactDeleteFailedRetry": "Could not delete that contact. Try again.",
+  "contactPrimaryFailed": "Could not make {name} your primary contact. Try again.",
+  "@contactPrimaryFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "contactsMax": "Maximum 5 contacts",
+  "contactAdd": "Add contact",
+  "contactsIntro": "Add people you trust so they can be reached quickly when you need help.",
+  "contactsEmptyTitle": "No emergency contacts yet",
+  "contactsEmptyBody": "Add someone you trust so they can be reached quickly.",
+  "contactPrimary": "Primary",
+  "contactTripSharing": "Trip sharing",
+  "edit": "Edit",
+  "contactMakePrimary": "Make primary",
+  "contactSaveFailed": "Could not save contact.",
+  "contactEdit": "Edit contact",
+  "contactName": "Name",
+  "contactPhone": "Phone number",
+  "contactRelationship": "Relationship",
+  "contactShareTrips": "Share trips with this person",
+  "contactEnabled": "Enabled",
+  "saving": "Saving…",
+  "relationshipPartner": "Partner",
+  "relationshipFamily": "Family",
+  "relationshipFriend": "Friend",
+  "relationshipColleague": "Colleague",
+  "relationshipOther": "Other",
+  "rcYes": "Yes",
+  "rcNo": "No",
+  "rcNotSure": "Not sure",
+  "rcMe": "Me",
+  "rcTheDriver": "The driver",
+  "rcSomeoneElse": "Someone else",
+  "rcQAnyoneHurt": "Is anyone hurt?",
+  "rcQCarSafePlace": "Is the car in a safe place?",
+  "rcQOtherPersonOk": "Is the other person OK?",
+  "rcQWhoNeedsHelp": "Who needs help?",
+  "rcQInDanger": "Are you in danger right now?",
+  "rcQCanContinue": "Can you continue the trip?",
+  "rcThanksSaved": "Thanks, this is saved to the trip.",
+  "rcRowAccident": "There was an accident",
+  "rcRowHurt": "Someone is hurt or feels ill",
+  "rcRowUnsafe": "I feel unsafe",
+  "rcRowCarBrokeDown": "The car broke down",
+  "rcRowSomethingElse": "Something else",
+  "rcRowWrongPlace": "I was left at the wrong place",
+  "rcRowAskedToLeave": "The driver asked me to leave the car",
+  "rcRowAskedStop": "I asked the driver to stop",
+  "rcRowAskedRoute": "I asked for this route",
+  "rcHeadAccident": "Accident",
+  "rcHeadSomeoneHurt": "Someone hurt",
+  "rcHeadUnsafe": "Unsafe",
+  "rcHeadCarProblem": "Car problem",
+  "rcHeadSomethingElse": "Something else",
+  "rcHeadWrongPlace": "Wrong place",
+  "rcHeadAskedToLeave": "Asked to leave",
+  "rcHeadStop": "Stop",
+  "rcHeadRoute": "Route",
+  "rcImOk": "I'm OK",
+  "rcCalled112": "Called 112",
+  "rcNoAnswerYet": "No answer yet",
+  "rcTriggerDroppedFar": "Dropped far away",
+  "rcTriggerLongStop": "Long stop",
+  "rcTriggerOffRoute": "Off the route",
+  "rcTriggerPossibleCrash": "Possible crash",
+  "rcReasonEndedBefore": "Your trip ended ",
+  "rcReasonFromDropoff": " from your drop-off",
+  "rcReasonFromPlace": " from {place}",
+  "@rcReasonFromPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "rcReasonStoppedBefore": "Your car has stopped for ",
+  "rcReasonLongerBefore": "Your trip is taking ",
+  "rcReasonLongerAfter": " longer than expected",
+  "rcReasonOffRouteBefore": "Your car is ",
+  "rcReasonOffRouteAfter": " off the route",
+  "rcReasonCrashBefore": "We noticed a ",
+  "rcReasonCrashBold": "very hard stop",
+  "rcIsEverythingOk": "Is everything OK?",
+  "rcRideCheck": "Ride check",
+  "rcHeaderCaps": "RIDE CHECK",
+  "rcHeaderCapsWith": "RIDE CHECK · {heading}",
+  "@rcHeaderCapsWith": {
+    "placeholders": {
+      "heading": {
+        "type": "String"
+      }
+    }
+  },
+  "rcTellWhatHappened": "Or tell us what happened",
+  "rcTellWhatsHappening": "Or tell us what's happening",
+  "rcCall112": "Call 112",
+  "rcAnswerSaved": "Your answer is saved to this trip.",
+  "rcWhatHappened": "What happened?",
+  "rcAnswersSaved": "Your answers are saved to this trip.",
+  "rcCall112NowSemantics": "Call 112 now. If someone is hurt or in danger, call emergency services.",
+  "rcCall112Now": "Call 112 now",
+  "rcCall112NowBody": "If someone is hurt or in danger, call emergency services.",
+  "rcAlertSentTitle": "Movera safety team alerted",
+  "rcAlertSentBody": "Trip, driver and rider details were sent.",
+  "rcAlertSendingTitle": "Alerting the Movera safety team…",
+  "rcAlertSendingBody": "Sending trip, driver and rider details.",
+  "rcAlertFailedTitle": "Couldn't reach Movera",
+  "rcAlertFailedBody": "Call 112 if you need help. Tap to try again.",
+  "rcStopRecordingSemantics": "Stop recording. Saved only on this phone.",
+  "rcRecordAudioSemantics": "Record audio. Saved only on this phone.",
+  "rcRecordingClock": "Recording {clock}",
+  "@rcRecordingClock": {
+    "placeholders": {
+      "clock": {
+        "type": "String"
+      }
+    }
+  },
+  "rcRecordAudio": "Record audio",
+  "rcTapToStop": " · tap to stop",
+  "rcSavedOnPhone": " · saved only on this phone",
+  "rcAFewWords": "A few words",
+  "rcPageIntro": "When something on a trip looks wrong, Ride check asks if everything is OK. You can call 112 from it at any time.",
+  "rcAlertsToggle": "RideCheck alerts",
+  "rcLooksFor": "What RideCheck looks for",
+  "rcSetByMovera": "Set by Movera.",
+  "rcFinishedFarTitle": "Finished far from drop-off",
+  "rcFinishedFarBody": "Your driver finishes the trip more than {km} km from your drop-off.",
+  "@rcFinishedFarBody": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop or in traffic.",
+  "@rcLongStopBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "rcOffRouteBody": "More than {km} km off the route, or the trip {percent}% longer than expected.",
+  "@rcOffRouteBody": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "rcCrashBody": "A very hard stop. The card opens at once.",
+  "rcWhatHappens": "What happens",
+  "rcWhatHappensBody1": "The card stays until you answer. If you tap an accident, someone hurt or feeling unsafe, the Movera safety team is alerted with the trip, driver and rider details.",
+  "rcWhatHappensBody2": "Movera never calls 112 for you: Call 112 opens your phone. Audio you record is saved only on this phone.",
+  "rcTryDemo": "Try it (demo)",
+  "rcTryDemoBody": "Plays a made-up trip and shows what you would see.",
+  "rcDemoDroppedFar": "Driver finished far from drop-off",
+  "rcPlay": "Play",
+  "rcDemoDroppedFarScenario": "Your driver tapped Finish more than {km} km from {place}. RideCheck opens right after the trip ends.",
+  "@rcDemoDroppedFarScenario": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop or in traffic. RideCheck opens right away, during the trip.",
+  "@rcDemoLongStopScenario": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDemoOtherScenario": "RideCheck opens on the trip.",
+  "rcDemoStarting": "Starting the demo trip…",
+  "rcDemoAnswered": "Answered. Play it again any time.",
+  "rcDemoRiderOff": "RideCheck alerts are off. Turn them on to see the demo.",
+  "rcDemoTriggerOff": "Movera has turned this check off.",
+  "rcDemoBusy": "Another RideCheck is open. Answer it first.",
+  "rcDemoNotOpened": "The demo didn't open RideCheck.",
+  "rcDemoTitle": "RideCheck demo",
+  "rcPlayAgain": "Play again",
+  "rcEntrySemantics": "Ride check at {time}, {trigger}. {answers}",
+  "@rcEntrySemantics": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "trigger": {
+        "type": "String"
+      },
+      "answers": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDialerFailed": "Could not open the phone dialer. Dial 112 yourself.",
+  "rcRecordingSaved": "Recording saved on this phone only.",
+  "rcRecordingUnsupported": "Recording isn't available on this device.",
+  "rcAllowMicrophone": "Allow the microphone to record.",
+  "rcRecordingStartFailed": "Couldn't start recording. Try again.",
+  "emergencyNumberUnavailable": "Emergency number is unavailable.",
+  "dialerOpenFailed": "Could not open the system phone dialer.",
+  "audioUnsupported": "Audio recording is not available on this platform.",
+  "audioAlreadyRecording": "Already recording.",
+  "audioMicRequired": "Microphone permission is required to record.",
+  "audioStartFailed": "Could not start microphone recording.",
+  "audioNothingToStop": "Nothing to stop.",
+  "audioNoFile": "No audio file was captured.",
+  "audioSaveFailed": "Audio was captured on this device, but its record could not be saved.",
+  "audioUploadDisabled": "Automatic upload is not enabled.",
+  "protectPinBody": "Ask your driver to confirm your PIN before the trip starts, so you know you are in the right car.",
+  "protectContactsBody": "Keep trusted people one tap away. You choose who is primary and who can follow a ride.",
+  "protectSharingTitle": "Trip sharing",
+  "protectSharingBody": "Share an active ride with people you trust. Tracking links are issued per ride — never as a public page from this menu.",
+  "protectRideCheckBody": "If a trip stops for long, goes off the route or ends far from your drop-off, Movera asks if everything is OK.",
+  "protectMaskedTitle": "Masked calls",
+  "protectMaskedBody": "During a ride you can reach your driver without sharing your personal number.",
+  "tipWellLitTitle": "Meet in a well-lit place",
+  "tipWellLitBody": "Wait indoors or near other people until your Movera arrives.",
+  "tipCheckCarTitle": "Check the car before you sit",
+  "tipCheckCarBody": "Match the plate, colour and driver photo in the app.",
+  "tipShareTitle": "Share the ride when it helps",
+  "tipShareBody": "Use trip sharing so someone you trust can follow along.",
+  "tipSitTitle": "Sit where you feel comfortable",
+  "tipSitBody": "The back seat is usually the calmest choice.",
+  "tip112Title": "Keep 112 available",
+  "tip112Body": "In Sweden, 112 is the emergency number. Only you can place that call.",
+  "pinChangeQ": "Change PIN?",
+  "pinChangeBody": "Request a new PIN from Movera. Share it with your driver only when the ride begins.",
+  "pinChange": "Change PIN",
+  "pinIntro": "Add an extra check before your ride begins. Your driver must confirm your PIN before starting the trip.",
+  "pinToggle": "Verify rides with a PIN",
+  "pinShareHint": "Share this PIN with your driver when the trip starts.",
+  "pinSavedHint": "PIN is saved. Turn on verification to use it on rides.",
+  "yourPinCaps": "YOUR PIN",
+  "shareIntro": "Share your active ride with people you trust.",
+  "shareAuto": "Automatically share every ride",
+  "shareAutoBody": "When a ride starts, selected contacts can follow it.",
+  "shareTrusted": "Trusted contacts",
+  "shareLinkNote": "A live tracking link is created only when a ride is shared. Movera does not publish a public URL from this screen.",
+  "shareEmptyTitle": "No trusted contacts yet",
+  "shareEmptyBody": "Add an emergency contact first, then choose who can follow your rides.",
+  "shareAddContact": "Add emergency contact",
+  "contactLimit": "You can add up to 5 emergency contacts.",
+  "contactInvalidPhone": "Enter a Swedish mobile number.",
+  "contactDuplicatePhone": "That number is already saved.",
+  "contactInvalidName": "Enter a contact name.",
+  "shareNoRide": "Sharing starts when a ride is active.",
+  "supportMessages": "Messages",
+  "supportHelp": "Help",
+  "supportWhatHelp": "What can we help with?",
+  "supportSelectARide": "Select a ride",
+  "supportViewAllRides": "View all rides",
+  "supportViewAll": "View all",
+  "supportNoRidesToReview": "No rides to review",
+  "supportRidesAppearHere": "Your completed and cancelled rides will appear here.",
+  "supportBrowseTopics": "Browse all help topics",
+  "supportPaymentsTitle": "Payments and pricing",
+  "supportPaymentsBody": "Your price is shown before you book and on your receipt. If a charge looks wrong, open the ride in Help or in Ride history and send us a message about it.",
+  "supportAccountTitle": "Account and data",
+  "supportAccountBody": "You can see and edit your name and other profile details in Account.",
+  "supportSomethingElse": "Something else",
+  "supportMessaging": "Support messaging",
+  "supportBrowseArticles": "Browse help articles",
+  "supportEmail": "Email support",
+  "supportEmailSubject": "Movera support",
+  "supportNoMailApp": "No mail app opened. Write to {email}.",
+  "@supportNoMailApp": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "supportCases": "Cases",
+  "supportHowHelp": "How can we help you?",
+  "supportHelpWithRide": "I need help with a ride",
+  "supportSelectRide": "Select ride",
+  "supportNoRidesYet": "No rides yet",
+  "issueChargedMore": "I was charged more than expected",
+  "issueChargedTwice": "I was charged twice",
+  "issueLostItem": "I lost an item",
+  "issueRideWithoutMe": "My ride happened without me",
+  "issueDriverExpectations": "The driver didn’t meet expectations",
+  "issueWaitFee": "I was wrongly charged a wait time fee",
+  "issueTips": "I have a question about tips",
+  "supportSelectIssue": "Select an issue",
+  "helpAboutTitle": "About Movera",
+  "helpAboutBody": "Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.",
+  "helpAppTitle": "App and features",
+  "helpAppBody": "Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.",
+  "helpUsingTitle": "Using Movera",
+  "helpUsingBody": "Confirm pickup, choose a ride category, and follow the booking flow shown in the app.",
+  "helpSafetyBody": "Use the available Safety tools in the app if you need safety-related help during a ride.",
+  "helpArticles": "Help articles",
+  "supportOptions": "Support options",
+  "supportMessagesTitle": "Support messages",
+  "supportActive": "Active",
+  "supportNoActiveCases": "No active cases",
+  "supportActiveBody": "Messages you send about a ride go to the Movera team for review.",
+  "supportClosed": "Closed",
+  "supportNoClosedCases": "No closed cases",
+  "supportClosedBody": "You have no closed support cases.",
+  "supportSendFailed": "Couldn't send. Check your connection and try again.",
+  "supportTellWhatHappened": "Tell us what happened",
+  "supportAddDetails": "Add details (optional)",
+  "supportSendToMovera": "Send to Movera",
+  "supportChooseRide": "Choose a ride",
+  "supportExit": "Exit",
+  "supportFailed": "Failed",
+  "supportPriceCancelled": "{price} · Cancelled",
+  "@supportPriceCancelled": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "supportPriceCancelledExtra": "{price} · Cancelled · {extra}",
+  "@supportPriceCancelledExtra": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "extra": {
+        "type": "String"
+      }
+    }
+  },
+  "supportIssueAck": "Add any details below, then send it to Movera. The ride details are included.",
+  "supportFollowUp": "Sent to Movera. The team reviews it together with this ride’s details.",
+  "supportWelcomeRide": "Tell us what happened on this ride.",
+  "supportWelcomeGeneral": "To send Movera a message from the app, choose the ride it’s about. Help articles and the Safety tools are always available.",
+  "spAddressNotFound": "We couldn’t find that address. Try a street name and city.",
+  "spWhereYouAreNotFound": "We couldn’t find where you are. Search for the address instead.",
+  "spNotSavedYet": "Not saved yet",
+  "spPickupLocation": "Pickup location",
+  "spSearchAddress": "Search address",
+  "spYourLastTrip": "Your last trip",
+  "spNoRecentTrips": "No recent trips yet",
+  "spNoRecentTripsBody": "Completed trips will appear here when real ride history is available.",
+  "spSearchResults": "Search results",
+  "spNoSearchResults": "No search results",
+  "spNoSuggestionsBody": "Suggestions aren’t available yet. Type a full address and press Search.",
+  "spFavorite": "Favorite",
+  "spNameAndLocation": "Add both a name and a location.",
+  "spReplaceQ": "Replace your saved {label}?",
+  "@spReplaceQ": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "spReplaceBody": "Your {label} address will change to {location}. To keep it, give this place another name.",
+  "@spReplaceBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
+    }
+  },
+  "spReplaceConfirm": "Replace {label}",
+  "@spReplaceConfirm": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "spSaveFailed": "Couldn’t save this place. Try again.",
+  "spAddNewAddress": "Add new address",
+  "spEditSavedPlace": "Edit saved place",
+  "spName": "Name",
+  "spAddLocation": "Add location",
+  "spLoadFailed": "Couldn’t load your saved places. Try again.",
+  "spRemoveQ": "Remove {place}?",
+  "@spRemoveQ": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "remove": "Remove",
+  "spRemoveFailed": "Couldn’t remove {place}. Try again.",
+  "@spRemoveFailed": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spTagline": "The driver will take you where you’re going",
+  "spAddHome": "Add Home",
+  "spAddWork": "Add Work",
+  "spAddSchool": "Add School",
+  "spAddGym": "Add Gym",
+  "spAddAnother": "Add another place",
+  "spEditPlace": "Edit {place}",
+  "@spEditPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spDeletePlace": "Delete {place}",
+  "@spDeletePlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spLocationOff": "Location is turned off. Turn it on, or search for the address.",
+  "spLocationDeniedForever": "Location access is off for Movera. Allow it in Settings, or search for the address.",
+  "spLocationDenied": "Allow location access to use where you are, or search for the address.",
+  "spNoAddressHere": "We couldn’t find an address for where you are. Search for it instead.",
+  "spLocationUnavailable": "Location unavailable",
+  "spNoLocationSuggestions": "No location suggestions",
+  "spSuggestionsNotConnected": "Location suggestions aren’t connected in this build yet.",
+  "chatSendUnavailable": "Sending messages to your driver isn't available yet.",
+  "chatNoMessages": "No messages yet",
+  "chatEmptyBody": "Your conversation with the driver will appear here when the ride is connected.",
+  "chatSendHint": "Send message...",
+  "chatSendUnavailableSemantics": "Send message unavailable",
+  "chatSystemMessage": "System message: {text}",
+  "@chatSystemMessage": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCallUnavailable": "Calling your driver is not available yet.",
+  "chatCall": "Call",
+  "resErrNoPriceEdit": "We couldn't get a price for this ride, so your changes weren't saved. Try again in a moment.",
+  "resErrNoPriceBook": "We couldn't get a price for this ride, so it wasn't booked. Try again in a moment.",
+  "resErrUnavailable": "Booking for later isn't available yet, so nothing was booked.",
+  "resErrCancelOffline": "No connection, so your cancellation wasn't confirmed. Your ride is still booked — try again when you're back online.",
+  "resErrCancelRate": "Too many tries. Your ride is still booked — {retry}.",
+  "@resErrCancelRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrCancelServer": "Movera is having trouble right now, so your ride is still booked. Try cancelling again in a moment.",
+  "resErrCancelRefused": "This ride can't be cancelled right now.",
+  "resErrCancelUnknown": "Couldn't cancel. Your ride is still booked — try again.",
+  "resErrBookOffline": "No connection, so your booking wasn't confirmed. Check Upcoming rides before trying again.",
+  "resErrBookRate": "Too many tries, so your booking wasn't confirmed. {retry}.",
+  "@resErrBookRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrBookServer": "Movera is having trouble right now and couldn't confirm your booking. Check Upcoming rides before trying again.",
+  "resErrBookRefused": "Movera couldn't book this ride. Check the time and details, then try again.",
+  "resErrBookUnknown": "Couldn't confirm your booking. Check Upcoming rides before trying again.",
+  "resErrEditOffline": "No connection, so your changes weren't confirmed. Check your ride's details before trying again.",
+  "resErrEditRate": "Too many tries, so your changes weren't confirmed. {retry}.",
+  "@resErrEditRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrEditServer": "Movera is having trouble right now, so your changes weren't confirmed. Check your ride's details before trying again.",
+  "resErrEditRefused": "This ride can't be changed right now.",
+  "resErrEditUnknown": "Couldn't save your changes. Check your ride's details before trying again.",
+  "retryInAMoment": "try again in a moment",
+  "retryIn": "try again in {wait}",
+  "@retryIn": {
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "retrySeconds": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@retrySeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rideJustChanged": "Your ride just changed, check it again.",
+  "apiUnreachable": "Couldn't reach Movera. Check your connection.",
+  "polPricingDisclaimer": "Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.",
+  "polAssignmentDisclaimer": "Driver details will appear here when a driver is assigned. Assignment timing is not published yet.",
+  "polWaitingSummary": "No included waiting period is currently published.",
+  "polCancellationSummary": "Cancelling is free until the time shown on your ride. After that, the fee shown before you confirm applies.",
+  "polPricingSummary": "The reserved amount is for this category and route, and updates if the trip changes.",
+  "polPricingTitle": "Reservation pricing",
+  "polPricingBody": "The reserved amount is an estimate for the selected Movera category and route. It can be updated if trip details change before pickup.",
+  "polAssignTitle": "When a driver may be assigned",
+  "polAssignBody": "Assignment timing is not published yet. Driver details appear when an assignment is confirmed.",
+  "polWaitTitle": "Included waiting time",
+  "polWaitBody": "No included waiting period is currently published. Confirmed terms will be shown before a scheduled ride is booked.",
+  "polCancelTermsTitle": "Cancellation terms",
+  "polCancelTermsBody": "You can cancel a reservation from Upcoming ride. Cancelling is free until the free-cancellation time shown on the ride.",
+  "polCancelFeesTitle": "Cancellation fees",
+  "polCancelFeesBody": "After the free-cancellation time, a cancellation fee applies. The amount is shown before you confirm the cancel.",
+  "polChangesTitle": "Changes to pickup, time, or destination",
+  "polChangesBody": "You can edit a reservation by going through pickup, time, and category again. The same reservation ID is kept.",
+  "polNoDriverTitle": "If a driver cannot be assigned",
+  "polNoDriverBody": "If no driver can be assigned, Movera will update this reservation. We do not invent a guaranteed assignment deadline here.",
+  "polPromotionsTitle": "Promotions",
+  "polPromotionsBody": "No scheduled-ride promotion rule is published here. Only a promotion explicitly shown in confirmed booking details should be treated as applied.",
+  "polResponsibilitiesTitle": "Rider responsibilities",
+  "polResponsibilitiesBody": "Be ready at the pickup point at the reserved time, keep trip details accurate, and treat drivers with care.",
+  "resNoChangeCharge": "No additional change charge",
+  "resNotFound": "Reservation not found",
+  "resScheduleCaps": "SCHEDULE",
+  "resCancelledReservation": "Cancelled reservation",
+  "resUpcomingRide": "Upcoming ride",
+  "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",
+  "@resSeatsPayment": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "payment": {
+        "type": "String"
+      }
+    }
+  },
+  "resDriverOnTheWay": "Driver details appear when your driver is on the way.",
+  "resScheduledFor": "Scheduled for",
+  "resPickupAt": "Pickup at",
+  "resDropoffAt": "Drop-off at",
+  "resPreferences": "Preferences",
+  "resCancellationFee": "Cancellation fee",
+  "resNeedAnother": "Need another ride?",
+  "resPlanReturn": "Plan a return ride",
+  "resPlanReturnBody": "Choose category, then confirm a new reservation",
+  "resThingsToKnow": "Things to know",
+  "resViewTerms": "View scheduled ride terms",
+  "resYourDriverName": "Your driver {name}",
+  "@resYourDriverName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "resYourDriverCaps": "YOUR DRIVER",
+  "resWaitingTime": "Waiting time",
+  "resCancellation": "Cancellation",
+  "resPricing": "Pricing",
+  "resReviewChanges": "Review your changes",
+  "resReviewIntro": "Check the updated trip details and price before confirming.",
+  "resCurrent": "Current reservation",
+  "resUpdated": "Updated reservation",
+  "resPreviousPrice": "Previous price",
+  "resNewPrice": "New reservation price",
+  "resPriceDifference": "Price difference",
+  "resConfirmChanges": "Confirm changes",
+  "resKeepCurrent": "Keep current reservation",
+  "resScheduledTitle": "Your ride is scheduled",
+  "resFrom": "From",
+  "resTo": "To",
+  "resEdit": "Edit reservation",
+  "resPlanYourReturn": "Plan your return",
+  "resReturnNoPlaces": "We don’t have the exact pickup and drop-off of this ride, so the return can’t be filled in for you. Plan it with Schedule a ride instead.",
+  "resScheduleARide": "Schedule a ride",
+  "resPriceUnchanged": "Price unchanged",
+  "resCostsMore": "Your updated ride costs {amount} more.",
+  "@resCostsMore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCostsLess": "Your updated ride costs {amount} less.",
+  "@resCostsLess": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCancelQ": "Cancel reservation?",
+  "resCancelBody": "Your ride for {date} at {time} will move to history. It will not be deleted.",
+  "@resCancelBody": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resKeep": "Keep reservation",
+  "resValidPickup": "Choose a valid pickup address.",
+  "resValidDestination": "Choose a valid destination address.",
+  "resTermsTitle": "Scheduled ride terms",
+  "resTermsOtherFees": "{rule} Other fees and time windows apply only when they are shown before booking.",
+  "@resTermsOtherFees": {
+    "placeholders": {
+      "rule": {
+        "type": "String"
+      }
+    }
+  },
+  "resRideScheduled": "Ride scheduled",
+  "resBooked": "You’re booked",
+  "resBookedBody": "Your scheduled ride is confirmed.",
+  "schedWherePickup": "Where should your Movera driver pick you up?",
+  "schedEnterPickup": "Enter pickup address",
+  "schedEnterStop": "Enter stop address",
+  "schedDropoff": "Drop-off",
+  "schedDateNext": "You will choose the date and time on the next screen.",
+  "next": "Next",
+  "locNeededTitle": "Location access needed",
+  "locOffTitle": "Location access is off",
+  "locServicesOffTitle": "Location is turned off",
+  "locWebDenied": "Movera uses your location to set your pickup. Allow it when your browser asks, or set your pickup on the map.",
+  "locWebDeniedForever": "Allow location for this site in your browser settings, then try again. You can also set your pickup on the map.",
+  "locWebServicesOff": "Turn on location for this device, then try again. You can also set your pickup on the map.",
+  "locDenied": "Movera uses your location to set your pickup and show your driver where to meet you. You can also set your pickup on the map.",
+  "locDeniedForever": "Allow Movera to use your location in Settings, or set your pickup on the map.",
+  "locServicesOffBody": "Turn on Location Services in Settings, or set your pickup on the map.",
+  "locOpenSettings": "Open settings",
+  "locAllow": "Allow location",
+  "dismiss": "Dismiss",
+  "notifYesterday": "Yesterday {clock}",
+  "@notifYesterday": {
+    "placeholders": {
+      "clock": {
+        "type": "String"
+      }
+    }
+  }
 }

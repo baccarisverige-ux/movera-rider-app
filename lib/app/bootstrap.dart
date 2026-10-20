@@ -7,7 +7,10 @@ import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/bundled_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
@@ -107,6 +110,18 @@ Future<void> bootstrap() async {
   }
   await AppScope.instance.reservations.hydrate();
   await AppScope.instance.profile.hydrate();
+  // Q48: the saved language, else the default of the rider's zone; a
+  // later good fix in another zone moves the default with it.
+  await AppScope.instance.language.load(
+    config: AppScope.instance.riderConfig,
+    zone: await currentRiderZone(),
+  );
+  HomeLocationController.onGoodFix = (point) => unawaited(
+    AppScope.instance.language.useZone(
+      config: AppScope.instance.riderConfig,
+      zone: RiderZones.at(point.latitude, point.longitude),
+    ),
+  );
   // Ride categories from the server. Not awaited: the built-in list stands
   // in until the answer lands, and Select Ride asks again when it opens.
   unawaited(AppScope.instance.catalog.load());

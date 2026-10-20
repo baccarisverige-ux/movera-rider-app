@@ -25,7 +25,7 @@ void main() {
       bookingMode: BookingMode.scheduled,
     );
     addTearDown(selection.dispose);
-    final ride = selection.rideById('movera');
+    final ride = selection.rideById('economy');
     selection.selectRide(ride.id, ride.price);
     selection.scheduleFor(DateTime(2026, 10, 20, 8, 30));
     return selection;
@@ -64,8 +64,8 @@ void main() {
   test('an expired quote is not authoritative either', () async {
     final c = reservations();
     final selection = scheduled();
-    adoptScheduledQuote(selection, 'movera', kr: 312);
-    selection.quoteExpiresAt['movera'] = DateTime.now().subtract(
+    adoptScheduledQuote(selection, 'economy', kr: 312);
+    selection.quoteExpiresAt['economy'] = DateTime.now().subtract(
       const Duration(seconds: 1),
     );
     await expectLater(
@@ -78,7 +78,7 @@ void main() {
   test('the reservation carries the quoted price', () async {
     final c = reservations();
     final selection = scheduled();
-    adoptScheduledQuote(selection, 'movera', kr: 312);
+    adoptScheduledQuote(selection, 'economy', kr: 312);
     final created = await book(c, selection);
     expect(created.price, 312);
   });
@@ -86,7 +86,7 @@ void main() {
   test('a reviewed price that is not the quote is refused', () async {
     final c = reservations();
     final selection = scheduled();
-    adoptScheduledQuote(selection, 'movera', kr: 312);
+    adoptScheduledQuote(selection, 'economy', kr: 312);
     await expectLater(
       () => book(c, selection, price: 259),
       throwsA(isA<ScheduledQuoteRequiredException>()),
@@ -95,7 +95,7 @@ void main() {
   });
 
   test('the rider is told nothing was booked', () {
-    const error = ScheduledQuoteRequiredException('movera');
+    const error = ScheduledQuoteRequiredException('economy');
     expect(
       reservationErrorMessage(error, ReservationAction.book),
       contains("so it wasn't booked"),

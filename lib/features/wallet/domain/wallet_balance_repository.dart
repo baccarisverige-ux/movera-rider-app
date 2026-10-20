@@ -14,9 +14,17 @@ abstract interface class WalletBalanceRepository {
   /// with nowhere authoritative to credit the money, and no ride is debited.
   bool get available;
 
+  /// ISO-4217 code of the balance and every movement. A balance pays only
+  /// trips in this currency; the app never converts (Q7).
+  String get currency;
+
+  /// Q8: the rider has one wallet balance per currency. The balance in
+  /// [currency] (this one when it is already in [currency]).
+  WalletBalanceRepository inCurrency(String currency);
+
   Future<double> loadBalance();
 
-  /// Records a captured top-up of [amount] kr and returns the new balance.
+  /// Records a captured top-up of [amount] (whole units of [currency]) and returns the new balance.
   Future<double> creditTopUp({
     required String paymentIntentId,
     required double previous,

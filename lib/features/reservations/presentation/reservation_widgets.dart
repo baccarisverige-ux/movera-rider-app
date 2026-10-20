@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color kReservationInk = Color(0xFF172127);
 // UI-6: was 0xFF7B858B (3.77:1 on white); now ≥ 4.5:1 on kReservationSoft.
@@ -292,6 +293,34 @@ class ReservationDriverBadge extends StatelessWidget {
   }
 }
 
+/// UI-06: what happened to a finished ride ("Completed", "Ended early",
+/// "Cancelled · fee 50 kr"), in the same pill as the driver badge.
+class ReservationHistoryStatusChip extends StatelessWidget {
+  const ReservationHistoryStatusChip({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('history-status-chip'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF1F3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: reservationText(
+          11.5,
+          weight: FontWeight.w600,
+          color: kReservationMuted,
+        ),
+      ),
+    );
+  }
+}
+
 class ReservationHistoryCard extends StatelessWidget {
   const ReservationHistoryCard({
     super.key,
@@ -365,7 +394,10 @@ class ReservationHistoryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ReservationDriverBadge(ride: ride),
+                if (ReservationFormat.historyStatus(ride) case final status?)
+                  ReservationHistoryStatusChip(label: status)
+                else
+                  ReservationDriverBadge(ride: ride),
               ],
             ),
           ),
@@ -394,7 +426,7 @@ class ReservationEditChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
               child: Text(
-                'Edit reservation',
+                context.l10n.resEdit,
                 style: reservationText(13, weight: FontWeight.w600),
               ),
             ),
@@ -426,7 +458,7 @@ class ReservationEditButton extends StatelessWidget {
           ),
         ),
         child: Text(
-          'Edit reservation',
+          context.l10n.resEdit,
           style: reservationText(
             14.5,
             weight: FontWeight.w600,
@@ -644,16 +676,14 @@ class ReservationPaymentMark extends StatelessWidget {
         'assets/images/google_pay_brand.png',
         fit: BoxFit.contain,
       );
-    } else if (lower.contains('swish')) {
-      logo = SvgPicture.asset(
-        'assets/images/swish_brand.svg',
-        fit: BoxFit.cover,
-      );
     } else if (lower.contains('visa')) {
       logo = Image.asset(AppAssets.visa, fit: BoxFit.contain);
     } else if (lower.contains('master') || lower.contains('card')) {
       logo = Image.asset(AppAssets.mastercard, fit: BoxFit.contain);
-    } else if (lower.contains('cash') || lower.contains('pay in car')) {
+    } else if (lower.contains('cash') ||
+        lower.contains('pay in car') ||
+        // Swish was removed (owner Q7); an old booking reads as Cash.
+        lower.contains('swish')) {
       background = const Color(0xFFEEF6F0);
       logo = const Icon(
         Icons.payments_outlined,

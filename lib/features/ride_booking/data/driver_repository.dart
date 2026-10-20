@@ -1,4 +1,6 @@
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class DriverProfile {
   const DriverProfile({
@@ -59,13 +61,8 @@ class DriverRepository {
   }
 
   static String _completedAtLabel(DateTime when) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hh = when.hour.toString().padLeft(2, '0');
-    final mm = when.minute.toString().padLeft(2, '0');
-    return '${when.day} ${months[when.month - 1]} ${when.year}, $hh:$mm';
+    // "5 Jan 2026, 08:05" in the app language (intl's month names).
+    return '${L10n.formatDate(when, 'd MMM yyyy')}, ${L10n.formatTime(when)}';
   }
 }
 
@@ -76,6 +73,8 @@ class TripReceipt {
     required this.total,
     required this.method,
     this.isFinal = true,
+    this.endedEarly = false,
+    this.drivenMeters,
   });
 
   final String pickup;
@@ -83,6 +82,13 @@ class TripReceipt {
   final String total;
   final String method;
   final bool isFinal;
+
+  /// R-O6: the rider ended the trip on board; [total] is what they pay for
+  /// the distance driven.
+  final bool endedEarly;
+
+  /// R-O1: the distance driven, when known.
+  final int? drivenMeters;
 }
 
 class TripReceiptRepository {
@@ -90,7 +96,8 @@ class TripReceiptRepository {
 
   final TripReceipt? _receipt;
 
-  /// The receipt for the ride just completed, in SEK. Null when no ride has
+  /// The receipt for the ride just completed, in its own currency (Q7: the
+  /// pickup's zone). Null when no ride has
   /// finished, so the screen keeps its honest empty state.
   TripReceipt? last() {
     final injected = _receipt;
@@ -99,14 +106,19 @@ class TripReceiptRepository {
     final ride = LastCompletedRide.value;
     if (ride == null) return null;
 
+    final charged = LastCompletedRide.charged;
     return TripReceipt(
       pickup: ride.pickupAddress,
       destination: ride.destinationAddress,
-      total: '${ride.price.round()} kr',
+      total: charged != null
+          ? formatMoney(charged)
+          : formatMoney(ride.fare, whole: true),
       method: ride.paymentMethod,
-      // The local completion snapshot only knows the booked/quoted amount.
-      // The backend will later provide the authoritative final fare.
-      isFinal: false,
+      // The local completion snapshot only knows the booked/quoted amount,
+      // unless the server already said what the rider pays (end-early).
+      isFinal: charged != null,
+      endedEarly: LastCompletedRide.endedEarly,
+      drivenMeters: LastCompletedRide.drivenMeters,
     );
   }
 }

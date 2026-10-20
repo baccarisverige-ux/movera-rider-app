@@ -1,0 +1,873 @@
+{
+  "contract": "movera",
+  "version": "0.4.0",
+  "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
+  "wire": {
+    "ids": {
+      "trip": "tripId (string). Never offerId. Legacy alias rideId is read-only during migration.",
+      "offer": "offerId (string). One trip has many offers.",
+      "event": "eventId (string), server-assigned, unique per committed change.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "time": "RFC 3339 UTC with Z, e.g. 2026-10-19T08:30:00Z. Durations are integer seconds.",
+    "money": "Money { amountMinor: integer, currency: ISO-4217 }. No major-unit floats, no display strings on the wire.",
+    "location": {
+      "Place": "{ address?: string, lat: number, lng: number } — pickup, dropoff, stops",
+      "GeoFix": "{ lat, lng, accuracy, heading?, measuredAt } — device GPS only"
+    },
+    "case": "JSON keys camelCase; enum values snake_case."
+  },
+  "currencies": {
+    "SEK": {
+      "exponent": 2,
+      "symbol": "kr"
+    },
+    "EUR": {
+      "exponent": 2,
+      "symbol": "€"
+    },
+    "TND": {
+      "exponent": 3,
+      "symbol": "DT"
+    }
+  },
+  "categories": {
+    "pattern": "^[a-z][a-z0-9_]{1,31}$",
+    "note": "Category ids come from the admin Pricing catalog; admins can add more. These are the seed ids every app must know.",
+    "seed": [
+      "economy",
+      "comfort",
+      "premium",
+      "priority",
+      "xl",
+      "electric",
+      "pet"
+    ],
+    "aliases": {
+      "movera": "economy"
+    }
+  },
+  "paymentMethods": [
+    "card",
+    "apple_pay",
+    "google_pay",
+    "cash",
+    "wallet"
+  ],
+  "paymentMethodAliases": {
+    "note": "Read-only aliases accepted for one release (v0.3 ids). Never sent.",
+    "apple": "apple_pay",
+    "google": "google_pay"
+  },
+  "zonePaymentMethods": {
+    "note": "Owner Q7 (final): every country offers exactly these methods, in this order; config paymentMethods is a subset. No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet, wallet.usedFirst).",
+    "values": [
+      "cash",
+      "card",
+      "apple_pay",
+      "google_pay"
+    ]
+  },
+  "languages": {
+    "note": "App languages (owner Q48/Q49). Admin sets the default per country for each app; the user can change it.",
+    "values": [
+      "en",
+      "fr",
+      "sv"
+    ]
+  },
+  "ratings": {
+    "note": "Owner Q38: whole stars only.",
+    "min": 1,
+    "max": 5,
+    "step": 1
+  },
+  "tripStatus": {
+    "values": [
+      "draft",
+      "quoted",
+      "requested",
+      "searching",
+      "offered",
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff",
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
+    ],
+    "terminal": [
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
+    ],
+    "driverAssigned": [
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff"
+    ],
+    "riderOnboard": [
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff"
+    ]
+  },
+  "paymentStatus": [
+    "pending",
+    "authorized",
+    "captured",
+    "failed",
+    "refunded",
+    "partially_refunded"
+  ],
+  "ratingStatus": [
+    "not_requested",
+    "pending",
+    "submitted",
+    "skipped"
+  ],
+  "driverAccountStatus": [
+    "pending",
+    "active",
+    "on_hold",
+    "suspended"
+  ],
+  "driverOnlineStatus": [
+    "offline",
+    "going_online",
+    "online",
+    "on_trip",
+    "suspended"
+  ],
+  "offerKind": [
+    "radar",
+    "exclusive",
+    "assigned",
+    "reservation",
+    "next_trip"
+  ],
+  "offerStatus": [
+    "open",
+    "claimed",
+    "claimed_elsewhere",
+    "declined",
+    "expired",
+    "withdrawn"
+  ],
+  "actors": [
+    "rider",
+    "driver",
+    "admin",
+    "system"
+  ],
+  "transitions": [
+    {
+      "command": "quote",
+      "actor": "system",
+      "from": [
+        "draft"
+      ],
+      "to": "quoted"
+    },
+    {
+      "command": "request",
+      "actor": "rider",
+      "from": [
+        "quoted"
+      ],
+      "to": "requested"
+    },
+    {
+      "command": "start_search",
+      "actor": "system",
+      "from": [
+        "requested"
+      ],
+      "to": "searching"
+    },
+    {
+      "command": "send_offer",
+      "actor": "system",
+      "from": [
+        "searching"
+      ],
+      "to": "offered"
+    },
+    {
+      "command": "offer_lapsed",
+      "actor": "system",
+      "from": [
+        "offered"
+      ],
+      "to": "searching",
+      "note": "declined, timed out or claimed elsewhere"
+    },
+    {
+      "command": "accept",
+      "actor": "driver",
+      "from": [
+        "offered",
+        "requested"
+      ],
+      "to": "accepted",
+      "note": "requested only for a scheduled trip the driver claims early"
+    },
+    {
+      "command": "assign",
+      "actor": "admin",
+      "from": [
+        "requested",
+        "searching",
+        "offered"
+      ],
+      "to": "offered",
+      "note": "admin direct assign (exclusive offer to one driver, kind=assigned) or radar group (up to 10 drivers, kind=radar); the driver still accepts. Locked once a driver accepts: from accepted on, assign is invalid_transition."
+    },
+    {
+      "command": "head_to_pickup",
+      "actor": "driver",
+      "from": [
+        "accepted"
+      ],
+      "to": "driver_to_pickup"
+    },
+    {
+      "command": "arrive",
+      "actor": "driver",
+      "from": [
+        "driver_to_pickup"
+      ],
+      "to": "arrived"
+    },
+    {
+      "command": "board",
+      "actor": "driver",
+      "from": [
+        "arrived"
+      ],
+      "to": "rider_onboard",
+      "note": "PIN check when the zone requires it"
+    },
+    {
+      "command": "start_trip",
+      "actor": "driver",
+      "from": [
+        "rider_onboard"
+      ],
+      "to": "in_trip"
+    },
+    {
+      "command": "near_dropoff",
+      "actor": "system",
+      "from": [
+        "in_trip"
+      ],
+      "to": "approaching_dropoff"
+    },
+    {
+      "command": "complete",
+      "actor": "driver",
+      "from": [
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "completed"
+    },
+    {
+      "command": "complete",
+      "actor": "admin",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "completed"
+    },
+    {
+      "command": "cancel",
+      "actor": "rider",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "cancelled_by_rider",
+      "fee": "riderCancelFee"
+    },
+    {
+      "command": "end_early",
+      "actor": "rider",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_rider",
+      "note": "fare for the distance driven"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching",
+      "when": "live",
+      "note": "reassign: the trip goes back to dispatch, the cancel counts in the driver's rate"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "accepted"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "the reservation goes back out to drivers"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching",
+      "when": "scheduled",
+      "note": "already on the way: the scheduled trip is dispatched again like a live one"
+    },
+    {
+      "command": "cancel",
+      "actor": "driver",
+      "from": [
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_driver"
+    },
+    {
+      "command": "no_show",
+      "actor": "driver",
+      "from": [
+        "arrived"
+      ],
+      "to": "no_show",
+      "guard": "waited >= noShowAfterMin",
+      "fee": "noShowFee"
+    },
+    {
+      "command": "no_show",
+      "actor": "admin",
+      "from": [
+        "arrived",
+        "accepted",
+        "driver_to_pickup"
+      ],
+      "to": "no_show"
+    },
+    {
+      "command": "reassign",
+      "actor": "admin",
+      "from": [
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ],
+      "to": "searching"
+    },
+    {
+      "command": "cancel",
+      "actor": "admin",
+      "from": [
+        "draft",
+        "quoted",
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "cancelled_by_admin"
+    },
+    {
+      "command": "expire",
+      "actor": "system",
+      "from": [
+        "quoted",
+        "requested",
+        "searching",
+        "offered"
+      ],
+      "to": "expired",
+      "note": "quote lapsed or no driver found in time"
+    },
+    {
+      "command": "system_cancel",
+      "actor": "system",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted"
+      ],
+      "to": "cancelled_by_system",
+      "note": "payment hold failed, zone closed, sweeps"
+    },
+    {
+      "command": "fail",
+      "actor": "system",
+      "from": [
+        "requested",
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "to": "failed"
+    }
+  ],
+  "paymentTransitions": [
+    {
+      "from": "pending",
+      "to": "authorized"
+    },
+    {
+      "from": "pending",
+      "to": "failed"
+    },
+    {
+      "from": "authorized",
+      "to": "captured"
+    },
+    {
+      "from": "authorized",
+      "to": "failed"
+    },
+    {
+      "from": "failed",
+      "to": "authorized",
+      "note": "retry with another method"
+    },
+    {
+      "from": "captured",
+      "to": "refunded"
+    },
+    {
+      "from": "captured",
+      "to": "partially_refunded"
+    },
+    {
+      "from": "partially_refunded",
+      "to": "refunded"
+    }
+  ],
+  "ratingTransitions": [
+    {
+      "from": "not_requested",
+      "to": "pending",
+      "when": "trip completed, or (rider rating only) trip ended early by the rider: see ratingAllowed"
+    },
+    {
+      "from": "pending",
+      "to": "submitted"
+    },
+    {
+      "from": "pending",
+      "to": "skipped"
+    }
+  ],
+  "ratingAllowed": {
+    "note": "Who may rate a trip once it is over, and after what. A rating is allowed when the rater, the trip's terminal status and (if given) the command that ended the trip all match one row; anything else is 409 invalid_transition. A plain rider cancel (command cancel) is never rated.",
+    "rules": [
+      {
+        "rater": "rider",
+        "status": "completed"
+      },
+      {
+        "rater": "driver",
+        "status": "completed"
+      },
+      {
+        "rater": "rider",
+        "status": "cancelled_by_rider",
+        "command": "end_early",
+        "note": "the rider ended the trip early (POST /trips/{tripId}/end-early) and gets the normal rating screen"
+      }
+    ]
+  },
+  "cancelReasons": {
+    "rider": [
+      "pickup_incorrect",
+      "wrong_ride_option",
+      "requested_by_mistake",
+      "wait_too_long",
+      "destination_change",
+      "driver_not_suitable",
+      "plans_changed",
+      "something_else"
+    ],
+    "driverBeforeTrip": [
+      "rider_requested_cancel",
+      "rider_not_at_pickup",
+      "unsafe_pickup",
+      "vehicle_issue_before_start",
+      "driver_emergency_before_start",
+      "other_before_start"
+    ],
+    "driverDuringTrip": [
+      "rider_requested_early_end",
+      "safety_concern_on_trip",
+      "vehicle_issue_on_trip",
+      "accident_or_road_emergency",
+      "rider_behavior",
+      "trip_or_destination_issue",
+      "other_on_trip"
+    ],
+    "driverNextTrip": [
+      "next_trip_current_running_late",
+      "next_trip_pickup_too_far",
+      "next_trip_rider_requested",
+      "next_trip_vehicle_issue",
+      "next_trip_driver_emergency",
+      "next_trip_other"
+    ],
+    "scheduled": [
+      "scheduled_cannot_make_time",
+      "scheduled_vehicle_issue",
+      "scheduled_personal_emergency",
+      "scheduled_pickup_too_far",
+      "scheduled_trip_details",
+      "scheduled_other"
+    ],
+    "noShow": [
+      "rider_no_show"
+    ],
+    "admin": [
+      "admin_safety",
+      "admin_fraud",
+      "admin_rider_request",
+      "admin_driver_request",
+      "admin_operational",
+      "admin_other"
+    ],
+    "system": [
+      "system_no_driver",
+      "system_payment_failed",
+      "system_zone_closed",
+      "system_error"
+    ]
+  },
+  "adminDispatch": {
+    "note": "Admin dispatch tooling (owner Q13-Q18). Both actions are the admin `assign` transition; the trip stays offered until one driver accepts, then the assignment is locked.",
+    "directAssign": {
+      "offerKind": "assigned",
+      "drivers": 1,
+      "exclusive": true,
+      "timer": "driver.offers.exclusiveSeconds",
+      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline."
+    },
+    "radarGroup": {
+      "offerKind": "radar",
+      "minDrivers": 1,
+      "maxDrivers": 10,
+      "timer": "driver.offers.radarSeconds",
+      "repeatable": true,
+      "note": "One offer per chosen driver, first to accept wins; the others get offer_withdrawn (claimed_elsewhere). The admin may send more groups while the trip is not locked."
+    },
+    "lockedStatuses": [
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff",
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
+    ],
+    "driverBonus": {
+      "paidBy": "movera",
+      "note": "Movera-paid extra for the driver (\"add money to trip\"). The rider never pays it. It is included in Offer.fare and Offer.driverEarnings as the driver sees them; TripProjection.fare (rider) never includes it. Above driver.driverBonus.defaultLimit the server answers 400 invalid_request (\"adjust the limit in Pricing\"); the limit itself can never exceed driverBonus.hardMax."
+    },
+    "nearbyScopes": [
+      "radius",
+      "zone",
+      "zone_and_neighbours"
+    ],
+    "nearbyRadiusPresetsKm": [
+      5,
+      7,
+      10
+    ],
+    "eventKinds": [
+      "offer_sent",
+      "offer_declined",
+      "offer_expired",
+      "offer_withdrawn",
+      "offer_accepted",
+      "assignment_locked",
+      "driver_bonus_added"
+    ]
+  },
+  "configDefaults": {
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency.",
+    "maxStops": 3,
+    "maxPickupMoveMeters": 500,
+    "freeWaitMin": {
+      "default": 5,
+      "xl": 3
+    },
+    "noShowAfterMin": "equals the category freeWaitMin (owner Q41): the no-show button appears when the free wait ends",
+    "waitingDriverSharePct": 100,
+    "noShowDriverSharePct": 80,
+    "missedExclusiveBeforeOffline": 3,
+    "countries": {
+      "SE": {
+        "currency": "SEK",
+        "defaultLanguage": "sv",
+        "zones": {
+          "Z001": "Europe/Stockholm"
+        },
+        "tips": [
+          {
+            "amountMinor": 1000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 2000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 3000,
+            "currency": "SEK"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 5000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 10000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 15000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 20000,
+            "currency": "SEK"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 20000,
+            "currency": "SEK"
+          },
+          "hardMax": {
+            "amountMinor": 100000,
+            "currency": "SEK"
+          }
+        }
+      },
+      "FR": {
+        "currency": "EUR",
+        "defaultLanguage": "fr",
+        "zones": {
+          "FR-PC": "Europe/Paris"
+        },
+        "tips": [
+          {
+            "amountMinor": 100,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 200,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 500,
+            "currency": "EUR"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 200,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 400,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 600,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 800,
+            "currency": "EUR"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 2000,
+            "currency": "EUR"
+          },
+          "hardMax": {
+            "amountMinor": 9500,
+            "currency": "EUR"
+          }
+        }
+      },
+      "TN": {
+        "currency": "TND",
+        "defaultLanguage": "fr",
+        "zones": {
+          "TN-TC": "Africa/Tunis"
+        },
+        "tips": [
+          {
+            "amountMinor": 1000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 2000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 3000,
+            "currency": "TND"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 2000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 4000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 6000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 8000,
+            "currency": "TND"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 60000,
+            "currency": "TND"
+          },
+          "hardMax": {
+            "amountMinor": 300000,
+            "currency": "TND"
+          }
+        }
+      }
+    },
+    "promoCap": "null until Admin sets a cap for the country (no default decided)"
+  },
+  "realtime": {
+    "envelope": [
+      "eventId",
+      "tripId",
+      "sequence",
+      "version",
+      "kind",
+      "occurredAt",
+      "serverTime"
+    ],
+    "optional": [
+      "projection",
+      "location",
+      "etaSeconds",
+      "cancelFee",
+      "message"
+    ],
+    "kinds": [
+      "trip_projection",
+      "rider_cancelled",
+      "driver_cancelled",
+      "location",
+      "driver_arrived",
+      "rider_on_the_way",
+      "payment_updated",
+      "rating_updated",
+      "message"
+    ],
+    "afterTerminal": [
+      "payment_updated",
+      "rating_updated",
+      "message"
+    ],
+    "rules": [
+      "reject sequence < 1 or blank tripId",
+      "drop a seen eventId or sequence <= last seen",
+      "a gap (sequence > last + 1) is accepted and triggers a resync",
+      "after a terminal lifecycle status only afterTerminal kinds are accepted",
+      "a location event never replaces the cached projection",
+      "resync: GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}"
+    ]
+  },
+  "errors": {
+    "shape": "{ code, message, requestId, retryable, projection? }",
+    "codes": [
+      "invalid_request",
+      "unauthenticated",
+      "forbidden",
+      "not_found",
+      "conflict",
+      "invalid_transition",
+      "version_mismatch",
+      "rate_limited",
+      "unavailable",
+      "internal"
+    ]
+  },
+  "headers": {
+    "Idempotency-Key": "required on every mutation, 16–128 chars",
+    "X-Request-Id": "sent by clients, echoed by the server",
+    "X-Api-Version": "0.4"
+  }
+}

@@ -9,6 +9,7 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
   const RideCompletedTripDetail({
@@ -41,31 +42,42 @@ class RideCompletedTripDetail extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextWidget(
-                  text: 'Trip Details',
+                  text: context.l10n.tripDetails,
                   color: AppColor.title,
                   fontSize: 16,
                   fontWeight: fwSemiBold,
                 ),
                 12.height,
                 if (trip == null) ...[
-                  const MoveraEmptyState(
+                  MoveraEmptyState(
                     icon: Icons.receipt_long_outlined,
-                    title: 'Trip details unavailable',
+                    title: context.l10n.tripDetailsUnavailable,
                     message:
-                        'Your route, payment method and price will appear here when the ride record is available.',
+                        context.l10n.tripDetailsUnavailableBody,
                     compact: true,
                   ),
                 ] else ...[
-                  _detailRow('Pickup location', trip.pickup),
+                  _detailRow(context.l10n.pickupLocation, trip.pickup),
                   8.height,
-                  _detailRow('Destination', trip.destination),
+                  _detailRow(context.l10n.destination, trip.destination),
                   8.height,
+                  if (trip.endedEarly) ...[
+                    // R-O6: the waybill says the trip ended early and how
+                    // far it went; the total below is for that distance.
+                    _detailRow(context.l10n.endedEarly, _drivenLabel(trip.drivenMeters)),
+                    8.height,
+                  ],
                   _detailRow(
-                    trip.isFinal ? 'Total payment' : 'Booked price',
+                    trip.isFinal ? context.l10n.totalPayment : context.l10n.bookedPrice,
                     trip.total,
                   ),
                   8.height,
-                  _detailRow('Payment method', trip.method),
+                  _detailRow(
+                    context.l10n.paymentMethod,
+                    L10n.isCashLabel(trip.method)
+                        ? context.l10n.payCash
+                        : trip.method,
+                  ),
                   8.height,
                   // RC5: a Ride check on this trip, with its answers.
                   RideCheckTripEntry(rideId: rideId, topSpacing: 4),
@@ -77,7 +89,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                         key: const ValueKey<String>('receipt-report-issue'),
                         onPressed: () => _openDispute(context),
                         icon: const Icon(Icons.report_gmailerrorred_outlined),
-                        label: const Text('Report an issue with this receipt'),
+                        label: Text(context.l10n.reportReceiptIssue),
                       ),
                     ),
                   ],
@@ -117,14 +129,14 @@ class RideCompletedTripDetail extends StatelessWidget {
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Issue submitted for review.')),
+                  SnackBar(content: Text(context.l10n.issueSubmitted)),
                 );
               }
             } catch (_) {
               if (sheetContext.mounted) {
                 setState(() {
                   submitting = false;
-                  error = 'Could not submit the issue. Please try again.';
+                  error = context.l10n.issueSubmitFailed;
                 });
               }
             }
@@ -141,20 +153,20 @@ class RideCompletedTripDetail extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Report receipt issue',
+                Text(
+                  context.l10n.reportReceiptIssueTitle,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                const Text('Tell us what looks wrong. Your ride record will be reviewed.'),
+                Text(context.l10n.reportReceiptIssueBody),
                 const SizedBox(height: 14),
                 TextField(
                   key: const ValueKey<String>('receipt-dispute-detail'),
                   controller: detail,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    hintText: 'What is wrong with the receipt?',
+                  decoration: InputDecoration(
+                    hintText: context.l10n.reportReceiptIssueHint,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -172,7 +184,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                   child: FilledButton(
                     key: const ValueKey<String>('receipt-dispute-submit'),
                     onPressed: submitting ? null : submit,
-                    child: Text(submitting ? 'Submitting…' : 'Submit issue'),
+                    child: Text(submitting ? context.l10n.submitting : context.l10n.submitIssue),
                   ),
                 ),
               ],
@@ -182,6 +194,13 @@ class RideCompletedTripDetail extends StatelessWidget {
       ),
     );
     detail.dispose();
+  }
+
+  /// "4.2 km driven", or the rule when no distance was tracked.
+  static String _drivenLabel(int? meters) {
+    if (meters == null) return L10n.current.paidByDistance;
+    final km = meters / 1000;
+    return L10n.current.kmDriven(km.toStringAsFixed(km < 10 ? 1 : 0));
   }
 
   Widget _detailRow(String label, String value) {

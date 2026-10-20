@@ -44,7 +44,7 @@ void main() {
                 fare: const SetPickupFare(totalKr: 259),
                 payment: const SetPickupPayment(
                   brand: 'cash',
-                  name: 'Pay in car',
+                  name: 'Cash',
                   detail: '',
                 ),
                 brandMark: (_) => const SizedBox(),
@@ -93,7 +93,7 @@ void main() {
         return answer.future;
       },
     );
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
 
     await dragPinTo(tester, moved);
@@ -113,9 +113,9 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
-    expect(find.text('kr 259'), findsNothing);
-    expect(find.text('kr 301'), findsOneWidget);
-    expect(find.text('kr 341'), findsOneWidget);
+    expect(find.text('259 kr'), findsNothing);
+    expect(find.text('301 kr'), findsOneWidget);
+    expect(find.text('341 kr'), findsOneWidget);
     expect(find.text('Promotion 12%'), findsOneWidget);
     await settle(tester);
   });
@@ -137,14 +137,14 @@ void main() {
     answers[1].complete(const SetPickupFare(totalKr: 310));
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 310'), findsOneWidget);
+    expect(find.text('310 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
 
     answers[0].complete(const SetPickupFare(totalKr: 280));
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 310'), findsOneWidget);
-    expect(find.text('kr 280'), findsNothing);
+    expect(find.text('310 kr'), findsOneWidget);
+    expect(find.text('280 kr'), findsNothing);
     await settle(tester);
   });
 
@@ -153,7 +153,7 @@ void main() {
     await dragPinTo(tester, moved);
     await tester.pump();
     await tester.pump();
-    expect(find.text('kr 259'), findsOneWidget);
+    expect(find.text('259 kr'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-requoting')), findsNothing);
     await settle(tester);
   });
@@ -177,4 +177,55 @@ void main() {
     expect(calls, 0);
     await settle(tester);
   });
+
+  testWidgets('Set pickup stays flat: a pinch never tilts the pin map', (
+    tester,
+  ) async {
+    final pins = <LatLng>[];
+    await open(
+      tester,
+      onRequote: (pin) async {
+        pins.add(pin);
+        return null;
+      },
+    );
+    final pickupMap = find.byKey(const ValueKey('set-pickup-map'));
+    expect(tester.widget<CustomGoogleMap>(pickupMap).tiltWithZoom, isFalse);
+    final map = tester.widget<GoogleMap>(
+      find.descendant(of: pickupMap, matching: find.byType(GoogleMap)),
+    );
+    final camera = _CameraLog();
+    map.onMapCreated!(camera);
+    // Pinch in to 17.5 and let go: the pin's ground point is still read from
+    // the flat camera centre and no tilt ease is sent.
+    map.onCameraMoveStarted!();
+    map.onCameraMove!(const CameraPosition(target: moved, zoom: 17.5));
+    map.onCameraIdle!();
+    await tester.pump();
+    expect(camera.updates, isEmpty);
+    expect(pins, hasLength(1));
+    expect(pins.single.latitude, greaterThan(moved.latitude));
+    expect(pins.single.latitude - moved.latitude, lessThan(0.002));
+    expect(pins.single.longitude, closeTo(moved.longitude, 1e-9));
+    await settle(tester);
+  });
+}
+
+class _CameraLog extends Fake implements GoogleMapController {
+  final List<Object> updates = [];
+
+  @override
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) {
+    updates.add(cameraUpdate.toJson());
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> moveCamera(CameraUpdate cameraUpdate) {
+    updates.add(cameraUpdate.toJson());
+    return Future<void>.value();
+  }
+
+  @override
+  Future<String?> getStyleError() async => null;
 }

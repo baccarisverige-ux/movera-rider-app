@@ -15,6 +15,7 @@ import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ConfirmPickupResult {
   const ConfirmPickupResult({required this.position, required this.address});
@@ -29,9 +30,9 @@ class ConfirmPickupSpot extends StatefulWidget {
     required this.initialAddress,
     this.scheduledSummary,
     this.categoryName,
-    this.title = 'Confirm pickup spot',
-    this.hint = 'Drag map to move pin',
-    this.confirmLabel = 'Confirm pickup',
+    this.title,
+    this.hint,
+    this.confirmLabel,
     this.positionIsFallback = false,
     this.refreshCurrentLocation = false,
   });
@@ -42,9 +43,9 @@ class ConfirmPickupSpot extends StatefulWidget {
     required String initialAddress,
     String? scheduledSummary,
     String? categoryName,
-    String title = 'Confirm pickup spot',
-    String hint = 'Drag map to move pin',
-    String confirmLabel = 'Confirm pickup',
+    String? title,
+    String? hint,
+    String? confirmLabel,
     bool positionIsFallback = false,
     bool refreshCurrentLocation = false,
   }) async {
@@ -71,9 +72,9 @@ class ConfirmPickupSpot extends StatefulWidget {
   final String initialAddress;
   final String? scheduledSummary;
   final String? categoryName;
-  final String title;
-  final String hint;
-  final String confirmLabel;
+  final String? title;
+  final String? hint;
+  final String? confirmLabel;
 
   /// True when [initialPosition] is a default map point rather than a real
   /// fix or chosen place (U2 / D-002). Confirm stays disabled until the
@@ -244,14 +245,14 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       setState(() {
         _pickupError = switch (result.failure) {
           PickupLocationFailure.servicesDisabled =>
-            'Turn on Location Services, then try again.',
+            context.l10n.locServicesOff,
           PickupLocationFailure.permissionDenied =>
-            'Location permission is needed to use your current pickup.',
+            context.l10n.locPermissionNeeded,
           PickupLocationFailure.permissionDeniedForever =>
-            'Location permission is blocked. Enable it in Settings or choose the pickup on the map.',
+            context.l10n.locPermissionBlocked,
           PickupLocationFailure.unavailable =>
-            'Current location is unavailable. Try again or choose the pickup on the map.',
-          null => 'Current location is unavailable.',
+            context.l10n.locUnavailableTryAgain,
+          null => context.l10n.locUnavailable,
         };
         _pickupSettings = switch (result.failure) {
           PickupLocationFailure.servicesDisabled => locationSettingsOpenerFor(
@@ -324,6 +325,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                     compassEnabled: false,
+                    // The accuracy ring is a flat screen circle sized with
+                    // flat-map maths; a tilted ground would not match it.
+                    tiltWithZoom: false,
                     onMapCreated: (controller) {
                       _map = controller;
                       AppScope.instance.maps.attach(
@@ -398,7 +402,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                         MoveraIconButton.round(
                           icon: Icons.arrow_back_ios_new_rounded,
                           onPressed: () => Navigator.pop(context),
-                          label: 'Back',
+                          label: context.l10n.back,
                           iconSize: 18,
                         ),
                       ],
@@ -419,7 +423,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.title,
+                  widget.title ?? context.l10n.confirmPickupSpot,
                   style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -428,7 +432,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.hint,
+                  widget.hint ?? context.l10n.dragMapToMovePin,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: const Color(0xFF5C656C),
@@ -455,11 +459,11 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   controller: _search,
                   onSubmitted: (_) => _lookup(),
                   decoration: InputDecoration(
-                    hintText: 'Search address',
+                    hintText: context.l10n.searchAddress,
                     suffixIcon: IconButton(
                       onPressed: _lookup,
                       icon: const Icon(Icons.search_rounded),
-                      tooltip: 'Search address',
+                      tooltip: context.l10n.searchAddress,
                     ),
                     filled: true,
                     fillColor: const Color(0xFFF6F8FA),
@@ -473,7 +477,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                 TextButton.icon(
                   onPressed: _useCurrentLocation,
                   icon: const Icon(Icons.my_location_rounded, size: 18),
-                  label: const Text('Use current location'),
+                  label: Text(context.l10n.useCurrentLocation),
                 ),
                 if (_pickupError != null) ...[
                   const SizedBox(height: 4),
@@ -491,15 +495,14 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     TextButton(
                       key: const ValueKey('pickup-open-settings'),
                       onPressed: () => _pickupSettings!(),
-                      child: const Text('Open settings'),
+                      child: Text(context.l10n.openSettings),
                     ),
                 ],
                 if (widget.positionIsFallback &&
                     !_hasUsablePickupCoordinates) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Your location is off. Drag the map, search, or use '
-                    'current location to set your pickup.',
+                    context.l10n.locOffBody,
                     key: const ValueKey('pickup-fallback-hint'),
                     style: GoogleFonts.poppins(
                       fontSize: 12.5,
@@ -531,7 +534,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                         ),
                       ),
                       child: Text(
-                        widget.confirmLabel,
+                        widget.confirmLabel ?? context.l10n.confirmPickup,
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,

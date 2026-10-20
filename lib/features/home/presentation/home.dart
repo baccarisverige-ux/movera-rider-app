@@ -10,6 +10,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -20,6 +21,8 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/map_camera_controller.dart' show recenterZoom;
+import 'package:movera_rider/core/maps/map_camera_motion.dart' show mapViewOf;
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -62,8 +65,13 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
+
+/// Home's opening camera: the whole local area (about 10 km across a phone)
+/// around the rider, before and after the first location fix.
+const double homeOpeningZoom = 11.7;
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -145,7 +153,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
-    zoom: 13.0,
+    zoom: homeOpeningZoom,
   );
 
   static const Color _premiumInk = Color(0xFF1D252C);
@@ -188,7 +196,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (!mounted) return;
       MoveraToast.show(
         context,
-        'Your ride search was interrupted. Book again when you are ready.',
+        context.l10n.homeSearchInterrupted,
         duration: const Duration(seconds: 8),
       );
     });
@@ -302,7 +310,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final maps = AppScope.instance.maps;
     // Map not created yet: onMapCreated picks the hint up.
     if (maps.activeOwner != MapOwners.home) return;
-    await maps.moveCamera(GeoPoint(hint.latitude, hint.longitude), zoom: 15);
+    await maps.moveCamera(
+      GeoPoint(hint.latitude, hint.longitude),
+      zoom: homeOpeningZoom,
+    );
   }
 
   Future<void>? _detectInFlight;
@@ -322,7 +333,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final known = _tripPickupLatLng ?? _currentLatLng;
     if (known != null) return known;
     final hint = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) MoveraToast.show(context, 'Finding your location…');
+      if (mounted) MoveraToast.show(context, context.l10n.homeFindingLocation);
     });
     final deadline = DateTime.now().add(const Duration(seconds: 8));
     try {
@@ -383,7 +394,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       );
       await AppScope.instance.maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
-        zoom: 15,
+        zoom: homeOpeningZoom,
+        follow: true,
       );
     } catch (_) {
       if (!mounted) return;
@@ -394,8 +406,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   String _shortAddress(String? address, {int maxLength = 24}) {
-    final value = address?.trim() ?? '';
-    if (value.isEmpty) return 'Set location';
+    final value = L10n.place(address?.trim() ?? '');
+    if (value.isEmpty) return context.l10n.setLocation;
     return value.length <= maxLength
         ? value
         : '${value.substring(0, maxLength - 1)}…';
@@ -404,15 +416,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String _targetTitle(String target, String? customType) {
     switch (target) {
       case 'pickup':
-        return 'Choose pickup';
+        return context.l10n.choosePickup;
       case 'home':
-        return 'Set Home address';
+        return context.l10n.setHomeAddress;
       case 'work':
-        return 'Set Work address';
+        return context.l10n.setWorkAddress;
       case 'custom':
-        return 'Set ${_placeLabel(customType ?? 'other')} address';
+        return context.l10n.setPlaceAddress(_placeLabel(customType ?? 'other'));
       default:
-        return 'Where to?';
+        return context.l10n.whereTo;
     }
   }
 
@@ -566,7 +578,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           return null;
         case GeocodeNotFound():
           if (mounted) {
-            MoveraToast.show(context, 'Choose a valid destination address.');
+            MoveraToast.show(context, context.l10n.homeChooseValidDestination);
           }
           return null;
       }
@@ -747,8 +759,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         initialAddress: cleanAddress.isEmpty
             ? (_pickupAddress ?? 'Current location')
             : cleanAddress,
-        title: isDestination ? 'Confirm destination' : 'Confirm pickup spot',
-        confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
+        title: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickupSpot,
+        confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
         refreshCurrentLocation: chosen == null,
@@ -829,7 +841,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final geocoded = outcome.valueOrNull;
       if (geocoded == null) {
         if (mounted && outcome is GeocodeNotFound) {
-          MoveraToast.show(context, 'Choose a valid destination address.');
+          MoveraToast.show(context, context.l10n.homeChooseValidDestination);
         }
         return null;
       }
@@ -842,8 +854,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     DateTime? scheduledAt;
     if (scheduled) {
       if (!mounted) return null;
+      // Q9: times are the pickup zone's local time, in the time zone its
+      // config names.
+      final timeZone = await AppScope.instance.riderConfig.timeZoneAt(
+        pickup.position.latitude,
+        pickup.position.longitude,
+      );
+      if (!mounted) return null;
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
+        timeZone: timeZone,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,
@@ -987,8 +1007,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (pickupPosition == null || destinationPosition == null || !mounted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please choose a valid pickup and destination.'),
+            SnackBar(
+              content: Text(context.l10n.homeChooseValidRoute),
             ),
           );
         }
@@ -1122,7 +1142,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 onPressed: () => Navigator.pop(sheetContext),
                                 icon: const Icon(Icons.close_rounded),
                                 color: _premiumInk,
-                                tooltip: 'Close',
+                                tooltip: context.l10n.close,
                               ),
                             ],
                           ),
@@ -1151,7 +1171,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               fontWeight: FontWeight.w500,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Search or enter an address',
+                              hintText: context.l10n.searchOrEnterAddress,
                               hintStyle: TextStyle(
                                 color: _premiumMuted.withValues(alpha: 0.72),
                                 fontSize: ResSize.setSp(14),
@@ -1167,7 +1187,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                         controller.clear();
                                         setModalState(() => query = '');
                                       },
-                                      tooltip: 'Clear',
+                                      tooltip: context.l10n.clear,
                                       icon: const Icon(Icons.close_rounded),
                                     ),
                               filled: true,
@@ -1220,7 +1240,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                             CrossAxisAlignment.start,
                                         children: [
                                           TextWidget(
-                                            text: 'Use current location',
+                                            text: context.l10n.useCurrentLocation,
                                             color: _premiumInk,
                                             fontSize: 12.5,
                                             fontWeight: fwSemiBold,
@@ -1230,7 +1250,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                             text:
                                                 _placeOrNull(_pickupAddress) ==
                                                     null
-                                                ? 'Finding your address…'
+                                                ? context.l10n.findingYourAddress
                                                 : _shortAddress(
                                                     _pickupAddress,
                                                     maxLength: 38,
@@ -1252,7 +1272,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Align(
                               alignment: Alignment.centerLeft,
                               child: TextWidget(
-                                text: 'Recent addresses',
+                                text: context.l10n.recentAddresses,
                                 color: _premiumMuted,
                                 fontSize: 10.5,
                                 fontWeight: fwSemiBold,
@@ -1309,7 +1329,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                   width: double.infinity,
                                   child: Center(
                                     child: TextWidget(
-                                      text: 'Use this address',
+                                      text: context.l10n.useThisAddress,
                                       color: Colors.white,
                                       fontSize: 12.5,
                                       fontWeight: fwSemiBold,
@@ -1339,7 +1359,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _openAddPlacePicker() async {
     if (_savedPlaces.length >= _maxCustomPlaces) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can save up to 8 custom places.')),
+        SnackBar(content: Text(context.l10n.homeMaxCustomPlaces)),
       );
       return;
     }
@@ -1387,7 +1407,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextWidget(
-                    text: 'What place do you want to save?',
+                    text: context.l10n.homeWhatPlaceToSave,
                     color: _premiumInk,
                     fontSize: 17,
                     fontWeight: fwBold,
@@ -1444,19 +1464,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String _placeLabel(String type) {
     switch (type) {
       case 'gym':
-        return 'Gym';
+        return context.l10n.placeGym;
       case 'mall':
-        return 'Mall';
+        return context.l10n.placeMall;
       case 'school':
-        return 'School';
+        return context.l10n.placeSchool;
       case 'airport':
-        return 'Airport';
+        return context.l10n.placeAirport;
       case 'family':
-        return 'Family';
+        return context.l10n.placeFamily;
       case 'restaurant':
-        return 'Restaurant';
+        return context.l10n.placeRestaurant;
       default:
-        return 'Other';
+        return context.l10n.placeOther;
     }
   }
 
@@ -1537,7 +1557,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (data == null) return null;
-    return BitmapDescriptor.bytes(data.buffer.asUint8List());
+    // The size given up front: the web plugin otherwise loads every new
+    // marker bitmap into an extra image just to measure it.
+    return BitmapDescriptor.bytes(
+      data.buffer.asUint8List(),
+      width: src.width.toDouble(),
+      height: src.height.toDouble(),
+    );
   }
 
   void _updateLocationVisuals() {
@@ -1547,7 +1573,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (!mounted || target == null || icon == null) return;
     final heading = _locationHeading;
     if (kIsWeb) {
-      _paintWebPuck(target: target, expanded: expanded, heading: heading);
+      // The web bitmap is turned on screen, not on the ground: take the
+      // map's own bearing off, or a rotated map turns the arrow twice.
+      _paintWebPuck(
+        target: target,
+        expanded: expanded,
+        heading: heading - _locationCtl.lastMapBearing,
+      );
       return;
     }
     _locationCtl.paintUserPuck(target: target, icon: icon, heading: heading);
@@ -1583,6 +1615,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _handleMapCameraMove(CameraPosition camera) {
     _lastMapZoom = camera.zoom;
     _lastMapTarget = camera.target;
+    _locationCtl.noteCameraMove(bearing: camera.bearing);
     final user = _currentLatLng;
     if (user == null) return;
     final shouldShow = AppScope.instance.camera.followOrFree(
@@ -1596,27 +1629,58 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void> _recenterOnUser() async {
-    await _startHeadingTracking();
+    unawaited(_startHeadingTracking());
     AppScope.instance.maps.mode = CameraMode.followUser;
-    var target = _currentLatLng;
+    final known = _currentLatLng;
+    // Like the driver app: the camera leaves at once, a smooth glide to
+    // street zoom leaning with the tilt of that zoom (tiltForZoom), to the
+    // position the live stream already has. It used to wait for a fresh
+    // high-accuracy fix first (up to latestFixTimeout, 9 s) before moving.
+    final flight = known == null ? null : _flyToUser(known, follow: false);
+    LatLng? fresh;
     try {
-      final fix = await _locationCtl.latestFix();
-      if (fix != null) {
-        target = fix;
-        _currentLatLng = target;
+      fresh = await _locationCtl.latestFix();
+      if (fresh != null && mounted) {
+        _currentLatLng = fresh;
         _locationHeading = _locationCtl.heading;
         _updateLocationVisuals();
       }
     } catch (_) {
-      // No fix yet: the map keeps its current camera.
+      // No fresh fix: the glide to the known position stands.
     }
-    if (target == null) return;
-    await AppScope.instance.maps.animateCamera(
-      GeoPoint(target.latitude, target.longitude),
-      zoom: 17,
-      bearing: _locationHeading,
-    );
+    if (!mounted) return;
+    if (fresh != null &&
+        (known == null ||
+            AppScope.instance.location.distanceBetween(
+                  known.latitude,
+                  known.longitude,
+                  fresh.latitude,
+                  fresh.longitude,
+                ) >
+                _recenterRefineMeters)) {
+      // The fresh fix is somewhere else: steer there. Before it the camera
+      // had nowhere to go; after the first glide it is only a correction,
+      // which leaves a map the rider has taken back by hand alone.
+      await _flyToUser(fresh, follow: known != null);
+    } else {
+      await flight;
+    }
     if (mounted) setState(() => _showRecenterButton = false);
+  }
+
+  /// A fresh fix closer than this to the known position does not steer a
+  /// running recenter.
+  static const double _recenterRefineMeters = 15;
+
+  /// North-up, like the driver app's Home locate: the map does not turn
+  /// with the compass; the puck shows the heading.
+  Future<void> _flyToUser(LatLng target, {required bool follow}) {
+    return AppScope.instance.maps.animateCamera(
+      GeoPoint(target.latitude, target.longitude),
+      zoom: recenterZoom,
+      bearing: 0,
+      follow: follow,
+    );
   }
 
   void _loadMarkers() {
@@ -1860,12 +1924,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 controller,
                                 owner: MapOwners.home,
                               );
+                              final view = mapViewOf(controller);
+                              _locationCtl.mapBusy = () =>
+                                  view.touching || view.easing;
                               AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng ?? _cameraHint;
                               if (target != null) {
                                 AppScope.instance.maps.animateCamera(
                                   GeoPoint(target.latitude, target.longitude),
-                                  zoom: 15,
+                                  zoom: homeOpeningZoom,
+                                  follow: true,
                                 );
                               }
                             },
@@ -1878,10 +1946,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           bottom: _sheetMinPixels + ResSize.h * 14,
                           child: PointerInterceptor(
                             child: Tooltip(
-                              message: 'Recenter map on your location',
+                              message: context.l10n.homeRecenterMap,
                               child: Semantics(
                                 button: true,
-                                label: 'Recenter map on your location',
+                                label: context.l10n.homeRecenterMap,
                                 child: Material(
                                   color: Colors.white,
                                   shape: const CircleBorder(),
@@ -1959,9 +2027,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       // reconstructing this subtree on every drag tick.
                       final premiumToggleHandle = Semantics(
                         button: true,
-                        label: 'Toggle home panel',
+                        label: context.l10n.homeTogglePanel,
                         child: Tooltip(
-                          message: 'Toggle home panel',
+                          message: context.l10n.homeTogglePanel,
                           child: InkWell(
                             onTap: _toggleHomeSheet,
                             borderRadius: BorderRadius.circular(14),
@@ -2227,7 +2295,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarHome,
-                                label: 'Home',
+                                label: context.l10n.navHome,
                                 active: true,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
@@ -2239,7 +2307,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarWallet,
-                                label: 'Payment',
+                                label: context.l10n.navPayment,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openPayment,
@@ -2248,7 +2316,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarCalendar,
-                                label: 'Schedule ride',
+                                label: context.l10n.navScheduleRide,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openSchedule,
@@ -2257,7 +2325,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             Expanded(
                               child: PremiumBottomNavItem(
                                 iconAsset: AppAssets.solarUser,
-                                label: 'Account',
+                                label: context.l10n.navAccount,
                                 floatingFraction: 1 - sheetProgress,
                                 hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openAccount,

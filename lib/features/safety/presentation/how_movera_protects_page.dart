@@ -1,43 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class HowMoveraProtectsPage extends StatelessWidget {
   const HowMoveraProtectsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (
-        'PIN verification',
-        'Ask your driver to confirm your PIN before the trip starts, so you know you are in the right car.',
-      ),
-      (
-        'Emergency contacts',
-        'Keep trusted people one tap away. You choose who is primary and who can follow a ride.',
-      ),
-      (
-        'Trip sharing',
-        'Share an active ride with people you trust. Tracking links are issued per ride — never as a public page from this menu.',
-      ),
-      (
-        'RideCheck',
-        'If a trip stops for long, goes off the route or ends far from your drop-off, Movera asks if everything is OK.',
-      ),
-      (
-        'Masked calls',
-        'During a ride you can reach your driver without sharing your personal number.',
-      ),
+    final l10n = context.l10n;
+    final items = [
+      (l10n.safetyPinTitle, l10n.protectPinBody),
+      (l10n.safetyContactsTitle, l10n.protectContactsBody),
+      (l10n.protectSharingTitle, l10n.protectSharingBody),
+      (l10n.rideCheckTitle, l10n.protectRideCheckBody),
+      (l10n.protectMaskedTitle, l10n.protectMaskedBody),
     ];
     return SafetyScaffold(
-      title: 'How Movera protects you',
+      title: l10n.safetyProtectsTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
           const Center(child: SafetyMark(SafetyMarks.protect, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Learn about our safety features.',
+            l10n.safetyProtectsSubtitle,
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),

@@ -111,7 +111,7 @@ void main() {
         destinationLng: 17.9,
         rideType: 'Movera',
         price: 259,
-        paymentMethod: 'Pay in car',
+        paymentMethod: 'Cash',
         rideId: 'ride_local',
       ),
     );

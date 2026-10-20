@@ -1,0 +1,11 @@
+bool? supports3D(int mapId) => true;
+void gestures(int mapId, bool scroll, bool zoom, bool rotate, bool tilt) {}
+void tiltFollowsZoom(int mapId, bool enabled) {}
+void Function() listen(int mapId, void Function() onGesture) => () {};
+void claim(int mapId) {}
+Future<bool>? flight(int mapId, double lat, double lng, double zoom,
+        double heading, double tilt, int ms) =>
+    null;
+void retarget(int mapId, double lat, double lng, double zoom, double heading,
+    double tilt) {}
+void cancelFlight(int mapId) {}

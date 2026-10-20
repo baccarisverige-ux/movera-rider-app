@@ -12,7 +12,7 @@ void main() {
   }
 
   test('successful quote matches catalog kr', () async {
-    final quote = await repo().quote(rideType: 'movera', distanceMeters: 3000);
+    final quote = await repo().quote(rideType: 'economy', distanceMeters: 3000);
     expect(quote.totalMinor, 25900);
     expect(quote.currency, 'SEK');
     expect(quote.signedPayload, 'mock-api');
@@ -20,7 +20,7 @@ void main() {
   });
 
   test('every ride category', () async {
-    for (final type in <String>['movera', 'comfort', 'premium', 'priority', 'xl', 'electric', 'pet']) {
+    for (final type in <String>['economy', 'comfort', 'premium', 'priority', 'xl', 'electric', 'pet']) {
       final quote = await repo().quote(rideType: type, distanceMeters: 1000);
       expect(quote.totalMinor, greaterThan(0));
       expect(quote.signedPayload, 'mock-api');

@@ -10,6 +10,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class Chat extends StatefulWidget {
   const Chat({
@@ -77,12 +78,11 @@ class _ChatState extends State<Chat> {
           12.height,
           Expanded(
             child: _chat.messages.isEmpty
-                ? const Center(
+                ? Center(
                     child: MoveraEmptyState(
                       icon: Icons.chat_bubble_outline_rounded,
-                      title: 'No messages yet',
-                      message:
-                          'Your conversation with the driver will appear here when the ride is connected.',
+                      title: context.l10n.chatNoMessages,
+                      message: context.l10n.chatEmptyBody,
                     ),
                   )
                 : ListView.builder(
@@ -122,10 +122,10 @@ class _ChatState extends State<Chat> {
                     color: const Color(0xFFF4F6F7),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
+                  child: Text(
                     MessagesController.sendUnavailableMessage,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF5C656C),
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -144,7 +144,7 @@ class _ChatState extends State<Chat> {
                           textColor: AppColor.black,
                           controller: _messageController,
                           fontSize: 14,
-                          hint: 'Send message...',
+                          hint: context.l10n.chatSendHint,
                           fillColor: const Color(0xffF6F6F6),
                           borderRadius: 32,
                           hintTextColor: const Color(0xff969696),
@@ -156,7 +156,7 @@ class _ChatState extends State<Chat> {
                       Semantics(
                         button: true,
                         enabled: false,
-                        label: 'Send message unavailable',
+                        label: context.l10n.chatSendUnavailableSemantics,
                         child: ExcludeSemantics(
                           child: Material(
                             color: const Color(0xffF6F6F6),
@@ -315,7 +315,7 @@ class SystemMessageBubble extends StatelessWidget {
         0,
       ),
       child: Semantics(
-        label: 'System message: ${message.text}',
+        label: context.l10n.chatSystemMessage(message.text),
         child: Column(
           children: [
             Container(

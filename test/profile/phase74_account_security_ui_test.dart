@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -102,7 +103,7 @@ void main() {
     );
 
     expect(
-      find.text('Unavailable until secure account service is connected'),
+      find.text('Coming soon'),
       findsAtLeastNWidgets(5),
     );
     expect(find.byType(Switch), findsNothing);
@@ -113,7 +114,10 @@ void main() {
     await tester.scrollUntilVisible(signOut, 300);
     await tester.pumpAndSettle();
     expect(
-      find.text('Unavailable until reauthentication is connected'),
+      find.descendant(
+        of: find.ancestor(of: signOut, matching: find.byType(AccountTile)),
+        matching: find.text('Coming soon'),
+      ),
       findsOneWidget,
     );
     await tester.tap(signOut);

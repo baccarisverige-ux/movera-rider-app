@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -19,6 +22,8 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
@@ -43,6 +48,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -53,6 +59,7 @@ class FindingDrivers extends StatefulWidget {
     required this.destinationPosition,
     required this.rideType,
     required this.price,
+    this.currency = Money.defaultCurrency,
     required this.paymentMethod,
     this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
@@ -90,7 +97,12 @@ class FindingDrivers extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final String rideType;
+
+  /// The fare in whole units of [currency].
   final double price;
+
+  /// Q7: the trip's currency (its pickup's zone).
+  final String currency;
   final String paymentMethod;
   final RideNotes notes;
   final RideRealtime? realtime;
@@ -104,6 +116,11 @@ class FindingDrivers extends StatefulWidget {
 }
 
 class _FindingDriversState extends State<FindingDrivers> {
+  /// The trip's currency: the one the search holds once it started (a
+  /// restored or re-requested trip keeps its own), else the widget's.
+  String get _currency =>
+      _match.ownershipSnapshot?.currency ?? widget.currency;
+
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   late final FindingDriverController _match =
@@ -157,6 +174,21 @@ class _FindingDriversState extends State<FindingDrivers> {
       searchStartedAt: widget.searchStartedAt,
       createdAt: widget.createdAt,
     );
+    unawaited(_loadZoneConfig());
+    // R-O2: a queued cancel the launch flush refused or dropped before this
+    // screen existed (a cold restore) is told now.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final id = (_match.ownedRideId ?? AppScope.instance.ride.rideId)?.trim();
+      if (!mounted || id == null || id.isEmpty) return;
+      final stale = ActiveRideController.takeQueuedCancelNotice(id);
+      if (stale == true) {
+        _showCancelNotice(rideJustChangedMessage);
+      } else if (stale == false) {
+        _showCancelNotice(
+          context.l10n.driverAlreadyAccepted,
+        );
+      }
+    });
   }
 
   void _startMatching({
@@ -175,6 +207,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       destinationLng: _destinationPosition.longitude,
       rideType: widget.rideType,
       price: effectivePrice,
+      currency: _currency,
       paymentMethod: widget.paymentMethod,
       walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
@@ -203,6 +236,18 @@ class _FindingDriversState extends State<FindingDrivers> {
         if (!mounted || _leaving) return;
         _terminalPending = status;
         _drainDeferredNavigation();
+      },
+      onCancelRefused: () {
+        if (!mounted) return;
+        setState(() {});
+        final id = _match.ownedRideId;
+        if (id != null) ActiveRideController.takeQueuedCancelNotice(id);
+        _showCancelNotice(
+          _match.lastRefusalWasStale
+              // R-O2: the queued cancel was dropped; the trip moved on.
+              ? rideJustChangedMessage
+              : context.l10n.driverAlreadyAccepted,
+        );
       },
     );
   }
@@ -270,6 +315,11 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   Future<void> _handleTerminal(RideStatus status) async {
     if (!mounted || _leaving) return;
+    if (status == RideStatus.cancelledByRider && _match.cancelled) {
+      // RC-03: the server confirmed a cancel that was waiting offline.
+      await _finishCommittedCancel();
+      return;
+    }
     _leaving = true;
     setState(() {});
     final ended = _match.ownershipSnapshot;
@@ -308,6 +358,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         destinationLng: ended.destinationLng,
         rideType: ended.categoryId!,
         price: ended.price,
+        quoteCurrency: ended.currency,
         paymentMethod: ended.paymentMethodId!,
         rideTypeLabel: widget.rideType,
         paymentMethodLabel: widget.paymentMethod,
@@ -318,7 +369,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } catch (_) {
       _showCancelNotice(
-        'We couldn’t request a new ride. Choose your route and try again.',
+        L10n.current.rebookFailed,
       );
       return false;
     }
@@ -433,14 +484,14 @@ class _FindingDriversState extends State<FindingDrivers> {
       // takes over once a driver is found.
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: true)
-          : RouteTimeMarker.createIcon(pickup: true, label: '$eta\nmin'),
+          : RouteTimeMarker.createIcon(pickup: true, label: context.l10n.minLineBreak('$eta')),
       MoveraVehicleMarker.createIcon(),
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: false)
           : RouteTimeMarker.createIcon(
               pickup: false,
               label:
-                  'Arrive by ${clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))}',
+                  context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))),
             ),
     ]);
     if (!mounted) return;
@@ -491,6 +542,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           destinationPosition: _destinationPosition,
           rideType: widget.rideType,
           price: _match.currentPrice,
+          currency: _match.currency,
           paymentMethod: widget.paymentMethod,
           walletAmountMinor: widget.walletAmountMinor,
           notes: widget.notes,
@@ -505,11 +557,12 @@ class _FindingDriversState extends State<FindingDrivers> {
     await _resumeFindingAfterDriverCancel();
   }
 
-  /// Cancel-first (CODE-3): Cancel request commits the cancel straight away
-  /// — server first, the outbox when offline, History archived, snapshot
-  /// cleared — and only then offers the optional why-sheet, whose reason is
-  /// sent as feedback. A reload while that sheet is open therefore lands on
-  /// Home. If the server says a driver already accepted (RIDE-4), nothing is
+  /// Cancel-first (CODE-3): Cancel request commits the cancel once the
+  /// server confirms it — History archived, snapshot cleared — and only then
+  /// offers the optional why-sheet, whose reason is sent as feedback. A
+  /// reload while that sheet is open therefore lands on Home. Offline the
+  /// request waits in the outbox and the search shows "Cancelling…" until
+  /// the server answers (RC-03). If the server says a driver already accepted (RIDE-4), nothing is
   /// cancelled and the deferred match moves the rider on to Waiting.
   Future<void> _confirmCancel() async {
     if (_leaving || _cancelSheetOpen) return;
@@ -536,27 +589,36 @@ class _FindingDriversState extends State<FindingDrivers> {
       return;
     }
     if (result != null && _isCommitted(result)) {
-      await _finishCommittedCancel(queued: result == SearchCancelResult.queued);
+      await _finishCommittedCancel();
       return;
     }
     _cancelSheetOpen = false;
-    if (result == SearchCancelResult.driverAccepted) {
+    if (result == SearchCancelResult.queued) {
+      // RC-03: offline. Nothing is cancelled yet; the search shows
+      // "Cancelling…" until the server confirms it or a driver accepted.
+      setState(() {});
       _showCancelNotice(
-        'A driver already accepted your ride, so it wasn’t cancelled.',
+        context.l10n.cancelOfflineQueued,
+      );
+    } else if (result == SearchCancelResult.driverAccepted) {
+      _showCancelNotice(
+        context.l10n.driverAlreadyAccepted,
       );
     } else if (result == SearchCancelResult.rejected) {
-      _showCancelNotice('This ride can no longer be cancelled.');
+      _showCancelNotice(context.l10n.cancelNoLonger);
+    } else if (result == SearchCancelResult.stale) {
+      // R-O2 (owner's words): the trip changed just before the tap.
+      _showCancelNotice(rideJustChangedMessage);
     } else if (_matchedPending || _match.matchCount > 0) {
-      _showCancelNotice('A driver accepted your ride.');
+      _showCancelNotice(context.l10n.driverAccepted);
     }
     _drainDeferredNavigation();
   }
 
   static bool _isCommitted(SearchCancelResult result) =>
-      result == SearchCancelResult.confirmed ||
-      result == SearchCancelResult.queued;
+      result == SearchCancelResult.confirmed;
 
-  Future<void> _finishCommittedCancel({required bool queued}) async {
+  Future<void> _finishCommittedCancel() async {
     // The ride is over; nothing deferred may navigate from here on.
     _leaving = true;
     _terminalPending = null;
@@ -570,12 +632,6 @@ class _FindingDriversState extends State<FindingDrivers> {
     final reason = feedback.reasonId;
     if (reason != null) unawaited(_match.sendCancelReason(reason));
     if (!mounted) return;
-    if (queued) {
-      _showCancelNotice(
-        'Your request is cancelled. We’ll confirm it with Movera as soon '
-        'as you’re back online.',
-      );
-    }
     RideNavigator.home(context);
   }
 
@@ -621,6 +677,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             ride: ride,
             entry: entry,
             pickupLocked: _match.matchCount > 0,
+            driverAccepted: _match.matchCount > 0,
           );
     if (!mounted) return;
     _applyRouteChange(updated);
@@ -634,6 +691,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         driverAssigned: _match.matchCount > 0,
         paymentMethod: widget.paymentMethod,
         differenceKr: updated.price - ride.price,
+        currency: updated.currency,
       );
     }
     if (_match.matchCount == 1) _matchedPending = true;
@@ -651,6 +709,16 @@ class _FindingDriversState extends State<FindingDrivers> {
     _roadRoutePoints = null;
     _loadMapBits();
     if (_mapReady) unawaited(_refreshRoadRoute());
+  }
+
+  Future<void> _raiseOffer(Future<bool> raise) async {
+    final updated = await raise;
+    if (!mounted) return;
+    setState(() {});
+    _showEditFeedback(
+      success: updated,
+      fallback: updated ? context.l10n.offerUpdated : context.l10n.editOfferFailed,
+    );
   }
 
   void _showEditFeedback({
@@ -798,7 +866,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                     MoveraIconButton.round(
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
-                      label: 'Cancel request',
+                      label: context.l10n.cancelRequest,
                     ),
                     if (_sheetExpanded) ...[
                       const SizedBox(width: 8),
@@ -812,7 +880,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                             curve: MoveraCurves.close,
                           );
                         },
-                        label: 'Collapse',
+                        label: context.l10n.collapse,
                       ),
                     ],
                     // UI-10: the Safety Kit button gets the rest of the row
@@ -851,7 +919,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                     );
                   },
-                  label: 'Recenter map',
+                  label: context.l10n.recenterMap,
                 ),
               ),
             ),
@@ -933,6 +1001,28 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 
+  /// The pickup zone's config (Q6 raise steps), once read.
+  RiderAppConfig? _zoneConfig;
+
+  Future<void> _loadZoneConfig() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: _currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (!mounted || config == null) return;
+      setState(() => _zoneConfig = config);
+    } catch (_) {
+      // The seed's steps stay.
+    }
+  }
+
+  /// The enabled raise steps of the trip's zone in [currency], whole units;
+  /// the built-in seed's until the zone's config is read.
+  List<int> _raiseSteps(String currency) =>
+      PriceBumpCard.stepsFor(_zoneConfig, currency);
+
   Widget _panelBody(double progress, String headline, String subtitle) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -991,19 +1081,13 @@ class _FindingDriversState extends State<FindingDrivers> {
             PriceBumpCard(
               currentPrice: _match.currentPrice,
               maxPrice: _match.maxOfferPrice,
+              currency: _match.currency,
               busy: _match.editInFlight,
-              steps: const [50, 100, 150, 200],
-              onConfirm: (kr) async {
-                final updated = await _match.confirmPriceIncrease(kr);
-                if (!mounted) return;
-                setState(() {});
-                _showEditFeedback(
-                  success: updated,
-                  fallback: updated
-                      ? 'Offer updated'
-                      : 'Couldn’t update offer. Try again.',
-                );
-              },
+              // Q6: the zone's raise steps, in the trip's currency.
+              steps: _raiseSteps(_match.currency),
+              onConfirm: (kr) => _raiseOffer(_match.confirmPriceIncrease(kr)),
+              onConfirmIncrease: (increase) =>
+                  _raiseOffer(_match.confirmPriceIncreaseBy(increase)),
               onKeepWaiting: () {
                 _match.dismissPriceBump();
                 setState(() {});
@@ -1033,7 +1117,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Meet at ${_shortPlace(_pickupAddress)}',
+                        context.l10n.meetAt(_shortPlace(_pickupAddress)),
                         style: GoogleFonts.poppins(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w600,
@@ -1046,6 +1130,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                         bookedPaymentLine(
                           paymentMethod: widget.paymentMethod,
                           priceKr: _match.currentPrice,
+                          currency: _match.currency,
                           walletMinor: widget.walletAmountMinor,
                           separator: '  ·  ',
                         ),
@@ -1061,7 +1146,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                 IconButton(
                   onPressed: _openDetails,
                   icon: const Icon(Icons.more_horiz_rounded),
-                  tooltip: 'Ride details',
+                  tooltip: context.l10n.rideDetails,
                 ),
               ],
             ),

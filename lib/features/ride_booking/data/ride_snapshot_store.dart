@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -38,6 +41,7 @@ class RideSnapshot {
     this.categoryId,
     this.paymentMethodId,
     this.maxOfferMinor,
+    this.currency = Money.defaultCurrency,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -50,7 +54,13 @@ class RideSnapshot {
   final double destinationLat;
   final double destinationLng;
   final String rideType;
+  /// The fare in whole units of [currency] (kronor, euros, dinars).
   final double price;
+
+  /// Q7: the ISO-4217 code of [price] and every amount of this trip, the
+  /// currency of its pickup's zone. Snapshots saved before it existed are
+  /// kronor.
+  final String currency;
   final String paymentMethod;
   final String? rideId;
   final RideNotes notes;
@@ -102,6 +112,9 @@ class RideSnapshot {
 
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
+  /// [price] as contract Money, with [currency]'s exponent.
+  Money get fare => Money.fromLegacyMajor(price, currency);
+
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
   /// The rule exists to stop an abandoned snapshot reviving days later as a
@@ -145,6 +158,7 @@ class RideSnapshot {
     String? categoryId,
     String? paymentMethodId,
     int? maxOfferMinor,
+    String? currency,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -172,6 +186,7 @@ class RideSnapshot {
       categoryId: categoryId ?? this.categoryId,
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -203,6 +218,7 @@ class RideSnapshot {
     if (categoryId != null) 'categoryId': categoryId,
     if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
     if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
+    if (currency != Money.defaultCurrency) 'currency': currency,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -211,13 +227,8 @@ class RideSnapshot {
 
     final statusName = json['status'];
     if (statusName is! String) return null;
-    RideStatus? parsedStatus;
-    for (final value in RideStatus.values) {
-      if (value.name == statusName) {
-        parsedStatus = value;
-        break;
-      }
-    }
+    // Device-local storage keeps the UI enum name, not the wire status.
+    final parsedStatus = RideStatusWire.legacyName(statusName);
     if (parsedStatus == null) return null;
 
     final savedRaw = json['savedAt'];
@@ -287,9 +298,12 @@ class RideSnapshot {
       walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
       serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
-      categoryId: _nonEmpty(json['categoryId']),
+      categoryId: CategoryIds.tryCanonical(json['categoryId']) ??
+          _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
+      currency:
+          Money.normalizeCurrency(json['currency']) ?? Money.defaultCurrency,
     );
   }
 }

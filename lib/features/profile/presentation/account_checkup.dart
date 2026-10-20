@@ -8,6 +8,7 @@ import 'package:movera_rider/features/profile/presentation/account_widgets.dart'
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class AccountCheckupPage extends StatefulWidget {
   const AccountCheckupPage({
@@ -60,9 +61,9 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHeadline(
-            'Account check',
-            body: 'A few steps keep this Movera account easy to recover.',
+          AccountHeadline(
+            context.l10n.accountCheck,
+            body: context.l10n.accountCheckBody,
           ),
           const SizedBox(height: 18),
           if (_security.loading && security == null)
@@ -72,14 +73,14 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
               children: [
                 AccountTile(
                   mark: const AccountIcon(Icons.phone_outlined),
-                  title: 'Phone number',
+                  title: context.l10n.phoneNumber,
                   body: security == null
-                      ? 'Verification unavailable'
+                      ? context.l10n.verificationUnavailable
                       : security.phone.isEmpty
-                          ? 'No phone on the server'
+                          ? context.l10n.noPhoneAdded
                           : phoneVerified
-                              ? '${security.phone} · Verified'
-                              : '${security.phone} · Not verified',
+                              ? context.l10n.valueVerified(security.phone)
+                              : context.l10n.valueNotVerified(security.phone),
                   trailing: Icon(
                     phoneVerified
                         ? Icons.check_circle_rounded
@@ -100,12 +101,12 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 ),
                 AccountTile(
                   mark: const AccountIcon(Icons.security_outlined),
-                  title: '2-step verification',
+                  title: context.l10n.twoStep,
                   body: security == null
-                      ? 'Security status unavailable'
+                      ? context.l10n.securityStatusUnavailable
                       : security.capabilities.twoStep
-                          ? (twoStepEnabled ? 'On' : 'Off')
-                          : 'Unavailable',
+                          ? (twoStepEnabled ? context.l10n.on : context.l10n.off)
+                          : context.l10n.unavailable,
                   trailing: Icon(
                     twoStepEnabled
                         ? Icons.check_circle_rounded
@@ -123,12 +124,12 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 ),
                 AccountTile(
                   mark: const AccountIcon(Icons.phone_iphone_outlined),
-                  title: 'Recovery phone',
+                  title: context.l10n.recoveryPhone,
                   body: security == null
-                      ? 'Recovery status unavailable'
+                      ? context.l10n.recoveryStatusUnavailable
                       : security.capabilities.recoveryPhone
-                          ? (recoveryPhone ?? 'Not configured')
-                          : 'Unavailable',
+                          ? (recoveryPhone ?? context.l10n.notConfigured)
+                          : context.l10n.unavailable,
                   showDivider: false,
                   trailing: Icon(
                     recoveryPhone?.isNotEmpty == true

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -170,7 +171,7 @@ void main() {
   test('presentation has no catalog fare table', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
-      expect(src.contains("'movera': 259"), isFalse, reason: file.path);
+      expect(src.contains("'economy': 259"), isFalse, reason: file.path);
     }
   });
 
@@ -382,9 +383,19 @@ void main() {
 
 
   test('side menu lists only currently reachable production destinations', () {
-    final menu = File(
+    final source = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
+    // Round 4: the labels live in l10n; check the English text the menu
+    // shows next to its code.
+    final english = jsonDecode(
+      File('lib/l10n/app_en.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final menu = [
+      source,
+      for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
+        '${english[m.group(1)]}',
+    ].join('\n');
     expect(menu.contains('Promotions'), isFalse);
     expect(menu.contains('Scheduled Rides'), isFalse);
     expect(menu.contains('Subscriptions'), isFalse);
@@ -613,9 +624,23 @@ void main() {
   test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',
     () {
-      final schedule = File(
+      // Round 4: screen copy lives in l10n; read each source with the
+      // English text of the messages it uses.
+      final english = jsonDecode(
+        File('lib/l10n/app_en.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      String withEnglish(String path) {
+        final source = File(path).readAsStringSync();
+        return [
+          source,
+          for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
+            '${english[m.group(1)]}',
+        ].join('\n');
+      }
+
+      final schedule = withEnglish(
         'lib/features/scheduled_rides/presentation/schedule_ride.dart',
-      ).readAsStringSync();
+      );
       expect(schedule.contains('Plan your ride'), isTrue);
       expect(schedule.contains('ConfirmPickupSpot'), isTrue);
       expect(schedule.contains('ScheduleDateTimeSelector'), isTrue);
@@ -638,9 +663,9 @@ void main() {
       expect(details.contains('ScheduleRide(editing:'), isTrue);
       expect(details.contains('ReservationEditButton'), isTrue);
       expect(
-        File(
+        withEnglish(
           'lib/features/reservations/presentation/reservation_widgets.dart',
-        ).readAsStringSync().contains('Edit reservation'),
+        ).contains('Edit reservation'),
         isTrue,
       );
     },
@@ -683,7 +708,11 @@ void main() {
     final pickup = File(
       'lib/features/pickup/presentation/confirm_pickup_spot.dart',
     ).readAsStringSync();
-    expect(pickup.contains("confirmLabel = 'Confirm pickup'"), isTrue);
+    // Round 4: the default label comes from l10n ("Confirm pickup").
+    expect(
+      pickup.contains('widget.confirmLabel ?? context.l10n.confirmPickup'),
+      isTrue,
+    );
     final finding = File(
       'lib/features/finding_driver/presentation/finding_drivers.dart',
     ).readAsStringSync();

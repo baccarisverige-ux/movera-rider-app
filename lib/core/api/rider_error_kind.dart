@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What kind of failure a rider action hit, as far as the app can tell
 /// without backend-specific reasons.
@@ -36,9 +37,10 @@ RiderErrorKind riderErrorKind(Object error) {
       return RiderErrorKind.offline;
     }
     final status = error.statusCode ?? 0;
+    // Contract code `rate_limited` (R-O4: lower case).
     if (status == 429 ||
-        error.code == 'RATE_LIMITED' ||
-        error.code == 'TOO_MANY_REQUESTS') {
+        error.detail == 'rate_limited' ||
+        error.detail == 'too_many_requests') {
       return RiderErrorKind.rateLimited;
     }
     if (status >= 500) return RiderErrorKind.serverTrouble;
@@ -47,11 +49,16 @@ RiderErrorKind riderErrorKind(Object error) {
   return RiderErrorKind.unknown;
 }
 
+/// R-O2 (owner's wording): what the rider is told when a command was
+/// refused because the trip changed just before it (`409 version_mismatch`),
+/// or a queued one was dropped because it no longer applies.
+String get rideJustChangedMessage => L10n.current.rideJustChanged;
+
 /// How long Movera asked the rider to wait, as "45 seconds", or null.
 String? riderRetryWait(Object error) {
   if (error is! ApiError) return null;
   final wait = error.retryAfter;
   if (wait == null || wait <= Duration.zero) return null;
   final s = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
-  return s == 1 ? '1 second' : '$s seconds';
+  return L10n.current.retrySeconds(s);
 }

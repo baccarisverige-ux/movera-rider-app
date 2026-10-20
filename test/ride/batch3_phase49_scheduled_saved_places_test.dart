@@ -19,7 +19,7 @@ void main() {
       'scheduledPickupAt': '2026-09-25T10:00:00Z',
       'pickup': {'label': 'Pickup'},
       'destination': {'label': 'Destination'},
-      'categoryId': 'movera',
+      'categoryId': 'economy',
       'categoryName': 'Movera',
       'categoryImage': 'ride.webp',
       'price': 200,

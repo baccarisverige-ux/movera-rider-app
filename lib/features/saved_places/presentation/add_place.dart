@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -12,6 +13,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class AddPlace extends StatefulWidget {
   const AddPlace({
@@ -79,7 +81,7 @@ class _AddPlaceState extends State<AddPlace> {
     final name = _nameController.text.trim();
     final location = _locationController.text.trim();
     if (name.isEmpty || location.isEmpty) {
-      setState(() => _error = 'Add both a name and a location.');
+      setState(() => _error = context.l10n.spNameAndLocation);
       return;
     }
 
@@ -93,17 +95,17 @@ class _AddPlaceState extends State<AddPlace> {
       // ask before it replaces the address already saved there.
       if (_isNewPlace && (kind == 'home' || kind == 'office')) {
         await _places.hydrate();
-        final label = kind == 'home' ? 'Home' : 'Work';
+        final label = kind == 'home'
+            ? L10n.current.placeHome
+            : L10n.current.placeWork;
         final taken = _places.shortcuts().any((p) => p.kind == kind);
         if (taken) {
           if (!mounted) return;
           final replace = await confirmMoveraAction(
             context,
-            title: 'Replace your saved $label?',
-            message:
-                'Your $label address will change to $location. To keep it, '
-                'give this place another name.',
-            confirmLabel: 'Replace $label',
+            title: context.l10n.spReplaceQ(label),
+            message: context.l10n.spReplaceBody(label, location),
+            confirmLabel: context.l10n.spReplaceConfirm(label),
           );
           if (!mounted) return;
           if (!replace) {
@@ -126,7 +128,7 @@ class _AddPlaceState extends State<AddPlace> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = 'Couldn’t save this place. Try again.';
+        _error = context.l10n.spSaveFailed;
       });
     }
   }
@@ -144,6 +146,9 @@ class _AddPlaceState extends State<AddPlace> {
             : name;
     final lower = raw.toLowerCase();
     if (lower == 'work') return 'office';
+    // A new place named Home or Work in the app language takes that slot.
+    if (lower == L10n.current.placeHome.toLowerCase()) return 'home';
+    if (lower == L10n.current.placeWork.toLowerCase()) return 'office';
     final slug = lower
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
@@ -161,27 +166,35 @@ class _AddPlaceState extends State<AddPlace> {
           padding: const EdgeInsets.only(left: 16),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: InkWell(
+            // UI-11: a 44 px tap area and a name for screen readers; the
+            // 30 px circle looks the same.
+            child: MoveraHitArea(
+              label: context.l10n.back,
+              alignment: Alignment.centerLeft,
               onTap: () => Navigator.pop(context),
-              child: Container(
-                height: ResSize.h * 30,
-                width: ResSize.w * 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColor.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xff999999).withValues(alpha: 0.4),
-                      blurRadius: 40,
-                      offset: const Offset(0, 4),
+              child: InkWell(
+                excludeFromSemantics: true,
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  height: ResSize.h * 30,
+                  width: ResSize.w * 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColor.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff999999).withValues(alpha: 0.4),
+                        blurRadius: 40,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_rounded,
+                      color: AppColor.title,
+                      size: ResSize.h * 16,
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_back_ios_rounded,
-                    color: AppColor.title,
-                    size: ResSize.h * 16,
                   ),
                 ),
               ),
@@ -189,7 +202,9 @@ class _AddPlaceState extends State<AddPlace> {
           ),
         ),
         title: TextWidget(
-          text: widget.initial == null ? 'Add new address' : 'Edit saved place',
+          text: widget.initial == null
+              ? context.l10n.spAddNewAddress
+              : context.l10n.spEditSavedPlace,
           color: AppColor.title,
           fontSize: 16,
           fontWeight: fwSemiBold,
@@ -210,7 +225,7 @@ class _AddPlaceState extends State<AddPlace> {
                 fontWeight: fwNormal,
               ),
               decoration: InputDecoration(
-                labelText: 'Name',
+                labelText: context.l10n.spName,
                 labelStyle: GoogleFonts.poppins(
                   color: AppColor.subtitle,
                   fontSize: 14,
@@ -230,7 +245,7 @@ class _AddPlaceState extends State<AddPlace> {
                     fontWeight: fwNormal,
                   ),
                   decoration: InputDecoration(
-                    labelText: 'Add location',
+                    labelText: context.l10n.spAddLocation,
                     labelStyle: GoogleFonts.poppins(
                       color: AppColor.subtitle,
                       fontSize: 12,
@@ -259,7 +274,7 @@ class _AddPlaceState extends State<AddPlace> {
                 height: 52,
                 child: ElevatedButton(
                   onPressed: _saving ? null : _save,
-                  child: Text(_saving ? 'Saving…' : 'Save'),
+                  child: Text(_saving ? context.l10n.saving : context.l10n.save),
                 ),
               ),
             ),

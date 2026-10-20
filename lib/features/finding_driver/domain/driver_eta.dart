@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class DriverEta {
   const DriverEta({
@@ -96,17 +97,17 @@ class DriverEta {
 
   String headline({RideStatus status = RideStatus.driverAssigned}) {
     if (isInTrip(status)) {
-      return 'Ride in progress';
+      return L10n.current.etaRideInProgress;
     }
-    if (status == RideStatus.driverWaiting) return 'Driver has arrived';
-    if (stale) return 'Updating driver location…';
+    if (status == RideStatus.driverWaiting) return L10n.current.etaDriverArrived;
+    if (stale) return L10n.current.etaUpdatingLocation;
     final distance = distanceMeters;
-    if (distance != null && distance < 180) return 'Driver is almost there';
+    if (distance != null && distance < 180) return L10n.current.etaAlmostThere;
     final eta = seconds;
-    if (eta == null) return 'Driver is on the way';
-    if (eta < 60) return 'Driver is almost there';
+    if (eta == null) return L10n.current.etaOnTheWay;
+    if (eta < 60) return L10n.current.etaAlmostThere;
     final minutes = (eta / 60).ceil();
-    return 'Pickup in $minutes min';
+    return L10n.current.etaPickupInMin('$minutes');
   }
 
   String? subtitle({
@@ -115,18 +116,18 @@ class DriverEta {
   }) {
     if (isInTrip(status)) {
       return firstName == null
-          ? 'On the way to your drop-off.'
-          : '$firstName is taking you to drop-off.';
+          ? L10n.current.etaToDropoff
+          : L10n.current.etaNameToDropoff(firstName);
     }
-    if (stale) return 'Waiting for a fresh location update.';
-    if (headline(status: status).contains('arrived')) {
+    if (stale) return L10n.current.etaWaitingFreshLocation;
+    if (status == RideStatus.driverWaiting) {
       return firstName == null
-          ? 'Your driver is at the pickup.'
-          : '$firstName is at the pickup.';
+          ? L10n.current.etaDriverAtPickup
+          : L10n.current.etaNameAtPickup(firstName);
     }
     if (firstName == null || firstName.isEmpty) {
-      return 'Leave now to meet your driver.';
+      return L10n.current.etaLeaveNow;
     }
-    return 'Leave now to meet $firstName';
+    return L10n.current.etaLeaveNowName(firstName);
   }
 }

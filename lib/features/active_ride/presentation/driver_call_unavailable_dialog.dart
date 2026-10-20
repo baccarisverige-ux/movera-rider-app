@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 Future<void> showDriverCallUnavailable(
   BuildContext context, {
   String? driverName,
 }) {
   final name = driverName?.trim();
-  final driverLabel = name == null || name.isEmpty ? 'your driver' : name;
+  final driverLabel = name == null || name.isEmpty ? context.l10n.yourDriver : name;
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Driver calling unavailable'),
+      title: Text(context.l10n.callUnavailableTitle),
       content: Text(
-        'Movera has not received a backend-issued masked calling number for '
-        '$driverLabel yet. No phone call was placed.',
+        context.l10n.callUnavailableBody(driverLabel),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Close'),
+          child: Text(context.l10n.close),
         ),
       ],
     ),

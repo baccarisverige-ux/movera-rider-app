@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class PinVerificationPage extends StatefulWidget {
   const PinVerificationPage({super.key, required this.controller});
@@ -40,25 +41,25 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
             borderRadius: BorderRadius.circular(22),
           ),
           title: Text(
-            'Change PIN?',
+            context.l10n.pinChangeQ,
             style: SafetyUi.text(18, weight: FontWeight.w600),
           ),
           content: Text(
-            'Request a new PIN from Movera. Share it with your driver only when the ride begins.',
+            context.l10n.pinChangeBody,
             style: SafetyUi.text(14, color: SafetyUi.muted, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(
-                'Cancel',
+                context.l10n.cancel,
                 style: SafetyUi.text(14, color: SafetyUi.muted),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(
-                'Change PIN',
+                context.l10n.pinChange,
                 style: SafetyUi.text(
                   14,
                   color: SafetyUi.accent,
@@ -77,12 +78,12 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
   Widget build(BuildContext context) {
     final pin = _ctl.pin.pin;
     return SafetyScaffold(
-      title: 'PIN verification',
+      title: context.l10n.safetyPinTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
           Text(
-            'Add an extra check before your ride begins. Your driver must confirm your PIN before starting the trip.',
+            context.l10n.pinIntro,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 22),
@@ -93,7 +94,7 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
               children: [
                 Expanded(
                   child: Text(
-                    'Verify rides with a PIN',
+                    context.l10n.pinToggle,
                     style: SafetyUi.text(15.5, weight: FontWeight.w500),
                   ),
                 ),
@@ -119,11 +120,11 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
             SafetyPinCadre(
               pin: pin,
               caption: _ctl.preferences.pinRequired
-                  ? 'Share this PIN with your driver when the trip starts.'
-                  : 'PIN is saved. Turn on verification to use it on rides.',
+                  ? context.l10n.pinShareHint
+                  : context.l10n.pinSavedHint,
             )
           else
-            Text('PIN unavailable — verify plate and driver name',
+            Text(context.l10n.pinUnavailable,
                 style: SafetyUi.text(14, color: SafetyUi.muted)),
           const SizedBox(height: 18),
           SizedBox(
@@ -138,7 +139,7 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
                 ),
               ),
               child: Text(
-                'Change PIN',
+                context.l10n.pinChange,
                 style: SafetyUi.text(15.5, weight: FontWeight.w600),
               ),
             ),

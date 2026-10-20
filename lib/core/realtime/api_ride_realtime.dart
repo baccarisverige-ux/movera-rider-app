@@ -4,9 +4,11 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 
@@ -27,6 +29,7 @@ class ApiRideRealtime implements RideRealtime {
     this.pollInterval = const Duration(seconds: 2),
     this.notFoundLimit = 3,
     DateTime Function()? clock,
+    this.onProjectionVersion,
   }) : _api = api,
        connection = connection ?? RealtimeConnection(),
        _clock = clock ?? WireTime.now;
@@ -35,8 +38,15 @@ class ApiRideRealtime implements RideRealtime {
   final RealtimeConnection connection;
   final Duration pollInterval;
 
-  /// Consecutive `404`s after which the ride is treated as gone
-  /// (`cancelledBySystem`) and polling stops.
+  /// R-O2: told each accepted projection's `version` (the trip's aggregate
+  /// version, never the realtime `sequence`), so the rider's next command
+  /// sends what this screen last saw as `expectedVersion`.
+  final void Function(String tripId, int version)? onProjectionVersion;
+
+  /// Consecutive `404`s after which polling pauses and the connection is
+  /// marked failed. The client never invents a lifecycle state for it
+  /// (contract v0.3.0): the ride keeps its last server status until a
+  /// resync ([reconnectAndResync]) reads the trip again.
   final int notFoundLimit;
   final DateTime Function() _clock;
   final Map<String, _RidePoll> _rides = {};
@@ -90,10 +100,16 @@ class ApiRideRealtime implements RideRealtime {
       if (_disposed || !identical(_rides[poll.id], poll)) return;
       poll.retryAt = null;
       poll.notFound = 0;
-      final rawRide = json['ride'];
-      if (rawRide is! Map) throw const FormatException('Missing ride projection');
-      final ride = Map<String, dynamic>.from(rawRide);
-      final status = _status(ride['status']);
+      // Contract v0.3 §1: a success response is the bare TripProjection.
+      // The pre-v0.3 `{code, ride}` envelope is still read during the
+      // migration; only that envelope carries event fields beside `ride`.
+      final projection = tripProjectionOf(json);
+      if (projection == null) {
+        throw const FormatException('Missing ride projection');
+      }
+      final ride = projection;
+      final enveloped = json['ride'] is Map;
+      var status = RideStatusWire.fromProjection(ride);
       if (status == null) {
         AppLog.warning('realtime.unknown_status', extra: {
           'rideId': poll.id,
@@ -104,14 +120,51 @@ class ApiRideRealtime implements RideRealtime {
         connection.markFailed();
         return;
       }
-      final eventId = _eventId(json['eventId'] ?? ride['eventId']);
+      final envelope = enveloped ? json : const <String, dynamic>{};
+      final eventId = _eventId(envelope['eventId'] ?? ride['eventId']);
       if (eventId != null && poll.seenEventIds.contains(eventId)) {
         // The same server change again (a replay after reconnect).
         connection.markConnected();
         return;
       }
-      final version = _version(ride['version'] ?? json['version']);
-      final updatedAt = _date(ride['updatedAt'] ?? json['updatedAt']);
+      final version = _version(ride['version'] ?? envelope['version']);
+      final updatedAt = _date(ride['updatedAt'] ?? envelope['updatedAt']);
+      // Contract v0.3.0 §4: the server's own `sequence` orders events and
+      // the shared gate decides (dedupe by eventId, `sequence <= last` is a
+      // duplicate, after a terminal status only payment/rating/message).
+      // A projection's `sequence` is its resync cursor (minimum 0): 0 means
+      // no realtime event yet, so it is ordered by `version` alone.
+      final rawSequence = _version(envelope['sequence'] ?? ride['sequence']);
+      final serverSequence =
+          rawSequence != null && rawSequence > 0 ? rawSequence : null;
+      // A projection's own `kind` is the TripKind (live/scheduled), never an
+      // event kind. Without an explicit event kind the change is read from
+      // the projection: same lifecycle status, only payment or rating moved.
+      final explicitKind =
+          RealtimeKindWire.parse(envelope['kind'] ?? ride['eventKind']);
+      final kind = explicitKind ?? _projectionKind(poll, ride);
+      if (serverSequence != null) {
+        final disposition = poll.gate.admit(
+          eventId: eventId ?? '${poll.id}:$serverSequence',
+          tripId: tripIdOf(ride) ?? poll.id,
+          sequence: serverSequence,
+          kind: kind,
+          isTerminalStatus: status.tripStatus.isTerminal &&
+              status != RideStatus.cancelledByDriver,
+        );
+        if (!disposition.passes) {
+          connection.markConnected();
+          return;
+        }
+        if (disposition == RealtimeDisposition.acceptedWithGap) {
+          // Polling already returns the whole projection, which is the
+          // resync; the missing events are not replayed one by one.
+          AppLog.info('realtime.gap', extra: {
+            'rideId': poll.id,
+            'sequence': serverSequence,
+          });
+        }
+      }
       if (version == null && updatedAt == null) {
         throw const FormatException('Ride projection needs version or updatedAt');
       }
@@ -134,45 +187,70 @@ class ApiRideRealtime implements RideRealtime {
         connection.markConnected();
         return;
       }
+      // Contract v0.3.0: a driver drop before boarding (or an admin
+      // reassign) puts the trip back to `searching`. The rider keeps the
+      // trip; Waiting shows the reassignment notice for it.
+      final reassigned = status.isSearching &&
+          (poll.lastStatus?.isMatched ?? false);
+      // Q13 / X19: an admin reassign is not a driver cancel. The rider
+      // keeps the same redispatch path but is never told "driver
+      // cancelled": they see searching, then the next driver assigned.
+      final byAdmin = reassigned && _reassignedByAdmin(ride, explicitKind);
+      if (reassigned) status = RideStatus.cancelledByDriver;
+      final location = _location(ride);
       final rawDriver = ride['driver'];
       final driver = rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
           : null;
       if (poll.version == version && poll.updatedAt == updatedAt &&
           poll.lastStatus == status &&
-          poll.lastLat == ride['driverLat'] &&
-          poll.lastLng == ride['driverLng']) {
+          poll.lastLat == location.lat &&
+          poll.lastLng == location.lng) {
         connection.markConnected();
         return;
       }
       poll.version = version ?? poll.version;
+      if (version != null) onProjectionVersion?.call(poll.id, version);
       poll.updatedAt = updatedAt ?? poll.updatedAt;
       poll.lastStatus = status;
-      poll.lastLat = ride['driverLat'];
-      poll.lastLng = ride['driverLng'];
+      poll.lastWireStatus = ride['status'];
+      poll.lastPaymentStatus = ride['paymentStatus'];
+      poll.lastRatingStatus = ride['ratingStatus'];
+      poll.lastLat = location.lat;
+      poll.lastLng = location.lng;
       if (eventId != null) poll.remember(eventId);
-      final sequence = _nextSequence(poll.id);
-      final serverLocationAt = _date(
-        ride['locationAt'] ?? ride['driverLocationAt'],
-      );
+      // The server's sequence (0 = no realtime event yet), else its
+      // version. Only a legacy server that sends neither gets a local
+      // counter (compatibility, one release).
+      final sequence = rawSequence ?? version ?? _nextSequence(poll.id);
+      final serverLocationAt = location.at;
       poll.controller?.add(RideRealtimeEvent(
         rideId: poll.id,
         status: status,
         sequence: sequence,
+        kind: reassigned && !byAdmin ? RealtimeKind.driverCancelled : kind,
         eventId: eventId,
         version: version,
         serverTime: updatedAt,
         driver: driver,
-        latitude: (ride['driverLat'] as num?)?.toDouble(),
-        longitude: (ride['driverLng'] as num?)?.toDouble(),
+        latitude: location.lat,
+        longitude: location.lng,
         etaSeconds: _seconds(ride['etaSeconds']),
         locationAt: _onDeviceClock(
           serverLocationAt,
-          serverNow: _date(json['serverTime'] ?? ride['serverTime']),
+          serverNow: _date(envelope['serverTime'] ?? ride['serverTime']),
         ),
         payload: {
           if (serverLocationAt != null)
             'serverLocationAt': WireTime.format(serverLocationAt),
+          if (ride['status'] is String) 'tripStatus': ride['status'],
+          // Contract v0.4.0: when the driver accepted (Q12) and when the
+          // waiting clock started (Q42), as the server stamped them.
+          if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],
+          if (_waitingArrivedAt(ride) case final String at)
+            waitingArrivedAtKey: at,
+          if (reassigned && !byAdmin) 'kind': 'driver_cancelled',
+          if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
       ));
       connection.markConnected();
@@ -197,25 +275,81 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
+  /// `TripProjection.waiting.arrivedAt`, when the projection has one.
+  static String? _waitingArrivedAt(Map<String, dynamic> ride) {
+    final waiting = ride['waiting'];
+    final at = waiting is Map ? waiting['arrivedAt'] : null;
+    return at is String ? at : null;
+  }
+
+  /// Whether a matched trip that went back to `searching` was moved by an
+  /// admin: the projection's `cancellation.actor` says so, or the server
+  /// named the change with a kind other than `driver_cancelled` (a driver
+  /// drop always carries that kind).
+  static bool _reassignedByAdmin(
+    Map<String, dynamic> ride,
+    RealtimeKind? explicitKind,
+  ) {
+    final cancellation = ride['cancellation'];
+    if (cancellation is Map) {
+      final actor = cancellation['actor'];
+      if (actor == 'admin') return true;
+      if (actor == 'driver') return false;
+    }
+    return explicitKind != null && explicitKind != RealtimeKind.driverCancelled;
+  }
+
+  /// The event kind of a polled projection that names none. After a
+  /// terminal status the gate lets only payment/rating changes through, so
+  /// a projection whose lifecycle status is unchanged and whose payment or
+  /// rating status moved is that update (RC-01); anything else is a
+  /// `trip_projection`.
+  RealtimeKind _projectionKind(_RidePoll poll, Map<String, dynamic> ride) {
+    if (poll.lastWireStatus == null || ride['status'] != poll.lastWireStatus) {
+      return RealtimeKind.tripProjection;
+    }
+    if (ride['paymentStatus'] != poll.lastPaymentStatus) {
+      return RealtimeKind.paymentUpdated;
+    }
+    if (ride['ratingStatus'] != poll.lastRatingStatus) {
+      return RealtimeKind.ratingUpdated;
+    }
+    return RealtimeKind.tripProjection;
+  }
+
+  /// The driver position: the contract `driverLocation` GeoFix, else the
+  /// legacy flat `driverLat`/`driverLng` (pre-v0.3 wire).
+  ({double? lat, double? lng, DateTime? at}) _location(
+    Map<String, dynamic> ride,
+  ) {
+    final fix = ride['driverLocation'];
+    if (fix is Map && fix['lat'] is num && fix['lng'] is num) {
+      return (
+        lat: (fix['lat'] as num).toDouble(),
+        lng: (fix['lng'] as num).toDouble(),
+        at: _date(fix['measuredAt']) ??
+            _date(ride['locationAt'] ?? ride['driverLocationAt']),
+      );
+    }
+    return (
+      lat: (ride['driverLat'] as num?)?.toDouble(),
+      lng: (ride['driverLng'] as num?)?.toDouble(),
+      at: _date(ride['locationAt'] ?? ride['driverLocationAt']),
+    );
+  }
+
   int _nextSequence(String rideId) =>
       _sequences[rideId] = (_sequences[rideId] ?? 0) + 1;
 
-  /// ARCH-13: the server no longer knows the ride. Polling stops and owners
-  /// get one terminal `cancelledBySystem` ordered after everything the
-  /// server sent (version + 1), marked as decided by the client.
+  /// The server no longer knows the ride. Polling pauses and the
+  /// connection shows a problem; no status is made up on the client
+  /// (contract v0.3.0, audit B5). [reconnectAndResync] asks again.
   void _endNotFound(_RidePoll poll) {
     poll.ended = true;
     poll.timer?.cancel();
     poll.timer = null;
     AppLog.warning('realtime.ride_not_found', extra: {'rideId': poll.id});
-    final last = poll.version;
-    poll.controller?.add(RideRealtimeEvent(
-      rideId: poll.id,
-      status: RideStatus.cancelledBySystem,
-      sequence: _nextSequence(poll.id),
-      version: last == null ? null : last + 1,
-      payload: const {'source': 'client_not_found'},
-    ));
+    connection.markFailed();
   }
 
   /// ARCH-13: [locationAt] is server time; staleness is judged against the
@@ -236,10 +370,6 @@ class ApiRideRealtime implements RideRealtime {
 
   int? _seconds(Object? raw) => raw is num && raw >= 0 ? raw.round() : null;
 
-  // ARCH-10: P1 snake_case TripStatus wire names (driver_to_pickup) and the
-  // legacy RideStatus names both parse through the one contract adapter.
-  RideStatus? _status(Object? raw) => RideStatusWire.parse(raw);
-
   int? _version(Object? raw) =>
       raw is int ? raw : (raw is String ? int.tryParse(raw) : null);
 
@@ -250,6 +380,12 @@ class ApiRideRealtime implements RideRealtime {
     final poll = _rides[rideId.trim()];
     if (poll == null) return;
     connection.markReconnecting();
+    if (poll.ended) {
+      // An explicit resync after the not-found pause reads the trip once
+      // more; a further 404 pauses again.
+      poll.ended = false;
+      poll.notFound = poll.notFound > 0 ? notFoundLimit - 1 : 0;
+    }
     await _poll(poll, force: true);
   }
 
@@ -305,6 +441,9 @@ class _RidePoll {
   int notFound = 0;
   DateTime? retryAt;
 
+  /// The contract realtime gate for this trip.
+  final RealtimeGate gate = RealtimeGate();
+
   /// Recent server event ids, newest last, for dedupe on replay.
   final List<String> seenEventIds = [];
 
@@ -316,6 +455,9 @@ class _RidePoll {
   int? version;
   DateTime? updatedAt;
   RideStatus? lastStatus;
-  Object? lastLat;
-  Object? lastLng;
+  Object? lastWireStatus;
+  Object? lastPaymentStatus;
+  Object? lastRatingStatus;
+  double? lastLat;
+  double? lastLng;
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -227,7 +228,7 @@ void main() {
     expect(find.text('Passkeys'), findsOneWidget);
     expect(find.text('2-step verification'), findsOneWidget);
     expect(
-      find.text('Unavailable until secure account service is connected'),
+      find.text('Coming soon'),
       findsWidgets,
     );
     expect(find.byType(Switch), findsNothing);
@@ -243,7 +244,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(signOut, findsOneWidget);
     expect(
-      find.text('Unavailable until reauthentication is connected'),
+      find.descendant(
+        of: find.ancestor(of: signOut, matching: find.byType(AccountTile)),
+        matching: find.text('Coming soon'),
+      ),
       findsOneWidget,
     );
 

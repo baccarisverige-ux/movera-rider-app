@@ -20,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _deviceKeys = <String, Object>{
   'movera_onboarding_done': true,
   'movera_ride_catalog_v1': '{"categories":[]}',
+  'movera_app_language': 'fr',
 };
 
 /// Every per-user key the app writes today.

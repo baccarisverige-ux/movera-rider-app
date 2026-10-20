@@ -1,4 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 typedef EmergencyUriLauncher = Future<bool> Function(Uri uri);
 
@@ -30,22 +31,18 @@ class SystemEmergencyDialer implements EmergencyDialer {
   Future<void> open(String number) async {
     final clean = number.trim();
     if (clean.isEmpty) {
-      throw const EmergencyCallException('Emergency number is unavailable.');
+      throw EmergencyCallException(L10n.current.emergencyNumberUnavailable);
     }
     final uri = Uri(scheme: 'tel', path: clean);
     try {
       final opened = await _launcher(uri);
       if (!opened) {
-        throw const EmergencyCallException(
-          'Could not open the system phone dialer.',
-        );
+        throw EmergencyCallException(L10n.current.dialerOpenFailed);
       }
     } on EmergencyCallException {
       rethrow;
     } catch (_) {
-      throw const EmergencyCallException(
-        'Could not open the system phone dialer.',
-      );
+      throw EmergencyCallException(L10n.current.dialerOpenFailed);
     }
   }
 }

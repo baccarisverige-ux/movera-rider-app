@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
-/// True for "Pay in car": the price is only shown, nothing is charged now.
+/// True for "Cash": the price is only shown, nothing is charged now.
 bool isCashPayment(String paymentMethod) {
   final m = paymentMethod.trim().toLowerCase();
-  return m == 'cash' || m.contains('pay in car');
+  // Round 4: "Cash" may reach here in the app language too.
+  return m == 'cash' || m.contains('pay in car') || L10n.isCashLabel(m);
 }
 
 /// Where a refund goes when the new route is cheaper.
@@ -37,7 +41,7 @@ class RouteChangeSheet extends StatefulWidget {
   final RouteChangeQuote quote;
   final String paymentMethod;
 
-  /// ARCH-9: the booked method's id; decides "Pay in car" when known.
+  /// ARCH-9: the booked method's id; decides "Cash" when known.
   final String? paymentMethodId;
 
   static Future<RouteChangeDecision> confirm(
@@ -67,14 +71,23 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   static const Color _accent = Color(0xFF2D5878);
 
   bool _paymentStep = false;
-  RefundDestination _refundTo = RefundDestination.wallet;
+
+  /// Q8: the refund goes to the wallet balance of the trip's own currency
+  /// (one per currency, no conversion), where this build has a wallet.
+  late final bool _walletRefund = AppScope.instance.walletController
+      .forCurrency(quote.currency)
+      .available;
+  late RefundDestination _refundTo = _walletRefund
+      ? RefundDestination.wallet
+      : RefundDestination.originalMethod;
 
   RouteChangeQuote get quote => widget.quote;
   String get paymentMethod => widget.paymentMethod;
   bool get _cash => isCashPayment(widget.paymentMethodId ?? paymentMethod);
   double get _diff => quote.differenceKr;
 
-  String _kr(double value) => '${value.round()} kr';
+  /// [value] whole units of the trip's currency, as the fare is shown.
+  String _kr(double value) => formatMajor(value, quote.currency);
 
   void _confirmRoute() {
     if (_cash || _diff.abs() < 0.5) {
@@ -110,31 +123,31 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
     final diff = _diff;
     final String priceNote;
     if (diff.abs() < 0.5) {
-      priceNote = 'Same price as before.';
+      priceNote = context.l10n.samePrice;
     } else if (_cash) {
       priceNote = diff > 0
-          ? '+${_kr(diff)} more. You pay the new price in the car.'
-          : '${_kr(-diff)} less. You pay the new price in the car.';
+          ? context.l10n.moreCash(_kr(diff))
+          : context.l10n.lessCash(_kr(-diff));
     } else if (diff > 0) {
-      priceNote = '+${_kr(diff)} more, charged to $paymentMethod.';
+      priceNote = context.l10n.moreCharged(_kr(diff), paymentMethod);
     } else {
-      priceNote = '${_kr(-diff)} less, returned to $paymentMethod.';
+      priceNote = context.l10n.lessReturned(_kr(-diff), paymentMethod);
     }
-    return Column(
+    return _step(
       key: const ValueKey('route-change-step-route'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+      body: [
         Text(
-          'New route',
+          context.l10n.newRoute,
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
         ),
         const SizedBox(height: 14),
         _row(Icons.radio_button_checked, const Color(0xFF079A60), quote.pickupAddress),
         for (var i = 0; i < quote.stops.length; i++)
-          _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: 'Stop ${i + 1}'),
+          _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: context.l10n.stopNumber('${i + 1}')),
         _row(Icons.square, const Color(0xFF1769E8), quote.destinationAddress),
-        const SizedBox(height: 16),
+      ],
+      // The new price stays next to Confirm; only the route list scrolls.
+      actions: [
         Container(
           key: const ValueKey('route-change-price'),
           padding: const EdgeInsets.all(14),
@@ -149,7 +162,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'New price',
+                      context.l10n.newPrice,
                       style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: _muted),
                     ),
                     const SizedBox(height: 2),
@@ -182,12 +195,12 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-confirm'),
-          label: _cash || diff.abs() < 0.5 ? 'Confirm change' : 'Confirm · next: payment',
+          label: _cash || diff.abs() < 0.5 ? context.l10n.confirmChange : context.l10n.confirmNextPayment,
           onPressed: _confirmRoute,
         ),
         const SizedBox(height: 8),
         _secondary(
-          'Keep current route',
+          context.l10n.keepCurrentRoute,
           () => Navigator.pop(context, RouteChangeDecision.declined),
         ),
       ],
@@ -197,20 +210,18 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   Widget _payment(BuildContext context) {
     final diff = _diff;
     final more = diff > 0;
-    return Column(
+    return _step(
       key: const ValueKey('route-change-step-payment'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+      body: [
         Text(
-          more ? 'Confirm payment' : 'Choose your refund',
+          more ? context.l10n.confirmPayment : context.l10n.chooseRefund,
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
         ),
         const SizedBox(height: 6),
         Text(
           more
-              ? 'The additional amount for the new route is charged to your payment method now.'
-              : 'Your new route costs less. Please choose how you would like to receive the difference.',
+              ? context.l10n.routeChargedNow
+              : context.l10n.routeCostsLess,
           style: GoogleFonts.poppins(fontSize: 13.5, color: _muted),
         ),
         const SizedBox(height: 16),
@@ -223,14 +234,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           ),
           child: Column(
             children: [
-              _kv('Payment method', paymentMethod),
+              _kv(context.l10n.paymentMethod, paymentMethod),
               const SizedBox(height: 8),
-              _kv('Booked price', _kr(quote.oldPriceKr)),
+              _kv(context.l10n.bookedPrice, _kr(quote.oldPriceKr)),
               const SizedBox(height: 8),
-              _kv('New price', _kr(quote.newPriceKr)),
+              _kv(context.l10n.newPrice, _kr(quote.newPriceKr)),
               const Divider(height: 20),
               _kv(
-                more ? 'Charged now' : 'Refund amount',
+                more ? context.l10n.chargedNow : context.l10n.refundAmount,
                 '${more ? '+' : ''}${_kr(diff.abs())}',
                 bold: true,
               ),
@@ -238,37 +249,68 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           ),
         ),
         if (!more) ...[
-          const SizedBox(height: 14),
-          _refundOption(
-            RefundDestination.wallet,
-            key: const ValueKey('refund-to-wallet'),
-            title: 'Movera Wallet',
-            subtitle:
-                'Available immediately and used first on your next ride.',
-            icon: Icons.account_balance_wallet_outlined,
-          ),
+          if (_walletRefund) ...[
+            const SizedBox(height: 14),
+            _refundOption(
+              RefundDestination.wallet,
+              key: const ValueKey('refund-to-wallet'),
+              title: context.l10n.moveraWallet,
+              subtitle:
+                  context.l10n.refundWalletBody,
+              icon: Icons.account_balance_wallet_outlined,
+            ),
+          ],
           const SizedBox(height: 8),
           _refundOption(
             RefundDestination.originalMethod,
             key: const ValueKey('refund-to-original'),
             title: paymentMethod,
             subtitle:
-                'Returned to your original payment method within 2 to 3 business days.',
+                context.l10n.refundOriginalBody,
             icon: Icons.credit_card_outlined,
           ),
         ],
+      ],
+      actions: [
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-pay'),
           label: more
-              ? 'Confirm and pay ${_kr(diff)}'
+              ? context.l10n.confirmAndPay(_kr(diff))
               : _refundTo == RefundDestination.wallet
-              ? 'Confirm refund to Movera Wallet'
-              : 'Confirm refund to $paymentMethod',
+              ? context.l10n.confirmRefundWallet
+              : context.l10n.confirmRefundTo(paymentMethod),
           onPressed: _confirmPayment,
         ),
         const SizedBox(height: 8),
-        _secondary('Back', () => setState(() => _paymentStep = false)),
+        _secondary(context.l10n.back, () => setState(() => _paymentStep = false)),
+      ],
+    );
+  }
+
+  /// UI-05: the step's content scrolls when the sheet is short (two stops
+  /// at large text, a landscape phone), while its buttons stay in reach.
+  Widget _step({
+    required Key key,
+    required List<Widget> body,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: body,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...actions,
       ],
     );
   }
@@ -330,18 +372,24 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   }
 
   Widget _primary({required Key key, required String label, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
+    // A minimum height, not a fixed one: a long label at large text wraps
+    // inside the button instead of being clipped (UI-05).
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: double.infinity,
+        minHeight: 54,
+      ),
       child: FilledButton(
         key: key,
         onPressed: onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF11181D),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
         ),
       ),
@@ -361,19 +409,28 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   }
 
   Widget _kv(String left, String right, {bool bold = false}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            left,
-            style: GoogleFonts.poppins(fontSize: 14, color: bold ? _ink : _muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+    // UI-05: the value keeps its place on the right but may take at most
+    // 60% of the row, so a long method name wraps instead of overflowing.
+    return LayoutBuilder(
+      builder: (context, box) => Row(
+        children: [
+          Expanded(
+            child: Text(
+              left,
+              style: GoogleFonts.poppins(fontSize: 14, color: bold ? _ink : _muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+            ),
           ),
-        ),
-        Text(
-          right,
-          style: GoogleFonts.poppins(fontSize: bold ? 16 : 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: _ink),
-        ),
-      ],
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: box.maxWidth * 0.6),
+            child: Text(
+              right,
+              textAlign: TextAlign.end,
+              style: GoogleFonts.poppins(fontSize: bold ? 16 : 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: _ink),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

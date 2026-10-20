@@ -9,6 +9,7 @@ import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
   const EmergencyContactsPage({super.key, required this.controller});
@@ -49,16 +50,16 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
   Future<void> _delete(EmergencyContact contact) async {
     final confirmed = await confirmMoveraAction(
       context,
-      title: 'Delete ${contact.name}?',
-      message: 'They will no longer be one of your emergency contacts.',
-      confirmLabel: 'Delete contact',
+      title: context.l10n.contactDeleteQ(contact.name),
+      message: context.l10n.contactDeleteBody,
+      confirmLabel: context.l10n.contactDeleteConfirm,
     );
     if (!confirmed || !mounted) return;
     try {
       await _ctl.removeContact(contact.id);
     } catch (_) {
       if (mounted) {
-        MoveraToast.show(context, 'Could not delete that contact. Try again.');
+        MoveraToast.show(context, context.l10n.contactDeleteFailedRetry);
       }
     }
   }
@@ -70,7 +71,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
       if (mounted) {
         MoveraToast.show(
           context,
-          'Could not make ${contact.name} your primary contact. Try again.',
+          context.l10n.contactPrimaryFailed(contact.name),
         );
       }
     }
@@ -80,7 +81,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
   Widget build(BuildContext context) {
     final items = _ctl.contacts;
     return SafetyScaffold(
-      title: 'Emergency contacts',
+      title: context.l10n.safetyContactsTitle,
       footer: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: SizedBox(
@@ -101,8 +102,8 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
             ),
             child: Text(
               items.length >= kMaxEmergencyContacts
-                  ? 'Maximum 5 contacts'
-                  : 'Add contact',
+                  ? context.l10n.contactsMax
+                  : context.l10n.contactAdd,
               style: SafetyUi.text(
                 15.5,
                 weight: FontWeight.w600,
@@ -118,16 +119,16 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
           const Center(child: SafetyMark(SafetyMarks.contacts, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Add people you trust so they can be reached quickly when you need help.',
+            context.l10n.contactsIntro,
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 20),
           if (items.isEmpty)
-            const MoveraEmptyState(
+            MoveraEmptyState(
               icon: Icons.group_outlined,
-              title: 'No emergency contacts yet',
-              message: 'Add someone you trust so they can be reached quickly.',
+              title: context.l10n.contactsEmptyTitle,
+              message: context.l10n.contactsEmptyBody,
               compact: true,
             )
           else
@@ -186,9 +187,9 @@ class _ContactTile extends StatelessWidget {
             child: Text(
               [
                 SwedishPhone.display(contact.phoneE164),
-                contact.relationship,
-                if (contact.isPrimary) 'Primary',
-                if (contact.shareTrips) 'Trip sharing',
+                relationshipLabel(contact.relationship),
+                if (contact.isPrimary) context.l10n.contactPrimary,
+                if (contact.shareTrips) context.l10n.contactTripSharing,
               ].join(' · '),
               style: SafetyUi.text(12.5, color: SafetyUi.muted),
             ),
@@ -201,13 +202,13 @@ class _ContactTile extends StatelessWidget {
               if (value == 'delete') onDelete();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+              PopupMenuItem(value: 'edit', child: Text(context.l10n.edit)),
               if (!contact.isPrimary)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'primary',
-                  child: Text('Make primary'),
+                  child: Text(context.l10n.contactMakePrimary),
                 ),
-              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+              PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
             ],
           ),
         ),
@@ -284,7 +285,7 @@ class _ContactEditorState extends State<_ContactEditor> {
       if (mounted) Navigator.pop(context);
     } catch (_) {
       setState(() {
-        _error = widget.controller.error ?? 'Could not save contact.';
+        _error = widget.controller.error ?? context.l10n.contactSaveFailed;
         _saving = false;
       });
     }
@@ -312,27 +313,34 @@ class _ContactEditorState extends State<_ContactEditor> {
             ),
             const SizedBox(height: 16),
             Text(
-              widget.existing == null ? 'Add contact' : 'Edit contact',
+              widget.existing == null
+                  ? context.l10n.contactAdd
+                  : context.l10n.contactEdit,
               style: SafetyUi.text(20, weight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: context.l10n.contactName),
             ),
             TextField(
               controller: _phone,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone number'),
+              decoration: InputDecoration(labelText: context.l10n.contactPhone),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _relationship,
-              decoration: const InputDecoration(labelText: 'Relationship'),
+              decoration: InputDecoration(
+                labelText: context.l10n.contactRelationship,
+              ),
               items: [
                 for (final label in kEmergencyContactRelationships)
-                  DropdownMenuItem(value: label, child: Text(label)),
+                  DropdownMenuItem(
+                    value: label,
+                    child: Text(relationshipLabel(label)),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _relationship = value);
@@ -341,7 +349,7 @@ class _ContactEditorState extends State<_ContactEditor> {
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                'Share trips with this person',
+                context.l10n.contactShareTrips,
                 style: SafetyUi.text(14.5),
               ),
               value: _share,
@@ -358,7 +366,10 @@ class _ContactEditorState extends State<_ContactEditor> {
             if (widget.existing != null)
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Enabled', style: SafetyUi.text(14.5)),
+                title: Text(
+                  context.l10n.contactEnabled,
+                  style: SafetyUi.text(14.5),
+                ),
                 value: _enabled,
                 activeThumbColor: adaptiveSwitchThumbColor(
                   context,
@@ -392,7 +403,7 @@ class _ContactEditorState extends State<_ContactEditor> {
                   ),
                 ),
                 child: Text(
-                  _saving ? 'Saving…' : 'Save',
+                  _saving ? context.l10n.saving : context.l10n.save,
                   style: SafetyUi.text(
                     15.5,
                     weight: FontWeight.w600,
@@ -407,3 +418,14 @@ class _ContactEditorState extends State<_ContactEditor> {
     );
   }
 }
+
+/// A stored relationship (kept in English, as the server has it) in the app
+/// language. Anything else is shown as it was typed.
+String relationshipLabel(String value) => switch (value) {
+  'Partner' => L10n.current.relationshipPartner,
+  'Family' => L10n.current.relationshipFamily,
+  'Friend' => L10n.current.relationshipFriend,
+  'Colleague' => L10n.current.relationshipColleague,
+  'Other' => L10n.current.relationshipOther,
+  _ => value,
+};

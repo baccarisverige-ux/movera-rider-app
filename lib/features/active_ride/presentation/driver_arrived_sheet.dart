@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color _ink = Color(0xFF1D252C);
 const Color _muted = Color(0xFF5C656C);
@@ -91,8 +92,8 @@ class DriverArrivedSheet extends StatelessWidget {
                 Expanded(
                   child: Text(
                     name == null
-                        ? 'Your driver is here'
-                        : '$name is here',
+                        ? context.l10n.driverIsHere
+                        : context.l10n.nameIsHere(name),
                     style: GoogleFonts.poppins(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -104,7 +105,7 @@ class DriverArrivedSheet extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Your driver is waiting at the pickup point.',
+              context.l10n.driverWaitingAtPickup,
               style: GoogleFonts.poppins(fontSize: 14, color: _muted),
             ),
             if (plate != null && plate.isNotEmpty) ...[
@@ -159,7 +160,7 @@ class DriverArrivedSheet extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  "I'm on the way",
+                  context.l10n.imOnTheWay,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

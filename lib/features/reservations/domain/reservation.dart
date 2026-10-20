@@ -1,7 +1,10 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -159,20 +162,26 @@ class ReservationDraft {
 }
 
 class ReservationPriceChange {
-  const ReservationPriceChange({required this.previous, required this.next});
+  const ReservationPriceChange({
+    required this.previous,
+    required this.next,
+    this.currency = 'SEK',
+  });
 
+  /// Whole units of [currency] (the ride's).
   final double previous;
   final double next;
+  final String currency;
 
   double get delta => next - previous;
 
   bool get unchanged => delta.abs() < 0.5;
 
   String get summary {
-    if (unchanged) return 'Price unchanged';
-    final amount = delta.abs().toStringAsFixed(0);
-    if (delta > 0) return 'Your updated ride costs $amount kr more.';
-    return 'Your updated ride costs $amount kr less.';
+    if (unchanged) return L10n.current.resPriceUnchanged;
+    final amount = formatMajor(delta.abs(), currency);
+    if (delta > 0) return L10n.current.resCostsMore(amount);
+    return L10n.current.resCostsLess(amount);
   }
 }
 
@@ -188,6 +197,7 @@ class ReservationPatch {
     this.passengerCount,
     this.paymentMethod,
     this.price,
+    this.currency,
     this.note,
     this.status,
     this.driver,
@@ -205,6 +215,9 @@ class ReservationPatch {
   final int? passengerCount;
   final String? paymentMethod;
   final double? price;
+
+  /// ISO-4217 code of [price], when it changes with it.
+  final String? currency;
   final String? note;
   final ReservationStatus? status;
   final ReservationDriver? driver;
@@ -239,6 +252,8 @@ class Reservation {
     this.parentReservationId,
     this.previousDriver,
     this.cancellationFee,
+    this.endedEarly = false,
+    this.chargedFare,
   });
 
   final String reservationId;
@@ -269,6 +284,14 @@ class Reservation {
 
   /// The fee the rider agreed to when cancelling late, if any.
   final Money? cancellationFee;
+
+  /// UI-01: the rider ended the trip on board (contract `end_early`). The
+  /// ride is `cancelled`, but they paid for the distance driven.
+  final bool endedEarly;
+
+  /// What the server said the rider pays, when known (an ended-early
+  /// trip's final `fare`). Null: only [price], the booked price, is known.
+  final Money? chargedFare;
 
   bool get driverAssigned => status.hasDriver && driver != null;
 
@@ -308,6 +331,8 @@ class Reservation {
     bool clearDriver = false,
     ReservationDriver? previousDriver,
     Money? cancellationFee,
+    bool? endedEarly,
+    Money? chargedFare,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -333,6 +358,8 @@ class Reservation {
       parentReservationId: parentReservationId ?? this.parentReservationId,
       previousDriver: previousDriver ?? this.previousDriver,
       cancellationFee: cancellationFee ?? this.cancellationFee,
+      endedEarly: endedEarly ?? this.endedEarly,
+      chargedFare: chargedFare ?? this.chargedFare,
     );
   }
 
@@ -361,6 +388,8 @@ class Reservation {
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
     if (previousDriver != null) 'previousDriver': previousDriver!.toJson(),
     if (cancellationFee != null) 'cancellationFee': cancellationFee!.toJson(),
+    if (endedEarly) 'endedEarly': true,
+    if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -394,7 +423,9 @@ class Reservation {
         ),
         pickup: pickup,
         destination: destination,
-        categoryId: (map['categoryId'] as String?) ?? 'movera',
+        categoryId: CategoryIds.canonical(
+          (map['categoryId'] as String?) ?? CategoryIds.economy,
+        ),
         categoryName: (map['categoryName'] as String?) ?? 'Movera',
         categoryImage:
             (map['categoryImage'] as String?) ??
@@ -414,7 +445,9 @@ class Reservation {
         policyVersion: map['policyVersion'] as String?,
         parentReservationId: map['parentReservationId'] as String?,
         previousDriver: ReservationDriver.tryParse(map['previousDriver']),
-        cancellationFee: Money.tryParse(map['cancellationFee']),
+        cancellationFee: Money.fromWire(map['cancellationFee']),
+        endedEarly: map['endedEarly'] == true,
+        chargedFare: Money.fromWire(map['chargedFare']),
       );
     } catch (_) {
       return null;

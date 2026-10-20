@@ -8,6 +8,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../mock_fare.dart';
 
 class _Geo implements GeocodingRepository {
   _Geo(this.known);
@@ -90,7 +91,7 @@ void main() {
     expect(quote.differenceKr, quote.newPriceKr - 200);
     // A preview does not touch the ride.
     expect(mock.rides['ride-route-1']!['stops'], isEmpty);
-    expect(mock.rides['ride-route-1']!['price'], 200.0);
+    expect(mockFareKr(mock.rides['ride-route-1']!), 200.0);
   });
 
   test('a far destination costs more; applying tells the driver and saves', () async {
@@ -114,7 +115,7 @@ void main() {
 
     final server = mock.rides['ride-route-1']!;
     expect(server['destinationAddress'], 'Arlanda');
-    expect(server['price'], quote.newPriceKr);
+    expect(mockFareKr(server), quote.newPriceKr);
     expect(server['version'], 4);
     expect(server['driverNotifiedAt'], isNotNull);
     expect((server['routeChanges'] as List).length, 1);

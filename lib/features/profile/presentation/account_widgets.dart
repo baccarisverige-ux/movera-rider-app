@@ -3,6 +3,7 @@ import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color kAccountInk = Color(0xFF1C2329);
 // UI-6: was 0xFF7A858E (3.77:1 on white); now ≥ 4.5:1 on kAccountSoft.
@@ -53,7 +54,7 @@ class AccountScaffold extends StatelessWidget {
                       size: 18,
                       color: kAccountInk,
                     ),
-                    tooltip: 'Back',
+                    tooltip: context.l10n.back,
                   ),
                   if (title != null)
                     Expanded(
@@ -293,52 +294,72 @@ class AccountFillButton extends StatelessWidget {
   }
 }
 
+/// A one-field editor sheet. With [emptyError] set, an empty value is not
+/// saved and that message shows under the field instead (Q3). The
+/// keyboard's Done key saves, like the Save button.
 Future<String?> showAccountTextEditor(
   BuildContext context, {
   required String title,
   required String value,
   TextInputType keyboard = TextInputType.text,
+  String? emptyError,
 }) {
   final controller = TextEditingController(text: value);
+  final error = ValueNotifier<String?>(null);
   return MoveraSheet.show<String>(
     context: context,
     builder: (context) {
       return MoveraSheetDisposables(
-        disposables: [controller],
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            16 + MediaQuery.paddingOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: accountText(22, weight: FontWeight.w700)),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                keyboardType: keyboard,
-                autofocus: true,
-                style: accountText(16),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: kAccountSoft,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+        disposables: [controller, error],
+        child: ValueListenableBuilder<String?>(
+          valueListenable: error,
+          builder: (context, errorText, _) {
+            void save() {
+              final text = controller.text.trim();
+              if (text.isEmpty && emptyError != null) {
+                error.value = emptyError;
+                return;
+              }
+              Navigator.pop(context, text);
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                16 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: accountText(22, weight: FontWeight.w700)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    keyboardType: keyboard,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => save(),
+                    onChanged: (_) => error.value = null,
+                    style: accountText(16),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: kAccountSoft,
+                      errorText: errorText,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  AccountFillButton(label: context.l10n.save, onTap: save),
+                ],
               ),
-              const SizedBox(height: 16),
-              AccountFillButton(
-                label: 'Save',
-                onTap: () => Navigator.pop(context, controller.text.trim()),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       );
     },
@@ -350,6 +371,7 @@ Future<String?> showAccountChoice(
   required String title,
   required List<String> options,
   required String selected,
+  String Function(String option)? labelOf,
 }) {
   return MoveraSheet.show<String>(
     context: context,
@@ -375,7 +397,7 @@ Future<String?> showAccountChoice(
             for (final option in options)
               ListTile(
                 title: Text(
-                  option,
+                  labelOf?.call(option) ?? option,
                   style: accountText(15.5, weight: FontWeight.w600),
                 ),
                 trailing: option == selected
@@ -403,26 +425,24 @@ class AccountLegalPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           AccountHeadline(
-            terms ? 'Terms' : 'Privacy notice',
+            terms ? context.l10n.accountTerms : context.l10n.accountPrivacyNotice,
             body: terms
-                ? 'How Movera rides and reservations work.'
-                : 'What we keep, and how you control it.',
+                ? context.l10n.legalTermsBody
+                : context.l10n.legalPrivacyBody,
           ),
           const SizedBox(height: 20),
           Text(
             terms
-                ? 'Book now and scheduled rides are separate. A reservation keeps the same ID if you edit it. Cancel before pickup according to the waiting window on the reservation.'
-                : 'Movera stores the name, phone, email, and places you save so we can run your trips. You can change communication preferences any time. Location is used for pickup, tracking, and safety tools while a ride is active.',
+                ? context.l10n.legalTermsText
+                : context.l10n.legalPrivacyText,
             style: accountText(15, color: kAccountMuted, height: 1.5),
           ),
           const SizedBox(height: 16),
           // FLOW-16: these paragraphs are a summary, not the legal text.
           Text(
             terms
-                ? 'This is a short summary. The full Movera terms will be '
-                      'published here before the service launches.'
-                : 'This is a short summary. The full Movera privacy notice '
-                      'will be published here before the service launches.',
+                ? context.l10n.legalTermsSummary
+                : context.l10n.legalPrivacySummary,
             style: accountText(13, color: kAccountMuted, height: 1.5),
           ),
         ],

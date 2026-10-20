@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Asks why the rider is cancelling.
 ///
@@ -17,11 +18,16 @@ Future<CancelOutcome> showCancelReasonSheet(
   BuildContext context, {
   required CancelPhase phase,
   bool committed = false,
+  bool offerDestinationChange = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancelReason);
   final result = await MoveraSheet.show<CancelOutcome>(
     context: context,
-    builder: (_) => CancelReasonSheet(phase: phase, committed: committed),
+    builder: (_) => CancelReasonSheet(
+      phase: phase,
+      committed: committed,
+      offerDestinationChange: offerDestinationChange,
+    ),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
   if (committed) return result ?? const CancelOutcome.cancel();
@@ -35,9 +41,15 @@ class CancelReasonSheet extends StatefulWidget {
     super.key,
     required this.phase,
     this.committed = false,
+    this.offerDestinationChange = false,
   });
 
   final CancelPhase phase;
+
+  /// Q2: picking "Destination needs to be changed" offers the route change
+  /// instead (the rider can still cancel). Only where the ride is still
+  /// live, so never with [committed].
+  final bool offerDestinationChange;
 
   /// The cancel is already committed; the reason is optional feedback.
   final bool committed;
@@ -66,7 +78,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   onPressed: () =>
                       Navigator.pop(context, const CancelOutcome.cancel()),
                   child: Text(
-                    'Skip',
+                    context.l10n.skip,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF5C656C),
@@ -75,7 +87,9 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                 ),
                 Expanded(
                   child: Text(
-                    'Why are you cancelling?',
+                    widget.phase == CancelPhase.inTrip
+                        ? context.l10n.whyEndingTrip
+                        : context.l10n.whyCancelling,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
@@ -90,13 +104,12 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             const SizedBox(height: 4),
             Text(
               widget.committed
-                  ? 'Your request is cancelled. Telling us why is optional '
-                        'and helps us improve matching.'
+                  ? context.l10n.cancelWhyCommitted
                   : widget.phase == CancelPhase.reservation
-                  ? 'Optional. This helps us improve scheduled rides.'
+                  ? context.l10n.cancelWhyReservation
                   : widget.phase == CancelPhase.inTrip
-                  ? 'Optional. This helps us understand active-trip cancellations.'
-                  : 'Optional. This helps us improve matching.',
+                  ? context.l10n.cancelWhyInTrip
+                  : context.l10n.cancelWhyMatching,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: const Color(0xFF5C656C),
@@ -153,6 +166,15 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   ),
                 ),
               ),
+            if (widget.offerDestinationChange &&
+                !widget.committed &&
+                _selected == CancellationReason.destinationChange.id)
+              _DestinationChangeOffer(
+                onChange: () => Navigator.pop(
+                  context,
+                  const CancelOutcome.changeDestination(),
+                ),
+              ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -175,7 +197,11 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   ),
                 ),
                 child: Text(
-                  widget.committed ? 'Send' : 'Cancel ride',
+                  widget.committed
+                      ? context.l10n.send
+                      : widget.phase == CancelPhase.inTrip
+                      ? context.l10n.endTrip
+                      : context.l10n.cancelRide,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -198,7 +224,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                     ),
                   ),
                   child: Text(
-                    'Keep ride',
+                    context.l10n.keepRide,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -210,6 +236,61 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Q2: "Change destination instead?" with a button into the route change.
+class _DestinationChangeOffer extends StatelessWidget {
+  const _DestinationChangeOffer({required this.onChange});
+
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('cancel-change-destination-offer'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2F8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.changeDestinationInstead,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1D252C),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            key: const ValueKey('cancel-change-destination'),
+            onPressed: onChange,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF11181D),
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              context.l10n.changeDestination,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

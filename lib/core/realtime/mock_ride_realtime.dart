@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -10,8 +12,14 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 
 /// Mock matching transport. Assignment is an event, not a widget timer.
+///
+/// It plays the driver app and dispatch for the demo. Every lifecycle step
+/// it shows is first committed on the stand-in server (`POST
+/// /rides/{id}/status`), which applies the shared transition table, so the
+/// server projection and what the rider sees agree (contract v0.3.0).
 class MockRideRealtime implements RideRealtime {
   @override
   bool get supportsRiderSignals => true;
@@ -26,7 +34,14 @@ class MockRideRealtime implements RideRealtime {
     this.ratingPendingAfter = const Duration(milliseconds: 300),
     RealtimeConnection? connection,
     this.api,
+    this.onProjectionVersion,
   }) : connection = connection ?? RealtimeConnection();
+
+  /// R-O2: told the server's `TripProjection.version` each time a commit
+  /// or read answers with one, so the rider's next command can send it as
+  /// `expectedVersion`. The events below are numbered by this transport,
+  /// not by the server, so their `version` cannot be used for that.
+  final void Function(String tripId, int version)? onProjectionVersion;
 
   final Duration assignAfter;
 
@@ -57,6 +72,12 @@ class MockRideRealtime implements RideRealtime {
   int _assignmentAttempt = 0;
   String? _rideId;
   int _sequence = 0;
+
+  /// Server commits run one after another, in the order they were shown.
+  Future<void> _commits = Future<void>.value();
+
+  /// The last lifecycle target committed to the server, to skip repeats.
+  String? _committedTarget;
   bool cancelled = false;
   bool disposed = false;
   bool held = false;
@@ -117,6 +138,14 @@ class MockRideRealtime implements RideRealtime {
     _resumeVersion = null;
 
     if (_rideId == rideId && !disposed && !cancelled) {
+      // RC-08: [unsubscribe] cancelled the only assignment timer. A search
+      // for the same ride subscribing again must still get a driver.
+      if (lastStatus == RideStatus.findingDriver &&
+          _assign == null &&
+          !held &&
+          !_assignmentInFlight) {
+        _armAssignment(rideId);
+      }
       return _controller.stream;
     }
     _assign?.cancel();
@@ -133,6 +162,12 @@ class MockRideRealtime implements RideRealtime {
     held = false;
     _assignmentInFlight = false;
     _rideId = rideId;
+    _acceptedAt = null;
+    _waitingSince = null;
+    _committedTarget = null;
+    // A new ride starts a new commit queue (an older ride's pending commit
+    // must never hold this one back).
+    _commits = Future<void>.value();
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
@@ -181,12 +216,23 @@ class MockRideRealtime implements RideRealtime {
     _sequence = 0;
     lastStatus = RideStatus.findingDriver;
     lastDriver = null;
-    _emit(RideStatus.findingDriver);
+    // RC-08: like the resume path, deliver the first status once the
+    // caller's listener is attached (a broadcast stream drops it otherwise).
+    scheduleMicrotask(() {
+      if (cancelled || disposed || _rideId != rideId) return;
+      if (lastStatus != RideStatus.findingDriver) return;
+      _emit(RideStatus.findingDriver);
+    });
+    _armAssignment(rideId);
+    return _controller.stream;
+  }
+
+  void _armAssignment(String rideId) {
     _assign = Timer(assignAfter, () {
+      _assign = null;
       if (cancelled || disposed || held || _rideId != rideId) return;
       assignNow();
     });
-    return _controller.stream;
   }
 
   void holdAssignment() {
@@ -273,6 +319,18 @@ class MockRideRealtime implements RideRealtime {
       return;
     }
     _sequence = sequence ?? _sequence + 1;
+    if (signal == null) _commit(status);
+    // Contract v0.4.0: the projection stamps the accept (Q12) and the start
+    // of the waiting clock (Q42); a new search clears both.
+    if (status.isSearching) {
+      _acceptedAt = null;
+      _waitingSince = null;
+    } else if (status.isMatched) {
+      _acceptedAt ??= DateTime.now().toUtc();
+    }
+    if (status == RideStatus.driverWaiting) {
+      _waitingSince ??= DateTime.now().toUtc();
+    }
     lastStatus = status;
     if (driver != null) lastDriver = driver;
     if (latitude != null) lastLat = latitude;
@@ -295,6 +353,11 @@ class MockRideRealtime implements RideRealtime {
         locationAt: lastLocationAt,
         signal: signal,
         message: message,
+        payload: {
+          if (_acceptedAt case final at?) acceptedAtKey: WireTime.format(at),
+          if (_waitingSince case final at?)
+            waitingArrivedAtKey: WireTime.format(at),
+        },
       ),
     );
     if (status.isTerminal) {
@@ -303,6 +366,10 @@ class MockRideRealtime implements RideRealtime {
       unsubscribe();
     }
   }
+
+  /// When this ride's driver accepted and started waiting (UTC).
+  DateTime? _acceptedAt;
+  DateTime? _waitingSince;
 
   void _emit(RideStatus status) {
     final eta = _etaSeconds();
@@ -374,6 +441,8 @@ class MockRideRealtime implements RideRealtime {
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
+    _acceptedAt = null;
+    _waitingSince = null;
     _progress = 0;
     _tripStartLat = null;
     _tripStartLng = null;
@@ -381,6 +450,10 @@ class MockRideRealtime implements RideRealtime {
     // Publish the driver-drop outcome exactly once so Waiting can explain it.
     // Do not tear the transport down: this terminal-looking dispatch event is
     // reversible for the same ride and researchAfterDriverCancel owns restart.
+    // Contract v0.3.0: a live driver cancel before boarding returns the
+    // trip to `searching` on the server (never a terminal status that is
+    // later undone). The rider sees the reassignment notice.
+    _persistDriverCancel(rideId);
     lastStatus = RideStatus.cancelledByDriver;
     _sequence += 1;
     final now = DateTime.now().toUtc();
@@ -393,6 +466,10 @@ class MockRideRealtime implements RideRealtime {
         version: _sequence,
         occurredAt: now,
         serverTime: now,
+        payload: {
+          'kind': 'driver_cancelled',
+          'tripStatus': TripStatus.searching.wireName,
+        },
       ),
     );
   }
@@ -455,7 +532,8 @@ class MockRideRealtime implements RideRealtime {
   /// Moves the driver from pickup toward the destination as the trip ticks
   /// pass, so the in-trip marker/route path is actually exercised by every
   /// journey through this mock, not left sitting at pickup for the whole ride.
-  void _advanceTripPosition() {
+  /// True when the driver moved.
+  bool _advanceTripPosition() {
     final destLat = destinationLat;
     final destLng = destinationLng;
     final startLat = _tripStartLat;
@@ -464,12 +542,13 @@ class MockRideRealtime implements RideRealtime {
         destLng == null ||
         startLat == null ||
         startLng == null) {
-      return;
+      return false;
     }
     final t = (_tripTicksDone / tripTicks).clamp(0.0, 1.0);
     lastLat = startLat + (destLat - startLat) * t;
     lastLng = startLng + (destLng - startLng) * t;
     lastLocationAt = DateTime.now();
+    return true;
   }
 
   /// The driver is at pickup; carry the ride through to completion so the
@@ -502,7 +581,7 @@ class MockRideRealtime implements RideRealtime {
         return;
       }
       _tripTicksDone += 1;
-      _advanceTripPosition();
+      final moved = _advanceTripPosition();
       if (_tripTicksDone >= tripTicks) {
         timer.cancel();
         lastStatus = RideStatus.tripCompleted;
@@ -520,6 +599,7 @@ class MockRideRealtime implements RideRealtime {
       }
       lastStatus = RideStatus.tripInProgress;
       _emit(RideStatus.tripInProgress);
+      if (moved) _commitTripFix();
     });
   }
 
@@ -567,6 +647,7 @@ class MockRideRealtime implements RideRealtime {
       try {
         final json = await client.get('/api/v1/rides/$id');
         final ride = json['ride'];
+        _observe(json);
         if (ride is Map) {
           final lat = (ride['pickupLat'] as num?)?.toDouble();
           final lng = (ride['pickupLng'] as num?)?.toDouble();
@@ -582,32 +663,146 @@ class MockRideRealtime implements RideRealtime {
   Future<void> _persistAssignment(String rideId) async {
     final client = api;
     if (client == null) return;
-    try {
-      await client.post(
+    _committedTarget = TripStatus.accepted.wireName;
+    final driver = lastDriver?.toJson();
+    final lat = lastLat;
+    final lng = lastLng;
+    await _enqueue(
+      () => client.post(
         '/api/v1/rides/$rideId/status',
         body: {
-          'status': RideStatus.driverAssigned.name,
-          'driver': lastDriver?.toJson(),
-          'lat': lastLat,
-          'lng': lastLng,
+          // searching → offered → accepted, walked by the server.
+          'status': TripStatus.accepted.wireName,
+          'driver': driver,
+          'lat': lat,
+          'lng': lng,
         },
-      );
-    } catch (_) {
-      // Mock transport: a lost location post is replaced by the next tick.
-    }
+      ),
+    );
   }
 
   Future<void> _persistCompletion(String rideId) async {
     final client = api;
     if (client == null) return;
-    try {
-      await client.post(
+    _committedTarget = TripStatus.completed.wireName;
+    // A real backend updates its own ride record before it ever pushes
+    // the "trip completed" realtime event; queued after every earlier step.
+    await _enqueue(
+      () => client.post(
         '/api/v1/rides/$rideId/status',
-        body: {'status': RideStatus.tripCompleted.name},
-      );
-    } catch (_) {
-      // Mock transport: completion is retried by the next status poll.
+        body: {'status': TripStatus.completed.wireName},
+      ),
+    );
+  }
+
+  /// The driver's own cancel (`cancel` by driver): before boarding the
+  /// server puts a live trip back to `searching`.
+  void _persistDriverCancel(String rideId) {
+    final client = api;
+    if (client == null) return;
+    _committedTarget = null;
+    unawaited(
+      _enqueue(
+        () => client.post(
+          '/api/v1/rides/$rideId/status',
+          body: {'command': 'cancel', 'actor': 'driver'},
+        ),
+      ),
+    );
+  }
+
+  /// Commits [status] on the stand-in server: a lifecycle step as its
+  /// contract status, a post-trip UI state as the payment / rating field it
+  /// stands for. The server refuses anything the transition table does not
+  /// allow (e.g. after the rider cancelled), and the refusal is ignored
+  /// here: the server projection stays the truth.
+  void _commit(RideStatus status) {
+    final client = api;
+    final rideId = _rideId;
+    if (client == null || rideId == null) return;
+    final Map<String, Object?>? body = switch (status) {
+      RideStatus.driverAssigned => null, // _persistAssignment carries it.
+      RideStatus.findingDriver || RideStatus.cancelledByDriver => null,
+      RideStatus.driverArriving ||
+      RideStatus.driverWaiting ||
+      RideStatus.tripStarted ||
+      RideStatus.tripInProgress ||
+      RideStatus.approachingDropoff => {
+        'status': status.tripStatus.wireName,
+      },
+      RideStatus.tripCompleted => null, // _persistCompletion carries it.
+      RideStatus.paymentProcessing => {'paymentStatus': 'authorized'},
+      RideStatus.paymentFinalized => {'paymentStatus': 'captured'},
+      RideStatus.ratingPending => {'ratingStatus': 'pending'},
+      _ => null,
+    };
+    if (body == null) return;
+    final target = '${body.values.single}';
+    if (target == _committedTarget) return;
+    _committedTarget = target;
+    // R-O1: on board, the driver's fix rides along, so the server can
+    // measure the distance driven from where the trip started.
+    final lat = lastLat;
+    final lng = lastLng;
+    final onTrip = _onTripStatuses.contains(status);
+    final payload = {
+      ...body,
+      if (onTrip && lat != null && lng != null) 'lat': lat,
+      if (onTrip && lat != null && lng != null) 'lng': lng,
+    };
+    unawaited(
+      _enqueue(
+        () => client.post('/api/v1/rides/$rideId/status', body: payload),
+      ),
+    );
+  }
+
+  static const _onTripStatuses = {
+    RideStatus.tripStarted,
+    RideStatus.tripInProgress,
+    RideStatus.approachingDropoff,
+  };
+
+  /// R-O1: one GPS fix of the moving trip for the server (a `location`
+  /// event there, version unchanged), queued after the status commits.
+  void _commitTripFix() {
+    final client = api;
+    final rideId = _rideId;
+    final lat = lastLat;
+    final lng = lastLng;
+    if (client == null || rideId == null || lat == null || lng == null) {
+      return;
     }
+    unawaited(
+      _enqueue(
+        () => client.post(
+          '/api/v1/rides/$rideId/status',
+          body: {'lat': lat, 'lng': lng},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _enqueue(Future<Object?> Function() call) {
+    return _commits = _commits.then((_) async {
+      try {
+        _observe(await call());
+      } catch (_) {
+        // Mock transport: a refused or lost commit leaves the server as is.
+      }
+    });
+  }
+
+  /// R-O2: passes on the server's projection version from a response.
+  void _observe(Object? response) {
+    final callback = onProjectionVersion;
+    if (callback == null || response is! Map) return;
+    final ride = response['ride'] ?? response['projection'] ?? response;
+    if (ride is! Map) return;
+    final id = (ride['tripId'] ?? ride['id'])?.toString();
+    final version = ride['version'];
+    if (id == null || id.isEmpty || version is! num) return;
+    callback(id, version.toInt());
   }
 
   @override
@@ -635,13 +830,11 @@ class MockRideRealtime implements RideRealtime {
       try {
         final json = await client.get('/api/v1/rides/$rideId');
         final raw = json['ride'];
+        _observe(json);
         if (raw is Map &&
-            raw['id']?.toString() == rideId &&
+            (raw['tripId'] ?? raw['id'])?.toString() == rideId &&
             raw['status'] is String) {
-          status = RideStatus.values.firstWhere(
-            (value) => value.name == raw['status'],
-            orElse: () => status,
-          );
+          status = RideStatusWire.fromProjection(raw) ?? status;
           lastDriver =
               MatchedDriver.fromJson(
                 raw['driver'] is Map

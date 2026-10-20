@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -105,6 +107,8 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
+    bool endedEarly = false,
+    Money? charged,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -120,6 +124,8 @@ abstract final class OnDemandRideHistoryStore {
       terminalStatus: terminalStatus,
       endedAt: endedAt,
       cancellationReason: cancellationReason,
+      endedEarly: endedEarly,
+      charged: charged,
     );
     if (record == null) {
       throw ArgumentError.value(
@@ -180,6 +186,8 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
+    bool endedEarly = false,
+    Money? charged,
   }) {
     final rideId = snapshot.rideId?.trim();
     final reservationStatus = _reservationStatus(terminalStatus);
@@ -201,12 +209,16 @@ abstract final class OnDemandRideHistoryStore {
         lat: snapshot.destinationLat,
         lng: snapshot.destinationLng,
       ),
-      categoryId: _categoryId(snapshot.rideType),
+      // H7: the booked id, never one derived from the label.
+      categoryId: snapshot.categoryId != null
+          ? CategoryIds.canonical(snapshot.categoryId!)
+          : _categoryId(snapshot.rideType),
       categoryName: snapshot.rideType.trim().isEmpty
           ? 'Movera'
           : snapshot.rideType,
       categoryImage: _categoryImage(snapshot.rideType),
       price: snapshot.price,
+      currency: snapshot.currency,
       paymentMethod: snapshot.paymentMethod,
       status: reservationStatus,
       driver: _driver(snapshot),
@@ -217,6 +229,8 @@ abstract final class OnDemandRideHistoryStore {
           cancellationReason ??
           snapshot.cancellationReason ??
           _endedSearchReason(terminalStatus),
+      endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
+      chargedFare: charged,
     );
   }
 
@@ -231,6 +245,10 @@ abstract final class OnDemandRideHistoryStore {
     if (status == RideStatus.cancelledByRider ||
         status == RideStatus.cancelledByDriver ||
         status == RideStatus.cancelledBySystem ||
+        status == RideStatus.cancelledByAdmin ||
+        status == RideStatus.endedByDriver ||
+        status == RideStatus.noShow ||
+        status == RideStatus.tripFailed ||
         // ARCH-3 / RIDE-5: a search the server ended is a request that did
         // not happen; History keeps the attempt as a cancelled ride.
         status == RideStatus.noDriverFound ||
@@ -243,6 +261,12 @@ abstract final class OnDemandRideHistoryStore {
   static String? _endedSearchReason(RideStatus status) => switch (status) {
     RideStatus.noDriverFound => 'No driver found',
     RideStatus.bookingExpired => 'Request expired',
+    // Contract v0.3.0: each cause stays distinct in History.
+    RideStatus.cancelledByAdmin => 'Cancelled by Movera',
+    RideStatus.cancelledBySystem => 'Cancelled by the system',
+    RideStatus.noShow => 'No-show',
+    RideStatus.tripFailed => 'Ride failed',
+    RideStatus.endedByDriver => 'Driver ended the ride',
     _ => null,
   };
 
@@ -260,7 +284,7 @@ abstract final class OnDemandRideHistoryStore {
 
   static String _categoryId(String rideType) {
     final id = rideType.trim().toLowerCase().replaceAll(' ', '-');
-    return id.isEmpty ? 'movera' : id;
+    return id.isEmpty ? CategoryIds.economy : id;
   }
 
   static String _categoryImage(String rideType) {

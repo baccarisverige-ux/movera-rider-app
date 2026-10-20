@@ -14,6 +14,10 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_loader.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
+import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideHistory extends StatefulWidget {
   const RideHistory({super.key, this.reservations, this.onDemandReader});
@@ -132,12 +136,12 @@ class _RideHistoryState extends State<RideHistory> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Scheduled rides',
+                context.l10n.scheduledRides,
                 style: _text(20, weight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               Text(
-                'Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.',
+                context.l10n.historyHowBody,
                 style: _text(14, color: _muted, height: 1.45),
               ),
               const SizedBox(height: 22),
@@ -153,7 +157,7 @@ class _RideHistoryState extends State<RideHistory> {
                     ),
                   ),
                   child: Text(
-                    'Schedule a ride',
+                    context.l10n.scheduleARide,
                     style: _text(
                       16,
                       weight: FontWeight.w600,
@@ -186,13 +190,13 @@ class _RideHistoryState extends State<RideHistory> {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-                  tooltip: 'Back',
+                  tooltip: context.l10n.back,
                 ),
                 const Spacer(),
                 IconButton(
                   onPressed: _showHowItWorks,
                   icon: const Icon(Icons.info_outline_rounded, color: _ink),
-                  tooltip: 'How history works',
+                  tooltip: context.l10n.historyHow,
                 ),
               ],
             ),
@@ -200,7 +204,7 @@ class _RideHistoryState extends State<RideHistory> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Text(
-              'Rides',
+              context.l10n.rides,
               style: _text(34, weight: FontWeight.w700, letterSpacing: -0.8),
             ),
           ),
@@ -208,9 +212,9 @@ class _RideHistoryState extends State<RideHistory> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                _tabLabel('Upcoming', 0),
-                _tabLabel('Completed', 1),
-                _tabLabel('Cancelled', 2),
+                _tabLabel(context.l10n.upcoming, 0),
+                _tabLabel(context.l10n.resCompleted, 1),
+                _tabLabel(context.l10n.resCancelled, 2),
               ],
             ),
           ),
@@ -307,7 +311,7 @@ class _RideHistoryState extends State<RideHistory> {
               ),
             ),
             child: Text(
-              'Schedule a ride',
+              context.l10n.scheduleARide,
               style: _text(16, weight: FontWeight.w600),
             ),
           ),
@@ -338,24 +342,27 @@ class _RideHistoryState extends State<RideHistory> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      'No upcoming rides',
+                      context.l10n.noUpcomingRides,
                       style: _text(22, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Whatever is on your schedule, a Scheduled Ride can get you there on time',
+                      context.l10n.noUpcomingBody,
                       textAlign: TextAlign.center,
                       style: _text(14.5, color: _muted, height: 1.45),
                     ),
                     const SizedBox(height: 16),
-                    GestureDetector(
+                    MoveraHitArea(
+                      label: context.l10n.learnHow,
                       onTap: _showHowItWorks,
-                      child: Text(
-                        'Learn how it works',
-                        style: _text(
-                          15,
-                          weight: FontWeight.w600,
-                          color: _accent,
+                      child: ExcludeSemantics(
+                        child: Text(
+                          context.l10n.learnHow,
+                          style: _text(
+                            15,
+                            weight: FontWeight.w600,
+                            color: _accent,
+                          ),
                         ),
                       ),
                     ),
@@ -376,7 +383,7 @@ class _RideHistoryState extends State<RideHistory> {
                 ),
               ),
               child: Text(
-                'Schedule a ride',
+                context.l10n.scheduleARide,
                 style: _text(
                   16.5,
                   weight: FontWeight.w600,
@@ -413,10 +420,10 @@ class _RideHistoryState extends State<RideHistory> {
     required bool completed,
   }) {
     if (_onDemandLoading && reservations.isEmpty) {
-      return const Center(
+      return Center(
         child: MoveraLoader(
-          title: 'Loading rides',
-          message: 'Checking your trip history.',
+          title: context.l10n.loadingRides,
+          message: context.l10n.checkingHistory,
         ),
       );
     }
@@ -424,9 +431,9 @@ class _RideHistoryState extends State<RideHistory> {
       return Center(
         child: MoveraEmptyState(
           icon: Icons.error_outline_rounded,
-          title: 'Couldn’t load rides',
-          message: 'Your trip history couldn’t be read. Try again.',
-          actionLabel: 'Retry',
+          title: context.l10n.historyLoadFailed,
+          message: context.l10n.historyLoadFailedBody,
+          actionLabel: context.l10n.retry,
           onAction: _loadOnDemand,
         ),
       );
@@ -435,11 +442,11 @@ class _RideHistoryState extends State<RideHistory> {
       return Center(
         child: MoveraEmptyState(
           icon: completed ? Icons.route_outlined : Icons.event_busy_outlined,
-          title: completed ? 'No completed rides yet' : 'No cancelled rides',
+          title: completed ? context.l10n.noCompletedRides : context.l10n.noCancelledRides,
           message: completed
-              ? 'Completed trips and their real ride details will appear here.'
-              : 'Trips you cancel will appear here with their recorded reason.',
-          actionLabel: 'Book a ride',
+              ? context.l10n.noCompletedBody
+              : context.l10n.noCancelledBody,
+          actionLabel: context.l10n.bookARide,
           onAction: () =>
               Navigator.maybePop(context, RideHistory.startBookingResult),
         ),
@@ -493,7 +500,11 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 18),
             Text(
-              ride.status.isCompleted ? 'Completed ride' : 'Cancelled ride',
+              ride.status.isCompleted
+                  ? context.l10n.completedRide
+                  : ride.endedEarly
+                  ? context.l10n.endedEarly
+                  : context.l10n.cancelledRide,
               style: _text(21, weight: FontWeight.w700),
             ),
             const SizedBox(height: 14),
@@ -504,9 +515,32 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${ride.categoryName} · Booked price ${ReservationFormat.price(ride)}',
+              ride.chargedFare != null
+                  ? context.l10n.historyCharged(
+                      ride.categoryName,
+                      ReservationFormat.price(ride),
+                    )
+                  : context.l10n.historyBooked(
+                      ride.categoryName,
+                      ReservationFormat.price(ride),
+                    ),
+              key: const ValueKey('history-detail-price'),
               style: _text(15, weight: FontWeight.w700),
             ),
+            if (ride.endedEarly) ...[
+              const SizedBox(height: 5),
+              Text(
+                context.l10n.historyEndedEarly,
+                style: _text(13.5, color: _muted),
+              ),
+            ],
+            if (ride.cancellationFee case final fee? when fee.isPositive) ...[
+              const SizedBox(height: 5),
+              Text(
+                context.l10n.cancelFee(ReservationFormat.money(fee)),
+                style: _text(13.5, color: _muted),
+              ),
+            ],
             const SizedBox(height: 5),
             Text(
               ReservationFormat.historyWhen(ride),
@@ -514,13 +548,17 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 5),
             Text(
-              'Payment method: ${ride.paymentMethod}',
+              context.l10n.paymentMethodLine(
+                L10n.isCashLabel(ride.paymentMethod)
+                    ? context.l10n.payCash
+                    : ride.paymentMethod,
+              ),
               style: _text(13.5, color: _muted),
             ),
             if (ride.cancellationReason?.trim().isNotEmpty == true) ...[
               const SizedBox(height: 5),
               Text(
-                'Reason: ${ride.cancellationReason}',
+                context.l10n.reasonLine(ReservationFormat.reasonLabel(ride.cancellationReason!)),
                 style: _text(13.5, color: _muted),
               ),
             ],
@@ -528,6 +566,23 @@ class _RideHistoryState extends State<RideHistory> {
             RideCheckTripEntry(
               rideId: ride.reservationId.substring('ondemand-'.length),
               topSpacing: 14,
+            ),
+            const SizedBox(height: 6),
+            // UI-07: the completion screen is not the only way to report a
+            // problem with a ride.
+            TextButton.icon(
+              key: const ValueKey('history-get-help'),
+              onPressed: () {
+                Navigator.pop(context);
+                guardedPush(
+                  this.context,
+                  RightToLeftTransition(
+                    SelectIssue(ride: SupportController.rideFor(ride)),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.help_outline_rounded),
+              label: Text(context.l10n.getHelpWithRide),
             ),
           ],
         ),

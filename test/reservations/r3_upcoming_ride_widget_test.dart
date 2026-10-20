@@ -55,7 +55,7 @@ void main() {
         scheduledPickupAt: pickupAt,
         pickup: const ReservationPlace(label: 'Stockholm Central'),
         destination: const ReservationPlace(label: 'Arlanda Airport'),
-        categoryId: 'movera',
+        categoryId: 'economy',
         categoryName: 'Movera',
         categoryImage: 'assets/images/rides/movera.webp',
         price: 459,
@@ -206,7 +206,7 @@ void main() {
       expect(
         find.text(
           'Free until Fri, 16 Oct, 07:00 (1 h before pickup). '
-          'After that, cancelling costs kr 50.',
+          'After that, cancelling costs 50 kr.',
         ),
         findsOneWidget,
       );
@@ -238,11 +238,11 @@ void main() {
 
       await openCancelSheet(tester);
       expect(find.byKey(const Key('reservation-cancel-fee')), findsOneWidget);
-      expect(find.text('Cancellation fee: kr 50'), findsOneWidget);
+      expect(find.text('Cancellation fee: 50 kr'), findsOneWidget);
       expect(
         find.text(
           'Free cancellation ended at 07:00, 1 h before pickup. '
-          'You pay kr 50 if you cancel now.',
+          'You pay 50 kr if you cancel now.',
         ),
         findsOneWidget,
       );
@@ -277,11 +277,11 @@ void main() {
       await pumpPage(tester, c);
 
       await openCancelSheet(tester);
-      expect(find.text('Cancellation fee: kr 75'), findsOneWidget);
+      expect(find.text('Cancellation fee: 75 kr'), findsOneWidget);
       expect(
         find.text(
           'Free cancellation ended at 06:00, 2 h before pickup. '
-          'You pay kr 75 if you cancel now.',
+          'You pay 75 kr if you cancel now.',
         ),
         findsOneWidget,
       );
@@ -300,7 +300,7 @@ void main() {
       expect(
         find.text(
           'Cancelling is free until 1 h before pickup. After that, it costs '
-          'kr 50. Other fees and time windows apply only when they are shown '
+          '50 kr. Other fees and time windows apply only when they are shown '
           'before booking.',
         ),
         findsOneWidget,

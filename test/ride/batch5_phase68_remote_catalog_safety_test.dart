@@ -29,12 +29,12 @@ void main() {
     );
     addTearDown(controller.dispose);
 
-    expect(controller.selectedRideId, 'movera');
+    expect(controller.selectedRideId, 'economy');
     final selected = controller.ensureCatalogSelection();
 
     expect(selected?.id, 'remote-a');
     expect(controller.selectedRideId, 'remote-a');
-    expect(controller.rideByIdOrNull('movera'), isNull);
+    expect(controller.rideByIdOrNull('economy'), isNull);
   });
 
   test('empty remote catalog is safe and exposes no selection', () {
@@ -42,7 +42,7 @@ void main() {
     addTearDown(controller.dispose);
 
     expect(controller.ensureCatalogSelection(), isNull);
-    expect(controller.rideByIdOrNull('movera'), isNull);
-    expect(() => controller.rideById('movera'), throwsStateError);
+    expect(controller.rideByIdOrNull('economy'), isNull);
+    expect(() => controller.rideById('economy'), throwsStateError);
   });
 }

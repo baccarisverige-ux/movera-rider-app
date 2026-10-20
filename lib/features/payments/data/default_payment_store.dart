@@ -1,6 +1,6 @@
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
-/// Shared default-payment brand (`apple`, `swish`, …).
+/// Shared default-payment brand (`apple`, `cash`, …).
 ///
 /// Wallet already used this key. Ride selection and the payment repository
 /// now read/write the same slot so the choice survives relaunch (R10).

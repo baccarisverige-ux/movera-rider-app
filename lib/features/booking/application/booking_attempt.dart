@@ -7,8 +7,8 @@ import 'package:movera_rider/core/api/idempotency.dart';
 /// operation succeeds or the rider changes the booking intent.
 ///
 /// RIDE-3: the intent is the rider's trip (route, category, payment), not the
-/// quote, which is refreshed after every failure. A retry within
-/// [reuseWindow] of the first try is the same booking; after that a new
+/// quote. A retry within [reuseWindow] of the first try is the same booking
+/// and resends the first request unchanged ([replay]); after that a new
 /// booking gets a new key.
 class BookingAttempt {
   BookingAttempt({required this.intentKey, DateTime? startedAt})
@@ -21,6 +21,12 @@ class BookingAttempt {
   final String intentKey;
   final String idempotencyKey;
   final DateTime startedAt;
+
+  /// RC-04: the request as first sent under [idempotencyKey]. The contract
+  /// server answers a different body under the same key with 409, so a
+  /// retry of an unfinished attempt sends exactly this again (same quote,
+  /// same pin) instead of a re-quoted body. Null until a request was sent.
+  Future<String> Function()? replay;
 
   bool matches(String otherIntentKey, {DateTime? now}) =>
       intentKey == otherIntentKey &&

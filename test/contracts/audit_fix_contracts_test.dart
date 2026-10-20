@@ -51,14 +51,13 @@ void main() {
     });
 
     test('RideStatus round-trips through the trip contract', () {
-      const lossy = {TripStatus.noShow, TripStatus.failed};
+      // Contract v0.3.0: no_show, failed, cancelled_by_admin and
+      // cancelled_by_system each keep their own UI state.
       for (final trip in TripStatus.values) {
         final ride = RideStatusWire.fromTrip(trip);
         if (trip == TripStatus.offered) {
           // An offer to one driver is still a search for the rider.
           expect(ride, RideStatus.findingDriver);
-        } else if (lossy.contains(trip)) {
-          expect(ride, RideStatus.cancelledBySystem, reason: trip.name);
         } else {
           expect(ride.tripStatus, trip, reason: trip.name);
         }
@@ -172,12 +171,14 @@ void main() {
   group('ARCH-11 money and time contracts', () {
     test('Money is integer minor units with an ISO-4217 code', () {
       expect(
-        Money.tryParse({'amountMinor': 25900, 'currency': 'sek'}),
+        Money.fromWire({'amountMinor': 25900, 'currency': 'SEK'}),
         const Money(25900, 'SEK'),
       );
-      expect(Money.tryParse({'amountMinor': 259.5, 'currency': 'SEK'}), isNull);
+      // RC-11: one strict reader, as `fixtures/money.json#invalid` says.
+      expect(Money.fromWire({'amountMinor': 25900, 'currency': 'sek'}), isNull);
+      expect(Money.fromWire({'amountMinor': 259.5, 'currency': 'SEK'}), isNull);
       expect(
-        Money.tryParse({'amountMinor': 100, 'currency': 'kronor'}),
+        Money.fromWire({'amountMinor': 100, 'currency': 'kronor'}),
         isNull,
       );
       expect(Money.fromLegacyMajor(259.99).amountMinor, 25999);

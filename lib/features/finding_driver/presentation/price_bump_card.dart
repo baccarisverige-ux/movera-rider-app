@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Flat offer controls for delayed search — no nested dialog chrome.
 class PriceBumpCard extends StatefulWidget {
@@ -11,17 +16,57 @@ class PriceBumpCard extends StatefulWidget {
     required this.currentPrice,
     required this.steps,
     required this.maxPrice,
+    this.currency = Money.defaultCurrency,
     this.busy = false,
     required this.onConfirm,
+    this.onConfirmIncrease,
     required this.onKeepWaiting,
   });
 
   final double currentPrice;
+
+  /// Quick raise steps in whole units of [currency] (the zone's
+  /// `raiseSteps`, owner Q6; see [wholeSteps]).
   final List<int> steps;
   final double maxPrice;
+
+  /// Q7: the trip's currency. Prices, steps and the typed price are whole
+  /// units of it.
+  final String currency;
   final bool busy;
+
+  /// The raise in whole units of [currency], when [onConfirmIncrease] is
+  /// not given.
   final ValueChanged<int> onConfirm;
+
+  /// The raise as Money in [currency]: the typed total less the current
+  /// fare, to the minor unit (a 24.60 € fare raised to 30 € is +5.40 €).
+  final ValueChanged<Money>? onConfirmIncrease;
   final VoidCallback onKeepWaiting;
+
+  /// The enabled raise steps of a zone ([steps]) as whole units of
+  /// [currency]: a step in another currency is never shown, and one that is
+  /// not a whole unit is left out (the price field takes whole units).
+  static List<int> wholeSteps(Iterable<Money> steps, String currency) {
+    final unit = Money.minorPerMajor(currency);
+    return [
+      for (final step in steps)
+        if (step.currency == currency &&
+            step.amountMinor > 0 &&
+            step.amountMinor % unit == 0)
+          step.amountMinor ~/ unit,
+    ];
+  }
+
+  /// Q6: the raise steps to offer on a trip in [currency]: the enabled
+  /// `raiseSteps` of the zone's [config] when it is in [currency], else
+  /// the built-in seed's (until the config is read).
+  static List<int> stepsFor(RiderAppConfig? config, String currency) {
+    final source = config?.currency == currency
+        ? config
+        : seedConfigForTrip(currency);
+    return wholeSteps(source?.enabledRaiseSteps ?? const <Money>[], currency);
+  }
 
   @override
   State<PriceBumpCard> createState() => _PriceBumpCardState();
@@ -34,21 +79,62 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   int get _current => widget.currentPrice.round();
 
+  int get _unitMinor => Money.minorPerMajor(widget.currency);
+
+  bool get _kronor => widget.currency == Money.defaultCurrency;
+
+  /// [major] in minor units. A kronor fare counts from the whole krona
+  /// shown, as before; euros and dinars to the minor unit.
+  int _minorOf(double major) => _kronor
+      ? major.round() * _unitMinor
+      : Money.fromLegacyMajor(major, widget.currency).amountMinor;
+
+  int get _currentMinor => _minorOf(widget.currentPrice);
+
+  /// [amount] whole units of the trip's currency, as the fare is shown.
+  String _money(num amount) => formatMajor(amount, widget.currency);
+
+  /// The symbol after the typed price: "kr", "€", "DT".
+  String get _unit => _money(0).split(' ').last;
+
   int? get _typedTotal {
     final raw = _price.text.trim();
     if (raw.isEmpty) return null;
     return int.tryParse(raw);
   }
 
+  /// The raise in minor units of the trip's currency.
   int? get _increase {
     final total = _typedTotal;
-    if (total == null) return _selectedStep;
-    final extra = total - _current;
-    if (extra <= 0 || total > widget.maxPrice.round()) return null;
+    final step = _selectedStep;
+    if (total == null) {
+      if (step == null) return null;
+      final increase = step * _unitMinor;
+      return _currentMinor + increase > _minorOf(widget.maxPrice)
+          ? null
+          : increase;
+    }
+    final extra = total * _unitMinor - _currentMinor;
+    if (extra <= 0 || total * _unitMinor > _minorOf(widget.maxPrice)) {
+      return null;
+    }
     return extra;
   }
 
-  bool get _canConfirm => _increase != null && _increase! > 0;
+  bool get _canConfirm =>
+      _increase != null &&
+      _increase! > 0 &&
+      (widget.onConfirmIncrease != null || _increase! % _unitMinor == 0);
+
+  void _confirm() {
+    final increase = _increase!;
+    final callback = widget.onConfirmIncrease;
+    if (callback != null) {
+      callback(Money(increase, widget.currency));
+    } else {
+      widget.onConfirm(increase ~/ _unitMinor);
+    }
+  }
 
   @override
   void dispose() {
@@ -60,7 +146,12 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
   void _selectStep(int step) {
     setState(() {
       _selectedStep = step;
-      _price.text = '${_current + step}';
+      // A fare with cents (24,60 €) raised by a whole step is 26,60 €: the
+      // field shows it exactly and the step is the raise.
+      _price.text = _currentMinor % _unitMinor == 0
+          ? '${_current + step}'
+          : Money(_currentMinor + step * _unitMinor, widget.currency)
+                .majorString;
       _price.selection = TextSelection.collapsed(offset: _price.text.length);
     });
   }
@@ -79,14 +170,13 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   @override
   Widget build(BuildContext context) {
-    final next = _current + (_increase ?? 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Offer',
+              context.l10n.offer,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -97,7 +187,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             const Spacer(),
             IconButton(
               onPressed: widget.busy ? null : widget.onKeepWaiting,
-              tooltip: 'Keep waiting',
+              tooltip: context.l10n.keepWaiting,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(
                 Icons.close_rounded,
@@ -109,7 +199,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Want to improve your chances?',
+          context.l10n.bumpTitle,
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -119,7 +209,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Raise your offer. Nearby drivers see the new price first.',
+          context.l10n.bumpBody,
           style: GoogleFonts.poppins(
             fontSize: 13,
             height: 1.35,
@@ -128,7 +218,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Current $_current kr',
+          context.l10n.bumpCurrent(_money(widget.currentPrice)),
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -148,7 +238,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 if (i > row) const SizedBox(width: 8),
                 Expanded(
                   child: _Step(
-                    label: '+${widget.steps[i]} kr',
+                    label: '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
                     selected: _selectedStep == widget.steps[i],
                     onTap: widget.busy
                         ? null
@@ -161,7 +251,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Or set a new price',
+          context.l10n.bumpOrSetNew,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -189,7 +279,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
               // UI-6: was 0xFF9AA3A9 (2.41:1 on the 0xFFF6F8FA fill).
               color: MoveraTokens.subtleOnFill,
             ),
-            suffixText: 'kr',
+            suffixText: _unit,
             suffixStyle: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -220,9 +310,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           width: double.infinity,
           height: 48,
           child: FilledButton(
-            onPressed: !widget.busy && _canConfirm
-                ? () => widget.onConfirm(_increase!)
-                : null,
+            onPressed: !widget.busy && _canConfirm ? _confirm : null,
             style: FilledButton.styleFrom(
               backgroundColor: MoveraTokens.cta,
               disabledBackgroundColor: MoveraTokens.line,
@@ -240,7 +328,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                     ),
                   )
                 : Text(
-                    _canConfirm ? 'Confirm $next kr' : 'Set new price',
+                    _canConfirm
+                        ? context.l10n.bumpConfirm(formatMoney(Money(_currentMinor + _increase!, widget.currency), whole: true))
+                        : context.l10n.bumpSetNewPrice,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -256,7 +346,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           // D-012: the total above is a preview. Only the rider's increase is
           // sent; the fare shown afterwards is the one the server returns.
           Text(
-            'Movera confirms your final fare after you raise your offer.',
+            context.l10n.bumpServerConfirms,
             key: const ValueKey('price-bump-server-confirms'),
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
@@ -271,7 +361,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           child: TextButton(
             onPressed: widget.busy ? null : widget.onKeepWaiting,
             child: Text(
-              'Keep waiting',
+              context.l10n.keepWaiting,
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF5C656C),

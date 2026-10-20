@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/contracts/category_ids.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -116,6 +118,7 @@ class RideCatalogController extends ChangeNotifier {
           x.note != y.note ||
           x.etaMin != y.etaMin ||
           x.price != y.price ||
+          x.currency != y.currency ||
           x.seats != y.seats ||
           x.badge != y.badge ||
           x.glyph != y.glyph ||
@@ -187,12 +190,18 @@ class RideCatalogJson {
 
   /// One row, or null when it is disabled or unusable.
   static RideCatalogItem? parse(Map<String, dynamic> row) {
-    final id = _string(row['id']);
+    // Contract v0.3.0: canonical category ids; `movera` reads as `economy`.
+    final rawId = _string(row['id']);
+    final id = rawId == null ? null : CategoryIds.canonical(rawId);
     final name = _string(row['name']);
     if (id == null || name == null) return null;
     final enabled = row['enabled'];
     if (enabled is bool && !enabled) return null;
-    final price = (row['price'] as num?)?.toDouble();
+    // Contract v0.3.0: `price: Money`; a bare number is the pre-v0.3 kronor.
+    final rawPrice = row['price'];
+    final listPrice = Money.fromWire(rawPrice) ??
+        (rawPrice is num ? Money.fromLegacyMajor(rawPrice) : null);
+    final price = listPrice?.major;
     if (price == null || price < 0) return null;
     final etaMin = ((row['etaMin'] as num?)?.toInt() ?? 0).clamp(0, 999);
     final seats = ((row['seats'] as num?)?.toInt() ?? 4).clamp(1, 99);
@@ -204,14 +213,19 @@ class RideCatalogJson {
       arrival: '$etaMin min',
       etaMin: etaMin,
       price: price,
+      currency: listPrice!.currency,
       seats: seats,
       badge: _string(row['badge']),
       glyph: glyphFor(_string(row['glyph'])),
     );
   }
 
+  /// Category ids whose picture ships under another name.
+  static const _assetAliases = <String, String>{'economy': 'movera'};
+
   static String imageFor(String key) {
-    final clean = key.trim().toLowerCase();
+    final raw = key.trim().toLowerCase();
+    final clean = _assetAliases[raw] ?? raw;
     if (knownImages.contains(clean)) return '$imageDir/$clean.webp';
     return fallbackImage;
   }

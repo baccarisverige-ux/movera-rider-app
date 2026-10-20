@@ -5,6 +5,7 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Confirm cancel, then collect the rider's final decision.
 ///
@@ -16,6 +17,8 @@ Future<CancelOutcome> showCancelRideSheet(
   required bool takingLonger,
   CancelPhase phase = CancelPhase.searching,
   Future<void> Function()? onCancelConfirmed,
+  String? feeNote,
+  bool offerDestinationChange = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final confirmed = await MoveraSheet.show<bool>(
@@ -25,6 +28,7 @@ Future<CancelOutcome> showCancelRideSheet(
     builder: (_) => CancelRideSheet(
       takingLonger: takingLonger,
       phase: phase,
+      feeNote: feeNote,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
@@ -32,7 +36,12 @@ Future<CancelOutcome> showCancelRideSheet(
     return const CancelOutcome.keep();
   }
 
-  final outcome = await showCancelReasonSheet(context, phase: phase);
+  final outcome = await showCancelReasonSheet(
+    context,
+    phase: phase,
+    offerDestinationChange: offerDestinationChange,
+  );
+  if (outcome.changeDestination) return outcome;
   if (!outcome.cancelled) return const CancelOutcome.keep();
 
   // Legacy callback remains supported, but now fires only after the rider
@@ -80,10 +89,15 @@ class CancelRideSheet extends StatefulWidget {
     this.phase = CancelPhase.searching,
     this.onConfirm,
     this.driverMatched,
+    this.feeNote,
   });
 
   final bool takingLonger;
   final CancelPhase phase;
+
+  /// The cancel fee the rider would pay now, worked out before they
+  /// confirm (contract v0.3.0 §5, `rider.cancelFees`). Null: not shown.
+  final String? feeNote;
 
   /// When set, Cancel request runs this (showing progress) and the sheet
   /// closes with its result. Otherwise the sheet just closes with true.
@@ -150,13 +164,15 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
     final inset = MediaQuery.paddingOf(context).bottom;
     final matched = phase == CancelPhase.matched;
     final inTrip = phase == CancelPhase.inTrip;
+    // UI-01: on board this is the contract's end-early, not a cancel: the
+    // trip ends here and the rider pays for the distance driven.
     final body = inTrip
-        ? 'Your trip is already in progress. Cancelling will end this ride and return you to Home.'
+        ? context.l10n.cancelBodyInTrip
         : matched
-        ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
+        ? context.l10n.cancelBodyMatched
         : takingLonger
-        ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
-        : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
+        ? context.l10n.cancelBodyTakingLonger
+        : context.l10n.cancelBodySearching;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: Column(
@@ -168,7 +184,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               const SizedBox(width: 40),
               Expanded(
                 child: Text(
-                  'Cancel ride?',
+                  inTrip ? context.l10n.endTripHereQ : context.l10n.cancelRideQ,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
@@ -180,13 +196,15 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               IconButton(
                 onPressed: _busy ? null : () => _close(false),
                 icon: const Icon(Icons.close_rounded),
-                tooltip: 'Close',
+                tooltip: context.l10n.close,
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Are you sure you want to cancel?',
+            inTrip
+                ? context.l10n.endBeforeDestinationQ
+                : context.l10n.sureToCancelQ,
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -202,6 +220,19 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               color: const Color(0xFF5C656C),
             ),
           ),
+          if (widget.feeNote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.feeNote!,
+              key: const ValueKey('cancel-fee-note'),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1D252C),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -229,7 +260,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'Cancelling…',
+                          inTrip ? context.l10n.endingTrip : context.l10n.cancelling,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -239,7 +270,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                       ],
                     )
                   : Text(
-                      inTrip ? 'Cancel ride' : 'Cancel request',
+                      inTrip ? context.l10n.endTripHere : context.l10n.cancelRequest,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
@@ -261,10 +292,10 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
               ),
               child: Text(
                 (matched || inTrip)
-                    ? 'Keep ride'
+                    ? context.l10n.keepRide
                     : takingLonger
-                    ? 'Keep searching'
-                    : 'Wait for driver',
+                    ? context.l10n.keepSearching
+                    : context.l10n.waitForDriver,
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,

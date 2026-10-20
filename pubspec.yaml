@@ -60,6 +60,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  # Contract-copy test: sha256 of contracts/* against contracts/CHECKSUMS.
+  crypto: ^3.0.6
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

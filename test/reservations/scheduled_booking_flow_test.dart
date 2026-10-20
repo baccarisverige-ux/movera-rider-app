@@ -44,7 +44,7 @@ void main() {
   }
 
   RideSelectionController scheduledSelection({
-    String rideId = 'movera',
+    String rideId = 'economy',
     DateTime? when,
   }) {
     final selection = RideSelectionController(
@@ -92,7 +92,7 @@ void main() {
     expect(selection.entersFindingDriver, isFalse);
     expect(selection.createsReservation, isTrue);
     expect(selection.rides().map((ride) => ride.id), catalog);
-    expect(selection.selectedRideId, 'movera');
+    expect(selection.selectedRideId, 'economy');
   });
 
   test(
@@ -406,7 +406,7 @@ void main() {
   });
 
   test(
-    'edit hydrates the saved payment instead of defaulting to Pay in car',
+    'edit hydrates the saved payment instead of defaulting to Cash',
     () async {
       final c = reservations();
       final create = scheduledSelection();
@@ -447,9 +447,9 @@ void main() {
     expect(selection.selectedPayment, before);
     selection.selectPaymentNamed('Card');
     expect(selection.payments()[selection.selectedPayment].name, 'Card');
-    // Bookings saved as "Cash" before the rename map to Pay in car.
+    // Bookings saved as "Cash" before the rename map to Cash.
     selection.selectPaymentNamed('Cash');
-    expect(selection.payments()[selection.selectedPayment].name, 'Pay in car');
+    expect(selection.payments()[selection.selectedPayment].name, 'Cash');
   });
 
   test('checkout draft does not create a reservation', () {

@@ -1,8 +1,9 @@
+import 'package:movera_rider/l10n/l10n.dart';
 /// Shortens a geocoder address to "street, city" for display: drops the
 /// country, "… kommun"/"… län" style regions, postal codes and repeated
 /// parts, then keeps the first part (street or place) and the last town.
 String compactAddress(String? address) {
-  final value = address?.trim() ?? '';
+  final value = L10n.place(address?.trim() ?? '');
   if (value.isEmpty) return '';
   final seen = <String>{};
   final parts = <String>[];

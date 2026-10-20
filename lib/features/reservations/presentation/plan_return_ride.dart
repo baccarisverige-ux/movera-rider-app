@@ -3,6 +3,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Return-ride booking reuses the shared category selector.
 /// A new reservation is created only after the rider confirms.
@@ -25,23 +26,19 @@ class PlanReturnRidePage extends StatelessWidget {
     // booked at invented coordinates; send the rider to plan it instead.
     if (!SelectRide.canPlanReturn(origin)) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Plan your return')),
+        appBar: AppBar(title: Text(context.l10n.resPlanYourReturn)),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'We don’t have the exact pickup and drop-off of this ride, '
-                'so the return can’t be filled in for you. Plan it with '
-                'Schedule a ride instead.',
-              ),
+              Text(context.l10n.resReturnNoPlaces),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute<void>(builder: (_) => const ScheduleRide()),
                 ),
-                child: const Text('Schedule a ride'),
+                child: Text(context.l10n.resScheduleARide),
               ),
             ],
           ),
