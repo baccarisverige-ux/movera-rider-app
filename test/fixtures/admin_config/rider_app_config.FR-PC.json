@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "publishedAt": "2026-10-19T08:00:00Z",
   "zoneId": "FR-PC",
   "currency": "EUR",
@@ -488,6 +488,7 @@
     "reservations": 1,
     "rideCheck": 1,
     "driverTexts": 1,
-    "driverNotices": 1
+    "driverNotices": 1,
+    "countrySettings": 1
   }
 }
