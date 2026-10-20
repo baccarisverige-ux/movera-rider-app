@@ -155,4 +155,76 @@ void main() {
     expect(ctl.heading, 200);
     ctl.dispose();
   });
+
+  group('the puck holds still while the map camera moves', () {
+    test(
+      'a compass turn under a moving camera repaints once it rests',
+      () async {
+        var now = DateTime(2026, 10, 20, 12);
+        final compass = _FakeCompass()..value = 90;
+        final ctl = HomeLocationController(
+          location: LocationRepository(),
+          geocoding: AppGeocoding(),
+          motion: MotionEngine(),
+          startCompass: compass.start,
+          readCompass: compass.read,
+          stopCompass: compass.stop,
+          clock: () => now,
+        );
+        final delivered = <double>[];
+        await ctl.startHeading(isMounted: () => true, onHeading: delivered.add);
+        ctl.noteCameraMove(bearing: 30);
+        expect(ctl.cameraMoving, isTrue);
+        expect(ctl.lastMapBearing, 30);
+        ctl.pollHeading();
+        expect(delivered, isEmpty, reason: 'no repaint under a moving camera');
+        expect(
+          ctl.heading,
+          isNot(0),
+          reason: 'the heading itself still tracks',
+        );
+        now = now.add(HomeLocationController.cameraQuietPeriod);
+        expect(ctl.cameraMoving, isFalse);
+        ctl.pollHeading();
+        expect(delivered, hasLength(1));
+        expect(delivered.single, closeTo(ctl.heading, 1e-9));
+        ctl.dispose();
+      },
+    );
+
+    testWidgets('the pulse pauses while the camera moves', (tester) async {
+      var now = DateTime(2026, 10, 20, 12);
+      final ctl = HomeLocationController(
+        location: LocationRepository(),
+        geocoding: AppGeocoding(),
+        motion: MotionEngine(),
+        startCompass: () async => false,
+        readCompass: () => null,
+        stopCompass: () {},
+        clock: () => now,
+      );
+      var ticks = 0;
+      ctl.startPulse(isMounted: () => true, onTick: () => ticks += 1);
+      expect(ticks, 1);
+      await tester.pump(const Duration(milliseconds: 850));
+      expect(ticks, 2);
+      expect(ctl.pulseExpanded, isTrue);
+      // A pinch: the camera reports moves all through the next tick.
+      ctl.noteCameraMove();
+      await tester.pump(const Duration(milliseconds: 850));
+      expect(ticks, 2);
+      expect(ctl.pulseExpanded, isTrue);
+      // A finger holds the map still: no camera reports, still no pulse.
+      now = now.add(const Duration(seconds: 1));
+      var held = true;
+      ctl.mapBusy = () => held;
+      await tester.pump(const Duration(milliseconds: 850));
+      expect(ticks, 2);
+      held = false;
+      await tester.pump(const Duration(milliseconds: 850));
+      expect(ticks, 3);
+      expect(ctl.pulseExpanded, isFalse);
+      ctl.dispose();
+    });
+  });
 }
