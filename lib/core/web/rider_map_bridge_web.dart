@@ -49,3 +49,36 @@ void Function() listen(int mapId, void Function() onGesture) {
 void claim(int mapId) {
   _forMap(mapId)?.callMethod<JSAny?>('claim'.toJS, mapId.toJS);
 }
+
+Future<bool>? flight(int mapId, double lat, double lng, double zoom,
+    double heading, double tilt, int ms) {
+  final promise = _forMap(mapId)?.callMethodVarArgs<JSAny?>('flight'.toJS, [
+    mapId.toJS,
+    lat.toJS,
+    lng.toJS,
+    zoom.toJS,
+    heading.toJS,
+    tilt.toJS,
+    ms.toJS,
+  ]);
+  if (promise == null || !promise.isA<JSPromise>()) return null;
+  return (promise as JSPromise<JSBoolean>)
+      .toDart
+      .then((landed) => landed.toDart);
+}
+
+void retarget(int mapId, double lat, double lng, double zoom, double heading,
+    double tilt) {
+  _forMap(mapId)?.callMethodVarArgs<JSAny?>('retarget'.toJS, [
+    mapId.toJS,
+    lat.toJS,
+    lng.toJS,
+    zoom.toJS,
+    heading.toJS,
+    tilt.toJS,
+  ]);
+}
+
+void cancelFlight(int mapId) {
+  _forMap(mapId)?.callMethod<JSAny?>('cancelFlight'.toJS, mapId.toJS);
+}

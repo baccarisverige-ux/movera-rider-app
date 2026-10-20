@@ -1,3 +1,4 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/web/rider_map_bridge_io.dart'
     if (dart.library.js_interop) 'package:movera_rider/core/web/rider_map_bridge_web.dart'
     as impl;
@@ -31,4 +32,32 @@ abstract final class RiderMapBridge {
 
   /// The next camera position the app sends lands at once (no glide).
   static void claim(int mapId) => impl.claim(mapId);
+
+  /// Flies the camera to [to] over [duration] on the browser's frame clock
+  /// (one camera move per painted frame, the flight ease of
+  /// map_camera_motion.dart). Completes with true when it lands, false when
+  /// cancelled; null when the layer is not there (the Dart loop steps).
+  static Future<bool>? flight(int mapId, CameraPosition to, Duration duration) =>
+      impl.flight(
+        mapId,
+        to.target.latitude,
+        to.target.longitude,
+        to.zoom,
+        to.bearing,
+        to.tilt,
+        duration.inMilliseconds,
+      );
+
+  /// A running flight turns towards [to] on its own clock.
+  static void retarget(int mapId, CameraPosition to) => impl.retarget(
+        mapId,
+        to.target.latitude,
+        to.target.longitude,
+        to.zoom,
+        to.bearing,
+        to.tilt,
+      );
+
+  /// Stops a running flight where it is.
+  static void cancelFlight(int mapId) => impl.cancelFlight(mapId);
 }

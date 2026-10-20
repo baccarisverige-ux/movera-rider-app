@@ -83,6 +83,11 @@ class MapView {
     _goal = null;
     _tiltEase = null;
     _flight = null;
+    if (_jsFlight) {
+      _jsFlight = false;
+      final id = mapId;
+      if (id != null) RiderMapBridge.cancelFlight(id);
+    }
     final done = _done;
     _done = null;
     if (done != null && !done.isCompleted) done.complete();
@@ -95,6 +100,25 @@ class MapView {
   /// (null while the glide is a damped follow).
   Duration? _flight;
   int _flownMicros = 0;
+
+  /// True while the web layer flies the camera on the browser's frame
+  /// clock (requestAnimationFrame) instead of the Dart loop.
+  bool _jsFlight = false;
+
+  /// When a web flight last landed. The map's "camera moved" echoes of its
+  /// frames can arrive after it lands; for a short while after, an echo
+  /// that is not the landing pose is late and must not become [pose]
+  /// (the tilt settle would fly the camera back to it).
+  DateTime? _landedAt;
+
+  /// Whether [reported] is a late echo of a flight that just landed.
+  bool isLateEcho(CameraPosition reported) {
+    final landed = _landedAt;
+    final current = pose;
+    if (landed == null || current == null) return false;
+    if (now().difference(landed) > cameraEchoGrace) return false;
+    return !_settled(reported, current);
+  }
   Completer<void>? _done;
   ({double target, int generation, Completer<void> done})? _tiltEase;
 }
@@ -112,13 +136,15 @@ const Duration cameraEaseDuration = Duration(milliseconds: 450);
 /// A recenter (a flight) takes this long, start to rest. Unlike the
 /// damped follow glide, whose tail crept on for 4-5 s (up to the frame
 /// cap) before it settled, a flight runs on the clock: it eases in and out
-/// over this time (short gentle ramps, even speed between, [flightEase])
-/// and lands on its goal on time.
+/// over this time ([flightEase]) and lands on its goal on time.
 const Duration cameraFlightDuration = Duration(milliseconds: 1000);
 
 /// Glides at least this long are flights ([cameraFlightDuration]); shorter
 /// ones are the damped follow glide.
 const Duration _flightThreshold = Duration(milliseconds: 600);
+
+/// How long after a web flight lands its late camera echoes are ignored.
+const Duration cameraEchoGrace = Duration(milliseconds: 600);
 
 /// Interval between the poses of a stepped ease (about 60 fps).
 const Duration cameraEaseFrame = Duration(milliseconds: 16);
@@ -174,32 +200,43 @@ CameraPosition _approach(
   );
 }
 
-/// Share of a flight's ramps: the camera speeds up over the first fifth
-/// of the flight and slows down over the last fifth, and glides at an even
-/// speed in between.
-const double _flightRamp = .2;
+/// Speed of a flight's first and last phase as a share of its middle
+/// phase (owner: 20 % less).
+const double slowPhaseSpeed = .8;
 
-/// Speed at the very start and end of a flight, as a share of its glide
-/// speed: gentle, but already moving.
-const double _flightEdgeSpeed = .35;
+/// Where the middle phase blends in and out (shares of the flight). The
+/// three phases are a third each; each blend is a short smoothstep centred
+/// on the phase edge, so the speed changes without a cut.
+const double _riseFrom = .25, _riseTo = .40, _fallFrom = .60, _fallTo = .75;
 
-/// Eased progress of a flight at time [t] (0..1). Owner: begin slow and
-/// end slow, but not so slow. Smoothstep's long slow start felt stuck,
-/// then quick. So the camera leaves at once at a gentle speed
-/// ([_flightEdgeSpeed]), speeds up over a short ramp ([_flightRamp]),
-/// glides evenly, and slows the same way onto its goal. Peak speed is
-/// about 1.15x the mean.
+/// Integral 0..[x] of the middle-phase bump (0 in the slow phases, 1 in
+/// the middle one, smoothstep blends between).
+double _bumpIntegral(double x) {
+  const w = _riseTo - _riseFrom;
+  // Integral of smoothstep(u) is u^3 - u^4 / 2.
+  double rise(double u) => w * (u * u * u - u * u * u * u / 2);
+  if (x <= _riseFrom) return 0;
+  if (x <= _riseTo) return rise((x - _riseFrom) / w);
+  final full = rise(1);
+  if (x <= _fallFrom) return full + (x - _riseTo);
+  final plateau = full + (_fallFrom - _riseTo);
+  if (x <= _fallTo) {
+    final u = (x - _fallFrom) / w;
+    return plateau + w * u - rise(u);
+  }
+  return plateau + w - full;
+}
+
+/// Eased progress of a flight at time [t] (0..1), the owner's locate glide:
+/// three phases of equal length, each at an even speed, the first and last
+/// at [slowPhaseSpeed] of the middle one, joined by short smooth blends.
+/// The camera leaves at once and lands at the slow phase's speed: no slow
+/// creep at the start, no cut between the phases.
 double flightEase(double t) {
   final x = t.clamp(0.0, 1.0);
-  if (x > .5) return 1 - flightEase(1 - x);
-  const r = _flightRamp, b = _flightEdgeSpeed;
-  const peak = 1 / (1 - r * (1 - b));
-  if (x < r) {
-    return peak *
-        (b * x +
-            (1 - b) * (x / 2 - r / (2 * math.pi) * math.sin(math.pi * x / r)));
-  }
-  return peak * (r * (1 + b) / 2 + (x - r));
+  const total = slowPhaseSpeed + (1 - slowPhaseSpeed) * .35;
+  return (slowPhaseSpeed * x + (1 - slowPhaseSpeed) * _bumpIntegral(x)) /
+      total;
 }
 
 /// The pan's share of the remaining way when the zoom covers [zoomShare]
@@ -271,6 +308,11 @@ Future<void> easeCameraTo(
   if (view.easing && view._goal != null && running != null) {
     view._goal = to;
     view._goalDuration = duration;
+    final id = view.mapId;
+    if (view._jsFlight && id != null) {
+      RiderMapBridge.retarget(id, to);
+      return running.future;
+    }
     // A newer goal joins a running flight on its clock (a fresh fix after a
     // recenter, a follow update), so the flight still lands on time.
     if (view._flight == null && duration >= _flightThreshold) {
@@ -291,8 +333,48 @@ Future<void> easeCameraTo(
   view._flight = duration >= _flightThreshold ? duration : null;
   view._flownMicros = 0;
   view.easing = true;
+  // On the web a flight runs in the gesture layer on the browser's frame
+  // clock: one camera move per painted frame, so it never stutters on a
+  // Dart timer (Safari). Follow glides and other platforms step here.
+  final id = view.mapId;
+  final js = view._flight == null || id == null
+      ? null
+      : RiderMapBridge.flight(id, to, duration);
+  if (js != null) {
+    view._jsFlight = true;
+    unawaited(_jsGlide(view, generation, done, js));
+    return done.future;
+  }
   unawaited(_glide(controller, view, generation, done));
   return done.future;
+}
+
+Future<void> _jsGlide(
+  MapView view,
+  int generation,
+  Completer<void> done,
+  Future<bool> landed,
+) async {
+  var arrived = false;
+  try {
+    arrived = await landed;
+  } catch (_) {
+    // The map went away mid-flight.
+  } finally {
+    if (view.generation == generation) {
+      // The layer landed exactly on the latest goal.
+      if (arrived && view._goal != null) {
+        view.pose = view._goal;
+        view._landedAt = MapView.now();
+      }
+      view._jsFlight = false;
+      view.easing = false;
+      view._goal = null;
+      view._flight = null;
+      if (identical(view._done, done)) view._done = null;
+    }
+    if (!done.isCompleted) done.complete();
+  }
 }
 
 Future<void> _glide(

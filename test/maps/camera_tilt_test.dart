@@ -365,37 +365,43 @@ void main() {
         for (var i = 1; i < zooms.length; i++) zooms[i] - zooms[i - 1],
       ];
       final fastest = steps.reduce(math.max);
-      // Eased in and out: gentle first and last steps (owner: slow, but
-      // not so slow), no snap onto the goal.
-      expect(steps.first, lessThan(fastest * 0.5));
-      expect(steps.last, lessThan(fastest * 0.5));
+      // Three phases: the first and last steps run at 80 % of the middle
+      // ones (owner), and the camera keeps moving right up to the goal.
+      expect(steps[2], closeTo(fastest * slowPhaseSpeed, fastest * .05));
+      expect(steps[steps.length - 4], closeTo(fastest * slowPhaseSpeed, fastest * .05));
       expect(zooms.last, 15);
       expect(view.easing, isFalse);
     });
 
-    test('a flight leaves at once: short gentle ramps, not a long slow start',
-        () {
-      // Smoothstep had covered only 2.8 % after a tenth of the flight; the
-      // owner felt it hang, then rush.
+    test('a flight has three even phases, the first and last 20 % slower '
+        'than the middle, joined without a cut', () {
       expect(flightEase(0), 0);
       expect(flightEase(1), 1);
-      expect(flightEase(.5), closeTo(.5, 1e-9));
-      expect(flightEase(.1), greaterThan(.05));
-      var previous = 0.0;
-      var fastest = 0.0;
-      for (var i = 1; i <= 1000; i++) {
-        final e = flightEase(i / 1000);
-        expect(e, greaterThanOrEqualTo(previous));
-        fastest = math.max(fastest, (e - previous) * 1000);
-        previous = e;
+      // Speed (progress per unit time) sampled finely.
+      double speed(double t) => (flightEase(t + .0005) - flightEase(t - .0005)) / .001;
+      final slow = speed(.12), fast = speed(.5), end = speed(.88);
+      expect(slow, closeTo(fast * slowPhaseSpeed, 1e-6));
+      expect(end, closeTo(slow, 1e-6));
+      // Even within each phase.
+      for (final t in [.02, .1, .2]) {
+        expect(speed(t), closeTo(slow, 1e-6));
       }
-      // Even speed in the middle, about 1.15x the mean.
-      expect(fastest, lessThan(1.2));
-      // Gentle at both ends (slower than the glide), but already moving.
-      final start = flightEase(.001) / .001;
-      final end = (1 - flightEase(.999)) / .001;
-      expect(start, inInclusiveRange(.3, .5));
-      expect(end, inInclusiveRange(.3, .5));
+      for (final t in [.42, .5, .58]) {
+        expect(speed(t), closeTo(fast, 1e-6));
+      }
+      for (final t in [.8, .9, .98]) {
+        expect(speed(t), closeTo(end, 1e-6));
+      }
+      // The blends are smooth: the speed never jumps between samples.
+      var previous = speed(.001);
+      for (var i = 2; i < 999; i++) {
+        final v = speed(i / 1000);
+        expect((v - previous).abs(), lessThan(.01), reason: 't=${i / 1000}');
+        previous = v;
+      }
+      // It leaves at once (no creep) and keeps moving until it lands.
+      expect(speed(.001), greaterThan(.9));
+      expect(speed(.999), greaterThan(.9));
     });
 
     testWidgets('a recenter that zooms in pans at an even speed on screen', (
