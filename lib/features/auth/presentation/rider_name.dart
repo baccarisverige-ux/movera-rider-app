@@ -6,6 +6,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Step 3, new riders only: the name the driver will look for. Replaces the
 /// old Create account screen. Apple or Google riders arrive pre-filled.
@@ -56,7 +57,7 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
     final first = _first.text.trim();
     final last = _last.text.trim();
     if (first.isEmpty) {
-      setState(() => _error = 'Enter your first name.');
+      setState(() => _error = context.l10n.enterFirstName);
       return;
     }
     setState(() => _saving = true);
@@ -70,7 +71,7 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
       enterMoveraApp(context);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = "Couldn't save your name. Try again.");
+      setState(() => _error = context.l10n.nameSaveFailed);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -80,38 +81,38 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       step: 3,
-      headline: 'What should we\ncall ',
-      headlineAccent: 'you?',
-      lede: const Text('So your driver knows who to look for.'),
+      headline: context.l10n.whatCallHead,
+      headlineAccent: context.l10n.whatCallAccent,
+      lede: Text(context.l10n.soDriverKnows),
       showCar: false,
       card: AutofillGroup(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('First name', style: AuthText.label()),
+            Text(context.l10n.firstName, style: AuthText.label()),
             const SizedBox(height: 7),
             AuthTextField(
               controller: _first,
               focusNode: _firstFocus,
-              hint: 'First name',
+              hint: context.l10n.firstName,
               autofillHints: const [AutofillHints.givenName],
               onSubmitted: (_) => _lastFocus.requestFocus(),
             ),
             if (_error != null) AuthErrorText(_error!),
             const SizedBox(height: 14),
-            Text('Last name', style: AuthText.label()),
+            Text(context.l10n.lastName, style: AuthText.label()),
             const SizedBox(height: 7),
             AuthTextField(
               controller: _last,
               focusNode: _lastFocus,
-              hint: 'Last name',
+              hint: context.l10n.lastName,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.familyName],
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),
             AuthPrimaryButton(
-              label: "Let's ride",
+              label: context.l10n.letsRide,
               busy: _saving,
               onPressed: _save,
             ),
@@ -136,7 +137,7 @@ class _Signature extends StatelessWidget {
         children: [
           TextSpan(text: 'Mov', style: brand.copyWith(color: AuthColors.ink)),
           TextSpan(text: 'era', style: brand.copyWith(color: AuthColors.green)),
-          const TextSpan(text: ' · Moving to a new era'),
+          TextSpan(text: context.l10n.brandTagline),
         ],
       ),
       textAlign: TextAlign.center,

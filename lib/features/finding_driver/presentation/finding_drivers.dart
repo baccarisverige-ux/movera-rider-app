@@ -48,6 +48,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -184,7 +185,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         _showCancelNotice(rideJustChangedMessage);
       } else if (stale == false) {
         _showCancelNotice(
-          'A driver already accepted your ride, so it wasn’t cancelled.',
+          context.l10n.driverAlreadyAccepted,
         );
       }
     });
@@ -245,7 +246,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           _match.lastRefusalWasStale
               // R-O2: the queued cancel was dropped; the trip moved on.
               ? rideJustChangedMessage
-              : 'A driver already accepted your ride, so it wasn’t cancelled.',
+              : context.l10n.driverAlreadyAccepted,
         );
       },
     );
@@ -368,7 +369,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } catch (_) {
       _showCancelNotice(
-        'We couldn’t request a new ride. Choose your route and try again.',
+        L10n.current.rebookFailed,
       );
       return false;
     }
@@ -483,14 +484,14 @@ class _FindingDriversState extends State<FindingDrivers> {
       // takes over once a driver is found.
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: true)
-          : RouteTimeMarker.createIcon(pickup: true, label: '$eta\nmin'),
+          : RouteTimeMarker.createIcon(pickup: true, label: context.l10n.minLineBreak('$eta')),
       MoveraVehicleMarker.createIcon(),
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: false)
           : RouteTimeMarker.createIcon(
               pickup: false,
               label:
-                  'Arrive by ${clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))}',
+                  context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))),
             ),
     ]);
     if (!mounted) return;
@@ -597,20 +598,19 @@ class _FindingDriversState extends State<FindingDrivers> {
       // "Cancelling…" until the server confirms it or a driver accepted.
       setState(() {});
       _showCancelNotice(
-        'We couldn’t reach Movera. We’ll cancel your ride as soon as '
-        'you’re back online.',
+        context.l10n.cancelOfflineQueued,
       );
     } else if (result == SearchCancelResult.driverAccepted) {
       _showCancelNotice(
-        'A driver already accepted your ride, so it wasn’t cancelled.',
+        context.l10n.driverAlreadyAccepted,
       );
     } else if (result == SearchCancelResult.rejected) {
-      _showCancelNotice('This ride can no longer be cancelled.');
+      _showCancelNotice(context.l10n.cancelNoLonger);
     } else if (result == SearchCancelResult.stale) {
       // R-O2 (owner's words): the trip changed just before the tap.
       _showCancelNotice(rideJustChangedMessage);
     } else if (_matchedPending || _match.matchCount > 0) {
-      _showCancelNotice('A driver accepted your ride.');
+      _showCancelNotice(context.l10n.driverAccepted);
     }
     _drainDeferredNavigation();
   }
@@ -717,7 +717,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     setState(() {});
     _showEditFeedback(
       success: updated,
-      fallback: updated ? 'Offer updated' : 'Couldn’t update offer. Try again.',
+      fallback: updated ? context.l10n.offerUpdated : context.l10n.editOfferFailed,
     );
   }
 
@@ -866,7 +866,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                     MoveraIconButton.round(
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
-                      label: 'Cancel request',
+                      label: context.l10n.cancelRequest,
                     ),
                     if (_sheetExpanded) ...[
                       const SizedBox(width: 8),
@@ -880,7 +880,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                             curve: MoveraCurves.close,
                           );
                         },
-                        label: 'Collapse',
+                        label: context.l10n.collapse,
                       ),
                     ],
                     // UI-10: the Safety Kit button gets the rest of the row
@@ -919,7 +919,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                     );
                   },
-                  label: 'Recenter map',
+                  label: context.l10n.recenterMap,
                 ),
               ),
             ),
@@ -1117,7 +1117,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Meet at ${_shortPlace(_pickupAddress)}',
+                        context.l10n.meetAt(_shortPlace(_pickupAddress)),
                         style: GoogleFonts.poppins(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w600,
@@ -1146,7 +1146,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                 IconButton(
                   onPressed: _openDetails,
                   icon: const Icon(Icons.more_horiz_rounded),
-                  tooltip: 'Ride details',
+                  tooltip: context.l10n.rideDetails,
                 ),
               ],
             ),

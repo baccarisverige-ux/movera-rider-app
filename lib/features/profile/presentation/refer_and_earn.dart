@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ReferAndEarn extends StatelessWidget {
   const ReferAndEarn({super.key});
@@ -20,7 +21,7 @@ class ReferAndEarn extends StatelessWidget {
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  tooltip: 'Back',
+                  tooltip: context.l10n.back,
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     size: ResSize.h * 20,
@@ -29,7 +30,7 @@ class ReferAndEarn extends StatelessWidget {
                 ),
                 Expanded(
                   child: TextWidget(
-                    text: 'Refer & Earn',
+                    text: context.l10n.referEarn,
                     textAlign: TextAlign.center,
                     color: AppColor.primary,
                     fontSize: 18,
@@ -77,7 +78,7 @@ class ReferAndEarn extends StatelessWidget {
                     20.height,
                     TextWidget(
                       textAlign: TextAlign.center,
-                      text: 'Referrals aren’t available yet',
+                      text: context.l10n.referNotYet,
                       color: AppColor.primary,
                       fontSize: 18,
                       fontWeight: fwSemiBold,
@@ -86,7 +87,7 @@ class ReferAndEarn extends StatelessWidget {
                     TextWidget(
                       textAlign: TextAlign.center,
                       text:
-                          'Your referral code and rewards will appear here when the Movera referral programme launches.',
+                          context.l10n.referNotYetBody,
                       color: AppColor.subtitle,
                       fontSize: 13,
                       fontWeight: fwNormal,

@@ -9,6 +9,7 @@ import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The promotion ticket shown on top of the Home sheet and the ride list.
 ///
@@ -31,7 +32,7 @@ class PromotionTicket extends StatelessWidget {
     final left = promotion.ridesLeft;
     return Semantics(
       button: true,
-      label: '${promotion.title}. $left ${left == 1 ? 'ride' : 'rides'} left',
+      label: '${promotion.title}. ${context.l10n.ridesLeft(left)}',
       child: Container(
         height: height,
         decoration: BoxDecoration(
@@ -86,7 +87,7 @@ class PromotionTicket extends StatelessWidget {
                     ),
                     8.width,
                     TextWidget(
-                      text: '$left left',
+                      text: context.l10n.nLeft('$left'),
                       color: _muted,
                       fontSize: 11,
                       fontWeight: fwMedium,

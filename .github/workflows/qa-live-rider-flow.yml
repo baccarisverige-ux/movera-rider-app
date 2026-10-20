@@ -55,6 +55,9 @@ jobs:
           const publicGeocoderRequests=[];
           function watchGeocoders(ctx){ctx.on('request',r=>{if(/nominatim\.openstreetmap\.org|GeocodeService|\/maps\/api\/geocode/i.test(r.url()))publicGeocoderRequests.push(r.url());});}
           const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          // Round 4: the app speaks the zone's language (sv in Stockholm); these
+          // checks read the English copy, so pin the rider's choice to English.
+          await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
           watchGeocoders(context);
           const page=await context.newPage();
           const cdp=await context.newCDPSession(page);
@@ -275,6 +278,9 @@ jobs:
             if(actual && forbidden.includes(actual)) throw new Error(`${label} stale map owner ${actual}`);
           }
           const stressContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          // Round 4: the app speaks the zone's language (sv in Stockholm); these
+          // checks read the English copy, so pin the rider's choice to English.
+          await stressContext.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
           watchGeocoders(stressContext);
           const stressPage=await stressContext.newPage();
           stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
@@ -342,6 +348,9 @@ jobs:
           await stressContext.close();
 
           const laterContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          // Round 4: the app speaks the zone's language (sv in Stockholm); these
+          // checks read the English copy, so pin the rider's choice to English.
+          await laterContext.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
           watchGeocoders(laterContext);
           const laterPage=await laterContext.newPage();
           laterPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));

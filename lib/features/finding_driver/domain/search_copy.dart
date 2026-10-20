@@ -1,9 +1,19 @@
+import 'package:movera_rider/l10n/l10n.dart';
 /// Rotating search copy. Changes with elapsed time, not every few seconds.
 class SearchCopy {
   const SearchCopy({required this.headline, required this.subtitle});
 
   final String headline;
   final String subtitle;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SearchCopy &&
+      other.headline == headline &&
+      other.subtitle == subtitle;
+
+  @override
+  int get hashCode => Object.hash(headline, subtitle);
 
   static const delayedAfter = Duration(seconds: 60);
 
@@ -17,48 +27,48 @@ class SearchCopy {
   static const demoPriceBumpAfter = Duration(seconds: 5);
   static const rotateEvery = Duration(seconds: 12);
 
-  static const initial = [
+  static List<SearchCopy> get initial => [
     SearchCopy(
-      headline: 'Finding your driver',
-      subtitle: "We're checking nearby drivers.",
+      headline: L10n.current.findingDriver,
+      subtitle: L10n.current.searchCheckingNearby,
     ),
     SearchCopy(
-      headline: 'Checking for nearby drivers',
-      subtitle: "We'll update you as soon as a driver accepts.",
-    ),
-  ];
-
-  static const waiting = [
-    SearchCopy(
-      headline: 'Still looking for the best match',
-      subtitle: "We're still searching — you don't need to do anything.",
-    ),
-    SearchCopy(
-      headline: "We're checking more drivers nearby",
-      subtitle: 'Your request is still active.',
-    ),
-    SearchCopy(
-      headline: "Hang tight — we're working on your ride",
-      subtitle: "We're checking more nearby drivers.",
+      headline: L10n.current.searchCheckingForNearby,
+      subtitle: L10n.current.searchUpdateOnAccept,
     ),
   ];
 
-  static const delayed = [
+  static List<SearchCopy> get waiting => [
     SearchCopy(
-      headline: "It's busier than usual",
-      subtitle: "We'll update you as soon as a driver accepts.",
+      headline: L10n.current.searchBestMatch,
+      subtitle: L10n.current.searchNothingToDo,
     ),
     SearchCopy(
-      headline: 'Matching is taking a little longer',
-      subtitle: "We're still searching — you don't need to do anything.",
+      headline: L10n.current.searchCheckingMoreHeadline,
+      subtitle: L10n.current.searchStillActive,
     ),
     SearchCopy(
-      headline: 'More riders are requesting trips right now',
-      subtitle: "We're expanding the search for you.",
+      headline: L10n.current.searchHangTight,
+      subtitle: L10n.current.searchCheckingMore,
+    ),
+  ];
+
+  static List<SearchCopy> get delayed => [
+    SearchCopy(
+      headline: L10n.current.searchBusier,
+      subtitle: L10n.current.searchUpdateOnAccept,
     ),
     SearchCopy(
-      headline: "We're expanding the search for you",
-      subtitle: 'Your request is still active.',
+      headline: L10n.current.searchTakingLonger,
+      subtitle: L10n.current.searchNothingToDo,
+    ),
+    SearchCopy(
+      headline: L10n.current.searchMoreRiders,
+      subtitle: L10n.current.searchExpanding,
+    ),
+    SearchCopy(
+      headline: L10n.current.searchExpandingHeadline,
+      subtitle: L10n.current.searchStillActive,
     ),
   ];
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Deep-green call to action. [onPressed] null shows the disabled state.
 class AuthPrimaryButton extends StatelessWidget {
@@ -115,7 +116,7 @@ class AuthProviderButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: onPressed != null && !busy,
-      label: 'Continue with $label',
+      label: context.l10n.continueWith(label),
       excludeSemantics: true,
       child: SizedBox(
         height: 52,
@@ -315,7 +316,7 @@ class _SwedishFlag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Sweden',
+      label: context.l10n.sweden,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(2),
         child: SizedBox(
@@ -473,7 +474,7 @@ class AuthOrDivider extends StatelessWidget {
         const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('or continue with', style: AuthText.small()),
+          child: Text(context.l10n.orContinueWith, style: AuthText.small()),
         ),
         const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
       ],

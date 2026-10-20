@@ -7,6 +7,7 @@ import 'package:movera_rider/features/promotions/application/rider_promotion_con
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// A ride's price before and after the promotion, in kr.
 typedef PromotionPrice = ({double original, double discounted});
@@ -98,34 +99,19 @@ class PromotionDetailsSheet extends StatelessWidget {
     );
   }
 
-  static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _date(DateTime d) =>
-      '${d.day} ${_months[d.month - 1]} ${d.year}';
+  /// "30 Nov 2026" in the app language.
+  static String _date(DateTime d) => L10n.formatDate(d, 'd MMM y');
 
   /// "Valid until 30 Nov 2026 · 48 days left", "Ends today" or "Expired".
   static String validityText(RiderPromotion promotion, DateTime now) {
     final ends = promotion.endsAt?.toLocal();
-    if (ends == null) return 'No end date';
-    if (!now.isBefore(ends)) return 'Expired ${_date(ends)}';
+    if (ends == null) return L10n.current.noEndDate;
+    if (!now.isBefore(ends)) return L10n.current.expiredOn(_date(ends));
     final today = DateTime(now.year, now.month, now.day);
     final last = DateTime(ends.year, ends.month, ends.day);
     final days = last.difference(today).inDays;
-    if (days <= 0) return 'Ends today';
-    return 'Valid until ${_date(ends)} · $days ${days == 1 ? 'day' : 'days'} left';
+    if (days <= 0) return L10n.current.endsToday;
+    return L10n.current.validUntilDays(_date(ends), days);
   }
 
   String _kr(double major) =>
@@ -177,8 +163,7 @@ class PromotionDetailsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${promotion.percentOff}% off · $left of '
-                    '${promotion.ridesTotal} rides left',
+                    L10n.current.promoOffLeftOf('${promotion.percentOff}', '$left', '${promotion.ridesTotal}'),
                     style: _t(13, c: _muted),
                   ),
                 ),
@@ -194,10 +179,10 @@ class PromotionDetailsSheet extends StatelessWidget {
                   ),
                   child: Text(
                     expired
-                        ? 'Expired'
+                        ? L10n.current.expired
                         : usedUp
-                        ? 'All used'
-                        : '$left left',
+                        ? L10n.current.allUsed
+                        : L10n.current.nLeft('$left'),
                     style: _t(
                       12,
                       w: FontWeight.w600,
@@ -229,12 +214,12 @@ class PromotionDetailsSheet extends StatelessWidget {
               const SizedBox(height: 6),
               _meta(
                 Icons.sell_outlined,
-                'Max ${formatMoneyShort(max)} off per ride',
+                L10n.current.maxOffPerRide(formatMoneyShort(max)),
               ),
             ],
             const SizedBox(height: 18),
             Text(
-              'Your prices with this promotion',
+              L10n.current.pricesWithPromo,
               style: _t(15, w: FontWeight.w600),
             ),
             const SizedBox(height: 6),
@@ -242,7 +227,7 @@ class PromotionDetailsSheet extends StatelessWidget {
             if (prices.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'Prices show once you choose a destination.',
+                L10n.current.pricesAfterDestination,
                 style: _t(12.5, c: _muted),
               ),
             ],
@@ -269,7 +254,7 @@ class PromotionDetailsSheet extends StatelessWidget {
                 ),
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  'Got it',
+                  L10n.current.gotIt,
                   style: _t(15, w: FontWeight.w600, c: Colors.white),
                 ),
               ),
@@ -298,7 +283,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     final Widget trailing;
     if (price == null) {
       trailing = Text(
-        included ? 'Included' : 'Not included',
+        included ? L10n.current.included : L10n.current.notIncluded,
         style: _t(
           13,
           w: included ? FontWeight.w600 : FontWeight.w500,
@@ -311,14 +296,13 @@ class PromotionDetailsSheet extends StatelessWidget {
         children: [
           Text(_kr(price.original), style: _t(14, w: FontWeight.w600)),
           const SizedBox(width: 8),
-          Text('Not included', style: _t(12, c: _muted)),
+          Text(L10n.current.notIncluded, style: _t(12, c: _muted)),
         ],
       );
     } else {
       trailing = Semantics(
         label:
-            'Was ${_kr(price.original)}, now ${_kr(price.discounted)} '
-            'with the promotion',
+            L10n.current.wasNowPromo(_kr(price.original), _kr(price.discounted)),
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,

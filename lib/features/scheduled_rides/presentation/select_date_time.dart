@@ -9,6 +9,7 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
@@ -93,7 +94,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       _selectedDateTime = corrected;
       if (corrected != existing) {
         _pickupCorrectionMessage =
-            'Pickup time updated to the next available slot.';
+            context.l10n.pickupTimeUpdated;
       }
     } else {
       _selectedDateTime = _schedule.defaultPickup(now);
@@ -116,7 +117,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       setState(() {
         _selectedDateTime = corrected;
         _pickupCorrectionMessage =
-            'Pickup time updated to the next available slot.';
+            context.l10n.pickupTimeUpdated;
       });
       _commitSchedule();
       return;
@@ -144,7 +145,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       _selectedDateTime = corrected;
       _pickupCorrectionMessage = corrected == candidate
           ? null
-          : 'Pickup time updated to the next available slot.';
+          : context.l10n.pickupTimeUpdated;
     });
     _commitSchedule();
   }
@@ -208,12 +209,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     Row(
                       children: [
                         Text(
-                          'Select date',
+                          context.l10n.selectDate,
                           style: _style(16, weight: FontWeight.w600),
                         ),
                         const Spacer(),
                         Text(
-                          DateFormat('d MMM yyyy').format(draftDate),
+                          L10n.formatDate(draftDate, 'd MMM yyyy'),
                           style: _style(
                             11,
                             weight: FontWeight.w500,
@@ -255,7 +256,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       children: [
                         Expanded(
                           child: _sheetAction(
-                            label: 'Cancel',
+                            label: context.l10n.cancel,
                             filled: false,
                             onTap: () => Navigator.pop(sheetContext),
                           ),
@@ -263,7 +264,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _sheetAction(
-                            label: 'Done',
+                            label: context.l10n.done,
                             filled: true,
                             onTap: () => Navigator.pop(sheetContext, draftDate),
                           ),
@@ -333,7 +334,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                 Row(
                   children: [
                     Text(
-                      'Select time',
+                      context.l10n.selectTime,
                       style: _style(16, weight: FontWeight.w600),
                     ),
                     const Spacer(),
@@ -410,7 +411,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                   children: [
                     Expanded(
                       child: _sheetAction(
-                        label: 'Cancel',
+                        label: context.l10n.cancel,
                         filled: false,
                         onTap: () => Navigator.pop(sheetContext),
                       ),
@@ -418,7 +419,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: _sheetAction(
-                        label: 'Done',
+                        label: context.l10n.done,
                         filled: true,
                         onTap: () => Navigator.pop(
                           sheetContext,
@@ -502,7 +503,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       _header(context),
                       const SizedBox(height: 30),
                       Text(
-                        'When should we\npick you up?',
+                        context.l10n.whenPickUp,
                         style: _style(
                           29,
                           weight: FontWeight.w700,
@@ -511,7 +512,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ),
                       const SizedBox(height: 9),
                       Text(
-                        'Choose a date and time for your scheduled ride.',
+                        context.l10n.chooseDateTime,
                         style: _style(
                           12.5,
                           weight: FontWeight.w400,
@@ -528,7 +529,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ],
                       const SizedBox(height: 25),
                       Text(
-                        'You can cancel without a fee before a driver is assigned. Final terms are shown before booking.',
+                        context.l10n.cancelBeforeAssigned,
                         style: _style(
                           10.5,
                           weight: FontWeight.w400,
@@ -574,7 +575,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           ),
         ),
         const Spacer(),
-        Text('Schedule ride', style: _style(12, weight: FontWeight.w600)),
+        Text(context.l10n.navScheduleRide, style: _style(12, weight: FontWeight.w600)),
         const Spacer(),
         const SizedBox(width: 42),
       ],
@@ -592,12 +593,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       child: Row(
         children: [
           _modeOption(
-            label: 'Pickup at',
+            label: context.l10n.pickupAtMode,
             selected: _pickupMode,
             onTap: () => setState(() => _pickupMode = true),
           ),
           _modeOption(
-            label: 'Arrive by',
+            label: context.l10n.arriveByMode,
             selected: !_pickupMode,
             onTap: () => setState(() => _pickupMode = false),
           ),
@@ -666,14 +667,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         children: [
           _selectionRow(
             icon: Icons.calendar_today_outlined,
-            label: 'Date',
-            value: DateFormat('EEE, d MMMM').format(_selectedDateTime),
+            label: context.l10n.date,
+            value: L10n.formatDate(_selectedDateTime, 'EEE, d MMMM'),
             onTap: _chooseDate,
           ),
           const Divider(height: 1, indent: 58, endIndent: 16, color: _line),
           _selectionRow(
             icon: Icons.schedule_rounded,
-            label: 'Time',
+            label: context.l10n.time,
             value: DateFormat('HH:mm').format(_selectedDateTime),
             onTap: _chooseTime,
           ),
@@ -735,7 +736,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _pickupMode ? 'Estimated arrival' : 'Estimated pickup',
+              _pickupMode ? context.l10n.estimatedArrival : context.l10n.estimatedPickup,
               style: _style(11, weight: FontWeight.w500, color: _muted),
             ),
           ),
@@ -805,7 +806,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ),
                     ),
                     child: Text(
-                      _continuing ? 'Continuing…' : 'Continue',
+                      _continuing ? context.l10n.continuing : context.l10n.continueLabel,
                       style: _style(
                         14,
                         weight: FontWeight.w600,

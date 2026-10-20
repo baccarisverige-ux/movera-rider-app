@@ -14,6 +14,7 @@ import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart'
     show RideSnapshot;
@@ -99,18 +100,16 @@ class RouteChangeException implements Exception {
 
   String get message => switch (failure) {
     RouteChangeFailure.pickupLocked =>
-      'The driver is already at your pickup; only the destination and stops can change.',
-    RouteChangeFailure.rideFinished => 'This ride can no longer be changed.',
+      L10n.current.routePickupLocked,
+    RouteChangeFailure.rideFinished => L10n.current.routeNoLongerChangeable,
     RouteChangeFailure.addressNotFound =>
-      'Could not find that address. Try a more exact one.',
-    RouteChangeFailure.network => 'Couldn’t update the route. Try again.',
+      L10n.current.routeAddressNotFound,
+    RouteChangeFailure.network => L10n.current.routeUpdateFailed,
     RouteChangeFailure.priceChanged =>
-      'The price for this route changed. Check the new price and confirm again.',
+      L10n.current.routePriceChanged,
     RouteChangeFailure.stale => rideJustChangedMessage,
     RouteChangeFailure.pickupTooFar =>
-      'Your driver is on the way, so the pickup can only move up to '
-          '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters} m. To be '
-          'picked up further away, cancel this ride and book a new one.',
+      L10n.current.routePickupTooFar('${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}'),
   };
 }
 

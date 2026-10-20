@@ -8,6 +8,7 @@ import 'package:movera_rider/features/home/presentation/widgets/short_address.da
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The horizontally-scrolling Home / Work / Add / custom-place row.
 class SavedPlacesRow extends StatelessWidget {
@@ -55,9 +56,9 @@ class SavedPlacesRow extends StatelessWidget {
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
           iconAsset: AppAssets.solarHome,
-          title: 'Home',
+          title: context.l10n.placeHome,
           subtitle: homeAddress == null
-              ? 'Set Home'
+              ? context.l10n.placeSetHome
               : shortAddress(homeAddress, maxLength: 15),
           onTap: () => onUseSavedPlace(homeAddress, target: 'home'),
           onLongPress: onEditSavedPlace == null
@@ -70,9 +71,9 @@ class SavedPlacesRow extends StatelessWidget {
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
           iconAsset: AppAssets.solarCase,
-          title: 'Work',
+          title: context.l10n.placeWork,
           subtitle: workAddress == null
-              ? 'Set Work'
+              ? context.l10n.placeSetWork
               : shortAddress(workAddress, maxLength: 15),
           onTap: () => onUseSavedPlace(workAddress, target: 'work'),
           onLongPress: onEditSavedPlace == null
@@ -85,8 +86,8 @@ class SavedPlacesRow extends StatelessWidget {
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
           iconAsset: AppAssets.solarAdd,
-          title: 'Add',
-          subtitle: 'New place',
+          title: context.l10n.placeAdd,
+          subtitle: context.l10n.placeNew,
           onTap: onAddPlace,
         ),
       ),
@@ -152,19 +153,19 @@ String placeIconAssetFor(String type) {
 String placeLabelFor(String type) {
   switch (type) {
     case 'gym':
-      return 'Gym';
+      return L10n.current.placeGym;
     case 'mall':
-      return 'Mall';
+      return L10n.current.placeMall;
     case 'school':
-      return 'School';
+      return L10n.current.placeSchool;
     case 'airport':
-      return 'Airport';
+      return L10n.current.placeAirport;
     case 'family':
-      return 'Family';
+      return L10n.current.placeFamily;
     case 'restaurant':
-      return 'Restaurant';
+      return L10n.current.placeRestaurant;
     default:
-      return 'Other';
+      return L10n.current.placeOther;
   }
 }
 

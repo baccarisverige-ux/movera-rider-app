@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -382,9 +383,19 @@ void main() {
 
 
   test('side menu lists only currently reachable production destinations', () {
-    final menu = File(
+    final source = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
+    // Round 4: the labels live in l10n; check the English text the menu
+    // shows next to its code.
+    final english = jsonDecode(
+      File('lib/l10n/app_en.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final menu = [
+      source,
+      for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
+        '${english[m.group(1)]}',
+    ].join('\n');
     expect(menu.contains('Promotions'), isFalse);
     expect(menu.contains('Scheduled Rides'), isFalse);
     expect(menu.contains('Subscriptions'), isFalse);
@@ -683,7 +694,11 @@ void main() {
     final pickup = File(
       'lib/features/pickup/presentation/confirm_pickup_spot.dart',
     ).readAsStringSync();
-    expect(pickup.contains("confirmLabel = 'Confirm pickup'"), isTrue);
+    // Round 4: the default label comes from l10n ("Confirm pickup").
+    expect(
+      pickup.contains('widget.confirmLabel ?? context.l10n.confirmPickup'),
+      isTrue,
+    );
     final finding = File(
       'lib/features/finding_driver/presentation/finding_drivers.dart',
     ).readAsStringSync();

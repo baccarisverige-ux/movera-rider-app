@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The bordered pickup / stops / destination box of Home's "Plan your ride"
 /// sheet, with the add-stop button pinned inside it, top-right (Batch 10
@@ -90,7 +91,7 @@ class PlanRideAddressBox extends StatelessWidget {
               child: Semantics(
                 button: true,
                 enabled: canAdd,
-                label: 'Add a stop',
+                label: context.l10n.addAStop,
                 child: Material(
                   key: addStopKey,
                   color: const Color(0xFFF0F2F3),

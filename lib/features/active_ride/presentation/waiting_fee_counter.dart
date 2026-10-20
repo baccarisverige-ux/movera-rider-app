@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Where the waiting clock is at one instant (owner Q41/Q42).
 class WaitingFeeState {
@@ -115,17 +116,16 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
       freeWaitMin: widget.freeWaitMin,
       perMin: widget.perMin,
     );
-    final rate = '${formatMoneyShort(widget.perMin)}/min';
+    final rate = context.l10n.perMinRate(formatMoneyShort(widget.perMin));
     final charging = state.charging;
     const muted = Color(0xFF5C656C);
     const warm = Color(0xFFB4452B);
     final title = charging
-        ? 'Waiting fee ${formatMoney(state.fee, whole: true)}'
-        : 'Free waiting · ${formatWaitClock(state.freeLeft)} left';
+        ? context.l10n.waitingFeeAmount(formatMoney(state.fee, whole: true))
+        : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
     final detail = charging
-        ? '${formatWaitClock(state.over)} after the free '
-              '${widget.freeWaitMin} min · $rate'
-        : 'Then $rate waiting fee';
+        ? context.l10n.afterFreeWait(formatWaitClock(state.over), '${widget.freeWaitMin}', rate)
+        : context.l10n.thenWaitingFee(rate);
     return Semantics(
       container: true,
       liveRegion: charging,

@@ -54,6 +54,7 @@ import 'package:movera_rider/features/payments/domain/payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
@@ -326,6 +327,9 @@ class AppScope {
     balances: walletBalances,
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
+
+  /// The app language: the rider's choice, else the zone default (Q48).
+  late final AppLanguageController language = AppLanguageController();
   late final PickupSpotsController pickupSpots = PickupSpotsController();
   late final SupportController support = SupportController();
   late final OnboardingController onboarding = OnboardingController();

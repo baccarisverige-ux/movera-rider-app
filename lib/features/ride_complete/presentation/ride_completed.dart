@@ -22,6 +22,7 @@ import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompleted extends StatefulWidget {
   const RideCompleted({
@@ -192,22 +193,22 @@ class _RideCompletedState extends State<RideCompleted> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
-          'Leave without sending?',
+          context.l10n.leaveWithoutSending,
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Your rating and tip have not been sent yet. Going back now will discard them.',
+          context.l10n.leaveWithoutSendingBody,
           style: GoogleFonts.poppins(fontSize: 13.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Stay'),
+            child: Text(context.l10n.stay),
           ),
           TextButton(
             key: const ValueKey('completion-leave-confirm'),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Leave'),
+            child: Text(context.l10n.leave),
           ),
         ],
       ),
@@ -259,7 +260,7 @@ class _RideCompletedState extends State<RideCompleted> {
       if (!mounted) return;
       setState(() {
         _leaving = false;
-        _submitError = 'Couldn’t save your trip feedback or History. Try again.';
+        _submitError = context.l10n.feedbackSaveFailed;
       });
     }
   }
@@ -306,12 +307,12 @@ class _RideCompletedState extends State<RideCompleted> {
                   children: [
                     _CircleAction(
                       icon: Icons.arrow_back_ios_rounded,
-                      label: 'Back',
+                      label: context.l10n.back,
                       onTap: _handleBack,
                     ),
                     Expanded(
                       child: Text(
-                        endedEarly ? 'Trip summary' : 'Ride summary',
+                        endedEarly ? context.l10n.tripSummary : context.l10n.rideSummary,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 17,
@@ -367,8 +368,8 @@ class _RideCompletedState extends State<RideCompleted> {
                         const SizedBox(height: 10),
                         Text(
                           canRate
-                              ? 'Rating and tip are optional. Tap Done when you are finished.'
-                              : 'Rating and tip will be available after payment confirmation.',
+                              ? context.l10n.ratingOptional
+                              : context.l10n.ratingAfterPayment,
                           key: const ValueKey('completion-feedback-status'),
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
@@ -419,7 +420,7 @@ class _RideCompletedState extends State<RideCompleted> {
                       ),
                     ),
                     child: Text(
-                      'Done',
+                      context.l10n.done,
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -559,7 +560,7 @@ class _BelongingsReminder extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Make sure you have all your belongings.',
+              context.l10n.checkBelongings,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -661,15 +662,13 @@ class _CompletionSpec {
   factory _CompletionSpec.endedEarly(EndedEarlyTrip trip) {
     final charged = trip.charged;
     return _CompletionSpec(
-      title: 'Trip ended early',
+      title: L10n.current.tripEndedEarly,
       message: charged == null
-          ? 'You ended the trip before your destination. You pay only for '
-                'the distance driven.'
-          : 'You ended the trip before your destination. You pay '
-                '${formatMoney(charged)} for the distance driven.',
+          ? L10n.current.endedEarlyBody
+          : L10n.current.endedEarlyBodyAmount(formatMoney(charged)),
       statusLabel: charged == null
-          ? 'Paid by distance driven'
-          : 'You pay ${formatMoney(charged)}',
+          ? L10n.current.paidByDistance
+          : L10n.current.youPayAmount(formatMoney(charged)),
       icon: Icons.flag_rounded,
       statusIcon: Icons.receipt_long_rounded,
     );
@@ -678,39 +677,39 @@ class _CompletionSpec {
   factory _CompletionSpec.fromStatus(RideStatus status) {
     switch (status) {
       case RideStatus.paymentProcessing:
-        return const _CompletionSpec(
-          title: 'Trip complete',
+        return _CompletionSpec(
+          title: L10n.current.tripComplete,
           message:
-              'Your ride has ended. Payment confirmation is still processing.',
-          statusLabel: 'Payment processing',
+              L10n.current.completeProcessingBody,
+          statusLabel: L10n.current.paymentProcessing,
           icon: Icons.route_rounded,
           statusIcon: Icons.hourglass_top_rounded,
         );
       case RideStatus.paymentFinalized:
-        return const _CompletionSpec(
-          title: 'Trip complete',
+        return _CompletionSpec(
+          title: L10n.current.tripComplete,
           message:
-              'Your ride has ended and the payment has been confirmed.',
-          statusLabel: 'Payment confirmed',
+              L10n.current.completeConfirmedBody,
+          statusLabel: L10n.current.paymentConfirmed,
           icon: Icons.check_rounded,
           statusIcon: Icons.verified_rounded,
         );
       case RideStatus.ratingPending:
-        return const _CompletionSpec(
-          title: 'Trip complete',
+        return _CompletionSpec(
+          title: L10n.current.tripComplete,
           message:
-              'Your ride and payment are complete. You can now rate your driver.',
-          statusLabel: 'Ready for feedback',
+              L10n.current.completeRateBody,
+          statusLabel: L10n.current.readyForFeedback,
           icon: Icons.star_outline_rounded,
           statusIcon: Icons.rate_review_outlined,
         );
       case RideStatus.tripCompleted:
       default:
-        return const _CompletionSpec(
-          title: 'Trip complete',
+        return _CompletionSpec(
+          title: L10n.current.tripComplete,
           message:
-              'Your ride has ended. Payment status will update when it is confirmed.',
-          statusLabel: 'Trip completed',
+              L10n.current.completeDefaultBody,
+          statusLabel: L10n.current.tripCompleted,
           icon: Icons.flag_rounded,
           statusIcon: Icons.check_circle_outline_rounded,
         );

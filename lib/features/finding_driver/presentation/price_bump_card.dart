@@ -7,6 +7,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Flat offer controls for delayed search — no nested dialog chrome.
 class PriceBumpCard extends StatefulWidget {
@@ -175,7 +176,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         Row(
           children: [
             Text(
-              'Offer',
+              context.l10n.offer,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -186,7 +187,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             const Spacer(),
             IconButton(
               onPressed: widget.busy ? null : widget.onKeepWaiting,
-              tooltip: 'Keep waiting',
+              tooltip: context.l10n.keepWaiting,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(
                 Icons.close_rounded,
@@ -198,7 +199,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Want to improve your chances?',
+          context.l10n.bumpTitle,
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -208,7 +209,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Raise your offer. Nearby drivers see the new price first.',
+          context.l10n.bumpBody,
           style: GoogleFonts.poppins(
             fontSize: 13,
             height: 1.35,
@@ -217,7 +218,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Current ${_money(widget.currentPrice)}',
+          context.l10n.bumpCurrent(_money(widget.currentPrice)),
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -250,7 +251,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Or set a new price',
+          context.l10n.bumpOrSetNew,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -328,8 +329,8 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                   )
                 : Text(
                     _canConfirm
-                        ? 'Confirm ${formatMoney(Money(_currentMinor + _increase!, widget.currency), whole: true)}'
-                        : 'Set new price',
+                        ? context.l10n.bumpConfirm(formatMoney(Money(_currentMinor + _increase!, widget.currency), whole: true))
+                        : context.l10n.bumpSetNewPrice,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -345,7 +346,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           // D-012: the total above is a preview. Only the rider's increase is
           // sent; the fare shown afterwards is the one the server returns.
           Text(
-            'Movera confirms your final fare after you raise your offer.',
+            context.l10n.bumpServerConfirms,
             key: const ValueKey('price-bump-server-confirms'),
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
@@ -360,7 +361,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           child: TextButton(
             onPressed: widget.busy ? null : widget.onKeepWaiting,
             child: Text(
-              'Keep waiting',
+              context.l10n.keepWaiting,
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF5C656C),

@@ -62,6 +62,8 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -112,7 +114,7 @@ class SelectRide extends StatefulWidget {
       throw ArgumentError.value(
         origin.reservationId,
         'origin',
-        'A return ride needs the exact pickup and drop-off points.',
+        L10n.current.selectReturnNeedsPoints,
       );
     }
     final returnPickup = LatLng(
@@ -557,7 +559,7 @@ class _SelectRideState extends State<SelectRide>
     final current = _bookableQuote(ride.id);
     if (current != null) return current;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Refreshing price…')),
+      SnackBar(content: Text(context.l10n.refreshingPrice)),
     );
     try {
       final stops = await _routeStops();
@@ -587,21 +589,20 @@ class _SelectRideState extends State<SelectRide>
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const ValueKey('select-ride-price-updated'),
-        title: Text('Price updated', style: _text(18, weight: FontWeight.w600)),
+        title: Text(context.l10n.priceUpdated, style: _text(18, weight: FontWeight.w600)),
         content: Text(
-          'The price for this pickup is now ${_kr(next)} '
-          '(was ${_kr(shown)}).',
+          context.l10n.priceUpdatedBody(_kr(next), _kr(shown)),
           style: _text(14.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now'),
+            child: Text(context.l10n.notNow),
           ),
           FilledButton(
             key: const ValueKey('select-ride-price-accept'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Book for ${_kr(next)}'),
+            child: Text(context.l10n.bookForPrice(_kr(next))),
           ),
         ],
       ),
@@ -689,7 +690,7 @@ class _SelectRideState extends State<SelectRide>
 
   String _compactAddress(String value) {
     final cleaned = value.trim();
-    if (cleaned.isEmpty) return 'Unknown place';
+    if (cleaned.isEmpty) return context.l10n.unknownPlace;
     return shortenPlace(cleaned);
   }
 
@@ -847,9 +848,9 @@ class _SelectRideState extends State<SelectRide>
   String _timesFor(_RideOption ride) {
     final scheduled = _scheduledPickup;
     if (scheduled != null) {
-      return 'Pickup ${clockTime(scheduled)} · Arrive ${_arrivalFor(ride)}';
+      return context.l10n.pickupAtArriveAt(clockTime(scheduled), _arrivalFor(ride));
     }
-    return '${ride.etaMin} min · Arrive ${_arrivalFor(ride)}';
+    return context.l10n.etaMinArriveAt('${ride.etaMin}', _arrivalFor(ride));
   }
 
   /// Pins carry the chosen ride's times; rebuilt when the choice changes.
@@ -868,7 +869,7 @@ class _SelectRideState extends State<SelectRide>
         RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
         RouteTimeMarker.createIcon(
           pickup: false,
-          label: 'Arrive by ${_arrivalFor(ride)}',
+          label: context.l10n.arriveBy(_arrivalFor(ride)),
         ),
       ]);
       if (!mounted || key != _timePinKey) return;
@@ -984,15 +985,15 @@ class _SelectRideState extends State<SelectRide>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'When do you want to ride?',
+                    context.l10n.whenDoYouWantToRide,
                     style: _text(20, weight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(height: 12),
                 _sheetChoice(
                   icon: Icons.bolt_rounded,
-                  title: 'Book now',
-                  subtitle: 'Request a driver right away',
+                  title: context.l10n.bookNow,
+                  subtitle: context.l10n.bookNowBody,
                   selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
                     setState(() => _selection.setBookingMode(BookingMode.now));
@@ -1001,8 +1002,8 @@ class _SelectRideState extends State<SelectRide>
                 ),
                 _sheetChoice(
                   icon: Icons.calendar_month_rounded,
-                  title: 'Book for later',
-                  subtitle: 'Choose a date and pickup time',
+                  title: context.l10n.bookForLater,
+                  subtitle: context.l10n.bookForLaterBody,
                   selected: _selection.bookingMode == BookingMode.scheduled,
                   onTap: () {
                     chooseLaterAfterClose = true;
@@ -1130,7 +1131,7 @@ class _SelectRideState extends State<SelectRide>
           if (ride == null) return;
           final spot = await _openSetPickup(
             ride,
-            confirmLabel: 'Confirm and schedule',
+            confirmLabel: context.l10n.confirmAndSchedule,
             scheduledPickup: _selection.scheduledFor,
           );
           if (spot == null || !mounted) return;
@@ -1230,15 +1231,15 @@ class _SelectRideState extends State<SelectRide>
     final selected = _selectedRideOrNull;
     if (selected == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No ride category is available. Try again.'),
+        SnackBar(
+          content: Text(context.l10n.noRideCategory),
         ),
       );
       return;
     }
     if (!_selection.quoteIsAvailable(selected.id)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Price unavailable. Refreshing fare…')),
+        SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
       );
       unawaited(_loadQuotes());
       return;
@@ -1273,7 +1274,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<SetPickupResult?> _openSetPickup(
     _RideOption ride, {
-    String confirmLabel = 'Confirm and search',
+    String? confirmLabel,
     DateTime? scheduledPickup,
   }) async {
     final home = await _homePosition();
@@ -1284,7 +1285,7 @@ class _SelectRideState extends State<SelectRide>
       final item = _selection.selectedPaymentItem();
       return SetPickupPayment(
         brand: item?.brand ?? 'cash',
-        name: item?.name ?? 'Cash',
+        name: item?.name ?? context.l10n.payCash,
         detail: item?.detail ?? '',
       );
     }
@@ -1402,12 +1403,10 @@ class _SelectRideState extends State<SelectRide>
     String quoted(List<String> stops) =>
         stops.map((stop) => '“${shortenPlace(stop)}”').join(', ');
     if (failed.isNotEmpty) {
-      return "Couldn't look up the stop ${quoted(failed)} right now. "
-          "It isn't in this price.";
+      return L10n.current.stopLookupFailed(quoted(failed));
     }
     if (notFound.isNotEmpty) {
-      return "Couldn't find the stop ${quoted(notFound)}. It isn't in this "
-          'price — go back to change it, or book without it.';
+      return L10n.current.stopNotFound(quoted(notFound));
     }
     return null;
   }
@@ -1434,8 +1433,8 @@ class _SelectRideState extends State<SelectRide>
         quote.signedPayload == null ||
         quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fare changed or expired. Refreshing price…'),
+        SnackBar(
+          content: Text(context.l10n.fareChangedRefreshing),
         ),
       );
       _releaseBookingLock();
@@ -1445,7 +1444,7 @@ class _SelectRideState extends State<SelectRide>
     final paymentItem = _selection.selectedPaymentItem();
     if (paymentItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No payment method is available.')),
+        SnackBar(content: Text(context.l10n.noPaymentMethod)),
       );
       _releaseBookingLock();
       return;
@@ -1472,7 +1471,7 @@ class _SelectRideState extends State<SelectRide>
           payment = _PaymentOption(
             brand: card.methodBrand,
             name: card.displayName,
-            detail: 'Expires ${card.expiryLabel}',
+            detail: context.l10n.cardExpires(card.expiryLabel),
           );
         }
         // Set pickup every time; the current location is preselected.
@@ -1503,8 +1502,8 @@ class _SelectRideState extends State<SelectRide>
         if (!mounted) return;
         if (bookable == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Price unavailable. Refreshing fare…'),
+            SnackBar(
+              content: Text(context.l10n.priceUnavailableRefreshing),
             ),
           );
           unawaited(_loadQuotes());
@@ -1561,10 +1560,8 @@ class _SelectRideState extends State<SelectRide>
             SnackBar(
               content: Text(
                 uncertain
-                    ? 'We couldn’t confirm your booking. Check your '
-                          'connection and try again.'
-                    : 'We could not book this ride. Check the fare and try '
-                          'again.',
+                    ? context.l10n.bookingUncertain
+                    : context.l10n.bookingFailed,
               ),
             ),
           );
@@ -1818,8 +1815,8 @@ class _SelectRideState extends State<SelectRide>
                                     Semantics(
                                       button: true,
                                       label: v > 0.98
-                                          ? 'Show fewer rides'
-                                          : 'Show all rides',
+                                          ? context.l10n.showFewerRides
+                                          : context.l10n.showAllRides,
                                       child: GestureDetector(
                                         key: const ValueKey(
                                           'select-ride-sheet-handle',
@@ -1854,7 +1851,7 @@ class _SelectRideState extends State<SelectRide>
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              'Choose your ride',
+                                              context.l10n.chooseYourRide,
                                               style: _text(
                                                 22,
                                                 weight: FontWeight.w700,
@@ -2017,7 +2014,7 @@ class _SelectRideState extends State<SelectRide>
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-              tooltip: 'Back',
+              tooltip: context.l10n.back,
             ),
             Expanded(
               child: Column(
@@ -2061,7 +2058,7 @@ class _SelectRideState extends State<SelectRide>
                 key: const ValueKey('select-ride-stops-retry'),
                 onPressed: _retryStops,
                 child: Text(
-                  'Try again',
+                  context.l10n.tryAgain,
                   style: _text(13, weight: FontWeight.w600, color: _ink),
                 ),
               )
@@ -2079,20 +2076,20 @@ class _SelectRideState extends State<SelectRide>
       child: Row(
         children: [
           _filterChip(
-            label: 'Recommended',
+            label: context.l10n.filterRecommended,
             selected: _filter == SelectRideFilter.recommended,
             onTap: () => setState(() => _filter = SelectRideFilter.recommended),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Faster',
+            label: context.l10n.filterFaster,
             icon: Icons.schedule_rounded,
             selected: _filter == SelectRideFilter.faster,
             onTap: () => setState(() => _filter = SelectRideFilter.faster),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Cheaper',
+            label: context.l10n.filterCheaper,
             icon: Icons.payments_outlined,
             selected: _filter == SelectRideFilter.cheaper,
             onTap: () => setState(() => _filter = SelectRideFilter.cheaper),
@@ -2418,8 +2415,7 @@ class _SelectRideState extends State<SelectRide>
     key: const ValueKey('select-ride-wallet-currency-note'),
     padding: const EdgeInsets.only(top: 4),
     child: Text(
-      'Your wallet balance is in ${_selection.walletCurrency} and can’t pay '
-      'a ride in ${_selection.currency}.',
+      context.l10n.walletWrongCurrency(_selection.walletCurrency, _selection.currency),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: _text(12, color: _muted),
@@ -2445,12 +2441,11 @@ class _SelectRideState extends State<SelectRide>
           Expanded(
             child: split.paidByWallet
                 ? Text(
-                    'Paid by wallet',
+                    context.l10n.paidByWallet,
                     style: _text(12, weight: FontWeight.w600, color: green),
                   )
                 : Text(
-                    'Wallet −${split.walletLabel} · '
-                    'you pay ${split.remainderLabel}',
+                    context.l10n.walletSplit(split.walletLabel, split.remainderLabel),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _text(12, weight: FontWeight.w500, color: green),
@@ -2497,7 +2492,7 @@ class _SelectRideState extends State<SelectRide>
                       child: Center(
                         child: Text(
                           selected == null
-                              ? 'No rides available'
+                              ? context.l10n.noRidesAvailable
                               : _selection.bookingMode.ctaLabel(selected.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -2516,7 +2511,7 @@ class _SelectRideState extends State<SelectRide>
               // UI-5: the icon-only button has a name for screen readers.
               Semantics(
                 button: true,
-                label: 'Book now or later',
+                label: context.l10n.bookNowOrLater,
                 child: Material(
                   color: _cta,
                   shape: const CircleBorder(),
@@ -2546,7 +2541,7 @@ class _SelectRideState extends State<SelectRide>
   Widget _paymentButton() {
     final item = _selection.selectedPaymentItem();
     final method = item == null
-        ? const _PaymentOption(brand: 'cash', name: 'Cash', detail: '')
+        ? _PaymentOption(brand: 'cash', name: context.l10n.payCash, detail: '')
         : _PaymentOption(
             brand: item.brand,
             name: item.name,
@@ -2574,7 +2569,7 @@ class _SelectRideState extends State<SelectRide>
                       children: [
                         Flexible(
                           child: Text(
-                            method.name,
+                            paymentNameFor(method.brand, method.name),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _text(15, weight: FontWeight.w600),
@@ -2588,7 +2583,7 @@ class _SelectRideState extends State<SelectRide>
                       ],
                     ),
                     Text(
-                      method.detail,
+                      paymentDetailFor(method.brand, method.detail),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _text(

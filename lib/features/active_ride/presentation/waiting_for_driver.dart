@@ -64,6 +64,7 @@ import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// D-016: how long the driver marker eases towards a new fix. Following the
 /// actual interval between fixes (clamped) removes the move-then-stall rhythm
@@ -341,7 +342,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           stale
               // R-O2: dropped before it was sent; the trip moved on.
               ? rideJustChangedMessage
-              : "Couldn't cancel. Your ride is still on.",
+              : context.l10n.cancelFailedStillOn,
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 6),
@@ -436,7 +437,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     required MatchedDriver? driver,
     required DriverEta? eta,
   }) {
-    final headline = eta?.headline(status: status) ?? 'Driver found';
+    final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
@@ -486,7 +487,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("Sent to driver · I'm on the way"),
+        content: Text(context.l10n.sentOnTheWay),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
@@ -765,9 +766,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_isInTrip) {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
-      return 'Booked price for the whole trip: '
-          '${formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true)}. '
-          'Your receipt shows what you pay.';
+      return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
     }
     try {
       final stored = await RouteChangeController.storedRide();
@@ -789,12 +788,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       if (preview == null) return null;
       if (preview.fee.isPositive) {
-        return 'Cancelling now costs ${formatMoney(preview.fee)}.';
+        return L10n.current.cancelCostsNow(formatMoney(preview.fee));
       }
       final left = preview.freeMinutesLeft;
       return left <= 1
-          ? 'Cancelling is free for less than a minute more.'
-          : 'Cancelling is free for $left more minutes.';
+          ? L10n.current.cancelFreeUnderMinute
+          : L10n.current.cancelFreeMinutes('$left');
     } catch (_) {
       return null;
     }
@@ -882,7 +881,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           content: Text(
             scheduled
                 ? reservationErrorMessage(error, ReservationAction.cancel)
-                : "Couldn't cancel. Your ride is still on — try again.",
+                : context.l10n.cancelFailedTryAgain,
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -937,13 +936,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       }
     }
     final message = switch (result) {
-      RideCancelOutcome.rejected => 'This ride can no longer be cancelled.',
+      RideCancelOutcome.rejected => context.l10n.cancelNoLonger,
       // R-O2 (owner's words): the trip changed just before the tap.
       RideCancelOutcome.stale => rideJustChangedMessage,
       _ =>
-        "We couldn't reach Movera to confirm your cancellation. Your ride "
-            "is still active until it's confirmed — we'll retry "
-            "automatically when you're back online.",
+        context.l10n.cancelUnconfirmedOffline,
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -954,7 +951,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
-  /// D-014: leaving the "Can't track this ride" screen must not silently
+  /// D-014: leaving the context.l10n.cantTrackRide screen must not silently
   /// orphan a live server ride. Try a real server cancel with any ride id
   /// still on record first; only then wipe local state and go Home.
   Future<void> _leaveUntrackedRide() async {
@@ -1413,17 +1410,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 children: [
                   MoveraEmptyState(
                     icon: Icons.error_outline_rounded,
-                    title: "Can't track this ride",
+                    title: context.l10n.cantTrackRide,
                     message:
-                        "We lost track of which ride this is, so driver "
-                        'updates can\'t load. Try again, or go back to Home.',
-                    actionLabel: 'Retry',
+                        context.l10n.cantTrackRideBody,
+                    actionLabel: context.l10n.retry,
                     onAction: _retryTracking,
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _cancelling ? null : _leaveUntrackedRide,
-                    child: Text(_cancelling ? 'Leaving…' : 'Go home'),
+                    child: Text(_cancelling ? context.l10n.leaving : context.l10n.goHome),
                   ),
                 ],
               ),
@@ -1438,8 +1434,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: _tracking.status) ??
         (driver == null
-            ? 'Driver details will appear when matching confirms them.'
-            : 'Leave now to meet ${driver.displayFirstName}');
+            ? context.l10n.driverDetailsLater
+            : context.l10n.etaLeaveNowName(driver.displayFirstName));
     final media = MediaQuery.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
@@ -1501,7 +1497,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
                       // UI-01: on board this ends the trip early.
-                      label: _isInTrip ? 'End trip' : 'Cancel ride',
+                      label: _isInTrip ? context.l10n.endTrip : context.l10n.cancelRide,
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
@@ -1553,7 +1549,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 child: MoveraIconButton.round(
                   icon: Icons.my_location_rounded,
                   onPressed: _recenterMap,
-                  label: 'Recenter map',
+                  label: context.l10n.recenterMap,
                 ),
               ),
             ),
@@ -1648,7 +1644,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 child: PointerInterceptor(
                   child: Semantics(
                     liveRegion: true,
-                    label: 'Cancelling your ride',
+                    label: context.l10n.cancellingYourRideLabel,
                     child: const ColoredBox(
                       color: Color(0x66000000),
                       child: Center(child: _CancellingCard()),
@@ -1669,8 +1665,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   String? _tripHeadline(DriverEta? eta, RideStatus status) {
     final seconds = eta?.seconds;
     if (!DriverEta.isInTrip(status) || seconds == null) return null;
-    return 'Arrive by '
-        '${clockTime(DateTime.now().add(Duration(seconds: seconds)))}';
+    return context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(seconds: seconds))));
   }
 
   /// Headline for the sheet: the arrival time during the trip, the stage
@@ -1680,10 +1675,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (live != null) return live;
     if (DriverEta.isInTrip(status)) {
       return status == RideStatus.approachingDropoff
-          ? 'Approaching destination'
-          : 'Ride in progress';
+          ? context.l10n.approachingDestination
+          : context.l10n.etaRideInProgress;
     }
-    return eta?.headline(status: status) ?? 'Driver found';
+    return eta?.headline(status: status) ?? context.l10n.driverFound;
   }
 
   double _sheetOffset(MediaQueryData media) {
@@ -2246,8 +2241,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
                   ),
             ),
           );
-    final pickupLabel = '$toPickupMin\nmin';
-    final arriveLabel = 'Arrive by ${clockTime(arrive)}';
+    final pickupLabel = context.l10n.minLineBreak('$toPickupMin');
+    final arriveLabel = context.l10n.arriveBy(clockTime(arrive));
     final key = '$inTrip|$pickupLabel|$arriveLabel';
     if (key == _timePinKey) return;
     _timePinKey = key;
@@ -2455,8 +2450,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
                   color: Colors.black.withValues(alpha: 0.62),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  'Approximate route',
+                child: Text(
+                  context.l10n.approximateRoute,
                   style: TextStyle(color: Colors.white, fontSize: 11),
                 ),
               ),
@@ -2488,7 +2483,7 @@ class _CancellingCard extends StatelessWidget {
             const SizedBox(width: 12),
             Flexible(
               child: Text(
-                'Cancelling your ride…',
+                context.l10n.findCancelling,
                 style: waitingText(15, weight: FontWeight.w600),
               ),
             ),
@@ -2511,7 +2506,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       container: true,
-      label: 'Live updates paused. Driver position may be out of date.',
+      label: context.l10n.livePaused,
       child: DecoratedBox(
         key: const ValueKey('waiting-live-feed-degraded'),
         decoration: BoxDecoration(
@@ -2531,7 +2526,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
               Expanded(
                 child: ExcludeSemantics(
                   child: Text(
-                    'Live updates paused. Driver position may be out of date.',
+                    context.l10n.livePaused,
                     style: waitingText(12.5, color: Colors.white),
                   ),
                 ),
@@ -2539,7 +2534,7 @@ class LiveFeedDegradedBanner extends StatelessWidget {
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
-                child: const Text('Retry'),
+                child: Text(context.l10n.retry),
               ),
             ],
           ),

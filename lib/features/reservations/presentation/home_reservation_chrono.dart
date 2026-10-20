@@ -15,6 +15,7 @@ import 'package:movera_rider/features/reservations/presentation/upcoming_reserva
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Home reservation timer. White face with a neutral ring; the ride's state is
 /// carried by a small corner badge (shape + colour): check = driver assigned,
@@ -250,8 +251,8 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
           child: Semantics(
             button: true,
             label: noDriver
-                ? 'No driver found. Rebook or cancel'
-                : 'Reservation in $compact',
+                ? context.l10n.chronoNoDriverLabel
+                : context.l10n.reservationIn(compact),
             child: GestureDetector(
               onTap: () => _openRide(ride),
               child: SizedBox(
@@ -373,7 +374,7 @@ class _NoDriverFoundSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'No driver found',
+              context.l10n.termNoDriverFound,
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -383,10 +384,8 @@ class _NoDriverFoundSheet extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               canRebook
-                  ? 'We couldn\'t find a driver for your scheduled pickup. '
-                        'Rebook for a new time or cancel this reservation.'
-                  : 'We couldn\'t find a driver for your scheduled pickup. '
-                        'Cancel this reservation and book again.',
+                  ? context.l10n.chronoNoDriverRebook
+                  : context.l10n.chronoNoDriverCancel,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: const Color(0xFF6B757B),
@@ -403,7 +402,7 @@ class _NoDriverFoundSheet extends StatelessWidget {
                 ),
                 onPressed: () =>
                     Navigator.of(context).pop(_NoDriverChoice.rebook),
-                child: const Text('Rebook'),
+                child: Text(context.l10n.rebook),
               ),
               const SizedBox(height: 8),
             ],
@@ -415,7 +414,7 @@ class _NoDriverFoundSheet extends StatelessWidget {
               ),
               onPressed: () =>
                   Navigator.of(context).pop(_NoDriverChoice.cancel),
-              child: const Text('Cancel reservation'),
+              child: Text(context.l10n.cancelReservation),
             ),
           ],
         ),

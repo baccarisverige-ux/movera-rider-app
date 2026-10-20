@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Compact transport-status surface for ride-critical screens.
 ///
@@ -108,35 +109,36 @@ class RealtimeConnectionBanner extends StatelessWidget {
       case RealtimeState.connected:
         return null;
       case RealtimeState.connecting:
-        return const _ConnectionSpec(
+        return _ConnectionSpec(
           icon: Icons.sync_rounded,
-          title: 'Connecting',
-          subtitle: 'Restoring the live ride connection.',
-          semantics: 'Connecting. Restoring the live ride connection.',
+          title: L10n.current.rtConnecting,
+          subtitle: L10n.current.rtConnectingBody,
+          semantics:
+              '${L10n.current.rtConnecting}. ${L10n.current.rtConnectingBody}',
         );
       case RealtimeState.reconnecting:
-        return const _ConnectionSpec(
+        return _ConnectionSpec(
           icon: Icons.sync_rounded,
-          title: 'Reconnecting',
-          subtitle: 'Ride details stay on screen while connection returns.',
+          title: L10n.current.rtReconnecting,
+          subtitle: L10n.current.rtReconnectingBody,
           semantics:
-              'Reconnecting. Ride details stay on screen while connection returns.',
+              '${L10n.current.rtReconnecting}. ${L10n.current.rtReconnectingBody}',
         );
       case RealtimeState.disconnected:
-        return const _ConnectionSpec(
+        return _ConnectionSpec(
           icon: Icons.wifi_off_rounded,
-          title: 'Connection lost',
-          subtitle: 'Live ride updates are temporarily unavailable.',
+          title: L10n.current.rtLost,
+          subtitle: L10n.current.rtLostBody,
           semantics:
-              'Connection lost. Live ride updates are temporarily unavailable.',
+              '${L10n.current.rtLost}. ${L10n.current.rtLostBody}',
         );
       case RealtimeState.failed:
-        return const _ConnectionSpec(
+        return _ConnectionSpec(
           icon: Icons.cloud_off_outlined,
-          title: 'Connection problem',
-          subtitle: 'Live ride updates could not be restored yet.',
+          title: L10n.current.rtProblem,
+          subtitle: L10n.current.rtProblemBody,
           semantics:
-              'Connection problem. Live ride updates could not be restored yet.',
+              '${L10n.current.rtProblem}. ${L10n.current.rtProblemBody}',
         );
     }
   }

@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// "Use wallet balance first": how a fare is split between the Movera
 /// Wallet and the chosen payment method, in integer öre (DECISIONS.md P1).
@@ -109,8 +110,8 @@ String bookedPaymentLine({
     return '$paymentMethod$separator${formatMoney(fare, whole: true)}';
   }
   if (split.paidByWallet) {
-    return 'Paid by wallet$separator${split.totalLabel}';
+    return '${L10n.current.paidByWallet}$separator${split.totalLabel}';
   }
   return '$paymentMethod ${split.remainderLabel}$separator'
-      'Wallet ${split.walletLabel}';
+      '${L10n.current.walletAmount(split.walletLabel)}';
 }

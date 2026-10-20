@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class DriverProfilePage extends StatelessWidget {
   const DriverProfilePage({super.key, required this.driver});
@@ -20,11 +21,11 @@ class DriverProfilePage extends StatelessWidget {
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded),
-                tooltip: 'Close',
+                tooltip: context.l10n.close,
               ),
               Expanded(
                 child: Text(
-                  'Driver',
+                  context.l10n.driver,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 16,
@@ -68,17 +69,17 @@ class DriverProfilePage extends StatelessWidget {
           Row(
             children: [
               if (driver.tripCount != null)
-                Expanded(child: _stat('${driver.tripCount}', 'Trips')),
+                Expanded(child: _stat('${driver.tripCount}', context.l10n.driverTrips)),
               if (driver.ratingLabel != null)
-                Expanded(child: _stat(driver.ratingLabel!, 'Rating')),
+                Expanded(child: _stat(driver.ratingLabel!, context.l10n.driverRating)),
               if (driver.yearsOnMovera != null)
-                Expanded(child: _stat('${driver.yearsOnMovera}', 'Years')),
+                Expanded(child: _stat('${driver.yearsOnMovera}', context.l10n.driverYears)),
             ],
           ),
           if (driver.vehicleLabel.isNotEmpty || driver.plate != null) ...[
             const SizedBox(height: 24),
             Text(
-              'Vehicle',
+              context.l10n.vehicle,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -106,7 +107,7 @@ class DriverProfilePage extends StatelessWidget {
           if (driver.languages.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
-              'Languages',
+              context.l10n.driverLanguages,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

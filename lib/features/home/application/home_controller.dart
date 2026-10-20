@@ -313,10 +313,14 @@ class HomeLocationController extends ChangeNotifier {
     }
   }
 
+  /// Told about every good fix (the app language follows the pickup
+  /// zone's default, Q48). Set once at start-up.
+  static void Function(GeoPoint point)? onGoodFix;
+
   void _rememberGoodFix(Position position) {
-    unawaited(
-      location.saveLastGoodFix(GeoPoint(position.latitude, position.longitude)),
-    );
+    final point = GeoPoint(position.latitude, position.longitude);
+    unawaited(location.saveLastGoodFix(point));
+    onGoodFix?.call(point);
   }
 
   Future<DetectedLocation> detectCurrent() async {

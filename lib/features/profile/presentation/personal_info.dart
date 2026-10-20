@@ -9,7 +9,9 @@ import 'package:movera_rider/features/profile/application/account_security_contr
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/language_picker.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class PersonalInfoPage extends StatefulWidget {
   const PersonalInfoPage({super.key, this.controller, this.securityController});
@@ -54,14 +56,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       await _profile.update(next);
     } catch (_) {
       if (mounted) {
-        MoveraToast.show(context, 'Couldn’t save that change. Try again.');
+        MoveraToast.show(context, context.l10n.saveFailed);
       }
     }
   }
 
   String _valueOrNotAdded(String value) {
     final trimmed = value.trim();
-    return trimmed.isEmpty ? 'Not added' : trimmed;
+    return trimmed.isEmpty ? context.l10n.notAdded : trimmed;
   }
 
   String _serverContact(
@@ -72,8 +74,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     if (!_security.available || _security.state == null) {
       return unavailableLabel;
     }
-    if (value.trim().isEmpty) return 'Not added';
-    return verified ? '$value · Verified' : '$value · Not verified';
+    if (value.trim().isEmpty) return context.l10n.notAdded;
+    return verified ? context.l10n.valueVerified(value) : context.l10n.valueNotVerified(value);
   }
 
   @override
@@ -86,9 +88,9 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHeadline(
-            'Personal info',
-            body: 'Name, phone, and how we reach you.',
+          AccountHeadline(
+            context.l10n.accountPersonalInfo,
+            body: context.l10n.personalInfoBody,
           ),
           const SizedBox(height: 20),
           Center(
@@ -110,14 +112,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             children: [
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarUserId),
-                title: 'Name',
+                title: context.l10n.name,
                 body: _valueOrNotAdded(ride.name),
                 onTap: () async {
                   final next = await showAccountTextEditor(
                     context,
-                    title: 'Name',
+                    title: context.l10n.name,
                     value: ride.name,
-                    emptyError: 'Enter your name',
+                    emptyError: context.l10n.enterYourName,
                   );
                   if (next != null && next.isNotEmpty) {
                     await _save(ride.copyWith(name: next));
@@ -132,18 +134,23 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                       ? AppAssets.solarMen
                       : AppAssets.solarUserRounded,
                 ),
-                title: 'Gender',
+                title: context.l10n.gender,
                 body: _valueOrNotAdded(
-                  ride.gender == 'Woman' || ride.gender == 'Man'
-                      ? ride.gender
+                  ride.gender == 'Woman'
+                      ? context.l10n.genderWoman
+                      : ride.gender == 'Man'
+                      ? context.l10n.genderMan
                       : '',
                 ),
                 onTap: () async {
                   final next = await showAccountChoice(
                     context,
-                    title: 'Gender',
+                    title: context.l10n.gender,
                     options: const ['Woman', 'Man'],
                     selected: ride.gender,
+                    labelOf: (g) => g == 'Woman'
+                        ? context.l10n.genderWoman
+                        : context.l10n.genderMan,
                   );
                   if (next != null) {
                     await _save(ride.copyWith(gender: next));
@@ -152,37 +159,30 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarPhone),
-                title: 'Phone',
+                title: context.l10n.phone,
                 body: _serverContact(
                   account?.phone ?? '',
                   verified: account?.phoneVerified == true,
-                  unavailableLabel: 'Server phone status unavailable',
+                  unavailableLabel: context.l10n.serverPhoneUnavailable,
                 ),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarLetter),
-                title: 'Email',
+                title: context.l10n.email,
                 body: _serverContact(
                   account?.email ?? '',
                   verified: account?.emailVerified == true,
-                  unavailableLabel: 'Server email status unavailable',
+                  unavailableLabel: context.l10n.serverEmailStatusUnavailable,
                 ),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarGlobal),
-                title: 'Language',
-                body: ride.language,
+                title: context.l10n.language,
+                body: AppScope.instance.language.language.label,
                 showDivider: false,
                 onTap: () async {
-                  final next = await showAccountChoice(
-                    context,
-                    title: 'Language',
-                    options: const ['English', 'Svenska'],
-                    selected: ride.language,
-                  );
-                  if (next != null) {
-                    await _save(ride.copyWith(language: next));
-                  }
+                  await pickAppLanguage(context, profile: _profile);
+                  _refresh();
                 },
               ),
             ],

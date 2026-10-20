@@ -4,11 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// True for "Cash": the price is only shown, nothing is charged now.
 bool isCashPayment(String paymentMethod) {
   final m = paymentMethod.trim().toLowerCase();
-  return m == 'cash' || m.contains('pay in car');
+  // Round 4: "Cash" may reach here in the app language too.
+  return m == 'cash' || m.contains('pay in car') || L10n.isCashLabel(m);
 }
 
 /// Where a refund goes when the new route is cheaper.
@@ -121,27 +123,27 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
     final diff = _diff;
     final String priceNote;
     if (diff.abs() < 0.5) {
-      priceNote = 'Same price as before.';
+      priceNote = context.l10n.samePrice;
     } else if (_cash) {
       priceNote = diff > 0
-          ? '+${_kr(diff)} more. You pay the new price in the car.'
-          : '${_kr(-diff)} less. You pay the new price in the car.';
+          ? context.l10n.moreCash(_kr(diff))
+          : context.l10n.lessCash(_kr(-diff));
     } else if (diff > 0) {
-      priceNote = '+${_kr(diff)} more, charged to $paymentMethod.';
+      priceNote = context.l10n.moreCharged(_kr(diff), paymentMethod);
     } else {
-      priceNote = '${_kr(-diff)} less, returned to $paymentMethod.';
+      priceNote = context.l10n.lessReturned(_kr(-diff), paymentMethod);
     }
     return _step(
       key: const ValueKey('route-change-step-route'),
       body: [
         Text(
-          'New route',
+          context.l10n.newRoute,
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
         ),
         const SizedBox(height: 14),
         _row(Icons.radio_button_checked, const Color(0xFF079A60), quote.pickupAddress),
         for (var i = 0; i < quote.stops.length; i++)
-          _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: 'Stop ${i + 1}'),
+          _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: context.l10n.stopNumber('${i + 1}')),
         _row(Icons.square, const Color(0xFF1769E8), quote.destinationAddress),
       ],
       // The new price stays next to Confirm; only the route list scrolls.
@@ -160,7 +162,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'New price',
+                      context.l10n.newPrice,
                       style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: _muted),
                     ),
                     const SizedBox(height: 2),
@@ -193,12 +195,12 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-confirm'),
-          label: _cash || diff.abs() < 0.5 ? 'Confirm change' : 'Confirm · next: payment',
+          label: _cash || diff.abs() < 0.5 ? context.l10n.confirmChange : context.l10n.confirmNextPayment,
           onPressed: _confirmRoute,
         ),
         const SizedBox(height: 8),
         _secondary(
-          'Keep current route',
+          context.l10n.keepCurrentRoute,
           () => Navigator.pop(context, RouteChangeDecision.declined),
         ),
       ],
@@ -212,14 +214,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
       key: const ValueKey('route-change-step-payment'),
       body: [
         Text(
-          more ? 'Confirm payment' : 'Choose your refund',
+          more ? context.l10n.confirmPayment : context.l10n.chooseRefund,
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
         ),
         const SizedBox(height: 6),
         Text(
           more
-              ? 'The additional amount for the new route is charged to your payment method now.'
-              : 'Your new route costs less. Please choose how you would like to receive the difference.',
+              ? context.l10n.routeChargedNow
+              : context.l10n.routeCostsLess,
           style: GoogleFonts.poppins(fontSize: 13.5, color: _muted),
         ),
         const SizedBox(height: 16),
@@ -232,14 +234,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           ),
           child: Column(
             children: [
-              _kv('Payment method', paymentMethod),
+              _kv(context.l10n.paymentMethod, paymentMethod),
               const SizedBox(height: 8),
-              _kv('Booked price', _kr(quote.oldPriceKr)),
+              _kv(context.l10n.bookedPrice, _kr(quote.oldPriceKr)),
               const SizedBox(height: 8),
-              _kv('New price', _kr(quote.newPriceKr)),
+              _kv(context.l10n.newPrice, _kr(quote.newPriceKr)),
               const Divider(height: 20),
               _kv(
-                more ? 'Charged now' : 'Refund amount',
+                more ? context.l10n.chargedNow : context.l10n.refundAmount,
                 '${more ? '+' : ''}${_kr(diff.abs())}',
                 bold: true,
               ),
@@ -252,9 +254,9 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             _refundOption(
               RefundDestination.wallet,
               key: const ValueKey('refund-to-wallet'),
-              title: 'Movera Wallet',
+              title: context.l10n.moveraWallet,
               subtitle:
-                  'Available immediately and used first on your next ride.',
+                  context.l10n.refundWalletBody,
               icon: Icons.account_balance_wallet_outlined,
             ),
           ],
@@ -264,7 +266,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             key: const ValueKey('refund-to-original'),
             title: paymentMethod,
             subtitle:
-                'Returned to your original payment method within 2 to 3 business days.',
+                context.l10n.refundOriginalBody,
             icon: Icons.credit_card_outlined,
           ),
         ],
@@ -274,14 +276,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         _primary(
           key: const ValueKey('route-change-pay'),
           label: more
-              ? 'Confirm and pay ${_kr(diff)}'
+              ? context.l10n.confirmAndPay(_kr(diff))
               : _refundTo == RefundDestination.wallet
-              ? 'Confirm refund to Movera Wallet'
-              : 'Confirm refund to $paymentMethod',
+              ? context.l10n.confirmRefundWallet
+              : context.l10n.confirmRefundTo(paymentMethod),
           onPressed: _confirmPayment,
         ),
         const SizedBox(height: 8),
-        _secondary('Back', () => setState(() => _paymentStep = false)),
+        _secondary(context.l10n.back, () => setState(() => _paymentStep = false)),
       ],
     );
   }

@@ -8,6 +8,7 @@ import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
   const RideCompletedAddTip({super.key, this.controller, this.onTipChanged});
@@ -68,18 +69,18 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
         Center(
           child: TextWidget(
             text: _driverName == null
-                ? 'Tip your driver'
-                : 'Tip $_driverName',
+                ? context.l10n.tipYourDriver
+                : context.l10n.tipName(_driverName),
             color: AppColor.title,
             fontSize: 16,
             fontWeight: fwSemiBold,
           ),
         ),
         if (_amounts.isEmpty)
-          const MoveraEmptyState(
+          MoveraEmptyState(
             icon: Icons.volunteer_activism_outlined,
-            title: 'Tips unavailable',
-            message: "Tipping isn't available in this build.",
+            title: context.l10n.tipsUnavailable,
+            message: context.l10n.tipsUnavailableBody,
             compact: true,
           )
         else ...[
@@ -104,8 +105,8 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           const SizedBox(height: 10),
           TextWidget(
             text: _selected == null
-                ? 'Tip is optional.'
-                : '${formatMoneyShort(_selected!)} selected.',
+                ? context.l10n.tipOptional
+                : context.l10n.tipSelected(formatMoneyShort(_selected!)),
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,
@@ -133,7 +134,7 @@ class _TipChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Tip $amount',
+      label: context.l10n.tipAmount(amount),
       child: Material(
         color: selected ? accent : Colors.white,
         borderRadius: BorderRadius.circular(A11y.minTap / 2),

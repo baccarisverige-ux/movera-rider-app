@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color _terminalInk = Color(0xFF1D252C);
 const Color _terminalMuted = Color(0xFF5C656C);
@@ -43,7 +44,7 @@ Future<NoDriverChoice> showNoDriverFoundSheet(BuildContext context) async {
       spec: RideTerminalStateSpec.noDriverRetry,
       onAcknowledge: () =>
           Navigator.of(sheetContext).pop(NoDriverChoice.tryAgain),
-      secondaryLabel: 'Change route',
+      secondaryLabel: context.l10n.changeRoute,
       onSecondary: () =>
           Navigator.of(sheetContext).pop(NoDriverChoice.changeRoute),
     ),
@@ -244,14 +245,14 @@ class RideTerminalStateSpec {
   final Color iconColor;
 
   /// RIDE-19: "No driver found" when the same request can be sent again.
-  static const noDriverRetry = RideTerminalStateSpec(
-    eyebrow: 'REQUEST ENDED',
-    title: 'No driver found',
+  static RideTerminalStateSpec get noDriverRetry => RideTerminalStateSpec(
+    eyebrow: L10n.current.termRequestEnded,
+    title: L10n.current.termNoDriverFound,
     message:
-        'No driver accepted this request, so the ride did not start. You can request the same ride again or choose a different route.',
+        L10n.current.termNoDriverFoundBody,
     reassurance:
-        'Try again keeps your pickup, destination, ride type and payment.',
-    primaryLabel: 'Try again',
+        L10n.current.termNoDriverFoundNote,
+    primaryLabel: L10n.current.tryAgain,
     icon: Icons.local_taxi_outlined,
     iconBackground: Color(0xFFEAF1F6),
     iconColor: Color(0xFF2D5878),
@@ -259,123 +260,123 @@ class RideTerminalStateSpec {
 
   factory RideTerminalStateSpec.fromStatus(RideStatus status) {
     return switch (status) {
-      RideStatus.noDriverFound => const RideTerminalStateSpec(
-          eyebrow: 'REQUEST ENDED',
-          title: 'No driver was available',
+      RideStatus.noDriverFound => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRequestEnded,
+          title: L10n.current.termNoDriverAvailable,
           message:
-              'We could not confirm a driver for this request. The ride did not start, so you can return home and request again when you are ready.',
+              L10n.current.termNoDriverAvailableBody,
           reassurance:
-              'Your pickup and destination can be selected again from Home.',
-          primaryLabel: 'Back to home',
+              L10n.current.termNoDriverAvailableNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.local_taxi_outlined,
           iconBackground: Color(0xFFEAF1F6),
           iconColor: Color(0xFF2D5878),
         ),
-      RideStatus.bookingExpired => const RideTerminalStateSpec(
-          eyebrow: 'REQUEST EXPIRED',
-          title: 'This booking expired',
+      RideStatus.bookingExpired => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRequestExpired,
+          title: L10n.current.termBookingExpired,
           message:
-              'The request was not confirmed in time and is no longer active. No driver is assigned to this booking.',
+              L10n.current.termBookingExpiredBody,
           reassurance:
-              'Return home to create a fresh request with current availability.',
-          primaryLabel: 'Back to home',
+              L10n.current.termBookingExpiredNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.schedule_rounded,
           iconBackground: Color(0xFFFFF3DE),
           iconColor: Color(0xFF9A6414),
         ),
-      RideStatus.paymentFailed => const RideTerminalStateSpec(
-          eyebrow: 'PAYMENT NOT COMPLETED',
-          title: 'Payment could not be completed',
+      RideStatus.paymentFailed => RideTerminalStateSpec(
+          eyebrow: L10n.current.termPaymentEyebrow,
+          title: L10n.current.termPaymentTitle,
           message:
-              'Movera could not finalize the payment step for this ride. The trip is not active.',
+              L10n.current.termPaymentBody,
           reassurance:
-              'You can review your payment method before requesting another ride.',
-          primaryLabel: 'Back to home',
+              L10n.current.termPaymentNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.credit_card_off_outlined,
           iconBackground: Color(0xFFF8E8E6),
           iconColor: Color(0xFF9B3B34),
         ),
-      RideStatus.cancelledBySystem => const RideTerminalStateSpec(
-          eyebrow: 'RIDE ENDED',
-          title: 'Movera ended this ride',
+      RideStatus.cancelledBySystem => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRideEnded,
+          title: L10n.current.termSystemTitle,
           message:
-              'The ride was closed by the platform and is no longer active. Return home before starting another request.',
+              L10n.current.termSystemBody,
           reassurance:
-              'Your next request will start as a new trip and will not reuse this ride state.',
-          primaryLabel: 'Back to home',
+              L10n.current.termSystemNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.info_outline_rounded,
           iconBackground: Color(0xFFEAF1F6),
           iconColor: Color(0xFF2D5878),
         ),
-      RideStatus.cancelledByDriver => const RideTerminalStateSpec(
-          eyebrow: 'DRIVER UPDATE',
-          title: 'Your driver cancelled',
+      RideStatus.cancelledByDriver => RideTerminalStateSpec(
+          eyebrow: L10n.current.termDriverUpdate,
+          title: L10n.current.driverCancelled,
           message:
-              'This assigned driver is no longer on the ride. Movera will only continue matching when the ride flow explicitly requests a new driver.',
+              L10n.current.termDriverCancelledBody,
           reassurance:
-              'Your ride details are kept separate from the cancelled driver assignment.',
-          primaryLabel: 'Continue',
+              L10n.current.termDriverCancelledNote,
+          primaryLabel: L10n.current.continueLabel,
           icon: Icons.person_off_outlined,
           iconBackground: Color(0xFFF8E8E6),
           iconColor: Color(0xFF9B3B34),
         ),
       // Contract v0.3.0: each terminal cause has its own copy.
-      RideStatus.cancelledByAdmin => const RideTerminalStateSpec(
-          eyebrow: 'RIDE CANCELLED',
-          title: 'Cancelled by Movera',
+      RideStatus.cancelledByAdmin => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRideCancelled,
+          title: L10n.current.cancelledByMovera,
           message:
-              'Movera support cancelled this ride. It is no longer active and no driver is on the way.',
+              L10n.current.termAdminBody,
           reassurance:
-              'Contact support from Help if you did not expect this.',
-          primaryLabel: 'Back to home',
+              L10n.current.termAdminNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.support_agent_rounded,
           iconBackground: Color(0xFFEAF1F6),
           iconColor: Color(0xFF2D5878),
         ),
-      RideStatus.noShow => const RideTerminalStateSpec(
-          eyebrow: 'RIDE ENDED',
-          title: 'Your driver could not find you',
+      RideStatus.noShow => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRideEnded,
+          title: L10n.current.termNoShowTitle,
           message:
-              'The driver waited at the pickup point and the ride was closed as a no-show. A no-show fee may apply.',
+              L10n.current.termNoShowBody,
           reassurance:
-              'You can see any fee on your receipt in History, or contact support from Help.',
-          primaryLabel: 'Back to home',
+              L10n.current.termNoShowNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.person_search_rounded,
           iconBackground: Color(0xFFFFF3DE),
           iconColor: Color(0xFF9A6414),
         ),
-      RideStatus.tripFailed => const RideTerminalStateSpec(
-          eyebrow: 'SOMETHING WENT WRONG',
-          title: 'This ride could not continue',
+      RideStatus.tripFailed => RideTerminalStateSpec(
+          eyebrow: L10n.current.termFailedEyebrow,
+          title: L10n.current.termFailedTitle,
           message:
-              'A problem on our side stopped this ride. It is no longer active.',
+              L10n.current.termFailedBody,
           reassurance:
-              'Contact support from Help and we will sort out anything you were charged.',
-          primaryLabel: 'Back to home',
+              L10n.current.termFailedNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.error_outline_rounded,
           iconBackground: Color(0xFFF8E8E6),
           iconColor: Color(0xFF9B3B34),
         ),
-      RideStatus.endedByDriver => const RideTerminalStateSpec(
-          eyebrow: 'RIDE ENDED',
-          title: 'Your driver ended the ride',
+      RideStatus.endedByDriver => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRideEnded,
+          title: L10n.current.termEndedByDriverTitle,
           message:
-              'The driver ended this ride before the destination. It is no longer active.',
+              L10n.current.termEndedByDriverBody,
           reassurance:
-              'You pay only for the distance driven. Contact support from Help if something happened.',
-          primaryLabel: 'Back to home',
+              L10n.current.termEndedByDriverNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.person_off_outlined,
           iconBackground: Color(0xFFF8E8E6),
           iconColor: Color(0xFF9B3B34),
         ),
-      _ => const RideTerminalStateSpec(
-          eyebrow: 'RIDE ENDED',
-          title: 'This ride is no longer active',
+      _ => RideTerminalStateSpec(
+          eyebrow: L10n.current.termRideEnded,
+          title: L10n.current.termGenericTitle,
           message:
-              'The current ride has reached a terminal state and cannot continue from this screen.',
+              L10n.current.termGenericBody,
           reassurance:
-              'Return home before starting a new ride request.',
-          primaryLabel: 'Back to home',
+              L10n.current.termGenericNote,
+          primaryLabel: L10n.current.backToHome,
           icon: Icons.info_outline_rounded,
           iconBackground: Color(0xFFEAF1F6),
           iconColor: Color(0xFF2D5878),

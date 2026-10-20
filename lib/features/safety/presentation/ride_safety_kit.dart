@@ -12,6 +12,7 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 const Color _ink = Color(0xFF1D252C);
 const Color _muted = Color(0xFF5C656C);
@@ -45,7 +46,7 @@ class SafetyKitMapButton extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Safety Kit',
+                      context.l10n.safetyKit,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
@@ -90,7 +91,7 @@ class SafetyKitSheetRow extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Safety Kit',
+                  context.l10n.safetyKit,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -169,12 +170,12 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
         final registered = await _ctl.sos(rideId: widget.rideId);
         if (!mounted) return;
         MoveraToast.show(context, registered
-            ? 'Phone dialer opened. Movera registered your SOS.'
-            : 'Phone dialer opened. In-app SOS needs an active ride.');
+            ? context.l10n.sosRegistered
+            : context.l10n.sosNeedsRide);
       } catch (_) {
         if (!mounted) return;
         MoveraToast.show(context,
-            'Phone dialer opened, but Movera could not register your SOS.');
+            context.l10n.sosNotRegistered);
       }
     } on EmergencyCallException catch (error) {
       if (!mounted) return;
@@ -189,15 +190,14 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording saved on this device. Automatic upload is unavailable.',
+              context.l10n.recordingSavedLocal,
         );
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording. It stops and is saved on this device when you tap '
-              'Stop audio or close the Safety Kit.',
+              context.l10n.safetyKitRecording,
         );
       }
     } on SafetyAudioException catch (error) {
@@ -206,7 +206,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _audioNote =
-          'Recording could not be saved. Check microphone access and try again.');
+          context.l10n.recordingFailed);
     }
   }
 
@@ -226,12 +226,12 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
       if (!mounted) return;
       setState(() {
         _audioNote = share.isActive && share.contactIds.isNotEmpty
-            ? 'Trip sharing started for ${share.contactIds.length} trusted contact${share.contactIds.length == 1 ? '' : 's'}.'
-            : 'Trip sharing could not be started.';
+            ? context.l10n.tripSharingStarted(share.contactIds.length)
+            : context.l10n.tripSharingNotStarted;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _audioNote = 'Could not start trip sharing. Please try again.');
+      setState(() => _audioNote = context.l10n.tripSharingFailed);
     }
   }
 
@@ -258,11 +258,11 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded, color: _ink),
-                  tooltip: 'Close',
+                  tooltip: context.l10n.close,
                 ),
                 Expanded(
                   child: Text(
-                    'Safety',
+                    context.l10n.accountSafety,
                     textAlign: TextAlign.center,
                     style: _text(17, weight: FontWeight.w600),
                   ),
@@ -271,14 +271,14 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
               ],
             ),
             const SizedBox(height: 4),
-            Text('Safety tools', style: _text(22, weight: FontWeight.w700)),
+            Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: _Tool(
                     icon: Icons.call_outlined,
-                    label: 'Contact 112',
+                    label: context.l10n.contact112,
                     onTap: _call112,
                   ),
                 ),
@@ -288,7 +288,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                     icon: recording
                         ? Icons.stop_circle_outlined
                         : Icons.mic_outlined,
-                    label: recording ? 'Stop audio' : 'Record audio',
+                    label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
                     onTap: _toggleAudio,
                   ),
                 ),
@@ -296,7 +296,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                 Expanded(
                   child: _Tool(
                     icon: Icons.ios_share_outlined,
-                    label: 'Share trip',
+                    label: context.l10n.shareTrip,
                     onTap: _shareTrip,
                   ),
                 ),
@@ -328,11 +328,11 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Safety preferences',
+                              context.l10n.safetyPreferences,
                               style: _text(14, weight: FontWeight.w600),
                             ),
                             Text(
-                              'PIN, contacts, trip sharing and RideCheck',
+                              context.l10n.safetyPreferencesBody,
                               style: _text(12, color: _muted),
                             ),
                           ],

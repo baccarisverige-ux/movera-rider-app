@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What to tell the rider after a top-up, or null when it went through.
 ///
@@ -10,28 +11,23 @@ String? topUpMessage(TopUpOutcome outcome) {
     case TopUpCredited():
       return null;
     case TopUpUnconfirmed():
-      return "We couldn't confirm your top-up. If it went through, it will "
-          "show in your balance — trying again won't charge you twice.";
+      return L10n.current.topUpUnconfirmed;
     case TopUpNotCharged(declined: true):
-      return "The payment was declined, so you weren't charged.";
+      return L10n.current.topUpDeclined;
     case TopUpNotCharged(:final error):
       final kind =
           error == null ? RiderErrorKind.unknown : riderErrorKind(error);
       switch (kind) {
         case RiderErrorKind.offline:
-          return "No connection, so the top-up didn't go through. You "
-              "weren't charged — try again when you're back online.";
+          return L10n.current.topUpOffline;
         case RiderErrorKind.rateLimited:
           final wait = error == null ? null : riderRetryWait(error);
-          return "Too many tries. You weren't charged — try again "
-              "${wait == null ? 'in a moment' : 'in $wait'}.";
+          return L10n.current.topUpRateLimited(wait == null ? L10n.current.inAMoment : L10n.current.inDuration(wait));
         case RiderErrorKind.serverTrouble:
-          return "Movera is having trouble right now. You weren't charged — "
-              'try again in a moment.';
+          return L10n.current.topUpServerTrouble;
         case RiderErrorKind.refused:
         case RiderErrorKind.unknown:
-          return "The top-up didn't go through. You weren't charged — try "
-              'again.';
+          return L10n.current.topUpFailed;
       }
   }
 }
