@@ -6,36 +6,37 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// native SDKs both top out at 67.5°).
 const double maxMapTilt = 67.5;
 
-/// Zoom at which the tilt starts (flat at or below) and the zoom from which
-/// the camera is fully tilted towards the horizon.
-const double tiltStartZoom = 11;
-const double tiltFullZoom = 15;
+/// Zoom at or below which every rider map is flat (the city overview, and
+/// Home's opening zoom 11.7), and the zoom from which the camera leans the
+/// full [maxMapTilt] towards the horizon. Same as the driver app.
+const double tiltStartZoom = 12;
+const double tiltFullZoom = 15.5;
 
-/// The steepest tilt the map engine allows at [zoom]. The native SDKs cap
-/// the tilt by zoom (45° around zoom 10 rising to 67.5° from about 15.5);
-/// asking for more makes the engine clamp it, so the camera would land
-/// somewhere other than requested and visibly correct itself. Staying inside
-/// this envelope means every requested pose is the pose drawn.
+/// The steepest tilt the map engines allow at [zoom] (Android/iOS
+/// `CameraPosition`): 30° up to zoom 10, 45° at 14, [maxMapTilt] from 15.5,
+/// linear between. Asking for more makes the engine clamp it, so the camera
+/// would land somewhere other than requested and visibly correct itself.
 double maxTiltForZoom(double zoom) {
   if (!zoom.isFinite) return 0;
-  if (zoom >= 15.5) return maxMapTilt;
-  if (zoom <= 10) return 45;
-  return 45 + (maxMapTilt - 45) * (zoom - 10) / 5.5;
+  if (zoom <= 10) return 30;
+  if (zoom <= 14) return 30 + (zoom - 10) / 4 * 15;
+  if (zoom < 15.5) return 45 + (zoom - 14) / 1.5 * (maxMapTilt - 45);
+  return maxMapTilt;
 }
 
-/// Camera tilt for [zoom]: flat when zoomed out, leaning towards the horizon
-/// as the rider zooms in, like a navigation app.
-///
-/// `T · s²(3 − 2s)` with `s = clamp((zoom − 11) / 4, 0, 1)` and T the
-/// steepest accepted tilt, then kept inside [maxTiltForZoom].
+/// Camera tilt for [zoom], the driver app's curve: 0° at zoom <= 12, then
+/// proportional to zoom (linear, about 19° per zoom level) up to 67.5° at
+/// zoom 15.5, so every small pinch step changes the tilt. The line stays
+/// under [maxTiltForZoom] everywhere; the min is a guard.
+/// web/rider_map_camera.js applies the same curve live while the rider
+/// pinches; keep both in step.
 double tiltForZoom(double zoom) {
   if (!zoom.isFinite) return 0;
-  final s = ((zoom - tiltStartZoom) / (tiltFullZoom - tiltStartZoom)).clamp(
+  final t = ((zoom - tiltStartZoom) / (tiltFullZoom - tiltStartZoom)).clamp(
     0.0,
     1.0,
   );
-  final eased = maxMapTilt * s * s * (3 - 2 * s);
-  return math.min(eased, maxTiltForZoom(zoom));
+  return math.min(maxMapTilt * t, maxTiltForZoom(zoom));
 }
 
 /// [position] with the tilt that belongs to its zoom (target, zoom and

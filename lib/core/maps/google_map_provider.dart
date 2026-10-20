@@ -73,10 +73,21 @@ class GoogleMapProvider implements MapProvider {
     );
   }
 
+  /// Whether a camera command may run on [map] now. An automatic
+  /// ([follow]) update leaves a map the rider holds or just moved alone; a
+  /// requested one takes it back.
+  bool _mayMove(GoogleMapController map, bool follow) {
+    final view = mapViewOf(map);
+    if (follow) return !view.heldByRider;
+    if (view.touching) return false;
+    view.movedByHandAt = null;
+    return true;
+  }
+
   @override
   Future<void> moveCamera(GeoPoint target, {double zoom = 15}) async {
     final map = controller;
-    if (map == null) return;
+    if (map == null || !_mayMove(map, true)) return;
     await placeCameraAt(map, _pose(target, zoom, 0));
   }
 
@@ -85,10 +96,15 @@ class GoogleMapProvider implements MapProvider {
     GeoPoint target, {
     double zoom = 15,
     double bearing = 0,
+    bool follow = false,
   }) async {
     final map = controller;
-    if (map == null) return;
-    await easeCameraTo(map, _pose(target, zoom, bearing));
+    if (map == null || !_mayMove(map, follow)) return;
+    await easeCameraTo(
+      map,
+      _pose(target, zoom, bearing),
+      duration: follow ? cameraEaseDuration : cameraFlightDuration,
+    );
   }
 
   /// Frames both points. When the map's viewport is known the fit is one
@@ -96,9 +112,14 @@ class GoogleMapProvider implements MapProvider {
   /// route overviews, leaning for close ones); otherwise, and on maps that
   /// ignore tilt, it is the plain bounds fit.
   @override
-  Future<void> fitBounds(GeoPoint a, GeoPoint b, {double padding = 56}) async {
+  Future<void> fitBounds(
+    GeoPoint a,
+    GeoPoint b, {
+    double padding = 56,
+    bool follow = false,
+  }) async {
     final map = controller;
-    if (map == null) return;
+    if (map == null || !_mayMove(map, follow)) return;
     final southwest = LatLng(
       a.latitude < b.latitude ? a.latitude : b.latitude,
       a.longitude < b.longitude ? a.longitude : b.longitude,

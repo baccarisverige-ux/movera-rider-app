@@ -103,6 +103,11 @@ jobs:
               'flutter_bootstrap.js',
               versioned_bootstrap,
           )
+          # Pages caches plain names: version the map gesture layer too.
+          index_text = index_text.replace(
+              'src="rider_map_camera.js"',
+              f'src="rider_map_camera.js?v={version}"',
+          )
           index.write_text(index_text)
           PY
 

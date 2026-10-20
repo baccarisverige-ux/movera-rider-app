@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
+import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -50,8 +51,9 @@ class CustomGoogleMap extends StatefulWidget {
   final String cloudMapId;
 
   /// Lean the camera towards the horizon as the rider zooms in
-  /// ([tiltForZoom]). Screens that read the pickup from a screen-centred pin
-  /// with flat-map maths pass false and stay flat.
+  /// ([tiltForZoom], the driver app's curve), live during a pinch on the
+  /// web. Screens that read the pickup from a screen-centred pin with
+  /// flat-map maths pass false and stay flat.
   final bool tiltWithZoom;
 
   const CustomGoogleMap({
@@ -104,10 +106,13 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   // (where the map is a browser element Flutter's pointers never reach).
   int _fingers = 0;
   MapTouchSubscription? _webTouch;
-  bool _moving = false;
-  double? _moveStartZoom;
-  bool _easeWhenReleased = false;
+  void Function()? _stopWebGestures;
+  bool _settleOnRelease = false;
   Size? _viewport;
+
+  // Native pointers, to tell a pan or pinch from a tap (the web gesture
+  // layer reports its own).
+  final Map<int, Offset> _pointerOrigins = <int, Offset>{};
 
   @override
   void initState() {
@@ -120,13 +125,40 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     return controller == null ? null : mapViewOf(controller);
   }
 
+  bool get _tiltsWithZoom => widget.tiltWithZoom;
+
   void _syncView() {
+    final controller = _mapController;
     final view = _view;
-    if (view == null) return;
+    if (controller == null || view == null) return;
     view.size = _viewport;
-    view.tiltWithZoom = widget.tiltWithZoom;
-    // Raster web maps (no Map ID) ignore tilt; vector maps and phones use it.
-    view.supportsTilt = !kIsWeb || widget.cloudMapId.trim().isNotEmpty;
+    view.tiltWithZoom = _tiltsWithZoom;
+    _syncTiltSupport(view);
+    final id = view.mapId;
+    if (id != null) {
+      RiderMapBridge.gestures(
+        id,
+        scroll: widget.scrollGesturesEnabled,
+        zoom: widget.zoomGesturesEnabled,
+        rotate: widget.rotateGesturesEnabled,
+        tilt: widget.tiltGesturesEnabled,
+      );
+      RiderMapBridge.tiltFollowsZoom(id, _tiltsWithZoom);
+    }
+  }
+
+  /// Raster web maps ignore tilt; vector maps and phones use it. The web
+  /// gesture layer knows the renderer Google picked; before it does, a Map
+  /// ID means vector.
+  void _syncTiltSupport(MapView view) {
+    if (!kIsWeb) {
+      view.supportsTilt = true;
+      return;
+    }
+    final id = view.mapId;
+    view.supportsTilt =
+        (id == null ? null : RiderMapBridge.supports3D(id)) ??
+        widget.cloudMapId.trim().isNotEmpty;
   }
 
   @override
@@ -135,69 +167,90 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     _syncView();
   }
 
-  void _fingerDown() => _fingers += 1;
+  void _fingerDown() {
+    _fingers += 1;
+    // The camera never moves under a finger.
+    _view?.touching = true;
+  }
 
   void _fingerUp() {
     if (_fingers == 0) return;
     _fingers -= 1;
-    if (_fingers == 0 && _easeWhenReleased && !_moving) {
-      _easeWhenReleased = false;
-      _easeTiltToZoom();
-    }
+    if (_fingers > 0) return;
+    _view?.touching = false;
+    if (_settleOnRelease) _settleTilt();
   }
 
-  void _onMoveStarted() {
-    if (!_moving) {
-      _moving = true;
-      _moveStartZoom = _view?.pose?.zoom;
-    }
-    widget.onCameraMoveStarted?.call();
+  /// The rider moved the map by hand: it is theirs for a while
+  /// ([MapView.followHold]) and its tilt settles to the zoom once let go.
+  void _movedByHand() {
+    final view = _view;
+    if (view == null) return;
+    view.movedByHandAt = MapView.now();
+    // The rider's own move wins over any app ease still running (a wheel
+    // zoom has no finger to stop it).
+    if (view.easing) view.interrupt();
   }
+
+  void _onMoveStarted() => widget.onCameraMoveStarted?.call();
 
   void _onMove(CameraPosition position) {
     final view = _view;
-    if (view != null) {
-      if (!_moving) {
-        _moving = true;
-        _moveStartZoom = view.pose?.zoom ?? position.zoom;
-      }
-      view.pose = position;
-    }
+    // While the app glides the camera, the echoes of its own frames are
+    // late copies of poses it already knows: they must not become the
+    // origin of the next frame.
+    if (view != null && !view.easing) view.pose = position;
     widget.onCameraMove?.call(position);
   }
 
   void _onIdle() {
-    final startZoom = _moveStartZoom;
-    _moving = false;
-    _moveStartZoom = null;
-    final pose = _view?.pose;
-    // A zoom (pinch, double tap) just ended: lean to that zoom's tilt.
-    // Pans and the rider's own tilt keep their pose. Never mid-gesture: with
-    // a finger still down the ease waits for it to lift.
-    if (pose != null &&
-        startZoom != null &&
-        (pose.zoom - startZoom).abs() > 0.05) {
-      if (_fingers > 0) {
-        _easeWhenReleased = true;
-      } else {
-        _easeTiltToZoom();
-      }
-    }
+    _settleTilt();
     widget.onCameraIdle?.call();
   }
 
-  void _easeTiltToZoom() {
+  /// The camera stopped after the rider zoomed or panned it: tilt it to
+  /// match their zoom ([tiltForZoom]), so a zoom out flattens it and a zoom
+  /// in leans it towards the horizon. Maps reports idle whenever the camera
+  /// pauses, also under a finger that holds a pinch: nothing moves until
+  /// the map is let go, or the ease would pull the zoom back from under the
+  /// rider's fingers. Only the tilt moves; the target and zoom are the
+  /// latest ones, never an older pose. (On the web the gesture layer
+  /// already tilts with the zoom on every pinch frame, so there this
+  /// usually has nothing left to do.)
+  void _settleTilt() {
+    if (_fingers > 0) {
+      _settleOnRelease = true;
+      return;
+    }
+    _settleOnRelease = false;
     final controller = _mapController;
     final view = _view;
     final pose = view?.pose;
     if (controller == null || view == null || pose == null) return;
-    if (!view.tiltWithZoom || !view.supportsTilt || view.easing) return;
-    if (!tiltNeedsEasing(pose)) return;
-    unawaited(
-      easeCameraTo(controller, withZoomTilt(pose)).catchError((Object _) {
-        // The map went away mid-ease; nothing to correct.
-      }),
-    );
+    if (view.movedByHandAt == null || view.easing) return;
+    _syncTiltSupport(view);
+    if (!view.tiltWithZoom || !view.supportsTilt) return;
+    final tilt = view.tiltFor(pose.zoom);
+    if ((tilt - pose.tilt).abs() < 1) return;
+    unawaited(easeTiltTo(controller, tilt));
+  }
+
+  void _pointerDown(PointerDownEvent event) {
+    _pointerOrigins[event.pointer] = event.position;
+    if (_pointerOrigins.length > 1) _movedByHand();
+    _fingerDown();
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    final origin = _pointerOrigins[event.pointer];
+    if (origin != null && (event.position - origin).distance >= 6) {
+      _movedByHand();
+    }
+  }
+
+  void _pointerUp(PointerEvent event) {
+    if (_pointerOrigins.remove(event.pointer) == null) return;
+    _fingerUp();
   }
 
   @override
@@ -216,8 +269,14 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     }
     final String mapId = widget.cloudMapId.trim();
     final bool hasMapId = mapId.isNotEmpty;
+    // The map opens with the tilt of its zoom, so the first frame is
+    // already the pose the camera keeps (no tilt correction afterwards).
+    final requested = widget.initialPosition ?? _defaultPosition;
+    final initial = _tiltsWithZoom && (!kIsWeb || hasMapId)
+        ? withZoomTilt(requested)
+        : requested;
     final map = GoogleMap(
-      initialCameraPosition: widget.initialPosition ?? _defaultPosition,
+      initialCameraPosition: initial,
       markers: widget.markers ?? {},
       polylines: widget.polylines ?? {},
       circles: widget.circles ?? {},
@@ -240,8 +299,16 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       style: hasMapId ? null : widget.customMapStyle ?? moveraReferenceMapStyle,
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
-        mapViewOf(controller).pose ??=
-            widget.initialPosition ?? _defaultPosition;
+        final view = mapViewOf(controller);
+        view.pose ??= initial;
+        if (kIsWeb) {
+          view.mapId = controller.mapId;
+          _stopWebGestures?.call();
+          _stopWebGestures = RiderMapBridge.listen(
+            controller.mapId,
+            _movedByHand,
+          );
+        }
         _syncView();
 
         if (kDebugMode) {
@@ -275,9 +342,11 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
         }
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: kIsWeb ? null : (_) => _fingerDown(),
-          onPointerUp: kIsWeb ? null : (_) => _fingerUp(),
-          onPointerCancel: kIsWeb ? null : (_) => _fingerUp(),
+          onPointerDown: kIsWeb ? null : _pointerDown,
+          onPointerMove: kIsWeb ? null : _pointerMove,
+          onPointerUp: kIsWeb ? null : _pointerUp,
+          onPointerCancel: kIsWeb ? null : _pointerUp,
+          onPointerSignal: kIsWeb ? null : (_) => _movedByHand(),
           child: map,
         );
       },
@@ -294,6 +363,10 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // confirming the exact pickup before SelectRide opens).
     _webTouch?.cancel();
     _webTouch = null;
+    _stopWebGestures?.call();
+    _stopWebGestures = null;
+    // A map replaced under a finger must not leave its camera held.
+    if (_fingers > 0) _view?.touching = false;
     _mapController = null;
     super.dispose();
   }
