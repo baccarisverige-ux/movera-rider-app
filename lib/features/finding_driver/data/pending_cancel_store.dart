@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
@@ -22,6 +24,7 @@ class PendingCancel {
     this.reasonId,
     this.idempotencyKey,
     this.command = PendingCancelCommand.cancel,
+    this.expectedVersion,
   });
 
   final String rideId;
@@ -36,11 +39,17 @@ class PendingCancel {
   /// existed were all `cancel`.
   final PendingCancelCommand command;
 
+  /// R-O2: the trip version the rider's screen showed when they tapped
+  /// (`expectedVersion`). Null when none was known, and for entries
+  /// written before the field existed.
+  final int? expectedVersion;
+
   PendingCancel withKey(String key) => PendingCancel(
     rideId: rideId,
     reasonId: reasonId,
     idempotencyKey: key,
     command: command,
+    expectedVersion: expectedVersion,
   );
 
   PendingCancel withReason(String? reason) => PendingCancel(
@@ -48,13 +57,34 @@ class PendingCancel {
     reasonId: reason,
     idempotencyKey: idempotencyKey,
     command: command,
+    expectedVersion: expectedVersion,
   );
+
+  /// The same command for a newer trip [version] the outbox re-read before
+  /// replaying it (R-O2). A new body is a new request, so it gets a new
+  /// key; the old one was never applied (the re-read shows the trip still
+  /// open).
+  PendingCancel forVersion(int? version) => PendingCancel(
+    rideId: rideId,
+    reasonId: reasonId,
+    idempotencyKey: newIdempotencyKey('ride-cancel'),
+    command: command,
+    expectedVersion: version,
+  );
+
+  /// The request body: the rider's reason and, when known, the version.
+  /// Always the same for one entry, so its key never covers two bodies.
+  Map<String, dynamic> body([String? fallbackReason]) => {
+    ...CancelReasonCodes.riderCancelBody(reasonId ?? fallbackReason),
+    'expectedVersion': ?expectedVersion,
+  };
 
   Map<String, dynamic> toJson() => {
     'rideId': rideId,
     'reasonId': reasonId,
     if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
     'command': command.pathSegment,
+    'expectedVersion': ?expectedVersion,
   };
 
   factory PendingCancel.fromJson(Map<String, dynamic> json) => PendingCancel(
@@ -62,6 +92,7 @@ class PendingCancel {
     reasonId: json['reasonId'] as String?,
     idempotencyKey: json['idempotencyKey'] as String?,
     command: PendingCancelCommand.parse(json['command']),
+    expectedVersion: (json['expectedVersion'] as num?)?.toInt(),
   );
 }
 
@@ -99,6 +130,12 @@ enum PendingCancelResult {
   /// The ride is gone or already over (404/410, or a refusal for a ride
   /// that has ended): nothing is left to cancel.
   gone,
+
+  /// R-O2: re-read before replaying, the trip had moved on so the command
+  /// no longer applies (a queued cancel for a rider now on board, an
+  /// end-early for a trip not started): it was dropped, never sent, and
+  /// the ride goes on. The rider is told their ride changed.
+  stale,
 }
 
 /// A flush outcome for one ride, as reported on [PendingCancelStore.outcomes].
@@ -124,6 +161,15 @@ bool isPermanentCancelFailure(Object error) {
   return status == 404 || status == 409 || status == 410 || status == 422;
 }
 
+/// R-O3: a refusal whose projection says the rider already cancelled the
+/// trip. A second cancel is quietly fine (owner decision): the app shows
+/// the trip as cancelled instead of an error.
+bool alreadyCancelledByRider(Object error) {
+  if (error is! ApiError) return false;
+  final status = TripStatusWire.parse(error.projection?['status']);
+  return status == TripStatus.cancelledByRider;
+}
+
 class PendingCancelStore {
   static const _key = 'movera_pending_cancels';
 
@@ -134,7 +180,24 @@ class PendingCancelStore {
   /// showing the ride can tell the rider instead of the entry vanishing.
   static Stream<PendingCancelOutcome> get outcomes => _outcomes.stream;
 
-  static void report(PendingCancelOutcome outcome) => _outcomes.add(outcome);
+  static void report(PendingCancelOutcome outcome) {
+    if (outcome.result == PendingCancelResult.refused ||
+        outcome.result == PendingCancelResult.stale) {
+      _notices[outcome.rideId] = outcome.result;
+    } else {
+      _notices.remove(outcome.rideId);
+    }
+    _outcomes.add(outcome);
+  }
+
+  /// Refusals and stale drops nobody has told the rider about yet. A flush
+  /// at launch can answer before the ride's screen exists (a cold restore);
+  /// the screen takes it when it opens (R-O2: "tell the rider").
+  static final Map<String, PendingCancelResult> _notices = {};
+
+  /// The untold refused/stale answer for [rideId], once.
+  static PendingCancelResult? takeNotice(String rideId) =>
+      _notices.remove(rideId);
 
   /// Decodes one stored entry, or null when it is corrupt (not JSON, not an
   /// object, no usable rideId). CODE-17: one bad entry used to throw out of
@@ -152,6 +215,7 @@ class PendingCancelStore {
         reasonId: reasonId is String ? reasonId : null,
         idempotencyKey: key is String && key.isNotEmpty ? key : null,
         command: PendingCancelCommand.parse(decoded['command']),
+        expectedVersion: (decoded['expectedVersion'] as num?)?.toInt(),
       );
     } catch (_) {
       return null;
@@ -226,6 +290,7 @@ class PendingCancelStore {
     String? reasonId,
     String? idempotencyKey,
     PendingCancelCommand command = PendingCancelCommand.cancel,
+    int? expectedVersion,
   }) async {
     final existing = await find(rideId);
     if (existing != null &&
@@ -239,6 +304,7 @@ class PendingCancelStore {
       idempotencyKey:
           idempotencyKey ?? newIdempotencyKey('ride-cancel'),
       command: command,
+      expectedVersion: expectedVersion,
     );
     await add(entry);
     return entry;

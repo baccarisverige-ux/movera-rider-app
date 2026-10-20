@@ -37,8 +37,10 @@ class RideCompleted extends StatefulWidget {
 
   /// UI-01: the rider ended the trip on board. The summary says so and
   /// shows what they pay for the distance driven, instead of dropping them
-  /// on Home. Rating stays off: the contract allows it only after
-  /// `completed`, and an ended-early trip is `cancelled_by_rider`.
+  /// on Home. R-O6 (owner decision): it is the normal trip-end screen, with
+  /// rating and tip, and the waybill marks the trip "Ended early" with the
+  /// km driven. Contract v0.3.0 allows rating only after `completed`; the
+  /// in-process stand-in accepts it for an ended-early trip.
   final EndedEarlyTrip? endedEarly;
 
   final RideStatus status;
@@ -271,13 +273,13 @@ class _RideCompletedState extends State<RideCompleted> {
   Widget build(BuildContext context) {
     final spec = _spec;
     final endedEarly = widget.endedEarly != null;
+    // R-O6: an ended-early trip is over and its price known: rate now.
     final canRate =
-        !endedEarly &&
-        (_status == RideStatus.ratingPending ||
-            (widget.feedbackAvailableOnCompletion &&
-                _status == RideStatus.tripCompleted));
-    final showFeedbackSurface =
-        !endedEarly && (widget.persistOnDemandState || canRate);
+        endedEarly ||
+        _status == RideStatus.ratingPending ||
+        (widget.feedbackAvailableOnCompletion &&
+            _status == RideStatus.tripCompleted);
+    final showFeedbackSurface = widget.persistOnDemandState || canRate;
 
     return PopScope(
       canPop: false,

@@ -158,9 +158,9 @@ void main() {
       repo.signOutOtherDevices(),
       throwsA(
         isA<ApiError>().having(
-          (error) => error.code,
-          'code',
-          'REAUTH_REQUIRED',
+          (error) => error.reason,
+          'reason',
+          'reauth_required',
         ),
       ),
     );

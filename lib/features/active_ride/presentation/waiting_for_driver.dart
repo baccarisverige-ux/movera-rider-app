@@ -23,6 +23,7 @@ import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
@@ -198,7 +199,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
-  StreamSubscription<String>? _outboxSub;
+  StreamSubscription<({String rideId, bool stale})>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -237,10 +238,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
     }
-    _outboxSub = ActiveRideController.queuedCancelRefusals.listen(
-      _onQueuedCancelRefused,
+    _outboxSub = ActiveRideController.queuedCancelNotices.listen(
+      _onQueuedCancelNotice,
     );
     final rideId = _rideId;
+    if (rideId != null && rideId.trim().isNotEmpty) {
+      // R-O2: a queued cancel the launch flush refused or dropped before
+      // this screen existed (a cold restore) is told now.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final stale = ActiveRideController.takeQueuedCancelNotice(
+          rideId.trim(),
+        );
+        if (stale != null) _showQueuedCancelNotice(stale: stale);
+      });
+    }
     if (rideId != null && rideId.trim().isNotEmpty) {
       _tracking.start(
         rideId: rideId,
@@ -265,14 +276,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
   /// the server once it was sent. The ride goes on; say so.
-  void _onQueuedCancelRefused(String rideId) {
+  void _onQueuedCancelNotice(({String rideId, bool stale}) notice) {
     if (!mounted || _leaving) return;
-    if (rideId != _rideId?.trim()) return;
+    if (notice.rideId != _rideId?.trim()) return;
+    ActiveRideController.takeQueuedCancelNotice(notice.rideId);
+    _showQueuedCancelNotice(stale: notice.stale);
+  }
+
+  void _showQueuedCancelNotice({required bool stale}) {
+    if (!mounted || _leaving) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Couldn't cancel. Your ride is still on."),
+      SnackBar(
+        content: Text(
+          stale
+              // R-O2: dropped before it was sent; the trip moved on.
+              ? rideJustChangedMessage
+              : "Couldn't cancel. Your ride is still on.",
+        ),
         behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 6),
+        duration: const Duration(seconds: 6),
       ),
     );
   }
@@ -741,7 +763,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // D-013: the server is asked first; local state only commits once it
       // has answered. Show that the request is in flight meanwhile.
       setState(() => _cancelling = true);
-      final result = await _ride.markCancelled(reasonId: outcome.reasonId);
+      final result = await _ride.markCancelled(
+        reasonId: outcome.reasonId,
+        // R-O1: nothing tracked (for example right after a reload) is
+        // shown as the rule, not as "0.0 km".
+        drivenMeters: _isInTrip && _tracking.drivenMeters > 0
+            ? _tracking.drivenMeters
+            : null,
+      );
       if (!mounted) return;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
@@ -836,9 +865,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
     final message = switch (result) {
       RideCancelOutcome.rejected => 'This ride can no longer be cancelled.',
-      RideCancelOutcome.stale =>
-        'Your ride was just updated, so it wasn’t cancelled. Check it and '
-            'try again if you still want to cancel.',
+      // R-O2 (owner's words): the trip changed just before the tap.
+      RideCancelOutcome.stale => rideJustChangedMessage,
       _ =>
         "We couldn't reach Movera to confirm your cancellation. Your ride "
             "is still active until it's confirmed — we'll retry "

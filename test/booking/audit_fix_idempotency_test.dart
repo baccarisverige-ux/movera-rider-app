@@ -335,9 +335,9 @@ void main() {
           ),
           throwsA(
             isA<ApiError>().having(
-              (e) => e.code,
-              'code',
-              'QUOTE_AMOUNT_MISMATCH',
+              (e) => e.reason,
+              'reason',
+              'quote_amount_mismatch',
             ),
           ),
         );

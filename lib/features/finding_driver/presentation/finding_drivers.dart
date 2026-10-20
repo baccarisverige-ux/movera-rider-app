@@ -19,6 +19,8 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
@@ -157,6 +159,20 @@ class _FindingDriversState extends State<FindingDrivers> {
       searchStartedAt: widget.searchStartedAt,
       createdAt: widget.createdAt,
     );
+    // R-O2: a queued cancel the launch flush refused or dropped before this
+    // screen existed (a cold restore) is told now.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final id = (_match.ownedRideId ?? AppScope.instance.ride.rideId)?.trim();
+      if (!mounted || id == null || id.isEmpty) return;
+      final stale = ActiveRideController.takeQueuedCancelNotice(id);
+      if (stale == true) {
+        _showCancelNotice(rideJustChangedMessage);
+      } else if (stale == false) {
+        _showCancelNotice(
+          'A driver already accepted your ride, so it wasn’t cancelled.',
+        );
+      }
+    });
   }
 
   void _startMatching({
@@ -207,8 +223,13 @@ class _FindingDriversState extends State<FindingDrivers> {
       onCancelRefused: () {
         if (!mounted) return;
         setState(() {});
+        final id = _match.ownedRideId;
+        if (id != null) ActiveRideController.takeQueuedCancelNotice(id);
         _showCancelNotice(
-          'A driver already accepted your ride, so it wasn’t cancelled.',
+          _match.lastRefusalWasStale
+              // R-O2: the queued cancel was dropped; the trip moved on.
+              ? rideJustChangedMessage
+              : 'A driver already accepted your ride, so it wasn’t cancelled.',
         );
       },
     );
@@ -568,10 +589,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice('This ride can no longer be cancelled.');
     } else if (result == SearchCancelResult.stale) {
-      _showCancelNotice(
-        'Your ride was just updated, so it wasn’t cancelled. Check it and '
-        'try again if you still want to cancel.',
-      );
+      // R-O2 (owner's words): the trip changed just before the tap.
+      _showCancelNotice(rideJustChangedMessage);
     } else if (_matchedPending || _match.matchCount > 0) {
       _showCancelNotice('A driver accepted your ride.');
     }

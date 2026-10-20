@@ -10,6 +10,13 @@ class SafetyMockApi {
   /// reload used to wipe them. `movera_` prefixed, so sign-out removes it.
   static const storageKey = 'movera_safety_demo_v1';
 
+  /// Contract error body for an unknown id (R-O4: lower-case codes).
+  static const _notFound = <String, dynamic>{
+    'code': 'not_found',
+    'message': 'not_found',
+    'retryable': false,
+  };
+
   bool _restored = false;
 
   /// Bumped by [reset]; a restore or save that started before a sign-out
@@ -205,7 +212,12 @@ class SafetyMockApi {
       if (contacts.length >= 5) {
         return (
           status: 409,
-          payload: {'code': 'CONTACT_LIMIT', 'message': 'Max 5 contacts'},
+          payload: {
+            'code': 'conflict',
+            'reason': 'contact_limit',
+            'message': 'Max 5 contacts',
+            'retryable': false,
+          },
         );
       }
       final created = Map<String, dynamic>.from(body);
@@ -222,7 +234,7 @@ class SafetyMockApi {
       final id = contactId.group(1);
       final index = contacts.indexWhere((c) => c['id'] == id);
       if (index < 0) {
-        return (status: 404, payload: {'code': 'NOT_FOUND'});
+        return (status: 404, payload: _notFound);
       }
       contacts[index] = {...contacts[index], ...body, 'id': id};
       return (status: 200, payload: {'code': 'OK', 'contact': contacts[index]});
@@ -266,7 +278,7 @@ class SafetyMockApi {
       if (method == 'GET') {
         final row = shares[rideId];
         if (row == null) {
-          return (status: 404, payload: {'code': 'NOT_FOUND'});
+          return (status: 404, payload: _notFound);
         }
         return (status: 200, payload: {'code': 'OK', 'share': row});
       }
@@ -338,7 +350,7 @@ class SafetyMockApi {
       final eventId = respond.group(2);
       final index = events.indexWhere((e) => e['eventId'] == eventId);
       if (index < 0) {
-        return (status: 404, payload: {'code': 'NOT_FOUND'});
+        return (status: 404, payload: _notFound);
       }
       final action = '${body['action'] ?? 'acknowledged'}';
       events[index]['status'] = action == 'resolved' ? 'resolved' : 'acknowledged';
@@ -367,7 +379,7 @@ class SafetyMockApi {
       final index = recordings.indexWhere((r) => r['id'] == recordingId);
       if (method == 'POST' && complete) {
         if (index < 0) {
-          return (status: 404, payload: {'code': 'NOT_FOUND'});
+          return (status: 404, payload: _notFound);
         }
         recordings[index]['endedAt'] = DateTime.now().toUtc().toIso8601String();
         recordings[index]['durationMs'] = body['durationMs'] ?? 0;
@@ -399,7 +411,13 @@ extension on SafetyMockApi {
     if (checkId.isEmpty || rideId.isEmpty || body['answers'] is! List) {
       return (
         status: 422,
-        payload: {'code': 'INVALID_RIDECHECK_ANSWER', 'requestId': requestId},
+        payload: {
+          'code': 'invalid_request',
+          'reason': 'invalid_ridecheck_answer',
+          'message': 'invalid_ridecheck_answer',
+          'requestId': requestId,
+          'retryable': false,
+        },
       );
     }
     final now = DateTime.now().toUtc().toIso8601String();

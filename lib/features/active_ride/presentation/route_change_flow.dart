@@ -31,6 +31,7 @@ Future<RideSnapshot?> openRouteChange(
       RouteChangeController(
         api: AppScope.instance.api,
         geocoding: AppScope.instance.geocoding,
+        session: AppScope.instance.ride,
       );
   final places = HomePlacesController();
   await places.load();
@@ -184,6 +185,7 @@ Future<RideSnapshot?> removeRouteStop(
       RouteChangeController(
         api: AppScope.instance.api,
         geocoding: AppScope.instance.geocoding,
+        session: AppScope.instance.ride,
       );
   final kept = [
     for (var i = 0; i < ride.stops.length; i++)

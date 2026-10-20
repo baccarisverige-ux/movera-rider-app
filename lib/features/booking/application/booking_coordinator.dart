@@ -222,12 +222,15 @@ class BookingCoordinator {
     );
     final rideId = _requireRideId(json);
     final created = _createdStatus(json);
-    AppScope.instance.ride.backendReconcile(
-      created,
-      id: rideId,
-      version: _rideVersion(json),
-      updatedAt: _rideUpdatedAt(json),
-    );
+    AppScope.instance.ride
+      ..backendReconcile(
+        created,
+        id: rideId,
+        version: _rideVersion(json),
+        updatedAt: _rideUpdatedAt(json),
+      )
+      // R-O2: the first expectedVersion of this trip.
+      ..observeProjection(json);
     Analytics.bookingSubmitted(rideId: rideId);
     return rideId;
   }
@@ -660,6 +663,8 @@ class BookingCoordinator {
     }
     Analytics.bookingSubmitted(rideId: id);
 
+    // R-O2: known before a race-losing duplicate is stood down below.
+    AppScope.instance.ride.observeProjection(json);
     final collisionBeforeCommit = await _standDownIfFindingOwned(createdRideId: id);
     if (collisionBeforeCommit != null) return collisionBeforeCommit;
 
@@ -754,6 +759,7 @@ class BookingCoordinator {
     final cancelIntent = createdRideId;
     await _client.post(
       '/api/v1/rides/$createdRideId/cancel',
+      body: _expectedVersionBody(createdRideId),
       idempotencyKey: _duplicateCancelMutation.keyFor(cancelIntent),
     );
     _duplicateCancelMutation.succeeded(cancelIntent);
@@ -781,7 +787,17 @@ class BookingCoordinator {
   }
 
   Future<void> cancel({required String rideId, required String key}) {
-    return _client.post('/api/v1/rides/$rideId/cancel', idempotencyKey: key);
+    return _client.post(
+      '/api/v1/rides/$rideId/cancel',
+      body: _expectedVersionBody(rideId),
+      idempotencyKey: key,
+    );
+  }
+
+  /// R-O2: the trip version the create response carried, when known.
+  static Map<String, dynamic> _expectedVersionBody(String rideId) {
+    final version = AppScope.instance.ride.projectionVersionOf(rideId);
+    return {'expectedVersion': ?version};
   }
 }
 

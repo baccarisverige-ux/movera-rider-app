@@ -227,14 +227,26 @@ class ApiClient {
   ApiError _errorFromResponse(http.Response response, String requestId) {
     String code = 'HTTP_${response.statusCode}';
     String message = 'Request failed';
+    String? reason;
+    Map<String, dynamic>? projection;
     try {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
         final rawCode = decoded['code'] ?? decoded['error'];
         final rawMessage = decoded['message'];
+        final rawReason = decoded['reason'];
         if (rawCode is String && rawCode.trim().isNotEmpty) code = rawCode.trim();
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
+        }
+        if (rawReason is String && rawReason.trim().isNotEmpty) {
+          reason = rawReason.trim();
+        }
+        // Contract errors shape: a 409 carries the current resource; the
+        // pre-v0.3 mock also echoed it as `ride`.
+        final rawProjection = decoded['projection'] ?? decoded['ride'];
+        if (rawProjection is Map) {
+          projection = Map<String, dynamic>.from(rawProjection);
         }
       }
     } catch (_) {
@@ -247,6 +259,8 @@ class ApiClient {
       requestId: requestId,
       statusCode: response.statusCode,
       retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
+      reason: reason,
+      projection: projection,
     );
   }
 

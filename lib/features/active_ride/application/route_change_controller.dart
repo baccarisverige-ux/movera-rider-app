@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
@@ -28,6 +30,7 @@ class RouteChangeQuote {
     this.expiresAt,
     this.newTotalMinor,
     this.differenceMinor,
+    this.expectedVersion,
   });
 
   final String pickupAddress;
@@ -46,6 +49,10 @@ class RouteChangeQuote {
   final DateTime? expiresAt;
   final int? newTotalMinor;
   final int? differenceMinor;
+
+  /// R-O2: the trip version the price was asked for. Applying sends it, so
+  /// a change confirmed on a trip that moved on meanwhile is refused.
+  final int? expectedVersion;
 
   /// Positive when the rider pays more, negative when money comes back.
   double get differenceKr => newPriceKr - oldPriceKr;
@@ -68,6 +75,9 @@ enum RouteChangeFailure {
   addressNotFound,
   network,
   priceChanged,
+
+  /// R-O2: the trip changed since the rider's screen read it.
+  stale,
 }
 
 class RouteChangeException implements Exception {
@@ -83,18 +93,27 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.network => 'Couldn’t update the route. Try again.',
     RouteChangeFailure.priceChanged =>
       'The price for this route changed. Check the new price and confirm again.',
+    RouteChangeFailure.stale => rideJustChangedMessage,
   };
 }
 
 /// Changes the route of a ride that is being searched, waited for or driven:
 /// prices the new route first, then applies it and tells the driver.
 class RouteChangeController {
-  RouteChangeController({required ApiClient api, required GeocodingRepository geocoding})
-    : _api = api,
-      _geocoding = geocoding;
+  RouteChangeController({
+    required ApiClient api,
+    required GeocodingRepository geocoding,
+    RideSession? session,
+  }) : _api = api,
+       _geocoding = geocoding,
+       _session = session;
 
   final ApiClient _api;
   final GeocodingRepository _geocoding;
+
+  /// R-O2: where the trip's projection version comes from (and goes to).
+  /// Without one, requests carry no `expectedVersion`.
+  final RideSession? _session;
 
   /// The ride as last saved on this device, if any.
   static Future<RideSnapshot?> storedRide() => RideSnapshotStore.read();
@@ -143,8 +162,12 @@ class RouteChangeController {
       oldPriceKr: ride.price,
       newPriceKr: ride.price,
     );
+    final version = _session?.projectionVersionOf(id);
     final response = await _send(
-      () => _api.post('/api/v1/rides/$id/route-quote', body: draft.toRequest()),
+      () => _api.post(
+        '/api/v1/rides/$id/route-quote',
+        body: {...draft.toRequest(), 'expectedVersion': ?version},
+      ),
     );
     final price = _newPrice(response);
     final quoteId = response['routeQuoteId'];
@@ -164,6 +187,7 @@ class RouteChangeController {
           (Money.tryParse(response['difference']) ??
                   Money.tryMinor(response['differenceMinor']))
               ?.amountMinor,
+      expectedVersion: version,
     );
   }
 
@@ -197,9 +221,17 @@ class RouteChangeController {
       'route-change',
       jsonEncode({'rideId': id, 'version': ride.version, ...body}),
     );
+    // R-O2: the version the price was asked for, kept out of the key so a
+    // resend of the same confirmed change is the same request.
+    final expectedVersion = quote.expectedVersion;
     final response = await _send(
-      () => _api.patch('/api/v1/rides/$id', body: body, idempotencyKey: key),
+      () => _api.patch(
+        '/api/v1/rides/$id',
+        body: {...body, 'expectedVersion': ?expectedVersion},
+        idempotencyKey: key,
+      ),
     );
+    _session?.observeProjection(response);
     final newPrice = _newPrice(response)?.major ?? quote.newPriceKr;
     final serverRide = response['ride'];
     final serverMax = serverRide is Map ? serverRide['maxOfferMinor'] : null;
@@ -250,13 +282,20 @@ class RouteChangeController {
     try {
       return await call();
     } on ApiError catch (error) {
-      throw RouteChangeException(switch (error.code) {
-        'PICKUP_LOCKED' => RouteChangeFailure.pickupLocked,
-        'RIDE_FINISHED' => RouteChangeFailure.rideFinished,
-        'ROUTE_QUOTE_EXPIRED' ||
-        'ROUTE_QUOTE_NOT_FOUND' ||
-        'ROUTE_QUOTE_MISMATCH' ||
-        'ROUTE_QUOTE_PRICE_CHANGED' => RouteChangeFailure.priceChanged,
+      _session?.observeProjection(error.projection);
+      if (error.isVersionMismatch) {
+        throw const RouteChangeException(RouteChangeFailure.stale);
+      }
+      // R-O4: the lower-case reason beside the contract code, else the
+      // contract code itself.
+      throw RouteChangeException(switch (error.detail) {
+        'pickup_locked' => RouteChangeFailure.pickupLocked,
+        'ride_finished' || 'invalid_transition' => RouteChangeFailure.rideFinished,
+        'route_quote_expired' ||
+        'route_quote_not_found' ||
+        'route_quote_mismatch' ||
+        'route_quote_price_changed' ||
+        'conflict' => RouteChangeFailure.priceChanged,
         _ => RouteChangeFailure.network,
       });
     } catch (_) {
