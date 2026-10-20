@@ -8,7 +8,6 @@ import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
-import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/safety/presentation/how_movera_protects_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_tips_page.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
@@ -30,7 +29,6 @@ void main() {
         ),
     'Rider name': () => const RiderNameScreen(initialName: 'Sara Lind'),
     'Add place': () => const AddPlace(),
-    'Messages inbox': () => const MessagesInbox(),
     'How Movera protects you': () => const HowMoveraProtectsPage(),
     'Safety tips': () => const SafetyTipsPage(),
     'Help articles': () => const HelpArticles(),

@@ -75,6 +75,12 @@ class RiderAppConfig {
   static const defaultMaxStops = 3;
   static const defaultBookingHorizonDays = 14;
 
+  /// Q40: how far, in metres, a rider may move the pickup once a driver
+  /// has accepted; further means cancel and rebook. Admin will set it per
+  /// zone; the config document has no field for it yet, so this default
+  /// is what the app and the demo server use.
+  static const defaultMaxPickupMoveAfterAcceptMeters = 500;
+
   final int version;
   final String zoneId;
   final String currency;

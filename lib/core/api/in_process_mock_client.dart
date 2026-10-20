@@ -17,6 +17,7 @@ import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
@@ -71,7 +72,13 @@ class InProcessMockClient extends http.BaseClient {
   /// A ride still searching this long after it was created reads back as
   /// `noDriverFound`, so the demo still ends when no driver is assigned.
   final Duration searchExpiresAfter;
-  final Map<String, Map<String, dynamic>> idempotency = {};
+  /// RC-12: replays by `METHOD path key`, each with the body it answered
+  /// and an encoded copy of that answer (never the live trip map, which
+  /// keeps changing). Bounded: entries older than [idempotencyTtl] go, and
+  /// past [idempotencyLimit] the oldest go first.
+  final Map<String, IdempotentReplay> idempotency = {};
+  static const idempotencyTtl = Duration(hours: 24);
+  static const idempotencyLimit = 500;
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
 
@@ -276,8 +283,31 @@ class InProcessMockClient extends http.BaseClient {
       );
     }
 
-    if (key != null && key.isNotEmpty && idempotency.containsKey(key)) {
-      return _json(200, idempotency[key]!, requestId);
+    final replayKey = key == null || key.isEmpty ? null : '$method $path $key';
+    final bodyKey = jsonEncode(body);
+    if (replayKey != null) {
+      _evictIdempotency();
+      final replay = idempotency[replayKey];
+      if (replay != null) {
+        // Contract §1: the same key with a different body is refused.
+        if (replay.body != bodyKey) {
+          return _json(
+            409,
+            _error(
+              'conflict',
+              requestId,
+              reason: 'idempotency_key_reused',
+              message: 'This Idempotency-Key was used with another body.',
+            ),
+            requestId,
+          );
+        }
+        return _json(
+          200,
+          jsonDecode(replay.response) as Map<String, dynamic>,
+          requestId,
+        );
+      }
     }
 
     late Map<String, dynamic> payload;
@@ -599,7 +629,8 @@ class InProcessMockClient extends http.BaseClient {
           projection: ride,
         );
       } else if ((rating == null && tipMinor == null) ||
-          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) ||
+          // Q38 / X20: whole stars only (1 to 5); 0.5 steps are refused.
+          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating != rating.roundToDouble())) ||
           (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != _currencyOf(ride)))) {
         status = 400;
         payload = _error('invalid_request', requestId, reason: 'invalid_feedback');
@@ -841,6 +872,13 @@ class InProcessMockClient extends http.BaseClient {
           payload = _routeChangeError(denied, ride, requestId);
         } else {
           final pricing = _routeChangePricing(ride, body);
+          final movedStatus = _statusOf(ride);
+          final moved = body['pickupAddress'] != null &&
+                  body['pickupAddress'] != ride['pickupAddress'] &&
+                  (movedStatus == TripStatus.accepted ||
+                      movedStatus == TripStatus.driverToPickup)
+              ? _pickupMoveMeters(ride, body)
+              : null;
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
             ride['pickupLat'] = body['pickupLat'];
@@ -858,6 +896,16 @@ class InProcessMockClient extends http.BaseClient {
           // The driver app is told on its next poll; the log is what admin
           // reads later.
           ride['driverNotifiedAt'] = ride['updatedAt'];
+          if (moved != null) {
+            // Q40: the driver is told the accepted pickup moved, on the
+            // same next-poll path.
+            (ride['driverNotices'] ??= <Map<String, dynamic>>[]).add({
+              'kind': 'pickup_moved',
+              'at': ride['updatedAt'],
+              'meters': moved.round(),
+              'pickupAddress': body['pickupAddress'],
+            });
+          }
           // Pay in car only shows the new price; any other method is
           // charged or refunded the difference right away.
           // ARCH-9: the method id decides; the label is the old contract.
@@ -1175,10 +1223,22 @@ class InProcessMockClient extends http.BaseClient {
       }
     }
 
-    if (key != null && key.isNotEmpty && status < 400) {
-      idempotency[key] = payload;
+    if (replayKey != null && status < 400) {
+      idempotency[replayKey] = IdempotentReplay(
+        body: bodyKey,
+        response: jsonEncode(payload),
+        at: _clock(),
+      );
     }
     return _json(status, payload, requestId);
+  }
+
+  void _evictIdempotency() {
+    final cutoff = _clock().subtract(idempotencyTtl);
+    idempotency.removeWhere((_, replay) => replay.at.isBefore(cutoff));
+    while (idempotency.length > idempotencyLimit) {
+      idempotency.remove(idempotency.keys.first);
+    }
   }
 
   /// Demo-only places around Södertälje and Stockholm (and a few in Paris
@@ -1467,7 +1527,7 @@ class InProcessMockClient extends http.BaseClient {
   ) => _error(
     switch (reason) {
       'ride_finished' || 'pickup_locked' => 'invalid_transition',
-      'destination_required' => 'invalid_request',
+      'destination_required' || 'pickup_too_far' => 'invalid_request',
       _ => 'conflict',
     },
     requestId,
@@ -1720,6 +1780,27 @@ class InProcessMockClient extends http.BaseClient {
     return null;
   }
 
+  /// How far (metres) [body] moves the trip's pickup, when both ends are
+  /// known.
+  static double? _pickupMoveMeters(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+  ) {
+    final fromLat = ride['pickupLat'];
+    final fromLng = ride['pickupLng'];
+    final toLat = body['pickupLat'];
+    final toLng = body['pickupLng'];
+    if (fromLat is! num || fromLng is! num || toLat is! num || toLng is! num) {
+      return null;
+    }
+    return GeoDistance.metersBetween(
+      fromLat.toDouble(),
+      fromLng.toDouble(),
+      toLat.toDouble(),
+      toLng.toDouble(),
+    );
+  }
+
   /// Pickup can move until the driver is at the door; the destination and
   /// the stops can change until the trip is over.
   String? _routeChangeDenied(
@@ -1740,6 +1821,14 @@ class InProcessMockClient extends http.BaseClient {
     };
     if (pickupChanged && !pickupEditable.contains(current)) {
       return 'pickup_locked';
+    }
+    // Q40: once a driver has accepted, the pickup moves only a short way.
+    final moved = pickupChanged ? _pickupMoveMeters(ride, body) : null;
+    if (moved != null &&
+        moved > RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters &&
+        (current == TripStatus.accepted ||
+            current == TripStatus.driverToPickup)) {
+      return 'pickup_too_far';
     }
     if (body['destinationLat'] is! num || body['destinationLng'] is! num) {
       return 'destination_required';
@@ -2293,4 +2382,20 @@ class InProcessMockClient extends http.BaseClient {
         Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
         _zoneOf(body).currency;
   }
+}
+
+/// One remembered answer to an idempotent request (RC-12).
+class IdempotentReplay {
+  const IdempotentReplay({
+    required this.body,
+    required this.response,
+    required this.at,
+  });
+
+  /// The request body it answered, encoded.
+  final String body;
+
+  /// The answer, encoded when it was given.
+  final String response;
+  final DateTime at;
 }

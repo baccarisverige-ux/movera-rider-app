@@ -917,6 +917,7 @@ class _SelectRideState extends State<SelectRide>
         context,
         initial: initial,
         tripMinutes: _tripMinutes(),
+        timeZone: _pickupSchedule.timeZone,
       );
       if (when == null || !mounted) return;
       // Only the time here; the pickup is set once, on Set pickup after
@@ -1061,9 +1062,13 @@ class _SelectRideState extends State<SelectRide>
     if (widget.parentReservationId == null) return false;
     final when = _selection.scheduledFor;
     return when != null &&
-        (!StockholmSchedule.isLegalPickup(when) ||
+        (!_pickupSchedule.isLegalPickup(when) ||
             !StockholmSchedule.isOnGrid(when));
   }
+
+  /// Q9: Book later times are the pickup zone's wall-clock time.
+  PickupSchedule get _pickupSchedule =>
+      PickupSchedule.at(_pickupPosition.latitude, _pickupPosition.longitude);
 
   Future<void> _bookScheduled() async {
     try {
@@ -1106,6 +1111,7 @@ class _SelectRideState extends State<SelectRide>
           final when = await ScheduleDateTimeSelector.choose(
             context,
             initial: _selection.scheduledFor,
+            timeZone: _pickupSchedule.timeZone,
           );
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);

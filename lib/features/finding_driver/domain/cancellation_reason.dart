@@ -79,12 +79,22 @@ class CancellationReason {
 }
 
 class CancelOutcome {
-  const CancelOutcome._({required this.cancelled, this.reasonId});
+  const CancelOutcome._({
+    required this.cancelled,
+    this.reasonId,
+    this.changeDestination = false,
+  });
 
   const CancelOutcome.keep() : this._(cancelled: false);
   const CancelOutcome.cancel({String? reasonId})
     : this._(cancelled: true, reasonId: reasonId);
 
+  /// Q2: the rider took "Change destination instead?": the ride is kept and
+  /// the caller opens the route-change flow.
+  const CancelOutcome.changeDestination()
+    : this._(cancelled: false, changeDestination: true);
+
   final bool cancelled;
   final String? reasonId;
+  final bool changeDestination;
 }

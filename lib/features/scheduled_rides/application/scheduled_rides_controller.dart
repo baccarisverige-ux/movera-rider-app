@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 
 class ScheduledRideSession {
@@ -33,7 +34,7 @@ class ScheduledRideSession {
   }
 
   void captureSchedule(DateTime at, {String timezone = 'Europe/Stockholm'}) {
-    scheduledAt = StockholmSchedule.clampPickup(at);
+    scheduledAt = PickupSchedule(timezone).clampPickup(at);
     this.timezone = timezone;
   }
 
@@ -57,7 +58,12 @@ class ScheduledRideSession {
             () => AppScope.instance.booking.requestBooking(
               rideType: rideType,
               paymentMethod: paymentMethod,
-              scheduledAt: scheduledAt?.toIso8601String(),
+              // Q9: the wall-clock pickup in the pickup zone, sent as its
+              // UTC instant (contract: `scheduledAt` UTC).
+              scheduledAt: switch (scheduledAt) {
+                final at? => WireTime.format(PickupSchedule(timezone).toUtc(at)),
+                null => null,
+              },
               // RIDE-22: the route is part of the booking and its key.
               pickupAddress: pickup,
               pickupLat: pickupLat,

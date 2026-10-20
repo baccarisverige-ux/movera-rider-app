@@ -163,6 +163,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   bool _searching = false;
   bool _showAll = false;
   bool _finishing = false;
+
+  /// The rider reordered the route with a swap: the price must be quoted
+  /// again, so the bottom button is offered even where it usually is not.
+  bool _rerouted = false;
   GeoPoint? _pickupPoint;
   GeoPoint? _destinationPoint;
   late String? _home = widget.homeAddress;
@@ -279,7 +283,24 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     _onTyped('');
   }
 
+  /// Q1 (owner, revised): one swap. With stops it swaps the last stop and
+  /// the destination only (the pickup never moves, so a locked pickup
+  /// does not block it); with no stops it swaps pickup and destination.
+  /// Either way the price is quoted again ("See prices").
   void _swap() {
+    if (_stops.isNotEmpty) {
+      final last = _stops.last;
+      final lastText = last.text;
+      setState(() {
+        last.text = _destination.text;
+        _destination.text = lastText;
+        // A stop has no map point; the new destination is located from
+        // its address.
+        _destinationPoint = null;
+        _rerouted = true;
+      });
+      return;
+    }
     if (widget.pickupLocked) return;
     final pickupText = _pickup.text;
     final pickupPoint = _pickupPoint;
@@ -288,6 +309,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _pickupPoint = _destinationPoint;
       _destination.text = pickupText;
       _destinationPoint = pickupPoint;
+      _rerouted = true;
     });
   }
 
@@ -605,7 +627,19 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               color: _box,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(children: rows),
+            child: Stack(
+              children: [
+                Column(children: rows),
+                // Q1: with stops, the one swap sits between the last stop
+                // and the destination.
+                if (_stops.isNotEmpty)
+                  Positioned(
+                    left: 5,
+                    top: 56.0 * (_stops.length + 1) - 22,
+                    child: _stopSwap(),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 6),
@@ -622,18 +656,37 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 color: _ink,
               ),
             ),
-            SizedBox(
-              height: 56,
-              child: IconButton(
-                tooltip: 'Swap pickup and destination',
-                onPressed: widget.pickupLocked ? null : _swap,
-                icon: const Icon(Icons.swap_vert_rounded, size: 26),
-                color: _ink,
+            if (_stops.isEmpty)
+              SizedBox(
+                height: 56,
+                child: IconButton(
+                  tooltip: 'Swap pickup and destination',
+                  onPressed: widget.pickupLocked ? null : _swap,
+                  icon: const Icon(Icons.swap_vert_rounded, size: 26),
+                  color: _ink,
+                ),
               ),
-            ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _stopSwap() {
+    return MoveraHitArea(
+      key: const ValueKey('route-picker-swap-stop'),
+      label: 'Swap last stop and destination',
+      onTap: _swap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: _line, width: 1.2),
+        ),
+        child: const Icon(Icons.swap_vert_rounded, size: 16, color: _muted),
+      ),
     );
   }
 
@@ -985,7 +1038,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 ),
               ],
             ),
-            if (widget.finishLabel != null &&
+            if ((widget.finishLabel != null || _rerouted) &&
                 !typing &&
                 _destination.text.trim().isNotEmpty)
               Positioned(
@@ -1004,7 +1057,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                       ),
                     ),
                     child: Text(
-                      widget.finishLabel!,
+                      widget.finishLabel ?? 'See prices',
                       style: _t(
                         16,
                         weight: FontWeight.w600,

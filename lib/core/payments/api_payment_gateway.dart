@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
 
@@ -25,17 +26,30 @@ class ApiPaymentGateway implements PaymentGateway {
       );
     }
 
-    final response = await _api.post(
-      '/api/v1/payments',
-      body: {
-        'amountMinor': amountMinor,
-        'currency': normalizedCurrency,
-        // C-10 (PROPOSED): tells the server what to credit on capture.
-        if (purpose != null) 'purpose': purpose.wire,
-        if (rideId != null && rideId.trim().isNotEmpty) 'rideId': rideId.trim(),
-      },
-      idempotencyKey: key,
-    );
+    final Map<String, dynamic> response;
+    try {
+      response = await _api.post(
+        '/api/v1/payments',
+        body: {
+          'amountMinor': amountMinor,
+          'currency': normalizedCurrency,
+          // C-10 (PROPOSED): tells the server what to credit on capture.
+          if (purpose != null) 'purpose': purpose.wire,
+          if (rideId != null && rideId.trim().isNotEmpty)
+            'rideId': rideId.trim(),
+        },
+        idempotencyKey: key,
+      );
+    } on ApiError catch (error) {
+      // Contract §1: the server refuses a key reused with another body
+      // (409). That payment is not this one: fail closed.
+      if (error.statusCode == 409) {
+        throw const PaymentTransportException(
+          'Payment idempotency key was already used for another payment.',
+        );
+      }
+      rethrow;
+    }
     final intent = response['intent'];
     if (response['code'] != 'OK' || intent is! Map) {
       throw const PaymentTransportException(

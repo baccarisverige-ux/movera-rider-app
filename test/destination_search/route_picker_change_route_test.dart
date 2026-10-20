@@ -55,10 +55,12 @@ void main() {
       ),
     );
     expect(pickupField.enabled, isFalse);
-    final swap = tester.widget<IconButton>(
-      find.widgetWithIcon(IconButton, Icons.swap_vert_rounded),
-    );
-    expect(swap.onPressed, isNull);
+    // Q1: with a stop the only swap is last stop <-> destination, which
+    // never moves the locked pickup.
+    expect(find.widgetWithIcon(IconButton, Icons.swap_vert_rounded), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('route-picker-swap-stop')));
+    await tester.pump();
+    expect(pickupField.controller?.text, 'Sergels torg 1');
   });
 
   testWidgets('See new price sends the current route with its stops',

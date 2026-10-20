@@ -555,6 +555,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_researching) return;
     _researching = true;
     final lostDriver = _tracking.driver ?? widget.driver;
+    final byAdmin = _tracking.reassignedByAdmin;
     _tracking.dispose();
 
     // The rider is not asked anything: their ride is still on, so the search
@@ -564,7 +565,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _researching = false;
       return;
     }
-    showDriverCancelledNotice(context, driverName: lostDriver?.firstName);
+    // Q13: an admin reassign is not the driver's doing; the rider just sees
+    // the search, then the next driver assigned.
+    if (!byAdmin) {
+      showDriverCancelledNotice(context, driverName: lostDriver?.firstName);
+    }
 
     await _parkMapForStageChange();
     if (!mounted) {
@@ -757,8 +762,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       takingLonger: false,
       phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
       feeNote: feeNote,
+      offerDestinationChange: _routeEditable,
     );
-    if (!outcome.cancelled || !mounted) return;
+    if (!mounted) return;
+    if (outcome.changeDestination) {
+      // Q2: the rider chose to change the destination instead.
+      await _changeRoute(null, RouteChangeEntry.destination);
+      return;
+    }
+    if (!outcome.cancelled) return;
     _leaving = true;
     setState(() {});
 
@@ -1021,6 +1033,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               ride: ride,
               entry: entry,
               pickupLocked: !_pickupEditable,
+              driverAccepted: true,
             );
       if (!mounted) return;
       if (updated != null) _applyRouteChange(updated);

@@ -140,9 +140,9 @@ class ApiRideRealtime implements RideRealtime {
       // A projection's own `kind` is the TripKind (live/scheduled), never an
       // event kind. Without an explicit event kind the change is read from
       // the projection: same lifecycle status, only payment or rating moved.
-      final kind =
-          RealtimeKindWire.parse(envelope['kind'] ?? ride['eventKind']) ??
-          _projectionKind(poll, ride);
+      final explicitKind =
+          RealtimeKindWire.parse(envelope['kind'] ?? ride['eventKind']);
+      final kind = explicitKind ?? _projectionKind(poll, ride);
       if (serverSequence != null) {
         final disposition = poll.gate.admit(
           eventId: eventId ?? '${poll.id}:$serverSequence',
@@ -192,6 +192,10 @@ class ApiRideRealtime implements RideRealtime {
       // trip; Waiting shows the reassignment notice for it.
       final reassigned = status.isSearching &&
           (poll.lastStatus?.isMatched ?? false);
+      // Q13 / X19: an admin reassign is not a driver cancel. The rider
+      // keeps the same redispatch path but is never told "driver
+      // cancelled": they see searching, then the next driver assigned.
+      final byAdmin = reassigned && _reassignedByAdmin(ride, explicitKind);
       if (reassigned) status = RideStatus.cancelledByDriver;
       final location = _location(ride);
       final rawDriver = ride['driver'];
@@ -224,7 +228,7 @@ class ApiRideRealtime implements RideRealtime {
         rideId: poll.id,
         status: status,
         sequence: sequence,
-        kind: reassigned ? RealtimeKind.driverCancelled : kind,
+        kind: reassigned && !byAdmin ? RealtimeKind.driverCancelled : kind,
         eventId: eventId,
         version: version,
         serverTime: updatedAt,
@@ -240,7 +244,8 @@ class ApiRideRealtime implements RideRealtime {
           if (serverLocationAt != null)
             'serverLocationAt': WireTime.format(serverLocationAt),
           if (ride['status'] is String) 'tripStatus': ride['status'],
-          if (reassigned) 'kind': 'driver_cancelled',
+          if (reassigned && !byAdmin) 'kind': 'driver_cancelled',
+          if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
       ));
       connection.markConnected();
@@ -263,6 +268,23 @@ class ApiRideRealtime implements RideRealtime {
     } finally {
       poll.inFlight = false;
     }
+  }
+
+  /// Whether a matched trip that went back to `searching` was moved by an
+  /// admin: the projection's `cancellation.actor` says so, or the server
+  /// named the change with a kind other than `driver_cancelled` (a driver
+  /// drop always carries that kind).
+  static bool _reassignedByAdmin(
+    Map<String, dynamic> ride,
+    RealtimeKind? explicitKind,
+  ) {
+    final cancellation = ride['cancellation'];
+    if (cancellation is Map) {
+      final actor = cancellation['actor'];
+      if (actor == 'admin') return true;
+      if (actor == 'driver') return false;
+    }
+    return explicitKind != null && explicitKind != RealtimeKind.driverCancelled;
   }
 
   /// The event kind of a polled projection that names none. After a

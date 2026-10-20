@@ -22,17 +22,6 @@ class Money {
     return Money((major * _pow10(exponentOf(code))).round(), code);
   }
 
-  /// Parses `{amountMinor, currency}`. Returns null for anything else,
-  /// including a currency that is not a three-letter ISO-4217 code.
-  static Money? tryParse(Object? raw) {
-    if (raw is! Map) return null;
-    final minor = raw['amountMinor'];
-    if (minor is! num || minor != minor.roundToDouble()) return null;
-    final currency = normalizeCurrency(raw['currency']);
-    if (currency == null) return null;
-    return Money(minor.toInt(), currency);
-  }
-
   /// An integer minor-units field (`totalMinor: 25900`) in [currency].
   static Money? tryMinor(Object? raw, [Object? currency]) {
     if (raw is! num || raw != raw.roundToDouble()) return null;
@@ -65,7 +54,8 @@ class Money {
   /// The contract wire shape, strictly (`fixtures/money.json`): an
   /// integer `amountMinor` and an upper-case ISO-4217 `currency`. A float,
   /// a lower-case code, a missing currency or another key (`minorUnits`)
-  /// is not Money.
+  /// is not Money. RC-11: the app's one Money reader (a second, looser
+  /// `tryParse` accepted what the contract calls invalid).
   static Money? fromWire(Object? raw) {
     if (raw is! Map) return null;
     final minor = raw['amountMinor'];

@@ -17,11 +17,16 @@ Future<CancelOutcome> showCancelReasonSheet(
   BuildContext context, {
   required CancelPhase phase,
   bool committed = false,
+  bool offerDestinationChange = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancelReason);
   final result = await MoveraSheet.show<CancelOutcome>(
     context: context,
-    builder: (_) => CancelReasonSheet(phase: phase, committed: committed),
+    builder: (_) => CancelReasonSheet(
+      phase: phase,
+      committed: committed,
+      offerDestinationChange: offerDestinationChange,
+    ),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
   if (committed) return result ?? const CancelOutcome.cancel();
@@ -35,9 +40,15 @@ class CancelReasonSheet extends StatefulWidget {
     super.key,
     required this.phase,
     this.committed = false,
+    this.offerDestinationChange = false,
   });
 
   final CancelPhase phase;
+
+  /// Q2: picking "Destination needs to be changed" offers the route change
+  /// instead (the rider can still cancel). Only where the ride is still
+  /// live, so never with [committed].
+  final bool offerDestinationChange;
 
   /// The cancel is already committed; the reason is optional feedback.
   final bool committed;
@@ -155,6 +166,15 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   ),
                 ),
               ),
+            if (widget.offerDestinationChange &&
+                !widget.committed &&
+                _selected == CancellationReason.destinationChange.id)
+              _DestinationChangeOffer(
+                onChange: () => Navigator.pop(
+                  context,
+                  const CancelOutcome.changeDestination(),
+                ),
+              ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -216,6 +236,61 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Q2: "Change destination instead?" with a button into the route change.
+class _DestinationChangeOffer extends StatelessWidget {
+  const _DestinationChangeOffer({required this.onChange});
+
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('cancel-change-destination-offer'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2F8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Change destination instead?',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1D252C),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            key: const ValueKey('cancel-change-destination'),
+            onPressed: onChange,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF11181D),
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Change destination',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

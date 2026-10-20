@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'dart:math' as math;
 
@@ -853,6 +854,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (!mounted) return null;
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
+        // Q9: times are the pickup zone's local time.
+        timeZone: RiderZones.at(
+          pickup.position.latitude,
+          pickup.position.longitude,
+        ).timeZone,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,

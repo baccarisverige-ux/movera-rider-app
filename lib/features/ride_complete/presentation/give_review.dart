@@ -50,7 +50,8 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
             minRating: 1,
             glow: false,
             direction: Axis.horizontal,
-            allowHalfRating: true,
+            // Q38: whole stars only.
+            allowHalfRating: false,
             unratedColor: Color(0xff909090),
             itemCount: 5,
             itemSize: ResSize.h * 37,
