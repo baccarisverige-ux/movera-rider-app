@@ -169,6 +169,36 @@ class HomeLocationController extends ChangeNotifier {
   double? _deliveredHeading;
   DateTime? _deliveredAt;
 
+  /// The puck stays as it is while the map camera moves (a pinch, a pan, a
+  /// recenter glide) and for this long after its last move. Each repaint
+  /// rebuilds the map widget, swaps the marker bitmap (a new blob URL and
+  /// image decode on the web) and makes a vector map redraw: done every
+  /// pulse and heading sample, that stuttered every gesture. The pulse and
+  /// the compass pick up again as soon as the camera rests.
+  static const Duration cameraQuietPeriod = Duration(milliseconds: 300);
+  DateTime? _cameraMovedAt;
+
+  /// Bearing of the map camera (degrees) as last reported.
+  double lastMapBearing = 0;
+
+  /// The map camera moved (an onCameraMove report).
+  void noteCameraMove({double bearing = 0}) {
+    _cameraMovedAt = _now();
+    lastMapBearing = bearing.isFinite ? bearing : 0;
+  }
+
+  /// Whether a finger holds the map or an app glide is running (set by
+  /// Home from the live map's view).
+  bool Function()? mapBusy;
+
+  /// Whether the camera moved within [cameraQuietPeriod], or the map is
+  /// held or gliding ([mapBusy]).
+  bool get cameraMoving {
+    if (mapBusy?.call() ?? false) return true;
+    final at = _cameraMovedAt;
+    return at != null && _now().difference(at) < cameraQuietPeriod;
+  }
+
   /// False on Android/iOS, which have no compass source (CODE-19): the puck
   /// then turns only with the GPS course and no heading poller runs.
   final bool _compassSupported;
@@ -564,6 +594,8 @@ class HomeLocationController extends ChangeNotifier {
     reportPuckHeading(heading, compass: true);
     // UI-12: each delivery builds a new marker set and an update over the
     // platform channel, so small turns are batched.
+    // Not under a moving camera: the next sample after it rests repaints.
+    if (cameraMoving) return;
     final now = _now();
     final last = _deliveredHeading;
     final lastAt = _deliveredAt;
@@ -608,7 +640,7 @@ class HomeLocationController extends ChangeNotifier {
     pulseExpanded = false;
     onTick();
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
-      if (!isMounted() || _livePaused) return;
+      if (!isMounted() || _livePaused || cameraMoving) return;
       pulseExpanded = !pulseExpanded;
       onTick();
     });

@@ -22,6 +22,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/map_camera_controller.dart' show recenterZoom;
+import 'package:movera_rider/core/maps/map_camera_motion.dart' show mapViewOf;
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -1556,7 +1557,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (data == null) return null;
-    return BitmapDescriptor.bytes(data.buffer.asUint8List());
+    // The size given up front: the web plugin otherwise loads every new
+    // marker bitmap into an extra image just to measure it.
+    return BitmapDescriptor.bytes(
+      data.buffer.asUint8List(),
+      width: src.width.toDouble(),
+      height: src.height.toDouble(),
+    );
   }
 
   void _updateLocationVisuals() {
@@ -1566,7 +1573,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (!mounted || target == null || icon == null) return;
     final heading = _locationHeading;
     if (kIsWeb) {
-      _paintWebPuck(target: target, expanded: expanded, heading: heading);
+      // The web bitmap is turned on screen, not on the ground: take the
+      // map's own bearing off, or a rotated map turns the arrow twice.
+      _paintWebPuck(
+        target: target,
+        expanded: expanded,
+        heading: heading - _locationCtl.lastMapBearing,
+      );
       return;
     }
     _locationCtl.paintUserPuck(target: target, icon: icon, heading: heading);
@@ -1602,6 +1615,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _handleMapCameraMove(CameraPosition camera) {
     _lastMapZoom = camera.zoom;
     _lastMapTarget = camera.target;
+    _locationCtl.noteCameraMove(bearing: camera.bearing);
     final user = _currentLatLng;
     if (user == null) return;
     final shouldShow = AppScope.instance.camera.followOrFree(
@@ -1615,29 +1629,56 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void> _recenterOnUser() async {
-    await _startHeadingTracking();
+    unawaited(_startHeadingTracking());
     AppScope.instance.maps.mode = CameraMode.followUser;
-    var target = _currentLatLng;
+    final known = _currentLatLng;
+    // Like the driver app: the camera leaves at once, a smooth glide to
+    // street zoom leaning with the tilt of that zoom (tiltForZoom), to the
+    // position the live stream already has. It used to wait for a fresh
+    // high-accuracy fix first (up to latestFixTimeout, 9 s) before moving.
+    final flight = known == null ? null : _flyToUser(known, follow: false);
+    LatLng? fresh;
     try {
-      final fix = await _locationCtl.latestFix();
-      if (fix != null) {
-        target = fix;
-        _currentLatLng = target;
+      fresh = await _locationCtl.latestFix();
+      if (fresh != null && mounted) {
+        _currentLatLng = fresh;
         _locationHeading = _locationCtl.heading;
         _updateLocationVisuals();
       }
     } catch (_) {
-      // No fix yet: the map keeps its current camera.
+      // No fresh fix: the glide to the known position stands.
     }
-    if (target == null) return;
-    // Like the driver app: a smooth glide to street zoom, leaning with the
-    // tilt of that zoom (tiltForZoom).
-    await AppScope.instance.maps.animateCamera(
+    if (!mounted) return;
+    if (fresh != null &&
+        (known == null ||
+            AppScope.instance.location.distanceBetween(
+                  known.latitude,
+                  known.longitude,
+                  fresh.latitude,
+                  fresh.longitude,
+                ) >
+                _recenterRefineMeters)) {
+      // The fresh fix is somewhere else: steer there. Before it the camera
+      // had nowhere to go; after the first glide it is only a correction,
+      // which leaves a map the rider has taken back by hand alone.
+      await _flyToUser(fresh, follow: known != null);
+    } else {
+      await flight;
+    }
+    if (mounted) setState(() => _showRecenterButton = false);
+  }
+
+  /// A fresh fix closer than this to the known position does not steer a
+  /// running recenter.
+  static const double _recenterRefineMeters = 15;
+
+  Future<void> _flyToUser(LatLng target, {required bool follow}) {
+    return AppScope.instance.maps.animateCamera(
       GeoPoint(target.latitude, target.longitude),
       zoom: recenterZoom,
       bearing: _locationHeading,
+      follow: follow,
     );
-    if (mounted) setState(() => _showRecenterButton = false);
   }
 
   void _loadMarkers() {
@@ -1881,6 +1922,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 controller,
                                 owner: MapOwners.home,
                               );
+                              final view = mapViewOf(controller);
+                              _locationCtl.mapBusy = () =>
+                                  view.touching || view.easing;
                               AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng ?? _cameraHint;
                               if (target != null) {
