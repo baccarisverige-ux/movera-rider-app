@@ -112,8 +112,8 @@ const Duration cameraEaseDuration = Duration(milliseconds: 450);
 /// A recenter (a flight) takes this long, start to rest. Unlike the
 /// damped follow glide, whose tail crept on for 4-5 s (up to the frame
 /// cap) before it settled, a flight runs on the clock: it eases in and out
-/// over this time and lands on its goal with no speed left, so there is no
-/// snap at the end.
+/// over this time (short gentle ramps, even speed between, [flightEase])
+/// and lands on its goal on time.
 const Duration cameraFlightDuration = Duration(milliseconds: 1000);
 
 /// Glides at least this long are flights ([cameraFlightDuration]); shorter
@@ -174,11 +174,42 @@ CameraPosition _approach(
   );
 }
 
-/// Ease-in-out (smoothstep) of a flight at progress [t] (0..1): zero
-/// speed at both ends, a peak of 1.5x the mean speed (no zoom leap).
+/// Share of a flight's ramps: the camera speeds up over the first fifth
+/// of the flight and slows down over the last fifth, and glides at an even
+/// speed in between.
+const double _flightRamp = .2;
+
+/// Speed at the very start and end of a flight, as a share of its glide
+/// speed: gentle, but already moving.
+const double _flightEdgeSpeed = .35;
+
+/// Eased progress of a flight at time [t] (0..1). Owner: begin slow and
+/// end slow, but not so slow. Smoothstep's long slow start felt stuck,
+/// then quick. So the camera leaves at once at a gentle speed
+/// ([_flightEdgeSpeed]), speeds up over a short ramp ([_flightRamp]),
+/// glides evenly, and slows the same way onto its goal. Peak speed is
+/// about 1.15x the mean.
 double flightEase(double t) {
   final x = t.clamp(0.0, 1.0);
-  return x * x * (3 - 2 * x);
+  if (x > .5) return 1 - flightEase(1 - x);
+  const r = _flightRamp, b = _flightEdgeSpeed;
+  const peak = 1 / (1 - r * (1 - b));
+  if (x < r) {
+    return peak *
+        (b * x +
+            (1 - b) * (x / 2 - r / (2 * math.pi) * math.sin(math.pi * x / r)));
+  }
+  return peak * (r * (1 + b) / 2 + (x - r));
+}
+
+/// The pan's share of the remaining way when the zoom covers [zoomShare]
+/// of a zoom change [dz]: a ground step looks 2^zoom times bigger on
+/// screen, so a pan moving in step with the zoom would crawl while zoomed
+/// out and rush once zoomed in. This keeps its speed even on screen.
+double _panShare(double zoomShare, double dz) {
+  if (dz.abs() < 1e-3) return zoomShare;
+  final k = zoomShare.clamp(0.0, 1.0);
+  return (1 - math.pow(2, -dz * k)) / (1 - math.pow(2, -dz));
 }
 
 /// [share] (0..1) of the way from [from] to [to]; the tilt rides the zoom
@@ -187,9 +218,11 @@ CameraPosition _blend(
   MapView view,
   CameraPosition from,
   CameraPosition to,
-  double share,
-) {
+  double share, {
+  double? panShare,
+}) {
   final k = share.clamp(0.0, 1.0);
+  final p = (panShare ?? share).clamp(0.0, 1.0);
   final nextZoom = from.zoom + (to.zoom - from.zoom) * k;
   final fromOffset = from.tilt - view.tiltFor(from.zoom);
   final toOffset = to.tilt - view.tiltFor(to.zoom);
@@ -197,8 +230,8 @@ CameraPosition _blend(
       .clamp(0.0, maxTiltForZoom(nextZoom));
   return CameraPosition(
     target: LatLng(
-      from.target.latitude + (to.target.latitude - from.target.latitude) * k,
-      from.target.longitude + (to.target.longitude - from.target.longitude) * k,
+      from.target.latitude + (to.target.latitude - from.target.latitude) * p,
+      from.target.longitude + (to.target.longitude - from.target.longitude) * p,
     ),
     zoom: nextZoom,
     bearing: (from.bearing + _angleDelta(from.bearing, to.bearing) * k + 360) %
@@ -287,9 +320,16 @@ Future<void> _glide(
         view._flownMicros += frame == 0 ? cameraEaseFrame.inMicroseconds : dt;
         final after = flightEase(view._flownMicros / span);
         last = after >= 1 || frame >= _maxEaseFrames;
+        final share = (after - before) / (1 - before);
         next = last
             ? goal
-            : _blend(view, from, goal, (after - before) / (1 - before));
+            : _blend(
+                view,
+                from,
+                goal,
+                share,
+                panShare: _panShare(share, goal.zoom - from.zoom),
+              );
       } else {
         last = frame >= _maxEaseFrames || _settled(from, goal);
         next = last
