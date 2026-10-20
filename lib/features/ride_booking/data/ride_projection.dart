@@ -123,7 +123,7 @@ abstract final class RideProjection {
     if (fare != null) return fare;
     final minor = Money.tryMinor(ride['totalMinor'], ride['currency']);
     if (minor != null) return minor;
-    final total = Money.tryParse(ride['total']);
+    final total = Money.fromWire(ride['total']);
     if (total != null) return total;
     final legacy = ride['price'] ?? ride['bookedPrice'];
     if (legacy is! num) return null;

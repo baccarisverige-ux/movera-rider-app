@@ -293,52 +293,72 @@ class AccountFillButton extends StatelessWidget {
   }
 }
 
+/// A one-field editor sheet. With [emptyError] set, an empty value is not
+/// saved and that message shows under the field instead (Q3). The
+/// keyboard's Done key saves, like the Save button.
 Future<String?> showAccountTextEditor(
   BuildContext context, {
   required String title,
   required String value,
   TextInputType keyboard = TextInputType.text,
+  String? emptyError,
 }) {
   final controller = TextEditingController(text: value);
+  final error = ValueNotifier<String?>(null);
   return MoveraSheet.show<String>(
     context: context,
     builder: (context) {
       return MoveraSheetDisposables(
-        disposables: [controller],
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            16 + MediaQuery.paddingOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: accountText(22, weight: FontWeight.w700)),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                keyboardType: keyboard,
-                autofocus: true,
-                style: accountText(16),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: kAccountSoft,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+        disposables: [controller, error],
+        child: ValueListenableBuilder<String?>(
+          valueListenable: error,
+          builder: (context, errorText, _) {
+            void save() {
+              final text = controller.text.trim();
+              if (text.isEmpty && emptyError != null) {
+                error.value = emptyError;
+                return;
+              }
+              Navigator.pop(context, text);
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                16 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: accountText(22, weight: FontWeight.w700)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    keyboardType: keyboard,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => save(),
+                    onChanged: (_) => error.value = null,
+                    style: accountText(16),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: kAccountSoft,
+                      errorText: errorText,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  AccountFillButton(label: 'Save', onTap: save),
+                ],
               ),
-              const SizedBox(height: 16),
-              AccountFillButton(
-                label: 'Save',
-                onTap: () => Navigator.pop(context, controller.text.trim()),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       );
     },

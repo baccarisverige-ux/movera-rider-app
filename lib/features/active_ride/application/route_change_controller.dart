@@ -4,9 +4,11 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -83,6 +85,9 @@ enum RouteChangeFailure {
 
   /// R-O2: the trip changed since the rider's screen read it.
   stale,
+
+  /// Q40: after accept the pickup may move only a short way.
+  pickupTooFar,
 }
 
 class RouteChangeException implements Exception {
@@ -99,6 +104,10 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.priceChanged =>
       'The price for this route changed. Check the new price and confirm again.',
     RouteChangeFailure.stale => rideJustChangedMessage,
+    RouteChangeFailure.pickupTooFar =>
+      'Your driver is on the way, so the pickup can only move up to '
+          '${RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters} m. To be '
+          'picked up further away, cancel this ride and book a new one.',
   };
 }
 
@@ -132,6 +141,7 @@ class RouteChangeController {
     GeoPoint? destinationPoint,
     List<String> stops = const [],
     List<GeoPoint?> stopPoints = const [],
+    int? maxPickupMoveMeters,
   }) async {
     final id = ride.rideId;
     if (id == null) throw const RouteChangeException(RouteChangeFailure.network);
@@ -141,6 +151,18 @@ class RouteChangeController {
     final pickupAt = pickup == ride.pickupAddress
         ? GeoPoint(ride.pickupLat, ride.pickupLng)
         : pickupPoint ?? await _locate(pickup);
+    // Q40: once a driver has accepted, a pickup further than the limit is a
+    // new ride, not a route change.
+    if (maxPickupMoveMeters != null &&
+        GeoDistance.metersBetween(
+              ride.pickupLat,
+              ride.pickupLng,
+              pickupAt.latitude,
+              pickupAt.longitude,
+            ) >
+            maxPickupMoveMeters) {
+      throw const RouteChangeException(RouteChangeFailure.pickupTooFar);
+    }
     final destination = destinationAddress.trim();
     final destinationAt = destination == ride.destinationAddress
         ? GeoPoint(ride.destinationLat, ride.destinationLng)
@@ -190,7 +212,7 @@ class RouteChangeController {
       expiresAt: WireTime.tryParse(response['expiresAt']),
       newTotalMinor: price?.amountMinor,
       differenceMinor:
-          (Money.tryParse(response['difference']) ??
+          (Money.fromWire(response['difference']) ??
                   Money.tryMinor(
                     response['differenceMinor'],
                     response['currency'] ?? ride.currency,
@@ -275,7 +297,7 @@ class RouteChangeController {
   /// another currency than the trip's ([currency]) is not its price.
   static Money? _newPrice(Map<String, dynamic> response, String currency) {
     final price =
-        Money.tryParse(response['newTotal']) ??
+        Money.fromWire(response['newTotal']) ??
         Money.tryMinor(
           response['newTotalMinor'],
           response['currency'] ?? currency,
@@ -311,6 +333,7 @@ class RouteChangeController {
       // contract code itself.
       throw RouteChangeException(switch (error.detail) {
         'pickup_locked' => RouteChangeFailure.pickupLocked,
+        'pickup_too_far' => RouteChangeFailure.pickupTooFar,
         'ride_finished' || 'invalid_transition' => RouteChangeFailure.rideFinished,
         'route_quote_expired' ||
         'route_quote_not_found' ||

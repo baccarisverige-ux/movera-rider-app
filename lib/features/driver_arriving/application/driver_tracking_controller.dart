@@ -37,6 +37,10 @@ class DriverTrackingController {
   RideStatus status = RideStatus.driverAssigned;
   RideRealtimeSignal? lastSignal;
   String? signalMessage;
+
+  /// Q13: the last accepted back-to-searching came from an admin reassign,
+  /// so the rider is not told their driver cancelled.
+  bool reassignedByAdmin = false;
   RideStatus? _lastPersistedStatus;
   int? _lastVersion;
   DateTime? _lastServerTime;
@@ -115,6 +119,7 @@ class DriverTrackingController {
           status = event.status;
           lastSignal = event.signal;
           signalMessage = event.message;
+          reassignedByAdmin = event.isAdminReassign;
           _lastVersion = eventVersion;
           _lastServerTime = event.serverTime ?? _lastServerTime;
         }

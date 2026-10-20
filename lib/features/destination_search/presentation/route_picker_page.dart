@@ -163,6 +163,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   bool _searching = false;
   bool _showAll = false;
   bool _finishing = false;
+
+  /// The rider reordered the route with a swap: the price must be quoted
+  /// again, so the bottom button is offered even where it usually is not.
+  bool _rerouted = false;
   GeoPoint? _pickupPoint;
   GeoPoint? _destinationPoint;
   late String? _home = widget.homeAddress;
@@ -279,15 +283,56 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     _onTyped('');
   }
 
+  /// Every address in trip order: pickup, the stops, destination.
+  List<TextEditingController> get _route => [_pickup, ..._stops, _destination];
+
+  /// Only the pickup and the destination carry a map point; a stop is
+  /// geocoded from its text later.
+  GeoPoint? _pointAt(int index, int length) => index == 0
+      ? _pickupPoint
+      : index == length - 1
+      ? _destinationPoint
+      : null;
+
+  void _setPointAt(int index, int length, GeoPoint? point) {
+    if (index == 0) _pickupPoint = point;
+    if (index == length - 1) _destinationPoint = point;
+  }
+
+  /// Q1: the small button between two neighbouring addresses swaps those
+  /// two only.
+  void _swapNeighbours(int upper) {
+    final route = _route;
+    if (upper < 0 || upper + 1 >= route.length) return;
+    if (upper == 0 && widget.pickupLocked) return;
+    final n = route.length;
+    final upperText = route[upper].text;
+    final upperPoint = _pointAt(upper, n);
+    final lowerPoint = _pointAt(upper + 1, n);
+    setState(() {
+      route[upper].text = route[upper + 1].text;
+      route[upper + 1].text = upperText;
+      _setPointAt(upper, n, lowerPoint);
+      _setPointAt(upper + 1, n, upperPoint);
+      _rerouted = true;
+    });
+  }
+
+  /// Q1: the global button reverses the whole trip (Home → Shop → Work
+  /// becomes Work → Shop → Home).
   void _swap() {
     if (widget.pickupLocked) return;
-    final pickupText = _pickup.text;
-    final pickupPoint = _pickupPoint;
+    final route = _route;
+    final n = route.length;
+    final texts = [for (final c in route) c.text].reversed.toList();
+    final points = [for (var i = 0; i < n; i++) _pointAt(i, n)].reversed
+        .toList();
     setState(() {
-      _pickup.text = _destination.text;
-      _pickupPoint = _destinationPoint;
-      _destination.text = pickupText;
-      _destinationPoint = pickupPoint;
+      for (var i = 0; i < n; i++) {
+        route[i].text = texts[i];
+        _setPointAt(i, n, points[i]);
+      }
+      _rerouted = true;
     });
   }
 
@@ -605,7 +650,22 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               color: _box,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(children: rows),
+            child: Stack(
+              children: [
+                Column(children: rows),
+                // Q1: one small swap between each two neighbours (only
+                // when there are stops; with two addresses the global
+                // button already does it).
+                if (rows.length >= 3)
+                  for (var i = 0; i + 1 < rows.length; i++)
+                    if (!(i == 0 && widget.pickupLocked))
+                      Positioned(
+                        left: 5,
+                        top: 56.0 * (i + 1) - 22,
+                        child: _neighbourSwap(i),
+                      ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 6),
@@ -625,7 +685,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             SizedBox(
               height: 56,
               child: IconButton(
-                tooltip: 'Swap pickup and destination',
+                tooltip: _stops.isEmpty
+                    ? 'Swap pickup and destination'
+                    : 'Reverse trip',
                 onPressed: widget.pickupLocked ? null : _swap,
                 icon: const Icon(Icons.swap_vert_rounded, size: 26),
                 color: _ink,
@@ -634,6 +696,24 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _neighbourSwap(int upper) {
+    return MoveraHitArea(
+      key: ValueKey('route-picker-swap-$upper'),
+      label: 'Swap these two addresses',
+      onTap: () => _swapNeighbours(upper),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: _line, width: 1.2),
+        ),
+        child: const Icon(Icons.swap_vert_rounded, size: 16, color: _muted),
+      ),
     );
   }
 
@@ -985,7 +1065,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 ),
               ],
             ),
-            if (widget.finishLabel != null &&
+            if ((widget.finishLabel != null || _rerouted) &&
                 !typing &&
                 _destination.text.trim().isNotEmpty)
               Positioned(
@@ -1004,7 +1084,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                       ),
                     ),
                     child: Text(
-                      widget.finishLabel!,
+                      widget.finishLabel ?? 'See prices',
                       style: _t(
                         16,
                         weight: FontWeight.w600,

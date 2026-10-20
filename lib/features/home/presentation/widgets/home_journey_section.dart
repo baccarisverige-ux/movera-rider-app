@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
@@ -31,20 +32,18 @@ class MonthRideStats {
   const MonthRideStats({
     required this.month,
     required this.rides,
-    required this.spentMinorless,
+    required this.spent,
     required this.ridesPerWeek,
-    required this.currency,
     this.electricRides = 0,
   });
 
   final DateTime month;
   final int rides;
-  final double spentMinorless;
-  final List<int> ridesPerWeek;
 
-  /// The currency of [spentMinorless]; null when the month's rides were in
-  /// more than one.
-  final String? currency;
+  /// Q11: what the month cost, one total per currency (never converted),
+  /// in the card's order: SEK, EUR, TND, then any other code.
+  final List<Money> spent;
+  final List<int> ridesPerWeek;
 
   /// Completed Electric rides this month: the only ones that avoid
   /// tailpipe CO₂ (FLOW-13; petrol rides used to count too).
@@ -83,36 +82,47 @@ class MonthRideStats {
     final weeks = List<int>.filled(weeksIn(now), 0);
     var count = 0;
     var electric = 0;
-    var spent = 0.0;
-    var currency = 'SEK';
-    final currencies = <String>{};
+    final totals = <String, Money>{};
     for (final ride in rides) {
       if (!ride.status.isCompleted) continue;
       final at = ride.scheduledPickupAt;
       if (at.year != now.year || at.month != now.month) continue;
       count++;
       if (ride.categoryId == 'electric') electric++;
-      spent += ride.price;
-      currency = ride.currency;
-      currencies.add(ride.currency);
+      final price = Money.fromLegacyMajor(ride.price, ride.currency);
+      final total = totals[price.currency];
+      totals[price.currency] = total == null ? price : total + price;
       weeks[(at.day - 1) ~/ 7]++;
     }
     return MonthRideStats(
       month: DateTime(now.year, now.month),
       rides: count,
-      spentMinorless: spent,
+      spent: totals.values.toList()..sort(_byCurrency),
       ridesPerWeek: weeks,
-      // Rides in several currencies have no one total (no conversion).
-      currency: currencies.length > 1 ? null : currency,
       electricRides: electric,
     );
   }
 
+  static const _currencyOrder = ['SEK', 'EUR', 'TND'];
+
+  static int _byCurrency(Money a, Money b) {
+    int rank(String code) {
+      final i = _currencyOrder.indexOf(code);
+      return i < 0 ? _currencyOrder.length : i;
+    }
+
+    final byRank = rank(a.currency).compareTo(rank(b.currency));
+    return byRank != 0 ? byRank : a.currency.compareTo(b.currency);
+  }
+
+  /// "3 rides · 820 kr · 24,00 €": the ride count, then each currency's
+  /// total in the app's one money format.
   String get pillText {
     final rideWord = rides == 1 ? 'ride' : 'rides';
-    final code = currency;
-    if (code == null) return '$rides $rideWord';
-    return '$rides $rideWord · ${currencySymbol(code)} ${spentMinorless.round()}';
+    return [
+      '$rides $rideWord',
+      for (final total in spent) formatMoney(total, whole: true),
+    ].join(' · ');
   }
 }
 

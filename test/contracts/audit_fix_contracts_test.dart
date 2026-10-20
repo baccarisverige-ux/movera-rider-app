@@ -171,12 +171,14 @@ void main() {
   group('ARCH-11 money and time contracts', () {
     test('Money is integer minor units with an ISO-4217 code', () {
       expect(
-        Money.tryParse({'amountMinor': 25900, 'currency': 'sek'}),
+        Money.fromWire({'amountMinor': 25900, 'currency': 'SEK'}),
         const Money(25900, 'SEK'),
       );
-      expect(Money.tryParse({'amountMinor': 259.5, 'currency': 'SEK'}), isNull);
+      // RC-11: one strict reader, as `fixtures/money.json#invalid` says.
+      expect(Money.fromWire({'amountMinor': 25900, 'currency': 'sek'}), isNull);
+      expect(Money.fromWire({'amountMinor': 259.5, 'currency': 'SEK'}), isNull);
       expect(
-        Money.tryParse({'amountMinor': 100, 'currency': 'kronor'}),
+        Money.fromWire({'amountMinor': 100, 'currency': 'kronor'}),
         isNull,
       );
       expect(Money.fromLegacyMajor(259.99).amountMinor, 25999);

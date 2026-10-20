@@ -117,6 +117,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     context,
                     title: 'Name',
                     value: ride.name,
+                    emptyError: 'Enter your name',
                   );
                   if (next != null && next.isNotEmpty) {
                     await _save(ride.copyWith(name: next));

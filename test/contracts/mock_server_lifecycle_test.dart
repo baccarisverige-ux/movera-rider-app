@@ -130,9 +130,15 @@ void main() {
     expect(paid['paymentStatus'], 'captured');
     final rating = await simulate(id, {'ratingStatus': 'pending'});
     expect(rating['ratingStatus'], 'pending');
+    // Q38 / X20: whole stars only; a half star is refused.
+    await expectLater(
+      api.post('/api/v1/rides/$id/feedback', body: {'rating': 4.5}),
+      throwsA(anything),
+    );
+    expect(server.rides[id]!['ratingStatus'], 'pending');
     await api.post(
       '/api/v1/rides/$id/feedback',
-      body: {'rating': 4.5},
+      body: {'rating': 4},
     );
     expect(server.rides[id]!['ratingStatus'], 'submitted');
     expect(TripStatusWire.parse(server.rides[id]!['status']), TripStatus.completed);

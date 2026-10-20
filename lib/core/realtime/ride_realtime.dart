@@ -8,6 +8,11 @@ enum RideRealtimeSignal {
   riderOnTheWay,
 }
 
+/// Payload key and value of a back-to-searching event an admin caused
+/// (Q13): the rider is not told "driver cancelled".
+const String reassignedByKey = 'reassignedBy';
+const String reassignedByAdmin = 'admin';
+
 class RideRealtimeEvent {
   RideRealtimeEvent({
     String? rideId,
@@ -70,6 +75,9 @@ class RideRealtimeEvent {
   final RideRealtimeSignal? signal;
   final String? message;
   final RealtimeKind? _kind;
+
+  /// Q13: an admin moved the trip back to searching (not a driver cancel).
+  bool get isAdminReassign => payload[reassignedByKey] == reassignedByAdmin;
 
   /// The contract event kind (`contract.json#realtime.kinds`). The server
   /// says it; for a transport that does not, it follows from the event.

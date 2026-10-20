@@ -444,9 +444,9 @@ class Reservation {
         policyVersion: map['policyVersion'] as String?,
         parentReservationId: map['parentReservationId'] as String?,
         previousDriver: ReservationDriver.tryParse(map['previousDriver']),
-        cancellationFee: Money.tryParse(map['cancellationFee']),
+        cancellationFee: Money.fromWire(map['cancellationFee']),
         endedEarly: map['endedEarly'] == true,
-        chargedFare: Money.tryParse(map['chargedFare']),
+        chargedFare: Money.fromWire(map['chargedFare']),
       );
     } catch (_) {
       return null;

@@ -17,6 +17,7 @@ Future<CancelOutcome> showCancelRideSheet(
   CancelPhase phase = CancelPhase.searching,
   Future<void> Function()? onCancelConfirmed,
   String? feeNote,
+  bool offerDestinationChange = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final confirmed = await MoveraSheet.show<bool>(
@@ -34,7 +35,12 @@ Future<CancelOutcome> showCancelRideSheet(
     return const CancelOutcome.keep();
   }
 
-  final outcome = await showCancelReasonSheet(context, phase: phase);
+  final outcome = await showCancelReasonSheet(
+    context,
+    phase: phase,
+    offerDestinationChange: offerDestinationChange,
+  );
+  if (outcome.changeDestination) return outcome;
   if (!outcome.cancelled) return const CancelOutcome.keep();
 
   // Legacy callback remains supported, but now fires only after the rider

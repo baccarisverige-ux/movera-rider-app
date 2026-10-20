@@ -1,6 +1,58 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 
-/// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps).
+/// Book-later pickup rules in one zone's wall-clock time (Q9: the pickup
+/// zone's local time). Times in and out are plain wall-clock [DateTime]s
+/// of [timeZone].
+class PickupSchedule {
+  const PickupSchedule(this.timeZone);
+
+  /// The schedule of the zone a pickup at [lat], [lng] is in.
+  factory PickupSchedule.at(double? lat, double? lng) =>
+      PickupSchedule(RiderZones.at(lat, lng).timeZone);
+
+  static const stockholm = PickupSchedule(ZoneClock.stockholm);
+
+  /// IANA id, e.g. `Europe/Stockholm`, `Africa/Tunis`.
+  final String timeZone;
+
+  /// Current wall-clock time in [timeZone]. [now] is any instant.
+  DateTime zoneNow([DateTime? now]) =>
+      ZoneClock.wallTime(timeZone, now ?? StockholmSchedule.clock());
+
+  /// Earliest legal pickup: zone now + lead, rounded up to the 5-min slot.
+  DateTime minimumPickup([DateTime? now]) => StockholmSchedule.roundToFive(
+    zoneNow(now).add(const Duration(minutes: StockholmSchedule.leadMinutes)),
+  );
+
+  DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
+
+  DateTime clampPickup(DateTime dt, [DateTime? now]) {
+    final min = minimumPickup(now);
+    if (dt.isBefore(min)) return min;
+    return StockholmSchedule.roundToFive(
+      DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute),
+    );
+  }
+
+  bool isLegalPickup(DateTime dt, [DateTime? now]) =>
+      !dt.isBefore(minimumPickup(now));
+
+  DateTime timePickerMinFor(DateTime date, [DateTime? now]) {
+    final min = minimumPickup(now);
+    final day = DateTime(date.year, date.month, date.day);
+    final minDay = DateTime(min.year, min.month, min.day);
+    if (!day.isAfter(minDay)) return min;
+    return day;
+  }
+
+  /// The UTC instant of the wall-clock pickup [wall] in [timeZone].
+  DateTime toUtc(DateTime wall) => ZoneClock.toUtc(wall, timeZone);
+}
+
+/// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps); the
+/// home zone's [PickupSchedule], kept for its callers.
 class StockholmSchedule {
   static const int leadMinutes = 30;
   static const int slotMinutes = 5;
@@ -13,26 +65,12 @@ class StockholmSchedule {
   /// Current wall-clock time in Europe/Stockholm.
   ///
   /// [now] is converted to UTC first so tests can pass `DateTime.utc(...)`.
-  static DateTime stockholmNow([DateTime? now]) {
-    final utc = (now ?? clock()).toUtc();
-    final local = utc.add(Duration(hours: _cetCestOffsetHours(utc)));
-    return DateTime(
-      local.year,
-      local.month,
-      local.day,
-      local.hour,
-      local.minute,
-      local.second,
-      local.millisecond,
-    );
-  }
+  static DateTime stockholmNow([DateTime? now]) =>
+      PickupSchedule.stockholm.zoneNow(now);
 
   /// Earliest legal pickup: Stockholm now + [leadMinutes], rounded to 5 min.
-  static DateTime minimumPickup([DateTime? now]) {
-    return roundToFive(
-      stockholmNow(now).add(const Duration(minutes: leadMinutes)),
-    );
-  }
+  static DateTime minimumPickup([DateTime? now]) =>
+      PickupSchedule.stockholm.minimumPickup(now);
 
   /// Default Book later slot (same as [minimumPickup]).
   static DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
@@ -57,16 +95,12 @@ class StockholmSchedule {
   /// (past the 30-minute lead) while off-grid — e.g. a return-ride prefill
   /// inherited from an outbound time that was never itself grid-aligned —
   /// and every caller of this method expects a slotted result back.
-  static DateTime clampPickup(DateTime dt, [DateTime? now]) {
-    final min = minimumPickup(now);
-    if (dt.isBefore(min)) return min;
-    return roundToFive(DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute));
-  }
+  static DateTime clampPickup(DateTime dt, [DateTime? now]) =>
+      PickupSchedule.stockholm.clampPickup(dt, now);
 
   /// Continue-button predicate: pickup must be at/after Stockholm now+30.
-  static bool isLegalPickup(DateTime dt, [DateTime? now]) {
-    return !dt.isBefore(minimumPickup(now));
-  }
+  static bool isLegalPickup(DateTime dt, [DateTime? now]) =>
+      PickupSchedule.stockholm.isLegalPickup(dt, now);
 
   /// Whether [dt] already sits on the 5-minute slot grid. A time can be a
   /// legal pickup ([isLegalPickup]) while still being off-grid — e.g. a
@@ -75,32 +109,6 @@ class StockholmSchedule {
   static bool isOnGrid(DateTime dt) => dt.minute % slotMinutes == 0;
 
   /// Earliest time the time picker may land on for [date].
-  static DateTime timePickerMinFor(DateTime date, [DateTime? now]) {
-    final min = minimumPickup(now);
-    final day = DateTime(date.year, date.month, date.day);
-    final minDay = DateTime(min.year, min.month, min.day);
-    if (!day.isAfter(minDay)) return min;
-    return day;
-  }
-
-  /// EU DST: last Sunday of March 01:00 UTC → CEST; last Sunday of October
-  /// 01:00 UTC → CET.
-  static int _cetCestOffsetHours(DateTime utc) {
-    final instant = utc.toUtc();
-    final start = _lastSundayUtc(instant.year, 3).add(const Duration(hours: 1));
-    final end = _lastSundayUtc(instant.year, 10).add(const Duration(hours: 1));
-    if (!instant.isBefore(start) && instant.isBefore(end)) return 2;
-    return 1;
-  }
-
-  static DateTime _lastSundayUtc(int year, int month) {
-    final firstOfNext = month == 12
-        ? DateTime.utc(year + 1, 1, 1)
-        : DateTime.utc(year, month + 1, 1);
-    var day = firstOfNext.subtract(const Duration(days: 1));
-    while (day.weekday != DateTime.sunday) {
-      day = day.subtract(const Duration(days: 1));
-    }
-    return DateTime.utc(day.year, day.month, day.day);
-  }
+  static DateTime timePickerMinFor(DateTime date, [DateTime? now]) =>
+      PickupSchedule.stockholm.timePickerMinFor(date, now);
 }

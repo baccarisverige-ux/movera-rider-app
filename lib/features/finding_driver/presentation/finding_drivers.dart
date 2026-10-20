@@ -674,6 +674,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             ride: ride,
             entry: entry,
             pickupLocked: _match.matchCount > 0,
+            driverAccepted: _match.matchCount > 0,
           );
     if (!mounted) return;
     _applyRouteChange(updated);

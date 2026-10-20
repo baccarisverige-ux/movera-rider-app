@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
@@ -26,6 +27,7 @@ Future<RideSnapshot?> openRouteChange(
   required RideSnapshot ride,
   required RouteChangeEntry entry,
   required bool pickupLocked,
+  bool driverAccepted = false,
   RouteChangeController? controller,
 }) async {
   final changes =
@@ -91,6 +93,9 @@ Future<RideSnapshot?> openRouteChange(
                 destinationAddress: selection.destination,
                 destinationPoint: selection.destinationPoint,
                 stops: selection.stops,
+                maxPickupMoveMeters: driverAccepted
+                    ? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters
+                    : null,
               );
               if (!context.mounted) return null;
               final decision = await RouteChangeSheet.confirm(

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
@@ -21,6 +22,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   /// hides the row rather than showing a made-up time.
   final int? tripMinutes;
 
+  /// Q9: the pickup zone's IANA time zone; every time on this screen is
+  /// that zone's wall-clock time.
+  final String timeZone;
+
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
@@ -30,6 +35,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.popOnConfirm = false,
     this.now,
     this.tripMinutes,
+    this.timeZone = ZoneClock.stockholm,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -39,9 +45,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     DateTime? initial,
     DateTime Function()? now,
     int? tripMinutes,
+    String timeZone = ZoneClock.stockholm,
   }) {
     final session = ScheduledRideSession();
-    if (initial != null) session.captureSchedule(initial);
+    if (initial != null) session.captureSchedule(initial, timezone: timeZone);
     return Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
         builder: (_) => ScheduleDateTimeSelector(
@@ -50,6 +57,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           popOnConfirm: true,
           now: now,
           tripMinutes: tripMinutes,
+          timeZone: timeZone,
           onConfirm: () {},
         ),
       ),
@@ -68,6 +76,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   static const Color _surface = Color(0xFFF5F5F3);
   static const Color _line = Color(0xFFE7E7E4);
 
+  late final PickupSchedule _schedule = PickupSchedule(widget.timeZone);
   late DateTime _selectedDateTime;
   bool _pickupMode = true;
   bool _continuing = false;
@@ -80,14 +89,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final existing = widget.session?.scheduledAt;
     final now = widget.now?.call();
     if (existing != null) {
-      final corrected = StockholmSchedule.clampPickup(existing, now);
+      final corrected = _schedule.clampPickup(existing, now);
       _selectedDateTime = corrected;
       if (corrected != existing) {
         _pickupCorrectionMessage =
             'Pickup time updated to the next available slot.';
       }
     } else {
-      _selectedDateTime = StockholmSchedule.defaultPickup(now);
+      _selectedDateTime = _schedule.defaultPickup(now);
     }
     _commitSchedule();
   }
@@ -102,8 +111,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     if (_continuing) return;
 
     final now = widget.now?.call();
-    if (!StockholmSchedule.isLegalPickup(_selectedDateTime, now)) {
-      final corrected = StockholmSchedule.clampPickup(_selectedDateTime, now);
+    if (!_schedule.isLegalPickup(_selectedDateTime, now)) {
+      final corrected = _schedule.clampPickup(_selectedDateTime, now);
       setState(() {
         _selectedDateTime = corrected;
         _pickupCorrectionMessage =
@@ -127,7 +136,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   void _applyPickedDateTime(DateTime candidate) {
-    final corrected = StockholmSchedule.clampPickup(
+    final corrected = _schedule.clampPickup(
       candidate,
       widget.now?.call(),
     );
@@ -143,7 +152,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   void _commitSchedule() {
     widget.session?.captureSchedule(
       _selectedDateTime,
-      timezone: 'Europe/Stockholm',
+      timezone: widget.timeZone,
     );
   }
 
@@ -163,10 +172,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
-    final first = StockholmSchedule.stockholmNow(widget.now?.call());
+    final first = _schedule.zoneNow(widget.now?.call());
     final last = first.add(const Duration(days: 365));
     if (draftDate.isBefore(first)) {
-      draftDate = StockholmSchedule.clampPickup(draftDate, widget.now?.call());
+      draftDate = _schedule.clampPickup(draftDate, widget.now?.call());
     }
     final result = await MoveraSheet.show<DateTime>(
       context: context,
@@ -282,7 +291,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Future<void> _chooseTime() async {
-    final min = StockholmSchedule.timePickerMinFor(
+    final min = _schedule.timePickerMinFor(
       _selectedDateTime,
       widget.now?.call(),
     );
@@ -740,7 +749,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = StockholmSchedule.isLegalPickup(
+    final legal = _schedule.isLegalPickup(
       _selectedDateTime,
       widget.now?.call(),
     );

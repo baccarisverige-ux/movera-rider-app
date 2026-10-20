@@ -16,7 +16,9 @@ class RideFeedbackRepository {
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
     if (rating == null && tipMinor == null) return;
-    if (rating != null && (rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) {
+    // Q38 / X20: whole stars only, 1 to 5.
+    if (rating != null &&
+        (rating < 1 || rating > 5 || rating != rating.roundToDouble())) {
       throw ArgumentError.value(rating, 'rating');
     }
     if (tipMinor != null && (tipMinor <= 0 || tipMinor > 999900)) {
