@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -49,14 +49,39 @@
   },
   "paymentMethods": [
     "card",
-    "swish",
-    "klarna",
-    "apple",
-    "google",
-    "paypal",
+    "apple_pay",
+    "google_pay",
     "cash",
     "wallet"
   ],
+  "paymentMethodAliases": {
+    "note": "Read-only aliases accepted for one release (v0.3 ids). Never sent.",
+    "apple": "apple_pay",
+    "google": "google_pay"
+  },
+  "zonePaymentMethods": {
+    "note": "Owner Q7 (final): every country offers exactly these methods, in this order; config paymentMethods is a subset. No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet, wallet.usedFirst).",
+    "values": [
+      "cash",
+      "card",
+      "apple_pay",
+      "google_pay"
+    ]
+  },
+  "languages": {
+    "note": "App languages (owner Q48/Q49). Admin sets the default per country for each app; the user can change it.",
+    "values": [
+      "en",
+      "fr",
+      "sv"
+    ]
+  },
+  "ratings": {
+    "note": "Owner Q38: whole stars only.",
+    "min": 1,
+    "max": 5,
+    "step": 1
+  },
   "tripStatus": {
     "values": [
       "draft",
@@ -212,7 +237,7 @@
         "offered"
       ],
       "to": "offered",
-      "note": "admin offers to one driver; the driver still accepts"
+      "note": "admin direct assign (exclusive offer to one driver, kind=assigned) or radar group (up to 10 drivers, kind=radar); the driver still accepts. Locked once a driver accepts: from accepted on, assign is invalid_transition."
     },
     {
       "command": "head_to_pickup",
@@ -563,6 +588,226 @@
       "system_error"
     ]
   },
+  "adminDispatch": {
+    "note": "Admin dispatch tooling (owner Q13-Q18). Both actions are the admin `assign` transition; the trip stays offered until one driver accepts, then the assignment is locked.",
+    "directAssign": {
+      "offerKind": "assigned",
+      "drivers": 1,
+      "exclusive": true,
+      "timer": "driver.offers.exclusiveSeconds",
+      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline."
+    },
+    "radarGroup": {
+      "offerKind": "radar",
+      "minDrivers": 1,
+      "maxDrivers": 10,
+      "timer": "driver.offers.radarSeconds",
+      "repeatable": true,
+      "note": "One offer per chosen driver, first to accept wins; the others get offer_withdrawn (claimed_elsewhere). The admin may send more groups while the trip is not locked."
+    },
+    "lockedStatuses": [
+      "accepted",
+      "driver_to_pickup",
+      "arrived",
+      "rider_onboard",
+      "in_trip",
+      "approaching_dropoff",
+      "completed",
+      "cancelled_by_rider",
+      "cancelled_by_driver",
+      "cancelled_by_admin",
+      "cancelled_by_system",
+      "no_show",
+      "expired",
+      "failed"
+    ],
+    "driverBonus": {
+      "paidBy": "movera",
+      "note": "Movera-paid extra for the driver (\"add money to trip\"). The rider never pays it. It is included in Offer.fare and Offer.driverEarnings as the driver sees them; TripProjection.fare (rider) never includes it. Above driver.driverBonus.defaultLimit the server answers 400 invalid_request (\"adjust the limit in Pricing\"); the limit itself can never exceed driverBonus.hardMax."
+    },
+    "nearbyScopes": [
+      "radius",
+      "zone",
+      "zone_and_neighbours"
+    ],
+    "nearbyRadiusPresetsKm": [
+      5,
+      7,
+      10
+    ],
+    "eventKinds": [
+      "offer_sent",
+      "offer_declined",
+      "offer_expired",
+      "offer_withdrawn",
+      "offer_accepted",
+      "assignment_locked",
+      "driver_bonus_added"
+    ]
+  },
+  "configDefaults": {
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency.",
+    "maxStops": 3,
+    "maxPickupMoveMeters": 500,
+    "freeWaitMin": {
+      "default": 5,
+      "xl": 3
+    },
+    "noShowAfterMin": "equals the category freeWaitMin (owner Q41): the no-show button appears when the free wait ends",
+    "waitingDriverSharePct": 100,
+    "noShowDriverSharePct": 80,
+    "missedExclusiveBeforeOffline": 3,
+    "countries": {
+      "SE": {
+        "currency": "SEK",
+        "defaultLanguage": "sv",
+        "zones": {
+          "Z001": "Europe/Stockholm"
+        },
+        "tips": [
+          {
+            "amountMinor": 1000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 2000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 3000,
+            "currency": "SEK"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 5000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 10000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 15000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 20000,
+            "currency": "SEK"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 20000,
+            "currency": "SEK"
+          },
+          "hardMax": {
+            "amountMinor": 100000,
+            "currency": "SEK"
+          }
+        }
+      },
+      "FR": {
+        "currency": "EUR",
+        "defaultLanguage": "fr",
+        "zones": {
+          "FR-PC": "Europe/Paris"
+        },
+        "tips": [
+          {
+            "amountMinor": 100,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 200,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 500,
+            "currency": "EUR"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 200,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 400,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 600,
+            "currency": "EUR"
+          },
+          {
+            "amountMinor": 800,
+            "currency": "EUR"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 2000,
+            "currency": "EUR"
+          },
+          "hardMax": {
+            "amountMinor": 9500,
+            "currency": "EUR"
+          }
+        }
+      },
+      "TN": {
+        "currency": "TND",
+        "defaultLanguage": "fr",
+        "zones": {
+          "TN-TC": "Africa/Tunis"
+        },
+        "tips": [
+          {
+            "amountMinor": 1000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 2000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 3000,
+            "currency": "TND"
+          }
+        ],
+        "raiseSteps": [
+          {
+            "amountMinor": 2000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 4000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 6000,
+            "currency": "TND"
+          },
+          {
+            "amountMinor": 8000,
+            "currency": "TND"
+          }
+        ],
+        "driverBonus": {
+          "defaultLimit": {
+            "amountMinor": 60000,
+            "currency": "TND"
+          },
+          "hardMax": {
+            "amountMinor": 300000,
+            "currency": "TND"
+          }
+        }
+      }
+    },
+    "promoCap": "null until Admin sets a cap for the country (no default decided)"
+  },
   "realtime": {
     "envelope": [
       "eventId",
@@ -623,6 +868,6 @@
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
     "X-Request-Id": "sent by clients, echoed by the server",
-    "X-Api-Version": "0.3"
+    "X-Api-Version": "0.4"
   }
 }

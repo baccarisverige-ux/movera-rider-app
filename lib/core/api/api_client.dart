@@ -10,8 +10,8 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 
 class ApiClient {
-  /// `X-Api-Version` on every request: `contract.json#headers` (v0.3).
-  static const apiVersion = '0.3';
+  /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
+  static const apiVersion = '0.4';
 
   ApiClient({
     http.Client? client,

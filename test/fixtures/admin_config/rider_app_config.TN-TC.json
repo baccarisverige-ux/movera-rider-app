@@ -4,6 +4,19 @@
   "zoneId": "TN-TC",
   "currency": "TND",
   "timeZone": "Africa/Tunis",
+  "country": "TN",
+  "languages": {
+    "available": [
+      "en",
+      "fr",
+      "sv"
+    ],
+    "default": {
+      "rider": "fr",
+      "driver": "fr",
+      "admin": "fr"
+    }
+  },
   "catalog": {
     "categories": [
       {
@@ -71,17 +84,71 @@
     "shareTrip": true
   },
   "paymentMethods": [
-    "card",
-    "swish",
-    "klarna",
-    "apple",
-    "google",
-    "paypal",
     "cash",
-    "wallet"
+    "card",
+    "apple_pay",
+    "google_pay"
   ],
+  "wallet": {
+    "usedFirst": true
+  },
+  "tips": [
+    {
+      "amount": {
+        "amountMinor": 1000,
+        "currency": "TND"
+      },
+      "enabled": true
+    },
+    {
+      "amount": {
+        "amountMinor": 2000,
+        "currency": "TND"
+      },
+      "enabled": true
+    },
+    {
+      "amount": {
+        "amountMinor": 3000,
+        "currency": "TND"
+      },
+      "enabled": true
+    }
+  ],
+  "raiseSteps": [
+    {
+      "amount": {
+        "amountMinor": 2000,
+        "currency": "TND"
+      },
+      "enabled": true
+    },
+    {
+      "amount": {
+        "amountMinor": 4000,
+        "currency": "TND"
+      },
+      "enabled": true
+    },
+    {
+      "amount": {
+        "amountMinor": 6000,
+        "currency": "TND"
+      },
+      "enabled": true
+    },
+    {
+      "amount": {
+        "amountMinor": 8000,
+        "currency": "TND"
+      },
+      "enabled": true
+    }
+  ],
+  "promoCap": null,
   "booking": {
     "maxStops": 3,
+    "maxPickupMoveMeters": 500,
     "bookingHorizonDays": 7
   },
   "cancelFees": {
@@ -231,7 +298,7 @@
     "closerPct": 25
   },
   "waiting": {
-    "freeWaitMin": 2,
+    "freeWaitMin": 5,
     "perMin": {
       "amountMinor": 3700,
       "currency": "TND"
@@ -243,7 +310,7 @@
     },
     "byCategory": {
       "economy": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"
@@ -255,7 +322,7 @@
         }
       },
       "comfort": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"
@@ -279,7 +346,7 @@
         }
       },
       "priority": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"
@@ -296,14 +363,14 @@
           "amountMinor": 3700,
           "currency": "TND"
         },
-        "noShowAfterMin": 5,
+        "noShowAfterMin": 3,
         "noShowFee": {
           "amountMinor": 19500,
           "currency": "TND"
         }
       },
       "electric": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"
@@ -315,7 +382,7 @@
         }
       },
       "pet": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"
@@ -327,7 +394,7 @@
         }
       },
       "child_seat": {
-        "freeWaitMin": 2,
+        "freeWaitMin": 5,
         "perMin": {
           "amountMinor": 3700,
           "currency": "TND"

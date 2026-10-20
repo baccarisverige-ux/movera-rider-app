@@ -165,7 +165,8 @@ void main() {
       expect(config.categories.single.id, 'comfort');
       expect(config.categories.single.seats, 4);
       expect(config.features, {'pin': true});
-      expect(config.paymentMethods, isEmpty);
+      // Not a list: the contract's four zone methods (owner Q7).
+      expect(config.paymentMethods, ZoneDefaults.paymentMethods);
       expect(config.maxStops, RiderAppConfig.defaultMaxStops);
       expect(config.bookingHorizonDays, RiderAppConfig.defaultBookingHorizonDays);
       expect(config.liveFeeFor('economy')!.value, 300);
@@ -207,6 +208,23 @@ void main() {
     expect(seed.waiting!.noShowFee, fixture.waiting!.noShowFee);
     expect(seed.waiting!.freeWaitMin, fixture.waiting!.freeWaitMin);
     expect(seed.waiting!.noShowAfterMin, fixture.waiting!.noShowAfterMin);
+    expect(seed.waiting!.byCategory.keys, fixture.waiting!.byCategory.keys);
+    for (final id in fixture.waiting!.byCategory.keys) {
+      final a = seed.waiting!.forCategory(id);
+      final b = fixture.waiting!.forCategory(id);
+      expect(
+        [a.freeWaitMin, a.noShowAfterMin, a.perMin, a.noShowFee],
+        [b.freeWaitMin, b.noShowAfterMin, b.perMin, b.noShowFee],
+        reason: id,
+      );
+    }
+    expect(seed.country, fixture.country);
+    expect(seed.languages, fixture.languages);
+    expect(seed.tips, fixture.tips);
+    expect(seed.raiseSteps, fixture.raiseSteps);
+    expect(seed.promoCap, fixture.promoCap);
+    expect(seed.walletUsedFirst, fixture.walletUsedFirst);
+    expect(seed.maxPickupMoveMeters, fixture.maxPickupMoveMeters);
     expect(
       seed.cancelReasons.map((r) => '${r.code}:${r.title}'),
       fixture.cancelReasons.map((r) => '${r.code}:${r.title}'),
