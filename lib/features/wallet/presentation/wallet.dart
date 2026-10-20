@@ -6,6 +6,10 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -174,8 +178,25 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _ink = Color(0xFF11181D);
   static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE6E8E7);
-  late final WalletController _wallet = widget.wallet ?? AppScope.instance.walletController;
+  late final WalletController _baseWallet =
+      widget.wallet ?? AppScope.instance.walletController;
+
+  /// Q8: one balance per currency. The one shown is the rider's current
+  /// zone's; the chips switch between the zones' currencies.
+  String _currency = Money.defaultCurrency;
+  WalletController get _wallet => _baseWallet.forCurrency(_currency);
   bool get _demoPayments => AppScope.instance.environment.allowsMockTransport;
+
+  /// Demo top-up amounts in whole units of the shown currency.
+  static const _topUpAmounts = <String, List<int>>{
+    'SEK': [100, 200, 500],
+    'EUR': [10, 20, 50],
+    'TND': [30, 60, 150],
+  };
+  List<int> get _topUps => _topUpAmounts[_currency] ?? const [100, 200, 500];
+
+  String _money(num major) =>
+      formatMoney(Money.fromLegacyMajor(major, _currency), whole: true);
 
   double _balance = 0;
   bool _loading = true;
@@ -189,7 +210,74 @@ class _WalletHomeState extends State<WalletHome> {
   @override
   void initState() {
     super.initState();
+    _currency = _baseWallet.currency;
     _restore();
+    _followCurrentZone();
+  }
+
+  /// Shows the balance of the zone the rider is in (last location fix).
+  Future<void> _followCurrentZone() async {
+    final zone = await currentRiderZone();
+    if (!mounted || zone.currency == _currency || _topUpBusy) return;
+    _switchCurrency(zone.currency);
+  }
+
+  void _switchCurrency(String currency) {
+    if (currency == _currency || _topUpBusy) return;
+    setState(() {
+      _currency = currency;
+      _unconfirmedTopUp = null;
+    });
+    _restore();
+  }
+
+  Widget _currencyChips() {
+    final codes = [for (final zone in RiderZones.all) zone.currency];
+    return Wrap(
+      spacing: 6,
+      children: [
+        for (final code in codes)
+          Semantics(
+            button: true,
+            selected: code == _currency,
+            label: 'Balance in $code',
+            excludeSemantics: true,
+            child: InkWell(
+              key: ValueKey('wallet-currency-$code'),
+              onTap: () => _switchCurrency(code),
+              borderRadius: BorderRadius.circular(99),
+              // A 44 pt target around the small pill.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: code == _currency
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      code,
+                      style: _style(
+                        11,
+                        weight: FontWeight.w700,
+                        color: code == _currency ? _ink : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   TextStyle _style(
@@ -214,16 +302,17 @@ class _WalletHomeState extends State<WalletHome> {
         _failed = false;
       });
     }
+    final currency = _currency;
     try {
       final balance = await _wallet.loadBalance();
-      if (!mounted) return;
+      if (!mounted || currency != _currency) return;
       setState(() {
         _balance = balance;
         _loading = false;
         _failed = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || currency != _currency) return;
       setState(() {
         _loading = false;
         _failed = true;
@@ -252,7 +341,8 @@ class _WalletHomeState extends State<WalletHome> {
   Future<void> _openAddFunds() async {
     if (!_demoPayments || _topUpBusy) return;
     // After an unconfirmed top-up the same amount is offered again.
-    int amount = _unconfirmedTopUp?.amount ?? 200;
+    final amounts = _topUps;
+    int amount = _unconfirmedTopUp?.amount ?? amounts[1];
     final funded = await MoveraSheet.show<bool>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -296,7 +386,7 @@ class _WalletHomeState extends State<WalletHome> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        for (final value in [100, 200, 500]) ...[
+                        for (final value in amounts) ...[
                           Expanded(
                             child: GestureDetector(
                               onTap: () => setSheetState(() => amount = value),
@@ -310,7 +400,7 @@ class _WalletHomeState extends State<WalletHome> {
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Text(
-                                  formatKr(value),
+                                  _money(value),
                                   style: _style(
                                     13,
                                     weight: FontWeight.w600,
@@ -322,7 +412,7 @@ class _WalletHomeState extends State<WalletHome> {
                               ),
                             ),
                           ),
-                          if (value != 500) const SizedBox(width: 8),
+                          if (value != amounts.last) const SizedBox(width: 8),
                         ],
                       ],
                     ),
@@ -474,7 +564,9 @@ class _WalletHomeState extends State<WalletHome> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 8),
+                      _currencyChips(),
+                      const SizedBox(height: 2),
                       Text(
                         'Available balance',
                         style: _style(
@@ -485,7 +577,7 @@ class _WalletHomeState extends State<WalletHome> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        formatKr(_balance),
+                        _money(_balance),
                         style: _style(
                           34,
                           weight: FontWeight.w700,
@@ -577,8 +669,32 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
-  final _wallet = AppScope.instance.walletController;
+  final _homeWallet = AppScope.instance.walletController;
   final SavedCardsController _cards = AppScope.instance.savedCards;
+
+  /// Q7/Q8: the rider's current zone decides which wallet balance and
+  /// which payment methods (its config's) are listed.
+  String _currency = Money.defaultCurrency;
+  List<String> _zoneMethods = ZoneDefaults.paymentMethods;
+  WalletController get _wallet => _homeWallet.forCurrency(_currency);
+  bool _offers(String method) => _zoneMethods.contains(method);
+
+  Future<void> _loadZone() async {
+    final zone = await currentRiderZone();
+    List<String>? methods;
+    try {
+      methods = (await AppScope.instance.riderConfig.forZone(zone.id))
+          .paymentMethods;
+    } catch (_) {
+      methods = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _currency = zone.currency;
+      if (methods != null) _zoneMethods = methods;
+    });
+    await _reloadBalance();
+  }
 
   bool _businessProfile = false;
   String _selectedMethod = 'cash';
@@ -594,6 +710,7 @@ class _WalletScreenState extends State<WalletScreen> {
     _cards.addListener(_cardsChanged);
     _restorePaymentSettings();
     _loadCards();
+    _loadZone();
   }
 
   @override
@@ -603,8 +720,9 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _reloadBalance() async {
+    final currency = _currency;
     final balance = await _wallet.loadBalance();
-    if (mounted) setState(() => _balance = balance);
+    if (mounted && currency == _currency) setState(() => _balance = balance);
   }
 
   @override
@@ -640,11 +758,12 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _restorePaymentSettings() async {
+    final currency = _currency;
     final saved = await _wallet.loadPayments();
     final balance = await _wallet.loadBalance();
     if (!mounted) return;
     setState(() {
-      _balance = balance;
+      if (currency == _currency) _balance = balance;
       _selectedMethod = saved.defaultMethod;
       _businessProfile = saved.business;
       _extraMethods = saved.extraMethods;
@@ -820,7 +939,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               color: _line,
                             ),
                           ],
-                          if (!_isAndroid) _paymentTile(
+                          if (!_isAndroid && _offers('apple_pay')) _paymentTile(
                             id: 'apple',
                             title: 'Apple Pay',
                             detail: 'Pays when the search starts',
@@ -832,7 +951,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             endIndent: 16,
                             color: _line,
                           ),
-                          if (!_isIos) _paymentTile(
+                          if (!_isIos && _offers('google_pay')) _paymentTile(
                             id: 'google',
                             title: 'Google Pay',
                             detail: 'Pays when the search starts',
@@ -844,10 +963,10 @@ class _WalletScreenState extends State<WalletScreen> {
                             endIndent: 16,
                             color: _line,
                           ),
-                          _paymentTile(
+                          if (_offers('cash')) _paymentTile(
                             id: 'cash',
-                            title: 'Pay in car',
-                            detail: 'Cash, card or Swish to the driver',
+                            title: 'Cash',
+                            detail: 'Pay the driver in cash',
                             brand: 'cash',
                           ),
                           for (final method in _extraMethods) ...[
@@ -864,7 +983,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               brand: method['id']!,
                             ),
                           ],
-                          for (final card in _cards.list()) ...[
+                          for (final card in _offers('card') ? _cards.list() : const <SavedCard>[]) ...[
                             const Divider(
                               height: 1,
                               indent: 62,
@@ -879,7 +998,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               onRemove: () => _confirmRemoveCard(card),
                             ),
                           ],
-                          if (CardEntryPolicy.enabled) ...[
+                          if (CardEntryPolicy.enabled && _offers('card')) ...[
                             const Divider(
                               height: 1,
                               indent: 62,
@@ -1209,11 +1328,6 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ],
       );
-    } else if (brand == 'swish') {
-      logo = SvgPicture.asset(
-        'assets/images/swish_brand.svg',
-        fit: BoxFit.cover,
-      );
     } else if (brand == 'wallet' || brand.startsWith('wallet')) {
       background = const Color(0xFF11181D);
       logo = const Icon(
@@ -1249,8 +1363,6 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       child: brand == 'google'
           ? Transform.scale(scale: 1.18, child: logo)
-          : brand == 'swish'
-          ? ClipRRect(borderRadius: BorderRadius.circular(4), child: logo)
           : logo,
     );
   }

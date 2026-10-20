@@ -57,7 +57,24 @@ class WalletController {
   final PaymentGateway? _gateway;
   final WalletBalanceRepository? _balancesOverride;
   late final WalletBalanceRepository _balances =
-      _balancesOverride ?? LocalWalletRepository(_store);
+      _balancesOverride ?? LocalWalletRepository(_store, _store.currency);
+
+  final Map<String, WalletController> _byCurrency = {};
+
+  /// Q8: the rider has one wallet balance per currency and the app never
+  /// converts. The controller of the balance in [currency] (this one when
+  /// it already is); payment settings are shared.
+  WalletController forCurrency(String currency) {
+    if (currency == this.currency) return this;
+    return _byCurrency.putIfAbsent(
+      currency,
+      () => WalletController(
+        store: _store,
+        gateway: _gateway,
+        balances: _balances.inCurrency(currency),
+      ),
+    );
+  }
 
   /// False when this build has no wallet (release until a server ledger
   /// exists).
@@ -196,6 +213,7 @@ class WalletController {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.credit,
         amountMinor: Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );
@@ -245,8 +263,12 @@ class WalletController {
       return null;
     }
     if (!_balances.available) return null;
-    // Q7: a balance in kronor never pays a trip in another currency.
-    if (snapshot.currency != currency) return null;
+    // Q8: the trip is paid from the balance of its own currency.
+    if (snapshot.currency != currency) {
+      return forCurrency(
+        snapshot.currency,
+      ).chargeCompletedRide(snapshot, rideId: id);
+    }
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the
     // fare), and the method pays the rest.
@@ -311,6 +333,7 @@ class WalletController {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.ride,
         amountMinor: -Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );
@@ -327,6 +350,7 @@ class WalletController {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.refund,
         amountMinor: Money.fromLegacyMajor(amount, currency).amountMinor,
+        currency: currency,
         at: DateTime.now(),
       ),
     );

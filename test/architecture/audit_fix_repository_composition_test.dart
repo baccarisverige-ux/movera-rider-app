@@ -200,7 +200,7 @@ void main() {
           categoryName: 'Movera',
           categoryImage: 'assets/images/rides/movera.webp',
           price: 259,
-          paymentMethod: 'Pay in car',
+          paymentMethod: 'Cash',
         ),
       ),
       throwsA(isA<ReservationsUnavailableException>()),

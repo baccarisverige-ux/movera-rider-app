@@ -98,8 +98,8 @@ class SetPickupFare {
   final double discountKr;
   final int? promotionPercent;
 
-  /// The part of the total taken from the Movera Wallet first (0 when the
-  /// wallet holds another currency).
+  /// The part of the total taken first from the Movera Wallet balance of
+  /// [currency] (Q8).
   final double walletKr;
 
   /// ISO-4217 code of every amount above.
@@ -108,13 +108,12 @@ class SetPickupFare {
   double get remainderKr => totalKr - walletKr;
 
   /// The same split in minor units, for display: its parts add up to the
-  /// total. The wallet holds kronor, so it only splits a kronor fare.
-  WalletSplit get split => currency == Money.defaultCurrency
-      ? WalletSplit.booked(
-          totalMinor: krToMinor(totalKr),
-          walletMinor: krToMinor(walletKr),
-        )
-      : WalletSplit.none(Money.fromLegacyMajor(totalKr, currency).amountMinor);
+  /// total. Q8: the wallet part is the balance of the fare's currency.
+  WalletSplit get split => WalletSplit.booked(
+    totalMinor: Money.fromLegacyMajor(totalKr, currency).amountMinor,
+    walletMinor: Money.fromLegacyMajor(walletKr, currency).amountMinor,
+    currency: currency,
+  );
 
   /// [major] whole units of [currency], as the fare is shown.
   String format(double major) =>
@@ -1386,13 +1385,13 @@ class _SetPickupPageState extends State<SetPickupPage>
             const Divider(height: 12, color: _line),
             _priceRow(
               'Movera Wallet',
-              '-${formatKr(fare.split.walletKr)}',
+              '-${fare.split.walletLabel}',
               color: _walletGreen,
               key: const ValueKey('set-pickup-wallet-part'),
             ),
             _priceRow(
               fare.split.paidByWallet ? 'Nothing more to pay' : _payment.name,
-              formatKr(fare.split.remainderKr),
+              fare.split.remainderLabel,
               key: const ValueKey('set-pickup-remainder'),
             ),
           ],

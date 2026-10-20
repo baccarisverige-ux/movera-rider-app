@@ -3,7 +3,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
@@ -355,6 +357,30 @@ class _SelectRideState extends State<SelectRide>
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
+    unawaited(_loadZoneConfig());
+  }
+
+  /// The pickup zone's config: its payment methods (Q7) and time zone (Q9).
+  RiderAppConfig? _zoneConfig;
+
+  Future<void> _loadZoneConfig() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: _selection.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (!mounted || config == null) return;
+      setState(() {
+        _zoneConfig = config;
+        _selection.setZonePaymentMethods(config.paymentMethods);
+      });
+    } catch (error) {
+      AppLog.warning(
+        'select_ride.zone_config_failed',
+        extra: {'error': '$error'},
+      );
+    }
   }
 
   Future<void> _loadRoutePins() async {
@@ -1008,6 +1034,7 @@ class _SelectRideState extends State<SelectRide>
       ],
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
+      walletCurrency: _selection.walletCurrency,
       promotion: _promotion,
       brandMark: _brandMark,
       useWalletFirst: _selection.useWalletFirst,
@@ -1025,7 +1052,10 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadWalletBalance() async {
     try {
-      final wallet = AppScope.instance.walletController;
+      // Q8: the balance of this trip's currency (one wallet per currency).
+      final wallet = AppScope.instance.walletController.forCurrency(
+        _selection.currency,
+      );
       final balance = await wallet.loadBalance();
       final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
@@ -1067,8 +1097,11 @@ class _SelectRideState extends State<SelectRide>
   }
 
   /// Q9: Book later times are the pickup zone's wall-clock time.
-  PickupSchedule get _pickupSchedule =>
-      PickupSchedule.at(_pickupPosition.latitude, _pickupPosition.longitude);
+  PickupSchedule get _pickupSchedule => PickupSchedule.at(
+    _pickupPosition.latitude,
+    _pickupPosition.longitude,
+    config: _zoneConfig,
+  );
 
   Future<void> _bookScheduled() async {
     try {
@@ -1251,7 +1284,7 @@ class _SelectRideState extends State<SelectRide>
       final item = _selection.selectedPaymentItem();
       return SetPickupPayment(
         brand: item?.brand ?? 'cash',
-        name: item?.name ?? 'Pay in car',
+        name: item?.name ?? 'Cash',
         detail: item?.detail ?? '',
       );
     }
@@ -2416,8 +2449,8 @@ class _SelectRideState extends State<SelectRide>
                     style: _text(12, weight: FontWeight.w600, color: green),
                   )
                 : Text(
-                    'Wallet −${formatKr(split.walletKr)} · '
-                    'you pay ${formatKr(split.remainderKr)}',
+                    'Wallet −${split.walletLabel} · '
+                    'you pay ${split.remainderLabel}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _text(12, weight: FontWeight.w500, color: green),
@@ -2513,7 +2546,7 @@ class _SelectRideState extends State<SelectRide>
   Widget _paymentButton() {
     final item = _selection.selectedPaymentItem();
     final method = item == null
-        ? const _PaymentOption(brand: 'cash', name: 'Pay in car', detail: '')
+        ? const _PaymentOption(brand: 'cash', name: 'Cash', detail: '')
         : _PaymentOption(
             brand: item.brand,
             name: item.name,

@@ -906,7 +906,7 @@ class InProcessMockClient extends http.BaseClient {
               'pickupAddress': body['pickupAddress'],
             });
           }
-          // Pay in car only shows the new price; any other method is
+          // Cash only shows the new price; any other method is
           // charged or refunded the difference right away.
           // ARCH-9: the method id decides; the label is the old contract.
           final methodId = body['paymentMethodId']?.toString();
@@ -1033,11 +1033,12 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
       final amountMinor = body['amountMinor'];
-      final currency = body['currency'];
+      // Q8: a zone currency (one wallet per currency, a top-up in each).
+      final currency = Money.normalizeCurrency(body['currency']);
       if (amountMinor is! int ||
           amountMinor <= 0 ||
-          currency is! String ||
-          currency.trim().toUpperCase() != 'SEK') {
+          currency == null ||
+          RiderZones.byCurrency(currency) == null) {
         status = 400;
         payload = _error(
           'invalid_request',
@@ -1049,7 +1050,7 @@ class InProcessMockClient extends http.BaseClient {
           'id': 'pi_$requestId',
           'status': 'requires_confirmation',
           'amountMinor': amountMinor,
-          'currency': 'SEK',
+          'currency': currency,
           // C-10 (PROPOSED): what the intent pays for.
           if (body['purpose'] is String) 'purpose': body['purpose'],
           if (body['rideId'] is String) 'rideId': body['rideId'],
@@ -1182,7 +1183,7 @@ class InProcessMockClient extends http.BaseClient {
           {'id': 'wallet', 'kind': 'wallet', 'label': 'Movera Wallet'},
           {'id': 'apple', 'kind': 'applePay', 'label': 'Apple Pay'},
           {'id': 'google', 'kind': 'googlePay', 'label': 'Google Pay'},
-          {'id': 'cash', 'kind': 'cash', 'label': 'Pay in car'},
+          {'id': 'cash', 'kind': 'cash', 'label': 'Cash'},
         ],
         'defaultMethodId': defaultPaymentMethodId,
         'requestId': requestId,
@@ -1381,10 +1382,33 @@ class InProcessMockClient extends http.BaseClient {
     ride['status'] = to.wireName;
     final tripId = (ride['tripId'] ?? ride['id']).toString();
     if (to == TripStatus.accepted) {
-      _acceptedAt[tripId] = _clock();
+      final at = _clock();
+      _acceptedAt[tripId] = at;
+      // Contract v0.4.0 `TripProjection.acceptedAt` (Q12): the rider's
+      // free-cancel clock counts from it.
+      ride['acceptedAt'] = WireTime.format(at);
     } else if (to == TripStatus.searching || to == TripStatus.requested) {
       // Back in dispatch: the next accept starts a new free window.
       _acceptedAt.remove(tripId);
+      ride['acceptedAt'] = null;
+      ride.remove('waiting');
+    }
+    if (to == TripStatus.arrived) {
+      // `TripProjection.waiting` (Q41/Q42): the waiting clock starts at
+      // arrival; the category's free wait comes from the zone config.
+      final at = _clock();
+      final terms = _configFor(_currencyOf(ride)).waiting?.forCategory(
+        (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
+      );
+      final freeUntil = at.add(Duration(minutes: terms?.freeWaitMin ?? 5));
+      ride['waiting'] = {
+        'arrivedAt': WireTime.format(at),
+        'freeUntil': WireTime.format(freeUntil),
+        'noShowAt': WireTime.format(
+          at.add(Duration(minutes: terms?.noShowAfterMin ?? 5)),
+        ),
+        'chargedSeconds': 0,
+      };
     }
     if (to == TripStatus.searching && from != TripStatus.offered) {
       // Back in dispatch (driver drop / admin reassign): the old driver is
@@ -1825,7 +1849,7 @@ class InProcessMockClient extends http.BaseClient {
     // Q40: once a driver has accepted, the pickup moves only a short way.
     final moved = pickupChanged ? _pickupMoveMeters(ride, body) : null;
     if (moved != null &&
-        moved > RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters &&
+        moved > _configFor(_currencyOf(ride)).maxPickupMoveMeters &&
         (current == TripStatus.accepted ||
             current == TripStatus.driverToPickup)) {
       return 'pickup_too_far';
@@ -2222,12 +2246,11 @@ class InProcessMockClient extends http.BaseClient {
     // exceed the fare, and is zero when the rider switched it off.
     final walletMinor = (body['walletAmountMinor'] as num?)?.round() ?? 0;
     final walletFirst = body['useWalletFirst'] == true;
-    // The wallet holds kronor: it never pays part of a trip in another
-    // currency (no conversion).
+    // Q8: one wallet per currency; the wallet part is in the trip's own
+    // currency (the quote's minor units), never converted.
     if (walletMinor < 0 ||
         walletMinor > serverTotal ||
-        (!walletFirst && walletMinor != 0) ||
-        (walletMinor > 0 && quoteCurrency != currency)) {
+        (!walletFirst && walletMinor != 0)) {
       return 'wallet_amount_invalid';
     }
 
@@ -2273,6 +2296,8 @@ class InProcessMockClient extends http.BaseClient {
       'eventKind': 'trip_projection',
       'createdAt': DateTime.now().toUtc().toIso8601String(),
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      // Contract v0.4.0: null until a driver accepts.
+      'acceptedAt': null,
       if (body['scheduledAt'] == null)
         'searchStartedAt': DateTime.now().toUtc().toIso8601String(),
       'categoryId': categoryId,

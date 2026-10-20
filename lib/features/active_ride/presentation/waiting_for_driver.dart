@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -271,6 +273,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         _rideCheckPlan(),
       );
       _startRideCheckStillTimer(rideId.trim());
+      unawaited(_loadWaitingTerms());
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -280,6 +283,46 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   bool _missingRideId = false;
+
+  /// Q41/Q42: the waiting terms of the trip's category in its zone (free
+  /// wait, then the fee per minute), once the zone's config is read.
+  RiderCategoryWaiting? _waitingTerms;
+
+  Future<void> _loadWaitingTerms() async {
+    try {
+      final stored = await RouteChangeController.storedRide();
+      final category =
+          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      if (category == null) return;
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: widget.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      final terms = config?.waiting?.forCategory(category);
+      if (!mounted || terms == null) return;
+      // Never a rate in another currency than the trip's.
+      if (terms.perMin.currency != widget.currency) return;
+      setState(() => _waitingTerms = terms);
+    } catch (_) {
+      // No counter without terms.
+    }
+  }
+
+  /// The live waiting clock while the driver is at the pickup (Q42).
+  Widget? _waitingFeeCounter() {
+    final terms = _waitingTerms;
+    if (terms == null ||
+        !terms.perMin.isPositive ||
+        _tracking.status != RideStatus.driverWaiting) {
+      return null;
+    }
+    return WaitingFeeCounter(
+      since: _tracking.waitingSince ?? DateTime.now(),
+      freeWaitMin: terms.freeWaitMin,
+      perMin: terms.perMin,
+    );
+  }
 
   /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
   /// the server once it was sent. The ride goes on; say so.
@@ -704,11 +747,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
-  /// When this screen first saw the driver accepted: the start of the
-  /// live free-cancel window (`rider.cancelFees.live[category].freeMin`).
+  /// When this screen first saw the driver accepted: the fallback start of
+  /// the live free-cancel window when the projection has no `acceptedAt`.
   /// A reload restarts it, so the preview errs toward "free"; the server's
   /// own `cancellation.fee` is what is charged.
-  final DateTime _acceptedAt = DateTime.now();
+  final DateTime _shownAt = DateTime.now();
+
+  /// Q12: the free-cancel clock counts from the driver's accept, as the
+  /// server stamped it (`TripProjection.acceptedAt`), else from [_shownAt].
+  DateTime get _acceptedAt => _tracking.acceptedAt ?? _shownAt;
 
   /// The fee line shown before the rider confirms a cancel (contract
   /// v0.3.0 §5), from the shared calculator and the rider config. Null when
@@ -1862,6 +1909,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             onMore: _openDetails,
           ),
           const SizedBox(height: 12),
+          if (_waitingFeeCounter() case final counter?) ...[
+            counter,
+            const SizedBox(height: 12),
+          ],
           WaitingRideDetailsCard(
             rideType: widget.rideType,
             pickupAddress: _pickupAddress,

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'dart:math' as math;
 
@@ -11,6 +10,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -852,13 +852,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     DateTime? scheduledAt;
     if (scheduled) {
       if (!mounted) return null;
+      // Q9: times are the pickup zone's local time, in the time zone its
+      // config names.
+      final timeZone = await AppScope.instance.riderConfig.timeZoneAt(
+        pickup.position.latitude,
+        pickup.position.longitude,
+      );
+      if (!mounted) return null;
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
-        // Q9: times are the pickup zone's local time.
-        timeZone: RiderZones.at(
-          pickup.position.latitude,
-          pickup.position.longitude,
-        ).timeZone,
+        timeZone: timeZone,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,

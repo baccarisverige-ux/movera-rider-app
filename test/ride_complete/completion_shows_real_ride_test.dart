@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
-import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
 
 /// The completion screen used to apologise three times over — driver, receipt
 /// and tips all unavailable — while the finished ride sat right there.
@@ -101,12 +101,11 @@ void main() {
     expect(const DriverRepository(current: injected).current()?.name, 'Injected');
   });
 
-  test('tip amounts are offered in SEK', () {
-    final amounts = const TipCatalog().amounts();
+  test('tip amounts are offered in SEK without a trip in another currency', () {
+    final amounts = seedConfigForTrip('SEK')!.enabledTips;
     expect(amounts, isNotEmpty);
     for (final amount in amounts) {
-      expect(amount, contains('kr'));
-      expect(amount, isNot(contains(r'$')));
+      expect(amount.currency, 'SEK');
     }
   });
 }

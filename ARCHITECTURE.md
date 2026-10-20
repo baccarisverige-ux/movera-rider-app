@@ -60,7 +60,7 @@ These do **not** block local architecture completion:
 
 - production backend / Postgres
 - real WebSocket
-- Stripe / Swish
+- Stripe (card, Apple Pay, Google Pay; owner Q7: no Swish)
 - FCM / APNs
 - Sentry / Crashlytics
 - separate Admin app

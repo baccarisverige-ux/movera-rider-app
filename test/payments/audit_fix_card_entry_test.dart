@@ -44,7 +44,7 @@ void main() {
   testWidgets('wallet hides Add card when the policy is off', (tester) async {
     CardEntryPolicy.debugOverride = false;
     await pumpPhone(tester, const WalletScreen());
-    expect(find.text('Pay in car'), findsOneWidget);
+    expect(find.text('Cash'), findsOneWidget);
     expect(find.text('Add card'), findsNothing);
   });
 
@@ -56,7 +56,7 @@ void main() {
       tester,
       PayWithPage(
         methods: const [
-          PayWithMethod(brand: 'cash', name: 'Pay in car', detail: 'Cash'),
+          PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
         ],
         selectedBrand: 'cash',
         walletBalance: 0,
@@ -71,7 +71,7 @@ void main() {
       tester,
       PayWithPage(
         methods: const [
-          PayWithMethod(brand: 'cash', name: 'Pay in car', detail: 'Cash'),
+          PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
         ],
         selectedBrand: 'cash',
         walletBalance: 0,

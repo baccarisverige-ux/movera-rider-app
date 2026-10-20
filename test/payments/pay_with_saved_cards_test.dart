@@ -76,7 +76,7 @@ void main() {
         detail: 'Expires ${visa.expiryLabel}',
       ),
       const PayWithMethod(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),
-      const PayWithMethod(brand: 'cash', name: 'Pay in car', detail: 'Cash'),
+      const PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
     ];
     String? popped;
     await tester.pumpWidget(
@@ -126,7 +126,7 @@ void main() {
       tester,
       methods: const [
         PayWithMethod(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),
-        PayWithMethod(brand: 'cash', name: 'Pay in car', detail: 'Cash'),
+        PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
       ],
       selected: 'cash',
     );
@@ -155,7 +155,7 @@ void main() {
                     name: 'Card',
                     detail: 'Visa, Mastercard',
                   ),
-                  PayWithMethod(brand: 'cash', name: 'Pay in car', detail: ''),
+                  PayWithMethod(brand: 'cash', name: 'Cash', detail: ''),
                 ],
                 selectedBrand: 'cash',
                 walletBalance: 0,

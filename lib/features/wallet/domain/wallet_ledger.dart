@@ -6,8 +6,12 @@ class WalletEntry {
     required this.kind,
     required this.amountMinor,
     required this.at,
+    this.currency = 'SEK',
     this.note,
   });
+
+  /// ISO-4217 code of [amountMinor] (Q8: one balance per currency).
+  final String currency;
 
   final String id;
   final WalletEntryKind kind;
@@ -21,7 +25,14 @@ class WalletLedger {
 
   List<WalletEntry> get entries => List.unmodifiable(_entries);
 
-  int get balanceMinor => _entries.fold(0, (sum, e) => sum + e.amountMinor);
+  /// The kronor balance (the home currency's movements only).
+  int get balanceMinor => balanceMinorIn('SEK');
+
+  /// The sum of the movements in [currency] (never mixed across
+  /// currencies, Q8).
+  int balanceMinorIn(String currency) => _entries
+      .where((e) => e.currency == currency)
+      .fold(0, (sum, e) => sum + e.amountMinor);
 
   void add(WalletEntry entry) => _entries.add(entry);
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/bundled_fonts.dart';
 import 'package:movera_rider/app/screen_scale.dart';
@@ -180,8 +181,8 @@ void main() {
     testWidgets('menu wallet balance future is kept', (tester) async {
       await _pump(tester, const RiderMenuPage());
       await tester.pump(const Duration(milliseconds: 200));
-      Future<double>? future() => tester
-          .widget<FutureBuilder<double>>(find.byType(FutureBuilder<double>))
+      Future<Money>? future() => tester
+          .widget<FutureBuilder<Money>>(find.byType(FutureBuilder<Money>))
           .future;
       final first = future();
       tester.element(find.byType(RiderMenuPage)).markNeedsBuild();

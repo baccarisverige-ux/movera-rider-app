@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 
@@ -16,6 +17,7 @@ class PlanRideAddressBox extends StatelessWidget {
     required this.showAddStop,
     required this.stopCount,
     required this.onAddStop,
+    this.maxStops = defaultMaxStops,
   });
 
   /// Pickup, stop and destination rows (with their dividers), top to bottom.
@@ -30,7 +32,11 @@ class PlanRideAddressBox extends StatelessWidget {
   /// Adds one stop. Not called while disabled.
   final VoidCallback onAddStop;
 
-  static const int maxStops = 3;
+  /// The zone's `booking.maxStops` (Q39: Admin sets it per zone).
+  final int maxStops;
+
+  /// `contract.json#configDefaults.maxStops`.
+  static const int defaultMaxStops = ZoneDefaults.maxStops;
   static const Key addStopKey = Key('plan-ride-add-stop');
 
   static const Color _ink = Color(0xFF1D252C);

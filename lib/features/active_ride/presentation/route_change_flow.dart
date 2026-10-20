@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -93,8 +94,9 @@ Future<RideSnapshot?> openRouteChange(
                 destinationAddress: selection.destination,
                 destinationPoint: selection.destinationPoint,
                 stops: selection.stops,
+                // Q40: the trip zone's `booking.maxPickupMoveMeters`.
                 maxPickupMoveMeters: driverAccepted
-                    ? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters
+                    ? await _maxPickupMoveMeters(ride)
                     : null,
               );
               if (!context.mounted) return null;
@@ -131,6 +133,23 @@ Future<RideSnapshot?> openRouteChange(
   }
 }
 
+/// Q40: how far the pickup of [ride] may move after accept, from its
+/// zone's config; the contract default when no config of the trip's
+/// currency can be read.
+Future<int> _maxPickupMoveMeters(RideSnapshot ride) async {
+  try {
+    final config = await AppScope.instance.riderConfig.forTrip(
+      currency: ride.currency,
+      pickupLat: ride.pickupLat,
+      pickupLng: ride.pickupLng,
+    );
+    if (config != null) return config.maxPickupMoveMeters;
+  } catch (_) {
+    // The default below.
+  }
+  return RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters;
+}
+
 /// Where the last confirmed refund went, for the confirmation banner.
 RefundDestination? lastRefundDestination;
 
@@ -138,9 +157,10 @@ RefundDestination? lastRefundDestination;
 Future<void> _creditWallet(RefundDestination? refundTo, RouteChangeQuote quote) async {
   if (refundTo != RefundDestination.wallet || quote.differenceKr >= 0) return;
   try {
-    final wallet = AppScope.instance.walletController;
-    // The wallet holds one currency; it never takes another (Q7).
-    if (wallet.currency != quote.currency) return;
+    // Q8: the refund goes to the wallet balance of the trip's currency.
+    final wallet = AppScope.instance.walletController.forCurrency(
+      quote.currency,
+    );
     final previous = await wallet.loadBalance();
     await wallet.refund(previous: previous, amount: -quote.differenceKr);
   } catch (_) {

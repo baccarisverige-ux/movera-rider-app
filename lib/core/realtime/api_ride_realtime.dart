@@ -244,6 +244,11 @@ class ApiRideRealtime implements RideRealtime {
           if (serverLocationAt != null)
             'serverLocationAt': WireTime.format(serverLocationAt),
           if (ride['status'] is String) 'tripStatus': ride['status'],
+          // Contract v0.4.0: when the driver accepted (Q12) and when the
+          // waiting clock started (Q42), as the server stamped them.
+          if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],
+          if (_waitingArrivedAt(ride) case final String at)
+            waitingArrivedAtKey: at,
           if (reassigned && !byAdmin) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
@@ -268,6 +273,13 @@ class ApiRideRealtime implements RideRealtime {
     } finally {
       poll.inFlight = false;
     }
+  }
+
+  /// `TripProjection.waiting.arrivedAt`, when the projection has one.
+  static String? _waitingArrivedAt(Map<String, dynamic> ride) {
+    final waiting = ride['waiting'];
+    final at = waiting is Map ? waiting['arrivedAt'] : null;
+    return at is String ? at : null;
   }
 
   /// Whether a matched trip that went back to `searching` was moved by an

@@ -336,7 +336,7 @@ void main() {
           destinationLng: 18.10,
           rideType: 'Movera',
           price: 319,
-          paymentMethod: 'Pay in car',
+          paymentMethod: 'Cash',
           rideId: id,
         ),
         charged: fare,
@@ -476,7 +476,7 @@ void main() {
           destinationLng: 18.10,
           rideType: 'Movera',
           price: 319,
-          paymentMethod: 'Pay in car',
+          paymentMethod: 'Cash',
           rideId: id,
         ),
         onTick: (_) {},
@@ -658,7 +658,7 @@ void main() {
         destinationLng: 18.10,
         rideType: 'Movera',
         price: 319,
-        paymentMethod: 'Pay in car',
+        paymentMethod: 'Cash',
         rideId: 'rc1',
       );
       final quote = await controller.preview(

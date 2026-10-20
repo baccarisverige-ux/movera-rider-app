@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -32,6 +33,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     this.prices = const {},
     this.now,
     this.currency = Money.defaultCurrency,
+    this.cap,
   });
 
   static const Color _ink = Color(0xFF1D252C);
@@ -51,6 +53,11 @@ class PromotionDetailsSheet extends StatelessWidget {
   /// ISO-4217 code of [prices] (the pickup's zone).
   final String currency;
 
+  /// Q10: the most a promotion takes off one trip in this zone, set by
+  /// Admin per country (`RiderAppConfig.promoCap`), in [currency]. Null:
+  /// no cap is set, and none is shown.
+  final Money? cap;
+
   /// Clock for the "days left" line; tests pin it.
   final DateTime? now;
 
@@ -61,21 +68,32 @@ class PromotionDetailsSheet extends StatelessWidget {
     RiderPromotion promotion, {
     List<PromotionCategory>? categories,
     Map<String, PromotionPrice> prices = const {},
-    String currency = Money.defaultCurrency,
-  }) {
+    String? currency,
+  }) async {
     final list =
         categories ??
         [
           for (final ride in AppScope.instance.rideCatalog.rides())
             PromotionCategory(id: ride.id, name: ride.name),
         ];
+    // Without a trip, the zone the rider is in decides the money.
+    final code = currency ?? (await currentRiderZone()).currency;
+    Money? cap;
+    try {
+      cap = (await AppScope.instance.riderConfig.forTrip(currency: code))
+          ?.promoCap;
+    } catch (_) {
+      cap = null;
+    }
+    if (!context.mounted) return;
     return MoveraSheet.show<void>(
       context: context,
       builder: (_) => PromotionDetailsSheet(
         promotion: promotion,
         categories: list,
         prices: prices,
-        currency: currency,
+        currency: code,
+        cap: cap,
       ),
     );
   }
@@ -126,7 +144,7 @@ class PromotionDetailsSheet extends StatelessWidget {
     final left = promotion.ridesLeft.clamp(0, promotion.ridesTotal);
     final used = (promotion.ridesTotal - left).clamp(0, 999);
     final inset = MediaQuery.paddingOf(context).bottom;
-    final max = promotion.maxDiscountMinor;
+    final max = cap != null && cap!.currency == currency ? cap : null;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: SingleChildScrollView(
@@ -209,7 +227,10 @@ class PromotionDetailsSheet extends StatelessWidget {
             ),
             if (max != null) ...[
               const SizedBox(height: 6),
-              _meta(Icons.sell_outlined, 'Max ${formatSek(max)} off per ride'),
+              _meta(
+                Icons.sell_outlined,
+                'Max ${formatMoneyShort(max)} off per ride',
+              ),
             ],
             const SizedBox(height: 18),
             Text(

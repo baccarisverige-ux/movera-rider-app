@@ -83,7 +83,7 @@ void main() {
       fare: const SetPickupFare(totalKr: 259),
       payment: const SetPickupPayment(
         brand: 'cash',
-        name: 'Pay in car',
+        name: 'Cash',
         detail: '',
       ),
       brandMark: (_) => const SizedBox(),

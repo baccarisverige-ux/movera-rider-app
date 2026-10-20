@@ -13,6 +13,11 @@ enum RideRealtimeSignal {
 const String reassignedByKey = 'reassignedBy';
 const String reassignedByAdmin = 'admin';
 
+/// Payload keys of the projection's `acceptedAt` (Q12) and
+/// `waiting.arrivedAt` (Q42), as wire timestamps.
+const String acceptedAtKey = 'acceptedAt';
+const String waitingArrivedAtKey = 'waitingArrivedAt';
+
 class RideRealtimeEvent {
   RideRealtimeEvent({
     String? rideId,
@@ -78,6 +83,14 @@ class RideRealtimeEvent {
 
   /// Q13: an admin moved the trip back to searching (not a driver cancel).
   bool get isAdminReassign => payload[reassignedByKey] == reassignedByAdmin;
+
+  /// When the driver accepted, as the server stamped it (Q12); null when
+  /// the projection does not say.
+  DateTime? get acceptedAt => WireTime.tryParse(payload[acceptedAtKey]);
+
+  /// When the driver's waiting clock started at the pickup (Q42).
+  DateTime? get waitingArrivedAt =>
+      WireTime.tryParse(payload[waitingArrivedAtKey]);
 
   /// The contract event kind (`contract.json#realtime.kinds`). The server
   /// says it; for a transport that does not, it follows from the event.

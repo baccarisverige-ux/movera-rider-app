@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
-/// Tipping is offered in SEK. The removed demo tipping UI — dollar amounts,
+/// Kronor tips (owner Q5: Sweden as before, 10/20/30 kr) when no trip says
+/// otherwise; the zone's own tips are covered in zone_tips_test.dart. The removed demo tipping UI — dollar amounts,
 /// "Add another amount", "SET TIP", a driver called Marle — must stay gone,
 /// and an empty catalog must still degrade to the honest state rather than
 /// invent an amount.
+final _sekTips = [
+  for (final option in ZoneDefaults.tipsIn('SEK')) formatMoneyShort(option.amount),
+];
+
 void main() {
   Future<void> pump(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -30,8 +37,8 @@ void main() {
   _layout();
 
   test('tip amounts are SEK and carry no demo values', () {
-    final amounts = const TipCatalog().amounts();
-    expect(amounts, isNotEmpty);
+    final amounts = _sekTips;
+    expect(amounts, ['10 kr', '20 kr', '30 kr']);
     for (final amount in amounts) {
       expect(amount, contains('kr'));
       expect(amount, isNot(contains(r'$')));
@@ -43,14 +50,14 @@ void main() {
 
     expect(find.text('Tip your driver'), findsOneWidget);
     expect(find.byType(MoveraEmptyState), findsNothing);
-    for (final amount in TipCatalog.defaults) {
+    for (final amount in _sekTips) {
       expect(find.text(amount), findsOneWidget);
     }
 
-    await tester.tap(find.text(TipCatalog.defaults.first));
+    await tester.tap(find.text(_sekTips.first));
     await tester.pumpAndSettle();
     expect(
-      find.text('${TipCatalog.defaults.first} selected.'),
+      find.text('${_sekTips.first} selected.'),
       findsOneWidget,
     );
   });
@@ -111,7 +118,7 @@ void _layout() {
 
     // Three short SEK amounts fit across 390px easily. Stretched chips each
     // take a row of their own, which is exactly what this catches.
-    final tops = TipCatalog.defaults
+    final tops = _sekTips
         .map((amount) => tester.getTopLeft(find.text(amount).first).dy)
         .toSet();
     expect(

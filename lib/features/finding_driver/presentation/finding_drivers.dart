@@ -6,6 +6,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -171,6 +173,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       searchStartedAt: widget.searchStartedAt,
       createdAt: widget.createdAt,
     );
+    unawaited(_loadZoneConfig());
     // R-O2: a queued cancel the launch flush refused or dropped before this
     // screen existed (a cold restore) is told now.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -998,6 +1001,28 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 
+  /// The pickup zone's config (Q6 raise steps), once read.
+  RiderAppConfig? _zoneConfig;
+
+  Future<void> _loadZoneConfig() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: _currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (!mounted || config == null) return;
+      setState(() => _zoneConfig = config);
+    } catch (_) {
+      // The seed's steps stay.
+    }
+  }
+
+  /// The enabled raise steps of the trip's zone in [currency], whole units;
+  /// the built-in seed's until the zone's config is read.
+  List<int> _raiseSteps(String currency) =>
+      PriceBumpCard.stepsFor(_zoneConfig, currency);
+
   Widget _panelBody(double progress, String headline, String subtitle) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -1058,11 +1083,8 @@ class _FindingDriversState extends State<FindingDrivers> {
               maxPrice: _match.maxOfferPrice,
               currency: _match.currency,
               busy: _match.editInFlight,
-              // Kronor steps; another currency has no agreed steps yet, so
-              // the rider types the new price.
-              steps: _match.currency == Money.defaultCurrency
-                  ? const [50, 100, 150, 200]
-                  : const [],
+              // Q6: the zone's raise steps, in the trip's currency.
+              steps: _raiseSteps(_match.currency),
               onConfirm: (kr) => _raiseOffer(_match.confirmPriceIncrease(kr)),
               onConfirmIncrease: (increase) =>
                   _raiseOffer(_match.confirmPriceIncreaseBy(increase)),

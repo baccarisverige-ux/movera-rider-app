@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 
@@ -30,6 +31,8 @@ void main() {
     required RiderPromotion promotion,
     Map<String, PromotionPrice> prices = const {},
     DateTime? now,
+    String currency = 'SEK',
+    Money? cap,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -40,6 +43,8 @@ void main() {
               categories: categories,
               prices: prices,
               now: now ?? DateTime(2026, 10, 13, 9),
+              currency: currency,
+              cap: cap,
             ),
           ),
         ),
@@ -54,6 +59,8 @@ void main() {
     await pump(
       tester,
       promotion: RiderPromotion.fromJson(json)!,
+      // Q10: the zone's cap from its config, in local money.
+      cap: const Money(5000, 'SEK'),
       prices: const {
         'economy': (original: 259, discounted: 259),
         'comfort': (original: 339, discounted: 289),
@@ -124,5 +131,40 @@ void main() {
       ),
       'No end date',
     );
+  });
+
+  testWidgets('Q10: the cap is the zone config\'s, in local money', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'EUR',
+      cap: const Money(500, 'EUR'),
+    );
+    expect(find.text('Max 5 € off per ride'), findsOneWidget);
+
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'TND',
+      cap: const Money(15000, 'TND'),
+    );
+    expect(find.text('Max 15 DT off per ride'), findsOneWidget);
+  });
+
+  testWidgets('Q10: no cap set, no cap text (the promotion\'s own is not shown)',
+      (tester) async {
+    await pump(tester, promotion: RiderPromotion.fromJson(json)!);
+    expect(find.textContaining('off per ride'), findsNothing);
+
+    // A cap in another currency than the zone's is never shown.
+    await pump(
+      tester,
+      promotion: RiderPromotion.fromJson(json)!,
+      currency: 'EUR',
+      cap: const Money(5000, 'SEK'),
+    );
+    expect(find.textContaining('off per ride'), findsNothing);
   });
 }
