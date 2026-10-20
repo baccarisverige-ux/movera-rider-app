@@ -15,6 +15,18 @@ import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_in
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
+String? _frenchNumberFromField(String typed) {
+  final digits = typed.replaceAll(RegExp(r'\\s+'), '');
+  final national = digits.length == 10 && digits.startsWith('0')
+      ? digits.substring(1)
+      : digits;
+
+  if (!RegExp(r'^[67][0-9]{8}$').hasMatch(national)) {
+    return null;
+  }
+  return '+33$national';
+}
+
 /// Step 1 for everyone: one phone field for new and returning riders, with
 /// Apple and Google underneath.
 class SignIn extends StatefulWidget {
@@ -28,8 +40,7 @@ class SignIn extends StatefulWidget {
 
 enum _Busy { phone, apple, google }
 
-class _SignInState extends State<SignIn>
-    with SingleTickerProviderStateMixin {
+class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   late final AnimationController _story = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 5200),
@@ -50,6 +61,7 @@ class _SignInState extends State<SignIn>
   }
 
   late final AuthController _auth;
+  String _countryCode = 'SE';
   final _phone = TextEditingController();
   final _phoneFocus = FocusNode();
 
@@ -61,10 +73,11 @@ class _SignInState extends State<SignIn>
     ..onTap = () => _openLegal('privacy');
 
   void _openLegal(String kind) {
-    Navigator.of(context).push(
-      RightToLeftTransition(AccountLegalPage(kind: kind)),
-    );
+    Navigator.of(
+      context,
+    ).push(RightToLeftTransition(AccountLegalPage(kind: kind)));
   }
+
   _Busy? _busy;
   String? _phoneError;
   String? _providerError;
@@ -92,9 +105,15 @@ class _SignInState extends State<SignIn>
 
   Future<void> _continue() async {
     if (_busy != null) return;
-    final number = swedishNumberFromField(_phone.text);
+    final number = _countryCode == 'FR'
+        ? _frenchNumberFromField(_phone.text)
+        : swedishNumberFromField(_phone.text);
     if (number == null) {
-      setState(() => _phoneError = 'Enter a valid Swedish mobile number.');
+      setState(
+        () => _phoneError = _countryCode == 'FR'
+            ? 'Enter a valid French mobile number.'
+            : 'Enter a valid Swedish mobile number.',
+      );
       return;
     }
     setState(() {
@@ -113,7 +132,9 @@ class _SignInState extends State<SignIn>
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _phoneError = authErrorMessage(error, AuthAction.sendCode));
+      setState(
+        () => _phoneError = authErrorMessage(error, AuthAction.sendCode),
+      );
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -136,7 +157,9 @@ class _SignInState extends State<SignIn>
         case ProviderPhoneRequired(:final link):
           await Navigator.push(
             context,
-            RightToLeftTransition(AddPhoneNumber(link: link, controller: _auth)),
+            RightToLeftTransition(
+              AddPhoneNumber(link: link, controller: _auth),
+            ),
           );
       }
     } catch (error) {
@@ -170,6 +193,14 @@ class _SignInState extends State<SignIn>
           Text("We'll text you a 4-digit code.", style: AuthText.cardSub()),
           const SizedBox(height: 14),
           AuthPhoneField(
+            countryCode: _countryCode,
+            onCountryChanged: (country) {
+              setState(() {
+                _countryCode = country;
+                _phone.clear();
+                _phoneError = null;
+              });
+            },
             controller: _phone,
             focusNode: _phoneFocus,
             hasError: _phoneError != null,
@@ -190,7 +221,11 @@ class _SignInState extends State<SignIn>
               Expanded(
                 child: AuthProviderButton(
                   label: 'Apple',
-                  leading: const Icon(Icons.apple, color: AuthColors.ink, size: 20),
+                  leading: const Icon(
+                    Icons.apple,
+                    color: AuthColors.ink,
+                    size: 20,
+                  ),
                   busy: _busy == _Busy.apple,
                   onPressed: idle ? () => _provider('apple') : null,
                 ),

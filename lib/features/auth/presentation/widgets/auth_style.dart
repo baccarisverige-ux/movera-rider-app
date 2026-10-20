@@ -1,28 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Colours and type for the sign-in flow ("Moving to a new era").
-///
-/// Cool white ground, ink text and Movera green, matching the Rider app's
-/// design review. Kept local to the auth feature so the rest of the app's
-/// theme is untouched.
 abstract final class AuthColors {
-  static const ground = Color(0xFFEEF1E8);
-  static const ink = Color(0xFF17221C);
-  static const muted = Color(0xFF65716B);
-  // UI-6: was 0xFF89948E (3.14:1 on white); now ≥ 4.5:1 on [ground].
-  static const faint = Color(0xFF676F6B);
-  static const green = Color(0xFF147A50);
-  static const deepGreen = Color(0xFF123F32);
-  static const field = Color(0xFFF1F4F2);
-  static const line = Color(0xFFE1E7E3);
-  static const stepIdle = Color(0xFFDDE5DF);
-  static const stepDone = Color(0xFF9BBEAA);
-  static const noteGround = Color(0xFFEDF5F0);
-  static const noteText = Color(0xFF3B5A49);
-  static const error = Color(0xFFB3261E);
-  static const disabled = Color(0xFFE4E9E5);
-  static const disabledText = Color(0xFF9CA9A1);
+  // Choix du thème au démarrage de Flutter.
+  // Valeurs possibles : ocean ou eco.
+  static const String theme = String.fromEnvironment(
+    'MOVERA_AUTH_THEME',
+    defaultValue: 'ocean',
+  );
+
+  static const bool isOcean = theme != 'eco';
+
+  // 1 — OCEAN PREMIUM : bleu nuit, bleu et turquoise
+  // 2 — ECO CHIC : crème, sauge et vert forêt
+
+  static const Color ground = isOcean
+      ? Color(0xFFF2FAF9)
+      : Color(0xFFF6F4EE);
+
+  static const Color ink = isOcean
+      ? Color(0xFF061B44)
+      : Color(0xFF164B40);
+
+  static const Color muted = isOcean
+      ? Color(0xFF526777)
+      : Color(0xFF526B60);
+
+  static const Color faint = isOcean
+      ? Color(0xFF536772)
+      : Color(0xFF586C60);
+
+  static const Color green = isOcean
+      ? Color(0xFF1DA298)
+      : Color(0xFF48AA8C);
+
+  static const Color deepGreen = isOcean
+      ? Color(0xFF117C74)
+      : Color(0xFF164B40);
+
+  static const Color field = isOcean
+      ? Color(0xFFEAF3F8)
+      : Color(0xFFF1F5F0);
+
+  static const Color line = isOcean
+      ? Color(0xFFD0E4E7)
+      : Color(0xFFD8E5D9);
+
+  static const Color stepIdle = isOcean
+      ? Color(0xFFD9E9ED)
+      : Color(0xFFDEE6D9);
+
+  static const Color stepDone = isOcean
+      ? Color(0xFF71C9BE)
+      : Color(0xFF93C8A7);
+
+  static const Color noteGround = isOcean
+      ? Color(0xFFE6F7EF)
+      : Color(0xFFEAF4EC);
+
+  static const Color noteText = isOcean
+      ? Color(0xFF17635D)
+      : Color(0xFF355C4A);
+
+  static const Color error = Color(0xFFB3261E);
+
+  static const Color disabled = isOcean
+      ? Color(0xFFE1E9EC)
+      : Color(0xFFE4E9E5);
+
+  static const Color disabledText = isOcean
+      ? Color(0xFF75838B)
+      : Color(0xFF85958B);
 }
 
 abstract final class AuthText {

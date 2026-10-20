@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
-/// Deep-green call to action. [onPressed] null shows the disabled state.
+/// Bouton principal compatible Ocean Premium et Eco Chic.
 class AuthPrimaryButton extends StatelessWidget {
   const AuthPrimaryButton({
     super.key,
@@ -22,6 +22,7 @@ class AuthPrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
     final active = onPressed != null;
+
     return Semantics(
       button: true,
       enabled: enabled,
@@ -36,16 +37,16 @@ class AuthPrimaryButton extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF13463A), AuthColors.deepGreen],
+                    colors: [AuthColors.green, AuthColors.deepGreen],
                   )
                 : null,
             color: active ? null : AuthColors.disabled,
             boxShadow: active
-                ? const [
+                ? [
                     BoxShadow(
-                      color: Color(0x380F3B2D),
+                      color: AuthColors.deepGreen.withValues(alpha: 0.22),
                       blurRadius: 20,
-                      offset: Offset(0, 10),
+                      offset: const Offset(0, 10),
                     ),
                   ]
                 : null,
@@ -73,7 +74,9 @@ class AuthPrimaryButton extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: active ? Colors.white : AuthColors.disabledText,
+                              color: active
+                                  ? Colors.white
+                                  : AuthColors.disabledText,
                             ),
                           ),
                           if (showArrow && active) ...[
@@ -95,7 +98,7 @@ class AuthPrimaryButton extends StatelessWidget {
   }
 }
 
-/// White outlined button used for Apple and Google.
+/// Boutons de connexion Apple et Google.
 class AuthProviderButton extends StatelessWidget {
   const AuthProviderButton({
     super.key,
@@ -168,7 +171,7 @@ class AuthProviderButton extends StatelessWidget {
   }
 }
 
-/// Rounded input shell that turns white with a green ring while focused.
+/// Conteneur des champs avec bordures adaptées au thème.
 class AuthInputShell extends StatefulWidget {
   const AuthInputShell({
     super.key,
@@ -197,6 +200,7 @@ class _AuthInputShellState extends State<AuthInputShell> {
   @override
   void didUpdateWidget(AuthInputShell oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.focusNode != widget.focusNode) {
       oldWidget.focusNode.removeListener(_changed);
       widget.focusNode.addListener(_changed);
@@ -214,11 +218,13 @@ class _AuthInputShellState extends State<AuthInputShell> {
   @override
   Widget build(BuildContext context) {
     final focused = widget.focusNode.hasFocus;
+
     final borderColor = widget.hasError
         ? AuthColors.error
         : focused
-            ? AuthColors.deepGreen
-            : Colors.transparent;
+        ? AuthColors.deepGreen
+        : Colors.transparent;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       height: 56,
@@ -228,7 +234,12 @@ class _AuthInputShellState extends State<AuthInputShell> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: focused
-            ? const [BoxShadow(color: Color(0x1A12804F), spreadRadius: 4)]
+            ? [
+                BoxShadow(
+                  color: AuthColors.green.withValues(alpha: 0.14),
+                  spreadRadius: 4,
+                ),
+              ]
             : null,
       ),
       child: Row(
@@ -241,8 +252,7 @@ class _AuthInputShellState extends State<AuthInputShell> {
   }
 }
 
-/// Phone number input fixed to Sweden (+46): the only numbers the app's
-/// phone check accepts today.
+/// Champ téléphone France / Suède.
 class AuthPhoneField extends StatelessWidget {
   const AuthPhoneField({
     super.key,
@@ -251,8 +261,12 @@ class AuthPhoneField extends StatelessWidget {
     this.onSubmitted,
     this.hasError = false,
     this.autofocus = false,
+    this.countryCode = 'SE',
+    this.onCountryChanged,
   });
 
+  final String countryCode;
+  final ValueChanged<String>? onCountryChanged;
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String>? onSubmitted;
@@ -268,13 +282,33 @@ class AuthPhoneField extends StatelessWidget {
         padding: const EdgeInsets.only(right: 12),
         margin: const EdgeInsets.only(right: 12),
         decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Color(0xFFDCE5DE))),
+          border: Border(right: BorderSide(color: AuthColors.line)),
         ),
         child: Row(
           children: [
-            const _SwedishFlag(),
-            const SizedBox(width: 8),
-            Text('+46', style: AuthText.input()),
+            PopupMenuButton<String>(
+              tooltip: 'Choose country',
+              onSelected: onCountryChanged,
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'FR', child: Text('🇫🇷 France  +33')),
+                PopupMenuItem(value: 'SE', child: Text('🇸🇪 Sweden  +46')),
+              ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  countryCode == 'FR'
+                      ? const Text('🇫🇷', style: TextStyle(fontSize: 20))
+                      : const _SwedishFlag(),
+                  const SizedBox(width: 8),
+                  Text(
+                    countryCode == 'FR' ? '+33' : '+46',
+                    style: AuthText.input(),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -297,9 +331,9 @@ class AuthPhoneField extends StatelessWidget {
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,
-          hintText: '70 123 45 67',
+          hintText: countryCode == 'FR' ? '6 12 34 56 78' : '70 123 45 67',
           hintStyle: AuthText.input().copyWith(
-            color: const Color(0xFF9AA79F),
+            color: AuthColors.faint,
             fontWeight: FontWeight.w400,
           ),
           semanticCounterText: '',
@@ -309,6 +343,7 @@ class AuthPhoneField extends StatelessWidget {
   }
 }
 
+/// Drapeau suédois.
 class _SwedishFlag extends StatelessWidget {
   const _SwedishFlag();
 
@@ -333,9 +368,16 @@ class _SwedishFlagPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF006AA7));
+
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF006AA7),
+    );
+
     final yellow = Paint()..color = const Color(0xFFFECC00);
+
     canvas.drawRect(Rect.fromLTWH(w * 5 / 16, 0, w * 2 / 16, h), yellow);
+
     canvas.drawRect(Rect.fromLTWH(0, h * 0.4, w, h * 0.2), yellow);
   }
 
@@ -343,7 +385,7 @@ class _SwedishFlagPainter extends CustomPainter {
   bool shouldRepaint(_SwedishFlagPainter oldDelegate) => false;
 }
 
-/// Plain text input in the same shell (names).
+/// Champ texte pour prénom, nom, etc.
 class AuthTextField extends StatelessWidget {
   const AuthTextField({
     super.key,
@@ -381,7 +423,7 @@ class AuthTextField extends StatelessWidget {
           border: InputBorder.none,
           hintText: hint,
           hintStyle: AuthText.input().copyWith(
-            color: const Color(0xFF9AA79F),
+            color: AuthColors.faint,
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -390,7 +432,7 @@ class AuthTextField extends StatelessWidget {
   }
 }
 
-/// Soft green note with an icon, for reassurance copy.
+/// Note d'information avec accent du thème.
 class AuthNote extends StatelessWidget {
   const AuthNote({super.key, required this.icon, required this.text});
 
@@ -425,7 +467,7 @@ class AuthNote extends StatelessWidget {
   }
 }
 
-/// Inline error under a control. Announced to screen readers when it appears.
+/// Message d'erreur accessible.
 class AuthErrorText extends StatelessWidget {
   const AuthErrorText(this.message, {super.key});
 
@@ -442,7 +484,11 @@ class AuthErrorText extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.error_outline_rounded, size: 16, color: AuthColors.error),
+              child: Icon(
+                Icons.error_outline_rounded,
+                size: 16,
+                color: AuthColors.error,
+              ),
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -462,7 +508,7 @@ class AuthErrorText extends StatelessWidget {
   }
 }
 
-/// "or continue with" divider.
+/// Séparateur entre connexion téléphone et Apple / Google.
 class AuthOrDivider extends StatelessWidget {
   const AuthOrDivider({super.key});
 
@@ -470,12 +516,12 @@ class AuthOrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
+        const Expanded(child: Divider(color: AuthColors.line, height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text('or continue with', style: AuthText.small()),
         ),
-        const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
+        const Expanded(child: Divider(color: AuthColors.line, height: 1)),
       ],
     );
   }

@@ -1,6 +1,7 @@
 const http = require('http');
 const { quote } = require('./modules/pricing');
 const safety = require('./modules/safety');
+const auth = require('./modules/auth');
 
 const idempotency = new Map();
 const rides = new Map();
@@ -90,6 +91,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- NOUVELLES ROUTES AUTHENTIFICATION ---
+  if (url === '/api/v1/auth/otp/request' && method === 'POST') {
+    const body = await readBody(req);
+    const result = auth.requestOtp(body);
+    send(res, result.status, result.body, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/auth/otp/verify' && method === 'POST') {
+    const body = await readBody(req);
+    const result = auth.verifyOtp(body);
+    send(res, result.status, result.body, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/auth/sign-out' && method === 'POST') {
+    send(res, 200, { code: 'OK' }, requestId);
+    return;
+  }
+
+  // --- PUSH NOTIFICATIONS ---
   if (url === '/api/v1/push/devices' && method === 'POST') {
     const body = await readBody(req);
     const token = typeof body.token === 'string' ? body.token.trim() : '';
@@ -190,7 +212,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   const parts = url.split('/').filter(Boolean);
-  // /api/v1/rides/:id/...
   if (parts[0] === 'api' && parts[1] === 'v1' && parts[2] === 'rides' && parts[3]) {
     const id = parts[3];
     const ride = rides.get(id);

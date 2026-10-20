@@ -123,7 +123,9 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       return;
     }
     if (challenge.isExpired) {
-      setState(() => _error = 'This code has expired. Tap Resend code for a new one.');
+      setState(
+        () => _error = 'This code has expired. Tap Resend code for a new one.',
+      );
       return;
     }
     if (!RidePin.isValidFormat(code)) return;
@@ -191,7 +193,11 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             onCompleted: (_) => setState(() {}),
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             defaultPinTheme: _box(AuthColors.field, Colors.transparent),
-            focusedPinTheme: _box(Colors.white, AuthColors.deepGreen, ring: true),
+            focusedPinTheme: _box(
+              Colors.white,
+              AuthColors.deepGreen,
+              ring: true,
+            ),
             submittedPinTheme: _box(AuthColors.field, Colors.transparent),
             errorPinTheme: _box(Colors.white, AuthColors.error),
           ),
@@ -208,7 +214,12 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 ),
               ),
             ),
-          if (AppEnv.current.authPreview) ...[
+          if (AppEnv.current.authPreview &&
+              !(const bool.fromEnvironment(
+                    'MOVERA_REAL_OTP',
+                    defaultValue: false,
+                  ) &&
+                  (phone?.startsWith('+33') ?? false))) ...[
             const SizedBox(height: 12),
             const AuthNote(
               icon: Icons.info_outline_rounded,
@@ -261,7 +272,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       return const SizedBox(
         height: 20,
         width: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.deepGreen),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AuthColors.deepGreen,
+        ),
       );
     }
     if (wait > 0) {
