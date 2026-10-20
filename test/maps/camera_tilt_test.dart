@@ -365,11 +365,73 @@ void main() {
         for (var i = 1; i < zooms.length; i++) zooms[i] - zooms[i - 1],
       ];
       final fastest = steps.reduce(math.max);
-      // Eased in and out: slow first and last steps, no snap onto the goal.
-      expect(steps.first, lessThan(fastest * 0.1));
-      expect(steps.last, lessThan(fastest * 0.1));
+      // Eased in and out: gentle first and last steps (owner: slow, but
+      // not so slow), no snap onto the goal.
+      expect(steps.first, lessThan(fastest * 0.5));
+      expect(steps.last, lessThan(fastest * 0.5));
       expect(zooms.last, 15);
       expect(view.easing, isFalse);
+    });
+
+    test('a flight leaves at once: short gentle ramps, not a long slow start',
+        () {
+      // Smoothstep had covered only 2.8 % after a tenth of the flight; the
+      // owner felt it hang, then rush.
+      expect(flightEase(0), 0);
+      expect(flightEase(1), 1);
+      expect(flightEase(.5), closeTo(.5, 1e-9));
+      expect(flightEase(.1), greaterThan(.05));
+      var previous = 0.0;
+      var fastest = 0.0;
+      for (var i = 1; i <= 1000; i++) {
+        final e = flightEase(i / 1000);
+        expect(e, greaterThanOrEqualTo(previous));
+        fastest = math.max(fastest, (e - previous) * 1000);
+        previous = e;
+      }
+      // Even speed in the middle, about 1.15x the mean.
+      expect(fastest, lessThan(1.2));
+      // Gentle at both ends (slower than the glide), but already moving.
+      final start = flightEase(.001) / .001;
+      final end = (1 - flightEase(.999)) / .001;
+      expect(start, inInclusiveRange(.3, .5));
+      expect(end, inInclusiveRange(.3, .5));
+    });
+
+    testWidgets('a recenter that zooms in pans at an even speed on screen', (
+      tester,
+    ) async {
+      final fake = _FakeMap();
+      mapViewOf(fake).pose =
+          const CameraPosition(target: _stockholm, zoom: 11.7);
+      var done = false;
+      unawaited(
+        easeCameraTo(
+          fake,
+          CameraPosition(
+            target: const LatLng(59.345, 18.09),
+            zoom: 15,
+            tilt: tiltForZoom(15),
+          ),
+          duration: cameraFlightDuration,
+        ).then((_) => done = true),
+      );
+      await _frames(tester, done: () => done);
+      final poses = fake.poses;
+      // A ground step looks 2^zoom times bigger on screen.
+      final speeds = <double>[];
+      for (var i = 1; i < poses.length; i++) {
+        final a = _target(poses[i - 1]), b = _target(poses[i]);
+        final ground = math.sqrt(
+            math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1], 2));
+        speeds.add(ground * math.pow(2, _zoom(poses[i])));
+      }
+      // The even middle of the flight (between the ramps).
+      final middle = speeds.sublist(
+          (speeds.length * .3).round(), (speeds.length * .7).round());
+      final ratio = middle.reduce(math.max) / middle.reduce(math.min);
+      // It used to move 10x faster on screen at the end than at the start.
+      expect(ratio, lessThan(1.6));
     });
 
     testWidgets('a finger stops a running glide at once', (tester) async {
