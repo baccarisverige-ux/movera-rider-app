@@ -82,6 +82,7 @@ class MapView {
     easing = false;
     _goal = null;
     _tiltEase = null;
+    _flight = null;
     final done = _done;
     _done = null;
     if (done != null && !done.isCompleted) done.complete();
@@ -89,6 +90,11 @@ class MapView {
 
   CameraPosition? _goal;
   Duration _goalDuration = cameraEaseDuration;
+
+  /// The running flight's clock: its length and how far along it is
+  /// (null while the glide is a damped follow).
+  Duration? _flight;
+  int _flownMicros = 0;
   Completer<void>? _done;
   ({double target, int generation, Completer<void> done})? _tiltEase;
 }
@@ -103,8 +109,16 @@ MapView mapViewOf(GoogleMapController controller) =>
 /// approach that a newer goal retargets, never restarts).
 const Duration cameraEaseDuration = Duration(milliseconds: 450);
 
-/// A recenter or a fit glides with this longer constant.
-const Duration cameraFlightDuration = Duration(milliseconds: 900);
+/// A recenter (a flight) takes this long, start to rest. Unlike the
+/// damped follow glide, whose tail crept on for 4-5 s (up to the frame
+/// cap) before it settled, a flight runs on the clock: it eases in and out
+/// over this time and lands on its goal with no speed left, so there is no
+/// snap at the end.
+const Duration cameraFlightDuration = Duration(milliseconds: 1000);
+
+/// Glides at least this long are flights ([cameraFlightDuration]); shorter
+/// ones are the damped follow glide.
+const Duration _flightThreshold = Duration(milliseconds: 600);
 
 /// Interval between the poses of a stepped ease (about 60 fps).
 const Duration cameraEaseFrame = Duration(milliseconds: 16);
@@ -160,6 +174,39 @@ CameraPosition _approach(
   );
 }
 
+/// Ease-in-out (smoothstep) of a flight at progress [t] (0..1): zero
+/// speed at both ends, a peak of 1.5x the mean speed (no zoom leap).
+double flightEase(double t) {
+  final x = t.clamp(0.0, 1.0);
+  return x * x * (3 - 2 * x);
+}
+
+/// [share] (0..1) of the way from [from] to [to]; the tilt rides the zoom
+/// on the [view]'s curve as in [_approach].
+CameraPosition _blend(
+  MapView view,
+  CameraPosition from,
+  CameraPosition to,
+  double share,
+) {
+  final k = share.clamp(0.0, 1.0);
+  final nextZoom = from.zoom + (to.zoom - from.zoom) * k;
+  final fromOffset = from.tilt - view.tiltFor(from.zoom);
+  final toOffset = to.tilt - view.tiltFor(to.zoom);
+  final tilt = (view.tiltFor(nextZoom) + fromOffset + (toOffset - fromOffset) * k)
+      .clamp(0.0, maxTiltForZoom(nextZoom));
+  return CameraPosition(
+    target: LatLng(
+      from.target.latitude + (to.target.latitude - from.target.latitude) * k,
+      from.target.longitude + (to.target.longitude - from.target.longitude) * k,
+    ),
+    zoom: nextZoom,
+    bearing: (from.bearing + _angleDelta(from.bearing, to.bearing) * k + 360) %
+        360,
+    tilt: tilt,
+  );
+}
+
 Future<void> _send(
   GoogleMapController controller,
   MapView view,
@@ -191,6 +238,12 @@ Future<void> easeCameraTo(
   if (view.easing && view._goal != null && running != null) {
     view._goal = to;
     view._goalDuration = duration;
+    // A newer goal joins a running flight on its clock (a fresh fix after a
+    // recenter, a follow update), so the flight still lands on time.
+    if (view._flight == null && duration >= _flightThreshold) {
+      view._flight = duration;
+      view._flownMicros = 0;
+    }
     return running.future;
   }
   view.interrupt();
@@ -202,6 +255,8 @@ Future<void> easeCameraTo(
   final done = view._done = Completer<void>();
   view._goal = to;
   view._goalDuration = duration;
+  view._flight = duration >= _flightThreshold ? duration : null;
+  view._flownMicros = 0;
   view.easing = true;
   unawaited(_glide(controller, view, generation, done));
   return done.future;
@@ -220,10 +275,27 @@ Future<void> _glide(
       final goal = view._goal;
       final from = view.pose;
       if (goal == null || from == null) return;
-      final last = frame >= _maxEaseFrames || _settled(from, goal);
-      final next = last
-          ? goal
-          : _approach(view, from, goal, dt, view._goalDuration);
+      final flight = view._flight;
+      final CameraPosition next;
+      final bool last;
+      if (flight != null) {
+        // On the clock: each frame closes the share of the remaining gap
+        // that the eased curve covers in it, so a fixed goal follows the
+        // curve exactly and a moved one is turned to smoothly.
+        final span = flight.inMicroseconds;
+        final before = flightEase(view._flownMicros / span);
+        view._flownMicros += frame == 0 ? cameraEaseFrame.inMicroseconds : dt;
+        final after = flightEase(view._flownMicros / span);
+        last = after >= 1 || frame >= _maxEaseFrames;
+        next = last
+            ? goal
+            : _blend(view, from, goal, (after - before) / (1 - before));
+      } else {
+        last = frame >= _maxEaseFrames || _settled(from, goal);
+        next = last
+            ? goal
+            : _approach(view, from, goal, dt, view._goalDuration);
+      }
       await _send(controller, view, next);
       if (last || view.generation != generation) return;
       final started = DateTime.now();
@@ -241,6 +313,7 @@ Future<void> _glide(
     if (view.generation == generation) {
       view.easing = false;
       view._goal = null;
+      view._flight = null;
       if (identical(view._done, done)) view._done = null;
     }
     if (!done.isCompleted) done.complete();
