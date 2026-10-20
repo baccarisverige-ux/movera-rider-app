@@ -17,3 +17,13 @@ String paymentDetailFor(String brand, String detail) => switch (detail) {
   'Pays when the search starts' => L10n.current.paysWhenSearchStarts,
   _ => detail,
 };
+
+/// A payment method stored on a ride by its English name ("Cash", "Card",
+/// "Movera Wallet") as the rider reads it; other names (Apple Pay, a card's
+/// "Visa •••• 4242") are shown as they are.
+String paymentLabelFor(String stored) => switch (stored.trim()) {
+  'Cash' => L10n.current.payCash,
+  'Card' => L10n.current.payCard,
+  'Movera Wallet' => L10n.current.moveraWallet,
+  _ => stored,
+};

@@ -23,6 +23,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduleRide extends StatefulWidget {
   const ScheduleRide({super.key, this.editing});
@@ -182,7 +183,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       initialAddress: _pickupController.text.trim().isEmpty
           ? 'Current location'
           : _pickupController.text.trim(),
-      confirmLabel: 'Confirm pickup spot',
+      confirmLabel: context.l10n.confirmPickupSpot,
     );
     if (spot == null || !mounted) return;
     // The drop-off must be a real place before choosing a time; its distance
@@ -190,7 +191,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
     final dropoff = await findScheduledPoint(_dropoffController.text);
     if (!mounted) return;
     if (dropoff == null) {
-      MoveraToast.show(context, 'Choose a valid destination address.');
+      MoveraToast.show(context, context.l10n.resValidDestination);
       return;
     }
     _tripMinutes = estimatedTripMinutes(
@@ -313,7 +314,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                     ),
                     const SizedBox(height: 26),
                     Text(
-                      'Plan your ride',
+                      context.l10n.planYourRide,
                       style: GoogleFonts.poppins(
                         color: _scheduleInk,
                         fontSize: 28,
@@ -322,7 +323,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Where should your Movera driver pick you up?',
+                      context.l10n.schedWherePickup,
                       style: GoogleFonts.poppins(
                         color: _scheduleMuted,
                         fontSize: 13,
@@ -348,8 +349,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
                         children: [
                           _scheduleAddressField(
                             controller: _pickupController,
-                            label: 'Pickup',
-                            hint: 'Enter pickup address',
+                            label: context.l10n.pickup,
+                            hint: context.l10n.schedEnterPickup,
                             icon: Icons.my_location_rounded,
                           ),
                           const Divider(height: 1, indent: 42),
@@ -361,8 +362,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
                             ) ...[
                               _scheduleAddressField(
                                 controller: _stopControllers[index],
-                                label: 'Stop ${index + 1}',
-                                hint: 'Enter stop address',
+                                label: context.l10n.stopNumber('${index + 1}'),
+                                hint: context.l10n.schedEnterStop,
                                 icon: Icons.more_horiz_rounded,
                                 onRemove: () => _removeStop(index),
                               ),
@@ -370,8 +371,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
                             ],
                           _scheduleAddressField(
                             controller: _dropoffController,
-                            label: 'Drop-off',
-                            hint: 'Where to?',
+                            label: context.l10n.schedDropoff,
+                            hint: context.l10n.whereTo,
                             icon: Icons.location_on_outlined,
                           ),
                         ],
@@ -392,7 +393,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                           ),
                           icon: const Icon(Icons.add_rounded, size: 19),
                           label: Text(
-                            'Add a stop',
+                            context.l10n.addAStop,
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -418,7 +419,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'You will choose the date and time on the next screen.',
+                              context.l10n.schedDateNext,
                               style: GoogleFonts.poppins(
                                 color: _scheduleMuted,
                                 fontSize: 11,
@@ -463,7 +464,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                         ),
                       ),
                       child: Text(
-                        'Next',
+                        context.l10n.next,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -497,7 +498,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
           child: TextField(
             controller: controller,
             onChanged: (_) => setState(() {}),
-            textInputAction: label == 'Drop-off'
+            textInputAction: controller == _dropoffController
                 ? TextInputAction.done
                 : TextInputAction.next,
             style: GoogleFonts.poppins(
@@ -529,7 +530,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
             icon: const Icon(Icons.close_rounded),
             color: _scheduleMuted,
             iconSize: 18,
-            tooltip: 'Remove stop',
+            tooltip: context.l10n.removeStop,
           ),
       ],
     );
@@ -746,7 +747,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     GestureDetector(
                                       onTap: _editRoute,
                                       child: horizentalLocation(
-                                        title: "Pickup",
+                                        title: context.l10n.pickup,
                                         location: _session.pickup,
                                       ),
                                     ),
@@ -759,11 +760,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     9.height,
 
                                     horizentalLocation(
-                                      title: "Stop 1",
+                                      title: context.l10n.stopNumber('1'),
                                       isStop: true,
                                       location: _session.stops.isNotEmpty
                                           ? _session.stops[0]
-                                          : 'Not added',
+                                          : context.l10n.notAdded,
                                     ),
                                     9.height,
                                     Divider(
@@ -775,10 +776,10 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
                                     horizentalLocation(
                                       isStop: true,
-                                      title: "Stop 2",
+                                      title: context.l10n.stopNumber('2'),
                                       location: _session.stops.length > 1
                                           ? _session.stops[1]
-                                          : 'Not added',
+                                          : context.l10n.notAdded,
                                     ),
                                     9.height,
                                     Divider(
@@ -789,7 +790,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     9.height,
 
                                     horizentalLocation(
-                                      title: "Drop-off",
+                                      title: context.l10n.schedDropoff,
                                       location: _session.dropoff,
                                     ),
                                   ],

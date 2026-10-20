@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What made Ride check open the card. Movera sets each one (on/off and its
 /// numbers); the app only reads them.
@@ -15,10 +16,10 @@ extension RideCheckTriggerX on RideCheckTrigger {
 
   /// Short name shown in the trip's details.
   String get label => switch (this) {
-    RideCheckTrigger.droppedFar => 'Dropped far away',
-    RideCheckTrigger.longStop => 'Long stop',
-    RideCheckTrigger.offRoute => 'Off the route',
-    RideCheckTrigger.possibleCrash => 'Possible crash',
+    RideCheckTrigger.droppedFar => L10n.current.rcTriggerDroppedFar,
+    RideCheckTrigger.longStop => L10n.current.rcTriggerLongStop,
+    RideCheckTrigger.offRoute => L10n.current.rcTriggerOffRoute,
+    RideCheckTrigger.possibleCrash => L10n.current.rcTriggerPossibleCrash,
   };
 
   /// The safety event type this trigger posts to the ride.

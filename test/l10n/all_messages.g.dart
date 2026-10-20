@@ -859,6 +859,440 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pushRideUpdatesOff': l.pushRideUpdatesOff,
   'pushTurnOnInSettings': l.pushTurnOnInSettings,
   'pushHearDriver': l.pushHearDriver,
+  'safetyTitle': l.safetyTitle,
+  'safetyHubTagline': l.safetyHubTagline,
+  'safetyPinTitle': l.safetyPinTitle,
+  'safetyPinSubtitle': l.safetyPinSubtitle,
+  'safetyContactsTitle': l.safetyContactsTitle,
+  'safetyContactsSubtitle': l.safetyContactsSubtitle,
+  'safetyShareTitle': l.safetyShareTitle,
+  'safetyShareSubtitle': l.safetyShareSubtitle,
+  'rideCheckTitle': l.rideCheckTitle,
+  'safetyRideCheckSubtitle': l.safetyRideCheckSubtitle,
+  'safetyResources': l.safetyResources,
+  'safetyTipsTitle': l.safetyTipsTitle,
+  'safetyTipsSubtitle': l.safetyTipsSubtitle,
+  'safetyProtectsTitle': l.safetyProtectsTitle,
+  'safetyProtectsSubtitle': l.safetyProtectsSubtitle,
+  'safetyContactsNone': l.safetyContactsNone,
+  'safetyContactsCount': l.safetyContactsCount(3),
+  'safetyShareEveryRide': l.safetyShareEveryRide,
+  'safetyShareManual': l.safetyShareManual,
+  'safetyLoadFailed': l.safetyLoadFailed,
+  'safetyPinUpdateFailed': l.safetyPinUpdateFailed,
+  'safetyPinChangeFailed': l.safetyPinChangeFailed,
+  'safetyContactSaveFailed': l.safetyContactSaveFailed,
+  'safetyContactDeleteFailed': l.safetyContactDeleteFailed,
+  'safetyPrimaryChangeFailed': l.safetyPrimaryChangeFailed,
+  'safetyShareUpdateFailed': l.safetyShareUpdateFailed,
+  'safetyRideCheckUpdateFailed': l.safetyRideCheckUpdateFailed,
+  'contactDeleteQ': l.contactDeleteQ('<name>'),
+  'contactDeleteBody': l.contactDeleteBody,
+  'contactDeleteConfirm': l.contactDeleteConfirm,
+  'contactDeleteFailedRetry': l.contactDeleteFailedRetry,
+  'contactPrimaryFailed': l.contactPrimaryFailed('<name>'),
+  'contactsMax': l.contactsMax,
+  'contactAdd': l.contactAdd,
+  'contactsIntro': l.contactsIntro,
+  'contactsEmptyTitle': l.contactsEmptyTitle,
+  'contactsEmptyBody': l.contactsEmptyBody,
+  'contactPrimary': l.contactPrimary,
+  'contactTripSharing': l.contactTripSharing,
+  'edit': l.edit,
+  'contactMakePrimary': l.contactMakePrimary,
+  'contactSaveFailed': l.contactSaveFailed,
+  'contactEdit': l.contactEdit,
+  'contactName': l.contactName,
+  'contactPhone': l.contactPhone,
+  'contactRelationship': l.contactRelationship,
+  'contactShareTrips': l.contactShareTrips,
+  'contactEnabled': l.contactEnabled,
+  'saving': l.saving,
+  'relationshipPartner': l.relationshipPartner,
+  'relationshipFamily': l.relationshipFamily,
+  'relationshipFriend': l.relationshipFriend,
+  'relationshipColleague': l.relationshipColleague,
+  'relationshipOther': l.relationshipOther,
+  'rcYes': l.rcYes,
+  'rcNo': l.rcNo,
+  'rcNotSure': l.rcNotSure,
+  'rcMe': l.rcMe,
+  'rcTheDriver': l.rcTheDriver,
+  'rcSomeoneElse': l.rcSomeoneElse,
+  'rcQAnyoneHurt': l.rcQAnyoneHurt,
+  'rcQCarSafePlace': l.rcQCarSafePlace,
+  'rcQOtherPersonOk': l.rcQOtherPersonOk,
+  'rcQWhoNeedsHelp': l.rcQWhoNeedsHelp,
+  'rcQInDanger': l.rcQInDanger,
+  'rcQCanContinue': l.rcQCanContinue,
+  'rcThanksSaved': l.rcThanksSaved,
+  'rcRowAccident': l.rcRowAccident,
+  'rcRowHurt': l.rcRowHurt,
+  'rcRowUnsafe': l.rcRowUnsafe,
+  'rcRowCarBrokeDown': l.rcRowCarBrokeDown,
+  'rcRowSomethingElse': l.rcRowSomethingElse,
+  'rcRowWrongPlace': l.rcRowWrongPlace,
+  'rcRowAskedToLeave': l.rcRowAskedToLeave,
+  'rcRowAskedStop': l.rcRowAskedStop,
+  'rcRowAskedRoute': l.rcRowAskedRoute,
+  'rcHeadAccident': l.rcHeadAccident,
+  'rcHeadSomeoneHurt': l.rcHeadSomeoneHurt,
+  'rcHeadUnsafe': l.rcHeadUnsafe,
+  'rcHeadCarProblem': l.rcHeadCarProblem,
+  'rcHeadSomethingElse': l.rcHeadSomethingElse,
+  'rcHeadWrongPlace': l.rcHeadWrongPlace,
+  'rcHeadAskedToLeave': l.rcHeadAskedToLeave,
+  'rcHeadStop': l.rcHeadStop,
+  'rcHeadRoute': l.rcHeadRoute,
+  'rcImOk': l.rcImOk,
+  'rcCalled112': l.rcCalled112,
+  'rcNoAnswerYet': l.rcNoAnswerYet,
+  'rcTriggerDroppedFar': l.rcTriggerDroppedFar,
+  'rcTriggerLongStop': l.rcTriggerLongStop,
+  'rcTriggerOffRoute': l.rcTriggerOffRoute,
+  'rcTriggerPossibleCrash': l.rcTriggerPossibleCrash,
+  'rcReasonEndedBefore': l.rcReasonEndedBefore,
+  'rcReasonFromDropoff': l.rcReasonFromDropoff,
+  'rcReasonFromPlace': l.rcReasonFromPlace('<place>'),
+  'rcReasonStoppedBefore': l.rcReasonStoppedBefore,
+  'rcReasonLongerBefore': l.rcReasonLongerBefore,
+  'rcReasonLongerAfter': l.rcReasonLongerAfter,
+  'rcReasonOffRouteBefore': l.rcReasonOffRouteBefore,
+  'rcReasonOffRouteAfter': l.rcReasonOffRouteAfter,
+  'rcReasonCrashBefore': l.rcReasonCrashBefore,
+  'rcReasonCrashBold': l.rcReasonCrashBold,
+  'rcIsEverythingOk': l.rcIsEverythingOk,
+  'rcRideCheck': l.rcRideCheck,
+  'rcHeaderCaps': l.rcHeaderCaps,
+  'rcHeaderCapsWith': l.rcHeaderCapsWith('<heading>'),
+  'rcTellWhatHappened': l.rcTellWhatHappened,
+  'rcTellWhatsHappening': l.rcTellWhatsHappening,
+  'rcCall112': l.rcCall112,
+  'rcAnswerSaved': l.rcAnswerSaved,
+  'rcWhatHappened': l.rcWhatHappened,
+  'rcAnswersSaved': l.rcAnswersSaved,
+  'rcCall112NowSemantics': l.rcCall112NowSemantics,
+  'rcCall112Now': l.rcCall112Now,
+  'rcCall112NowBody': l.rcCall112NowBody,
+  'rcAlertSentTitle': l.rcAlertSentTitle,
+  'rcAlertSentBody': l.rcAlertSentBody,
+  'rcAlertSendingTitle': l.rcAlertSendingTitle,
+  'rcAlertSendingBody': l.rcAlertSendingBody,
+  'rcAlertFailedTitle': l.rcAlertFailedTitle,
+  'rcAlertFailedBody': l.rcAlertFailedBody,
+  'rcStopRecordingSemantics': l.rcStopRecordingSemantics,
+  'rcRecordAudioSemantics': l.rcRecordAudioSemantics,
+  'rcRecordingClock': l.rcRecordingClock('<clock>'),
+  'rcRecordAudio': l.rcRecordAudio,
+  'rcTapToStop': l.rcTapToStop,
+  'rcSavedOnPhone': l.rcSavedOnPhone,
+  'rcAFewWords': l.rcAFewWords,
+  'rcPageIntro': l.rcPageIntro,
+  'rcAlertsToggle': l.rcAlertsToggle,
+  'rcLooksFor': l.rcLooksFor,
+  'rcSetByMovera': l.rcSetByMovera,
+  'rcFinishedFarTitle': l.rcFinishedFarTitle,
+  'rcFinishedFarBody': l.rcFinishedFarBody('<km>'),
+  'rcLongStopBody': l.rcLongStopBody('<minutes>'),
+  'rcOffRouteBody': l.rcOffRouteBody('<km>', '<percent>'),
+  'rcCrashBody': l.rcCrashBody,
+  'rcWhatHappens': l.rcWhatHappens,
+  'rcWhatHappensBody1': l.rcWhatHappensBody1,
+  'rcWhatHappensBody2': l.rcWhatHappensBody2,
+  'rcTryDemo': l.rcTryDemo,
+  'rcTryDemoBody': l.rcTryDemoBody,
+  'rcDemoDroppedFar': l.rcDemoDroppedFar,
+  'rcPlay': l.rcPlay,
+  'rcDemoDroppedFarScenario': l.rcDemoDroppedFarScenario('<km>', '<place>'),
+  'rcDemoLongStopScenario': l.rcDemoLongStopScenario('<minutes>'),
+  'rcDemoOtherScenario': l.rcDemoOtherScenario,
+  'rcDemoStarting': l.rcDemoStarting,
+  'rcDemoAnswered': l.rcDemoAnswered,
+  'rcDemoRiderOff': l.rcDemoRiderOff,
+  'rcDemoTriggerOff': l.rcDemoTriggerOff,
+  'rcDemoBusy': l.rcDemoBusy,
+  'rcDemoNotOpened': l.rcDemoNotOpened,
+  'rcDemoTitle': l.rcDemoTitle,
+  'rcPlayAgain': l.rcPlayAgain,
+  'rcEntrySemantics': l.rcEntrySemantics('<time>', '<trigger>', '<answers>'),
+  'rcDialerFailed': l.rcDialerFailed,
+  'rcRecordingSaved': l.rcRecordingSaved,
+  'rcRecordingUnsupported': l.rcRecordingUnsupported,
+  'rcAllowMicrophone': l.rcAllowMicrophone,
+  'rcRecordingStartFailed': l.rcRecordingStartFailed,
+  'emergencyNumberUnavailable': l.emergencyNumberUnavailable,
+  'dialerOpenFailed': l.dialerOpenFailed,
+  'audioUnsupported': l.audioUnsupported,
+  'audioAlreadyRecording': l.audioAlreadyRecording,
+  'audioMicRequired': l.audioMicRequired,
+  'audioStartFailed': l.audioStartFailed,
+  'audioNothingToStop': l.audioNothingToStop,
+  'audioNoFile': l.audioNoFile,
+  'audioSaveFailed': l.audioSaveFailed,
+  'audioUploadDisabled': l.audioUploadDisabled,
+  'protectPinBody': l.protectPinBody,
+  'protectContactsBody': l.protectContactsBody,
+  'protectSharingTitle': l.protectSharingTitle,
+  'protectSharingBody': l.protectSharingBody,
+  'protectRideCheckBody': l.protectRideCheckBody,
+  'protectMaskedTitle': l.protectMaskedTitle,
+  'protectMaskedBody': l.protectMaskedBody,
+  'tipWellLitTitle': l.tipWellLitTitle,
+  'tipWellLitBody': l.tipWellLitBody,
+  'tipCheckCarTitle': l.tipCheckCarTitle,
+  'tipCheckCarBody': l.tipCheckCarBody,
+  'tipShareTitle': l.tipShareTitle,
+  'tipShareBody': l.tipShareBody,
+  'tipSitTitle': l.tipSitTitle,
+  'tipSitBody': l.tipSitBody,
+  'tip112Title': l.tip112Title,
+  'tip112Body': l.tip112Body,
+  'pinChangeQ': l.pinChangeQ,
+  'pinChangeBody': l.pinChangeBody,
+  'pinChange': l.pinChange,
+  'pinIntro': l.pinIntro,
+  'pinToggle': l.pinToggle,
+  'pinShareHint': l.pinShareHint,
+  'pinSavedHint': l.pinSavedHint,
+  'yourPinCaps': l.yourPinCaps,
+  'shareIntro': l.shareIntro,
+  'shareAuto': l.shareAuto,
+  'shareAutoBody': l.shareAutoBody,
+  'shareTrusted': l.shareTrusted,
+  'shareLinkNote': l.shareLinkNote,
+  'shareEmptyTitle': l.shareEmptyTitle,
+  'shareEmptyBody': l.shareEmptyBody,
+  'shareAddContact': l.shareAddContact,
+  'contactLimit': l.contactLimit,
+  'contactInvalidPhone': l.contactInvalidPhone,
+  'contactDuplicatePhone': l.contactDuplicatePhone,
+  'contactInvalidName': l.contactInvalidName,
+  'shareNoRide': l.shareNoRide,
+  'supportMessages': l.supportMessages,
+  'supportHelp': l.supportHelp,
+  'supportWhatHelp': l.supportWhatHelp,
+  'supportSelectARide': l.supportSelectARide,
+  'supportViewAllRides': l.supportViewAllRides,
+  'supportViewAll': l.supportViewAll,
+  'supportNoRidesToReview': l.supportNoRidesToReview,
+  'supportRidesAppearHere': l.supportRidesAppearHere,
+  'supportBrowseTopics': l.supportBrowseTopics,
+  'supportPaymentsTitle': l.supportPaymentsTitle,
+  'supportPaymentsBody': l.supportPaymentsBody,
+  'supportAccountTitle': l.supportAccountTitle,
+  'supportAccountBody': l.supportAccountBody,
+  'supportSomethingElse': l.supportSomethingElse,
+  'supportMessaging': l.supportMessaging,
+  'supportBrowseArticles': l.supportBrowseArticles,
+  'supportEmail': l.supportEmail,
+  'supportEmailSubject': l.supportEmailSubject,
+  'supportNoMailApp': l.supportNoMailApp('<email>'),
+  'supportCases': l.supportCases,
+  'supportHowHelp': l.supportHowHelp,
+  'supportHelpWithRide': l.supportHelpWithRide,
+  'supportSelectRide': l.supportSelectRide,
+  'supportNoRidesYet': l.supportNoRidesYet,
+  'issueChargedMore': l.issueChargedMore,
+  'issueChargedTwice': l.issueChargedTwice,
+  'issueLostItem': l.issueLostItem,
+  'issueRideWithoutMe': l.issueRideWithoutMe,
+  'issueDriverExpectations': l.issueDriverExpectations,
+  'issueWaitFee': l.issueWaitFee,
+  'issueTips': l.issueTips,
+  'supportSelectIssue': l.supportSelectIssue,
+  'helpAboutTitle': l.helpAboutTitle,
+  'helpAboutBody': l.helpAboutBody,
+  'helpAppTitle': l.helpAppTitle,
+  'helpAppBody': l.helpAppBody,
+  'helpUsingTitle': l.helpUsingTitle,
+  'helpUsingBody': l.helpUsingBody,
+  'helpSafetyBody': l.helpSafetyBody,
+  'helpArticles': l.helpArticles,
+  'supportOptions': l.supportOptions,
+  'supportMessagesTitle': l.supportMessagesTitle,
+  'supportActive': l.supportActive,
+  'supportNoActiveCases': l.supportNoActiveCases,
+  'supportActiveBody': l.supportActiveBody,
+  'supportClosed': l.supportClosed,
+  'supportNoClosedCases': l.supportNoClosedCases,
+  'supportClosedBody': l.supportClosedBody,
+  'supportSendFailed': l.supportSendFailed,
+  'supportTellWhatHappened': l.supportTellWhatHappened,
+  'supportAddDetails': l.supportAddDetails,
+  'supportSendToMovera': l.supportSendToMovera,
+  'supportChooseRide': l.supportChooseRide,
+  'supportExit': l.supportExit,
+  'supportFailed': l.supportFailed,
+  'supportPriceCancelled': l.supportPriceCancelled('<price>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportIssueAck': l.supportIssueAck,
+  'supportFollowUp': l.supportFollowUp,
+  'supportWelcomeRide': l.supportWelcomeRide,
+  'supportWelcomeGeneral': l.supportWelcomeGeneral,
+  'spAddressNotFound': l.spAddressNotFound,
+  'spWhereYouAreNotFound': l.spWhereYouAreNotFound,
+  'spNotSavedYet': l.spNotSavedYet,
+  'spPickupLocation': l.spPickupLocation,
+  'spSearchAddress': l.spSearchAddress,
+  'spYourLastTrip': l.spYourLastTrip,
+  'spNoRecentTrips': l.spNoRecentTrips,
+  'spNoRecentTripsBody': l.spNoRecentTripsBody,
+  'spSearchResults': l.spSearchResults,
+  'spNoSearchResults': l.spNoSearchResults,
+  'spNoSuggestionsBody': l.spNoSuggestionsBody,
+  'spFavorite': l.spFavorite,
+  'spNameAndLocation': l.spNameAndLocation,
+  'spReplaceQ': l.spReplaceQ('<label>'),
+  'spReplaceBody': l.spReplaceBody('<label>', '<location>'),
+  'spReplaceConfirm': l.spReplaceConfirm('<label>'),
+  'spSaveFailed': l.spSaveFailed,
+  'spAddNewAddress': l.spAddNewAddress,
+  'spEditSavedPlace': l.spEditSavedPlace,
+  'spName': l.spName,
+  'spAddLocation': l.spAddLocation,
+  'spLoadFailed': l.spLoadFailed,
+  'spRemoveQ': l.spRemoveQ('<place>'),
+  'remove': l.remove,
+  'spRemoveFailed': l.spRemoveFailed('<place>'),
+  'spTagline': l.spTagline,
+  'spAddHome': l.spAddHome,
+  'spAddWork': l.spAddWork,
+  'spAddSchool': l.spAddSchool,
+  'spAddGym': l.spAddGym,
+  'spAddAnother': l.spAddAnother,
+  'spEditPlace': l.spEditPlace('<place>'),
+  'spDeletePlace': l.spDeletePlace('<place>'),
+  'spLocationOff': l.spLocationOff,
+  'spLocationDeniedForever': l.spLocationDeniedForever,
+  'spLocationDenied': l.spLocationDenied,
+  'spNoAddressHere': l.spNoAddressHere,
+  'spLocationUnavailable': l.spLocationUnavailable,
+  'spNoLocationSuggestions': l.spNoLocationSuggestions,
+  'spSuggestionsNotConnected': l.spSuggestionsNotConnected,
+  'chatSendUnavailable': l.chatSendUnavailable,
+  'chatNoMessages': l.chatNoMessages,
+  'chatEmptyBody': l.chatEmptyBody,
+  'chatSendHint': l.chatSendHint,
+  'chatSendUnavailableSemantics': l.chatSendUnavailableSemantics,
+  'chatSystemMessage': l.chatSystemMessage('<text>'),
+  'chatCallUnavailable': l.chatCallUnavailable,
+  'chatCall': l.chatCall,
+  'resErrNoPriceEdit': l.resErrNoPriceEdit,
+  'resErrNoPriceBook': l.resErrNoPriceBook,
+  'resErrUnavailable': l.resErrUnavailable,
+  'resErrCancelOffline': l.resErrCancelOffline,
+  'resErrCancelRate': l.resErrCancelRate('<retry>'),
+  'resErrCancelServer': l.resErrCancelServer,
+  'resErrCancelRefused': l.resErrCancelRefused,
+  'resErrCancelUnknown': l.resErrCancelUnknown,
+  'resErrBookOffline': l.resErrBookOffline,
+  'resErrBookRate': l.resErrBookRate('<retry>'),
+  'resErrBookServer': l.resErrBookServer,
+  'resErrBookRefused': l.resErrBookRefused,
+  'resErrBookUnknown': l.resErrBookUnknown,
+  'resErrEditOffline': l.resErrEditOffline,
+  'resErrEditRate': l.resErrEditRate('<retry>'),
+  'resErrEditServer': l.resErrEditServer,
+  'resErrEditRefused': l.resErrEditRefused,
+  'resErrEditUnknown': l.resErrEditUnknown,
+  'retryInAMoment': l.retryInAMoment,
+  'retryIn': l.retryIn('<wait>'),
+  'retrySeconds': l.retrySeconds(3),
+  'rideJustChanged': l.rideJustChanged,
+  'apiUnreachable': l.apiUnreachable,
+  'polPricingDisclaimer': l.polPricingDisclaimer,
+  'polAssignmentDisclaimer': l.polAssignmentDisclaimer,
+  'polWaitingSummary': l.polWaitingSummary,
+  'polCancellationSummary': l.polCancellationSummary,
+  'polPricingSummary': l.polPricingSummary,
+  'polPricingTitle': l.polPricingTitle,
+  'polPricingBody': l.polPricingBody,
+  'polAssignTitle': l.polAssignTitle,
+  'polAssignBody': l.polAssignBody,
+  'polWaitTitle': l.polWaitTitle,
+  'polWaitBody': l.polWaitBody,
+  'polCancelTermsTitle': l.polCancelTermsTitle,
+  'polCancelTermsBody': l.polCancelTermsBody,
+  'polCancelFeesTitle': l.polCancelFeesTitle,
+  'polCancelFeesBody': l.polCancelFeesBody,
+  'polChangesTitle': l.polChangesTitle,
+  'polChangesBody': l.polChangesBody,
+  'polNoDriverTitle': l.polNoDriverTitle,
+  'polNoDriverBody': l.polNoDriverBody,
+  'polPromotionsTitle': l.polPromotionsTitle,
+  'polPromotionsBody': l.polPromotionsBody,
+  'polResponsibilitiesTitle': l.polResponsibilitiesTitle,
+  'polResponsibilitiesBody': l.polResponsibilitiesBody,
+  'resNoChangeCharge': l.resNoChangeCharge,
+  'resNotFound': l.resNotFound,
+  'resScheduleCaps': l.resScheduleCaps,
+  'resCancelledReservation': l.resCancelledReservation,
+  'resUpcomingRide': l.resUpcomingRide,
+  'resSeatsPayment': l.resSeatsPayment(3, '<payment>'),
+  'resDriverOnTheWay': l.resDriverOnTheWay,
+  'resScheduledFor': l.resScheduledFor,
+  'resPickupAt': l.resPickupAt,
+  'resDropoffAt': l.resDropoffAt,
+  'resPreferences': l.resPreferences,
+  'resCancellationFee': l.resCancellationFee,
+  'resNeedAnother': l.resNeedAnother,
+  'resPlanReturn': l.resPlanReturn,
+  'resPlanReturnBody': l.resPlanReturnBody,
+  'resThingsToKnow': l.resThingsToKnow,
+  'resViewTerms': l.resViewTerms,
+  'resYourDriverName': l.resYourDriverName('<name>'),
+  'resYourDriverCaps': l.resYourDriverCaps,
+  'resWaitingTime': l.resWaitingTime,
+  'resCancellation': l.resCancellation,
+  'resPricing': l.resPricing,
+  'resReviewChanges': l.resReviewChanges,
+  'resReviewIntro': l.resReviewIntro,
+  'resCurrent': l.resCurrent,
+  'resUpdated': l.resUpdated,
+  'resPreviousPrice': l.resPreviousPrice,
+  'resNewPrice': l.resNewPrice,
+  'resPriceDifference': l.resPriceDifference,
+  'resConfirmChanges': l.resConfirmChanges,
+  'resKeepCurrent': l.resKeepCurrent,
+  'resScheduledTitle': l.resScheduledTitle,
+  'resFrom': l.resFrom,
+  'resTo': l.resTo,
+  'resEdit': l.resEdit,
+  'resPlanYourReturn': l.resPlanYourReturn,
+  'resReturnNoPlaces': l.resReturnNoPlaces,
+  'resScheduleARide': l.resScheduleARide,
+  'resPriceUnchanged': l.resPriceUnchanged,
+  'resCostsMore': l.resCostsMore('<amount>'),
+  'resCostsLess': l.resCostsLess('<amount>'),
+  'resCancelQ': l.resCancelQ,
+  'resCancelBody': l.resCancelBody('<date>', '<time>'),
+  'resKeep': l.resKeep,
+  'resValidPickup': l.resValidPickup,
+  'resValidDestination': l.resValidDestination,
+  'resTermsTitle': l.resTermsTitle,
+  'resTermsOtherFees': l.resTermsOtherFees('<rule>'),
+  'resRideScheduled': l.resRideScheduled,
+  'resBooked': l.resBooked,
+  'resBookedBody': l.resBookedBody,
+  'schedWherePickup': l.schedWherePickup,
+  'schedEnterPickup': l.schedEnterPickup,
+  'schedEnterStop': l.schedEnterStop,
+  'schedDropoff': l.schedDropoff,
+  'schedDateNext': l.schedDateNext,
+  'next': l.next,
+  'locNeededTitle': l.locNeededTitle,
+  'locOffTitle': l.locOffTitle,
+  'locServicesOffTitle': l.locServicesOffTitle,
+  'locWebDenied': l.locWebDenied,
+  'locWebDeniedForever': l.locWebDeniedForever,
+  'locWebServicesOff': l.locWebServicesOff,
+  'locDenied': l.locDenied,
+  'locDeniedForever': l.locDeniedForever,
+  'locServicesOffBody': l.locServicesOffBody,
+  'locOpenSettings': l.locOpenSettings,
+  'locAllow': l.locAllow,
+  'dismiss': l.dismiss,
+  'notifYesterday': l.notifYesterday('<clock>'),
 };
 
 /// The placeholders of each message, by key.
@@ -984,6 +1418,41 @@ const messagePlaceholders = <String, List<String>>{
   'wasNowPromo': ['was', 'now'],
   'driverTripCount': [],
   'tripSharingStarted': [],
+  'safetyContactsCount': [],
+  'contactDeleteQ': ['name'],
+  'contactPrimaryFailed': ['name'],
+  'rcReasonFromPlace': ['place'],
+  'rcHeaderCapsWith': ['heading'],
+  'rcRecordingClock': ['clock'],
+  'rcFinishedFarBody': ['km'],
+  'rcLongStopBody': ['minutes'],
+  'rcOffRouteBody': ['km', 'percent'],
+  'rcDemoDroppedFarScenario': ['km', 'place'],
+  'rcDemoLongStopScenario': ['minutes'],
+  'rcEntrySemantics': ['time', 'trigger', 'answers'],
+  'supportNoMailApp': ['email'],
+  'supportPriceCancelled': ['price'],
+  'supportPriceCancelledExtra': ['price', 'extra'],
+  'spReplaceQ': ['label'],
+  'spReplaceBody': ['label', 'location'],
+  'spReplaceConfirm': ['label'],
+  'spRemoveQ': ['place'],
+  'spRemoveFailed': ['place'],
+  'spEditPlace': ['place'],
+  'spDeletePlace': ['place'],
+  'chatSystemMessage': ['text'],
+  'resErrCancelRate': ['retry'],
+  'resErrBookRate': ['retry'],
+  'resErrEditRate': ['retry'],
+  'retryIn': ['wait'],
+  'retrySeconds': [],
+  'resSeatsPayment': ['payment'],
+  'resYourDriverName': ['name'],
+  'resCostsMore': ['amount'],
+  'resCostsLess': ['amount'],
+  'resCancelBody': ['date', 'time'],
+  'resTermsOtherFees': ['rule'],
+  'notifYesterday': ['clock'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -2698,4 +3167,872 @@ class _Exhaustive implements AppLocalizations {
   String get pushTurnOnInSettings => '';
   @override
   String get pushHearDriver => '';
+  @override
+  String get safetyTitle => '';
+  @override
+  String get safetyHubTagline => '';
+  @override
+  String get safetyPinTitle => '';
+  @override
+  String get safetyPinSubtitle => '';
+  @override
+  String get safetyContactsTitle => '';
+  @override
+  String get safetyContactsSubtitle => '';
+  @override
+  String get safetyShareTitle => '';
+  @override
+  String get safetyShareSubtitle => '';
+  @override
+  String get rideCheckTitle => '';
+  @override
+  String get safetyRideCheckSubtitle => '';
+  @override
+  String get safetyResources => '';
+  @override
+  String get safetyTipsTitle => '';
+  @override
+  String get safetyTipsSubtitle => '';
+  @override
+  String get safetyProtectsTitle => '';
+  @override
+  String get safetyProtectsSubtitle => '';
+  @override
+  String get safetyContactsNone => '';
+  @override
+  String safetyContactsCount(int count) => '';
+  @override
+  String get safetyShareEveryRide => '';
+  @override
+  String get safetyShareManual => '';
+  @override
+  String get safetyLoadFailed => '';
+  @override
+  String get safetyPinUpdateFailed => '';
+  @override
+  String get safetyPinChangeFailed => '';
+  @override
+  String get safetyContactSaveFailed => '';
+  @override
+  String get safetyContactDeleteFailed => '';
+  @override
+  String get safetyPrimaryChangeFailed => '';
+  @override
+  String get safetyShareUpdateFailed => '';
+  @override
+  String get safetyRideCheckUpdateFailed => '';
+  @override
+  String contactDeleteQ(String name) => '';
+  @override
+  String get contactDeleteBody => '';
+  @override
+  String get contactDeleteConfirm => '';
+  @override
+  String get contactDeleteFailedRetry => '';
+  @override
+  String contactPrimaryFailed(String name) => '';
+  @override
+  String get contactsMax => '';
+  @override
+  String get contactAdd => '';
+  @override
+  String get contactsIntro => '';
+  @override
+  String get contactsEmptyTitle => '';
+  @override
+  String get contactsEmptyBody => '';
+  @override
+  String get contactPrimary => '';
+  @override
+  String get contactTripSharing => '';
+  @override
+  String get edit => '';
+  @override
+  String get contactMakePrimary => '';
+  @override
+  String get contactSaveFailed => '';
+  @override
+  String get contactEdit => '';
+  @override
+  String get contactName => '';
+  @override
+  String get contactPhone => '';
+  @override
+  String get contactRelationship => '';
+  @override
+  String get contactShareTrips => '';
+  @override
+  String get contactEnabled => '';
+  @override
+  String get saving => '';
+  @override
+  String get relationshipPartner => '';
+  @override
+  String get relationshipFamily => '';
+  @override
+  String get relationshipFriend => '';
+  @override
+  String get relationshipColleague => '';
+  @override
+  String get relationshipOther => '';
+  @override
+  String get rcYes => '';
+  @override
+  String get rcNo => '';
+  @override
+  String get rcNotSure => '';
+  @override
+  String get rcMe => '';
+  @override
+  String get rcTheDriver => '';
+  @override
+  String get rcSomeoneElse => '';
+  @override
+  String get rcQAnyoneHurt => '';
+  @override
+  String get rcQCarSafePlace => '';
+  @override
+  String get rcQOtherPersonOk => '';
+  @override
+  String get rcQWhoNeedsHelp => '';
+  @override
+  String get rcQInDanger => '';
+  @override
+  String get rcQCanContinue => '';
+  @override
+  String get rcThanksSaved => '';
+  @override
+  String get rcRowAccident => '';
+  @override
+  String get rcRowHurt => '';
+  @override
+  String get rcRowUnsafe => '';
+  @override
+  String get rcRowCarBrokeDown => '';
+  @override
+  String get rcRowSomethingElse => '';
+  @override
+  String get rcRowWrongPlace => '';
+  @override
+  String get rcRowAskedToLeave => '';
+  @override
+  String get rcRowAskedStop => '';
+  @override
+  String get rcRowAskedRoute => '';
+  @override
+  String get rcHeadAccident => '';
+  @override
+  String get rcHeadSomeoneHurt => '';
+  @override
+  String get rcHeadUnsafe => '';
+  @override
+  String get rcHeadCarProblem => '';
+  @override
+  String get rcHeadSomethingElse => '';
+  @override
+  String get rcHeadWrongPlace => '';
+  @override
+  String get rcHeadAskedToLeave => '';
+  @override
+  String get rcHeadStop => '';
+  @override
+  String get rcHeadRoute => '';
+  @override
+  String get rcImOk => '';
+  @override
+  String get rcCalled112 => '';
+  @override
+  String get rcNoAnswerYet => '';
+  @override
+  String get rcTriggerDroppedFar => '';
+  @override
+  String get rcTriggerLongStop => '';
+  @override
+  String get rcTriggerOffRoute => '';
+  @override
+  String get rcTriggerPossibleCrash => '';
+  @override
+  String get rcReasonEndedBefore => '';
+  @override
+  String get rcReasonFromDropoff => '';
+  @override
+  String rcReasonFromPlace(String place) => '';
+  @override
+  String get rcReasonStoppedBefore => '';
+  @override
+  String get rcReasonLongerBefore => '';
+  @override
+  String get rcReasonLongerAfter => '';
+  @override
+  String get rcReasonOffRouteBefore => '';
+  @override
+  String get rcReasonOffRouteAfter => '';
+  @override
+  String get rcReasonCrashBefore => '';
+  @override
+  String get rcReasonCrashBold => '';
+  @override
+  String get rcIsEverythingOk => '';
+  @override
+  String get rcRideCheck => '';
+  @override
+  String get rcHeaderCaps => '';
+  @override
+  String rcHeaderCapsWith(String heading) => '';
+  @override
+  String get rcTellWhatHappened => '';
+  @override
+  String get rcTellWhatsHappening => '';
+  @override
+  String get rcCall112 => '';
+  @override
+  String get rcAnswerSaved => '';
+  @override
+  String get rcWhatHappened => '';
+  @override
+  String get rcAnswersSaved => '';
+  @override
+  String get rcCall112NowSemantics => '';
+  @override
+  String get rcCall112Now => '';
+  @override
+  String get rcCall112NowBody => '';
+  @override
+  String get rcAlertSentTitle => '';
+  @override
+  String get rcAlertSentBody => '';
+  @override
+  String get rcAlertSendingTitle => '';
+  @override
+  String get rcAlertSendingBody => '';
+  @override
+  String get rcAlertFailedTitle => '';
+  @override
+  String get rcAlertFailedBody => '';
+  @override
+  String get rcStopRecordingSemantics => '';
+  @override
+  String get rcRecordAudioSemantics => '';
+  @override
+  String rcRecordingClock(String clock) => '';
+  @override
+  String get rcRecordAudio => '';
+  @override
+  String get rcTapToStop => '';
+  @override
+  String get rcSavedOnPhone => '';
+  @override
+  String get rcAFewWords => '';
+  @override
+  String get rcPageIntro => '';
+  @override
+  String get rcAlertsToggle => '';
+  @override
+  String get rcLooksFor => '';
+  @override
+  String get rcSetByMovera => '';
+  @override
+  String get rcFinishedFarTitle => '';
+  @override
+  String rcFinishedFarBody(String km) => '';
+  @override
+  String rcLongStopBody(String minutes) => '';
+  @override
+  String rcOffRouteBody(String km, String percent) => '';
+  @override
+  String get rcCrashBody => '';
+  @override
+  String get rcWhatHappens => '';
+  @override
+  String get rcWhatHappensBody1 => '';
+  @override
+  String get rcWhatHappensBody2 => '';
+  @override
+  String get rcTryDemo => '';
+  @override
+  String get rcTryDemoBody => '';
+  @override
+  String get rcDemoDroppedFar => '';
+  @override
+  String get rcPlay => '';
+  @override
+  String rcDemoDroppedFarScenario(String km, String place) => '';
+  @override
+  String rcDemoLongStopScenario(String minutes) => '';
+  @override
+  String get rcDemoOtherScenario => '';
+  @override
+  String get rcDemoStarting => '';
+  @override
+  String get rcDemoAnswered => '';
+  @override
+  String get rcDemoRiderOff => '';
+  @override
+  String get rcDemoTriggerOff => '';
+  @override
+  String get rcDemoBusy => '';
+  @override
+  String get rcDemoNotOpened => '';
+  @override
+  String get rcDemoTitle => '';
+  @override
+  String get rcPlayAgain => '';
+  @override
+  String rcEntrySemantics(String time, String trigger, String answers) => '';
+  @override
+  String get rcDialerFailed => '';
+  @override
+  String get rcRecordingSaved => '';
+  @override
+  String get rcRecordingUnsupported => '';
+  @override
+  String get rcAllowMicrophone => '';
+  @override
+  String get rcRecordingStartFailed => '';
+  @override
+  String get emergencyNumberUnavailable => '';
+  @override
+  String get dialerOpenFailed => '';
+  @override
+  String get audioUnsupported => '';
+  @override
+  String get audioAlreadyRecording => '';
+  @override
+  String get audioMicRequired => '';
+  @override
+  String get audioStartFailed => '';
+  @override
+  String get audioNothingToStop => '';
+  @override
+  String get audioNoFile => '';
+  @override
+  String get audioSaveFailed => '';
+  @override
+  String get audioUploadDisabled => '';
+  @override
+  String get protectPinBody => '';
+  @override
+  String get protectContactsBody => '';
+  @override
+  String get protectSharingTitle => '';
+  @override
+  String get protectSharingBody => '';
+  @override
+  String get protectRideCheckBody => '';
+  @override
+  String get protectMaskedTitle => '';
+  @override
+  String get protectMaskedBody => '';
+  @override
+  String get tipWellLitTitle => '';
+  @override
+  String get tipWellLitBody => '';
+  @override
+  String get tipCheckCarTitle => '';
+  @override
+  String get tipCheckCarBody => '';
+  @override
+  String get tipShareTitle => '';
+  @override
+  String get tipShareBody => '';
+  @override
+  String get tipSitTitle => '';
+  @override
+  String get tipSitBody => '';
+  @override
+  String get tip112Title => '';
+  @override
+  String get tip112Body => '';
+  @override
+  String get pinChangeQ => '';
+  @override
+  String get pinChangeBody => '';
+  @override
+  String get pinChange => '';
+  @override
+  String get pinIntro => '';
+  @override
+  String get pinToggle => '';
+  @override
+  String get pinShareHint => '';
+  @override
+  String get pinSavedHint => '';
+  @override
+  String get yourPinCaps => '';
+  @override
+  String get shareIntro => '';
+  @override
+  String get shareAuto => '';
+  @override
+  String get shareAutoBody => '';
+  @override
+  String get shareTrusted => '';
+  @override
+  String get shareLinkNote => '';
+  @override
+  String get shareEmptyTitle => '';
+  @override
+  String get shareEmptyBody => '';
+  @override
+  String get shareAddContact => '';
+  @override
+  String get contactLimit => '';
+  @override
+  String get contactInvalidPhone => '';
+  @override
+  String get contactDuplicatePhone => '';
+  @override
+  String get contactInvalidName => '';
+  @override
+  String get shareNoRide => '';
+  @override
+  String get supportMessages => '';
+  @override
+  String get supportHelp => '';
+  @override
+  String get supportWhatHelp => '';
+  @override
+  String get supportSelectARide => '';
+  @override
+  String get supportViewAllRides => '';
+  @override
+  String get supportViewAll => '';
+  @override
+  String get supportNoRidesToReview => '';
+  @override
+  String get supportRidesAppearHere => '';
+  @override
+  String get supportBrowseTopics => '';
+  @override
+  String get supportPaymentsTitle => '';
+  @override
+  String get supportPaymentsBody => '';
+  @override
+  String get supportAccountTitle => '';
+  @override
+  String get supportAccountBody => '';
+  @override
+  String get supportSomethingElse => '';
+  @override
+  String get supportMessaging => '';
+  @override
+  String get supportBrowseArticles => '';
+  @override
+  String get supportEmail => '';
+  @override
+  String get supportEmailSubject => '';
+  @override
+  String supportNoMailApp(String email) => '';
+  @override
+  String get supportCases => '';
+  @override
+  String get supportHowHelp => '';
+  @override
+  String get supportHelpWithRide => '';
+  @override
+  String get supportSelectRide => '';
+  @override
+  String get supportNoRidesYet => '';
+  @override
+  String get issueChargedMore => '';
+  @override
+  String get issueChargedTwice => '';
+  @override
+  String get issueLostItem => '';
+  @override
+  String get issueRideWithoutMe => '';
+  @override
+  String get issueDriverExpectations => '';
+  @override
+  String get issueWaitFee => '';
+  @override
+  String get issueTips => '';
+  @override
+  String get supportSelectIssue => '';
+  @override
+  String get helpAboutTitle => '';
+  @override
+  String get helpAboutBody => '';
+  @override
+  String get helpAppTitle => '';
+  @override
+  String get helpAppBody => '';
+  @override
+  String get helpUsingTitle => '';
+  @override
+  String get helpUsingBody => '';
+  @override
+  String get helpSafetyBody => '';
+  @override
+  String get helpArticles => '';
+  @override
+  String get supportOptions => '';
+  @override
+  String get supportMessagesTitle => '';
+  @override
+  String get supportActive => '';
+  @override
+  String get supportNoActiveCases => '';
+  @override
+  String get supportActiveBody => '';
+  @override
+  String get supportClosed => '';
+  @override
+  String get supportNoClosedCases => '';
+  @override
+  String get supportClosedBody => '';
+  @override
+  String get supportSendFailed => '';
+  @override
+  String get supportTellWhatHappened => '';
+  @override
+  String get supportAddDetails => '';
+  @override
+  String get supportSendToMovera => '';
+  @override
+  String get supportChooseRide => '';
+  @override
+  String get supportExit => '';
+  @override
+  String get supportFailed => '';
+  @override
+  String supportPriceCancelled(String price) => '';
+  @override
+  String supportPriceCancelledExtra(String price, String extra) => '';
+  @override
+  String get supportIssueAck => '';
+  @override
+  String get supportFollowUp => '';
+  @override
+  String get supportWelcomeRide => '';
+  @override
+  String get supportWelcomeGeneral => '';
+  @override
+  String get spAddressNotFound => '';
+  @override
+  String get spWhereYouAreNotFound => '';
+  @override
+  String get spNotSavedYet => '';
+  @override
+  String get spPickupLocation => '';
+  @override
+  String get spSearchAddress => '';
+  @override
+  String get spYourLastTrip => '';
+  @override
+  String get spNoRecentTrips => '';
+  @override
+  String get spNoRecentTripsBody => '';
+  @override
+  String get spSearchResults => '';
+  @override
+  String get spNoSearchResults => '';
+  @override
+  String get spNoSuggestionsBody => '';
+  @override
+  String get spFavorite => '';
+  @override
+  String get spNameAndLocation => '';
+  @override
+  String spReplaceQ(String label) => '';
+  @override
+  String spReplaceBody(String label, String location) => '';
+  @override
+  String spReplaceConfirm(String label) => '';
+  @override
+  String get spSaveFailed => '';
+  @override
+  String get spAddNewAddress => '';
+  @override
+  String get spEditSavedPlace => '';
+  @override
+  String get spName => '';
+  @override
+  String get spAddLocation => '';
+  @override
+  String get spLoadFailed => '';
+  @override
+  String spRemoveQ(String place) => '';
+  @override
+  String get remove => '';
+  @override
+  String spRemoveFailed(String place) => '';
+  @override
+  String get spTagline => '';
+  @override
+  String get spAddHome => '';
+  @override
+  String get spAddWork => '';
+  @override
+  String get spAddSchool => '';
+  @override
+  String get spAddGym => '';
+  @override
+  String get spAddAnother => '';
+  @override
+  String spEditPlace(String place) => '';
+  @override
+  String spDeletePlace(String place) => '';
+  @override
+  String get spLocationOff => '';
+  @override
+  String get spLocationDeniedForever => '';
+  @override
+  String get spLocationDenied => '';
+  @override
+  String get spNoAddressHere => '';
+  @override
+  String get spLocationUnavailable => '';
+  @override
+  String get spNoLocationSuggestions => '';
+  @override
+  String get spSuggestionsNotConnected => '';
+  @override
+  String get chatSendUnavailable => '';
+  @override
+  String get chatNoMessages => '';
+  @override
+  String get chatEmptyBody => '';
+  @override
+  String get chatSendHint => '';
+  @override
+  String get chatSendUnavailableSemantics => '';
+  @override
+  String chatSystemMessage(String text) => '';
+  @override
+  String get chatCallUnavailable => '';
+  @override
+  String get chatCall => '';
+  @override
+  String get resErrNoPriceEdit => '';
+  @override
+  String get resErrNoPriceBook => '';
+  @override
+  String get resErrUnavailable => '';
+  @override
+  String get resErrCancelOffline => '';
+  @override
+  String resErrCancelRate(String retry) => '';
+  @override
+  String get resErrCancelServer => '';
+  @override
+  String get resErrCancelRefused => '';
+  @override
+  String get resErrCancelUnknown => '';
+  @override
+  String get resErrBookOffline => '';
+  @override
+  String resErrBookRate(String retry) => '';
+  @override
+  String get resErrBookServer => '';
+  @override
+  String get resErrBookRefused => '';
+  @override
+  String get resErrBookUnknown => '';
+  @override
+  String get resErrEditOffline => '';
+  @override
+  String resErrEditRate(String retry) => '';
+  @override
+  String get resErrEditServer => '';
+  @override
+  String get resErrEditRefused => '';
+  @override
+  String get resErrEditUnknown => '';
+  @override
+  String get retryInAMoment => '';
+  @override
+  String retryIn(String wait) => '';
+  @override
+  String retrySeconds(int count) => '';
+  @override
+  String get rideJustChanged => '';
+  @override
+  String get apiUnreachable => '';
+  @override
+  String get polPricingDisclaimer => '';
+  @override
+  String get polAssignmentDisclaimer => '';
+  @override
+  String get polWaitingSummary => '';
+  @override
+  String get polCancellationSummary => '';
+  @override
+  String get polPricingSummary => '';
+  @override
+  String get polPricingTitle => '';
+  @override
+  String get polPricingBody => '';
+  @override
+  String get polAssignTitle => '';
+  @override
+  String get polAssignBody => '';
+  @override
+  String get polWaitTitle => '';
+  @override
+  String get polWaitBody => '';
+  @override
+  String get polCancelTermsTitle => '';
+  @override
+  String get polCancelTermsBody => '';
+  @override
+  String get polCancelFeesTitle => '';
+  @override
+  String get polCancelFeesBody => '';
+  @override
+  String get polChangesTitle => '';
+  @override
+  String get polChangesBody => '';
+  @override
+  String get polNoDriverTitle => '';
+  @override
+  String get polNoDriverBody => '';
+  @override
+  String get polPromotionsTitle => '';
+  @override
+  String get polPromotionsBody => '';
+  @override
+  String get polResponsibilitiesTitle => '';
+  @override
+  String get polResponsibilitiesBody => '';
+  @override
+  String get resNoChangeCharge => '';
+  @override
+  String get resNotFound => '';
+  @override
+  String get resScheduleCaps => '';
+  @override
+  String get resCancelledReservation => '';
+  @override
+  String get resUpcomingRide => '';
+  @override
+  String resSeatsPayment(int count, String payment) => '';
+  @override
+  String get resDriverOnTheWay => '';
+  @override
+  String get resScheduledFor => '';
+  @override
+  String get resPickupAt => '';
+  @override
+  String get resDropoffAt => '';
+  @override
+  String get resPreferences => '';
+  @override
+  String get resCancellationFee => '';
+  @override
+  String get resNeedAnother => '';
+  @override
+  String get resPlanReturn => '';
+  @override
+  String get resPlanReturnBody => '';
+  @override
+  String get resThingsToKnow => '';
+  @override
+  String get resViewTerms => '';
+  @override
+  String resYourDriverName(String name) => '';
+  @override
+  String get resYourDriverCaps => '';
+  @override
+  String get resWaitingTime => '';
+  @override
+  String get resCancellation => '';
+  @override
+  String get resPricing => '';
+  @override
+  String get resReviewChanges => '';
+  @override
+  String get resReviewIntro => '';
+  @override
+  String get resCurrent => '';
+  @override
+  String get resUpdated => '';
+  @override
+  String get resPreviousPrice => '';
+  @override
+  String get resNewPrice => '';
+  @override
+  String get resPriceDifference => '';
+  @override
+  String get resConfirmChanges => '';
+  @override
+  String get resKeepCurrent => '';
+  @override
+  String get resScheduledTitle => '';
+  @override
+  String get resFrom => '';
+  @override
+  String get resTo => '';
+  @override
+  String get resEdit => '';
+  @override
+  String get resPlanYourReturn => '';
+  @override
+  String get resReturnNoPlaces => '';
+  @override
+  String get resScheduleARide => '';
+  @override
+  String get resPriceUnchanged => '';
+  @override
+  String resCostsMore(String amount) => '';
+  @override
+  String resCostsLess(String amount) => '';
+  @override
+  String get resCancelQ => '';
+  @override
+  String resCancelBody(String date, String time) => '';
+  @override
+  String get resKeep => '';
+  @override
+  String get resValidPickup => '';
+  @override
+  String get resValidDestination => '';
+  @override
+  String get resTermsTitle => '';
+  @override
+  String resTermsOtherFees(String rule) => '';
+  @override
+  String get resRideScheduled => '';
+  @override
+  String get resBooked => '';
+  @override
+  String get resBookedBody => '';
+  @override
+  String get schedWherePickup => '';
+  @override
+  String get schedEnterPickup => '';
+  @override
+  String get schedEnterStop => '';
+  @override
+  String get schedDropoff => '';
+  @override
+  String get schedDateNext => '';
+  @override
+  String get next => '';
+  @override
+  String get locNeededTitle => '';
+  @override
+  String get locOffTitle => '';
+  @override
+  String get locServicesOffTitle => '';
+  @override
+  String get locWebDenied => '';
+  @override
+  String get locWebDeniedForever => '';
+  @override
+  String get locWebServicesOff => '';
+  @override
+  String get locDenied => '';
+  @override
+  String get locDeniedForever => '';
+  @override
+  String get locServicesOffBody => '';
+  @override
+  String get locOpenSettings => '';
+  @override
+  String get locAllow => '';
+  @override
+  String get dismiss => '';
+  @override
+  String notifYesterday(String clock) => '';
 }

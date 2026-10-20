@@ -5,6 +5,7 @@ import 'package:movera_rider/features/safety/application/ride_check_controller.d
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Demo builds only (Safety › RideCheck › Try it): plays a made-up trip
 /// that hits [trigger] and shows the Ride check card the rider would see.
@@ -51,34 +52,31 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
   }
 
   String get _title => switch (widget.trigger) {
-    RideCheckTrigger.droppedFar => 'Driver finished far from drop-off',
-    RideCheckTrigger.longStop => 'Long stop',
+    RideCheckTrigger.droppedFar => L10n.current.rcDemoDroppedFar,
+    RideCheckTrigger.longStop => L10n.current.rcTriggerLongStop,
     _ => widget.trigger.label,
   };
 
   String _scenario(RideCheckTriggerSettings t) => switch (widget.trigger) {
-    RideCheckTrigger.droppedFar =>
-      'Your driver tapped Finish more than '
-          '${_km(t.finishFarFromDropoffKm)} km from '
-          '${RideCheckController.demoPlan.destinationLabel}. '
-          'RideCheck opens right after the trip ends.',
-    RideCheckTrigger.longStop =>
-      'Mid-trip, the car stood still for more than ${t.longStopMinutes} min, '
-          'not at a planned stop or in traffic. '
-          'RideCheck opens right away, during the trip.',
-    _ => 'RideCheck opens on the trip.',
+    RideCheckTrigger.droppedFar => L10n.current.rcDemoDroppedFarScenario(
+      _km(t.finishFarFromDropoffKm),
+      RideCheckController.demoPlan.destinationLabel ?? '',
+    ),
+    RideCheckTrigger.longStop => L10n.current.rcDemoLongStopScenario(
+      '${t.longStopMinutes}',
+    ),
+    _ => L10n.current.rcDemoOtherScenario,
   };
 
   String? get _status {
     if (_ctl.sessionFor(_rideId) != null) return null;
     return switch (_result) {
-      null => 'Starting the demo trip…',
-      RideCheckOpenResult.shown => 'Answered. Play it again any time.',
-      RideCheckOpenResult.riderOff =>
-        'RideCheck alerts are off. Turn them on to see the demo.',
-      RideCheckOpenResult.triggerOff => 'Movera has turned this check off.',
-      RideCheckOpenResult.busy => 'Another RideCheck is open. Answer it first.',
-      _ => "The demo didn't open RideCheck.",
+      null => L10n.current.rcDemoStarting,
+      RideCheckOpenResult.shown => L10n.current.rcDemoAnswered,
+      RideCheckOpenResult.riderOff => L10n.current.rcDemoRiderOff,
+      RideCheckOpenResult.triggerOff => L10n.current.rcDemoTriggerOff,
+      RideCheckOpenResult.busy => L10n.current.rcDemoBusy,
+      _ => L10n.current.rcDemoNotOpened,
     };
   }
 
@@ -91,7 +89,7 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
       fit: StackFit.expand,
       children: [
         SafetyScaffold(
-          title: 'RideCheck demo',
+          title: context.l10n.rcDemoTitle,
           solarBack: true,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -135,7 +133,7 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
                         unawaited(_play());
                       },
                       child: Text(
-                        'Play again',
+                        context.l10n.rcPlayAgain,
                         style: SafetyUi.text(
                           14,
                           weight: FontWeight.w600,

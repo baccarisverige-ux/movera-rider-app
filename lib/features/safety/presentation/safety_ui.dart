@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyUi {
   static const ink = Color(0xFF1C2329);
@@ -90,7 +91,7 @@ class SafetyScaffold extends StatelessWidget {
                             )
                           : const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                       color: SafetyUi.ink,
-                      tooltip: 'Back',
+                      tooltip: context.l10n.back,
                     ),
                     if (showTitle)
                       Expanded(
@@ -267,7 +268,7 @@ class SafetyPinCadre extends StatelessWidget {
             const SafetyMark(SafetyMarks.pin, size: 78),
             const SizedBox(height: 14),
             Text(
-              'YOUR PIN',
+              context.l10n.yourPinCaps,
               style: SafetyUi.text(
                 11,
                 weight: FontWeight.w600,

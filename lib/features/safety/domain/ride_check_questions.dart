@@ -1,4 +1,8 @@
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/l10n/l10n.dart';
+
+// The English labels below are saved with the rider's answers (the safety
+// team reads them); the card shows the `display…` text in the app language.
 
 /// The rider's "Or tell us what happened" rows.
 enum RideCheckRowId {
@@ -21,6 +25,16 @@ class RideCheckOption {
 
   final RideCheckOptionId id;
   final String label;
+
+  /// [label] in the app language.
+  String get displayLabel => switch (id) {
+    RideCheckOptionId.yes => L10n.current.rcYes,
+    RideCheckOptionId.no => L10n.current.rcNo,
+    RideCheckOptionId.notSure => L10n.current.rcNotSure,
+    RideCheckOptionId.me => L10n.current.rcMe,
+    RideCheckOptionId.driver => L10n.current.rcTheDriver,
+    RideCheckOptionId.someoneElse => L10n.current.rcSomeoneElse,
+  };
 
   /// RC4: a "Yes" or "Not sure" updates the alert. Naming who needs help
   /// says the same thing, so it does too.
@@ -51,6 +65,9 @@ class RideCheckQuestion {
   final String text;
   final List<RideCheckOption> options;
 
+  /// [text] in the app language.
+  String get displayText => rideCheckQuestionText(id) ?? text;
+
   /// Answers that bring up the big "Call 112 now".
   final Set<RideCheckOptionId> callWhen;
 
@@ -73,6 +90,20 @@ class RideCheckFollowUp {
   /// The caps after "RIDE CHECK ·", e.g. "Accident".
   final String heading;
   final List<RideCheckQuestion> questions;
+
+  /// [heading] in the app language.
+  String get displayHeading => switch (heading) {
+    'Accident' => L10n.current.rcHeadAccident,
+    'Someone hurt' => L10n.current.rcHeadSomeoneHurt,
+    'Unsafe' => L10n.current.rcHeadUnsafe,
+    'Car problem' => L10n.current.rcHeadCarProblem,
+    'Something else' => L10n.current.rcHeadSomethingElse,
+    'Wrong place' => L10n.current.rcHeadWrongPlace,
+    'Asked to leave' => L10n.current.rcHeadAskedToLeave,
+    'Stop' => L10n.current.rcHeadStop,
+    'Route' => L10n.current.rcHeadRoute,
+    _ => heading,
+  };
 
   /// "Something else": a short text field.
   final bool asksForNote;
@@ -100,6 +131,19 @@ class RideCheckRow {
   final String label;
   final RideCheckFollowUp followUp;
 
+  /// [label] in the app language.
+  String get displayLabel => switch (id) {
+    RideCheckRowId.accident => L10n.current.rcRowAccident,
+    RideCheckRowId.hurt => L10n.current.rcRowHurt,
+    RideCheckRowId.unsafe => L10n.current.rcRowUnsafe,
+    RideCheckRowId.wrongPlace => L10n.current.rcRowWrongPlace,
+    RideCheckRowId.askedToLeave => L10n.current.rcRowAskedToLeave,
+    RideCheckRowId.carBrokeDown => L10n.current.rcRowCarBrokeDown,
+    RideCheckRowId.askedStop => L10n.current.rcRowAskedStop,
+    RideCheckRowId.askedRoute => L10n.current.rcRowAskedRoute,
+    RideCheckRowId.somethingElse => L10n.current.rcRowSomethingElse,
+  };
+
   /// Red rows alert the Movera safety team the moment they are tapped (RC4).
   final bool red;
 
@@ -116,10 +160,30 @@ class RideCheckRow {
   };
 }
 
-const _thanks = 'Thanks, this is saved to the trip.';
-
 /// The one line a thanks-only row shows.
-const rideCheckThanksLine = _thanks;
+String get rideCheckThanksLine => L10n.current.rcThanksSaved;
+
+/// A follow-up question's text in the app language, by its saved id.
+String? rideCheckQuestionText(String id) => switch (id) {
+  'anyone_hurt' => L10n.current.rcQAnyoneHurt,
+  'car_safe_place' => L10n.current.rcQCarSafePlace,
+  'other_person_ok' => L10n.current.rcQOtherPersonOk,
+  'who_needs_help' => L10n.current.rcQWhoNeedsHelp,
+  'in_danger' => L10n.current.rcQInDanger,
+  'can_continue' => L10n.current.rcQCanContinue,
+  _ => null,
+};
+
+/// A saved option (`yes`, `not_sure`, ...) in the app language.
+String? rideCheckOptionText(String wire) => switch (wire) {
+  'yes' => L10n.current.rcYes,
+  'no' => L10n.current.rcNo,
+  'not_sure' => L10n.current.rcNotSure,
+  'me' => L10n.current.rcMe,
+  'the_driver' => L10n.current.rcTheDriver,
+  'someone_else' => L10n.current.rcSomeoneElse,
+  _ => null,
+};
 
 const _accident = RideCheckRow(
   id: RideCheckRowId.accident,

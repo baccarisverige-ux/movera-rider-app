@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class MessagesController {
   MessagesController({
@@ -25,8 +26,9 @@ class MessagesController {
   List<ChatMessage> get messages => _store.messages;
   int get unreadCount => _store.unreadCount;
 
-  static const sendUnavailableMessage =
-      "Sending messages to your driver isn't available yet.";
+  /// "Sending messages to your driver isn't available yet." in the app
+  /// language.
+  static String get sendUnavailableMessage => L10n.current.chatSendUnavailable;
 
   bool get canSendMessages => false;
 

@@ -13,15 +13,16 @@ import 'package:movera_rider/features/reservations/domain/reservation_repository
 class DisabledReservationRepository
     implements ReservationRepository, FeatureOffRepository {
   DisabledReservationRepository({ReservationPolicy? policy})
-    : _policy = policy ?? ReservationPolicyCatalog.current;
+    : _policy = policy;
 
-  final ReservationPolicy _policy;
+  /// Null: [ReservationPolicyCatalog.current], in the app language.
+  final ReservationPolicy? _policy;
 
   @override
   List<Reservation> get cached => const [];
 
   @override
-  ReservationPolicy get policy => _policy;
+  ReservationPolicy get policy => _policy ?? ReservationPolicyCatalog.current;
 
   @override
   Future<void> hydrate() async {}

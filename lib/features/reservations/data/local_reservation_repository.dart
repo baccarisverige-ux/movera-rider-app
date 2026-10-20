@@ -63,12 +63,13 @@ class LocalReservationRepository implements ReservationRepository {
     String Function()? nextId,
     DateTime Function()? clock,
   }) : _storage = storage ?? PrefsReservationStorage(),
-       _policy = policy ?? ReservationPolicyCatalog.current,
+       _policy = policy,
        _nextId = nextId ?? _defaultId,
        _clock = clock ?? DateTime.now;
 
   final ReservationStorage _storage;
-  final ReservationPolicy _policy;
+  /// Null: [ReservationPolicyCatalog.current], in the app language.
+  final ReservationPolicy? _policy;
   final String Function() _nextId;
   final DateTime Function() _clock;
   final List<Reservation> _items = [];
@@ -84,7 +85,7 @@ class LocalReservationRepository implements ReservationRepository {
   List<Reservation> get cached => List.unmodifiable(_items);
 
   @override
-  ReservationPolicy get policy => _policy;
+  ReservationPolicy get policy => _policy ?? ReservationPolicyCatalog.current;
 
   @override
   Future<void> hydrate() async {
@@ -176,7 +177,7 @@ class LocalReservationRepository implements ReservationRepository {
         paymentMethod: draft.paymentMethod,
         status: ReservationStatus.scheduled,
         note: draft.note,
-        policyVersion: _policy.version,
+        policyVersion: policy.version,
         parentReservationId: draft.parentReservationId,
       );
       await _commit([created, ..._items]);

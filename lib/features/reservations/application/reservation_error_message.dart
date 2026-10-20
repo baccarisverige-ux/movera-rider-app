@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider was doing to a scheduled ride when it failed.
 enum ReservationAction { book, edit, cancel }
@@ -12,68 +13,46 @@ enum ReservationAction { book, edit, cancel }
 String reservationErrorMessage(Object error, ReservationAction action) {
   if (error is ScheduledQuoteRequiredException) {
     return action == ReservationAction.edit
-        ? "We couldn't get a price for this ride, so your changes weren't "
-              'saved. Try again in a moment.'
-        : "We couldn't get a price for this ride, so it wasn't booked. "
-              'Try again in a moment.';
+        ? L10n.current.resErrNoPriceEdit
+        : L10n.current.resErrNoPriceBook;
   }
   if (error is ReservationsUnavailableException) {
-    return "Booking for later isn't available yet, so nothing was booked.";
+    return L10n.current.resErrUnavailable;
   }
   final kind = riderErrorKind(error);
+  final l = L10n.current;
   return switch (action) {
     ReservationAction.cancel => switch (kind) {
-      RiderErrorKind.offline =>
-        "No connection, so your cancellation wasn't confirmed. Your ride is "
-            "still booked — try again when you're back online.",
-      RiderErrorKind.rateLimited =>
-        'Too many tries. Your ride is still booked — '
-            '${_tryAgain(error)}.',
-      RiderErrorKind.serverTrouble =>
-        'Movera is having trouble right now, so your ride is still booked. '
-            'Try cancelling again in a moment.',
-      RiderErrorKind.refused => "This ride can't be cancelled right now.",
-      RiderErrorKind.unknown =>
-        "Couldn't cancel. Your ride is still booked — try again.",
+      RiderErrorKind.offline => l.resErrCancelOffline,
+      RiderErrorKind.rateLimited => l.resErrCancelRate(_tryAgain(error)),
+      RiderErrorKind.serverTrouble => l.resErrCancelServer,
+      RiderErrorKind.refused => l.resErrCancelRefused,
+      RiderErrorKind.unknown => l.resErrCancelUnknown,
     },
     ReservationAction.book => switch (kind) {
-      RiderErrorKind.offline =>
-        "No connection, so your booking wasn't confirmed. Check Upcoming "
-            'rides before trying again.',
+      RiderErrorKind.offline => l.resErrBookOffline,
       RiderErrorKind.rateLimited =>
-        "Too many tries, so your booking wasn't confirmed. "
-            '${_capitalised(_tryAgain(error))}.',
-      RiderErrorKind.serverTrouble =>
-        "Movera is having trouble right now and couldn't confirm your "
-            'booking. Check Upcoming rides before trying again.',
-      RiderErrorKind.refused =>
-        "Movera couldn't book this ride. Check the time and details, then "
-            'try again.',
-      RiderErrorKind.unknown =>
-        "Couldn't confirm your booking. Check Upcoming rides before trying "
-            'again.',
+        l.resErrBookRate(_capitalised(_tryAgain(error))),
+      RiderErrorKind.serverTrouble => l.resErrBookServer,
+      RiderErrorKind.refused => l.resErrBookRefused,
+      RiderErrorKind.unknown => l.resErrBookUnknown,
     },
     ReservationAction.edit => switch (kind) {
-      RiderErrorKind.offline =>
-        "No connection, so your changes weren't confirmed. Check your ride's "
-            'details before trying again.',
+      RiderErrorKind.offline => l.resErrEditOffline,
       RiderErrorKind.rateLimited =>
-        "Too many tries, so your changes weren't confirmed. "
-            '${_capitalised(_tryAgain(error))}.',
-      RiderErrorKind.serverTrouble =>
-        "Movera is having trouble right now, so your changes weren't "
-            "confirmed. Check your ride's details before trying again.",
-      RiderErrorKind.refused => "This ride can't be changed right now.",
-      RiderErrorKind.unknown =>
-        "Couldn't save your changes. Check your ride's details before trying "
-            'again.',
+        l.resErrEditRate(_capitalised(_tryAgain(error))),
+      RiderErrorKind.serverTrouble => l.resErrEditServer,
+      RiderErrorKind.refused => l.resErrEditRefused,
+      RiderErrorKind.unknown => l.resErrEditUnknown,
     },
   };
 }
 
 String _tryAgain(Object error) {
   final wait = riderRetryWait(error);
-  return wait == null ? 'try again in a moment' : 'try again in $wait';
+  return wait == null
+      ? L10n.current.retryInAMoment
+      : L10n.current.retryIn(wait);
 }
 
 String _capitalised(String text) => text[0].toUpperCase() + text.substring(1);

@@ -1,3 +1,5 @@
+import 'package:movera_rider/l10n/l10n.dart';
+
 /// Configurable Movera scheduled-ride terms. Numeric legal values stay
 /// unset until product/legal approves them. UI must read from this model.
 class ReservationPolicy {
@@ -13,9 +15,9 @@ class ReservationPolicy {
     required this.cancellationSummary,
     required this.pricingSummary,
     this.changeCharge,
-    this.changeChargeSummary = 'No additional change charge',
+    String? changeChargeSummary,
     this.sections = const [],
-  });
+  }) : _changeChargeSummary = changeChargeSummary;
 
   final String version;
   final int? freeCancellationMinutes;
@@ -28,7 +30,11 @@ class ReservationPolicy {
   final String cancellationSummary;
   final String pricingSummary;
   final String? changeCharge;
-  final String changeChargeSummary;
+  final String? _changeChargeSummary;
+
+  /// "No additional change charge" in the app language unless set.
+  String get changeChargeSummary =>
+      _changeChargeSummary ?? L10n.current.resNoChangeCharge;
   final List<ReservationPolicySection> sections;
 }
 

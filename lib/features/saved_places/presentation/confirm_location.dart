@@ -8,6 +8,7 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 Future<T?> showPickupLocationBottomSheet<T>(BuildContext context) {
   return MoveraSheet.show<T>(
@@ -76,13 +77,13 @@ class PickupLocationBottomSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           TextWidget(
-                            text: 'Pickup location',
+                            text: context.l10n.spPickupLocation,
                             color: AppColor.subtitle,
                             fontSize: 10,
                             fontWeight: fwMedium,
                           ),
                           TextWidget(
-                            text: 'Location unavailable',
+                            text: context.l10n.spLocationUnavailable,
                             color: AppColor.darkTitle,
                             fontSize: 16,
                             fontWeight: fwNormal,
@@ -96,10 +97,9 @@ class PickupLocationBottomSheet extends StatelessWidget {
               16.height,
               MoveraEmptyState(
                 icon: Icons.location_searching_outlined,
-                title: 'No location suggestions',
-                message:
-                    'Location suggestions aren’t connected in this build yet.',
-                actionLabel: 'Close',
+                title: context.l10n.spNoLocationSuggestions,
+                message: context.l10n.spSuggestionsNotConnected,
+                actionLabel: context.l10n.close,
                 onAction: () => Navigator.maybePop(context),
                 compact: true,
               ),

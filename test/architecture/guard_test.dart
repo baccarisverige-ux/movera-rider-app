@@ -624,9 +624,23 @@ void main() {
   test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',
     () {
-      final schedule = File(
+      // Round 4: screen copy lives in l10n; read each source with the
+      // English text of the messages it uses.
+      final english = jsonDecode(
+        File('lib/l10n/app_en.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      String withEnglish(String path) {
+        final source = File(path).readAsStringSync();
+        return [
+          source,
+          for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
+            '${english[m.group(1)]}',
+        ].join('\n');
+      }
+
+      final schedule = withEnglish(
         'lib/features/scheduled_rides/presentation/schedule_ride.dart',
-      ).readAsStringSync();
+      );
       expect(schedule.contains('Plan your ride'), isTrue);
       expect(schedule.contains('ConfirmPickupSpot'), isTrue);
       expect(schedule.contains('ScheduleDateTimeSelector'), isTrue);
@@ -649,9 +663,9 @@ void main() {
       expect(details.contains('ScheduleRide(editing:'), isTrue);
       expect(details.contains('ReservationEditButton'), isTrue);
       expect(
-        File(
+        withEnglish(
           'lib/features/reservations/presentation/reservation_widgets.dart',
-        ).readAsStringSync().contains('Edit reservation'),
+        ).contains('Edit reservation'),
         isTrue,
       );
     },

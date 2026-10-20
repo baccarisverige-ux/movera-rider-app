@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class ApiClient {
   /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
@@ -96,7 +97,7 @@ class ApiClient {
           // ordinary network error it can retry.
           throw ApiError(
             code: 'NETWORK',
-            message: "Couldn't reach Movera. Check your connection.",
+            message: L10n.current.apiUnreachable,
             requestId: requestId,
           );
         }

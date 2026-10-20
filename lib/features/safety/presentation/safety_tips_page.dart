@@ -1,28 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyTipsPage extends StatelessWidget {
   const SafetyTipsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const tips = [
-      ('Meet in a well-lit place', 'Wait indoors or near other people until your Movera arrives.'),
-      ('Check the car before you sit', 'Match the plate, colour and driver photo in the app.'),
-      ('Share the ride when it helps', 'Use trip sharing so someone you trust can follow along.'),
-      ('Sit where you feel comfortable', 'The back seat is usually the calmest choice.'),
-      ('Keep 112 available', 'In Sweden, 112 is the emergency number. Only you can place that call.'),
+    final l10n = context.l10n;
+    final tips = [
+      (l10n.tipWellLitTitle, l10n.tipWellLitBody),
+      (l10n.tipCheckCarTitle, l10n.tipCheckCarBody),
+      (l10n.tipShareTitle, l10n.tipShareBody),
+      (l10n.tipSitTitle, l10n.tipSitBody),
+      (l10n.tip112Title, l10n.tip112Body),
     ];
     return SafetyScaffold(
-      title: 'Safety tips',
+      title: l10n.safetyTipsTitle,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
           const Center(child: SafetyMark(SafetyMarks.tips, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Simple advice for a safer ride.',
+            l10n.safetyTipsSubtitle,
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
