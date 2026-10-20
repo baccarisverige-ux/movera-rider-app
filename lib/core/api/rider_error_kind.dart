@@ -36,9 +36,10 @@ RiderErrorKind riderErrorKind(Object error) {
       return RiderErrorKind.offline;
     }
     final status = error.statusCode ?? 0;
+    // Contract code `rate_limited` (R-O4: lower case).
     if (status == 429 ||
-        error.code == 'RATE_LIMITED' ||
-        error.code == 'TOO_MANY_REQUESTS') {
+        error.detail == 'rate_limited' ||
+        error.detail == 'too_many_requests') {
       return RiderErrorKind.rateLimited;
     }
     if (status >= 500) return RiderErrorKind.serverTrouble;
@@ -46,6 +47,11 @@ RiderErrorKind riderErrorKind(Object error) {
   }
   return RiderErrorKind.unknown;
 }
+
+/// R-O2 (owner's wording): what the rider is told when a command was
+/// refused because the trip changed just before it (`409 version_mismatch`),
+/// or a queued one was dropped because it no longer applies.
+const String rideJustChangedMessage = 'Your ride just changed, check it again.';
 
 /// How long Movera asked the rider to wait, as "45 seconds", or null.
 String? riderRetryWait(Object error) {

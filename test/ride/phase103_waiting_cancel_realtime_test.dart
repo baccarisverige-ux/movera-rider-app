@@ -37,9 +37,14 @@ class _NoNetwork implements Exception {
   String toString() => 'no network';
 }
 
-/// Records every cancel request and answers with [status].
+/// Records every cancel request and answers with [status]. The outbox reads
+/// the trip first (R-O2): a GET answers with the ride still live.
 MockClient _answering(int status, List<http.Request> seen) =>
     MockClient((request) async {
+      if (request.method == 'GET') {
+        final id = request.url.pathSegments.last;
+        return http.Response(jsonEncode({'tripId': id, 'status': 'accepted'}), 200);
+      }
       seen.add(request);
       return http.Response(
         jsonEncode(

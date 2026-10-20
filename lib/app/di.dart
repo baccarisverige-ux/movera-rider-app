@@ -190,9 +190,19 @@ class AppScope {
     routing = RoutingService(api: api);
     RoutingService.defaultProvider ??= () => AppScope.instance.routing;
     quotes = ApiQuoteRepository(api: api);
+    // R-O2: the transports report the trip's projection version, which
+    // the rider's commands send back as `expectedVersion`.
     rideRealtime = environment.allowsMockTransport
-        ? MockRideRealtime(api: api, connection: realtime)
-        : ApiRideRealtime(api: api, connection: realtime);
+        ? MockRideRealtime(
+            api: api,
+            connection: realtime,
+            onProjectionVersion: ride.observeProjectionVersion,
+          )
+        : ApiRideRealtime(
+            api: api,
+            connection: realtime,
+            onProjectionVersion: ride.observeProjectionVersion,
+          );
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search, api: api);

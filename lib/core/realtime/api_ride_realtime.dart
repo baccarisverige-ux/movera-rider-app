@@ -29,6 +29,7 @@ class ApiRideRealtime implements RideRealtime {
     this.pollInterval = const Duration(seconds: 2),
     this.notFoundLimit = 3,
     DateTime Function()? clock,
+    this.onProjectionVersion,
   }) : _api = api,
        connection = connection ?? RealtimeConnection(),
        _clock = clock ?? WireTime.now;
@@ -36,6 +37,11 @@ class ApiRideRealtime implements RideRealtime {
   final ApiClient _api;
   final RealtimeConnection connection;
   final Duration pollInterval;
+
+  /// R-O2: told each accepted projection's `version` (the trip's aggregate
+  /// version, never the realtime `sequence`), so the rider's next command
+  /// sends what this screen last saw as `expectedVersion`.
+  final void Function(String tripId, int version)? onProjectionVersion;
 
   /// Consecutive `404`s after which polling pauses and the connection is
   /// marked failed. The client never invents a lifecycle state for it
@@ -200,6 +206,7 @@ class ApiRideRealtime implements RideRealtime {
         return;
       }
       poll.version = version ?? poll.version;
+      if (version != null) onProjectionVersion?.call(poll.id, version);
       poll.updatedAt = updatedAt ?? poll.updatedAt;
       poll.lastStatus = status;
       poll.lastWireStatus = ride['status'];

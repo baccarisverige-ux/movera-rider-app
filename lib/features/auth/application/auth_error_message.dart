@@ -25,13 +25,15 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
       break;
   }
   if (error is ApiError) {
-    switch (error.code) {
-      case 'INVALID_OTP':
+    // R-O4: the contract code (`invalid_request`, `unauthenticated`) with
+    // the server's lower-case reason beside it.
+    switch (error.detail) {
+      case 'invalid_otp':
         return "That code isn't right. Check it and try again.";
-      case 'OTP_EXPIRED':
-      case 'INVALID_OTP_SESSION':
+      case 'otp_expired':
+      case 'invalid_otp_session':
         return 'This code has expired. Tap Resend code for a new one.';
-      case 'INVALID_PHONE':
+      case 'invalid_phone':
         return 'Enter a valid Swedish mobile number.';
     }
   }

@@ -60,6 +60,12 @@ class RideCompletedTripDetail extends StatelessWidget {
                   8.height,
                   _detailRow('Destination', trip.destination),
                   8.height,
+                  if (trip.endedEarly) ...[
+                    // R-O6: the waybill says the trip ended early and how
+                    // far it went; the total below is for that distance.
+                    _detailRow('Ended early', _drivenLabel(trip.drivenMeters)),
+                    8.height,
+                  ],
                   _detailRow(
                     trip.isFinal ? 'Total payment' : 'Booked price',
                     trip.total,
@@ -182,6 +188,13 @@ class RideCompletedTripDetail extends StatelessWidget {
       ),
     );
     detail.dispose();
+  }
+
+  /// "4.2 km driven", or the rule when no distance was tracked.
+  static String _drivenLabel(int? meters) {
+    if (meters == null) return 'Paid by distance driven';
+    final km = meters / 1000;
+    return '${km.toStringAsFixed(km < 10 ? 1 : 0)} km driven';
   }
 
   Widget _detailRow(String label, String value) {

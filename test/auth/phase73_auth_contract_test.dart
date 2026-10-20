@@ -62,9 +62,9 @@ void main() {
       auth.verifyOtp(challenge: challenge, code: '9999'),
       throwsA(
         isA<ApiError>().having(
-          (error) => error.code,
-          'code',
-          'INVALID_OTP',
+          (error) => error.detail,
+          'detail',
+          'invalid_otp',
         ),
       ),
     );
@@ -204,7 +204,11 @@ void main() {
         phone: '+46701234567',
         link: const ProviderLink(provider: 'apple', linkToken: 'link_forged'),
       ),
-      throwsA(isA<ApiError>().having((e) => e.code, 'code', 'INVALID_LINK')),
+      throwsA(
+        isA<ApiError>()
+            .having((e) => e.code, 'code', 'invalid_request')
+            .having((e) => e.reason, 'reason', 'invalid_link'),
+      ),
     );
   });
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -40,6 +41,33 @@ class DriverTrackingController {
   int? _lastVersion;
   DateTime? _lastServerTime;
   void Function()? onChange;
+
+  /// R-O1: how far the driver has driven with the rider on board, in
+  /// metres: the route progress summed from the driver's fixes since the
+  /// first one after boarding. Contract v0.3.0 has no driven distance on
+  /// the projection, so this is what the ended-early receipt shows. In
+  /// memory: a reload mid-trip counts from the next fix again.
+  int get drivenMeters => _drivenMeters.round();
+  double _drivenMeters = 0;
+  double? _drivenFromLat;
+  double? _drivenFromLng;
+
+  static const _onBoard = {
+    RideStatus.tripStarted,
+    RideStatus.tripInProgress,
+    RideStatus.approachingDropoff,
+  };
+
+  void _trackDriven(double lat, double lng) {
+    if (!_onBoard.contains(status)) return;
+    final fromLat = _drivenFromLat;
+    final fromLng = _drivenFromLng;
+    if (fromLat != null && fromLng != null) {
+      _drivenMeters += GeoDistance.metersBetween(fromLat, fromLng, lat, lng);
+    }
+    _drivenFromLat = lat;
+    _drivenFromLng = lng;
+  }
 
   /// Re-evaluates staleness on a timer, independent of new fixes arriving.
   /// Without this, a marker whose updates simply stopped (a dropped
@@ -96,6 +124,7 @@ class DriverTrackingController {
         final isNewerFix = currentLocationAt == null ||
             !incomingLocationAt.isBefore(currentLocationAt);
         if (event.latitude != null && event.longitude != null && isNewerFix) {
+          _trackDriven(event.latitude!, event.longitude!);
           eta = DriverEta.fromFix(
             latitude: event.latitude!,
             longitude: event.longitude!,

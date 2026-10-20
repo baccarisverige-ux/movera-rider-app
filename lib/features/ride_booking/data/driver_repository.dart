@@ -77,6 +77,8 @@ class TripReceipt {
     required this.total,
     required this.method,
     this.isFinal = true,
+    this.endedEarly = false,
+    this.drivenMeters,
   });
 
   final String pickup;
@@ -84,6 +86,13 @@ class TripReceipt {
   final String total;
   final String method;
   final bool isFinal;
+
+  /// R-O6: the rider ended the trip on board; [total] is what they pay for
+  /// the distance driven.
+  final bool endedEarly;
+
+  /// R-O1: the distance driven, when known.
+  final int? drivenMeters;
 }
 
 class TripReceiptRepository {
@@ -109,6 +118,8 @@ class TripReceiptRepository {
       // The local completion snapshot only knows the booked/quoted amount,
       // unless the server already said what the rider pays (end-early).
       isFinal: charged != null,
+      endedEarly: LastCompletedRide.endedEarly,
+      drivenMeters: LastCompletedRide.drivenMeters,
     );
   }
 }

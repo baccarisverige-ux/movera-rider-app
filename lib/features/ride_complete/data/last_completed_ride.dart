@@ -13,6 +13,8 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 abstract final class LastCompletedRide {
   static RideSnapshot? _snapshot;
   static Money? _charged;
+  static bool _endedEarly = false;
+  static int? _drivenMeters;
 
   static RideSnapshot? get value => _snapshot;
 
@@ -20,13 +22,29 @@ abstract final class LastCompletedRide {
   /// trip's `fare`, UI-01). Null: only the booked price is known.
   static Money? get charged => _charged;
 
-  static void remember(RideSnapshot? snapshot, {Money? charged}) {
+  /// R-O6: the rider ended this trip on board; the receipt says so.
+  static bool get endedEarly => _endedEarly;
+
+  /// R-O1: the distance driven before the rider ended the trip, when the
+  /// app tracked one.
+  static int? get drivenMeters => _drivenMeters;
+
+  static void remember(
+    RideSnapshot? snapshot, {
+    Money? charged,
+    bool endedEarly = false,
+    int? drivenMeters,
+  }) {
     _snapshot = snapshot;
     _charged = charged;
+    _endedEarly = endedEarly;
+    _drivenMeters = endedEarly ? drivenMeters : null;
   }
 
   static void clear() {
     _snapshot = null;
     _charged = null;
+    _endedEarly = false;
+    _drivenMeters = null;
   }
 }

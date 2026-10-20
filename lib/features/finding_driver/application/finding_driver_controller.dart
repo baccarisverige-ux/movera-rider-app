@@ -9,10 +9,12 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
+import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
@@ -120,6 +122,11 @@ class FindingDriverController {
   String? _queuedReasonId;
   StreamSubscription<PendingCancelOutcome>? _outboxSub;
   void Function()? _onCancelRefused;
+
+  /// R-O2: the last queued-cancel refusal was the outbox dropping it
+  /// because the trip changed first, not a server refusal.
+  bool get lastRefusalWasStale => _lastRefusalStale;
+  bool _lastRefusalStale = false;
   bool _terminated = false;
   bool _disposed = false;
   bool _delayedLogged = false;
@@ -689,16 +696,23 @@ class FindingDriverController {
       'pickupLng': longitude,
     });
     try {
-      await api.patch(
+      // R-O2: changed on the trip this search last saw.
+      final version = _pickupMutation.versionFor(
+        intent,
+        ride.projectionVersionOf(id),
+      );
+      final response = await api.patch(
         '/api/v1/rides/$id',
         body: {
           'pickupAddress': address,
           'pickupLat': latitude,
           'pickupLng': longitude,
+          'expectedVersion': ?version,
         },
         idempotencyKey: _pickupMutation.keyFor(intent),
       );
       _pickupMutation.succeeded(intent);
+      ride.observeProjection(response);
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
@@ -724,8 +738,10 @@ class FindingDriverController {
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
-    } catch (_) {
-      editFeedback = 'Couldn’t update pickup. Try again.';
+    } catch (error) {
+      editFeedback = _staleEdit(error, _pickupMutation)
+          ? rideJustChangedMessage
+          : 'Couldn’t update pickup. Try again.';
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return false;
@@ -781,13 +797,22 @@ class FindingDriverController {
       'offerIncrease': increase.toJson(),
     });
     try {
+      // R-O2: raised on the trip this search last saw.
+      final version = _priceMutation.versionFor(
+        intent,
+        ride.projectionVersionOf(id),
+      );
       final response = await api.patch(
         '/api/v1/rides/$id',
         // Contract v0.3.0: the raise as Money, not kronor.
-        body: {'offerIncrease': increase.toJson()},
+        body: {
+          'offerIncrease': increase.toJson(),
+          'expectedVersion': ?version,
+        },
         idempotencyKey: _priceMutation.keyFor(intent),
       );
       _priceMutation.succeeded(intent);
+      ride.observeProjection(response);
       if (_editInvalid(editToken)) return false;
       _bumpDismissed = true;
       final serverPrice = _serverPrice(response);
@@ -829,14 +854,37 @@ class FindingDriverController {
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
-    } catch (_) {
-      editFeedback = 'Couldn’t update offer. Try again.';
+    } catch (error) {
+      editFeedback = _staleEdit(error, _priceMutation)
+          ? rideJustChangedMessage
+          : 'Couldn’t update offer. Try again.';
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return false;
     } finally {
       _finishEdit(editToken);
     }
+  }
+
+  /// R-O2: an edit refused as stale changed nothing; its key is dropped so
+  /// the rider's next try is a new request on the trip as it is now. The
+  /// screen reads the ride again.
+  bool _staleEdit(Object error, MutationAttempt mutation) {
+    if (error is! ApiError || !error.isVersionMismatch) return false;
+    mutation.reset();
+    ride.observeProjection(error.projection);
+    final id = ownedRideId;
+    if (id != null) {
+      unawaited(
+        _realtime.reconnectAndResync(id).catchError((Object resyncError) {
+          AppLog.warning(
+            'ride.edit.resync_failed',
+            extra: {'rideId': id, 'error': resyncError.toString()},
+          );
+        }),
+      );
+    }
+    return true;
   }
 
   /// The offer ceiling the server says the ride has, when it says.
@@ -885,6 +933,7 @@ class FindingDriverController {
       AppLog.info('ride.cancel.queued_overtaken_by_match', extra: {
         'rideId': id,
       });
+      _lastRefusalStale = false;
       _onCancelRefused?.call();
     }
     _assigned = true;
@@ -1100,19 +1149,24 @@ class FindingDriverController {
     String id, {
     String? reasonId,
   }) async {
+    // R-O2: the trip version this search last saw, kept with the entry so
+    // a retry is the same request (same key, same body).
     final entry = await PendingCancelStore.enqueue(
       rideId: id,
       reasonId: reasonId,
+      expectedVersion: ride.projectionVersionOf(id),
     );
-    final reason = entry.reasonId ?? reasonId;
+    // One in-session retry, only for an unreachable server: a refusal is
+    // final and is never sent again.
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        await api.post(
+        final response = await api.post(
           '/api/v1/rides/$id/cancel',
-          body: CancelReasonCodes.riderCancelBody(reason),
+          body: entry.body(reasonId),
           idempotencyKey: entry.idempotencyKey,
         );
         await PendingCancelStore.remove(id);
+        ride.observeProjection(response);
         return SearchCancelResult.confirmed;
       } catch (error) {
         AppLog.warning(
@@ -1122,7 +1176,12 @@ class FindingDriverController {
         if (isPermanentCancelFailure(error)) {
           // D-020: retrying can never succeed, so the entry leaves the outbox.
           await PendingCancelStore.remove(id);
-          final status = (error as ApiError).statusCode;
+          ride.observeProjection((error as ApiError).projection);
+          // R-O3: already cancelled by the rider is what they asked for.
+          if (alreadyCancelledByRider(error)) {
+            return SearchCancelResult.confirmed;
+          }
+          final status = error.statusCode;
           if (status == 404) return SearchCancelResult.confirmed;
           if (error.isVersionMismatch) return SearchCancelResult.stale;
           return status == 409
@@ -1191,9 +1250,12 @@ class FindingDriverController {
       case PendingCancelResult.gone:
         unawaited(_confirmQueuedCancel());
       case PendingCancelResult.refused:
-        // The server kept the ride (a driver accepted first). Pick the
+      case PendingCancelResult.stale:
+        // The server kept the ride (a driver accepted first), or the trip
+        // moved on before the queued cancel could be sent (R-O2). Pick the
         // search back up; the match arrives on realtime.
         _cancelQueued = false;
+        _lastRefusalStale = outcome.result == PendingCancelResult.stale;
         _onCancelRefused?.call();
         final id = ownedRideId;
         if (_assignmentPending && !_editInFlight) {
@@ -1293,9 +1355,15 @@ class FindingDriverController {
     if (await PendingCancelStore.attachReason(id, reasonId)) return;
     final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
     try {
+      // A second cancel of a cancelled trip: quietly accepted (R-O3). It
+      // still names the version the cancel left the trip at (R-O2).
+      final version = ride.projectionVersionOf(id);
       await api.post(
         '/api/v1/rides/$id/cancel',
-        body: CancelReasonCodes.riderCancelBody(reasonId),
+        body: {
+          ...CancelReasonCodes.riderCancelBody(reasonId),
+          'expectedVersion': ?version,
+        },
         idempotencyKey: _reasonMutation.keyFor(intent),
       );
       _reasonMutation.succeeded(intent);
@@ -1369,30 +1437,42 @@ class FindingDriverController {
     final pending = await PendingCancelStore.all();
     if (pending.isEmpty) return results;
     for (var cancel in pending) {
-      var key = cancel.idempotencyKey;
-      if (key == null) {
+      if (cancel.idempotencyKey == null) {
         // Entry from before D-020: mint its one key now and keep it.
-        key = newIdempotencyKey('ride-cancel');
-        cancel = cancel.withKey(key);
+        cancel = cancel.withKey(newIdempotencyKey('ride-cancel'));
         await PendingCancelStore.add(cancel);
       }
-      PendingCancelResult? result;
-      try {
-        await client.post(
-          '/api/v1/rides/${cancel.rideId}/${cancel.command.pathSegment}',
-          body: CancelReasonCodes.riderCancelBody(cancel.reasonId),
-          idempotencyKey: key,
-        );
-        result = PendingCancelResult.sent;
-      } catch (error) {
-        if (!isPermanentCancelFailure(error)) {
-          AppLog.warning(
-            'ride.cancel.flush_failed',
-            extra: {'rideId': cancel.rideId, 'error': error.toString()},
-          );
-          continue;
+      // R-O2: read the trip again before replaying a command queued while
+      // offline. The rider tapped on a screen that may be long out of date.
+      final current = await _rereadForReplay(client, cancel);
+      if (current == null) continue; // Still unreachable: kept for later.
+      PendingCancelResult? result = current.result;
+      if (result == null) {
+        final version = current.version;
+        if (version != null && version != cancel.expectedVersion) {
+          // Still applies on a newer trip: sent for the version it is at now,
+          // so it is not refused as stale for a change that does not matter.
+          cancel = cancel.forVersion(version);
+          await PendingCancelStore.add(cancel);
         }
-        result = await _refusalResult(client, cancel, error);
+        try {
+          final response = await client.post(
+            '/api/v1/rides/${cancel.rideId}/${cancel.command.pathSegment}',
+            body: cancel.body(),
+            idempotencyKey: cancel.idempotencyKey,
+          );
+          AppScope.instance.ride.observeProjection(response);
+          result = PendingCancelResult.sent;
+        } catch (error) {
+          if (!isPermanentCancelFailure(error)) {
+            AppLog.warning(
+              'ride.cancel.flush_failed',
+              extra: {'rideId': cancel.rideId, 'error': error.toString()},
+            );
+            continue;
+          }
+          result = await _refusalResult(client, cancel, error);
+        }
       }
       await PendingCancelStore.remove(cancel.rideId);
       results[cancel.rideId] = result;
@@ -1405,6 +1485,77 @@ class FindingDriverController {
     return results;
   }
 
+  /// R-O2: the trip as it is now, before a queued command is replayed.
+  /// Null when it cannot be read (offline): the entry waits. A [result]
+  /// means the command is not sent at all: the trip is gone, already
+  /// cancelled by the rider (R-O3: that is what they asked for), over, or
+  /// at a stage where the command no longer applies (dropped as stale and
+  /// the rider is told). Otherwise [version] is the version to send.
+  static Future<({PendingCancelResult? result, int? version})?>
+  _rereadForReplay(ApiClient client, PendingCancel cancel) async {
+    Map<String, dynamic>? projection;
+    try {
+      projection = tripProjectionOf(
+        await client.get('/api/v1/rides/${cancel.rideId}'),
+      );
+    } on ApiError catch (error) {
+      if (error.statusCode == 404 || error.statusCode == 410) {
+        AppLog.warning(
+          'ride.cancel.flush_dropped_permanent',
+          extra: {'rideId': cancel.rideId, 'error': error.toString()},
+        );
+        return (result: PendingCancelResult.gone, version: null);
+      }
+      AppLog.warning(
+        'ride.cancel.flush_reread_failed',
+        extra: {'rideId': cancel.rideId, 'error': error.toString()},
+      );
+      return null;
+    } catch (error) {
+      AppLog.warning(
+        'ride.cancel.flush_reread_failed',
+        extra: {'rideId': cancel.rideId, 'error': error.toString()},
+      );
+      return null;
+    }
+    AppScope.instance.ride.observeProjection(projection);
+    final status = TripStatusWire.parse(projection?['status']);
+    final rawVersion = projection?['version'];
+    final version = rawVersion is num ? rawVersion.toInt() : null;
+    // A projection without a readable status says nothing about the stage:
+    // the command is replayed as it was queued.
+    if (status == null) return (result: null, version: null);
+    if (status == TripStatus.cancelledByRider) {
+      return (result: PendingCancelResult.sent, version: version);
+    }
+    if (status.isTerminal) {
+      return (result: PendingCancelResult.gone, version: version);
+    }
+    final command = switch (cancel.command) {
+      PendingCancelCommand.cancel => 'cancel',
+      PendingCancelCommand.endEarly => 'end_early',
+    };
+    final applies = TripStateMachine.apply(
+          status,
+          command,
+          TripActor.rider,
+          kind: TripKindWire.parse(projection?['kind']) ?? TripKind.live,
+        ) !=
+        null;
+    if (!applies) {
+      AppLog.warning(
+        'ride.cancel.flush_dropped_stale',
+        extra: {
+          'rideId': cancel.rideId,
+          'command': cancel.command.pathSegment,
+          'status': status.wireName,
+        },
+      );
+      return (result: PendingCancelResult.stale, version: version);
+    }
+    return (result: null, version: version);
+  }
+
   /// A permanent refusal: 404/410 means the ride is gone. For 409/422 the
   /// ride is read again, since "a driver accepted first" and "already
   /// over" both refuse (RC-03). A ride that is still live is a refusal the
@@ -1414,7 +1565,11 @@ class FindingDriverController {
     PendingCancel cancel,
     Object error,
   ) async {
-    final status = (error as ApiError).statusCode;
+    final apiError = error as ApiError;
+    AppScope.instance.ride.observeProjection(apiError.projection);
+    // R-O3: the rider already cancelled it; nothing more to do.
+    if (alreadyCancelledByRider(apiError)) return PendingCancelResult.sent;
+    final status = apiError.statusCode;
     if (status == 404 || status == 410) {
       AppLog.warning(
         'ride.cancel.flush_dropped_permanent',
@@ -1435,6 +1590,7 @@ class FindingDriverController {
         extra: {'rideId': cancel.rideId, 'error': readError.toString()},
       );
     }
+    if (current == RideStatus.cancelledByRider) return PendingCancelResult.sent;
     if (current == null || !current.tripStatus.isTerminal) {
       // Live, or unknown: treated as live, so the ride stays on screen and
       // realtime shows how it really stands.
@@ -1447,7 +1603,10 @@ class FindingDriverController {
           'error': error.toString(),
         },
       );
-      return PendingCancelResult.refused;
+      // R-O2: the trip changed between the re-read and the replay.
+      return apiError.isVersionMismatch
+          ? PendingCancelResult.stale
+          : PendingCancelResult.refused;
     }
     AppLog.warning(
       'ride.cancel.flush_dropped_permanent',

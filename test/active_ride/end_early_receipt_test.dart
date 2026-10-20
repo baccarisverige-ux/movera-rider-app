@@ -148,8 +148,9 @@ void main() {
     expect(find.textContaining('distance driven'), findsWidgets);
     expect(find.text('Total payment'), findsOneWidget);
     expect(find.text('245 kr'), findsOneWidget);
-    // Rating needs a completed trip (contract); none is offered.
-    expect(find.byKey(const ValueKey('completion-feedback')), findsNothing);
+    // R-O6 (owner decision): the normal trip-end screen, rating included.
+    expect(find.byKey(const ValueKey('completion-feedback')), findsOneWidget);
+    expect(find.text('Ended early'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('ride-completed-done')));
     await tester.pump();

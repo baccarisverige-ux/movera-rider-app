@@ -126,7 +126,8 @@ void main() {
       final results = await FindingDriverController.flushPendingCancels(
         api: _accepting(paths),
       );
-      expect(paths, ['/api/v1/rides/ride-9/end-early']);
+      // R-O2: the trip is read again before the replay.
+      expect(paths, ['/api/v1/rides/ride-9', '/api/v1/rides/ride-9/end-early']);
       expect(results['ride-9'], PendingCancelResult.sent);
       expect(await PendingCancelStore.all(), isEmpty);
     });
@@ -140,7 +141,7 @@ void main() {
       });
       final paths = <String>[];
       await FindingDriverController.flushPendingCancels(api: _accepting(paths));
-      expect(paths, ['/api/v1/rides/old/cancel']);
+      expect(paths, ['/api/v1/rides/old', '/api/v1/rides/old/cancel']);
     });
 
     test('a different command for the same ride gets its own key', () async {
@@ -176,7 +177,11 @@ void main() {
         api: _refusing(409, paths: paths),
       );
       await Future<void>.delayed(Duration.zero);
-      expect(paths, ['POST /api/v1/rides/r1/cancel', 'GET /api/v1/rides/r1']);
+      expect(paths, [
+        'GET /api/v1/rides/r1',
+        'POST /api/v1/rides/r1/cancel',
+        'GET /api/v1/rides/r1',
+      ]);
       expect(results['r1'], PendingCancelResult.refused);
       expect(reported.single.result, PendingCancelResult.refused);
       expect(shown, ['r1']);
