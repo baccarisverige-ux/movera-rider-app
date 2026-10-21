@@ -17,11 +17,18 @@ class ScheduledRideCheckout {
     String? note,
     String? parentReservationId,
     double? price,
+    String? timeZone,
   }) {
-    final when = selection.scheduledFor;
-    if (when == null) {
+    final picked = selection.scheduledFor;
+    if (picked == null) {
       throw StateError('scheduled checkout needs a pickup time');
     }
+    // rider-63: as ScheduledRideBooking.confirm books it.
+    final zone = ScheduledRideBooking.pickupTimeZone(
+      pickup,
+      timeZone: timeZone,
+    );
+    final when = ScheduledRideBooking.pickupInstant(picked, zone);
     final ride = selection.rideById(selection.selectedRideId);
     final payment = selection.selectedPaymentItem();
     if (payment == null) {
@@ -41,6 +48,7 @@ class ScheduledRideCheckout {
       paymentMethod: payment.name,
       note: note,
       parentReservationId: parentReservationId,
+      timeZone: zone,
     );
   }
 
@@ -55,6 +63,7 @@ class ScheduledRideCheckout {
     String? parentReservationId,
     String? editingReservationId,
     Reservation? original,
+    String? timeZone,
   }) async {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled checkout cannot enter Finding Driver');
@@ -73,6 +82,7 @@ class ScheduledRideCheckout {
       destination: destination,
       note: note,
       parentReservationId: parentReservationId,
+      timeZone: timeZone,
     );
 
     if (editingReservationId != null && original != null) {
@@ -94,6 +104,7 @@ class ScheduledRideCheckout {
         note: note,
         editingReservationId: editingReservationId,
         price: draft.price,
+        timeZone: timeZone,
       );
     }
 
@@ -105,6 +116,7 @@ class ScheduledRideCheckout {
       note: note,
       parentReservationId: parentReservationId,
       price: draft.price,
+      timeZone: timeZone,
     );
     if (context.mounted) {
       await showReservationBookedPopup(context);

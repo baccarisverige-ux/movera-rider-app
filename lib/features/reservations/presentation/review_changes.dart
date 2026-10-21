@@ -73,7 +73,7 @@ class ReviewChangesPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 _CompareCard(
                   title: context.l10n.resCurrent,
-                  when: original.scheduledPickupAt,
+                  when: original.pickupWallTime,
                   pickup: original.pickup.label,
                   destination: original.destination.label,
                   category: original.categoryName,
@@ -83,7 +83,7 @@ class ReviewChangesPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 _CompareCard(
                   title: context.l10n.resUpdated,
-                  when: draft.scheduledPickupAt,
+                  when: draft.pickupWallTime,
                   pickup: draft.pickup.label,
                   destination: draft.destination.label,
                   category: draft.categoryName,

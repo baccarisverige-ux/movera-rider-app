@@ -131,7 +131,7 @@ class SelectRide extends StatefulWidget {
       destinationPosition: returnDest,
       bookingMode: BookingMode.scheduled,
       lockBookingMode: true,
-      initialScheduledFor: origin.scheduledPickupAt.add(
+      initialScheduledFor: origin.pickupWallTime.add(
         const Duration(hours: 3),
       ),
       initialRideId: origin.categoryId,
@@ -1263,6 +1263,8 @@ class _SelectRideState extends State<SelectRide>
             original: widget.editingReservationId == null
                 ? null
                 : _reservations.byId(widget.editingReservationId!),
+            // rider-63: the zone the time was picked in.
+            timeZone: _pickupSchedule.timeZone,
           );
         } catch (error, stack) {
           final action = widget.editingReservationId == null

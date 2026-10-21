@@ -1,8 +1,10 @@
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 
 /// Shared Book-later confirm path. SelectRide and tests use this so
 /// scheduled mode never starts a live Finding Driver search.
@@ -28,6 +30,21 @@ class ScheduledRideBooking {
     return price;
   }
 
+  /// rider-63: the pickup zone a Book-later time was picked in (Q9):
+  /// [timeZone] when the caller knows it, else the zone of [pickup]'s
+  /// point. Null only for a pickup with no point (a device-local booking).
+  static String? pickupTimeZone(ReservationPlace pickup, {String? timeZone}) {
+    if (timeZone != null) return timeZone;
+    final lat = pickup.lat;
+    final lng = pickup.lng;
+    if (lat == null || lng == null) return null;
+    return PickupSchedule.at(lat, lng).timeZone;
+  }
+
+  /// The instant of the wall-clock pick [wall] in [timeZone].
+  static DateTime pickupInstant(DateTime wall, String? timeZone) =>
+      timeZone == null ? wall : ZoneClock.toUtc(wall, timeZone);
+
   static Future<Reservation> confirm({
     required ReservationController reservations,
     required RideSelectionController selection,
@@ -37,14 +54,19 @@ class ScheduledRideBooking {
     String? parentReservationId,
     String? editingReservationId,
     double? price,
+    String? timeZone,
   }) {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled booking cannot enter Finding Driver');
     }
-    final when = selection.scheduledFor;
-    if (when == null) {
+    final picked = selection.scheduledFor;
+    if (picked == null) {
       throw StateError('scheduled booking needs a pickup time');
     }
+    // rider-63: the pick is the pickup zone's wall-clock time; the ride
+    // keeps its instant and its zone.
+    final zone = pickupTimeZone(pickup, timeZone: timeZone);
+    final when = pickupInstant(picked, zone);
     final ride = selection.rideById(selection.selectedRideId);
     final payment = selection.selectedPaymentItem();
     if (payment == null) {
@@ -74,6 +96,7 @@ class ScheduledRideBooking {
           currency: selection.currency,
           paymentMethod: payment.name,
           note: note,
+          timeZone: zone,
         ),
       );
     }
@@ -92,6 +115,7 @@ class ScheduledRideBooking {
         paymentMethod: payment.name,
         note: note,
         parentReservationId: parentReservationId,
+        timeZone: zone,
       ),
     );
   }

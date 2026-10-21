@@ -1521,6 +1521,7 @@
       }
     }
   },
+  "driverLeftBodyUnnamed": "Your driver can no longer drive you. We're finding you a new driver.",
   "scheduledRides": "Scheduled rides",
   "historyHowBody": "Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.",
   "historyHow": "How history works",
@@ -1681,7 +1682,7 @@
   "selectTime": "Select time",
   "whenPickUp": "When should we\npick you up?",
   "chooseDateTime": "Choose a date and time for your scheduled ride.",
-  "cancelBeforeAssigned": "You can cancel without a fee before a driver is assigned. Final terms are shown before booking.",
+  "scheduleCancelTermsNote": "Cancelling is free until a set time before pickup, which depends on the ride type. Your reservation shows the exact terms.",
   "pickupAtMode": "Pickup at",
   "arriveByMode": "Arrive by",
   "date": "Date",

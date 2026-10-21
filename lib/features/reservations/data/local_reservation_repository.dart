@@ -179,6 +179,7 @@ class LocalReservationRepository implements ReservationRepository {
         note: draft.note,
         policyVersion: policy.version,
         parentReservationId: draft.parentReservationId,
+        timeZone: draft.timeZone,
       );
       await _commit([created, ..._items]);
       return created;
@@ -193,6 +194,10 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: decided before an earlier change in the queue (the
+      // rider's cancel, the trip's end) committed. A finished ride stays
+      // finished.
+      if (!current.status.isUpcoming) return current;
       final next = current.copyWith(
         scheduledPickupAt: patch.scheduledPickupAt,
         estimatedDropoffAt: patch.estimatedDropoffAt,
@@ -210,6 +215,7 @@ class LocalReservationRepository implements ReservationRepository {
         driver: patch.driver,
         clearDriver: patch.clearDriver,
         previousDriver: patch.previousDriver,
+        timeZone: patch.timeZone,
       );
       await _commit(_replacing(reservationId, next));
       return next;
@@ -225,6 +231,9 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u170: confirmed against an older copy of the ride. One that
+      // has since completed (or was already cancelled) stays as it is.
+      if (!current.status.canCancel) return current;
       final next = current.copyWith(
         status: ReservationStatus.cancelled,
         cancellationReason: reason,
@@ -266,6 +275,8 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: as in [updateReservation].
+      if (!current.status.isUpcoming) return current;
       final leaving = current.driver;
       // The driver who had the ride and is now losing it, if any. A repeat
       // of the same assignment changes nothing.

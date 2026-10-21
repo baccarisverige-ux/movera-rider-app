@@ -8,18 +8,33 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduledRideTermsPage extends StatelessWidget {
-  const ScheduledRideTermsPage({super.key, this.controller, this.policy});
+  const ScheduledRideTermsPage({
+    super.key,
+    this.controller,
+    this.policy,
+    this.reservationId,
+  });
 
   final ReservationController? controller;
   final ReservationPolicy? policy;
 
+  /// rider-u169: the reservation the page was opened from. Its own cancel
+  /// rule (the zone's rule for its ride type) is the one stated.
+  final String? reservationId;
+
   static Future<void> open(
     BuildContext context, {
     ReservationController? controller,
+    String? reservationId,
   }) {
     return Navigator.push(
       context,
-      RightToLeftTransition(ScheduledRideTermsPage(controller: controller)),
+      RightToLeftTransition(
+        ScheduledRideTermsPage(
+          controller: controller,
+          reservationId: reservationId,
+        ),
+      ),
     );
   }
 
@@ -27,7 +42,12 @@ class ScheduledRideTermsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final terms =
         policy ?? controller?.policy ?? AppScope.instance.reservations.policy;
-    final rules = (controller ?? AppScope.instance.reservations).rules;
+    final reservations = controller ?? AppScope.instance.reservations;
+    final id = reservationId;
+    final ride = id == null ? null : reservations.byId(id);
+    final cancelRule = ride == null
+        ? ReservationFormat.cancelRule(reservations.rules)
+        : ReservationFormat.cancelRuleOf(reservations.cancelTermsFor(ride));
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -54,9 +74,7 @@ class ScheduledRideTermsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  context.l10n.resTermsOtherFees(
-                    ReservationFormat.cancelRule(rules),
-                  ),
+                  context.l10n.resTermsOtherFees(cancelRule),
                   key: const Key('scheduled-terms-cancel-rule'),
                   style: reservationText(
                     14,

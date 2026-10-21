@@ -199,7 +199,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                           asset: AppAssets.scheduleCalendar,
                           label: context.l10n.pickup,
                           value:
-                              '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                              '${ReservationFormat.longDate(ride.pickupWallTime)}  ·  ${ReservationFormat.time(ride.pickupWallTime)}',
                         ),
                         ReservationFact(
                           asset: AppAssets.gps,

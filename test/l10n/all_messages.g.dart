@@ -729,6 +729,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'driverChangedBody': l.driverChangedBody('<previous>', '<current>'),
   'driverLeftTitle': l.driverLeftTitle,
   'driverLeftBody': l.driverLeftBody('<name>'),
+  'driverLeftBodyUnnamed': l.driverLeftBodyUnnamed,
   'scheduledRides': l.scheduledRides,
   'historyHowBody': l.historyHowBody,
   'historyHow': l.historyHow,
@@ -810,7 +811,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
   'chooseDateTime': l.chooseDateTime,
-  'cancelBeforeAssigned': l.cancelBeforeAssigned,
+  'scheduleCancelTermsNote': l.scheduleCancelTermsNote,
   'pickupAtMode': l.pickupAtMode,
   'arriveByMode': l.arriveByMode,
   'date': l.date,
@@ -2927,6 +2928,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String driverLeftBody(String name) => '';
   @override
+  String get driverLeftBodyUnnamed => '';
+  @override
   String get scheduledRides => '';
   @override
   String get historyHowBody => '';
@@ -3089,7 +3092,7 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get chooseDateTime => '';
   @override
-  String get cancelBeforeAssigned => '';
+  String get scheduleCancelTermsNote => '';
   @override
   String get pickupAtMode => '';
   @override

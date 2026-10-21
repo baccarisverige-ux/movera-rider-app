@@ -72,7 +72,7 @@ class MonthRideStats {
     final totals = <String, Money>{};
     for (final ride in rides) {
       if (!ride.status.isCompleted) continue;
-      final at = ride.scheduledPickupAt;
+      final at = ride.pickupWallTime;
       if (at.year != now.year || at.month != now.month) continue;
       count++;
       if (ride.categoryId == 'electric') electric++;

@@ -135,6 +135,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
         terms: terms,
       );
       if (!outcome.cancelled) return;
+      // rider-u170: the ride may have moved on while the sheets were open.
+      final current = _reservations.byId(ride.reservationId);
+      if (current == null || !current.status.canCancel) return;
       await _reservations.cancel(
         ride.reservationId,
         reason: outcome.reasonId,
@@ -197,6 +200,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     // The driver shows as soon as one accepts, unless admin turned that off.
     final showDriver = _reservations.showsDriverOf(ride);
     final previousDriver = ride.previousDriver;
+    final noDriverFound = _reservations.isNoDriverFound(ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -243,7 +247,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),
+                  ReservationFormat.reservedHeadline(ride.pickupWallTime),
                   style: reservationText(
                     13.5,
                     color: kReservationMuted,
@@ -283,14 +287,25 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ReservationStatusBanner(
-                  title: ReservationFormat.statusTitle(ride),
-                  body: ReservationFormat.statusBody(
-                    ride,
-                    assignmentDisclaimer: policy.assignmentDisclaimer,
+                // rider-j8-1: what Home says once the pickup passed with no
+                // driver, never "Reservation confirmed".
+                if (noDriverFound)
+                  ReservationStatusBanner(
+                    key: const Key('upcoming-no-driver-found'),
+                    title: context.l10n.termNoDriverFound,
+                    body: context.l10n.chronoNoDriverCancel,
+                    positive: false,
+                  )
+                else
+                  ReservationStatusBanner(
+                    title: ReservationFormat.statusTitle(ride),
+                    body: ReservationFormat.statusBody(
+                      ride,
+                      assignmentDisclaimer: policy.assignmentDisclaimer,
+                      showDriver: showDriver,
+                    ),
+                    positive: !ride.status.isCancelled,
                   ),
-                  positive: !ride.status.isCancelled,
-                ),
                 if (showDriver &&
                     ride.driverChanged &&
                     ride.status.isUpcoming) ...[
@@ -311,7 +326,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ReservationStatusBanner(
                     key: const Key('reservation-driver-left'),
                     title: ReservationFormat.driverLeftTitle,
-                    body: ReservationFormat.driverLeftBody(previousDriver),
+                    body: ReservationFormat.driverLeftBody(
+                      previousDriver,
+                      showName: _reservations.rules.showDriverOnAccept,
+                    ),
                     positive: false,
                   ),
                 ],
@@ -334,7 +352,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   asset: AppAssets.scheduleCalendar,
                   label: context.l10n.resScheduledFor,
                   value:
-                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                      '${ReservationFormat.longDate(ride.pickupWallTime)}, ${ReservationFormat.time(ride.pickupWallTime)}',
                 ),
                 ReservationFact(
                   asset: AppAssets.gps,
@@ -447,6 +465,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     onTap: () => ScheduledRideTermsPage.open(
                       context,
                       controller: _reservations,
+                      reservationId: ride.reservationId,
                     ),
                     child: Text(
                       context.l10n.resViewTerms,
