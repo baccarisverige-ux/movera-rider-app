@@ -63,6 +63,7 @@ import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -236,13 +237,14 @@ class _SelectRideState extends State<SelectRide>
         id: ride.id,
         image: ride.image,
         name: ride.name,
-        note: ride.note,
+        // rider-77: the built-in notes and badges in the rider's language.
+        note: rideNoteFor(ride.note),
         arrival: ride.arrival,
         etaMin: ride.etaMin,
         price: ride.price,
         currency: ride.currency,
         seats: ride.seats,
-        badge: ride.badge,
+        badge: ride.badge == null ? null : rideBadgeFor(ride.badge!),
         glyph: _glyphIcon(ride.glyph),
       );
     }).toList();

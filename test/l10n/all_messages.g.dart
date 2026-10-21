@@ -164,6 +164,20 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chooseYourRide': l.chooseYourRide,
   'filterRecommended': l.filterRecommended,
   'filterFaster': l.filterFaster,
+  'rideNoteEconomy': l.rideNoteEconomy,
+  'rideNoteComfort': l.rideNoteComfort,
+  'rideNotePremium': l.rideNotePremium,
+  'rideNotePriority': l.rideNotePriority,
+  'rideNoteXl': l.rideNoteXl,
+  'rideNoteElectric': l.rideNoteElectric,
+  'rideNotePet': l.rideNotePet,
+  'rideNoteVan': l.rideNoteVan,
+  'rideNoteWheelchair': l.rideNoteWheelchair,
+  'rideNoteBusiness': l.rideNoteBusiness,
+  'rideNoteAirport': l.rideNoteAirport,
+  'rideNoteKids': l.rideNoteKids,
+  'rideNoteWomen': l.rideNoteWomen,
+  'rideNoteDelivery': l.rideNoteDelivery,
   'filterCheaper': l.filterCheaper,
   'walletWrongCurrency': l.walletWrongCurrency('<wallet>', '<ride>'),
   'paidByWallet': l.paidByWallet,
@@ -1782,6 +1796,34 @@ class _Exhaustive implements AppLocalizations {
   String get filterRecommended => '';
   @override
   String get filterFaster => '';
+  @override
+  String get rideNoteEconomy => '';
+  @override
+  String get rideNoteComfort => '';
+  @override
+  String get rideNotePremium => '';
+  @override
+  String get rideNotePriority => '';
+  @override
+  String get rideNoteXl => '';
+  @override
+  String get rideNoteElectric => '';
+  @override
+  String get rideNotePet => '';
+  @override
+  String get rideNoteVan => '';
+  @override
+  String get rideNoteWheelchair => '';
+  @override
+  String get rideNoteBusiness => '';
+  @override
+  String get rideNoteAirport => '';
+  @override
+  String get rideNoteKids => '';
+  @override
+  String get rideNoteWomen => '';
+  @override
+  String get rideNoteDelivery => '';
   @override
   String get filterCheaper => '';
   @override
