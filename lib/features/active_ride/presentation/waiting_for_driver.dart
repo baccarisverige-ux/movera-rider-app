@@ -586,10 +586,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // the ride is still active. The server then reports cancelledByRider:
     // commit it locally instead of treating it as an external terminal.
     if (status == RideStatus.cancelledByRider && widget.onTerminal == null) {
-      await _ride.completeServerConfirmedCancel();
+      await _ride.completeServerConfirmedCancel(
+        drivenMeters: _tracking.drivenMeters > 0 ? _tracking.drivenMeters : null,
+      );
       if (!mounted) return;
       await _parkMapForStageChange();
       if (!mounted) return;
+      // rider-u51: a queued on-board End trip the outbox delivered is a
+      // finished trip with a receipt (UI-01), like the direct path.
+      final endedEarly = _ride.endedEarly;
+      if (endedEarly != null) {
+        _openEndedEarlySummary(endedEarly);
+        return;
+      }
       RideNavigator.home(context);
       return;
     }

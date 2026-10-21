@@ -162,8 +162,24 @@ class ActiveRideController {
   /// Commits a cancel the server has already applied — for example when a
   /// queued outbox request lands and realtime then reports the ride as
   /// `cancelledByRider` while Waiting is still showing it.
-  Future<void> completeServerConfirmedCancel() async {
-    await _commitCancelled(AppScope.instance.ride.rideId);
+  ///
+  /// rider-u51: once the rider is on board the only rider command that
+  /// reaches `cancelled_by_rider` is `end_early` (contract v0.3.0), so a
+  /// server cancel of a trip whose stored stage is on board is an ended
+  /// trip: [endedEarly] is set for the summary and History reads "Ended
+  /// early". [drivenMeters] is the distance the app tracked on board.
+  Future<void> completeServerConfirmedCancel({int? drivenMeters}) async {
+    final id = _clean(AppScope.instance.ride.rideId);
+    final snapshot = await _store.historyCandidate();
+    final onboard = id != null &&
+        snapshot != null &&
+        _clean(snapshot.rideId) == id &&
+        tripRiderOnboardStatuses.contains(snapshot.status.tripStatus);
+    final endedEarly = onboard
+        ? EndedEarlyTrip(rideId: id, drivenMeters: drivenMeters)
+        : null;
+    _endedEarly = endedEarly;
+    await _commitCancelled(id, endedEarly: endedEarly);
   }
 
   /// D-014: "Go home" from the screen shown when Waiting lost its rideId.
