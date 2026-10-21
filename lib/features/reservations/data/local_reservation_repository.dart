@@ -193,6 +193,10 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: decided before an earlier change in the queue (the
+      // rider's cancel, the trip's end) committed. A finished ride stays
+      // finished.
+      if (!current.status.isUpcoming) return current;
       final next = current.copyWith(
         scheduledPickupAt: patch.scheduledPickupAt,
         estimatedDropoffAt: patch.estimatedDropoffAt,
@@ -266,6 +270,8 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: as in [updateReservation].
+      if (!current.status.isUpcoming) return current;
       final leaving = current.driver;
       // The driver who had the ride and is now losing it, if any. A repeat
       // of the same assignment changes nothing.
