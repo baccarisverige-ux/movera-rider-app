@@ -795,6 +795,7 @@
   "time": "Tid",
   "estimatedArrival": "Beräknad ankomst",
   "estimatedPickup": "Beräknad upphämtning",
+  "time24Hour": "24-timmars",
   "continuing": "Fortsätter…",
   "chronoNoDriverLabel": "Ingen förare hittades. Boka om eller avboka",
   "reservationIn": "Bokning om {time}",

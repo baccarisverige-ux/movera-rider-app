@@ -1672,6 +1672,7 @@
   "time": "Time",
   "estimatedArrival": "Estimated arrival",
   "estimatedPickup": "Estimated pickup",
+  "time24Hour": "24-hour",
   "continuing": "Continuing…",
   "chronoNoDriverLabel": "No driver found. Rebook or cancel",
   "reservationIn": "Reservation in {time}",

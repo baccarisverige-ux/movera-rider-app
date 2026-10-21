@@ -795,6 +795,7 @@
   "time": "Heure",
   "estimatedArrival": "Arrivée estimée",
   "estimatedPickup": "Départ estimé",
+  "time24Hour": "24 h",
   "continuing": "Un instant…",
   "chronoNoDriverLabel": "Aucun chauffeur trouvé. Réserver à nouveau ou annuler",
   "reservationIn": "Réservation dans {time}",

@@ -801,6 +801,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'time': l.time,
   'estimatedArrival': l.estimatedArrival,
   'estimatedPickup': l.estimatedPickup,
+  'time24Hour': l.time24Hour,
   'continuing': l.continuing,
   'chronoNoDriverLabel': l.chronoNoDriverLabel,
   'reservationIn': l.reservationIn('<time>'),
@@ -3052,6 +3053,8 @@ class _Exhaustive implements AppLocalizations {
   String get estimatedArrival => '';
   @override
   String get estimatedPickup => '';
+  @override
+  String get time24Hour => '';
   @override
   String get continuing => '';
   @override
