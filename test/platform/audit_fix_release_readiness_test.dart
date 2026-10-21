@@ -99,6 +99,39 @@ void main() {
       },
     );
 
+    // rider-r4-20: on the web the Maps script can load after the first
+    // build; Home caches its map widget, so nothing rebuilt the placeholder.
+    testWidgets('a map that becomes available replaces the placeholder', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      var hasKey = false;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        NativeMapsConfig.channel,
+        (call) async => hasKey,
+      );
+      CustomGoogleMap.debugWaitForMaps = true;
+      addTearDown(() {
+        CustomGoogleMap.debugWaitForMaps = null;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          NativeMapsConfig.channel,
+          null,
+        );
+        NativeMapsConfig.debugReset();
+      });
+      await NativeMapsConfig.load();
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: CustomGoogleMap())),
+      );
+      expect(find.byKey(const ValueKey('map-unavailable')), findsOneWidget);
+      hasKey = true;
+      await NativeMapsConfig.load();
+      debugDefaultTargetPlatformOverride = null;
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(const ValueKey('map-unavailable')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     test('iOS with a key and Android keep the map', () async {
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
