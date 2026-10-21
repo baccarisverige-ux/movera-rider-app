@@ -20,6 +20,7 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
@@ -2480,13 +2481,50 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     });
   }
 
-  ({GeoPoint from, GeoPoint to})? _routeEndpoints() {
+  /// rider-u62/u63: how many of the trip's stops, in order, the car has
+  /// reached (come within [_stopReachedMeters] of). The route from the
+  /// driver goes through the rest.
+  int _stopsReached = 0;
+  static const double _stopReachedMeters = 80;
+
+  void _noteStopsReached(GeoPoint driverPoint) {
+    final stops = widget.stops;
+    var reached = _stopsReached;
+    while (reached < stops.length) {
+      final stop = stops[reached];
+      final meters = GeoDistance.metersBetween(
+        driverPoint.latitude,
+        driverPoint.longitude,
+        stop.latitude,
+        stop.longitude,
+      );
+      if (meters > _stopReachedMeters) break;
+      reached += 1;
+    }
+    if (reached != _stopsReached) {
+      _stopsReached = reached;
+      _routeKey = null; // The next refresh draws the remaining legs.
+    }
+  }
+
+  /// The stops still ahead of the car, in order.
+  List<GeoPoint> _remainingStops() {
+    final stops = widget.stops;
+    final reached = _stopsReached.clamp(0, stops.length);
+    return [
+      for (final stop in stops.sublist(reached))
+        GeoPoint(stop.latitude, stop.longitude),
+    ];
+  }
+
+  ({GeoPoint from, List<GeoPoint> via, GeoPoint to})? _routeEndpoints() {
     final eta = widget.tracking.eta;
     final driverPoint = eta?.latitude != null && eta?.longitude != null
         ? GeoPoint(eta!.latitude!, eta.longitude!)
         : null;
 
     if (_inTrip) {
+      if (driverPoint != null) _noteStopsReached(driverPoint);
       return (
         from:
             driverPoint ??
@@ -2494,6 +2532,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
               widget.pickupPosition.latitude,
               widget.pickupPosition.longitude,
             ),
+        // rider-u62/u63: through the stops still ahead, never straight to
+        // the destination past them.
+        via: _remainingStops(),
         to: GeoPoint(
           widget.destinationPosition.latitude,
           widget.destinationPosition.longitude,
@@ -2504,6 +2545,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     if (driverPoint == null) return null;
     return (
       from: driverPoint,
+      via: const <GeoPoint>[],
       to: GeoPoint(
         widget.pickupPosition.latitude,
         widget.pickupPosition.longitude,
@@ -2519,25 +2561,31 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     String keyFor(GeoPoint point) =>
         '${point.latitude.toStringAsFixed(4)},${point.longitude.toStringAsFixed(4)}';
     final requestKey =
-        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>${keyFor(endpoints.to)}';
+        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>'
+        '${endpoints.via.map(keyFor).join('>')}>${keyFor(endpoints.to)}';
     if (!force && requestKey == _routeKey) return;
 
     _routeKey = requestKey;
     _lastRouteRefresh = DateTime.now();
-    final route = await roadRoutePolyline(
+    final resolved = await roadRoutePolylineVia(
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
+      via: [
+        for (final stop in endpoints.via)
+          LatLng(stop.latitude, stop.longitude),
+      ],
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
       color: RiderRouteStyle.color,
     );
+    final route = resolved.route;
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
-    // roadRoutePolyline falls back to a straight two-point line whenever a
-    // real road route can't be resolved. A genuine road route for anything
-    // but a trivially short hop has more than two vertices, so this is a
+    // A leg falls back to a straight two-point line whenever a real road
+    // route can't be resolved. A genuine road route for anything but a
+    // trivially short hop has more than two vertices, so this is a
     // reasonable signal to tell the rider the line is approximate rather
     // than implying turn-by-turn accuracy that isn't there.
-    final approximate = route.points.length <= 2;
+    final approximate = resolved.approximate;
     if (_inTrip && !approximate) {
       widget.onTripRoute?.call([
         for (final point in route.points)
