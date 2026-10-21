@@ -224,11 +224,25 @@ class ActiveRideController {
       );
       return null;
     }
-    final outcome = (await _requestServerCancel(recovered)).outcome;
+    final result = await _requestServerCancel(recovered);
+    final outcome = result.outcome;
     AppLog.info(
       'ride.cancel.untracked_ride',
       extra: {'rideId': recovered, 'outcome': outcome.name},
     );
+    // rider-r4-25: like every other cancel path, keep the ride (and any
+    // fee) in History and stop realtime before Home clears the snapshot.
+    // The session is not this ride's (it lost the id), so it is left to
+    // RideNavigator.home to reset.
+    if (outcome == RideCancelOutcome.confirmed) {
+      AppScope.instance.rideRealtime.cancelRide();
+      await _archive(
+        await _store.historyCandidate(),
+        RideStatus.cancelledByRider,
+        expectedRideId: recovered,
+        cancellationFee: result.fee,
+      );
+    }
     return outcome;
   }
 
