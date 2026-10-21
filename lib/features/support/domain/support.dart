@@ -10,6 +10,7 @@ class SupportRide {
     this.currency = 'SEK',
     this.cancelled = false,
     this.failed = false,
+    this.endedEarly = false,
     this.extra,
     this.id,
   });
@@ -25,6 +26,10 @@ class SupportRide {
   final String image;
   final bool cancelled;
   final bool failed;
+
+  /// UI-01: the rider ended the trip on board; [price] is what they were
+  /// charged for the distance driven.
+  final bool endedEarly;
   final String? extra;
 
   /// "20 Oct · 09:05" in the app language (24-hour, as elsewhere).
@@ -45,6 +50,9 @@ class SupportRide {
           : L10n.current.supportPriceCancelledExtra(zero, extra!);
     }
     if (failed) return L10n.current.supportFailed;
+    if (endedEarly) {
+      return '${formatMajor(price, currency)} · ${L10n.current.endedEarly}';
+    }
     return formatMajor(price, currency);
   }
 }
