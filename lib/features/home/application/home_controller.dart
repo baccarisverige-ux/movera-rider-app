@@ -92,6 +92,12 @@ final class GeocodeStale<T> extends GeocodeOutcome<T> {
   const GeocodeStale();
 }
 
+/// The lookup itself failed (offline, a timeout, a server error), as
+/// opposed to finding nothing (rider-45).
+final class GeocodeFailed<T> extends GeocodeOutcome<T> {
+  const GeocodeFailed();
+}
+
 /// Whether [text] is a raw "lat, lng" coordinate string (D-004).
 bool isRawCoordinateLabel(String? text) => RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
@@ -263,7 +269,14 @@ class HomeLocationController extends ChangeNotifier {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
     final scope = generation ?? _normaliseGuard.next();
-    final result = await geocoding.forward(clean);
+    PlaceResult? result;
+    try {
+      result = await geocoding.forward(clean);
+    } catch (_) {
+      // rider-45: normalising only tidies the text; a failed lookup keeps
+      // what the rider chose instead of aborting the flow.
+      return clean;
+    }
     if (!_normaliseGuard.isCurrent(scope)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
@@ -281,7 +294,13 @@ class HomeLocationController extends ChangeNotifier {
   /// call superseded this one" (RIDE-18).
   Future<GeocodeOutcome<LatLng>> resolveLatLng(String address) async {
     final generation = _pointGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound(LatLng(result.point.latitude, result.point.longitude));
@@ -293,7 +312,13 @@ class HomeLocationController extends ChangeNotifier {
     String address,
   ) async {
     final generation = _placeGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound((

@@ -649,6 +649,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             MoveraToast.show(context, context.l10n.homeChooseValidDestination);
           }
           return null;
+        case GeocodeFailed():
+          // rider-45: offline or the lookup failed; say so, never abort
+          // silently.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
@@ -866,6 +873,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         case GeocodeStale():
           // RIDE-18: superseded — never swap the typed pickup for GPS.
           return null;
+        case GeocodeFailed():
+          // rider-45: the lookup failed; the typed pickup is not swapped for
+          // GPS either.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
         case GeocodeNotFound():
           break;
       }
@@ -910,6 +924,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (geocoded == null) {
         if (mounted && outcome is GeocodeNotFound) {
           MoveraToast.show(context, context.l10n.homeChooseValidDestination);
+        } else if (mounted && outcome is GeocodeFailed) {
+          MoveraToast.show(context, context.l10n.routeCouldNotReach);
         }
         return null;
       }
