@@ -156,6 +156,17 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   Widget build(BuildContext context) {
     final phone = _phone;
     final complete = RidePin.isValidFormat(_pin.text.trim());
+    // rider-r3-10: no way back while the code is being checked. Leaving
+    // here unmounted the screen that opens the app (or the new-rider name
+    // step) once the verify signs the rider in, so a signed-in rider was
+    // left on the Sign in form.
+    return PopScope(
+      canPop: !_submitting,
+      child: _content(context, phone, complete),
+    );
+  }
+
+  Widget _content(BuildContext context, String? phone, bool complete) {
     return AuthScaffold(
       step: 2,
       onBack: () => Navigator.of(context).maybePop(),
