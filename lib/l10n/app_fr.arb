@@ -723,6 +723,7 @@
   "driverChangedBody": "{previous} ne peut plus vous conduire. {current} a accepté votre course.",
   "driverLeftTitle": "Recherche d’un nouveau chauffeur",
   "driverLeftBody": "{name} ne peut plus vous conduire. Nous vous cherchons un nouveau chauffeur.",
+  "driverLeftBodyUnnamed": "Votre chauffeur ne peut plus vous conduire. Nous vous cherchons un nouveau chauffeur.",
   "scheduledRides": "Courses planifiées",
   "historyHowBody": "Choisissez une heure à l’avance. Votre réservation, le prix estimé réservé et l’attribution du chauffeur restent regroupés dans À venir.",
   "historyHow": "Fonctionnement de l’historique",

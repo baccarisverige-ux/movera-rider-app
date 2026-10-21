@@ -1521,6 +1521,7 @@
       }
     }
   },
+  "driverLeftBodyUnnamed": "Your driver can no longer drive you. We're finding you a new driver.",
   "scheduledRides": "Scheduled rides",
   "historyHowBody": "Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.",
   "historyHow": "How history works",

@@ -170,9 +170,12 @@ abstract final class ReservationFormat {
     }
   }
 
+  /// [showDriver] false (admin's showDriverOnAccept off, driver not yet on
+  /// the way) keeps the driver's name out of the body (rider-u163).
   static String statusBody(
     Reservation ride, {
     required String assignmentDisclaimer,
+    bool showDriver = true,
   }) {
     switch (ride.status) {
       case ReservationStatus.cancelled:
@@ -187,7 +190,7 @@ abstract final class ReservationFormat {
       case ReservationStatus.driverArrived:
       case ReservationStatus.inProgress:
         final driver = ride.driver;
-        if (driver == null) {
+        if (driver == null || !showDriver) {
           return L10n.current.resBodyDriverAssigned;
         }
         return L10n.current.resBodyNameAssigned(driver.firstName);
@@ -285,7 +288,12 @@ abstract final class ReservationFormat {
 
   static String get driverLeftTitle => L10n.current.driverLeftTitle;
 
-  static String driverLeftBody(ReservationDriver previous) {
+  /// [showName] false: the leaving driver was never shown (rider-u163).
+  static String driverLeftBody(
+    ReservationDriver previous, {
+    bool showName = true,
+  }) {
+    if (!showName) return L10n.current.driverLeftBodyUnnamed;
     return L10n.current.driverLeftBody(previous.displayFirstName);
   }
 }

@@ -723,6 +723,7 @@
   "driverChangedBody": "{previous} kan inte längre köra dig. {current} har accepterat din resa.",
   "driverLeftTitle": "Letar efter en ny förare",
   "driverLeftBody": "{name} kan inte längre köra dig. Vi letar efter en ny förare åt dig.",
+  "driverLeftBodyUnnamed": "Din förare kan inte längre köra dig. Vi letar efter en ny förare åt dig.",
   "scheduledRides": "Förbokade resor",
   "historyHowBody": "Välj en tid i förväg. Din bokning, det bokade uppskattade priset och förartilldelningen finns samlade under Kommande.",
   "historyHow": "Så fungerar historiken",

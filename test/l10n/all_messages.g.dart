@@ -729,6 +729,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'driverChangedBody': l.driverChangedBody('<previous>', '<current>'),
   'driverLeftTitle': l.driverLeftTitle,
   'driverLeftBody': l.driverLeftBody('<name>'),
+  'driverLeftBodyUnnamed': l.driverLeftBodyUnnamed,
   'scheduledRides': l.scheduledRides,
   'historyHowBody': l.historyHowBody,
   'historyHow': l.historyHow,
@@ -2926,6 +2927,8 @@ class _Exhaustive implements AppLocalizations {
   String get driverLeftTitle => '';
   @override
   String driverLeftBody(String name) => '';
+  @override
+  String get driverLeftBodyUnnamed => '';
   @override
   String get scheduledRides => '';
   @override

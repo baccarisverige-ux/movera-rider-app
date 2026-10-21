@@ -291,6 +291,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   body: ReservationFormat.statusBody(
                     ride,
                     assignmentDisclaimer: policy.assignmentDisclaimer,
+                    showDriver: showDriver,
                   ),
                   positive: !ride.status.isCancelled,
                 ),
@@ -314,7 +315,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ReservationStatusBanner(
                     key: const Key('reservation-driver-left'),
                     title: ReservationFormat.driverLeftTitle,
-                    body: ReservationFormat.driverLeftBody(previousDriver),
+                    body: ReservationFormat.driverLeftBody(
+                      previousDriver,
+                      showName: _reservations.rules.showDriverOnAccept,
+                    ),
                     positive: false,
                   ),
                 ],
