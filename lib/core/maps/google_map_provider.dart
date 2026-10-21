@@ -21,6 +21,11 @@ class GoogleMapProvider implements MapProvider {
   CameraMode mode = CameraMode.followUser;
   void Function(String? owner, int generation)? onOwnerDebug;
 
+  /// Tests: told about every [moveCamera] / [animateCamera] request and the
+  /// owner it would move, before the active map is checked.
+  @visibleForTesting
+  void Function(String? owner, GeoPoint target)? debugOnCameraCommand;
+
   GoogleMapController? get controller =>
       _owners.isEmpty ? null : _owners.last.controller;
 
@@ -86,6 +91,7 @@ class GoogleMapProvider implements MapProvider {
 
   @override
   Future<void> moveCamera(GeoPoint target, {double zoom = 15}) async {
+    debugOnCameraCommand?.call(activeOwner, target);
     final map = controller;
     if (map == null || !_mayMove(map, true)) return;
     await placeCameraAt(map, _pose(target, zoom, 0));
@@ -98,6 +104,7 @@ class GoogleMapProvider implements MapProvider {
     double bearing = 0,
     bool follow = false,
   }) async {
+    debugOnCameraCommand?.call(activeOwner, target);
     final map = controller;
     if (map == null || !_mayMove(map, follow)) return;
     await easeCameraTo(

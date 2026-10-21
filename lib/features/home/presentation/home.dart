@@ -441,7 +441,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         },
         onPulse: _updateLocationVisuals,
       );
-      await AppScope.instance.maps.animateCamera(
+      // rider-44: a late fix must not glide the map of the screen on top
+      // (pickup, Set pickup, Select ride). Home's own map re-centres on
+      // [_currentLatLng] when it is created again.
+      final maps = AppScope.instance.maps;
+      if (!mounted ||
+          _mapParked.value ||
+          maps.activeOwner != MapOwners.home) {
+        return;
+      }
+      await maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
         zoom: homeOpeningZoom,
         follow: true,

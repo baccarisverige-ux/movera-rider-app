@@ -9,9 +9,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +23,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// driven by hand.
 class _SlowGeolocator extends GeolocatorPlatform {
   int failFirst = 1;
+
+  /// While set, one-shot fixes wait for it (a slow first fix).
+  Completer<void>? gate;
   double lat = 59.3293;
   double lng = 18.0686;
   int currentPositionCalls = 0;
@@ -71,6 +77,8 @@ class _SlowGeolocator extends GeolocatorPlatform {
     if (currentPositionCalls <= failFirst) {
       throw TimeoutException('cold fix');
     }
+    final wait = gate;
+    if (wait != null) await wait.future;
     return position;
   }
 
@@ -180,6 +188,35 @@ void main() {
     await frames(tester, 30);
     expect(puckPainted(tester), isTrue);
     expect(find.text('Location off, set pickup'), findsNothing);
+    await tearDownHome(tester);
+  });
+
+  testWidgets('rider-44: a late first fix does not move the map of the '
+      'screen on top of Home', (tester) async {
+    gps
+      ..failFirst = 0
+      ..gate = Completer<void>();
+    final maps = AppScope.instance.maps;
+    final commands = <String?>[];
+    maps.debugOnCameraCommand = (owner, GeoPoint target) {
+      if (target.latitude == gps.lat) commands.add(owner);
+    };
+    addTearDown(() {
+      maps.debugOnCameraCommand = null;
+      maps.detach(owner: MapOwners.pickup);
+    });
+    await pumpHome(tester);
+    // The rider moves on before the fix lands: Home parks under a page and
+    // that page's map takes the camera.
+    await tester.tap(find.byIcon(Icons.menu_open_rounded));
+    await frames(tester, 10);
+    expect(find.byType(RiderMenuPage), findsOneWidget);
+    maps.debugAttach(MapOwners.pickup);
+    gps.gate!.complete();
+    gps.gate = null;
+    await liveTrackingStarted(tester);
+    await frames(tester, 10);
+    expect(commands, isNot(contains(MapOwners.pickup)));
     await tearDownHome(tester);
   });
 }
