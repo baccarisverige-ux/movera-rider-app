@@ -54,9 +54,20 @@ class _ScheduleRideState extends State<ScheduleRide> {
   /// booking exist end to end (blocked on backend).
   static const bool _stopsSupported = true;
 
+  // rider-87: the "Current location" stand-in, in the app language. The
+  // ride still records the stand-in itself ([_pickupLabel]).
   final TextEditingController _pickupController = TextEditingController(
-    text: 'Current location',
+    text: L10n.place('Current location'),
   );
+
+  /// The pickup as the booking reads it: the translated stand-in shown in
+  /// the field is the "Current location" stand-in.
+  String get _pickupLabel {
+    final text = _pickupController.text;
+    return text.trim() == L10n.current.currentLocation
+        ? 'Current location'
+        : text;
+  }
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
@@ -80,7 +91,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
     super.initState();
     final editing = widget.editing;
     if (editing != null) {
-      _pickupController.text = editing.pickup.label;
+      _pickupController.text = L10n.place(editing.pickup.label);
       _dropoffController.text = editing.destination.label;
       _session.captureSchedule(editing.scheduledPickupAt);
       _session.captureRideType(editing.categoryId);
@@ -114,7 +125,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void _syncRouteToSession() {
     _session.captureRoute(
-      pickup: _pickupController.text,
+      pickup: _pickupLabel,
       dropoff: _dropoffController.text,
       stops: _stopControllers
           .map((controller) => controller.text.trim())
@@ -174,15 +185,15 @@ class _ScheduleRideState extends State<ScheduleRide> {
   Future<void> _confirmPickupThenCalendar() async {
     // Only the camera start for the pin screen: the rider confirms the real
     // spot there (CODE-5), so a missing fix just opens the default view.
-    final start = await resolveScheduledPoint(_pickupController.text) ??
+    final start = await resolveScheduledPoint(_pickupLabel) ??
         _initialPosition.target;
     if (!mounted) return;
     final spot = await ConfirmPickupSpot.open(
       context,
       initialPosition: start,
-      initialAddress: _pickupController.text.trim().isEmpty
+      initialAddress: _pickupLabel.trim().isEmpty
           ? 'Current location'
-          : _pickupController.text.trim(),
+          : _pickupLabel.trim(),
       confirmLabel: context.l10n.confirmPickupSpot,
     );
     if (spot == null || !mounted) return;
@@ -198,7 +209,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       GeoPoint(spot.position.latitude, spot.position.longitude),
       GeoPoint(dropoff.latitude, dropoff.longitude),
     );
-    _pickupController.text = spot.address;
+    _pickupController.text = L10n.place(spot.address);
     _session.capturePickupPoint(
       spot.position.latitude,
       spot.position.longitude,
