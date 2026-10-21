@@ -810,7 +810,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errProvider': l.errProvider('<provider>'),
   'thatAccount': l.thatAccount,
   'pickupTimeUpdated': l.pickupTimeUpdated,
-  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(3),
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(37),
   'selectDate': l.selectDate,
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
@@ -1269,6 +1269,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resThingsToKnow': l.resThingsToKnow,
   'resViewTerms': l.resViewTerms,
   'resYourDriverName': l.resYourDriverName('<name>'),
+  'resPlateLabel': l.resPlateLabel('<plate>'),
+  'restoringRide': l.restoringRide,
   'resYourDriverCaps': l.resYourDriverCaps,
   'resWaitingTime': l.resWaitingTime,
   'resCancellation': l.resCancellation,
@@ -1329,6 +1331,7 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'homeRideCount': l.homeRideCount(1),
   'ridesLeft': l.ridesLeft(1),
   'ratingStarsValue': l.ratingStarsValue(1),
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
   'validUntilDays': l.validUntilDays('<date>', 1),
   'driverTripCount': l.driverTripCount(1),
   'tripSharingStarted': l.tripSharingStarted(1),
@@ -1492,6 +1495,7 @@ const messagePlaceholders = <String, List<String>>{
   'retrySeconds': [],
   'resSeatsPayment': ['payment'],
   'resYourDriverName': ['name'],
+  'resPlateLabel': ['plate'],
   'resCostsMore': ['amount'],
   'resCostsLess': ['amount'],
   'resCancelBody': ['date', 'time'],
@@ -1504,6 +1508,7 @@ const messageCounts = <String, List<String>>{
   'homeRideCount': ['count'],
   'ridesLeft': ['count'],
   'ratingStarsValue': ['count'],
+  'pickupTimeWithinHorizon': ['days'],
   'validUntilDays': ['days'],
   'driverTripCount': ['count'],
   'tripSharingStarted': ['count'],
@@ -4044,6 +4049,10 @@ class _Exhaustive implements AppLocalizations {
   String get resViewTerms => '';
   @override
   String resYourDriverName(String name) => '';
+  @override
+  String resPlateLabel(String plate) => '';
+  @override
+  String get restoringRide => '';
   @override
   String get resYourDriverCaps => '';
   @override

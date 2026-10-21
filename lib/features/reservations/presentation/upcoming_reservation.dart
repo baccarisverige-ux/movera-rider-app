@@ -522,7 +522,8 @@ class ReservationDriverCard extends StatelessWidget {
       label: [
         context.l10n.resYourDriverName(driver.displayFirstName),
         if (car != null) car,
-        if (driver.plate != null) 'plate ${driver.plate}',
+        // rider-68: in the app language.
+        if (driver.plate != null) context.l10n.resPlateLabel(driver.plate!),
       ].join(', '),
       child: Container(
         key: const Key('reservation-driver-card'),

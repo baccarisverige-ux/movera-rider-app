@@ -1263,6 +1263,8 @@
   "resThingsToKnow": "Bra att veta",
   "resViewTerms": "Visa villkor för förbokade resor",
   "resYourDriverName": "Din förare {name}",
+  "resPlateLabel": "registreringsnummer {plate}",
+  "restoringRide": "Återställer din resa",
   "resYourDriverCaps": "DIN FÖRARE",
   "resWaitingTime": "Väntetid",
   "resCancellation": "Avbokning",

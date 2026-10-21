@@ -2463,6 +2463,19 @@
       }
     }
   },
+  "resPlateLabel": "plate {plate}",
+  "@resPlateLabel": {
+    "description": "Screen-reader part of the driver card: the car's registration plate.",
+    "placeholders": {
+      "plate": {
+        "type": "String"
+      }
+    }
+  },
+  "restoringRide": "Restoring your ride",
+  "@restoringRide": {
+    "description": "Screen-reader label of the spinner shown while a live ride is restored on start."
+  },
   "resYourDriverCaps": "YOUR DRIVER",
   "resWaitingTime": "Waiting time",
   "resCancellation": "Cancellation",

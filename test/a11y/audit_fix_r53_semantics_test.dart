@@ -19,10 +19,12 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
+import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 5 R5.3: small semantics checks (label, tap action, value, size)
@@ -261,6 +263,27 @@ void main() {
 
     await pump(tester, const ScheduleRide());
     expectNamedButton('Back');
+    handle.dispose();
+  });
+
+  testWidgets('rider-68: the driver card reads the plate in the app language',
+      (tester) async {
+    L10n.use('sv');
+    addTearDown(() => L10n.use('en'));
+    final handle = tester.ensureSemantics();
+    await pump(
+      tester,
+      const Scaffold(
+        body: ReservationDriverCard(
+          driver: ReservationDriver(firstName: 'Anna', plate: 'ABC 123'),
+        ),
+      ),
+    );
+    final card = find.bySemanticsLabel(RegExp('Anna'));
+    final label = tester.getSemantics(card).label;
+    expect(label, contains('registreringsnummer ABC 123'));
+    expect(label, isNot(contains('plate')));
+    expect(L10n.current.restoringRide, isNot('Restoring active ride'));
     handle.dispose();
   });
 }

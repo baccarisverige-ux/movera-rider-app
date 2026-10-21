@@ -1263,6 +1263,8 @@
   "resThingsToKnow": "Bon à savoir",
   "resViewTerms": "Voir les conditions des trajets planifiés",
   "resYourDriverName": "Votre chauffeur {name}",
+  "resPlateLabel": "plaque {plate}",
+  "restoringRide": "Récupération de votre course",
   "resYourDriverCaps": "VOTRE CHAUFFEUR",
   "resWaitingTime": "Temps d'attente",
   "resCancellation": "Annulation",
