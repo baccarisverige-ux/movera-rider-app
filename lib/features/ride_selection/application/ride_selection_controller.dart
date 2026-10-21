@@ -234,7 +234,7 @@ class RideSelectionController {
   Future<void> loadSavedCards() async {
     final current = selectedPaymentItem()?.brand;
     await _savedCards.load();
-    if (current != null) selectPaymentByBrand(current);
+    _reselect(current);
   }
 
   List<RidePaymentItem> payments() {
@@ -288,12 +288,35 @@ class RideSelectionController {
   void _keepPayment(void Function() change) {
     final current = selectedPaymentItem()?.brand;
     change();
-    if (current != null && payments().any((item) => item.brand == current)) {
+    _reselect(current);
+  }
+
+  /// After the payment rows changed: the method asked for before it was
+  /// offered ([_wanted]) when it now is, else [current] by brand, else
+  /// the default.
+  void _reselect(String? current) {
+    final list = payments();
+    final wanted = _wanted;
+    if (wanted != null) {
+      final i = list.indexWhere(wanted);
+      if (i >= 0) {
+        selectedPayment = i;
+        _wanted = null;
+        return;
+      }
+    }
+    if (current != null && list.any((item) => item.brand == current)) {
       selectPaymentByBrand(current);
     } else {
       _selectDefaultPayment();
     }
   }
+
+  /// A method that was asked for (the saved default) before it was
+  /// offered: the wallet row appears only once the balance has loaded, so
+  /// it is chosen when it does (rider-75). A choice the rider makes
+  /// meanwhile wins.
+  bool Function(RidePaymentItem item)? _wanted;
 
   int beginQuotes() => ++_quoteGeneration;
 
@@ -559,6 +582,7 @@ class RideSelectionController {
       return;
     }
     selectedPayment = index.clamp(0, list.length - 1).toInt();
+    _wanted = null;
     _persistSelectedBrand();
   }
 
@@ -593,7 +617,10 @@ class RideSelectionController {
     final list = payments();
     if (saved == null || !list.any((item) => item.brand == saved)) {
       _selectDefaultPayment();
+      // Not offered yet (the wallet before its balance has loaded).
+      if (saved != null) _wanted = (item) => item.brand == saved;
     } else {
+      _wanted = null;
       selectPaymentByBrand(saved);
     }
     selectedPaymentItem();
@@ -602,21 +629,13 @@ class RideSelectionController {
   /// Q7: the zone's payment methods. Keeps the chosen method when it is
   /// still offered, else falls back to the default.
   void setZonePaymentMethods(List<String> methods) {
-    final current = selectedPaymentItem()?.brand;
-    zonePaymentMethods = List.unmodifiable(methods);
-    final list = payments();
-    if (current != null && list.any((item) => item.brand == current)) {
-      selectPaymentByBrand(current);
-    } else {
-      _selectDefaultPayment();
-    }
+    _keepPayment(() => zonePaymentMethods = List.unmodifiable(methods));
   }
 
-  /// Keeps the chosen method when the list changes (e.g. the wallet appears).
+  /// Keeps the chosen method when the list changes (e.g. the wallet
+  /// appears), or takes the one asked for before the wallet was offered.
   void setWalletBalance(double balance) {
-    final current = selectedPaymentItem()?.brand;
-    walletBalance = balance;
-    if (current != null) selectPaymentByBrand(current);
+    _keepPayment(() => walletBalance = balance);
   }
 
   void _persistSelectedBrand() {
