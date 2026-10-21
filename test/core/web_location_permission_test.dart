@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/saved_places/application/current_address.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// geolocator_web: the Permissions API says 'prompt' (denied) until the
 /// rider answers, and requestPermission() returns deniedForever for any
@@ -54,6 +57,34 @@ void main() {
     expect(
       await request(LocationPermission.deniedForever),
       LocationPermission.deniedForever,
+    );
+  });
+
+  Future<String> currentAddressError(LocationPermission afterRequest) async {
+    GeolocatorPlatform.instance = _WebGeolocator(afterRequest);
+    try {
+      await resolveCurrentAddress(
+        location: const LocationRepository(isWeb: true),
+        reverse: (GeoPoint _) async => 'Sveavägen 1',
+      );
+    } on CurrentAddressException catch (error) {
+      return error.message;
+    }
+    fail('resolveCurrentAddress did not throw');
+  }
+
+  test('CURRENT in Add place says where the web problem really is', () async {
+    expect(
+      await currentAddressError(LocationPermission.whileInUse),
+      L10n.current.spWhereYouAreNotFound,
+    );
+    expect(
+      await currentAddressError(LocationPermission.denied),
+      L10n.current.spLocationDenied,
+    );
+    expect(
+      await currentAddressError(LocationPermission.deniedForever),
+      L10n.current.spWebLocationDeniedForever,
     );
   });
 }

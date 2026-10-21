@@ -53,6 +53,9 @@ class _FailingGeocoding implements GeocodingRepository {
 
 class _Location implements LocationRepository {
   @override
+  bool get isWeb => false;
+
+  @override
   Future<bool> isLocationServiceEnabled() async => true;
 
   @override

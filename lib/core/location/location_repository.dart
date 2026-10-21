@@ -11,7 +11,9 @@ class LocationRepository {
   const LocationRepository({bool? isWeb}) : _isWeb = isWeb;
 
   final bool? _isWeb;
-  bool get _web => _isWeb ?? kIsWeb;
+
+  /// Whether the browser's geolocation backs this repository.
+  bool get isWeb => _isWeb ?? kIsWeb;
 
   /// Where the app keeps its own last good high-accuracy fix (Batch 10
   /// Phase 110). Coordinates only; used solely as a map-camera hint.
@@ -39,7 +41,7 @@ class LocationRepository {
   /// and the caller's position request reports it as unavailable.
   Future<LocationPermission> requestPermission() async {
     final requested = await Geolocator.requestPermission();
-    if (!_web || requested != LocationPermission.deniedForever) {
+    if (!isWeb || requested != LocationPermission.deniedForever) {
       return requested;
     }
     try {

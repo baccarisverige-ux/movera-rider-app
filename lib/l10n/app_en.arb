@@ -2314,6 +2314,7 @@
   },
   "spLocationOff": "Location is turned off. Turn it on, or search for the address.",
   "spLocationDeniedForever": "Location access is off for Movera. Allow it in Settings, or search for the address.",
+  "spWebLocationDeniedForever": "Location is blocked for this site. Allow it in your browser settings, or search for the address.",
   "spLocationDenied": "Allow location access to use where you are, or search for the address.",
   "spNoAddressHere": "We couldn’t find an address for where you are. Search for it instead.",
   "spLocationUnavailable": "Location unavailable",

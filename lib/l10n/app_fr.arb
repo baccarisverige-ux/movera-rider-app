@@ -1183,6 +1183,7 @@
   "spDeletePlace": "Supprimer {place}",
   "spLocationOff": "La localisation est désactivée. Activez-la ou recherchez l'adresse.",
   "spLocationDeniedForever": "L'accès à la localisation est désactivé pour Movera. Autorisez-le dans les Réglages ou recherchez l'adresse.",
+  "spWebLocationDeniedForever": "La localisation est bloquée pour ce site. Autorisez-la dans les réglages du navigateur ou recherchez l'adresse.",
   "spLocationDenied": "Autorisez l'accès à la localisation pour utiliser votre position, ou recherchez l'adresse.",
   "spNoAddressHere": "Impossible de trouver une adresse là où vous êtes. Recherchez-la plutôt.",
   "spLocationUnavailable": "Position indisponible",
