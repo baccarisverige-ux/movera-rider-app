@@ -1,5 +1,7 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart'
+    show isPlaceholderPickupLabel, isRawCoordinateLabel;
 import 'package:movera_rider/features/home/data/home_repository.dart';
 
 class SavedPlaceData {
@@ -100,9 +102,11 @@ class HomePlacesController {
     );
   }
 
+  /// rider-46: placeholders ('Location off, set pickup') and raw
+  /// coordinates are not places; they never become Recents.
   void remember(String address) {
     final clean = address.trim();
-    if (clean.isEmpty || clean == 'Current location') return;
+    if (isPlaceholderPickupLabel(clean) || isRawCoordinateLabel(clean)) return;
     recentAddresses.removeWhere(
       (saved) => saved.toLowerCase() == clean.toLowerCase(),
     );
@@ -134,6 +138,8 @@ class HomePlacesController {
     String? customType,
     String? placeId,
   }) {
+    // rider-46: a placeholder is never saved as a place.
+    if (target != 'pickup' && isPlaceholderPickupLabel(address)) return;
     switch (target) {
       case 'pickup':
         pickupAddress = address;

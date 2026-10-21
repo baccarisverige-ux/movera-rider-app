@@ -587,6 +587,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return value;
   }
 
+  /// rider-46: the pickup label when it names a real place, else null. With
+  /// location off it is the placeholder 'Location off, set pickup', which
+  /// must never be saved as Home, Work or a Recent.
+  String? _currentAddressToSave() {
+    final value = _placeOrNull(_pickupAddress);
+    if (value == null ||
+        isPlaceholderPickupLabel(value) ||
+        isUnusablePickupLabel(value)) {
+      return null;
+    }
+    return value;
+  }
+
   /// Long-press on Home / Work / a custom place: change its address.
   Future<void> _editSavedPlace(String target, {String? customType}) =>
       _showAddressPicker(target: target, customType: customType);
@@ -1294,11 +1307,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           child: InkWell(
                             // Save the real street address, never the
                             // words "Current location".
-                            onTap: _placeOrNull(_pickupAddress) == null
+                            onTap: _currentAddressToSave() == null
                                 ? null
                                 : () => Navigator.pop(
                                     sheetContext,
-                                    _placeOrNull(_pickupAddress),
+                                    _currentAddressToSave(),
                                   ),
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
