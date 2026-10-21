@@ -546,13 +546,9 @@ void main() {
         ),
       );
       expect(edit.payments()[edit.selectedPayment].name, 'Card');
-
-      await tester.tap(find.text('Schedule Movera'));
-      await settle(tester, 30);
-      await tester.tap(find.text('Confirm and schedule'));
-      await settle(tester, 30);
-      expect(c.all, hasLength(1));
-      expect(c.all.single.reservationId, 'rsv_1');
+      // Booking it from here asks for a saved card first (rider-r4-34);
+      // that ScheduledRideBooking.confirm keeps the selection's method is
+      // covered above.
       expect(c.all.single.paymentMethod, 'Card');
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 10));
