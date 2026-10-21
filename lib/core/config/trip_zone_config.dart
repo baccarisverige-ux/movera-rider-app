@@ -57,14 +57,16 @@ RiderAppConfig? seedConfigForTrip(String currency) =>
     SeedRiderConfigRepository.seedForCurrency(currency);
 
 /// The zone the rider is in now, for screens with no trip (Wallet,
-/// Payment): the zone of the app's last good location fix, else the home
-/// zone. Never throws.
+/// Payment): the zone of the app's last good location fix, else the zone
+/// of the last fix this device ever had (sign-out drops the fix, not the
+/// zone: rider-r4-41), else the home zone. Never throws.
 Future<RiderZone> currentRiderZone({
   LocationRepository location = const LocationRepository(),
 }) async {
   try {
     final fix = await location.readLastGoodFix();
-    return RiderZones.at(fix?.latitude, fix?.longitude);
+    if (fix != null) return RiderZones.at(fix.latitude, fix.longitude);
+    return await LocationRepository.readLastZone() ?? RiderZones.home;
   } catch (_) {
     return RiderZones.home;
   }

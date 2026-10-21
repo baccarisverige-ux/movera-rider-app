@@ -29,6 +29,9 @@ Future<void> maybeShowPushPrimer(
     builder: (_) =>
         PushPrimerSheet(gate: gate, openAppSettings: openAppSettings),
   );
+  // rider-r4-45: swiped away, barrier or Back without a choice is "Not
+  // now", so the explanation is not shown again after every sign-in.
+  if (await gate.consent() == PushConsent.unknown) await gate.decline();
 }
 
 /// "Get ride updates": why Movera wants notifications, then "Turn on" (the

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,6 +13,12 @@ class LocationRepository {
   /// Where the app keeps its own last good high-accuracy fix (Batch 10
   /// Phase 110). Coordinates only; used solely as a map-camera hint.
   static const lastGoodFixKey = 'movera.location.last_good_fix.v1';
+
+  /// rider-r4-41: the zone id of the last good fix (a country, never a
+  /// position). A device setting like the app language: the session wipe
+  /// keeps it, so a cold start after sign-out still speaks the zone's
+  /// default language instead of the home zone's.
+  static const lastZoneKey = 'movera.location.last_zone.v1';
 
   Future<bool> isLocationServiceEnabled() {
     return Geolocator.isLocationServiceEnabled();
@@ -82,12 +89,27 @@ class LocationRepository {
           'savedAt': DateTime.now().toUtc().toIso8601String(),
         }),
       );
+      await prefs.setString(
+        lastZoneKey,
+        RiderZones.at(point.latitude, point.longitude).id,
+      );
     } catch (_) {
       // Best effort only.
     }
   }
 
-  /// Forgets the app's last good fix. Called when a session ends (sign-out
+  /// The zone of the last good fix ever saved on this device, kept across
+  /// sign-out. Null when none was saved or it is unreadable.
+  static Future<RiderZone?> readLastZone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return RiderZones.byId(prefs.getString(lastZoneKey));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Forgets the app's last good fix (not [lastZoneKey]). Called when a session ends (sign-out
   /// and session expiry) so the next person using a shared or handed-down
   /// phone never sees the previous rider's last position. Best effort.
   static Future<void> clearLastGoodFix() async {

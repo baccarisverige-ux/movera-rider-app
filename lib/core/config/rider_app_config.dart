@@ -291,7 +291,8 @@ class RiderAppConfig {
         'reservation',
         base?.reservationCancelFees ?? const {},
       ),
-      waiting: _waiting(raw['waiting'], money) ?? base?.waiting,
+      waiting:
+          _waiting(raw['waiting'], money, base?.waiting) ?? base?.waiting,
       cancelReasons:
           _reasons(raw['cancelReasons']) ?? fallback?.cancelReasons ?? const [],
       rideCheck: _flat(raw['rideCheck']) ?? fallback?.rideCheck ?? const {},
@@ -355,21 +356,24 @@ class RiderAppConfig {
     };
   }
 
+  /// rider-r4-3: a missing or bad field falls back on its own (CONTRACT
+  /// §6), never the whole block: the free wait takes [base]'s (else 5
+  /// min), the no-show wait equals the free wait (Q41), and the money takes
+  /// [base]'s terms in the same currency. Null only when the block is
+  /// absent or no money can be found for it.
   static RiderWaitingRules? _waiting(
     Object? raw,
     Money? Function(Object?) money,
+    RiderWaitingRules? base,
   ) {
     if (raw is! Map) return null;
-    final freeWait = _count(raw['freeWaitMin'], max: 120);
-    final noShowAfter = _count(raw['noShowAfterMin'], max: 120);
-    final perMin = money(raw['perMin']);
-    final noShowFee = money(raw['noShowFee']);
-    if (freeWait == null ||
-        noShowAfter == null ||
-        perMin == null ||
-        noShowFee == null) {
-      return null;
-    }
+    final freeWait = _count(raw['freeWaitMin'], max: 120) ??
+        base?.freeWaitMin ??
+        ZoneDefaults.freeWaitMin;
+    final noShowAfter = _count(raw['noShowAfterMin'], max: 120) ?? freeWait;
+    final perMin = money(raw['perMin']) ?? base?.perMin;
+    final noShowFee = money(raw['noShowFee']) ?? base?.noShowFee;
+    if (perMin == null || noShowFee == null) return null;
     return RiderWaitingRules(
       freeWaitMin: freeWait,
       perMin: perMin,
@@ -697,7 +701,9 @@ class LiveCancelFeePreview {
 
   final Money fee;
 
-  /// Whole minutes the cancel stays free; 0 once a fee applies.
+  /// Whole minutes the cancel stays free; 0 once the free window is over
+  /// (a fee applies, or a zero-fee rule keeps it free for good). Never
+  /// negative (rider-r4-18).
   final int freeMinutesLeft;
 
   /// The preview for [categoryId] with [fare], [acceptedAt] being when the
@@ -716,7 +722,9 @@ class LiveCancelFeePreview {
     final fee = CancelFeeCalculator.live(rule, fare, minutes);
     return LiveCancelFeePreview(
       fee: fee,
-      freeMinutesLeft: fee.isPositive ? 0 : rule.freeMin - minutes,
+      freeMinutesLeft: fee.isPositive || minutes >= rule.freeMin
+          ? 0
+          : rule.freeMin - minutes,
     );
   }
 }

@@ -825,7 +825,10 @@ class InProcessMockClient extends http.BaseClient {
           if (reason is String) ride['cancellationReason'] = reason;
           ride['cancellation'] = {
             'actor': TripActor.rider.wireName,
-            'reasonCode': reasonCode is String ? reasonCode : null,
+            // openapi Cancellation requires a code; an end-early names none.
+            'reasonCode': reasonCode is String
+                ? reasonCode
+                : CancelReasonCodes.unspecified,
             'at': ride['updatedAt'],
             // Contract §6: the live or reservation FeeRule of the trip's
             // category; null when free. End-early is not a cancel fee: the
@@ -989,6 +992,7 @@ class InProcessMockClient extends http.BaseClient {
           ride['destinationAddress'] = body['destinationAddress'];
           ride['destinationLat'] = body['destinationLat'];
           ride['destinationLng'] = body['destinationLng'];
+          _withPlaces(ride);
           ride['stops'] = pricing['stops'];
           final newMinor = pricing['newMinor'] as int;
           final rideCurrency = _currencyOf(ride);
@@ -1114,6 +1118,7 @@ class InProcessMockClient extends http.BaseClient {
           if (body['destinationLng'] != null) {
             ride['destinationLng'] = body['destinationLng'];
           }
+          _withPlaces(ride);
           payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
         }
       }
@@ -1543,7 +1548,14 @@ class InProcessMockClient extends http.BaseClient {
     if (actor != TripActor.rider && to.isTerminal && to != TripStatus.completed) {
       ride['cancellation'] ??= {
         'actor': actor.wireName,
-        'reasonCode': null,
+        // openapi Cancellation requires a code of the actor's group.
+        'reasonCode': switch ((actor, command)) {
+          (_, 'no_show') => 'rider_no_show',
+          (TripActor.driver, _) => 'other_on_trip',
+          (TripActor.admin, _) => 'admin_other',
+          (_, 'expire') => 'system_no_driver',
+          _ => 'system_error',
+        },
         'at': DateTime.now().toUtc().toIso8601String(),
         'fee': null,
       };
@@ -2464,11 +2476,16 @@ class InProcessMockClient extends http.BaseClient {
               'lng': raw['lng'],
             },
     ];
-    return {
+    return _withPlaces({
       'id': id,
       'tripId': id,
       // Legacy read-only alias of tripId during migration.
       'rideId': id,
+      // rider-r4-5: the openapi TripProjection required fields the legacy
+      // keys below do not cover. One stand-in rider; the pickup's zone.
+      'riderId': mockRiderId,
+      'zoneId': _zoneOf(body).id,
+      'pinRequired': false,
       'kind': scheduled ? TripKind.scheduled.wireName : TripKind.live.wireName,
       'status': tripStatus.wireName,
       'ratingStatus': TripRatingStatus.notRequested.wireName,
@@ -2487,7 +2504,8 @@ class InProcessMockClient extends http.BaseClient {
       // Transitional aliases keep older read-side tests compatible while every
       // new write uses the canonical backend vocabulary above.
       'rideType': categoryId,
-      'paymentMethod': paymentMethodId,
+      // openapi PaymentMethod: the method kind; the id is paymentMethodId.
+      'paymentMethod': _paymentMethodKind(paymentMethodId),
       // Contract v0.3.0: Money on the wire, no whole-unit doubles, in the
       // currency of the pickup's zone (Q7). The flat `currency` sits next to
       // the flat minor fields for older readers.
@@ -2519,7 +2537,41 @@ class InProcessMockClient extends http.BaseClient {
       // Rider notes are part of the ride the driver is given, so the stand-in
       // backend stores them the way the real one will.
       'notes': body['notes'],
-    };
+    });
+  }
+
+  /// The stand-in's one rider (`TripProjection.riderId`).
+  static const mockRiderId = 'rdr_mock';
+
+  /// rider-r4-5: `pickup` / `dropoff` as openapi `Place`s, from the flat
+  /// legacy fields every write here still updates. Called again after each
+  /// change of those fields so the two shapes never disagree.
+  static Map<String, dynamic> _withPlaces(Map<String, dynamic> ride) {
+    for (final (place, flat) in const [
+      ('pickup', 'pickup'),
+      ('dropoff', 'destination'),
+    ]) {
+      final lat = ride['${flat}Lat'];
+      final lng = ride['${flat}Lng'];
+      if (lat is num && lng is num) {
+        ride[place] = {
+          'address': ride['${flat}Address']?.toString() ?? '',
+          'lat': lat,
+          'lng': lng,
+        };
+      }
+    }
+    return ride;
+  }
+
+  /// openapi `PaymentMethod` for a client method id (`card_…` and `cards`
+  /// are saved cards; `apple` / `google` are the v0.3 aliases).
+  static String _paymentMethodKind(String id) {
+    final value = id.trim().toLowerCase();
+    if (value == 'apple' || value == 'apple_pay') return 'apple_pay';
+    if (value == 'google' || value == 'google_pay') return 'google_pay';
+    if (value == 'cash' || value == 'wallet') return value;
+    return 'card';
   }
 
   List<Map<String, dynamic>> _nearby(Map<String, dynamic>? ride) {

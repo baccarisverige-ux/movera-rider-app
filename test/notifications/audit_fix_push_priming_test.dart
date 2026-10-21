@@ -68,13 +68,18 @@ void main() {
     expect(push.registers, 2);
   });
 
-  test('a system refusal is remembered instead of asked again', () async {
+  test('rider-r4-40: a system refusal is remembered, and push registers '
+      'again once Settings allows it', () async {
     final push = _Push()..deny = true;
     final gate = PushPermissionGate(push: push, enabled: true);
     expect(await gate.accept(), PushOptInResult.blockedBySystem);
     expect(await gate.consent(), PushConsent.blockedBySystem);
+    // The rider turns notifications on in Settings; the next sign-in or
+    // cold start registers (the OS answers without a new prompt).
+    push.deny = false;
     await gate.registerIfConsented(logEvent: 'test');
-    expect(push.registers, 1);
+    expect(push.registers, 2);
+    expect(await gate.consent(), PushConsent.accepted);
   });
 
   test('signing in never shows the OS prompt before the explanation', () async {
@@ -148,6 +153,33 @@ void main() {
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
     expect(settings, 1);
+  });
+
+  testWidgets('rider-r4-45: swiping the explanation away counts as Not now', (
+    tester,
+  ) async {
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => maybeShowPushPrimer(context, gate: gate),
+              child: const Text('go'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // the barrier
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsNothing);
+    expect(await gate.shouldOffer(), isFalse);
+    expect(push.registers, 0);
   });
 
   testWidgets('the Notifications screen offers a way back', (tester) async {

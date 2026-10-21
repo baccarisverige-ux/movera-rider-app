@@ -45,7 +45,8 @@ void main() {
     expect(ride['categoryId'], 'xl');
     expect(ride['paymentMethodId'], 'apple');
     expect(ride['rideType'], 'xl');
-    expect(ride['paymentMethod'], 'apple');
+    // openapi PaymentMethod (rider-r4-5); the id stays paymentMethodId.
+    expect(ride['paymentMethod'], 'apple_pay');
 
     final snapshot = await RideSnapshotStore.read();
     expect(snapshot?.rideType, 'Movera XL');
