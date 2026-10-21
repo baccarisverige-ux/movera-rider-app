@@ -39,7 +39,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
   }
 
   /// rider-u150: a save the server refused is undone and said so, instead
-  /// of escaping the switch as an unhandled error.
+  /// of escaping the switch as an unhandled error. rider-u154: each switch
+  /// changes the profile as it is now, not the copy this page was built
+  /// from.
   Future<void> _save(RiderProfileData next) async {
     try {
       await _profile.update(next);
@@ -106,7 +108,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) => _save(ride.copyWith(rideUpdates: on)),
+                  onChanged: (on) =>
+                      _save(_profile.profile.copyWith(rideUpdates: on)),
                 ),
               ),
               AccountTile(
@@ -123,7 +126,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) => _save(ride.copyWith(emailUpdates: on)),
+                  onChanged: (on) =>
+                      _save(_profile.profile.copyWith(emailUpdates: on)),
                 ),
               ),
               AccountTile(
@@ -141,7 +145,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) => _save(ride.copyWith(promotions: on)),
+                  onChanged: (on) =>
+                      _save(_profile.profile.copyWith(promotions: on)),
                 ),
               ),
             ],

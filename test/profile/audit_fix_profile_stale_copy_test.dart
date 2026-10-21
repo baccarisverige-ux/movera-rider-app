@@ -17,6 +17,7 @@ import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
+import 'package:movera_rider/features/profile/presentation/privacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Writes the device copy at once and then waits on the network, as
@@ -117,4 +118,33 @@ void main() {
       expect(find.text('Woman'), findsOneWidget);
     },
   );
+
+  testWidgets('rider-u154: a second switch keeps the first one', (
+    tester,
+  ) async {
+    final (profile, store) = await pump(
+      tester,
+      (c) => PrivacyPage(controller: c),
+    );
+    final before = profile.profile;
+    Switch switchAt(int i) => tester.widget<Switch>(find.byType(Switch).at(i));
+    final offers = switchAt(2).value;
+    final email = switchAt(1).value;
+
+    await tester.tap(find.byType(Switch).at(2));
+    await tester.pump();
+    // The switch moves at once, before the server answers.
+    expect(switchAt(2).value, !offers);
+    expect(store.inFlight, 1);
+
+    await tester.tap(find.byType(Switch).at(1));
+    await tester.pump();
+    store.answer();
+    await tester.pumpAndSettle();
+
+    expect(profile.profile.promotions, !before.promotions);
+    expect(profile.profile.emailUpdates, !email);
+    expect(switchAt(2).value, !offers);
+    expect(switchAt(1).value, !email);
+  });
 }
