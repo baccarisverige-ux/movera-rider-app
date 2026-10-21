@@ -147,6 +147,7 @@ class WaitingForDriver extends StatefulWidget {
     this.onDriverCancelled,
     this.onCompleted,
     this.onCancel,
+    this.cancelFeeNote,
   });
 
   final String pickupAddress;
@@ -186,6 +187,11 @@ class WaitingForDriver extends StatefulWidget {
   final Future<void> Function(BuildContext context, RideStatus status)?
   onCompleted;
   final Future<void> Function(BuildContext context, String? reasonId)? onCancel;
+
+  /// rider-u53: the fee line of the cancel sheet when the trip's cancel
+  /// terms are not the live Book Now rule (a reservation's late-cancel
+  /// terms). Null: the live rule of the trip's category is previewed.
+  final Future<String?> Function()? cancelFeeNote;
 
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
@@ -825,6 +831,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
       return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
+    }
+    final ownNote = widget.cancelFeeNote;
+    if (ownNote != null) {
+      try {
+        return await ownNote();
+      } catch (_) {
+        return null;
+      }
     }
     try {
       final category = await _tripCategoryId();

@@ -6,6 +6,8 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -70,6 +72,12 @@ abstract final class ReservationLiveRide {
       controller: reservations,
       reservationId: ride.reservationId,
     );
+    // rider-u53: the terms the rider confirmed against, so the fee they saw
+    // is the fee recorded (as the Upcoming screen does).
+    ReservationCancelTerms? shownTerms;
+    ReservationCancelTerms termsNow() => reservations.cancelTermsFor(
+      reservations.byId(ride.reservationId) ?? ride,
+    );
 
     return WaitingForDriver(
       pickupAddress: ride.pickup.label,
@@ -88,10 +96,18 @@ abstract final class ReservationLiveRide {
       categoryId: ride.categoryId,
       realtime: realtime,
       persistRideSnapshot: false,
+      cancelFeeNote: () async {
+        final terms = termsNow();
+        shownTerms = terms;
+        return ReservationFormat.cancelTermsTitle(terms);
+      },
       onCancel: (context, reasonId) async {
+        final terms = shownTerms ?? termsNow();
+        shownTerms = null;
         await reservations.cancel(
           ride.reservationId,
           reason: reasonId ?? 'rider_cancelled_live',
+          fee: terms.fee,
         );
         if (!context.mounted) return;
         Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
