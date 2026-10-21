@@ -109,6 +109,10 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   GoogleMapController? _map;
   late LatLng _center;
   late String _address;
+
+  /// rider-u136: the point [_address] names. The pin can move on (a drag, a
+  /// glide) before its street lookup answers.
+  late LatLng _addressAt;
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
@@ -132,6 +136,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     super.initState();
     _center = widget.initialPosition;
     _address = widget.initialAddress;
+    _addressAt = widget.initialPosition;
     _hasUsablePickupCoordinates =
         widget.initialPosition.latitude.isFinite &&
         widget.initialPosition.longitude.isFinite &&
@@ -168,6 +173,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _center = position;
       _hasUsablePickupCoordinates = true;
       _address = 'Current location';
+      _addressAt = position;
       _search.text = _address;
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(position));
@@ -177,6 +183,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     }
     setState(() {
       _address = address!.trim();
+      _addressAt = position;
       _search.text = _address;
     });
   }
@@ -221,7 +228,8 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
 
   Future<void> _idle() async {
     if (_moving) return;
-    final address = await _pickup.reverse(_center);
+    final at = _center;
+    final address = await _pickup.reverse(at);
     if (!mounted) return;
     // D-010: a raw "lat, lng" string is not an address the rider can use.
     final label = isUnusablePickupLabel(address)
@@ -229,6 +237,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
         : address!.trim();
     setState(() {
       _address = label;
+      _addressAt = at;
       _search.text = label;
     });
   }
@@ -273,6 +282,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _center = position;
       _hasUsablePickupCoordinates = true;
       _address = 'Current location';
+      _addressAt = position;
       _search.text = _address;
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(position));
@@ -280,6 +290,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (!mounted || isUnusablePickupLabel(address)) return;
     setState(() {
       _address = address!.trim();
+      _addressAt = position;
       _search.text = _address;
     });
   }
@@ -293,6 +304,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _center = found.position;
       _hasUsablePickupCoordinates = true;
       _address = found.address ?? query;
+      _addressAt = found.position;
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(_center));
   }
@@ -301,7 +313,13 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (_confirming) return;
     _confirming = true;
     final position = _center;
-    final address = confirmedPickupAddress(_address, position);
+    // rider-u136: while the pin moves, or before its own lookup answers,
+    // the address still names the previous spot; book a labelled dropped
+    // pin for the new point instead (as Set pickup does).
+    final stale = _moving || _isAwayFrom(_addressAt);
+    final address = stale
+        ? droppedPinPickupAddress(position)
+        : confirmedPickupAddress(_address, position);
     Navigator.pop(
       context,
       ConfirmPickupResult(position: position, address: address),
