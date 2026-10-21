@@ -58,9 +58,8 @@ class AuthRepository {
     required String code,
   }) async {
     final normalizedCode = code.trim();
-    if (challenge.isExpired) {
-      throw StateError('OTP challenge has expired.');
-    }
+    // rider-u73: expiry is the server's call (410 otp_expired); the device
+    // clock can run minutes ahead and turned every code down.
     if (!RidePin.isValidFormat(normalizedCode)) {
       throw ArgumentError.value(code, 'code', 'A 4-digit code is required.');
     }

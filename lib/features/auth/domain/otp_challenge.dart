@@ -18,6 +18,9 @@ class OtpChallenge {
   /// that is still waiting for a verified number.
   final ProviderLink? link;
 
+  /// Measured with the device clock, which can run ahead of the server's:
+  /// a hint only. rider-u73: nothing refuses to send a code because of it;
+  /// the server answers `410 otp_expired` for a code that really expired.
   bool get isExpired => !expiresAt.isAfter(DateTime.now().toUtc());
 
   Duration get remaining {

@@ -123,10 +123,8 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       setState(() => _error = context.l10n.requestNewCode);
       return;
     }
-    if (challenge.isExpired) {
-      setState(() => _error = context.l10n.codeExpired);
-      return;
-    }
+    // rider-u73: no device-clock expiry check; the server answers 410 for
+    // an expired code and authErrorMessage says so.
     if (!RidePin.isValidFormat(code)) return;
     setState(() {
       _submitting = true;
