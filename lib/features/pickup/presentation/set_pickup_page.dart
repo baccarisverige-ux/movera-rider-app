@@ -1006,53 +1006,64 @@ class _SetPickupPageState extends State<SetPickupPage>
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: GestureDetector(
-                        key: const ValueKey('set-pickup-handle'),
-                        onTap: () => _settleSheet(_sheet.value < 0.5),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: _line,
-                              borderRadius: BorderRadius.circular(8),
+              // rider-u141: Confirm is a pinned footer. Only the sections
+              // above it fold into the height cap, so opening the sheet can
+              // no longer clip Confirm off the screen.
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: GestureDetector(
+                              key: const ValueKey('set-pickup-handle'),
+                              onTap: () => _settleSheet(_sheet.value < 0.5),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+                                color: Colors.transparent,
+                                child: Container(
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: _line,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          _reveal(0.0, 0.55, _rideHeader()),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  context.l10n.pickupSpot,
+                                  style: _text(13.5, weight: FontWeight.w600, color: _muted),
+                                ),
+                              ),
+                              _shortBagsChip(),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _pickupCard(),
+                          _spotChips(),
+                          _reveal(0.25, 0.85, _bagsRow()),
+                          _reveal(0.35, 0.95, _priceBox()),
+                          _reveal(0.45, 1.0, _paymentLine()),
+                        ],
                       ),
                     ),
-                    _reveal(0.0, 0.55, _rideHeader()),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.pickupSpot,
-                            style: _text(13.5, weight: FontWeight.w600, color: _muted),
-                          ),
-                        ),
-                        _shortBagsChip(),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _pickupCard(),
-                    _spotChips(),
-                    _reveal(0.25, 0.85, _bagsRow()),
-                    _reveal(0.35, 0.95, _priceBox()),
-                    _reveal(0.45, 1.0, _paymentLine()),
-                    const SizedBox(height: 14),
-                    _confirmButton(),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 14),
+                  _confirmButton(),
+                ],
               ),
             ),
           ),

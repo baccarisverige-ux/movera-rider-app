@@ -125,4 +125,32 @@ void main() {
     expect(picked.fareTotalKr, 301);
     expect(picked.position.latitude, closeTo(quotes.last.latitude, 1e-9));
   });
+
+  testWidgets('rider-u141: the open sheet keeps Confirm on screen at '
+      '375x667, with a promotion and a wallet part', (tester) async {
+    await open(
+      tester,
+      size: const Size(375, 667),
+      fare: const SetPickupFare(
+        totalKr: 259,
+        discountKr: 40,
+        promotionPercent: 12,
+        walletKr: 50,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('set-pickup-handle')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('set-pickup-sheet')),
+    );
+    final confirm = tester.getRect(
+      find.byKey(const ValueKey('set-pickup-confirm')),
+    );
+    expect(confirm.bottom, lessThanOrEqualTo(sheet.bottom));
+    expect(confirm.bottom, lessThanOrEqualTo(667));
+    await tester.tap(find.byKey(const ValueKey('set-pickup-confirm')));
+    await settle(tester);
+  });
 }
