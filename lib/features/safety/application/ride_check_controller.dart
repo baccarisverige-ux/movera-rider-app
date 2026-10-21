@@ -210,6 +210,11 @@ class RideCheckController extends ChangeNotifier {
   RideCheckPolicy get policy => _service.policy();
   RideCheckTripContext? get trip => _trip;
   bool get recording => _audio.isRecording;
+
+  /// rider-u212/u214: the card is coming to the front over the Safety Kit.
+  /// A recording the rider started there carries on under the card's own
+  /// control instead of stopping with the kit.
+  void takeOverRecording() => _audio.handOver();
   DateTime? get recordingSince => _audio.active?.createdAt;
 
   /// The open card for [rideId], or null.

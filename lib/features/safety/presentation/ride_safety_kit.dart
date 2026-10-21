@@ -142,8 +142,12 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   void dispose() {
     _ctl.removeListener(_onChange);
     // FLOW-6: Stop audio lives only in this sheet, so closing the sheet
-    // stops and saves the recording instead of leaving the mic open.
-    unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    // stops and saves the recording instead of leaving the mic open. When a
+    // Ride check card closed the sheet, the card has taken the recording
+    // over with its own Stop (rider-u212/u214).
+    if (!_ctl.audio.handedOver) {
+      unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    }
     super.dispose();
   }
 
