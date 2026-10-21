@@ -47,6 +47,11 @@ class SyncedProfileRepository
 
   Future<void>? _reading;
 
+  /// rider-fixrev3-1: bumped by [clearLocal] (sign-out). A server read
+  /// started in an earlier session answers for a rider who is no longer
+  /// signed in, so its answer is dropped.
+  int _session = 0;
+
   /// True when the last saved profile has not reached the server yet.
   bool get syncPending => _syncPending;
 
@@ -72,6 +77,10 @@ class SyncedProfileRepository
     _syncPending = false;
     _serverKnown = false;
     _changed.clear();
+    // A read still in flight belongs to the signed-out rider: the next
+    // hydrate starts its own.
+    _session++;
+    _reading = null;
   }
 
   @override
@@ -102,15 +111,26 @@ class SyncedProfileRepository
   /// with the rider's not yet sent changes laid over it.
   Future<void> _readServer() {
     if (_serverKnown) return Future<void>.value();
-    return _reading ??= _fetch().whenComplete(() => _reading = null);
+    final pending = _reading;
+    if (pending != null) return pending;
+    late final Future<void> read;
+    read = _fetch().whenComplete(() {
+      if (identical(_reading, read)) _reading = null;
+    });
+    return _reading = read;
   }
 
   Future<void> _fetch() async {
+    final session = _session;
     final Map<String, dynamic> response;
     try {
       response = await _api.get(path);
     } catch (error) {
       AppLog.warning('profile.read_failed', extra: {'error': '$error'});
+      return;
+    }
+    if (session != _session) {
+      AppLog.info('profile.read_dropped', extra: {'reason': 'signed_out'});
       return;
     }
     final server = response['profile'];
