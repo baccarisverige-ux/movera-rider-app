@@ -2007,7 +2007,7 @@
       }
     }
   },
-  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop or in traffic.",
+  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop.",
   "@rcLongStopBody": {
     "placeholders": {
       "minutes": {
@@ -2045,7 +2045,7 @@
       }
     }
   },
-  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop or in traffic. RideCheck opens right away, during the trip.",
+  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop. RideCheck opens right away, during the trip.",
   "@rcDemoLongStopScenario": {
     "placeholders": {
       "minutes": {

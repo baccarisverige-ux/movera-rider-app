@@ -186,6 +186,14 @@ class RideCheckMonitor {
     return _stoppedFor(anchor, sample.at.difference(_stillSince!));
   }
 
+  /// rider-u56: the app's own live feed was down and is back at [now].
+  /// The car was not watched meanwhile, so the stop clock starts again
+  /// here instead of counting the outage as a stop.
+  void feedResumed(DateTime now) {
+    if (_stillSince == null) return;
+    if (now.isAfter(_stillSince!)) _stillSince = now;
+  }
+
   /// No new position has come in (a driver app that stays quiet while the
   /// car stands still): at [now] the car is still where it was last seen,
   /// so a stop longer than `longStopMinutes` opens Ride check even without

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
@@ -19,11 +20,13 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -79,6 +82,14 @@ Duration driverEaseDuration(Duration? sinceLastFix) {
   if (sinceLastFix > longest) return longest;
   return sinceLastFix;
 }
+
+/// rider-u58: whether the driver car eases between fixes. On web every
+/// marker update makes google_maps_flutter_web convert the car icon to a
+/// new blob URL that is never revoked, so a ~20 fps ease for the whole
+/// trip leaked thousands of blobs an hour; there the car moves once per
+/// fix instead. Native platforms keep the D-016 ease.
+@visibleForTesting
+bool driverMarkerEases = !kIsWeb;
 
 /// D-018: bounds and uniform padding that frame [a] and [b] above a bottom
 /// obstruction (the sheet) instead of padding every side by its height.
@@ -896,10 +907,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_leaving) return;
     final feeNote = await _cancelFeeNote();
     if (!mounted || _leaving) return;
+    final inTripAtOpen = _isInTrip;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
-      phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
+      phase: inTripAtOpen ? CancelPhase.inTrip : CancelPhase.matched,
       feeNote: feeNote,
       offerDestinationChange: _routeEditable,
     );
@@ -910,6 +922,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     if (!outcome.cancelled) return;
+    if (inTripAtOpen != _isInTrip) {
+      // rider-u54: the trip started (or ended) while the sheet was open.
+      // What the rider confirmed ("Cancel ride?", free) is not what the
+      // command would now do (end-early, charged for the distance): ask
+      // again for the stage they are in, and send nothing on this answer.
+      if (_tracking.status.isTerminal) return;
+      return _confirmCancel();
+    }
     _leaving = true;
     _cancelInFlight = true;
     setState(() {});
@@ -1202,15 +1222,36 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _rideCheckEnded = false;
   bool _autoShareAsked = false;
   Timer? _rideCheckStillTimer;
+  bool _liveFeedWasDown = false;
+
+  /// rider-u56: whether this screen's live feed is down. The polling
+  /// transport never errors the tracking stream on a failed poll; it marks
+  /// the shared connection failed and backs off, so that state counts too.
+  bool get _liveFeedDown =>
+      _tracking.connectionDegraded ||
+      (widget.realtime == null &&
+          AppScope.instance.realtime.state != RealtimeState.connected);
 
   /// A driver app may stay quiet while the car stands still, so no new fix
   /// comes in to measure the stop. While the trip is under way and the live
-  /// feed is up, check the long stop against the clock as well.
+  /// feed is up, check the long stop against the clock as well. With the
+  /// feed down (the rider's own phone offline) no fix can come, so time
+  /// without one says nothing about the car; the stop clock restarts when
+  /// the feed is back.
   void _startRideCheckStillTimer(String rideId) {
     _rideCheckStillTimer?.cancel();
     if (!RideCheckController.tripMonitoring) return;
     _rideCheckStillTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || _tracking.connectionDegraded) return;
+      if (!mounted) return;
+      if (_liveFeedDown) {
+        _liveFeedWasDown = true;
+        return;
+      }
+      if (_liveFeedWasDown) {
+        _liveFeedWasDown = false;
+        RideCheckController.shared.liveFeedResumed(rideId);
+        return;
+      }
       if (!DriverEta.isInTrip(_tracking.status)) return;
       RideCheckController.shared.checkStill(rideId);
     });
@@ -2024,7 +2065,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             currency: widget.currency,
             onMore: _openDetails,
           ),
-          WaitingNotesAndPin(notes: widget.notes),
+          WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],
       ),
     );
@@ -2232,6 +2273,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       _driverHeadingTo = 0;
       return;
     }
+    if (!driverMarkerEases) {
+      // rider-u58: one marker update per fix, no in-between positions.
+      final heading = _bearingDegrees(previousTo, next) ?? _driverHeadingTo;
+      _driverAnim.stop();
+      _driverAnimFrom = next;
+      _driverAnimTo = next;
+      _driverHeadingFrom = heading;
+      _driverHeadingTo = heading;
+      return;
+    }
     _driverAnimFrom = _currentDriverPosition() ?? previousTo;
     _driverAnimTo = next;
     _driverHeadingFrom = _currentDriverHeading();
@@ -2430,13 +2481,50 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     });
   }
 
-  ({GeoPoint from, GeoPoint to})? _routeEndpoints() {
+  /// rider-u62/u63: how many of the trip's stops, in order, the car has
+  /// reached (come within [_stopReachedMeters] of). The route from the
+  /// driver goes through the rest.
+  int _stopsReached = 0;
+  static const double _stopReachedMeters = 80;
+
+  void _noteStopsReached(GeoPoint driverPoint) {
+    final stops = widget.stops;
+    var reached = _stopsReached;
+    while (reached < stops.length) {
+      final stop = stops[reached];
+      final meters = GeoDistance.metersBetween(
+        driverPoint.latitude,
+        driverPoint.longitude,
+        stop.latitude,
+        stop.longitude,
+      );
+      if (meters > _stopReachedMeters) break;
+      reached += 1;
+    }
+    if (reached != _stopsReached) {
+      _stopsReached = reached;
+      _routeKey = null; // The next refresh draws the remaining legs.
+    }
+  }
+
+  /// The stops still ahead of the car, in order.
+  List<GeoPoint> _remainingStops() {
+    final stops = widget.stops;
+    final reached = _stopsReached.clamp(0, stops.length);
+    return [
+      for (final stop in stops.sublist(reached))
+        GeoPoint(stop.latitude, stop.longitude),
+    ];
+  }
+
+  ({GeoPoint from, List<GeoPoint> via, GeoPoint to})? _routeEndpoints() {
     final eta = widget.tracking.eta;
     final driverPoint = eta?.latitude != null && eta?.longitude != null
         ? GeoPoint(eta!.latitude!, eta.longitude!)
         : null;
 
     if (_inTrip) {
+      if (driverPoint != null) _noteStopsReached(driverPoint);
       return (
         from:
             driverPoint ??
@@ -2444,6 +2532,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
               widget.pickupPosition.latitude,
               widget.pickupPosition.longitude,
             ),
+        // rider-u62/u63: through the stops still ahead, never straight to
+        // the destination past them.
+        via: _remainingStops(),
         to: GeoPoint(
           widget.destinationPosition.latitude,
           widget.destinationPosition.longitude,
@@ -2454,6 +2545,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     if (driverPoint == null) return null;
     return (
       from: driverPoint,
+      via: const <GeoPoint>[],
       to: GeoPoint(
         widget.pickupPosition.latitude,
         widget.pickupPosition.longitude,
@@ -2469,25 +2561,31 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     String keyFor(GeoPoint point) =>
         '${point.latitude.toStringAsFixed(4)},${point.longitude.toStringAsFixed(4)}';
     final requestKey =
-        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>${keyFor(endpoints.to)}';
+        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>'
+        '${endpoints.via.map(keyFor).join('>')}>${keyFor(endpoints.to)}';
     if (!force && requestKey == _routeKey) return;
 
     _routeKey = requestKey;
     _lastRouteRefresh = DateTime.now();
-    final route = await roadRoutePolyline(
+    final resolved = await roadRoutePolylineVia(
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
+      via: [
+        for (final stop in endpoints.via)
+          LatLng(stop.latitude, stop.longitude),
+      ],
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
       color: RiderRouteStyle.color,
     );
+    final route = resolved.route;
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
-    // roadRoutePolyline falls back to a straight two-point line whenever a
-    // real road route can't be resolved. A genuine road route for anything
-    // but a trivially short hop has more than two vertices, so this is a
+    // A leg falls back to a straight two-point line whenever a real road
+    // route can't be resolved. A genuine road route for anything but a
+    // trivially short hop has more than two vertices, so this is a
     // reasonable signal to tell the rider the line is approximate rather
     // than implying turn-by-turn accuracy that isn't there.
-    final approximate = route.points.length <= 2;
+    final approximate = resolved.approximate;
     if (_inTrip && !approximate) {
       widget.onTripRoute?.call([
         for (final point in route.points)
