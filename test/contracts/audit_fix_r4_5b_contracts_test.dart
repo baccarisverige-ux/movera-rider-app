@@ -136,5 +136,44 @@ void main() {
       expect(record.categoryName, 'Movera XL');
     });
 
+    test('rider-r4-5: the stand-in server answers an openapi TripProjection',
+        () async {
+      final api = ApiClient(client: InProcessMockClient());
+      final quote = (await api.post('/api/v1/quotes', body: {
+        'rideType': 'economy',
+        'pickupLat': 59.3293,
+        'pickupLng': 18.0686,
+        'destinationLat': 59.3326,
+        'destinationLng': 18.0649,
+      }))['quote'] as Map;
+      final ride = Map<String, dynamic>.from((await api.post(
+        '/api/v1/rides',
+        body: {
+          'categoryId': 'economy',
+          'fare': _sek(quote['totalMinor'] as int),
+          'paymentMethodId': 'card_visa_4242',
+          'pickupAddress': 'A',
+          'pickupLat': 59.3293,
+          'pickupLng': 18.0686,
+          'destinationAddress': 'B',
+          'destinationLat': 59.3326,
+          'destinationLng': 18.0649,
+          'quoteId': quote['id'],
+          'quoteSignedPayload': quote['signedPayload'],
+          'quoteExpiresAt': quote['expiresAt'],
+          'quoteTotalMinor': quote['totalMinor'],
+        },
+      ))['ride'] as Map);
+      final required = _tripProjectionRequired();
+      expect(required, containsAll(['dropoff', 'riderId', 'pinRequired']));
+      expect(required.where((key) => !ride.containsKey(key)), isEmpty);
+      expect(ride['dropoff'], {'address': 'B', 'lat': 59.3326, 'lng': 18.0649});
+      expect(ride['paymentMethod'], 'card');
+      expect(ride['paymentMethodId'], 'card_visa_4242');
+      // The app reads it with the legacy flat keys gone.
+      final contractOnly = {...ride}
+        ..removeWhere((key, _) => key.startsWith('destination'));
+      expect(RideProjection.toSnapshot(contractOnly)?.destinationAddress, 'B');
+    });
   });
 }
