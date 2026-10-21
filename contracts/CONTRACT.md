@@ -1,4 +1,6 @@
-# Movera shared contract v0.4.1
+# Movera shared contract v0.4.2
+
+v0.4.2: owner decision 1, the `reservations.leaveNow` switch is removed. Leave now always opens the trip (§6.1); apps ignore a `leaveNow` field in an older document. Owner decision 2, reservations on/off is binding on the driver app for the whole zone (`reservations.on`) and for one driver (new `Driver.scheduledRides`, `GET /driver/profile`); reservations already accepted still run (§6.1).
 
 v0.4.1 (additive): `DriverAppConfig.reservations` carries the Dispatch › Reservations timings to the driver app, with the new running-late ETA watch (`reservations.lateEta`, §6.1).
 
@@ -167,7 +169,8 @@ Every admin control below has one owner page, one config path and one defined ef
 | Default languages (Settings, per country) | `rider.languages`, `driver.languages` | Default app language | Default app language | — |
 | Offer modes, timers, offer card (Dispatch › Modes) | `driver.offers` | — | Radar/Exclusive timers, card fields, auto-offline | Dispatch |
 | Exclusive reasons (Dispatch) | `driver.offers.exclusiveReasons` | — | Reason line on Exclusive | — |
-| Reservations: steps, smart gap, Leave now, running late, cancels (Dispatch › Reservations) | `driver.reservations` (§6.1) | — | Home popup / Exclusive / Radar times, Leave now, late warning, ETA watch, offline backup, late-cancel pause | Reassigns a late or offline driver's ride |
+| Reservations: steps, smart gap, Leave now, running late, cancels (Dispatch › Reservations) | `driver.reservations` (§6.1) | — | Home popup / Exclusive / Radar times, Leave now (always opens the trip), late warning, ETA watch, offline backup, late-cancel pause | Reassigns a late or offline driver's ride |
+| Scheduled rides for one driver (Drivers › driver page; Dispatch › Reservations desk) | `Driver.scheduledRides` (§6.1) | — | Off: no new reservations; accepted ones still run. On: the late-cancel pause is skipped while it lasts | Offers and assigns no reservation to a driver who is off |
 | Destination mode, next trips (Dispatch) | `driver.destinationMode`, `driver.nextTrips` | — | Filters, limits | Dispatch filter |
 | Cancel reasons (Dispatch › Cancel reasons) | `rider.cancelReasons`, `driver.cancelReasons` | Rider reason list | Driver reason sheets | Validates `reasonCode` per actor |
 | Ride check thresholds (Safety) | `rider.rideCheck`, `driver.rideCheck` | Ride check prompts | Ride check prompts | Triggers |
@@ -247,8 +250,7 @@ Built by Admin from Dispatch › Reservations of the zone. Every field is option
 
 ```
 DriverReservations {
-  on: true,                     // reservations enabled in this zone
-  leaveNow: true,               // open the trip automatically at "Leave now"
+  on: true,                     // reservations for every driver in the zone (= features.scheduledRides); off: no new ones, accepted ones still run
   lateWarn: true,               // "Head to your 07:40 pickup" island warning when Leave now cannot start
   offlineBackupAfterMin: 5,     // 1–60. Only an OFFLINE driver loses the ride this long after Leave now; an online driver keeps it
   homePopupAfterMin: 10,        // untaken: Home popup this long after booking
@@ -266,9 +268,11 @@ DriverReservations {
   lateEta: { on: true, toleranceMin: 3, checkEverySeconds: 60, reassignTo: "exclusive" } }
 ```
 
-- **Leave now** fires at the driver's estimated drive time to the pickup + `rideTypes[kind].spareMin` before pickup (an estimate, not live traffic).
+- **Leave now** fires at the driver's estimated drive time to the pickup + `rideTypes[kind].spareMin` before pickup (an estimate, not live traffic). It always opens the trip, heading to the pickup; there is no switch for it (v0.4.2, owner decision 1). When the trip cannot open at that moment (the driver is offline, or another screen or an offer answer is in the way), the `lateWarn` warning shows and the trip opens as soon as it can. A `leaveNow` field in an older document is ignored.
 - **Running late (`lateEta`)**: from Leave now until the driver arrives at the pickup, the driver's ETA is checked every `checkEverySeconds` (15–600). When `now + ETA > pickup time + toleranceMin` (`toleranceMin` 0–30), the ride is reassigned early to `reassignTo`: `exclusive` (Exclusive offer to the nearest available driver), `radar` (Radar trips) or `dispatch` (back to admin dispatch). Otherwise an online driver keeps the ride.
 - **Offline driver**: only a driver who is offline at Leave now loses the ride, after `offlineBackupAfterMin`. An online driver is never removed by that timer.
+- **Reservations on/off (owner decision 2)**: a driver gets new reservations (Scheduled rides requests, the Home popup, Exclusive and Radar reservation offers, rides Movera assigns) only while the zone's `reservations.on` (and `features.scheduledRides`) is true **and** their `Driver.scheduledRides` does not turn them off. Off, for the zone or for the driver, the app lists no open requests and shows no reservation offer, and the backend offers and assigns none to that driver. Reservations the driver already accepted stay theirs and run as usual: reminders, Leave now, the ETA watch, cancel.
+- `Driver.scheduledRides { on: bool, until: Timestamp | null }` (on `GET /driver/profile`): the admin's choice for this one driver. Missing = no choice (the zone switch and the late-cancel pause decide). `on: false` = no new reservations until `until` (null = until an admin turns them on). `on: true` = on until `until`, and the late-cancel pause is skipped while it lasts. A zone that is off wins over `on: true`.
 - Admin ids map: `normal → normal`, `airport → airport`, `long → longTrip`, `premium → comfortPremium`, `event → event`; Admin `lateBackupAfterMin` is `offlineBackupAfterMin`.
 
 Cancel reasons: the rider document lists `{code, title}` in the rider's language; the driver document lists codes per group and the titles come from `texts`. Unknown keys are ignored; missing keys fall back to the app's seed. `version` only increases; apps keep the last good document.

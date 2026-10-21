@@ -1,11 +1,11 @@
-# Movera API v0.4.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.4.2 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.4.1
+  version: 0.4.2
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.4.1 in this folder; this file must agree with them.
+    v0.4.2 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,7 +55,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.4.1
+  version: 0.4.2
   source: contract.json
 paths:
   /quotes:
@@ -5717,9 +5717,27 @@ components:
             $ref: '#/components/schemas/DocumentSummary'
         activeTripId:
           $ref: '#/components/schemas/Id'
+        scheduledRides:
+          $ref: '#/components/schemas/DriverScheduledRides'
         version:
           type: integer
           minimum: 1
+    DriverScheduledRides:
+      type: object
+      description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
+        = no admin choice; the zone switch and the late-cancel pause decide. Accepted reservations always stay.'
+      required:
+      - 'on'
+      properties:
+        'on':
+          type: boolean
+          description: false = no new reservations for this driver; true = on, and the late-cancel pause is skipped while
+            it lasts.
+        until:
+          description: When the admin's choice ends; null = until an admin changes it.
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
     VehicleStatus:
       type: string
       enum:
@@ -6678,15 +6696,13 @@ components:
       properties:
         'on':
           type: boolean
-          description: Reservations are enabled in this zone.
-          default: true
-        leaveNow:
-          type: boolean
-          description: Open the trip automatically at Leave now (estimated drive time to the pickup + spareMin before pickup).
+          description: 'Reservations for every driver in this zone (same value as features.scheduledRides). Off: no new reservations;
+            accepted ones still run.'
           default: true
         lateWarn:
           type: boolean
-          description: Island warning "Head to your 07:40 pickup" when Leave now cannot start the trip.
+          description: Island warning "Head to your 07:40 pickup" when Leave now cannot start the trip (driver offline, or
+            busy with another screen). Leave now itself always opens the trip; there is no switch for it (v0.4.2).
           default: true
         offlineBackupAfterMin:
           type: integer
