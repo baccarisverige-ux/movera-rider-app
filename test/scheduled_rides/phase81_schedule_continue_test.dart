@@ -32,7 +32,7 @@ void main() {
       );
       await tester.pump();
 
-      final continueControl = find.bySemanticsLabel('Schedule Continue');
+      final continueControl = find.byKey(const Key('schedule-continue'));
       expect(continueControl, findsOneWidget);
 
       // The button was built while 12:30 Stockholm was legal. Advance the
@@ -50,7 +50,7 @@ void main() {
 
       // After the correction rebuilds the real button with a legal pickup, the
       // next deliberate tap advances immediately.
-      await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+      await tester.tap(find.byKey(const Key('schedule-continue')));
       await tester.pump();
       expect(confirms, 1);
     },

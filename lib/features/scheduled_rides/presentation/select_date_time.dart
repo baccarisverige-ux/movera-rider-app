@@ -849,32 +849,27 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: Semantics(
-                container: true,
-                label: 'Schedule Continue',
-                button: true,
-                enabled: enabled,
-                child: ExcludeSemantics(
-                  child: ElevatedButton(
-                    onPressed: enabled ? _goNext : null,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: _ink,
-                      disabledBackgroundColor: _ink.withValues(alpha: 0.38),
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(17),
-                      ),
-                    ),
-                    child: Text(
-                      _continuing ? context.l10n.continuing : context.l10n.continueLabel,
-                      style: _style(
-                        14,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+              // rider-u228: the button's own semantics: the visible,
+              // localized label (or "Continuing…") and a tap action.
+              child: ElevatedButton(
+                key: const Key('schedule-continue'),
+                onPressed: enabled ? _goNext : null,
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: _ink,
+                  disabledBackgroundColor: _ink.withValues(alpha: 0.38),
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                ),
+                child: Text(
+                  _continuing ? context.l10n.continuing : context.l10n.continueLabel,
+                  style: _style(
+                    14,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ),

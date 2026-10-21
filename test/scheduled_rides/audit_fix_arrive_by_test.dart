@@ -29,7 +29,7 @@ void main() {
   }
 
   Future<void> tapContinue(WidgetTester tester) async {
-    await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+    await tester.tap(find.byKey(const Key('schedule-continue')));
     await tester.pumpAndSettle();
   }
 
@@ -227,12 +227,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+      await tester.tap(find.byKey(const Key('schedule-continue')));
       await tester.pump();
       expect(confirms, 1);
       expect(find.text('Continuing…'), findsOneWidget);
       // Still locked while the next step is open.
-      await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+      await tester.tap(find.byKey(const Key('schedule-continue')));
       await tester.pump();
       expect(confirms, 1);
 
@@ -246,7 +246,7 @@ void main() {
       );
 
       step = Completer<void>();
-      await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+      await tester.tap(find.byKey(const Key('schedule-continue')));
       await tester.pump();
       expect(confirms, 2);
       step.complete();

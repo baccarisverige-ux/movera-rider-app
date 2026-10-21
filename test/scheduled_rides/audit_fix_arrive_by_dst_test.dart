@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Arrive by'));
     await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Schedule Continue'));
+    await tester.tap(find.byKey(const Key('schedule-continue')));
     await tester.pumpAndSettle();
 
     expect(picked, isNotNull);
