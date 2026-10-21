@@ -355,7 +355,10 @@ class ActiveRideController {
         status == RideStatus.cancelledByAdmin ||
         status == RideStatus.endedByDriver ||
         status == RideStatus.noShow ||
-        status == RideStatus.tripFailed) {
+        status == RideStatus.tripFailed ||
+        // rider-u34: the trip was driven and completed; only its payment
+        // failed. History keeps it as a completed trip that says so.
+        status == RideStatus.paymentFailed) {
       await _archive(snapshot, status, expectedRideId: id);
     }
     await _store.clear();
