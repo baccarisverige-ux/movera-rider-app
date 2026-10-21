@@ -10,7 +10,11 @@ abstract interface class RiderProfileRepository {
 
   String displayName();
 
+  /// The device copy and, where there is one, the server copy.
   Future<void> hydrate();
+
+  /// The device copy only; it never waits on the network.
+  Future<void> hydrateLocal();
 
   /// Forgets the signed-out rider's profile in memory.
   void clearLocal();

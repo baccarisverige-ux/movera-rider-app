@@ -32,6 +32,9 @@ class ProfileRepository implements RiderProfileRepository {
   }
 
   @override
+  Future<void> hydrateLocal() => hydrate();
+
+  @override
   Future<void> hydrate() async {
     if (_hydrated) return;
     _hydrated = true;

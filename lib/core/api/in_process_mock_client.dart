@@ -1129,21 +1129,31 @@ class InProcessMockClient extends http.BaseClient {
         'rules': Map<String, dynamic>.from(scheduledRideRules),
         'requestId': requestId,
       };
+    } else if (path == '/api/v1/rider/profile' && method == 'GET') {
+      // rider-u148: the profile the server holds, or null for a rider who
+      // has none yet.
+      payload = {
+        'code': 'OK',
+        'profile': riderProfile,
+        'requestId': requestId,
+      };
     } else if (path == '/api/v1/rider/profile' && method == 'PATCH') {
-      // FLOW-7 / C-12 (PROPOSED): name, language and consents.
+      // FLOW-7 / C-12 (PROPOSED): name, language and consents. A field left
+      // out keeps the value the server holds (rider-u148).
       final name = body['name'];
       final consents = body['consents'];
-      if (name is! String ||
-          name.trim().length > 80 ||
+      if ((name != null && (name is! String || name.trim().length > 80)) ||
           (consents != null && consents is! Map)) {
         status = 422;
         payload = _error('invalid_request', requestId, reason: 'invalid_profile');
       } else {
+        final previous = riderProfile;
         riderProfile = {
-          'name': name.trim(),
+          ...?previous,
+          if (name is String) 'name': name.trim(),
           if (body['language'] is String) 'language': body['language'],
           'consents': {
-            ...?(riderProfile?['consents'] as Map?),
+            ...?(previous?['consents'] as Map?),
             ...?(consents as Map?),
           },
         };
