@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import 'safety_recorder_background.dart';
 import 'safety_recorder_stub.dart';
 
 export 'safety_recorder_stub.dart'
@@ -17,6 +18,11 @@ class NativeSafetyRecorder
   final _interrupted = StreamController<void>.broadcast();
   StreamSubscription<RecordState>? _states;
   bool _capturing = false;
+
+  /// rider-u206: iOS keeps recording in the background (the `audio`
+  /// background mode in Info.plist); Android silences a backgrounded app's
+  /// microphone, so there leaving the foreground ends the capture.
+  final _background = BackgroundCaptureGuard(endsCapture: Platform.isAndroid);
 
   AudioRecorder get recorder => _recorder ??= AudioRecorder();
 
@@ -46,15 +52,22 @@ class NativeSafetyRecorder
     await directory.create(recursive: true);
     _states ??= recorder.onStateChanged().listen(_onState, onError: (_) {});
     await recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
+      // An interruption (a call) pauses capture; the pause is reported
+      // through [interruptions] and the recording is saved (rider-u199).
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        audioInterruption: AudioInterruptionMode.pause,
+      ),
       path: '${directory.path}/$recordingId.m4a',
     );
     _capturing = true;
+    _background.watch(() => _onState(RecordState.stop));
   }
 
   @override
   Future<String?> stop() async {
     _capturing = false;
+    _background.release();
     final path = await recorder.stop();
     if (path == null || !await File(path).exists() || await File(path).length() == 0) {
       return null;
@@ -65,6 +78,7 @@ class NativeSafetyRecorder
   @override
   Future<void> cancel() async {
     _capturing = false;
+    _background.release();
     if (_recorder != null) await _recorder!.cancel();
   }
 
