@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
@@ -80,6 +81,14 @@ Duration driverEaseDuration(Duration? sinceLastFix) {
   if (sinceLastFix > longest) return longest;
   return sinceLastFix;
 }
+
+/// rider-u58: whether the driver car eases between fixes. On web every
+/// marker update makes google_maps_flutter_web convert the car icon to a
+/// new blob URL that is never revoked, so a ~20 fps ease for the whole
+/// trip leaked thousands of blobs an hour; there the car moves once per
+/// fix instead. Native platforms keep the D-016 ease.
+@visibleForTesting
+bool driverMarkerEases = !kIsWeb;
 
 /// D-018: bounds and uniform padding that frame [a] and [b] above a bottom
 /// obstruction (the sheet) instead of padding every side by its height.
@@ -2261,6 +2270,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       _driverAnimTo = next;
       _driverHeadingFrom = 0;
       _driverHeadingTo = 0;
+      return;
+    }
+    if (!driverMarkerEases) {
+      // rider-u58: one marker update per fix, no in-between positions.
+      final heading = _bearingDegrees(previousTo, next) ?? _driverHeadingTo;
+      _driverAnim.stop();
+      _driverAnimFrom = next;
+      _driverAnimTo = next;
+      _driverHeadingFrom = heading;
+      _driverHeadingTo = heading;
       return;
     }
     _driverAnimFrom = _currentDriverPosition() ?? previousTo;

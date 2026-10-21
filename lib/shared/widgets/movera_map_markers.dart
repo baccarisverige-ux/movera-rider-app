@@ -170,7 +170,13 @@ class MoveraVehicleMarker {
     if (data == null) {
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
     }
-    return BitmapDescriptor.bytes(data.buffer.asUint8List());
+    // rider-u58: with its size declared, google_maps_flutter_web does not
+    // probe the bitmap with a new image load on every marker update.
+    return BitmapDescriptor.bytes(
+      data.buffer.asUint8List(),
+      width: outputSize,
+      height: outputSize,
+    );
   }
 }
 
@@ -222,7 +228,11 @@ class RouteEndpointMarker {
           pickup ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure,
         );
       }
-      return BitmapDescriptor.bytes(data.buffer.asUint8List());
+      return BitmapDescriptor.bytes(
+        data.buffer.asUint8List(),
+        width: size,
+        height: size,
+      );
     });
   }
 }
