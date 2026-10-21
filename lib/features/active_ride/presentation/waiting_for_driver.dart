@@ -911,7 +911,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         return L10n.current.cancelCostsNow(formatMoney(preview.fee));
       }
       final left = preview.freeMinutesLeft;
-      return left <= 1
+      // rider-r4-18: past the window of a zero-fee rule it stays free.
+      if (left == 0) return L10n.current.noFeeToCancel;
+      return left == 1
           ? L10n.current.cancelFreeUnderMinute
           : L10n.current.cancelFreeMinutes('$left');
     } catch (_) {

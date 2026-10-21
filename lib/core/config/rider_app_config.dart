@@ -701,7 +701,9 @@ class LiveCancelFeePreview {
 
   final Money fee;
 
-  /// Whole minutes the cancel stays free; 0 once a fee applies.
+  /// Whole minutes the cancel stays free; 0 once the free window is over
+  /// (a fee applies, or a zero-fee rule keeps it free for good). Never
+  /// negative (rider-r4-18).
   final int freeMinutesLeft;
 
   /// The preview for [categoryId] with [fare], [acceptedAt] being when the
@@ -720,7 +722,9 @@ class LiveCancelFeePreview {
     final fee = CancelFeeCalculator.live(rule, fare, minutes);
     return LiveCancelFeePreview(
       fee: fee,
-      freeMinutesLeft: fee.isPositive ? 0 : rule.freeMin - minutes,
+      freeMinutesLeft: fee.isPositive || minutes >= rule.freeMin
+          ? 0
+          : rule.freeMin - minutes,
     );
   }
 }

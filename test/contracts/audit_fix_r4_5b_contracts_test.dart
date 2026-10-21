@@ -81,6 +81,28 @@ void main() {
       expect(waiting.noShowFee, const Money(6000));
     });
 
+    test('rider-r4-18: a free rule past its window has no minutes left', () {
+      final config = RiderAppConfig.fromJson({
+        'version': 14,
+        'currency': 'SEK',
+        'cancelFees': {
+          'live': {
+            'economy': {'freeMin': 2, 'type': 'fixed', 'value': 0},
+          },
+        },
+      }, fallback: SeedRiderConfigRepository.seed)!;
+      final accepted = DateTime.utc(2026, 10, 21, 8);
+      final preview = LiveCancelFeePreview.of(
+        config,
+        categoryId: 'economy',
+        fare: const Money(25900),
+        acceptedAt: accepted,
+        now: accepted.add(const Duration(minutes: 10)),
+      )!;
+      expect(preview.fee.isPositive, isFalse);
+      expect(preview.freeMinutesLeft, 0);
+    });
+
   });
 
   group('trip projection', () {
