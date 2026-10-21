@@ -6,8 +6,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -23,10 +25,19 @@ class _SlowGeolocator extends GeolocatorPlatform {
   int currentPositionCalls = 0;
   final StreamController<Position> live = StreamController.broadcast();
 
+  DateTime clock = DateTime(2026, 10, 1, 12);
+
+  void moveTo(double newLat, double newLng) {
+    lat = newLat;
+    lng = newLng;
+    clock = clock.add(const Duration(seconds: 1));
+    live.add(position);
+  }
+
   Position get position => Position(
     latitude: lat,
     longitude: lng,
-    timestamp: DateTime(2026, 10, 1, 12),
+    timestamp: clock,
     accuracy: 4,
     altitude: 0,
     altitudeAccuracy: 0,
@@ -141,6 +152,34 @@ void main() {
     await frames(tester, 40);
     expect(gps.currentPositionCalls, greaterThan(1));
     expect(await liveTrackingStarted(tester), isTrue);
+    await tearDownHome(tester);
+  });
+
+  bool puckPainted(WidgetTester tester) =>
+      (tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap)).markers ??
+              const <Marker>{})
+          .any(
+            (marker) => marker.markerId == const MarkerId('live_user_location'),
+          );
+
+  testWidgets('rider-u118: an app resume after a failed first fix draws the '
+      'puck when fixes come in', (tester) async {
+    await pumpHome(tester);
+    expect(gps.live.hasListener, isFalse);
+    // The rider switches away and back before Home tries again.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await frames(tester, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await frames(tester, 1);
+    expect(await liveTrackingStarted(tester), isTrue);
+    gps.moveTo(59.3300, 18.0690);
+    await frames(tester, 30);
+    expect(puckPainted(tester), isTrue);
+    expect(find.text('Location off, set pickup'), findsNothing);
     await tearDownHome(tester);
   });
 }

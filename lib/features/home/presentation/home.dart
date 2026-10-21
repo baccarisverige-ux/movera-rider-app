@@ -263,7 +263,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // it resumes when the map is unparked.
     if (_mapParked.value) return;
     _locationCtl.resumeLiveUpdates();
-    if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
+    // rider-u118: no first fix was ever bound (it failed or is still
+    // pending): run the whole first-fix path (puck, label, stream, camera).
+    // Restarting only the stream tracked GPS but never drew the puck.
+    if (_currentLatLng == null) {
+      unawaited(_detectCurrentAddress());
+    } else if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
@@ -273,8 +278,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _refreshPickupLabelIfMoved(latLng);
         },
       );
-    } else if (_currentLatLng == null) {
-      _detectCurrentAddress();
     }
   }
 
