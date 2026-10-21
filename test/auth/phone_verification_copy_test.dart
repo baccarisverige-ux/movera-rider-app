@@ -51,6 +51,22 @@ void main() {
     );
   }
 
+  testWidgets('rider-r4-11: the resend window runs on the wall clock, so a '
+      'suspended app comes back to Resend', (tester) async {
+    final auth = controller();
+    final challenge = await auth.requestOtp(phone: '+46701234567');
+    var now = DateTime(2026, 10, 21, 9);
+    await pump(
+      tester,
+      PhoneVerification(challenge: challenge, controller: auth, clock: () => now),
+    );
+    // Two minutes in the background: the timer fires once, not 120 times.
+    now = now.add(const Duration(minutes: 2));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.widgetWithText(TextButton, 'Resend code'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('resend waits for the server retry window, then sends a new code',
       (tester) async {
     final auth = controller();
