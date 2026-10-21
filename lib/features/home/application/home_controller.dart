@@ -756,6 +756,12 @@ class HomeLocationController extends ChangeNotifier {
       if (target == null || !isMounted() || _livePaused) return;
       _setState(HomeLocationState.live);
       onFix(target, heading);
+      // rider-u115: a revoke or services-off error ended the stream without
+      // a resubscribe. A fresh fix means location works again, so follow
+      // the rider again instead of freezing the puck on this one fix.
+      if (_positionSub == null && _resubscribeTimer == null) {
+        startTracking(isMounted: isMounted, onFix: onFix);
+      }
     } catch (_) {
       // No fresh fix: keep the last one; the stream will deliver the next.
     } finally {
