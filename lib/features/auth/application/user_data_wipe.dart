@@ -56,7 +56,10 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   rider's session would cancel nothing or the wrong thing. The server
 ///   still owns the ride and its search expiry.
 /// - `movera.location.last_good_fix.v1` (not `movera_` prefixed): the last
-///   GPS position, via [LocationRepository.clearLastGoodFix].
+///   GPS position, via [LocationRepository.clearLastGoodFix]. Its zone
+///   (`movera.location.last_zone.v1`, a country, no position) is a device
+///   setting and stays, so the next cold start keeps the zone's default
+///   language (rider-r4-41).
 ///
 /// Not prefs: the access/refresh tokens (`movera_access_token`,
 /// `movera_refresh_token`, secure storage or web sessionStorage) are cleared

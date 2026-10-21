@@ -103,6 +103,15 @@ void main() {
       expect(preview.freeMinutesLeft, 0);
     });
 
+    test('rider-r4-41: the zone outlives sign-out (no position kept)',
+        () async {
+      await const LocationRepository().saveLastGoodFix(
+        const GeoPoint(36.8065, 10.1815),
+      );
+      await UserDataWipe.run();
+      expect(await const LocationRepository().readLastGoodFix(), isNull);
+      expect((await currentRiderZone()).id, RiderZones.tunisia.id);
+    });
   });
 
   group('trip projection', () {
