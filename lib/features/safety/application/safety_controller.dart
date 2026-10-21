@@ -354,6 +354,40 @@ class SafetyController extends ChangeNotifier {
     return share;
   }
 
+  /// Rides already shared automatically (one share per ride).
+  final Set<String> _autoShared = {};
+
+  /// rider-u217: with Trip share on and "Automatically share every ride"
+  /// chosen, the trip screen calls this when the trip starts. It shares the
+  /// ride once with the trip-share contacts; with no such contact, or the
+  /// mode off, it does nothing.
+  Future<TripShare?> autoShareRide(String rideId) async {
+    final id = rideId.trim();
+    if (id.isEmpty || !_autoShared.add(id)) return null;
+    try {
+      if (!hasLoaded) await load();
+      if (!preferences.tripShareEnabled ||
+          preferences.tripShareMode != TripShareMode.auto ||
+          tripShareRecipients.isEmpty) {
+        return null;
+      }
+      final share = await startShare(id);
+      AppLog.info(
+        'safety.share.auto_started',
+        extra: {'rideId': id, 'contacts': share.contactIds.length},
+      );
+      return share;
+    } catch (error) {
+      // A later trip screen for this ride may try again.
+      _autoShared.remove(id);
+      AppLog.warning(
+        'safety.share.auto_failed',
+        extra: {'rideId': id, 'error': '$error'},
+      );
+      return null;
+    }
+  }
+
   Future<void> stopShare(String rideId) async {
     await _session.stopShare(rideId);
     notifyListeners();
