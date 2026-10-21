@@ -46,4 +46,12 @@ abstract final class CancelReasonCodes {
     'reasonCode': isRiderCode(reason) ? reason! : unspecified,
     if (reason != null) 'reason': reason,
   };
+
+  /// Body of `POST /trips/{tripId}/cancel-reason` (contract v0.4.4, owner
+  /// decision 6): the reason a rider picks after a cancel-first. A legacy
+  /// id that is not a registry code is kept as the `note`.
+  static Map<String, Object> riderReasonBody(String reason) => {
+    'reasonCode': isRiderCode(reason) ? reason : unspecified,
+    if (!isRiderCode(reason)) 'note': reason,
+  };
 }

@@ -150,8 +150,9 @@ void main() {
       final ride = await book();
       final id = ride['id'] as String;
       await cancel(id);
+      // Owner decision 6 (v0.4.4): the late reason is its own command.
       final error = await refused(api.post(
-        '/api/v1/rides/$id/cancel',
+        '/api/v1/trips/$id/cancel-reason',
         body: {'reasonCode': 'system_error'},
       ));
       expect(error.code, 'invalid_request');
@@ -159,7 +160,10 @@ void main() {
         (server.rides[id]!['cancellation'] as Map)['reasonCode'],
         CancelReasonCodes.unspecified,
       );
-      final late = await cancel(id, body: {'reasonCode': 'wait_too_long'});
+      final late = (await api.post(
+        '/api/v1/trips/$id/cancel-reason',
+        body: {'reasonCode': 'wait_too_long'},
+      ))['ride'] as Map;
       expect((late['cancellation'] as Map)['reasonCode'], 'wait_too_long');
     });
 

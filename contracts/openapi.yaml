@@ -1,11 +1,11 @@
-# Movera API v0.4.3 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.4.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.4.3
+  version: 0.4.4
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.4.3 in this folder; this file must agree with them.
+    v0.4.4 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,7 +55,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.4.3
+  version: 0.4.4
   source: contract.json
 paths:
   /quotes:
@@ -345,6 +345,56 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/EndEarlyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/cancel-reason:
+    post:
+      operationId: setCancelReason
+      summary: Rider tells the reason after a cancel-first
+      description: 'Owner decision 6 (v0.4.4), CONTRACT.md §3 "After-cancel reason". Allowed only while the trip is cancelled_by_rider
+        and cancellation.reasonCode is still something_else (the code a cancel-first names): sets cancellation.reasonCode
+        and cancellation.note. Not a lifecycle transition: status, version, sequence, fee and fare do not change and no realtime
+        event is sent. Any other state (also a reason already told) → 409 invalid_transition; a code outside the rider group
+        → 400 invalid_request.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelReasonCommand'
       responses:
         '200':
           description: OK
@@ -7572,6 +7622,18 @@ components:
           type: integer
           minimum: 1
           description: Version the caller last saw; stale → 409 version_mismatch.
+        reasonCode:
+          $ref: '#/components/schemas/RiderCancelReasonCode'
+        note:
+          type: string
+          maxLength: 1000
+    CancelReasonCommand:
+      type: object
+      description: 'The reason a rider tells after a cancel-first (owner decision 6, v0.4.4). No expectedVersion: the trip''s
+        version does not change.'
+      required:
+      - reasonCode
+      properties:
         reasonCode:
           $ref: '#/components/schemas/RiderCancelReasonCode'
         note:

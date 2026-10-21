@@ -1,4 +1,6 @@
-# Movera shared contract v0.4.3
+# Movera shared contract v0.4.4
+
+v0.4.4: owner decision 6, after-cancel reason (§3): new rider command `POST /trips/{tripId}/cancel-reason {reasonCode, note?}` tells the reason of a cancel-first once the trip is `cancelled_by_rider` with the placeholder `something_else`. It is not a transition: no version bump, no fee change, no realtime event. A second `/cancel` stays `409 invalid_transition`.
 
 v0.4.3: owner decision 5, route-change pricing (§3): a route change is priced from the booking, with the booked route through its booked stops; only stops that were not booked pay the stop fee, and the rider's offer raises stay in the price.
 
@@ -35,7 +37,7 @@ Files:
 - **Payment methods**: `card, apple_pay, google_pay, cash, wallet` (a saved card is `card` + `paymentMethodId`). Every country offers the same four (`contract.json#zonePaymentMethods`: `cash, card, apple_pay, google_pay`, owner Q7). No `swish`, no `d17`. `wallet` is never a config payment method: it is one balance per currency (no conversion), used first. The v0.3 ids `apple` / `google` are accepted on read as `apple_pay` / `google_pay` for one release.
 - **Languages**: `en, fr, sv` (`contract.json#languages`). Admin sets the default per country for the rider, driver and admin apps; the user can change it.
 - **Headers**: `Idempotency-Key` on every mutation (16–128 chars, server 409s on a different body under the same key), `X-Request-Id`, `X-Api-Version: 0.4`.
-- **Concurrency**: every trip/offer/driver/config command sends `expectedVersion`; a stale version gets `409 version_mismatch` with the current projection.
+- **Concurrency**: every trip/offer/driver/config command sends `expectedVersion`; a stale version gets `409 version_mismatch` with the current projection. The one exception is the rider's after-cancel reason (`POST /trips/{tripId}/cancel-reason`, §3), which does not change the trip's version.
 - **Errors**: `{ code, message, requestId, retryable, projection? }`, codes in `contract.json#errors.codes`. `projection` is the current resource for `version_mismatch` / `invalid_transition` (trip, offer, driver, rider, vehicle or config draft). Validation and wrong PIN are 400 `invalid_request`; too many PIN attempts 429. Success responses are the bare resource.
 
 ## 2. Canonical entities
@@ -140,6 +142,14 @@ Route-change pricing (v0.4.3, owner decision 5). The route quote and the `PATCH`
 - **Booked route** = pickup → booked stops, in order → dropoff: the route the booking quote priced. A booked stop is already in the booked fare, so a booked stop the new route keeps adds no kilometres and no stop fee. A stop of the new route within 50 m of a booked stop is that booked stop; each booked stop matches one new stop, once. A booked stop the new route drops gives back its kilometres (and its `stops` fare line, if the booking quote had one).
 - **Offer raises stay.** A raise the rider made to find a driver is part of the price of every new route: a route change never cancels or refunds it. The offer ceiling is worked out again from the new total.
 - `difference` = `total` − current `fare`; positive is charged, negative refunded (cash: only shown). Because `total` always starts from the booking, re-quoting the route the trip already has gives `difference` 0, successive changes do not add up, and going back to the booked route gives back what the changes cost.
+
+After-cancel reason (v0.4.4, owner decision 6). A rider who cancels before picking a reason (cancel-first) names the placeholder `something_else`, because `CancelCommand.reasonCode` is required. The reason picked afterwards is sent with `POST /trips/{tripId}/cancel-reason {reasonCode, note?}` (rider only, `CancelReasonCommand`):
+
+- Allowed only while the trip is `cancelled_by_rider` and its `cancellation.reasonCode` is still `something_else`. It sets `cancellation.reasonCode` to the given code, and `cancellation.note` when `note` is sent, and answers `200` with the TripProjection.
+- `reasonCode` must be a rider code (`contract.json#cancelReasons.rider`); any other code is `400 invalid_request`. Any other trip state, also a trip whose reason was already told, is `409 invalid_transition` with the projection. Another rider's trip is `403 forbidden` or `404 not_found`, as for every trip command.
+- It is not a lifecycle command and not in the transition table. Only `cancellation.reasonCode` and `cancellation.note` change: `status`, `version`, `sequence`, `updatedAt`, `fare`, `cancellation.fee`, `cancellation.actor` and `cancellation.at` stay as the cancel left them, and no realtime event is sent (after a terminal status the gate would block a `trip_projection` anyway). Apps read the new reason from the response and from `GET /trips/{tripId}` (admin: `GET /admin/trips/{id}`).
+- It takes no `expectedVersion` (the state rule already makes it one-shot) and needs `Idempotency-Key` like every mutation: a repeat with the same key and body returns the first answer.
+- A second `POST /trips/{tripId}/cancel` on a cancelled trip stays `409 invalid_transition` (the table) and never changes the reason.
 
 Live free cancel: the `freeMin` of a live FeeRule counts from `acceptedAt` (owner Q12).
 
@@ -288,7 +298,7 @@ Cancel reasons: the rider document lists `{code, title}` in the rider's language
 
 ## 7. API surface (summary; full detail in `openapi.yaml`)
 
-Rider: `POST /quotes`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (route/payment), `POST /trips/{id}/route-quote`, `POST /trips/{id}/cancel`, `POST /trips/{id}/end-early`, `GET /trips/{id}/events`, `GET /trips/{id}/pin`, `POST /trips/{id}/rating`, `GET /rider/trips?cursor`, `GET /rider/trips/active`, `GET /rider/config`, payments (`/payment-methods`, `/payments`, `/wallet`), `/rider/profile`, `/rider/places`, `/notifications`, `/trips/{id}/messages`, `/support/tickets`.
+Rider: `POST /quotes`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (route/payment), `POST /trips/{id}/route-quote`, `POST /trips/{id}/cancel`, `POST /trips/{id}/cancel-reason`, `POST /trips/{id}/end-early`, `GET /trips/{id}/events`, `GET /trips/{id}/pin`, `POST /trips/{id}/rating`, `GET /rider/trips?cursor`, `GET /rider/trips/active`, `GET /rider/config`, payments (`/payment-methods`, `/payments`, `/wallet`), `/rider/profile`, `/rider/places`, `/notifications`, `/trips/{id}/messages`, `/support/tickets`.
 
 Driver: `POST /driver/availability`, `POST /driver/location`, `GET /driver/offers`, `GET /driver/offers/stream`, `POST /offers/{id}/accept|decline`, `POST /trips/{id}/{head-to-pickup|arrive|board|start|complete|cancel|no-show}`, `POST /trips/{id}/pin/verify`, `GET /driver/reservations`, `GET /driver/config`, `GET /driver/earnings`, `/driver/profile`, `/driver/vehicles`, `/driver/documents`, `/driver/payouts`, `POST /trips/{id}/rating`.
 

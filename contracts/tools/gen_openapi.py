@@ -1,4 +1,4 @@
-"""Generates contracts/openapi.yaml (v0.4.3) from contract.json + hand-written surface.
+"""Generates contracts/openapi.yaml (v0.4.4) from contract.json + hand-written surface.
 Enums are read from contract.json so they stay byte-exact."""
 import json, sys, yaml
 from collections import OrderedDict
@@ -499,6 +499,9 @@ S["CancelCommand"] = obj(dict(EV, reasonCode=ref("CancelReasonCode"), note=s(max
                          ["expectedVersion", "reasonCode"],
                          "Actor comes from the token; reasonCode must be in the actor's group (rider; driverBeforeTrip/driverDuringTrip/scheduled/driverNextTrip).")
 S["EndEarlyCommand"] = obj(dict(EV, reasonCode=ref("RiderCancelReasonCode"), note=s(maxLength=1000)), ["expectedVersion"])
+S["CancelReasonCommand"] = obj({"reasonCode": ref("RiderCancelReasonCode"), "note": s(maxLength=1000)}, ["reasonCode"],
+                               "The reason a rider tells after a cancel-first (owner decision 6, v0.4.4). No expectedVersion: "
+                               "the trip's version does not change.")
 S["QuoteRequest"] = obj({"pickup": ref("Place"), "dropoff": ref("Place"), "stops": arr(ref("Place"), description="MUST be sent (may be empty)."),
                          "categoryIds": arr(ref("CategoryId"), description="Omit for every category in the zone."),
                          "kind": ref("TripKind"), "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod")},
@@ -711,6 +714,12 @@ op("post", "/trips/{tripId}/cancel", "cancelTrip", "Cancel the trip (rider or dr
         "driver scheduled: accepted → requested; driver onboard+: → cancelled_by_driver. Anything else → 409 invalid_transition.")
 op("post", "/trips/{tripId}/end-early", "endTripEarly", "Rider ends an onboard trip early", ["rider"], "Rider · Booking",
    params=TID, body="EndEarlyCommand", ok=(200, TP), mutation=True, transition="end_early")
+op("post", "/trips/{tripId}/cancel-reason", "setCancelReason", "Rider tells the reason after a cancel-first", ["rider"], "Rider · Booking",
+   params=TID, body="CancelReasonCommand", ok=(200, TP), mutation=True,
+   desc="Owner decision 6 (v0.4.4), CONTRACT.md §3 \"After-cancel reason\". Allowed only while the trip is cancelled_by_rider and "
+        "cancellation.reasonCode is still something_else (the code a cancel-first names): sets cancellation.reasonCode and "
+        "cancellation.note. Not a lifecycle transition: status, version, sequence, fee and fare do not change and no realtime event "
+        "is sent. Any other state (also a reason already told) → 409 invalid_transition; a code outside the rider group → 400 invalid_request.")
 op("get", "/trips/{tripId}/events", "streamTripEvents", "Trip realtime stream (SSE / WebSocket) or JSON replay",
    ["rider", "driver", "admin"], "Realtime", params=TID + [pref("After"), pref("Limit"), pref("LastEventId")],
    content=sse("Server-sent events. A WebSocket upgrade on the same URL carries the same JSON frames.", "RealtimeEvent", "RealtimeEventPage"),
@@ -926,11 +935,11 @@ doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
     "title": "Movera API",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "description": (
         "**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter) and "
         "Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + "
-        "`CONTRACT.md` v0.4.3 in this folder; this file must agree with them.\n\n"
+        "`CONTRACT.md` v0.4.4 in this folder; this file must agree with them.\n\n"
         "Wire rules: ids match `" + ID_PATTERN + "`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is "
         "`Money {amountMinor, currency}`; keys camelCase, enum values snake_case. Success responses are the bare resource; errors are `Error`.\n\n"
         "Every mutation needs `Idempotency-Key`. Trip, offer, driver, rider, vehicle and config commands send `expectedVersion`; a stale "
@@ -958,7 +967,7 @@ def to_plain(x):
 
 class D(yaml.SafeDumper):
     def ignore_aliases(self, data): return True
-header = "# Movera API v0.4.3 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
+header = "# Movera API v0.4.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
 with open(OUT, "w") as f:
     f.write(header)
     yaml.dump(to_plain(doc), f, Dumper=D, sort_keys=False, allow_unicode=True, width=120)

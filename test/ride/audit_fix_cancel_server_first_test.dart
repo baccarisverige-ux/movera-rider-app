@@ -185,6 +185,12 @@ void main() {
       expect(client.posts, 1);
 
       await controller.sendCancelReason('plans_changed');
+      // Owner decision 6: POST /trips/{id}/cancel-reason, no second /cancel.
+      expect(client.posts, 1);
+      expect(
+        (server.rides['sf-reason']!['cancellation'] as Map)['reasonCode'],
+        'plans_changed',
+      );
 
       final history = await OnDemandRideHistoryStore.read();
       expect(history, hasLength(1));
