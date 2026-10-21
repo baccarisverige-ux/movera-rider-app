@@ -31,3 +31,6 @@ jobs:
       # The arrive-by DST case only exists in a zone with daylight saving.
       - run: TZ=Europe/Stockholm flutter test test/scheduled_rides/audit_fix_arrive_by_dst_test.dart
       - run: TZ=America/New_York flutter test test/scheduled_rides/audit_fix_arrive_by_dst_test.dart
+      # Audit round 4: times shown in the device zone.
+      - run: TZ=Europe/Stockholm flutter test test/core/audit_fix_r4_device_zone_test.dart
+      - run: TZ=America/New_York flutter test test/core/audit_fix_r4_device_zone_test.dart

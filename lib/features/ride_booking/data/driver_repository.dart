@@ -62,8 +62,10 @@ class DriverRepository {
     );
   }
 
-  static String _completedAtLabel(DateTime when) {
+  static String _completedAtLabel(DateTime saved) {
     // "5 Jan 2026, 08:05" in the app language (intl's month names).
+    // rider-r4-8: a snapshot read back from the store has a UTC savedAt.
+    final when = saved.toLocal();
     return '${L10n.formatDate(when, 'd MMM yyyy')}, ${L10n.formatTime(when)}';
   }
 }
