@@ -1772,6 +1772,7 @@
   "sosRegistered": "Phone dialer opened. Movera registered your SOS.",
   "sosNeedsRide": "Phone dialer opened. In-app SOS needs an active ride.",
   "sosNotRegistered": "Phone dialer opened, but Movera could not register your SOS.",
+  "sosRegisteredNoDialer": "Could not open the phone dialer. Movera registered your SOS. Call 112 from another phone if you can.",
   "recordingSavedLocal": "Recording saved on this device. Automatic upload is unavailable.",
   "recordingFailed": "Recording could not be saved. Check microphone access and try again.",
   "tripSharingStarted": "{count, plural, =1{Trip sharing started for 1 trusted contact.} other{Trip sharing started for {count} trusted contacts.}}",

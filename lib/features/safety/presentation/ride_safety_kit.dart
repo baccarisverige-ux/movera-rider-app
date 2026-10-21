@@ -142,8 +142,12 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   void dispose() {
     _ctl.removeListener(_onChange);
     // FLOW-6: Stop audio lives only in this sheet, so closing the sheet
-    // stops and saves the recording instead of leaving the mic open.
-    unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    // stops and saves the recording instead of leaving the mic open. When a
+    // Ride check card closed the sheet, the card has taken the recording
+    // over with its own Stop (rider-u212/u214).
+    if (!_ctl.audio.handedOver) {
+      unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    }
     super.dispose();
   }
 
@@ -170,24 +174,34 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     );
   }
 
+  /// rider-u215: the SOS reaches Movera whether or not the phone dialer
+  /// opens, and the rider is told both results.
   Future<void> _call112() async {
+    String? dialError;
     try {
       await _ctl.emergency.callEmergencyNumber();
-      try {
-        final registered = await _ctl.sos(rideId: widget.rideId);
-        if (!mounted) return;
-        MoveraToast.show(context, registered
-            ? context.l10n.sosRegistered
-            : context.l10n.sosNeedsRide);
-      } catch (_) {
-        if (!mounted) return;
-        MoveraToast.show(context,
-            context.l10n.sosNotRegistered);
-      }
     } on EmergencyCallException catch (error) {
-      if (!mounted) return;
-      MoveraToast.show(context, error.message);
+      dialError = error.message;
     }
+    bool? registered;
+    try {
+      registered = await _ctl.sos(rideId: widget.rideId);
+    } catch (_) {
+      registered = null;
+    }
+    if (!mounted) return;
+    final l10n = context.l10n;
+    final String message;
+    if (dialError != null) {
+      message = registered == true ? l10n.sosRegisteredNoDialer : dialError;
+    } else {
+      message = switch (registered) {
+        true => l10n.sosRegistered,
+        false => l10n.sosNeedsRide,
+        null => l10n.sosNotRegistered,
+      };
+    }
+    MoveraToast.show(context, message);
   }
 
   Future<void> _toggleAudio() async {

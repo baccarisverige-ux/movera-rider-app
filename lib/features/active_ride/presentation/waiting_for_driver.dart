@@ -1107,6 +1107,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   // ---- Ride check (RC1): live positions against the admin's triggers. ----
 
   bool _rideCheckEnded = false;
+  bool _autoShareAsked = false;
   Timer? _rideCheckStillTimer;
 
   /// A driver app may stay quiet while the car stands still, so no new fix
@@ -1206,6 +1207,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             : driver.vehicleLabel,
       ),
     );
+    if (DriverEta.isInTrip(status) && !_autoShareAsked) {
+      // rider-u217: "Automatically share every ride".
+      _autoShareAsked = true;
+      unawaited(SafetyController.shared.autoShareRide(rideId));
+    }
     final eta = _tracking.eta;
     final lat = eta?.latitude;
     final lng = eta?.longitude;

@@ -827,6 +827,7 @@
   "sosRegistered": "Telefonen öppnades. Movera har registrerat ditt SOS.",
   "sosNeedsRide": "Telefonen öppnades. SOS i appen kräver en pågående resa.",
   "sosNotRegistered": "Telefonen öppnades, men Movera kunde inte registrera ditt SOS.",
+  "sosRegisteredNoDialer": "Telefonen kunde inte öppnas. Movera har registrerat ditt SOS. Ring 112 från en annan telefon om du kan.",
   "recordingSavedLocal": "Inspelningen har sparats på den här enheten. Automatisk uppladdning är inte tillgänglig.",
   "recordingFailed": "Inspelningen kunde inte sparas. Kontrollera mikrofonåtkomsten och försök igen.",
   "tripSharingStarted": "{count, plural, =1{Resedelning startad med 1 betrodd kontakt.} other{Resedelning startad med {count} betrodda kontakter.}}",

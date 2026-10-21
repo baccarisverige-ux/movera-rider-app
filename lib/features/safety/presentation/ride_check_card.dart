@@ -213,6 +213,7 @@ class _RideCheckLayerState extends State<RideCheckLayer>
     if (!mounted || _ctl.sessionFor(widget.rideId) == null) return;
     final route = ModalRoute.of(context);
     if (route == null || route.isCurrent || !route.isActive) return;
+    _ctl.takeOverRecording();
     Navigator.of(context).popUntil((other) => other == route);
   }
 

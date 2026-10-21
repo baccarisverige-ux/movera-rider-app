@@ -43,6 +43,17 @@ class SafetyAudioService extends ChangeNotifier {
 
   StreamSubscription<void>? _interruptions;
 
+  bool _handedOver = false;
+
+  /// rider-u212/u214: a Ride check card took over the running recording
+  /// (it shows it and has its own Stop), so closing the Safety Kit must not
+  /// stop it.
+  bool get handedOver => _handedOver && _active != null;
+
+  void handOver() {
+    if (_active != null) _handedOver = true;
+  }
+
   /// Whether the recording the platform last interrupted was saved.
   bool? lastInterruptionSaved;
 
@@ -94,6 +105,7 @@ class SafetyAudioService extends ChangeNotifier {
         L10n.current.audioStartFailed,
       );
     }
+    _handedOver = false;
     _active = recording.copyWith(
       createdAt: DateTime.now().toUtc(),
     );
