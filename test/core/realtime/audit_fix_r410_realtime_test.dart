@@ -6,6 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
@@ -143,6 +147,73 @@ void main() {
       expect(tracking.waitingSince, isNull, reason: 'a new wait to come');
       tracking.dispose();
       rt.dispose();
+    });
+  });
+
+  group('demo driver (MockRideRealtime) uses the trip\'s own pickup', () {
+    const paris = (lat: 48.8809, lng: 2.3553);
+    const sara = MatchedDriver(id: 'd-sara', firstName: 'Sara');
+    late InProcessMockClient server;
+    late MockRideRealtime mock;
+    late List<RideRealtimeEvent> events;
+
+    setUp(() {
+      server = InProcessMockClient();
+      mock = MockRideRealtime(api: ApiClient(client: server));
+      events = [];
+    });
+
+    void seed(String id, String status, ({double lat, double lng}) at,
+        [Map<String, Object?> extra = const {}]) {
+      server.rides[id] = {
+        'id': id,
+        'tripId': id,
+        'status': status,
+        'version': 3,
+        'pickupLat': at.lat,
+        'pickupLng': at.lng,
+        ...extra,
+      };
+    }
+
+    double metresFrom(({double lat, double lng}) at, RideRealtimeEvent e) =>
+        GeoDistance.metersBetween(e.latitude!, e.longitude!, at.lat, at.lng);
+
+    Future<RideRealtimeEvent> next(WidgetTester tester, RideStatus status) async {
+      for (var i = 0; i < 200; i++) {
+        final hit = events.where((e) => e.status == status);
+        if (hit.isNotEmpty) return hit.last;
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      fail('no $status event');
+    }
+
+    Future<RideRealtimeEvent> assign(WidgetTester tester, String id) async {
+      events.clear();
+      mock.subscribe(id).listen(events.add);
+      mock.assignNow();
+      return next(tester, RideStatus.driverAssigned);
+    }
+
+    testWidgets('rider-24: the first driver spawns near the booked pickup',
+        (tester) async {
+      seed('r-paris', 'searching', paris);
+      final assigned = await assign(tester, 'r-paris');
+      expect(metresFrom(paris, assigned), lessThan(2000));
+      mock.dispose();
+    });
+
+    testWidgets('rider-24: a reload resumes at the pickup, on server clocks',
+        (tester) async {
+      seed('r-paris', 'driver_to_pickup', paris, {
+        'acceptedAt': '2026-10-21T08:58:00Z',
+      });
+      mock.primeResume(status: RideStatus.driverArriving, driver: sara);
+      mock.subscribe('r-paris').listen(events.add);
+      final resumed = await next(tester, RideStatus.driverArriving);
+      expect(metresFrom(paris, resumed), lessThan(2000));
+      expect(resumed.acceptedAt, DateTime.utc(2026, 10, 21, 8, 58));
+      mock.dispose();
     });
   });
 }

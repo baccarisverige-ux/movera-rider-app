@@ -102,6 +102,11 @@ class MockRideRealtime implements RideRealtime {
   RideStatus? _resumeStatus;
   MatchedDriver? _resumeDriver;
   int? _resumeVersion;
+  double? _resumePickupLat;
+  double? _resumePickupLng;
+
+  /// The stand-in pickup when neither the caller nor the server knows one.
+  static const _fallbackPickup = (59.3293, 18.0686);
 
   /// Primes the next [subscribe] call to resume from a previously known
   /// status/driver/version instead of unconditionally resetting to
@@ -116,14 +121,21 @@ class MockRideRealtime implements RideRealtime {
   /// "finding driver". [version] should be the same ordering number the
   /// restore seeded RideSession.authoritativeVersion with, so this resumed
   /// emission is recognized as continuing that ordering, not restarting it.
+  ///
+  /// rider-24: [pickupLat]/[pickupLng] are the restored trip's own pickup,
+  /// so the resumed driver approaches it (not a fixed Stockholm point).
   void primeResume({
     required RideStatus status,
     MatchedDriver? driver,
     int? version,
+    double? pickupLat,
+    double? pickupLng,
   }) {
     _resumeStatus = status;
     _resumeDriver = driver;
     _resumeVersion = version;
+    _resumePickupLat = pickupLat;
+    _resumePickupLng = pickupLng;
   }
 
   @override
@@ -133,9 +145,13 @@ class MockRideRealtime implements RideRealtime {
     final resumeStatus = _resumeStatus;
     final resumeDriver = _resumeDriver;
     final resumeVersion = _resumeVersion;
+    final resumePickupLat = _resumePickupLat;
+    final resumePickupLng = _resumePickupLng;
     _resumeStatus = null;
     _resumeDriver = null;
     _resumeVersion = null;
+    _resumePickupLat = null;
+    _resumePickupLng = null;
 
     if (_rideId == rideId && !disposed && !cancelled) {
       // RC-08: [unsubscribe] cancelled the only assignment timer. A search
@@ -180,36 +196,11 @@ class MockRideRealtime implements RideRealtime {
       _sequence = resumeVersion ?? 0;
       lastStatus = resumeStatus;
       lastDriver = resumeDriver;
-      _pickupLat ??= 59.3293;
-      _pickupLng ??= 18.0686;
-      // A broadcast StreamController cannot deliver an event added before a
-      // listener exists - and the caller's own `.subscribe(id).listen(...)`
-      // chain only attaches its listener immediately *after* this method
-      // returns. Emitting synchronously here would silently vanish before
-      // DriverTrackingController ever sees it, leaving it stuck on its own
-      // constructor default (driverAssigned) until whatever timer/tick
-      // happens to fire next. Defer by one microtask so the just-attached
-      // listener actually receives the resumed status.
-      scheduleMicrotask(() {
-        if (cancelled || disposed || _rideId != rideId) return;
-        _emit(resumeStatus);
-      });
-      const tripStatuses = {
-        RideStatus.tripStarted,
-        RideStatus.tripInProgress,
-        RideStatus.approachingDropoff,
-      };
-      if (tripStatuses.contains(resumeStatus)) {
-        _tripStartLat ??= _pickupLat;
-        _tripStartLng ??= _pickupLng;
-        _runTripTicks();
-      } else {
-        // The remaining isMatched statuses are the pre-trip approach:
-        // driverAssigned, driverArriving, driverWaiting.
-        lastLat ??= _pickupLat! + 0.0072;
-        lastLng ??= _pickupLng! - 0.0048;
-        _startGps();
+      if (resumePickupLat != null && resumePickupLng != null) {
+        _pickupLat = resumePickupLat;
+        _pickupLng = resumePickupLng;
       }
+      unawaited(_resume(rideId, resumeStatus));
       return _controller.stream;
     }
 
@@ -225,6 +216,48 @@ class MockRideRealtime implements RideRealtime {
     });
     _armAssignment(rideId);
     return _controller.stream;
+  }
+
+  /// rider-24: the trip's pickup and the server's accept/waiting stamps
+  /// are read before the resumed driver is placed or a clock is shown, so
+  /// after a reload the driver approaches (and arrives at) the trip's own
+  /// pickup and the free-cancel and waiting clocks do not restart.
+  ///
+  /// A broadcast StreamController cannot deliver an event added before a
+  /// listener exists, and the caller's `.subscribe(id).listen(...)` chain
+  /// attaches its listener only after [subscribe] returns. The await below
+  /// always defers the resumed status past that point.
+  Future<void> _resume(String rideId, RideStatus status) async {
+    final ride = await _serverRide();
+    if (cancelled || disposed || _rideId != rideId) return;
+    if (ride != null) {
+      _adoptPickup(ride);
+      _acceptedAt = WireTime.tryParse(ride['acceptedAt']);
+      final waiting = ride['waiting'];
+      if (waiting is Map) _waitingSince = WireTime.tryParse(waiting['arrivedAt']);
+    }
+    _pickupLat ??= _fallbackPickup.$1;
+    _pickupLng ??= _fallbackPickup.$2;
+    const tripStatuses = {
+      RideStatus.tripStarted,
+      RideStatus.tripInProgress,
+      RideStatus.approachingDropoff,
+    };
+    final onTrip = tripStatuses.contains(status);
+    if (!onTrip) {
+      // The remaining isMatched statuses are the pre-trip approach:
+      // driverAssigned, driverArriving, driverWaiting.
+      lastLat ??= _pickupLat! + 0.0072;
+      lastLng ??= _pickupLng! - 0.0048;
+    }
+    _emit(status);
+    if (onTrip) {
+      _tripStartLat ??= _pickupLat;
+      _tripStartLng ??= _pickupLng;
+      _runTripTicks();
+    } else {
+      _startGps();
+    }
   }
 
   void _armAssignment(String rideId) {
@@ -260,11 +293,12 @@ class MockRideRealtime implements RideRealtime {
     final assignmentAttempt = _assignmentAttempt;
     _assign?.cancel();
     _assign = null;
-    _pickupLat ??= 59.3293;
-    _pickupLng ??= 18.0686;
-    lastLat ??= _pickupLat! + 0.0072;
-    lastLng ??= _pickupLng! - 0.0048;
-    lastLocationAt = DateTime.now();
+    // rider-24: the driver spawns near this trip's pickup. When it is not
+    // known yet, the accept's answer (the trip projection) says where it
+    // is, and the driver is placed before being shown. Before, a fixed
+    // Stockholm point was used and the pickup read only afterwards.
+    final pickupKnown = _pickupLat != null && _pickupLng != null;
+    if (pickupKnown) _spawnDriver();
     // Matching is what knows the driver. Assign before persisting so the
     // stored ride, every later resync, and a restored session all agree.
     lastDriver ??= MockDriverPool.forRide(
@@ -272,7 +306,7 @@ class MockRideRealtime implements RideRealtime {
       attempt: _assignmentAttempt,
     );
 
-    await _persistAssignment(rideId);
+    final accepted = await _persistAssignment(rideId);
 
     if (cancelled ||
         disposed ||
@@ -298,11 +332,24 @@ class MockRideRealtime implements RideRealtime {
       return;
     }
 
+    if (!pickupKnown) {
+      if (accepted != null) _adoptPickup(accepted);
+      _pickupLat ??= _fallbackPickup.$1;
+      _pickupLng ??= _fallbackPickup.$2;
+      _spawnDriver();
+      _commitFix();
+    }
     lastStatus = RideStatus.driverAssigned;
     _assignmentInFlight = false;
     _emit(RideStatus.driverAssigned);
     _startGps();
-    unawaited(_hydratePickup());
+  }
+
+  /// The assigned driver's first fix, a short drive from the pickup.
+  void _spawnDriver() {
+    lastLat ??= _pickupLat! + 0.0072;
+    lastLng ??= _pickupLng! - 0.0048;
+    lastLocationAt = DateTime.now();
   }
 
   void emit(
@@ -374,12 +421,6 @@ class MockRideRealtime implements RideRealtime {
   void _emit(RideStatus status) {
     final eta = _etaSeconds();
     emit(status, etaSeconds: eta);
-  }
-
-  Future<void> _hydratePickup() async {
-    final pickup = await _pickup();
-    _pickupLat = pickup.$1;
-    _pickupLng = pickup.$2;
   }
 
   void _startGps() {
@@ -599,7 +640,7 @@ class MockRideRealtime implements RideRealtime {
       }
       lastStatus = RideStatus.tripInProgress;
       _emit(RideStatus.tripInProgress);
-      if (moved) _commitTripFix();
+      if (moved) _commitFix();
     });
   }
 
@@ -640,34 +681,39 @@ class MockRideRealtime implements RideRealtime {
     );
   }
 
-  Future<(double, double)> _pickup() async {
+  /// The stand-in server's projection of this ride, when it has one.
+  Future<Map<dynamic, dynamic>?> _serverRide() async {
     final client = api;
     final id = _rideId;
-    if (client != null && id != null) {
-      try {
-        final json = await client.get('/api/v1/rides/$id');
-        final ride = json['ride'];
-        _observe(json);
-        if (ride is Map) {
-          final lat = (ride['pickupLat'] as num?)?.toDouble();
-          final lng = (ride['pickupLng'] as num?)?.toDouble();
-          if (lat != null && lng != null) return (lat, lng);
-        }
-      } catch (_) {
-        // Mock transport: fall back to the default pickup below.
-      }
+    if (client == null || id == null) return null;
+    try {
+      final json = await client.get('/api/v1/rides/$id');
+      _observe(json);
+      final ride = json['ride'];
+      return ride is Map ? ride : null;
+    } catch (_) {
+      // Mock transport: the caller falls back to what it already knows.
+      return null;
     }
-    return (59.3293, 18.0686);
   }
 
-  Future<void> _persistAssignment(String rideId) async {
+  void _adoptPickup(Map<dynamic, dynamic> ride) {
+    final lat = (ride['pickupLat'] as num?)?.toDouble();
+    final lng = (ride['pickupLng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+    _pickupLat ??= lat;
+    _pickupLng ??= lng;
+  }
+
+  /// Commits the accept; answers the server's trip projection, if any.
+  Future<Map<dynamic, dynamic>?> _persistAssignment(String rideId) async {
     final client = api;
-    if (client == null) return;
+    if (client == null) return null;
     _committedTarget = TripStatus.accepted.wireName;
     final driver = lastDriver?.toJson();
     final lat = lastLat;
     final lng = lastLng;
-    await _enqueue(
+    final response = await _enqueue(
       () => client.post(
         '/api/v1/rides/$rideId/status',
         body: {
@@ -679,6 +725,8 @@ class MockRideRealtime implements RideRealtime {
         },
       ),
     );
+    final ride = response is Map ? response['ride'] : null;
+    return ride is Map ? ride : null;
   }
 
   Future<void> _persistCompletion(String rideId) async {
@@ -763,9 +811,9 @@ class MockRideRealtime implements RideRealtime {
     RideStatus.approachingDropoff,
   };
 
-  /// R-O1: one GPS fix of the moving trip for the server (a `location`
-  /// event there, version unchanged), queued after the status commits.
-  void _commitTripFix() {
+  /// R-O1: one GPS fix of the driver for the server (a `location` event
+  /// there, version unchanged), queued after the status commits.
+  void _commitFix() {
     final client = api;
     final rideId = _rideId;
     final lat = lastLat;
@@ -783,14 +831,21 @@ class MockRideRealtime implements RideRealtime {
     );
   }
 
-  Future<void> _enqueue(Future<Object?> Function() call) {
-    return _commits = _commits.then((_) async {
+  /// Queues [call] after the earlier commits; answers its response, or
+  /// null when it was refused or lost.
+  Future<Object?> _enqueue(Future<Object?> Function() call) {
+    final done = _commits.then((_) async {
       try {
-        _observe(await call());
+        final response = await call();
+        _observe(response);
+        return response;
       } catch (_) {
         // Mock transport: a refused or lost commit leaves the server as is.
+        return null;
       }
     });
+    _commits = done;
+    return done;
   }
 
   /// R-O2: passes on the server's projection version from a response.
