@@ -195,6 +195,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     double? price,
     DateTime? searchStartedAt,
     DateTime? createdAt,
+    int? maxOfferMinor,
   }) {
     final effectivePrice =
         price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
@@ -214,6 +215,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       stops: _stops,
       searchStartedAt: searchStartedAt,
       createdAt: createdAt,
+      maxOfferMinor: maxOfferMinor,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(
@@ -300,6 +302,10 @@ class _FindingDriversState extends State<FindingDrivers> {
     final effectivePrice = current != null
         ? current.price
         : (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
+    // rider-u93: and the offer ceiling that route change set, not the one
+    // the session kept from booking.
+    final maxOfferMinor =
+        current?.maxOfferMinor ?? _match.ownershipSnapshot?.maxOfferMinor;
     _leaving = false;
     _cancelSheetOpen = false;
     _driverMatched.value = false;
@@ -309,7 +315,11 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(false);
     setState(() => _mapParked = false);
     // A new dispatch round: its own "still looking" mark.
-    _startMatching(price: effectivePrice, searchStartedAt: DateTime.now());
+    _startMatching(
+      price: effectivePrice,
+      searchStartedAt: DateTime.now(),
+      maxOfferMinor: maxOfferMinor,
+    );
     _loadMapBits();
   }
 

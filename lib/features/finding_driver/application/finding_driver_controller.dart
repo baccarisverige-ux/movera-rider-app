@@ -251,6 +251,7 @@ class FindingDriverController {
     List<RouteStop> stops = const <RouteStop>[],
     DateTime? searchStartedAt,
     DateTime? createdAt,
+    int? maxOfferMinor,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
@@ -275,7 +276,11 @@ class FindingDriverController {
             rideId == null ? null : session.authoritativeUpdatedAt?.toUtc(),
         categoryId: rideId == null ? null : session.bookedCategoryId,
         paymentMethodId: rideId == null ? null : session.bookedPaymentMethodId,
-        maxOfferMinor: rideId == null ? null : session.bookedMaxOfferMinor,
+        // rider-u93: a ceiling the caller knows (the saved ride's, which a
+        // route change updates) wins over the booking-time copy.
+        maxOfferMinor: rideId == null
+            ? null
+            : maxOfferMinor ?? session.bookedMaxOfferMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
