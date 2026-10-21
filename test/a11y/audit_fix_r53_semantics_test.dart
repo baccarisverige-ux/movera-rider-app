@@ -1,10 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/app/screen_scale.dart';
@@ -23,9 +31,46 @@ import 'package:movera_rider/features/reservations/presentation/upcoming_reserva
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _Geocoder implements GeocodingRepository {
+  @override
+  Future<PlaceResult?> forward(String query) async =>
+      PlaceResult(address: query, point: const GeoPoint(59.35, 18.07));
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => null;
+}
+
+class _Quotes implements QuoteRepository {
+  @override
+  Future<RideQuote> quote({
+    required String rideType,
+    required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) async => RideQuote(
+    id: 'q-$rideType',
+    rideType: rideType,
+    totalMinor: 25900,
+    currency: 'SEK',
+    expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+    signedPayload: 'signature',
+  );
+}
 
 /// Wave 5 R5.3: small semantics checks (label, tap action, value, size)
 /// for the accessibility fixes, one case per bug.
@@ -285,5 +330,70 @@ void main() {
     expect(label, isNot(contains('plate')));
     expect(L10n.current.restoringRide, isNot('Restoring active ride'));
     handle.dispose();
+  });
+
+  testWidgets('rider-u191: Select ride filters and tiles announce selection',
+      (tester) async {
+    final selection = RideSelectionController(
+      catalog: RideCatalogController(
+        api: ApiClient(
+          client: MockClient(
+            (_) async => http.Response(jsonEncode({'code': 'X'}), 500),
+          ),
+        ),
+        cache: MemoryRideCatalogCache(),
+      ),
+      quotes: _Quotes(),
+      flags: FeatureFlags(),
+    );
+    addTearDown(selection.dispose);
+    final handle = tester.ensureSemantics();
+    await pump(
+      tester,
+      SelectRide(
+        pickupAddress: 'Klockarvägen 37',
+        destinationAddress: 'Arlanda Airport',
+        pickupPosition: const LatLng(59.3293, 18.0686),
+        destinationPosition: const LatLng(59.6519, 17.9186),
+        geocoding: _Geocoder(),
+        selection: selection,
+        reservations: ReservationController(
+          store: LocalReservationRepository(storage: MemoryReservationStorage()),
+        ),
+      ),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    SemanticsNode nodeOf(Finder text) => tester.getSemantics(text.first);
+
+    // The filters show on the fully open sheet.
+    await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final recommended = find.text('Recommended');
+    final faster = find.text('Faster');
+    expect(nodeOf(recommended), isSemantics(isButton: true, isSelected: true));
+    expect(nodeOf(faster), isSemantics(isButton: true, isSelected: false));
+    expect(nodeOf(faster).rect.height, greaterThanOrEqualTo(44));
+    await tester.tap(faster);
+    await tester.pump();
+    expect(nodeOf(faster), isSemantics(isButton: true, isSelected: true));
+
+    // The chosen category's tile is selected; another one is not.
+    final chosen = selection.rideById(selection.selectedRideId).name;
+    final tiles = find.ancestor(
+      of: find.text(chosen),
+      matching: find.byType(InkWell),
+    );
+    expect(
+      tester.getSemantics(tiles.first),
+      isSemantics(isButton: true, isSelected: true, hasTapAction: true),
+    );
+    handle.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
   });
 }
