@@ -188,6 +188,37 @@ void main() {
         reason: 'the sheet must not keep the old arrival time');
   });
 
+  testWidgets('rider-u49: a reload does not open the arrived sheet the '
+      'rider already saw', (tester) async {
+    final realtime = await openWaiting(tester);
+    await driverArrives(tester, realtime);
+    final saved = (await RideSnapshotStore.read())!;
+
+    // The page reloads: a fresh Waiting on the same, saved ride.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(MaterialApp(
+      home: WaitingForDriver(
+        rideId: saved.rideId,
+        pickupAddress: 'Sergels torg 1',
+        destinationAddress: 'Odenplan 2',
+        pickupPosition: const LatLng(59.3326, 18.0649),
+        destinationPosition: const LatLng(59.3426, 18.0498),
+        rideType: 'Movera',
+        price: 200,
+        paymentMethod: 'Apple Pay',
+      ),
+    ));
+    await tester.pump();
+    realtime.emit(
+      RideStatus.driverWaiting,
+      latitude: 59.3326,
+      longitude: 18.0649,
+    );
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+
+    expect(find.byType(DriverArrivedSheet), findsNothing);
+  });
+
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '
       'ended ride', (tester) async {
     final realtime = await openWaiting(tester);

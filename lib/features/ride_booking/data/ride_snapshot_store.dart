@@ -42,6 +42,7 @@ class RideSnapshot {
     this.paymentMethodId,
     this.maxOfferMinor,
     this.currency = Money.defaultCurrency,
+    this.arrivalAnnounced = false,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -110,6 +111,10 @@ class RideSnapshot {
   /// ceiling up with it. Null for older snapshots.
   final int? maxOfferMinor;
 
+  /// rider-u49: the rider was already shown "Your driver has arrived" for
+  /// this ride's current driver, so a reload does not open it again.
+  final bool arrivalAnnounced;
+
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
   /// [price] as contract Money, with [currency]'s exponent.
@@ -159,6 +164,7 @@ class RideSnapshot {
     String? paymentMethodId,
     int? maxOfferMinor,
     String? currency,
+    bool? arrivalAnnounced,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -187,6 +193,7 @@ class RideSnapshot {
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
       currency: currency ?? this.currency,
+      arrivalAnnounced: arrivalAnnounced ?? this.arrivalAnnounced,
     );
   }
 
@@ -219,6 +226,7 @@ class RideSnapshot {
     if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
     if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
     if (currency != Money.defaultCurrency) 'currency': currency,
+    if (arrivalAnnounced) 'arrivalAnnounced': true,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -298,6 +306,7 @@ class RideSnapshot {
       walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
       serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
+      arrivalAnnounced: json['arrivalAnnounced'] == true,
       categoryId: CategoryIds.tryCanonical(json['categoryId']) ??
           _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),

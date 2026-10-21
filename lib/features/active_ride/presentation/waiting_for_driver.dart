@@ -231,6 +231,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _leaving = false;
   bool _completedOpened = false;
   bool _arrivalAnnounced = false;
+
+  /// rider-u49: whether the saved "already announced" flag was read yet.
+  bool _arrivalFlagRead = false;
   bool _researching = false;
   bool _overlayOn = false;
   bool _mapParked = false;
@@ -310,6 +313,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       _startRideCheckStillTimer(rideId.trim());
       unawaited(_loadWaitingTerms());
+      unawaited(_readArrivalAnnounced(rideId.trim()));
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -520,7 +524,33 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       closeRouteByReference(route);
     }
     _arrivalAnnounced = false;
+    // The next driver's arrival is news again, after a reload too.
+    unawaited(_saveArrivalAnnounced(false));
     showDriverCancelledNotice(context, driverName: lost.firstName);
+  }
+
+  /// rider-u49: a reload must not show the arrived sheet the rider already
+  /// dismissed, so the flag is kept with the ride's snapshot.
+  Future<void> _readArrivalAnnounced(String rideId) async {
+    try {
+      if (await ActiveRideController.arrivalAnnounced(rideId)) {
+        _arrivalAnnounced = true;
+      }
+    } catch (_) {
+      // Unknown: the sheet may show once more, as before.
+    }
+    _arrivalFlagRead = true;
+    if (mounted) _maybeAnnounceArrival();
+  }
+
+  Future<void> _saveArrivalAnnounced(bool announced) async {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    try {
+      await ActiveRideController.rememberArrivalAnnounced(rideId, announced);
+    } catch (_) {
+      // Best effort: at worst the sheet shows again after a reload.
+    }
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not
@@ -528,6 +558,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _maybeAnnounceArrival() {
     if (!mounted ||
         _leaving ||
+        !_arrivalFlagRead ||
         _arrivalAnnounced ||
         _completedOpened ||
         _modalHandoffInProgress ||
@@ -540,6 +571,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     _arrivalAnnounced = true;
+    unawaited(_saveArrivalAnnounced(true));
     _arrivedSheetShowing = true;
     unawaited(
       showDriverArrivedSheet(
