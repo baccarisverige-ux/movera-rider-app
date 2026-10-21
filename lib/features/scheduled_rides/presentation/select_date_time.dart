@@ -118,17 +118,28 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   DateTime _pickupFor(DateTime chosen) {
     final trip = widget.tripMinutes;
     if (_pickupMode || trip == null) return chosen;
-    // Real elapsed time, not wall-clock fields: across a DST change the
-    // constructor would move a pickup in the skipped hour after the arrival.
-    final pickup = chosen.subtract(Duration(minutes: trip));
-    return pickup.subtract(
-      Duration(
-        minutes: pickup.minute % StockholmSchedule.slotMinutes,
-        seconds: pickup.second,
-        milliseconds: pickup.millisecond,
-        microseconds: pickup.microsecond,
-      ),
+    // The trip is real elapsed time in the pickup zone, not the device
+    // zone, and the booking reads a repeated hour as its later copy: step
+    // back a slot until the booked instant is not after arrival - trip.
+    final latest = _schedule
+        .toUtc(chosen)
+        .subtract(Duration(minutes: trip));
+    final wall = ZoneClock.wallTime(widget.timeZone, latest);
+    var slot = DateTime.utc(
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute - wall.minute % StockholmSchedule.slotMinutes,
     );
+    DateTime plain(DateTime f) =>
+        DateTime(f.year, f.month, f.day, f.hour, f.minute);
+    while (_schedule.toUtc(plain(slot)).isAfter(latest)) {
+      slot = slot.subtract(
+        const Duration(minutes: StockholmSchedule.slotMinutes),
+      );
+    }
+    return plain(slot);
   }
 
   DateTime get _pickupAt => _pickupFor(_selectedDateTime);
