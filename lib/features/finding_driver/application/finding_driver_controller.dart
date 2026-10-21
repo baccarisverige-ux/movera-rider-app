@@ -147,6 +147,11 @@ class FindingDriverController {
   int _nearbyRequestEpoch = 0;
   int _pickupUpdateEpoch = 0;
   int _editEpoch = 0;
+
+  /// rider-u96: the edit that was in flight when the rider tapped Cancel.
+  /// The cancel moves [_editEpoch] on, but until it commits, an answer the
+  /// server already applied for that edit still counts.
+  int? _editRacedByCancel;
   RideSnapshot? _snapshot;
   double? _catalogPrice;
   void Function()? _onMatched;
@@ -251,6 +256,7 @@ class FindingDriverController {
     List<RouteStop> stops = const <RouteStop>[],
     DateTime? searchStartedAt,
     DateTime? createdAt,
+    int? maxOfferMinor,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
@@ -275,7 +281,11 @@ class FindingDriverController {
             rideId == null ? null : session.authoritativeUpdatedAt?.toUtc(),
         categoryId: rideId == null ? null : session.bookedCategoryId,
         paymentMethodId: rideId == null ? null : session.bookedPaymentMethodId,
-        maxOfferMinor: rideId == null ? null : session.bookedMaxOfferMinor,
+        // rider-u93: a ceiling the caller knows (the saved ride's, which a
+        // route change updates) wins over the booking-time copy.
+        maxOfferMinor: rideId == null
+            ? null
+            : maxOfferMinor ?? session.bookedMaxOfferMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
@@ -335,6 +345,7 @@ class FindingDriverController {
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _editEpoch += 1;
+    _editRacedByCancel = null;
     // ARCH-3 / RIDE-5: elapsed counts from when this search started, not
     // from when this screen mounted, so a reload does not restart it.
     final sinceStart = DateTime.now().difference(snapshot.searchStart);
@@ -664,6 +675,13 @@ class FindingDriverController {
   bool _editInvalid(int token) =>
       token != _editEpoch || _cancelled || _terminated || _disposed;
 
+  /// An edit the server applied is dropped only when the search it belongs
+  /// to is over: a cancel started meanwhile that has not committed does
+  /// not undo it (rider-u96).
+  bool _appliedEditDropped(int token) =>
+      _editInvalid(token) &&
+      (token != _editRacedByCancel || _cancelled || _terminated || _disposed);
+
   void _finishEdit(int token) {
     if (token == _editEpoch || _editInFlight) {
       _editInFlight = false;
@@ -831,7 +849,7 @@ class FindingDriverController {
       );
       _priceMutation.succeeded(intent);
       ride.observeProjection(response);
-      if (_editInvalid(editToken)) return false;
+      if (_appliedEditDropped(editToken)) return false;
       _bumpDismissed = true;
       final serverPrice = _serverPrice(response);
       if (serverPrice == null) {
@@ -860,7 +878,7 @@ class FindingDriverController {
         maxOfferMinor: _serverMaxOfferMinor(response),
       );
       await _store.save(_snapshot!);
-      if (_editInvalid(editToken)) return false;
+      if (_appliedEditDropped(editToken)) return false;
       AppLog.info(
         'ride.offer.updated',
         extra: {
@@ -1100,6 +1118,7 @@ class FindingDriverController {
       return SearchCancelResult.ignored;
     }
     _cancelInFlight = true;
+    _editRacedByCancel = _editInFlight ? _editEpoch : null;
     _editEpoch += 1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
@@ -1177,6 +1196,7 @@ class FindingDriverController {
       rideId: id,
       reasonId: reasonId,
       expectedVersion: ride.projectionVersionOf(id),
+      whileSearching: true,
     );
     // One in-session retry, only for an unreachable server: a refusal is
     // final and is never sent again.
@@ -1584,6 +1604,23 @@ class FindingDriverController {
     if (status.isTerminal) {
       return (
         result: PendingCancelResult.gone,
+        version: version,
+        projection: projection,
+      );
+    }
+    // rider-u103 (RC-03): a driver accepted before a cancel queued during
+    // the search reached the server. It was free when the rider tapped;
+    // replayed now it would cancel the matched ride and charge the live
+    // fee. It is dropped as stale and the rider decides again.
+    if (cancel.whileSearching &&
+        cancel.command == PendingCancelCommand.cancel &&
+        tripDriverAssignedStatuses.contains(status)) {
+      AppLog.warning(
+        'ride.cancel.flush_dropped_overtaken_by_match',
+        extra: {'rideId': cancel.rideId, 'status': status.wireName},
+      );
+      return (
+        result: PendingCancelResult.stale,
         version: version,
         projection: projection,
       );

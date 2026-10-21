@@ -94,7 +94,7 @@ void main() {
     expect(sent?.pickupPoint, here);
     expect(sent?.stops, ['Work']);
     expect(sent?.destination, 'Shop');
-    // The old stop has no point; it is located from its address.
+    // No point was given for the old stop: it is located from its address.
     expect(sent?.destinationPoint, isNull);
   });
 

@@ -34,12 +34,20 @@ class _Backend extends http.BaseClient {
   int rideGets = 0;
   final List<String?> bookingKeys = <String?>[];
 
+  /// A new booking waits for this before it reaches the backend.
+  Completer<void>? holdBooking;
+
+  /// A new booking is lost on the way (no answer: it may exist).
+  bool bookingOffline = false;
+
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final path = request.url.path;
     if (request.method == 'POST' && path.endsWith('/cancel')) cancelPosts += 1;
     if (request.method == 'POST' && path == '/api/v1/rides') {
       bookingKeys.add(request.headers['Idempotency-Key']);
+      await holdBooking?.future;
+      if (bookingOffline) throw http.ClientException('connection lost');
     }
     if (request.method == 'GET' &&
         RegExp(r'^/api/v1/rides/[^/]+$').hasMatch(path)) {
@@ -368,10 +376,13 @@ void main() {
       expect(backend.cancelPosts, 0);
     });
 
-    testWidgets('RIDE-19: after the server says no driver, Try again '
-        'requests the same ride as a new booking', (tester) async {
+    /// Opens a search for [id] that the server ends with no driver found.
+    Future<FindingDriverController> noDriverFound(
+      WidgetTester tester,
+      String id,
+    ) async {
       setUpBackend(expiry: Duration.zero);
-      final firstId = seedRide('to-try-again');
+      seedRide(id);
       final controller = await openFinding(
         tester,
         searchStartedAt: DateTime.now(),
@@ -384,6 +395,28 @@ void main() {
         () => find.text('No driver found').evaluate().isNotEmpty,
       );
       await tester.pump(const Duration(milliseconds: 400));
+      return controller;
+    }
+
+    /// Waits until [controller] searches for a new ride, not [firstId].
+    Future<void> searchingAgain(
+      WidgetTester tester,
+      FindingDriverController controller,
+      String firstId,
+    ) async {
+      await pumpUntil(
+        tester,
+        () =>
+            AppScope.instance.ride.rideId != firstId &&
+            controller.ownedRideId == AppScope.instance.ride.rideId,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('RIDE-19: after the server says no driver, Try again '
+        'requests the same ride as a new booking', (tester) async {
+      const firstId = 'to-try-again';
+      final controller = await noDriverFound(tester, firstId);
       expect(find.text('No driver found'), findsOneWidget);
       expect(find.text('Try again'), findsOneWidget);
       expect(find.text('Change route'), findsOneWidget);
@@ -394,13 +427,7 @@ void main() {
       // The next booking should not expire straight away.
       server.rides.clear();
       await tester.tap(find.text('Try again'));
-      await pumpUntil(
-        tester,
-        () =>
-            AppScope.instance.ride.rideId != firstId &&
-            controller.ownedRideId == AppScope.instance.ride.rideId,
-      );
-      await tester.pump(const Duration(milliseconds: 400));
+      await searchingAgain(tester, controller, firstId);
 
       final secondId = AppScope.instance.ride.rideId;
       expect(secondId, isNotNull);
@@ -418,18 +445,7 @@ void main() {
     });
 
     testWidgets('RIDE-19: Change route goes back to Home', (tester) async {
-      setUpBackend(expiry: Duration.zero);
-      seedRide('to-change-route');
-      final controller = await openFinding(
-        tester,
-        searchStartedAt: DateTime.now(),
-      );
-      unawaited(controller.checkServerSearchState());
-      await pumpUntil(
-        tester,
-        () => find.text('Change route').evaluate().isNotEmpty,
-      );
-      await tester.pump(const Duration(milliseconds: 400));
+      await noDriverFound(tester, 'to-change-route');
       await tester.tap(find.text('Change route'));
       await pumpUntil(
         tester,
@@ -439,6 +455,58 @@ void main() {
       expect(find.text('timeout-home'), findsOneWidget);
       expect(backend.bookingKeys, isEmpty);
       expect(AppScope.instance.ride.status, RideStatus.noDriverFound);
+    });
+
+    testWidgets('rider-u106: back while Try again books keeps the screen, '
+        'which then owns the new search', (tester) async {
+      const firstId = 'to-back-while-booking';
+      final controller = await noDriverFound(tester, firstId);
+      server.rides.clear();
+      backend.holdBooking = Completer<void>();
+      await tester.tap(find.text('Try again'));
+      await pumpUntil(tester, () => backend.bookingKeys.isNotEmpty);
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(FindingDrivers), findsOneWidget);
+
+      backend.holdBooking!.complete();
+      await searchingAgain(tester, controller, firstId);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(controller.ownedRideId, isNot(firstId));
+    });
+
+    testWidgets('rider-u108: a Try again that may have booked stays on the '
+        'screen and retries the same booking', (tester) async {
+      const firstId = 'to-maybe-booked';
+      final controller = await noDriverFound(tester, firstId);
+      server.rides.clear();
+      backend.bookingOffline = true;
+      await tester.tap(find.text('Try again'));
+      final uncertain = find.text(
+        'We couldn’t confirm your booking. Check your connection and try '
+        'again.',
+      );
+      await pumpUntil(
+        tester,
+        () =>
+            uncertain.evaluate().isNotEmpty ||
+            find.text('timeout-home').evaluate().isNotEmpty,
+        max: 200,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(uncertain, findsOneWidget);
+      expect(find.text('timeout-home'), findsNothing);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+
+      backend.bookingOffline = false;
+      await tester.tap(find.text('Try again'));
+      await searchingAgain(tester, controller, firstId);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      // Every send was the same booking: one key, so at most one ride.
+      expect(backend.bookingKeys.toSet(), hasLength(1));
     });
   });
 }

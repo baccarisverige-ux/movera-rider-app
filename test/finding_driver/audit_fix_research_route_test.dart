@@ -41,8 +41,8 @@ void main() {
     }
   }
 
-  testWidgets('RIDE-8: after a driver drop the search uses the route and '
-      'price changed on Waiting', (tester) async {
+  testWidgets('RIDE-8 / rider-u93: after a driver drop the search uses the '
+      'route, price and offer ceiling changed on Waiting', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -62,7 +62,10 @@ void main() {
       ..status = RideStatus.findingDriver
       ..suppressRestore = false
       ..authoritativeVersion = null
-      ..authoritativeUpdatedAt = null;
+      ..authoritativeUpdatedAt = null
+      // Booked at 200 kr: the ceiling is 360 kr.
+      ..bookedMaxOfferMinor = 36000;
+    addTearDown(() => AppScope.instance.ride.bookedMaxOfferMinor = null);
     final controller = FindingDriverController(realtime: realtime, api: api);
     final nav = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
@@ -113,6 +116,8 @@ void main() {
         destinationLat: 59.8586,
         destinationLng: 17.6389,
         price: 499,
+        // The route change's new ceiling (1.8 x 300 kr on the server).
+        maxOfferMinor: 54000,
         savedAt: DateTime.now(),
       ),
     );
@@ -131,6 +136,7 @@ void main() {
     expect(controller.ownershipSnapshot?.destinationAddress, 'Uppsala Central');
     expect(controller.ownershipSnapshot?.destinationLat, 59.8586);
     expect(controller.currentPrice, 499);
+    expect(controller.maxOfferPrice, 540);
     expect(AppScope.instance.ride.rideId, rideId);
 
     realtime.dispose();

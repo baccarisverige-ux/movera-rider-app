@@ -26,6 +26,7 @@ class PendingCancel {
     this.idempotencyKey,
     this.command = PendingCancelCommand.cancel,
     this.expectedVersion,
+    this.whileSearching = false,
   });
 
   final String rideId;
@@ -45,12 +46,18 @@ class PendingCancel {
   /// written before the field existed.
   final int? expectedVersion;
 
+  /// rider-u103: queued from the search, before any driver accepted. Such
+  /// a cancel is free; once a driver has accepted, the match overtook it
+  /// (RC-03) and it is never replayed on the matched trip.
+  final bool whileSearching;
+
   PendingCancel withKey(String key) => PendingCancel(
     rideId: rideId,
     reasonId: reasonId,
     idempotencyKey: key,
     command: command,
     expectedVersion: expectedVersion,
+    whileSearching: whileSearching,
   );
 
   PendingCancel withReason(String? reason) => PendingCancel(
@@ -59,6 +66,7 @@ class PendingCancel {
     idempotencyKey: idempotencyKey,
     command: command,
     expectedVersion: expectedVersion,
+    whileSearching: whileSearching,
   );
 
   /// The same command for a newer trip [version] the outbox re-read before
@@ -71,6 +79,7 @@ class PendingCancel {
     idempotencyKey: newIdempotencyKey('ride-cancel'),
     command: command,
     expectedVersion: version,
+    whileSearching: whileSearching,
   );
 
   /// The request body: the rider's reason and, when known, the version.
@@ -86,6 +95,7 @@ class PendingCancel {
     if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
     'command': command.pathSegment,
     'expectedVersion': ?expectedVersion,
+    if (whileSearching) 'whileSearching': true,
   };
 
   factory PendingCancel.fromJson(Map<String, dynamic> json) => PendingCancel(
@@ -94,6 +104,7 @@ class PendingCancel {
     idempotencyKey: json['idempotencyKey'] as String?,
     command: PendingCancelCommand.parse(json['command']),
     expectedVersion: (json['expectedVersion'] as num?)?.toInt(),
+    whileSearching: json['whileSearching'] == true,
   );
 }
 
@@ -244,6 +255,7 @@ class PendingCancelStore {
         idempotencyKey: key is String && key.isNotEmpty ? key : null,
         command: PendingCancelCommand.parse(decoded['command']),
         expectedVersion: (decoded['expectedVersion'] as num?)?.toInt(),
+        whileSearching: decoded['whileSearching'] == true,
       );
     } catch (_) {
       return null;
@@ -319,10 +331,12 @@ class PendingCancelStore {
     String? idempotencyKey,
     PendingCancelCommand command = PendingCancelCommand.cancel,
     int? expectedVersion,
+    bool whileSearching = false,
   }) async {
     final existing = await find(rideId);
     if (existing != null &&
         existing.command == command &&
+        existing.whileSearching == whileSearching &&
         existing.idempotencyKey != null) {
       return existing;
     }
@@ -333,6 +347,7 @@ class PendingCancelStore {
           idempotencyKey ?? newIdempotencyKey('ride-cancel'),
       command: command,
       expectedVersion: expectedVersion,
+      whileSearching: whileSearching,
     );
     await add(entry);
     return entry;

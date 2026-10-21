@@ -26,6 +26,7 @@ class RoutePickerSelection {
     required this.stops,
     this.pickupPoint,
     this.destinationPoint,
+    this.stopPoints = const [],
   });
 
   final String pickup;
@@ -33,6 +34,10 @@ class RoutePickerSelection {
   final String destination;
   final GeoPoint? destinationPoint;
   final List<String> stops;
+
+  /// The point of each of [stops], in the same order; null where the stop
+  /// has none yet (typed, not picked) and must be located from its address.
+  final List<GeoPoint?> stopPoints;
 }
 
 /// A point the rider placed on the map from inside the picker.
@@ -50,7 +55,9 @@ class RoutePickerPage extends StatefulWidget {
     super.key,
     required this.pickupAddress,
     required this.destinationAddress,
+    this.destinationPoint,
     required this.stops,
+    this.stopPoints = const [],
     required this.stopsSupported,
     required this.initialField,
     required this.capture,
@@ -71,7 +78,13 @@ class RoutePickerPage extends StatefulWidget {
   /// The rider's exact pickup address, or null while it is still unknown.
   final String? pickupAddress;
   final String destinationAddress;
+
+  /// rider-u87: the exact points of the route already booked (Change
+  /// route), so a swap moves them with their addresses instead of
+  /// locating each address again from its text.
+  final GeoPoint? destinationPoint;
   final List<String> stops;
+  final List<GeoPoint?> stopPoints;
   final bool stopsSupported;
   final String initialField;
   final EarlyInputCapture capture;
@@ -179,11 +192,19 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   final FocusNode _pickupFocus = FocusNode();
   final FocusNode _destinationFocus = FocusNode();
   late final List<FocusNode> _stopFocus = [for (final _ in _stops) FocusNode()];
+  late final List<GeoPoint?> _stopPoints = [
+    for (var i = 0; i < _stops.length; i++)
+      i < widget.stopPoints.length ? widget.stopPoints[i] : null,
+  ];
 
   late String _active = widget.initialField;
   int _activeStop = -1;
   String _query = '';
   List<PlaceSuggestion> _results = const [];
+
+  /// rider-u90: the query [_results] answer. They stay on screen while a
+  /// longer query is on its way, so Enter checks they are for the text.
+  String _resultsQuery = '';
   bool _searching = false;
   bool _showAll = false;
   bool _finishing = false;
@@ -192,7 +213,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   /// again, so the bottom button is offered even where it usually is not.
   bool _rerouted = false;
   GeoPoint? _pickupPoint;
-  GeoPoint? _destinationPoint;
+  late GeoPoint? _destinationPoint = widget.destinationPoint;
   late String? _home = widget.homeAddress;
   late String? _work = widget.workAddress;
 
@@ -214,6 +235,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         _stops.length < _maxStops) {
       _stops.add(TextEditingController());
       _stopFocus.add(FocusNode());
+      _stopPoints.add(null);
       _active = 'stop';
       _activeStop = _stops.length - 1;
     } else if (_active == 'pickup' && widget.pickupLocked) {
@@ -274,6 +296,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _activeStop = stop;
       _query = '';
       _results = const [];
+      _resultsQuery = '';
       _showAll = false;
     });
   }
@@ -281,6 +304,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void _onTyped(String value) {
     if (_active == 'pickup') _pickupPoint = null;
     if (_active == 'destination') _destinationPoint = null;
+    if (_active == 'stop' && _activeStop >= 0 && _activeStop < _stops.length) {
+      _stopPoints[_activeStop] = null;
+    }
     setState(() {
       _query = value;
       _showAll = false;
@@ -296,6 +322,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           if (!mounted || query != _activeController.text) return;
           setState(() {
             _results = results;
+            _resultsQuery = query;
             _searching = false;
           });
         },
@@ -316,12 +343,14 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_stops.isNotEmpty) {
       final last = _stops.last;
       final lastText = last.text;
+      final lastPoint = _stopPoints.last;
       setState(() {
         last.text = _destination.text;
+        _stopPoints.last = _destinationPoint;
         _destination.text = lastText;
-        // A stop has no map point; the new destination is located from
-        // its address.
-        _destinationPoint = null;
+        // rider-u87: each point moves with its address; only one the
+        // picker never had is located from its text.
+        _destinationPoint = lastPoint;
         _rerouted = true;
       });
       return;
@@ -346,6 +375,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     setState(() {
       _stops.add(controller);
       _stopFocus.add(focus);
+      _stopPoints.add(null);
     });
     _activate('stop', stop: _stops.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) => focus.requestFocus());
@@ -354,6 +384,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void _removeStop(int index) {
     final controller = _stops.removeAt(index);
     final focus = _stopFocus.removeAt(index);
+    _stopPoints.removeAt(index);
     controller.dispose();
     focus.dispose();
     _activate('destination');
@@ -374,7 +405,12 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         return;
       }
     } else if (_active == 'stop') {
-      setState(() => _activeController.text = _show(address));
+      setState(() {
+        _activeController.text = _show(address);
+        if (_activeStop >= 0 && _activeStop < _stops.length) {
+          _stopPoints[_activeStop] = point;
+        }
+      });
       _activate('destination');
       _destinationFocus.requestFocus();
       return;
@@ -391,6 +427,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing || _destination.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _finishing = true);
+    final filled = [
+      for (var i = 0; i < _stops.length; i++)
+        if (_stops[i].text.trim().isNotEmpty) i,
+    ];
     Map<String, dynamic>? draft;
     try {
       draft = await widget.onFinish(
@@ -399,10 +439,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           pickupPoint: _pickupPoint,
           destination: _expand(_destination.text),
           destinationPoint: _destinationPoint,
-          stops: [
-            for (final c in _stops)
-              if (c.text.trim().isNotEmpty) _expand(c.text),
-          ],
+          stops: [for (final i in filled) _expand(_stops[i].text)],
+          stopPoints: [for (final i in filled) _stopPoints[i]],
         ),
       );
     } catch (_) {
@@ -433,11 +471,31 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       );
   }
 
+  /// Enter takes the first row the rider sees: a matching recent place,
+  /// else the first suggestion, but only once the list answers what the
+  /// field says now (rider-u90).
+  void _chooseFirstRow() {
+    final recent = _recentMatches();
+    if (recent.isNotEmpty) {
+      _choose(recent.first);
+      return;
+    }
+    if (_results.isEmpty ||
+        _resultsQuery.trim() != _activeController.text.trim()) {
+      return;
+    }
+    final first = _results.first;
+    _choose(first.address, point: first.point);
+  }
+
   Future<void> _pickOnMap() async {
     final pickup = _active == 'pickup';
+    // rider-u89: the field shows the short, translated label; the caller
+    // compares the address with the one it stored (English, in full) to
+    // tell what the rider typed, so it gets that one back.
     final result = await widget.onPickOnMap(
       pickup: pickup,
-      address: _activeController.text.trim(),
+      address: _expand(_activeController.text),
     );
     if (result == null || !mounted) return;
     await _choose(result.address, point: result.point);
@@ -507,12 +565,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               },
               onChanged: active ? _onTyped : null,
               textInputAction: TextInputAction.search,
-              onSubmitted: (_) {
-                if (_results.isNotEmpty) {
-                  final first = _results.first;
-                  _choose(first.address, point: first.point);
-                }
-              },
+              onSubmitted: (_) => _chooseFirstRow(),
               style: _t(16.5, color: locked ? _muted : _ink),
               cursorColor: _accent,
               decoration: InputDecoration(
@@ -914,11 +967,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return rows;
   }
 
+  List<String> _recentMatches() => widget.recent
+      .where((r) => matchRange(r, _query) != null)
+      .take(2)
+      .toList();
+
   List<Widget> _whileTyping() {
-    final recentMatches = widget.recent
-        .where((r) => matchRange(r, _query) != null)
-        .take(2)
-        .toList();
+    final recentMatches = _recentMatches();
     final shown = _showAll ? _results : _results.take(4).toList();
     final rows = <Widget>[
       for (final address in recentMatches)
@@ -1011,99 +1066,105 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   @override
   Widget build(BuildContext context) {
     final typing = _query.trim().isNotEmpty;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                // Swipe down on the header to close, like a sheet.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragEnd: (details) {
-                    if ((details.primaryVelocity ?? 0) > 300) {
-                      Navigator.of(context).maybePop();
-                    }
-                  },
-                  child: SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: context.l10n.close,
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.close_rounded, size: 26),
-                          color: _ink,
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              widget.pageTitle ?? context.l10n.planYourRide,
-                              style: _t(18, weight: FontWeight.w700),
+    // rider-u88: while the next step runs (geocoding, the time picker, the
+    // route-change price) back must not close the picker under it; that
+    // step would then open its sheet over the screen the rider went back to.
+    return PopScope(
+      canPop: !_finishing,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Swipe down on the header to close, like a sheet.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragEnd: (details) {
+                      if ((details.primaryVelocity ?? 0) > 300) {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                    child: SizedBox(
+                      height: 56,
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: context.l10n.close,
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.close_rounded, size: 26),
+                            color: _ink,
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                widget.pageTitle ?? context.l10n.planYourRide,
+                                style: _t(18, weight: FontWeight.w700),
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 52),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                    child: _fields(),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      children: typing ? _whileTyping() : _beforeTyping(),
+                    ),
+                  ),
+                ],
+              ),
+              if ((widget.finishLabel != null || _rerouted) &&
+                  !typing &&
+                  _destination.text.trim().isNotEmpty)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: MediaQuery.paddingOf(context).bottom + 16,
+                  child: SizedBox(
+                    height: 54,
+                    child: FilledButton(
+                      key: const ValueKey('route-picker-done'),
+                      onPressed: _finishing ? null : _finish,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF11181D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        const SizedBox(width: 52),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                  child: _fields(),
-                ),
-                Expanded(
-                  child: ListView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    children: typing ? _whileTyping() : _beforeTyping(),
-                  ),
-                ),
-              ],
-            ),
-            if ((widget.finishLabel != null || _rerouted) &&
-                !typing &&
-                _destination.text.trim().isNotEmpty)
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.paddingOf(context).bottom + 16,
-                child: SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    key: const ValueKey('route-picker-done'),
-                    onPressed: _finishing ? null : _finish,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF11181D),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                    child: Text(
-                      widget.finishLabel ?? context.l10n.seePrices,
-                      style: _t(
-                        16,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
+                      child: Text(
+                        widget.finishLabel ?? context.l10n.seePrices,
+                        style: _t(
+                          16,
+                          weight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            if (_finishing)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x33FFFFFF),
-                  child: Center(
-                    child: CircularProgressIndicator(color: _accent),
+              if (_finishing)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x33FFFFFF),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _accent),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
