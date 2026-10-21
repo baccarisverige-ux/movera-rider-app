@@ -78,7 +78,12 @@ class AppGeocoding implements GeocodingRepository {
     _reverseInFlight[key] = future;
     try {
       final result = await future;
-      if (result != null) _reverseCache[key] = _CachedValue(result);
+      // rider-r4-43: the placeholder is what a failed street lookup leaves
+      // (Nominatim rate-limits easily); caching it would show 'Current
+      // location' at this spot for the whole TTL. The next lookup retries.
+      if (result != null && result != placeholderReverseLabel) {
+        _reverseCache[key] = _CachedValue(result);
+      }
       return result;
     } finally {
       if (identical(_reverseInFlight[key], future)) _reverseInFlight.remove(key);

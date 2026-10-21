@@ -76,6 +76,25 @@ void main() {
       expect(publicCalls, 1);
     });
 
+    // rider-r4-43: a failed Nominatim lookup (e.g. rate-limited) cached the
+    // 'Current location' placeholder for 10 minutes; it is retried now.
+    test('a failed street lookup is not cached', () async {
+      final answers = <String?>[null, 'Sveavägen 1'];
+      final geocoding = AppGeocoding(
+        api: placeholderApi(),
+        isWeb: true,
+        allowPublicReverseFallback: true,
+        publicReverse: (point, {timeout = Duration.zero}) async =>
+            answers.removeAt(0),
+      );
+      const point = GeoPoint(59.33, 18.06);
+      expect(
+        await geocoding.reverse(point),
+        AppGeocoding.placeholderReverseLabel,
+      );
+      expect(await geocoding.reverse(point), 'Sveavägen 1');
+    });
+
     test('the app enables it only for mock-transport flavours', () {
       expect(AppGeocoding().allowPublicReverseFallback, isFalse);
       expect(
