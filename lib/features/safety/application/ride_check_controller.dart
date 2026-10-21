@@ -311,6 +311,13 @@ class RideCheckController extends ChangeNotifier {
     if (hit != null) unawaited(_openDetected(rideId, hit));
   }
 
+  /// rider-u56: the screen's live feed came back after an outage; the
+  /// stop clock restarts now.
+  void liveFeedResumed(String rideId) {
+    if (!tripMonitoring || _trip?.rideId != rideId) return;
+    _monitor?.feedResumed(_clock());
+  }
+
   /// No new position for a while: checks the long stop against the clock,
   /// with the car still where it was last seen standing. The in-trip screen
   /// calls this on a timer while the live feed is up.

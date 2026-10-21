@@ -24,6 +24,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -1211,15 +1212,36 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _rideCheckEnded = false;
   bool _autoShareAsked = false;
   Timer? _rideCheckStillTimer;
+  bool _liveFeedWasDown = false;
+
+  /// rider-u56: whether this screen's live feed is down. The polling
+  /// transport never errors the tracking stream on a failed poll; it marks
+  /// the shared connection failed and backs off, so that state counts too.
+  bool get _liveFeedDown =>
+      _tracking.connectionDegraded ||
+      (widget.realtime == null &&
+          AppScope.instance.realtime.state != RealtimeState.connected);
 
   /// A driver app may stay quiet while the car stands still, so no new fix
   /// comes in to measure the stop. While the trip is under way and the live
-  /// feed is up, check the long stop against the clock as well.
+  /// feed is up, check the long stop against the clock as well. With the
+  /// feed down (the rider's own phone offline) no fix can come, so time
+  /// without one says nothing about the car; the stop clock restarts when
+  /// the feed is back.
   void _startRideCheckStillTimer(String rideId) {
     _rideCheckStillTimer?.cancel();
     if (!RideCheckController.tripMonitoring) return;
     _rideCheckStillTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || _tracking.connectionDegraded) return;
+      if (!mounted) return;
+      if (_liveFeedDown) {
+        _liveFeedWasDown = true;
+        return;
+      }
+      if (_liveFeedWasDown) {
+        _liveFeedWasDown = false;
+        RideCheckController.shared.liveFeedResumed(rideId);
+        return;
+      }
       if (!DriverEta.isInTrip(_tracking.status)) return;
       RideCheckController.shared.checkStill(rideId);
     });
