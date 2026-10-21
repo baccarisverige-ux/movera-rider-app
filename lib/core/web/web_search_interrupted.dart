@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:movera_rider/core/web/web_search_interrupted_io.dart'
     if (dart.library.js_interop) 'package:movera_rider/core/web/web_search_interrupted_web.dart';
 
@@ -8,4 +9,9 @@ void markSearchLive() => webMarkSearchLive();
 void clearSearchLive() => webClearSearchLive();
 
 /// True once if a ride was still live when the previous document ended.
-bool takeWebSearchInterrupted() => webTakeSearchInterrupted();
+bool takeWebSearchInterrupted() =>
+    (debugTakeWebSearchInterrupted ?? webTakeSearchInterrupted)();
+
+/// Tests: stands in for the web session flag, which non-web builds lack.
+@visibleForTesting
+bool Function()? debugTakeWebSearchInterrupted;
