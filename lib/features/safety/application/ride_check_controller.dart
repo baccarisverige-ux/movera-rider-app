@@ -144,6 +144,7 @@ class RideCheckController extends ChangeNotifier {
        _emergency = emergency,
        _audio = audio,
        _clock = clock ?? DateTime.now {
+    _audio.addListener(_onRecordingInterrupted);
     _qaOwner = this;
     listenForRideCheckQa(_onQaSimulate);
   }
@@ -664,6 +665,19 @@ class RideCheckController extends ChangeNotifier {
     _setRecordingNote(current.checkId, note);
   }
 
+  /// rider-u199: the OS interrupted the card's recording and it was
+  /// stopped and saved, so the card stops counting "Recording m:ss".
+  void _onRecordingInterrupted() {
+    final current = _session;
+    if (current == null) return;
+    _setRecordingNote(
+      current.checkId,
+      _audio.lastInterruptionSaved == false
+          ? L10n.current.audioSaveFailed
+          : L10n.current.rcRecordingSaved,
+    );
+  }
+
   void _setRecordingNote(String checkId, String? note) {
     final latest = _session;
     if (latest == null || latest.checkId != checkId) {
@@ -872,6 +886,7 @@ class RideCheckController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _audio.removeListener(_onRecordingInterrupted);
     if (identical(_qaOwner, this)) {
       _qaOwner = null;
       listenForRideCheckQa(null);

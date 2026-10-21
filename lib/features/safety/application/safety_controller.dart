@@ -29,7 +29,16 @@ class SafetyController extends ChangeNotifier {
         emergency = emergency ?? EmergencyCallService.shared,
         audio = audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
         rideCheck = rideCheck ??
-            RideCheckService(store: session ?? SafetyStore.shared);
+            RideCheckService(store: session ?? SafetyStore.shared) {
+    // rider-u199: an interrupted recording ends; the Kit redraws.
+    this.audio.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    audio.removeListener(notifyListeners);
+    super.dispose();
+  }
 
   factory SafetyController({
     SafetyRepository? store,
