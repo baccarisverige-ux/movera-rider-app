@@ -200,6 +200,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     // The driver shows as soon as one accepts, unless admin turned that off.
     final showDriver = _reservations.showsDriverOf(ride);
     final previousDriver = ride.previousDriver;
+    final noDriverFound = _reservations.isNoDriverFound(ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -286,15 +287,25 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ReservationStatusBanner(
-                  title: ReservationFormat.statusTitle(ride),
-                  body: ReservationFormat.statusBody(
-                    ride,
-                    assignmentDisclaimer: policy.assignmentDisclaimer,
-                    showDriver: showDriver,
+                // rider-j8-1: what Home says once the pickup passed with no
+                // driver, never "Reservation confirmed".
+                if (noDriverFound)
+                  ReservationStatusBanner(
+                    key: const Key('upcoming-no-driver-found'),
+                    title: context.l10n.termNoDriverFound,
+                    body: context.l10n.chronoNoDriverCancel,
+                    positive: false,
+                  )
+                else
+                  ReservationStatusBanner(
+                    title: ReservationFormat.statusTitle(ride),
+                    body: ReservationFormat.statusBody(
+                      ride,
+                      assignmentDisclaimer: policy.assignmentDisclaimer,
+                      showDriver: showDriver,
+                    ),
+                    positive: !ride.status.isCancelled,
                   ),
-                  positive: !ride.status.isCancelled,
-                ),
                 if (showDriver &&
                     ride.driverChanged &&
                     ride.status.isUpcoming) ...[
