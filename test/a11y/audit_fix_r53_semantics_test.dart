@@ -15,6 +15,13 @@ import 'package:movera_rider/features/notifications/application/notifications_co
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -202,6 +209,58 @@ void main() {
       tester.getSemantics(find.text('English')),
       isSemantics(isSelected: false, hasTapAction: true),
     );
+    handle.dispose();
+  });
+
+  testWidgets('rider-u167: scheduling close and back buttons are named and '
+      'at least 44 px', (tester) async {
+    final handle = tester.ensureSemantics();
+    void expectNamedButton(String label) {
+      final node = find.bySemanticsLabel(label);
+      expect(node, findsOneWidget, reason: label);
+      expect(
+        tester.getSemantics(node),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      expect(tester.getSize(node).shortestSide, greaterThanOrEqualTo(44));
+    }
+
+    final reservations = ReservationController(
+      store: LocalReservationRepository(storage: MemoryReservationStorage()),
+    );
+    final ride = await reservations.create(
+      ReservationDraft(
+        scheduledPickupAt: DateTime.now().add(const Duration(days: 1)),
+        pickup: const ReservationPlace(label: 'Home'),
+        destination: const ReservationPlace(label: 'Arlanda Express'),
+        categoryId: 'economy',
+        categoryName: 'Movera',
+        categoryImage: 'assets/images/rides/movera.webp',
+        price: 522,
+        paymentMethod: 'Card',
+      ),
+    );
+    await pump(
+      tester,
+      RideScheduledPage(
+        reservationId: ride.reservationId,
+        controller: reservations,
+      ),
+    );
+    expectNamedButton('Close');
+
+    await pump(
+      tester,
+      ScheduleDateTimeSelector(
+        body: const SizedBox.shrink(),
+        session: ScheduledRideSession(),
+        onConfirm: () {},
+      ),
+    );
+    expectNamedButton('Back');
+
+    await pump(tester, const ScheduleRide());
+    expectNamedButton('Back');
     handle.dispose();
   });
 }

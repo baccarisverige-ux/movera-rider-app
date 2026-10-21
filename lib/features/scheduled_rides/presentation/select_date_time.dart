@@ -13,6 +13,7 @@ import 'package:movera_rider/features/scheduled_rides/application/stockholm_sche
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   /// The next step. Continue stays locked until it completes (rider-88).
@@ -659,17 +660,22 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           child: InkWell(
             onTap: widget.onBack ?? () => Navigator.maybePop(context),
             customBorder: const CircleBorder(),
-            child: const SizedBox(
-              width: 42,
-              height: 42,
-              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+            // rider-u167: named, and the 44 px floor.
+            child: Semantics(
+              button: true,
+              label: context.l10n.back,
+              child: const SizedBox(
+                width: A11y.minTapIOS,
+                height: A11y.minTapIOS,
+                child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+              ),
             ),
           ),
         ),
         const Spacer(),
         Text(context.l10n.navScheduleRide, style: _style(12, weight: FontWeight.w600)),
         const Spacer(),
-        const SizedBox(width: 42),
+        const SizedBox(width: A11y.minTapIOS),
       ],
     );
   }
