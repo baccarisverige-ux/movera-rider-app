@@ -118,19 +118,16 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   DateTime _pickupFor(DateTime chosen) {
     final trip = widget.tripMinutes;
     if (_pickupMode || trip == null) return chosen;
-    final pickup = DateTime(
-      chosen.year,
-      chosen.month,
-      chosen.day,
-      chosen.hour,
-      chosen.minute - trip,
-    );
-    return DateTime(
-      pickup.year,
-      pickup.month,
-      pickup.day,
-      pickup.hour,
-      pickup.minute - pickup.minute % StockholmSchedule.slotMinutes,
+    // Real elapsed time, not wall-clock fields: across a DST change the
+    // constructor would move a pickup in the skipped hour after the arrival.
+    final pickup = chosen.subtract(Duration(minutes: trip));
+    return pickup.subtract(
+      Duration(
+        minutes: pickup.minute % StockholmSchedule.slotMinutes,
+        seconds: pickup.second,
+        milliseconds: pickup.millisecond,
+        microseconds: pickup.microsecond,
+      ),
     );
   }
 

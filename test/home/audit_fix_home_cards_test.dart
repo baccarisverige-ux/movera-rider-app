@@ -73,6 +73,15 @@ void main() {
     expect(stats.pillText, '3 rides · 820 kr · 24,00 €');
   });
 
+  test('a trip whose payment failed is a ride but not money spent', () {
+    final stats = MonthRideStats.fromRides([
+      _ride('a', 'economy', price: 500),
+      _ride('b', 'economy', price: 320).copyWith(paymentFailed: true),
+    ], _now);
+    expect(stats.rides, 2);
+    expect(stats.pillText, '2 rides · 500 kr');
+  });
+
   testWidgets('FLOW-13: the month card refreshes when a ride is archived and '
       'labels CO₂ as an estimate', (tester) async {
     final rides = <Reservation>[];

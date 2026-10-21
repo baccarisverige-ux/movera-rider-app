@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -657,6 +657,74 @@
     "waitingDriverSharePct": 100,
     "noShowDriverSharePct": 80,
     "missedExclusiveBeforeOffline": 3,
+    "reservations": {
+      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin.",
+      "on": true,
+      "leaveNow": true,
+      "lateWarn": true,
+      "offlineBackupAfterMin": 5,
+      "homePopupAfterMin": 10,
+      "exclusiveBeforeMin": 20,
+      "radarBeforeMin": 15,
+      "onDriverCancel": "byTime",
+      "hideClashing": true,
+      "towardPickup": true,
+      "towardPickupBeforeMin": 60,
+      "longTripKm": 50,
+      "driverLateCancelHours": 1,
+      "lateCancelLimit": 2,
+      "lateCancelPeriodDays": 7,
+      "pauseDays": 7,
+      "assignAcceptSeconds": 30,
+      "rideTypes": {
+        "normal": {
+          "onlineBeforeMin": 30,
+          "spareMin": 15,
+          "reminderMin": [
+            60,
+            15
+          ]
+        },
+        "airport": {
+          "onlineBeforeMin": 60,
+          "spareMin": 15,
+          "reminderMin": [
+            60,
+            15
+          ]
+        },
+        "longTrip": {
+          "onlineBeforeMin": 60,
+          "spareMin": 15,
+          "reminderMin": [
+            60,
+            15
+          ]
+        },
+        "comfortPremium": {
+          "onlineBeforeMin": 45,
+          "spareMin": 15,
+          "reminderMin": [
+            60,
+            15
+          ]
+        },
+        "event": {
+          "onlineBeforeMin": 45,
+          "spareMin": 15,
+          "reminderMin": [
+            60,
+            15
+          ]
+        }
+      },
+      "lateEta": {
+        "on": true,
+        "toleranceMin": 3,
+        "checkEverySeconds": 60,
+        "reassignTo": "exclusive"
+      }
+    },
     "countries": {
       "SE": {
         "currency": "SEK",

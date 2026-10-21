@@ -158,6 +158,73 @@
   "nextTrips": {
     "on": true
   },
+  "reservations": {
+    "on": true,
+    "leaveNow": true,
+    "lateWarn": true,
+    "offlineBackupAfterMin": 5,
+    "homePopupAfterMin": 10,
+    "exclusiveBeforeMin": 20,
+    "radarBeforeMin": 15,
+    "onDriverCancel": "byTime",
+    "hideClashing": true,
+    "towardPickup": true,
+    "towardPickupBeforeMin": 60,
+    "longTripKm": 50,
+    "driverLateCancelHours": 1,
+    "lateCancelLimit": 2,
+    "lateCancelPeriodDays": 7,
+    "pauseDays": 7,
+    "assignAcceptSeconds": 30,
+    "rideTypes": {
+      "normal": {
+        "onlineBeforeMin": 30,
+        "spareMin": 15,
+        "reminderMin": [
+          60,
+          15
+        ]
+      },
+      "airport": {
+        "onlineBeforeMin": 60,
+        "spareMin": 15,
+        "reminderMin": [
+          60,
+          15
+        ]
+      },
+      "longTrip": {
+        "onlineBeforeMin": 60,
+        "spareMin": 15,
+        "reminderMin": [
+          60,
+          15
+        ]
+      },
+      "comfortPremium": {
+        "onlineBeforeMin": 45,
+        "spareMin": 15,
+        "reminderMin": [
+          60,
+          15
+        ]
+      },
+      "event": {
+        "onlineBeforeMin": 45,
+        "spareMin": 15,
+        "reminderMin": [
+          60,
+          15
+        ]
+      }
+    },
+    "lateEta": {
+      "on": true,
+      "toleranceMin": 3,
+      "checkEverySeconds": 60,
+      "reassignTo": "exclusive"
+    }
+  },
   "cancelReasons": {
     "driverBeforeTrip": [
       "rider_requested_cancel",

@@ -1,11 +1,11 @@
-# Movera API v0.4.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.4.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.4.0
+  version: 0.4.1
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.4.0 in this folder; this file must agree with them.
+    v0.4.1 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,7 +55,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.4.0
+  version: 0.4.1
   source: contract.json
 paths:
   /quotes:
@@ -6619,6 +6619,172 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: The limit can never be set above this.
+    ReservationRideType:
+      type: object
+      description: Times for one kind of scheduled ride.
+      properties:
+        onlineBeforeMin:
+          type: integer
+          minimum: 5
+          maximum: 240
+          description: Be online this many minutes before pickup.
+        spareMin:
+          type: integer
+          minimum: 0
+          maximum: 60
+          description: Spare minutes in the smart gap and in Leave now.
+        reminderMin:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 1440
+          description: Reminder times, minutes before pickup, largest first.
+          maxItems: 4
+    LateEta:
+      type: object
+      description: 'Running late: an online driver who would arrive more than toleranceMin late loses the ride early. Otherwise
+        an online driver keeps it.'
+      properties:
+        'on':
+          type: boolean
+          description: Watch an online driver's ETA from Leave now until arrival at the pickup.
+          default: true
+        toleranceMin:
+          type: integer
+          minimum: 0
+          maximum: 30
+          description: Reassign when now + ETA > pickup time + toleranceMin.
+          default: 3
+        checkEverySeconds:
+          type: integer
+          minimum: 15
+          maximum: 600
+          description: How often the ETA is checked.
+          default: 60
+        reassignTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - dispatch
+          description: exclusive = Exclusive offer to the nearest available driver; radar = Radar trips; dispatch = back to
+            admin dispatch.
+          default: exclusive
+    DriverReservations:
+      type: object
+      description: Scheduled-ride rules for the driver app (CONTRACT.md §6). Every field is optional; a missing or invalid
+        one keeps the default (contract.json#configDefaults.reservations).
+      properties:
+        'on':
+          type: boolean
+          description: Reservations are enabled in this zone.
+          default: true
+        leaveNow:
+          type: boolean
+          description: Open the trip automatically at Leave now (estimated drive time to the pickup + spareMin before pickup).
+          default: true
+        lateWarn:
+          type: boolean
+          description: Island warning "Head to your 07:40 pickup" when Leave now cannot start the trip.
+          default: true
+        offlineBackupAfterMin:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Only an OFFLINE driver loses the ride, this many minutes after Leave now; an online driver keeps it.
+          default: 5
+        homePopupAfterMin:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: 'Untaken: the Home popup this many minutes after booking.'
+          default: 10
+        exclusiveBeforeMin:
+          type: integer
+          minimum: 1
+          maximum: 180
+          description: 'Untaken: Exclusive from this many minutes before pickup.'
+          default: 20
+        radarBeforeMin:
+          type: integer
+          minimum: 1
+          maximum: 180
+          description: 'Untaken: Radar trips from this many minutes before pickup.'
+          default: 15
+        onDriverCancel:
+          type: string
+          enum:
+          - byTime
+          - list
+          - home
+          - exclusive
+          description: Where a ride goes after a driver cancels.
+          default: byTime
+        hideClashing:
+          type: boolean
+          description: Rides that do not fit the smart gap leave the driver's Scheduled rides list once they take one.
+          default: true
+        towardPickup:
+          type: boolean
+          description: Before the ride, offers head toward the scheduled pickup.
+          default: true
+        towardPickupBeforeMin:
+          type: integer
+          minimum: 15
+          maximum: 240
+          default: 60
+        longTripKm:
+          type: number
+          minimum: 10
+          maximum: 500
+          description: A ride longer than this is a longTrip.
+          default: 50
+        driverLateCancelHours:
+          type: number
+          minimum: 0.5
+          maximum: 72
+          description: A driver cancel with less than this many hours to pickup is a late cancel.
+          default: 1
+        lateCancelLimit:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Late cancels within lateCancelPeriodDays before a pause.
+          default: 2
+        lateCancelPeriodDays:
+          type: integer
+          minimum: 1
+          maximum: 90
+          default: 7
+        pauseDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: No scheduled rides for this many days after the limit.
+          default: 7
+        assignAcceptSeconds:
+          type: integer
+          minimum: 10
+          maximum: 600
+          description: Time to accept a ride assigned by Movera.
+          default: 30
+        rideTypes:
+          type: object
+          description: Per kind of ride. Admin ids long and premium are longTrip and comfortPremium.
+          properties:
+            normal:
+              $ref: '#/components/schemas/ReservationRideType'
+            airport:
+              $ref: '#/components/schemas/ReservationRideType'
+            longTrip:
+              $ref: '#/components/schemas/ReservationRideType'
+            comfortPremium:
+              $ref: '#/components/schemas/ReservationRideType'
+            event:
+              $ref: '#/components/schemas/ReservationRideType'
+        lateEta:
+          $ref: '#/components/schemas/LateEta'
     RiderAppConfig:
       type: object
       description: Per-zone rider document built by Admin exporters. Unknown keys are ignored; missing keys fall back to the
@@ -6889,6 +7055,8 @@ components:
           properties:
             'on':
               type: boolean
+        reservations:
+          $ref: '#/components/schemas/DriverReservations'
         cancelReasons:
           type: object
           description: Enabled codes per reason sheet; titles come from `texts`.
