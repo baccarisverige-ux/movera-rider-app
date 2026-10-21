@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
@@ -372,10 +373,12 @@ class Reservation {
 
   Map<String, dynamic> toJson() => {
     'reservationId': reservationId,
-    'createdAt': createdAt.toIso8601String(),
-    'scheduledPickupAt': scheduledPickupAt.toIso8601String(),
+    // rider-j8-5: instants (WireTime, RFC 3339 UTC), never an offset-less
+    // local time that a device time-zone change would move.
+    'createdAt': WireTime.format(createdAt),
+    'scheduledPickupAt': WireTime.format(scheduledPickupAt),
     if (estimatedDropoffAt != null)
-      'estimatedDropoffAt': estimatedDropoffAt!.toIso8601String(),
+      'estimatedDropoffAt': WireTime.format(estimatedDropoffAt!),
     'pickup': pickup.toJson(),
     'destination': destination.toJson(),
     'categoryId': categoryId,
@@ -412,9 +415,13 @@ class Reservation {
       final pickup = ReservationPlace.tryParse(map['pickup']);
       final destination = ReservationPlace.tryParse(map['destination']);
       if (pickup == null || destination == null) return null;
+      // The pickup and drop-off read back as device-local times of the
+      // stored instants; a legacy value with no offset is read as local,
+      // as it was written. createdAt is only compared, so it stays as
+      // stored.
       final created = DateTime.tryParse(map['createdAt'] as String? ?? '');
-      final pickupAt = DateTime.tryParse(
-        map['scheduledPickupAt'] as String? ?? map['pickupAt'] as String? ?? '',
+      final pickupAt = _localTime(
+        map['scheduledPickupAt'] ?? map['pickupAt'],
       );
       if (created == null || pickupAt == null) return null;
       final rawStatus = map['status'] as String?;
@@ -426,9 +433,7 @@ class Reservation {
         reservationId: id,
         createdAt: created,
         scheduledPickupAt: pickupAt,
-        estimatedDropoffAt: DateTime.tryParse(
-          map['estimatedDropoffAt'] as String? ?? '',
-        ),
+        estimatedDropoffAt: _localTime(map['estimatedDropoffAt']),
         pickup: pickup,
         destination: destination,
         categoryId: CategoryIds.canonical(
@@ -464,6 +469,9 @@ class Reservation {
   }
 }
 
+
+DateTime? _localTime(Object? raw) =>
+    raw is String ? DateTime.tryParse(raw)?.toLocal() : null;
 
 TripCancellationActor? _parseCancellationActor(String? name) {
   if (name == null) return null;
