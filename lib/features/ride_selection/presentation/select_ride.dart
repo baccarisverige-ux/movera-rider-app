@@ -1176,12 +1176,20 @@ class _SelectRideState extends State<SelectRide>
           // schedule" instead of a search.
           final ride = _selectedRideOrNull;
           if (ride == null) return;
+          _pinQuote = null;
+          _pinQuoteAdopted = false;
           final spot = await _openSetPickup(
             ride,
             confirmLabel: context.l10n.confirmAndSchedule,
             scheduledPickup: _selection.scheduledFor,
           );
-          if (spot == null || !mounted) return;
+          if (!mounted) return;
+          if (spot == null) {
+            // rider-u188: as Book now, the pin's price belongs to a point
+            // the rider did not confirm.
+            if (_pinQuoteAdopted) unawaited(_loadQuotes());
+            return;
+          }
           _pickupAddress = spot.address;
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
