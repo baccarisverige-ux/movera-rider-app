@@ -37,8 +37,19 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Throws when the save failed or the server refused it (rider-u150);
+  /// listeners hear about the profile either way.
+  ///
+  /// rider-u154: the repository takes the change on the device before it
+  /// waits on the server, so listeners hear about it at once too: a switch
+  /// moves when it is tapped, and the next change starts from this one.
   Future<void> update(RiderProfileData next) async {
-    await _store.save(next);
+    final saving = _store.save(next);
     notifyListeners();
+    try {
+      await saving;
+    } finally {
+      notifyListeners();
+    }
   }
 }

@@ -6,6 +6,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Step 3, new riders only: the name the driver will look for. Replaces the
@@ -108,6 +109,9 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
               hint: context.l10n.lastName,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.familyName],
+              // rider-u78: first (40) + space + last stays within the
+              // profile's 80 characters.
+              maxLength: RiderProfileData.maxNameLength - 41,
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),

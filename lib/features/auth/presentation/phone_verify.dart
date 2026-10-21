@@ -123,10 +123,8 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       setState(() => _error = context.l10n.requestNewCode);
       return;
     }
-    if (challenge.isExpired) {
-      setState(() => _error = context.l10n.codeExpired);
-      return;
-    }
+    // rider-u73: no device-clock expiry check; the server answers 410 for
+    // an expired code and authErrorMessage says so.
     if (!RidePin.isValidFormat(code)) return;
     setState(() {
       _submitting = true;
@@ -158,6 +156,17 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   Widget build(BuildContext context) {
     final phone = _phone;
     final complete = RidePin.isValidFormat(_pin.text.trim());
+    // rider-r3-10: no way back while the code is being checked. Leaving
+    // here unmounted the screen that opens the app (or the new-rider name
+    // step) once the verify signs the rider in, so a signed-in rider was
+    // left on the Sign in form.
+    return PopScope(
+      canPop: !_submitting,
+      child: _content(context, phone, complete),
+    );
+  }
+
+  Widget _content(BuildContext context, String? phone, bool complete) {
     return AuthScaffold(
       step: 2,
       onBack: () => Navigator.of(context).maybePop(),

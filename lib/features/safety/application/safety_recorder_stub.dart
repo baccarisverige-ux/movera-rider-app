@@ -16,6 +16,9 @@ abstract class SafetyRecorderInterruptions {
 
 SafetyRecorder createSafetyRecorder() => const UnsupportedSafetyRecorder();
 
+/// No recording is ever written where audio capture is unavailable.
+Future<void> deleteAllSafetyRecordings() async {}
+
 class UnsupportedSafetyRecorder implements SafetyRecorder {
   const UnsupportedSafetyRecorder();
 

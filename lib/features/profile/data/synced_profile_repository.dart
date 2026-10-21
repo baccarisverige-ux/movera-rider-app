@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -86,9 +87,24 @@ class SyncedProfileRepository
 
   /// Sends the pending change once, however many hydrates are waiting on
   /// the same read (launch and sign-in).
-  Future<void> _resync() => _resyncing ??= _sync(
-    _cache.current,
-  ).whenComplete(() => _resyncing = null);
+  Future<void> _resync() =>
+      _resyncing ??= _resyncOnce().whenComplete(() => _resyncing = null);
+
+  Future<void> _resyncOnce() async {
+    try {
+      await _sync(_cache.current, rethrowRefusal: true);
+    } on ApiError catch (error) {
+      // rider-u150: a change the server refuses (left pending by an
+      // earlier launch) would be refused again on every save. Drop it and
+      // take the server copy instead.
+      AppLog.warning('profile.sync_refused', extra: {'error': '$error'});
+      _changed.clear();
+      _syncPending = false;
+      await _storePending();
+      _serverKnown = false;
+      await _readServer();
+    }
+  }
 
   @override
   void clearLocal() {
@@ -103,14 +119,34 @@ class SyncedProfileRepository
     _reading = null;
   }
 
+  /// rider-u150: throws the [ApiError] when the server refuses the
+  /// profile itself (400/422, e.g. a name over 80 characters). The fields
+  /// this save changed then go back to what they were, so the refused
+  /// value is neither shown as saved nor sent again with every later save.
   @override
   Future<RiderProfileData> save(RiderProfileData next) async {
-    _changed.addAll(_Field.changedBetween(_cache.current, next));
+    final before = _cache.current;
+    final pendingBefore = Set<_Field>.of(_changed);
+    _changed.addAll(_Field.changedBetween(before, next));
     await _cache.save(next);
     await _storePending();
     await _readServer();
     if (_serverKnown) {
-      await _sync(_cache.current);
+      try {
+        await _sync(_cache.current, rethrowRefusal: true);
+      } on ApiError {
+        var restored = _cache.current;
+        for (final field in _changed.difference(pendingBefore)) {
+          restored = field.copy(from: before, to: restored);
+        }
+        _changed
+          ..clear()
+          ..addAll(pendingBefore);
+        _syncPending = _changed.isNotEmpty;
+        await _cache.save(restored);
+        await _storePending();
+        rethrow;
+      }
     } else {
       _syncPending = true;
     }
@@ -226,7 +262,13 @@ class SyncedProfileRepository
     );
   }
 
-  Future<void> _sync(RiderProfileData profile) async {
+  /// A network failure or a server error keeps the change to send later.
+  /// With [rethrowRefusal], a refusal of the profile itself (400/422) is
+  /// thrown instead: sending it again cannot succeed.
+  Future<void> _sync(
+    RiderProfileData profile, {
+    bool rethrowRefusal = false,
+  }) async {
     try {
       await _api.patch(
         path,
@@ -236,11 +278,18 @@ class SyncedProfileRepository
       _syncPending = false;
       _changed.clear();
       await _storePending();
+    } on ApiError catch (error) {
+      if (rethrowRefusal && _isRefusal(error)) rethrow;
+      _syncPending = true;
+      AppLog.warning('profile.sync_failed', extra: {'error': '$error'});
     } catch (error) {
       _syncPending = true;
       AppLog.warning('profile.sync_failed', extra: {'error': '$error'});
     }
   }
+
+  static bool _isRefusal(ApiError error) =>
+      error.statusCode == 400 || error.statusCode == 422;
 }
 
 /// The profile fields the server holds.

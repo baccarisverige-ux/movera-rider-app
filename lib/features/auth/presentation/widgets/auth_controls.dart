@@ -27,6 +27,9 @@ class AuthPrimaryButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       label: label,
+      // rider-u77: excludeSemantics drops the InkWell's tap action, so the
+      // button carries its own for screen readers.
+      onTap: enabled ? onPressed : null,
       excludeSemantics: true,
       child: SizedBox(
         height: 56,
@@ -113,10 +116,13 @@ class AuthProviderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onPressed != null && !busy;
     return Semantics(
       button: true,
-      enabled: onPressed != null && !busy,
+      enabled: enabled,
       label: context.l10n.continueWith(label),
+      // rider-u77: see AuthPrimaryButton.
+      onTap: enabled ? onPressed : null,
       excludeSemantics: true,
       child: SizedBox(
         height: 52,
@@ -244,6 +250,40 @@ class _AuthInputShellState extends State<AuthInputShell> {
 
 /// Phone number input fixed to Sweden (+46): the only numbers the app's
 /// phone check accepts today.
+/// rider-30: the field sits after a fixed "+46", so a number pasted in
+/// international form (+46 70 ..., 0046 70 ..., 46 70 ...) keeps only its
+/// national part. Before, the filter dropped the '+' and the 14-character
+/// limit cut the rest short, which then got a second +46.
+class NationalSwedishNumberFormatter extends TextInputFormatter {
+  const NationalSwedishNumberFormatter();
+
+  static final _international = RegExp(r'^\s*(?:\+|00)\s*46\s*(?:\(0\)\s*)?');
+  static final _bareCountryCode = RegExp(r'^\s*4\s*6\s*');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    final String national;
+    final prefix = _international.firstMatch(text);
+    if (prefix != null) {
+      national = text.substring(prefix.end);
+    } else {
+      // Without a trunk 0 a Swedish number has at most nine digits, so
+      // eleven or more starting with 46 carry the country code.
+      final digits = text.replaceAll(RegExp(r'\D'), '');
+      if (!digits.startsWith('46') || digits.length < 11) return newValue;
+      national = text.replaceFirst(_bareCountryCode, '');
+    }
+    return TextEditingValue(
+      text: national,
+      selection: TextSelection.collapsed(offset: national.length),
+    );
+  }
+}
+
 class AuthPhoneField extends StatelessWidget {
   const AuthPhoneField({
     super.key,
@@ -287,6 +327,8 @@ class AuthPhoneField extends StatelessWidget {
         textInputAction: TextInputAction.done,
         autofillHints: const [AutofillHints.telephoneNumberNational],
         inputFormatters: [
+          // rider-30: before the filter drops the '+'.
+          const NationalSwedishNumberFormatter(),
           FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
           LengthLimitingTextInputFormatter(14),
         ],
@@ -354,6 +396,7 @@ class AuthTextField extends StatelessWidget {
     this.textInputAction = TextInputAction.next,
     this.onSubmitted,
     this.autofillHints,
+    this.maxLength = 40,
   });
 
   final TextEditingController controller;
@@ -362,6 +405,7 @@ class AuthTextField extends StatelessWidget {
   final TextInputAction textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Iterable<String>? autofillHints;
+  final int maxLength;
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +418,7 @@ class AuthTextField extends StatelessWidget {
         textInputAction: textInputAction,
         autofillHints: autofillHints,
         onSubmitted: onSubmitted,
-        inputFormatters: [LengthLimitingTextInputFormatter(40)],
+        inputFormatters: [LengthLimitingTextInputFormatter(maxLength)],
         style: AuthText.input(),
         cursorColor: AuthColors.deepGreen,
         decoration: InputDecoration(

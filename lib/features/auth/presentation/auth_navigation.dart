@@ -68,8 +68,20 @@ bool showMoveraRoot(
 /// Accepts both "70 123 45 67" and the everyday "070 123 45 67". The old
 /// screens prefixed +46 to whatever was typed, turning "070..." into the
 /// invalid "+46070...".
+///
+/// rider-30: the international forms (+46 ..., 0046 ..., 46 ... pasted
+/// from Contacts) are the same number, not one to put a second +46 in
+/// front of. Without a trunk 0 a Swedish number has at most nine digits,
+/// so a longer one is refused instead of sent somewhere else.
 String? swedishNumberFromField(String typed) {
   final digits = typed.replaceAll(RegExp(r'\s+'), '').trim();
   if (digits.isEmpty) return null;
-  return SwedishPhone.toE164(digits.startsWith('0') ? digits : '+46$digits');
+  if (digits.startsWith('+') || digits.startsWith('0')) {
+    return SwedishPhone.toE164(digits);
+  }
+  if (digits.startsWith('46') && digits.length >= 11) {
+    return SwedishPhone.toE164('+$digits');
+  }
+  if (digits.length > 9) return null;
+  return SwedishPhone.toE164('+46$digits');
 }

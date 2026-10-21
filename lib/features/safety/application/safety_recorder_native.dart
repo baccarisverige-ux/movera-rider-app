@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -11,6 +12,15 @@ export 'safety_recorder_stub.dart'
     show SafetyRecorder, SafetyRecorderInterruptions;
 
 SafetyRecorder createSafetyRecorder() => NativeSafetyRecorder();
+
+/// rider-u69 / rider-u71: removes every Safety recording on this device
+/// (the sign-out wipe). The files are the rider's own cabin audio, and
+/// nothing can reach them once their index is gone.
+Future<void> deleteAllSafetyRecordings() async {
+  if (!NativeSafetyRecorder.savesFilesHere) return;
+  final directory = await NativeSafetyRecorder.recordingsDirectory();
+  if (await directory.exists()) await directory.delete(recursive: true);
+}
 
 class NativeSafetyRecorder
     implements SafetyRecorder, SafetyRecorderInterruptions {
@@ -25,6 +35,20 @@ class NativeSafetyRecorder
   final _background = BackgroundCaptureGuard(endsCapture: Platform.isAndroid);
 
   AudioRecorder get recorder => _recorder ??= AudioRecorder();
+
+  /// Recordings are written on the phone apps only (desktop hosts, such as
+  /// the test runner, never record); tests switch it on.
+  @visibleForTesting
+  static bool savesFilesHere = Platform.isIOS || Platform.isAndroid;
+
+  /// Where the app's documents live; tests point it at a temporary folder.
+  @visibleForTesting
+  static Future<Directory> Function() documentsDirectory =
+      getApplicationDocumentsDirectory;
+
+  /// `<documents>/safety_recordings`, one `<id>.m4a` per recording.
+  static Future<Directory> recordingsDirectory() async =>
+      Directory('${(await documentsDirectory()).path}/safety_recordings');
 
   /// rider-u199: capture paused or stopped while the app had not asked
   /// (iOS pauses on a call; the OS can stop the recorder).
@@ -46,9 +70,7 @@ class NativeSafetyRecorder
 
   @override
   Future<void> start(String recordingId) async {
-    final directory = Directory(
-      '${(await getApplicationDocumentsDirectory()).path}/safety_recordings',
-    );
+    final directory = await recordingsDirectory();
     await directory.create(recursive: true);
     _states ??= recorder.onStateChanged().listen(_onState, onError: (_) {});
     await recorder.start(

@@ -29,6 +29,10 @@ class LoginSession {
 }
 
 class RiderProfileData {
+  /// The longest name the profile contract accepts (C-12; the server
+  /// answers 422 invalid_profile past it). rider-u78.
+  static const maxNameLength = 80;
+
   const RiderProfileData({
     required this.name,
     required this.email,
