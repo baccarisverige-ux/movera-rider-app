@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -34,6 +36,16 @@ class _PrivacyPageState extends State<PrivacyPage> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  /// rider-u150: a save the server refused is undone and said so, instead
+  /// of escaping the switch as an unhandled error.
+  Future<void> _save(RiderProfileData next) async {
+    try {
+      await _profile.update(next);
+    } catch (_) {
+      if (mounted) MoveraToast.show(context, context.l10n.saveFailed);
+    }
   }
 
   @override
@@ -94,8 +106,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) =>
-                      _profile.update(ride.copyWith(rideUpdates: on)),
+                  onChanged: (on) => _save(ride.copyWith(rideUpdates: on)),
                 ),
               ),
               AccountTile(
@@ -112,8 +123,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) =>
-                      _profile.update(ride.copyWith(emailUpdates: on)),
+                  onChanged: (on) => _save(ride.copyWith(emailUpdates: on)),
                 ),
               ),
               AccountTile(
@@ -131,8 +141,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                     context,
                     kAccountAccent,
                   ),
-                  onChanged: (on) =>
-                      _profile.update(ride.copyWith(promotions: on)),
+                  onChanged: (on) => _save(ride.copyWith(promotions: on)),
                 ),
               ),
             ],

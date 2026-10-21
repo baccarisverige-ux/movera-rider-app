@@ -37,8 +37,13 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Throws when the save failed or the server refused it (rider-u150);
+  /// listeners hear about the profile either way.
   Future<void> update(RiderProfileData next) async {
-    await _store.save(next);
-    notifyListeners();
+    try {
+      await _store.save(next);
+    } finally {
+      notifyListeners();
+    }
   }
 }
