@@ -467,9 +467,12 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
 
   Future<void> _pickOnMap() async {
     final pickup = _active == 'pickup';
+    // rider-u89: the field shows the short, translated label; the caller
+    // compares the address with the one it stored (English, in full) to
+    // tell what the rider typed, so it gets that one back.
     final result = await widget.onPickOnMap(
       pickup: pickup,
-      address: _activeController.text.trim(),
+      address: _expand(_activeController.text),
     );
     if (result == null || !mounted) return;
     await _choose(result.address, point: result.point);

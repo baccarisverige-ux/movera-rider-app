@@ -11,8 +11,10 @@ import 'package:movera_rider/features/active_ride/application/route_change_contr
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +37,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  tearDown(() => L10n.use('en'));
 
   /// Opens [page] over a home screen, as Home and the ride screens do.
   Future<void> open(WidgetTester tester, Widget page) async {
@@ -179,5 +182,39 @@ void main() {
     step.complete(null);
     await tester.pumpAndSettle();
     expect(find.byType(RoutePickerPage), findsOneWidget);
+  });
+
+  group('rider-u89: Choose on map gets the pickup as stored, not as shown', () {
+    Future<String?> mapAddress(WidgetTester tester, String pickup) async {
+      String? sent;
+      await open(
+        tester,
+        picker(
+          pickup: pickup,
+          initialField: 'pickup',
+          onPickOnMap: ({required pickup, required address}) async {
+            sent = address;
+            return null;
+          },
+          onFinish: (_) async => null,
+        ),
+      );
+      await tester.tap(find.byType(PremiumRouteLocationBadge));
+      await tester.pumpAndSettle();
+      return sent;
+    }
+
+    testWidgets('a long geocoder address', (tester) async {
+      const full = 'Sveavägen 1, 111 57 Stockholm, Sverige';
+      expect(await mapAddress(tester, full), full);
+    });
+
+    testWidgets('the location-off placeholder in Swedish', (tester) async {
+      L10n.use('sv');
+      expect(
+        await mapAddress(tester, 'Location off, set pickup'),
+        'Location off, set pickup',
+      );
+    });
   });
 }
