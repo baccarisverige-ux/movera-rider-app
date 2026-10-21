@@ -41,6 +41,7 @@ import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dar
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -439,5 +440,23 @@ void main() {
     await tester.ensureVisible(find.text('Save'));
     await tester.pump();
     expect(tester.getRect(find.text('Save')).bottom, lessThanOrEqualTo(568 - 260));
+  });
+
+  testWidgets('rider-u224: the saved-place picker close is a named 44 px '
+      'button', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(
+      tester,
+      const RiderSearchPickupLocation(),
+      size: const Size(320, 568),
+    );
+    final close = find.bySemanticsLabel('Close');
+    expect(close, findsOneWidget);
+    expect(
+      tester.getSemantics(close),
+      isSemantics(isButton: true, hasTapAction: true),
+    );
+    expect(tester.getSize(close).shortestSide, greaterThanOrEqualTo(44));
+    handle.dispose();
   });
 }
