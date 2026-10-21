@@ -168,6 +168,24 @@ class SafetyAudioService extends ChangeNotifier {
     }
   }
 
+  /// rider-u202: the rider's data is being wiped (sign-out, another rider
+  /// signing in). A running recording is cancelled at once so the
+  /// microphone is released; it is not saved, since it belongs to the
+  /// rider whose data is going away.
+  void discardForWipe() {
+    if (_active == null) return;
+    _active = null;
+    unawaited(
+      _recorder.cancel().catchError((Object error) {
+        AppLog.warning(
+          'safety.audio.cancel_failed',
+          extra: {'reason': 'wipe', 'error': '$error'},
+        );
+      }),
+    );
+    AppLog.info('safety.audio.discarded', extra: {'reason': 'wipe'});
+  }
+
   @override
   void dispose() {
     unawaited(_interruptions?.cancel());

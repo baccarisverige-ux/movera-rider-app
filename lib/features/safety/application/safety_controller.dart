@@ -78,6 +78,8 @@ class SafetyController extends ChangeNotifier {
       _shared = controller;
 
   static void resetShared() {
+    // rider-u202: no recording outlives the rider's data.
+    _shared?.audio.discardForWipe();
     RideCheckController.resetShared();
     _shared?.dispose();
     _shared = null;

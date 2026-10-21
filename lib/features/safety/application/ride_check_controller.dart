@@ -171,6 +171,8 @@ class RideCheckController extends ChangeNotifier {
   static void resetShared() {
     final old = _shared;
     _shared = null;
+    // rider-u202: a Ride check recording stops with the rider's data.
+    old?._audio.discardForWipe();
     old?.dispose();
   }
 
