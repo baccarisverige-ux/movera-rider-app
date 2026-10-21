@@ -353,6 +353,9 @@ class RideRestoreCoordinator {
           status: snapshot.status,
           driver: snapshot.driver,
           version: snapshot.version,
+          // rider-24: the driver approaches this trip's pickup.
+          pickupLat: snapshot.pickupLat,
+          pickupLng: snapshot.pickupLng,
         );
       }
     }

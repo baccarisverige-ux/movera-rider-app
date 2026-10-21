@@ -283,9 +283,13 @@ void main() {
       realtime.lastLng = 18.0686;
 
       realtime.markArrivedForTest();
-      // markArrivedForTest starts the trip immediately; give every tick time
-      // to fire, plus the post-trip flow.
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // markArrivedForTest starts the trip immediately; wait until the last
+      // tick has completed the trip (a fixed wait flaked under load).
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (!events.any((e) => e.status == RideStatus.tripCompleted) &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
 
       final tripCompleted = events.where(
         (e) => e.status == RideStatus.tripCompleted,

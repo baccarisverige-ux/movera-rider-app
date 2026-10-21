@@ -99,7 +99,10 @@ void main() {
     final id = second['id'] as String;
     await simulate(id, {'status': 'in_trip'});
     await expectLater(
-      api.post('/api/v1/rides/$id/cancel'),
+      api.post(
+        '/api/v1/rides/$id/cancel',
+        body: {'reasonCode': 'plans_changed'},
+      ),
       throwsA(isA<ApiError>().having((e) => e.code, 'code', 'invalid_transition')),
     );
     final ended = await api.post('/api/v1/rides/$id/end-early');

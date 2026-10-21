@@ -212,6 +212,11 @@ class FirebasePushService implements PushService {
     if (permission == PushAuthorizationStatus.denied) {
       throw const PushPermissionDeniedException();
     }
+    // rider-u21: what the OS shows (a tap, a foreground message, the
+    // notification that launched the app) is routed whether or not the
+    // backend acknowledges the token below. Attached only after that ack,
+    // a failed POST at cold start dropped the launch tap and every later one.
+    await _attachInboundStreams();
 
     await _gateway.ensureAppleTransportReady();
     final token = await _gateway.getToken(
@@ -224,7 +229,6 @@ class FirebasePushService implements PushService {
     }
 
     await _replaceToken(token.trim());
-    await _attachInboundStreams();
     await _tokenSub?.cancel();
     _tokenSub = _gateway.onTokenRefresh.listen((next) {
       final normalized = next.trim();

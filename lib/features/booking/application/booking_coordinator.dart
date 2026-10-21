@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
@@ -799,7 +800,7 @@ class BookingCoordinator {
     final cancelIntent = createdRideId;
     await _client.post(
       '/api/v1/rides/$createdRideId/cancel',
-      body: _expectedVersionBody(createdRideId),
+      body: _cancelBody(createdRideId),
       idempotencyKey: _duplicateCancelMutation.keyFor(cancelIntent),
     );
     _duplicateCancelMutation.succeeded(cancelIntent);
@@ -829,15 +830,19 @@ class BookingCoordinator {
   Future<void> cancel({required String rideId, required String key}) {
     return _client.post(
       '/api/v1/rides/$rideId/cancel',
-      body: _expectedVersionBody(rideId),
+      body: _cancelBody(rideId),
       idempotencyKey: key,
     );
   }
 
-  /// R-O2: the trip version the create response carried, when known.
-  static Map<String, dynamic> _expectedVersionBody(String rideId) {
+  /// R-O2: the trip version the create response carried, when known, and
+  /// the contract `reasonCode` every rider cancel names (rider-u19).
+  static Map<String, dynamic> _cancelBody(String rideId) {
     final version = AppScope.instance.ride.projectionVersionOf(rideId);
-    return {'expectedVersion': ?version};
+    return {
+      ...CancelReasonCodes.riderCancelBody(null),
+      'expectedVersion': ?version,
+    };
   }
 }
 

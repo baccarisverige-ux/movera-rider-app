@@ -33,11 +33,17 @@ abstract final class CancelReasonCodes {
 
   static bool isRiderCode(Object? raw) => raw is String && rider.contains(raw);
 
-  /// The reason part of a rider cancel body: contract `reasonCode` for a
-  /// registry code, plus the pre-v0.3 `reason` key the stand-in server and
-  /// older backends read (compatibility, one release).
+  /// The code a rider cancel names when the rider has picked no reason
+  /// (cancel-first: the why-sheet comes after the cancel, or a booking
+  /// stand-down). openapi `CancelCommand` requires `reasonCode`, and a
+  /// server that follows it refuses a cancel without one (rider-u19).
+  static const unspecified = 'something_else';
+
+  /// The reason part of a rider cancel body: contract `reasonCode` (the
+  /// registry code, else [unspecified]), plus the pre-v0.3 `reason` key the
+  /// stand-in server and older backends read (compatibility, one release).
   static Map<String, Object> riderCancelBody(String? reason) => {
-    if (isRiderCode(reason)) 'reasonCode': reason!,
+    'reasonCode': isRiderCode(reason) ? reason! : unspecified,
     if (reason != null) 'reason': reason,
   };
 }

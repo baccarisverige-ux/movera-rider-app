@@ -158,4 +158,29 @@ void main() {
     expect(gateway.deleteCalls, 1);
   });
 
+  test('rider-u21: inbound pushes still route when the token POST fails',
+      () async {
+    const launch = PushPayload(type: 'ride_update', rideId: 'r1');
+    const tap = PushPayload(type: 'driver_arrived', rideId: 'r1');
+    final backend = InProcessMockClient()..failNext = true;
+    final gateway = _FakeGateway()..initial = launch;
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    final opened = <PushPayload>[];
+    final sub = service.openedMessages.listen(opened.add);
+    addTearDown(sub.cancel);
+
+    await expectLater(service.register(), throwsA(anything));
+
+    expect(backend.pushDevices, isEmpty);
+    expect(await service.takeInitialMessage(), same(launch));
+    gateway.opened.add(tap);
+    await pumpEventQueue();
+    expect(opened, [same(tap)]);
+  });
 }
