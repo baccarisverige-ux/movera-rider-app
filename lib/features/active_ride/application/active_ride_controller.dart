@@ -168,18 +168,35 @@ class ActiveRideController {
   /// server cancel of a trip whose stored stage is on board is an ended
   /// trip: [endedEarly] is set for the summary and History reads "Ended
   /// early". [drivenMeters] is the distance the app tracked on board.
+  ///
+  /// rider-u32: when it was this device's queued command that the outbox
+  /// delivered, the reason the rider gave and what the server answered
+  /// (the fare after an end-early, a cancel's fee) go on the receipt and
+  /// the History record; the projection alone does not say.
   Future<void> completeServerConfirmedCancel({int? drivenMeters}) async {
     final id = _clean(AppScope.instance.ride.rideId);
+    final delivered = id == null ? null : PendingCancelStore.takeDelivered(id);
     final snapshot = await _store.historyCandidate();
     final onboard = id != null &&
         snapshot != null &&
         _clean(snapshot.rideId) == id &&
         tripRiderOnboardStatuses.contains(snapshot.status.tripStatus);
-    final endedEarly = onboard
-        ? EndedEarlyTrip(rideId: id, drivenMeters: drivenMeters)
+    final endedEarly =
+        id != null &&
+            (onboard || delivered?.command == PendingCancelCommand.endEarly)
+        ? EndedEarlyTrip(
+            rideId: id,
+            charged: delivered?.charged,
+            drivenMeters: drivenMeters,
+          )
         : null;
     _endedEarly = endedEarly;
-    await _commitCancelled(id, endedEarly: endedEarly);
+    await _commitCancelled(
+      id,
+      reasonId: delivered?.reasonId,
+      endedEarly: endedEarly,
+      cancellationFee: endedEarly == null ? delivered?.fee : null,
+    );
   }
 
   /// D-014: "Go home" from the screen shown when Waiting lost its rideId.

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -144,11 +145,23 @@ class PendingCancelOutcome {
     required this.rideId,
     required this.command,
     required this.result,
+    this.reasonId,
+    this.charged,
+    this.fee,
   });
 
   final String rideId;
   final PendingCancelCommand command;
   final PendingCancelResult result;
+
+  /// rider-u32: what the queued entry carried and what the server answered
+  /// when it was [PendingCancelResult.sent], so the screen that later sees
+  /// the trip closed can file it right: the rider's reason, the trip's
+  /// `fare` after an end-early (what they pay), and a cancel's
+  /// `cancellation.fee`. Null when unknown.
+  final String? reasonId;
+  final Money? charged;
+  final Money? fee;
 }
 
 /// True when a cancel request failed in a way no retry can fix: the server
@@ -187,8 +200,23 @@ class PendingCancelStore {
     } else {
       _notices.remove(outcome.rideId);
     }
+    if (outcome.result == PendingCancelResult.sent) {
+      _delivered[outcome.rideId] = outcome;
+    } else {
+      _delivered.remove(outcome.rideId);
+    }
     _outcomes.add(outcome);
   }
+
+  /// rider-u32: commands a flush delivered (`sent`), kept until the screen
+  /// that sees the trip closed on realtime takes them. A launch flush can
+  /// deliver an end-early before Waiting exists (a cold restore), and the
+  /// projection that follows says nothing about the reason or the amount.
+  static final Map<String, PendingCancelOutcome> _delivered = {};
+
+  /// The delivered command for [rideId], once; null when none was.
+  static PendingCancelOutcome? takeDelivered(String rideId) =>
+      _delivered.remove(rideId);
 
   /// Refusals and stale drops nobody has told the rider about yet. A flush
   /// at launch can answer before the ride's screen exists (a cold restore);
