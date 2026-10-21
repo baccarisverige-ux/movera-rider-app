@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,6 +74,40 @@ void main() {
           findsOneWidget,
         );
       });
+
+      testWidgets('rider-u65: driver card Message fits a 360 px phone at 2x', (
+        tester,
+      ) async {
+        final errors = await collectFlutterErrors(
+          () => pumpIn(
+            tester,
+            code,
+            Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: WaitingDriverCard(
+                  driver: _driver,
+                  rideId: 'r51-card',
+                  onOpenProfile: noop,
+                  onCall: noop,
+                  onMore: noop,
+                ),
+              ),
+            ),
+            viewport: const Size(360, 900),
+            textScale: 2,
+          ),
+        );
+        expect(errors, isEmpty);
+        expect(find.text(L10n.current.message), findsOneWidget);
+      });
     });
   }
 }
+
+const _driver = MatchedDriver(
+  id: 'driver_r51',
+  firstName: 'Alex',
+  vehicleMake: 'Volvo',
+  vehicleModel: 'EX30',
+);

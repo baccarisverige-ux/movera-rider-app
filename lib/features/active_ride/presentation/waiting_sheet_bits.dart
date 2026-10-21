@@ -404,9 +404,15 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                             color: MoveraTokens.ink,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            context.l10n.message,
-                            style: waitingText(14, weight: FontWeight.w600),
+                          // rider-u65: ellipsize rather than run under the
+                          // call chip (Swedish, large text, unread badge).
+                          Flexible(
+                            child: Text(
+                              context.l10n.message,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: waitingText(14, weight: FontWeight.w600),
+                            ),
                           ),
                           if (unreadMessages > 0) ...[
                             const SizedBox(width: 7),
