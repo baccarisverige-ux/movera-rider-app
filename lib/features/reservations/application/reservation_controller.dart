@@ -10,6 +10,11 @@ import 'package:movera_rider/features/reservations/domain/reservation_policy.dar
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 
 class ReservationController extends ChangeNotifier {
   ReservationController({
@@ -146,6 +151,42 @@ class ReservationController extends ChangeNotifier {
 
   List<Reservation> cancelled() =>
       _store.cached.where((item) => item.status.isCancelled).toList();
+
+  /// rider-u166: the completion screen reads its driver, receipt and tip
+  /// currency from LastCompletedRide, which only Book Now rides wrote, so a
+  /// finished reservation showed the previous Book Now ride. This makes the
+  /// reservation [ride] the ride that screen describes.
+  static void rememberCompleted(
+    Reservation ride, {
+    MatchedDriver? driver,
+    RideNotes notes = RideNotes.empty,
+  }) {
+    // Stockholm when the place has no coordinates, as on the live screen.
+    const fallbackLat = 59.3293;
+    const fallbackLng = 18.0686;
+    LastCompletedRide.remember(
+      RideSnapshot(
+        status: RideStatus.tripCompleted,
+        savedAt: DateTime.now(),
+        pickupAddress: ride.pickup.label,
+        destinationAddress: ride.destination.label,
+        pickupLat: ride.pickup.lat ?? fallbackLat,
+        pickupLng: ride.pickup.lng ?? fallbackLng,
+        destinationLat: ride.destination.lat ?? fallbackLat,
+        destinationLng: ride.destination.lng ?? fallbackLng,
+        rideType: ride.categoryName,
+        categoryId: ride.categoryId,
+        price: ride.price,
+        currency: ride.currency,
+        paymentMethod: ride.paymentMethod,
+        rideId: ride.reservationId,
+        notes: notes,
+        driver: driver,
+      ),
+      charged: ride.chargedFare,
+      endedEarly: ride.endedEarly,
+    );
+  }
 
   Reservation? byId(String reservationId) {
     for (final item in _store.cached) {

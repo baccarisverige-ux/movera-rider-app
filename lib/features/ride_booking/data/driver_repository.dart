@@ -33,11 +33,13 @@ class DriverRepository {
 
   /// The driver of the ride just completed. Explicitly-passed profiles win, so
   /// tests and callers with their own driver keep working unchanged.
-  DriverProfile? current() {
+  ///
+  /// rider-u166: with [rideId], only the driver of that ride.
+  DriverProfile? current({String? rideId}) {
     final injected = _current;
     if (injected != null) return injected;
 
-    final ride = LastCompletedRide.value;
+    final ride = LastCompletedRide.forRide(rideId);
     final driver = ride?.driver;
     if (ride == null || driver == null) return null;
 
@@ -99,11 +101,13 @@ class TripReceiptRepository {
   /// The receipt for the ride just completed, in its own currency (Q7: the
   /// pickup's zone). Null when no ride has
   /// finished, so the screen keeps its honest empty state.
-  TripReceipt? last() {
+  ///
+  /// rider-u166: with [rideId], only the receipt of that ride.
+  TripReceipt? last({String? rideId}) {
     final injected = _receipt;
     if (injected != null) return injected;
 
-    final ride = LastCompletedRide.value;
+    final ride = LastCompletedRide.forRide(rideId);
     if (ride == null) return null;
 
     final charged = LastCompletedRide.charged;

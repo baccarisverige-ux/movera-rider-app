@@ -23,7 +23,9 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trip = (controller ?? AppScope.instance.rideComplete).receipt();
+    final trip = (controller ?? AppScope.instance.rideComplete).receipt(
+      rideId: rideId,
+    );
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
