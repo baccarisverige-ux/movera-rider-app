@@ -23,6 +23,7 @@ abstract final class ReservationFormat {
   static String? historyStatus(Reservation ride) {
     switch (ride.status) {
       case ReservationStatus.completed:
+        if (ride.paymentFailed) return L10n.current.resPaymentFailed;
         return L10n.current.resCompleted;
       case ReservationStatus.cancelled:
         if (ride.endedEarly) return L10n.current.endedEarly;

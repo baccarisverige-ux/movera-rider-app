@@ -661,6 +661,7 @@
   "resCompleted": "Terminée",
   "resCancelledFee": "Annulée · frais de {amount}",
   "resCancelled": "Annulée",
+  "resPaymentFailed": "Échec du paiement",
   "reasonNoShow": "Absence",
   "reasonPayment": "Problème de paiement",
   "reasonZoneClosed": "Zone de service fermée",

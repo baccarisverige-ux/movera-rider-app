@@ -667,6 +667,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resCompleted': l.resCompleted,
   'resCancelledFee': l.resCancelledFee('<amount>'),
   'resCancelled': l.resCancelled,
+  'resPaymentFailed': l.resPaymentFailed,
   'reasonNoShow': l.reasonNoShow,
   'reasonPayment': l.reasonPayment,
   'reasonZoneClosed': l.reasonZoneClosed,
@@ -2783,6 +2784,8 @@ class _Exhaustive implements AppLocalizations {
   String resCancelledFee(String amount) => '';
   @override
   String get resCancelled => '';
+  @override
+  String get resPaymentFailed => '';
   @override
   String get reasonNoShow => '';
   @override

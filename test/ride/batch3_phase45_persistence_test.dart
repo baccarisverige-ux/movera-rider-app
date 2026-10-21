@@ -92,7 +92,18 @@ void main() {
       'ondemand-a',
       'ondemand-b',
     });
-    expect(history.first.scheduledPickupAt.isUtc, isTrue);
+    // rider-36: stored as UTC, read back in the rider's local time.
+    final prefs = await SharedPreferences.getInstance();
+    final stored = jsonDecode(prefs.getString(OnDemandRideHistoryStore.key)!);
+    expect(
+      DateTime.parse((stored as List).first['scheduledPickupAt']).isUtc,
+      isTrue,
+    );
+    expect(history.first.scheduledPickupAt.isUtc, isFalse);
+    expect(
+      history.first.scheduledPickupAt,
+      DateTime.utc(2026, 9, 24, 11).toLocal(),
+    );
   });
 
   test('history preserves original creation time instead of latest save time', () async {

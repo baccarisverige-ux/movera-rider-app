@@ -1242,6 +1242,7 @@
     }
   },
   "resCancelled": "Cancelled",
+  "resPaymentFailed": "Payment failed",
   "reasonNoShow": "No-show",
   "reasonPayment": "Payment problem",
   "reasonZoneClosed": "Service area closed",
