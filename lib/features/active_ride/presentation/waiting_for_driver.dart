@@ -148,6 +148,7 @@ class WaitingForDriver extends StatefulWidget {
     this.onCompleted,
     this.onCancel,
     this.cancelFeeNote,
+    this.controller,
   });
 
   final String pickupAddress;
@@ -193,12 +194,17 @@ class WaitingForDriver extends StatefulWidget {
   /// terms). Null: the live rule of the trip's category is previewed.
   final Future<String?> Function()? cancelFeeNote;
 
+  /// Test seam: the controller the cancel and end-early requests go
+  /// through (its API client). Production uses the shared one.
+  final ActiveRideController? controller;
+
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
 class _WaitingForDriverState extends State<WaitingForDriver> {
-  final ActiveRideController _ride = ActiveRideController();
+  late final ActiveRideController _ride =
+      widget.controller ?? ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     realtime: widget.realtime,
     pickupLat: widget.pickupPosition.latitude,
@@ -543,9 +549,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _queueStageNavigation(RideStatus status) {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     _pendingStageStatus = status;
+    // rider-u50: while a cancel or end-early is out the status waits here;
+    // a cancel the server refuses replays it (_replayLiveStatus), where it
+    // used to be dropped and Waiting stayed on a ride that was over.
+    if (_leaving) return;
     _drainStageNavigation();
+  }
+
+  /// rider-u50: the cancel did not go through, so the ride goes on from
+  /// whatever the live feed reported meanwhile (a completion, a no-show).
+  void _replayLiveStatus() {
+    if (!mounted || _leaving) return;
+    _onLiveTick();
   }
 
   void _drainStageNavigation() {
@@ -570,7 +587,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _maybeOpenCompleted() {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     final status = _tracking.status;
     if (!status.isCompletedSurface) return;
     _queueStageNavigation(status);
@@ -920,6 +937,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           _leaving = false;
         });
         _showCancelProblem(result);
+        _replayLiveStatus();
         return;
       }
       _tracking.dispose();
@@ -956,6 +974,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      _replayLiveStatus();
     }
   }
 
