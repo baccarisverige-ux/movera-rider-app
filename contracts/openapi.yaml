@@ -1,11 +1,11 @@
-# Movera API v0.4.2 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.4.3 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.4.2
+  version: 0.4.3
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.4.2 in this folder; this file must agree with them.
+    v0.4.3 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,7 +55,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.4.2
+  version: 0.4.3
   source: contract.json
 paths:
   /quotes:
@@ -5558,7 +5558,8 @@ components:
           $ref: '#/components/schemas/DurationSeconds'
     RouteQuote:
       type: object
-      description: Price for a route change after request; apply with PATCH /trips/{tripId}.
+      description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
+        decision 5, v0.4.3): a booked stop is counted once and offer raises stay.'
       required:
       - routeQuoteId
       - tripId
@@ -5573,11 +5574,16 @@ components:
         tripId:
           $ref: '#/components/schemas/Id'
         total:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Booked fare + the rider's offer raises + distance price of (new route km − booked route km, the booked
+            route going through the booked stops) + the stop fee for each stop that was not booked; never below half of (booked
+            fare + raises). CONTRACT.md §3, v0.4.3.
         difference:
           allOf:
           - $ref: '#/components/schemas/Money'
-          description: total − current fare (may be negative).
+          description: total − current fare (may be negative). Re-quoting the route the trip already has gives 0; a route
+            change never refunds an offer raise.
         fareLines:
           type: array
           items:

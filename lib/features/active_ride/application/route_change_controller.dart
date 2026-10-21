@@ -150,9 +150,13 @@ class RouteChangeController {
     final pickup = pickupAddress?.trim().isNotEmpty == true
         ? pickupAddress!.trim()
         : ride.pickupAddress;
-    final pickupAt = pickup == ride.pickupAddress
-        ? GeoPoint(ride.pickupLat, ride.pickupLng)
-        : pickupPoint ?? await _locate(pickup);
+    // rider-u37: a point the rider placed (map pick, suggestion) wins, even
+    // when its label is the current address; only a bare label is looked up.
+    final pickupAt =
+        pickupPoint ??
+        (pickup == ride.pickupAddress
+            ? GeoPoint(ride.pickupLat, ride.pickupLng)
+            : await _locate(pickup));
     // Q40: once a driver has accepted, a pickup further than the limit is a
     // new ride, not a route change.
     if (maxPickupMoveMeters != null &&
@@ -169,9 +173,11 @@ class RouteChangeController {
       );
     }
     final destination = destinationAddress.trim();
-    final destinationAt = destination == ride.destinationAddress
-        ? GeoPoint(ride.destinationLat, ride.destinationLng)
-        : destinationPoint ?? await _locate(destination);
+    final destinationAt =
+        destinationPoint ??
+        (destination == ride.destinationAddress
+            ? GeoPoint(ride.destinationLat, ride.destinationLng)
+            : await _locate(destination));
     final located = <RouteStop>[];
     for (var i = 0; i < stops.length; i++) {
       final address = stops[i].trim();

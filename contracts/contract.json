@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {

@@ -1,4 +1,4 @@
-"""Generates contracts/openapi.yaml (v0.4.2) from contract.json + hand-written surface.
+"""Generates contracts/openapi.yaml (v0.4.3) from contract.json + hand-written surface.
 Enums are read from contract.json so they stay byte-exact."""
 import json, sys, yaml
 from collections import OrderedDict
@@ -175,12 +175,17 @@ S["Quote"] = obj(OrderedDict([
     ("expiresAt", ref("Timestamp")), ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", arr(ref("Place"))),
     ("surgeMultiplier", n(minimum=1)), ("etaSeconds", ref("DurationSeconds")),
 ]), ["quoteId", "categoryId", "total", "fareLines", "expiresAt", "pickup", "dropoff", "stops"])
-S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"), "total": ref("Money"),
-                       "difference": {"allOf": [ref("Money")], "description": "total − current fare (may be negative)."},
+S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
+                       "total": {"allOf": [ref("Money")], "description": "Booked fare + the rider's offer raises + distance price of "
+                                 "(new route km − booked route km, the booked route going through the booked stops) + the stop fee "
+                                 "for each stop that was not booked; never below half of (booked fare + raises). CONTRACT.md §3, v0.4.3."},
+                       "difference": {"allOf": [ref("Money")], "description": "total − current fare (may be negative). Re-quoting "
+                                      "the route the trip already has gives 0; a route change never refunds an offer raise."},
                        "fareLines": arr(ref("FareLine")), "dropoff": ref("Place"), "stops": arr(ref("Place")),
                        "expiresAt": ref("Timestamp")},
                       ["routeQuoteId", "tripId", "total", "difference", "dropoff", "stops", "expiresAt"],
-                      "Price for a route change after request; apply with PATCH /trips/{tripId}.")
+                      "Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking "
+                      "(owner decision 5, v0.4.3): a booked stop is counted once and offer raises stay.")
 
 S["Rider"] = obj({"riderId": ref("Id"), "firstName": s(), "phone": s(pattern=r"^\+[1-9]\d{6,14}$"), "email": s(format="email"),
                   "rating": n(minimum=0, maximum=5), "status": s(enum=["active", "suspended"]), "version": i(minimum=1)},
@@ -921,11 +926,11 @@ doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
     "title": "Movera API",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "description": (
         "**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter) and "
         "Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + "
-        "`CONTRACT.md` v0.4.2 in this folder; this file must agree with them.\n\n"
+        "`CONTRACT.md` v0.4.3 in this folder; this file must agree with them.\n\n"
         "Wire rules: ids match `" + ID_PATTERN + "`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is "
         "`Money {amountMinor, currency}`; keys camelCase, enum values snake_case. Success responses are the bare resource; errors are `Error`.\n\n"
         "Every mutation needs `Idempotency-Key`. Trip, offer, driver, rider, vehicle and config commands send `expectedVersion`; a stale "
@@ -953,7 +958,7 @@ def to_plain(x):
 
 class D(yaml.SafeDumper):
     def ignore_aliases(self, data): return True
-header = "# Movera API v0.4.2 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
+header = "# Movera API v0.4.3 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
 with open(OUT, "w") as f:
     f.write(header)
     yaml.dump(to_plain(doc), f, Dumper=D, sort_keys=False, allow_unicode=True, width=120)
