@@ -27,6 +27,9 @@ class AuthPrimaryButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       label: label,
+      // rider-u77: excludeSemantics drops the InkWell's tap action, so the
+      // button carries its own for screen readers.
+      onTap: enabled ? onPressed : null,
       excludeSemantics: true,
       child: SizedBox(
         height: 56,
@@ -113,10 +116,13 @@ class AuthProviderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onPressed != null && !busy;
     return Semantics(
       button: true,
-      enabled: onPressed != null && !busy,
+      enabled: enabled,
       label: context.l10n.continueWith(label),
+      // rider-u77: see AuthPrimaryButton.
+      onTap: enabled ? onPressed : null,
       excludeSemantics: true,
       child: SizedBox(
         height: 52,
