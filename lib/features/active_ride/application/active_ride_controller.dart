@@ -10,6 +10,7 @@ import 'package:movera_rider/features/active_ride/data/active_ride_repository.da
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
@@ -148,7 +149,12 @@ class ActiveRideController {
             )
           : null;
       _endedEarly = endedEarly;
-      await _commitCancelled(id, reasonId: reasonId, endedEarly: endedEarly);
+      await _commitCancelled(
+        id,
+        reasonId: reasonId,
+        endedEarly: endedEarly,
+        cancellationFee: result.fee,
+      );
     }
     return result.outcome;
   }
@@ -198,7 +204,12 @@ class ActiveRideController {
   }
 
   Future<
-    ({RideCancelOutcome outcome, PendingCancelCommand command, Money? charged})
+    ({
+      RideCancelOutcome outcome,
+      PendingCancelCommand command,
+      Money? charged,
+      Money? fee,
+    })
   >
   _requestServerCancel(String id, {String? reasonId}) async {
     // Contract v0.3.0: once the rider is on board the command is
@@ -233,6 +244,7 @@ class ActiveRideController {
           outcome: RideCancelOutcome.confirmed,
           command: entry.command,
           charged: _chargedFare(response),
+          fee: _cancellationFee(response),
         );
       } catch (error) {
         AppLog.warning(
@@ -247,10 +259,12 @@ class ActiveRideController {
           // after a lost answer, or a server that refuses a second
           // cancel): that is what the rider asked for, quietly.
           if (alreadyCancelledByRider(apiError)) {
+            final projection = {'projection': apiError.projection};
             return (
               outcome: RideCancelOutcome.confirmed,
               command: entry.command,
-              charged: _chargedFare({'projection': apiError.projection}),
+              charged: _chargedFare(projection),
+              fee: _cancellationFee(projection),
             );
           }
           // 404: the server has no such ride, so there is nothing left to
@@ -266,6 +280,7 @@ class ActiveRideController {
                 : RideCancelOutcome.rejected,
             command: entry.command,
             charged: null,
+            fee: null,
           );
         }
       }
@@ -274,6 +289,7 @@ class ActiveRideController {
       outcome: RideCancelOutcome.pendingRetry,
       command: entry.command,
       charged: null,
+      fee: null,
     );
   }
 
@@ -284,10 +300,21 @@ class ActiveRideController {
     return ride is Map ? Money.fromWire(ride['fare']) : null;
   }
 
+  /// rider-u33: the fee the server charged for a cancel (contract §6
+  /// `cancellation.fee`) in a command response (`projection`, or the
+  /// pre-v0.3 `ride` alias). Null when free or absent.
+  static Money? _cancellationFee(Map<String, dynamic> response) {
+    final ride = response['projection'] ?? response['ride'];
+    return ride is Map
+        ? RideProjection.cancellationFee(Map<String, dynamic>.from(ride))
+        : null;
+  }
+
   Future<void> _commitCancelled(
     String? id, {
     String? reasonId,
     EndedEarlyTrip? endedEarly,
+    Money? cancellationFee,
   }) async {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
@@ -311,6 +338,7 @@ class ActiveRideController {
       expectedRideId: id,
       cancellationReason: reasonId,
       endedEarly: endedEarly,
+      cancellationFee: cancellationFee,
     );
     await _store.clear();
   }
@@ -423,6 +451,7 @@ class ActiveRideController {
     String? expectedRideId,
     String? cancellationReason,
     EndedEarlyTrip? endedEarly,
+    Money? cancellationFee,
   }) async {
     if (snapshot == null) return;
     final snapshotId = snapshot.rideId?.trim();
@@ -442,6 +471,7 @@ class ActiveRideController {
         cancellationReason: cancellationReason,
         endedEarly: endedEarly != null,
         charged: endedEarly?.charged,
+        cancellationFee: cancellationFee,
       );
     } catch (error) {
       AppLog.warning(

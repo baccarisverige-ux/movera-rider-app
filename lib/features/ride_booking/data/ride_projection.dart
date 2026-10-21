@@ -77,6 +77,16 @@ abstract final class RideProjection {
     );
   }
 
+  /// rider-u33: the fee the server charged for a cancel (contract §6
+  /// `cancellation.fee`, a Money). Null when the cancel was free, the
+  /// trip was not cancelled, or the projection has no such field.
+  static Money? cancellationFee(Map<String, dynamic> ride) {
+    final cancellation = ride['cancellation'];
+    if (cancellation is! Map) return null;
+    final fee = Money.fromWire(cancellation['fee']);
+    return fee != null && fee.isPositive ? fee : null;
+  }
+
   static RouteStop? _place(Map<String, dynamic> ride, String name) {
     final nested = ride[name];
     if (nested is Map) {

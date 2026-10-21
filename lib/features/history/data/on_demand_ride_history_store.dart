@@ -109,6 +109,7 @@ abstract final class OnDemandRideHistoryStore {
     String? cancellationReason,
     bool endedEarly = false,
     Money? charged,
+    Money? cancellationFee,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -126,6 +127,7 @@ abstract final class OnDemandRideHistoryStore {
       cancellationReason: cancellationReason,
       endedEarly: endedEarly,
       charged: charged,
+      cancellationFee: cancellationFee,
     );
     if (record == null) {
       throw ArgumentError.value(
@@ -181,6 +183,8 @@ abstract final class OnDemandRideHistoryStore {
   /// The History record for a finished ride, or null when [terminalStatus]
   /// is neither completed nor an explicit cancel. Also used to read server
   /// trips (`ApiRideHistoryRepository`), so both sources look the same.
+  /// [cancellationFee] is what the server charged for a cancel (rider-u33:
+  /// contract §6 `cancellation.fee`), shown on the record when positive.
   static Reservation? recordFor(
     RideSnapshot snapshot, {
     required RideStatus terminalStatus,
@@ -188,6 +192,7 @@ abstract final class OnDemandRideHistoryStore {
     String? cancellationReason,
     bool endedEarly = false,
     Money? charged,
+    Money? cancellationFee,
   }) {
     final rideId = snapshot.rideId?.trim();
     final reservationStatus = _reservationStatus(terminalStatus);
@@ -234,6 +239,10 @@ abstract final class OnDemandRideHistoryStore {
           _endedSearchReason(terminalStatus),
       endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
       chargedFare: charged,
+      cancellationFee:
+          cancellationFee != null && cancellationFee.isPositive
+              ? cancellationFee
+              : null,
       paymentFailed: terminalStatus == RideStatus.paymentFailed,
     );
   }
