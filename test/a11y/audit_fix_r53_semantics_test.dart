@@ -40,6 +40,7 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -424,5 +425,19 @@ void main() {
     await tester.pump();
     expect(tester.getRect(prefs).bottom, lessThanOrEqualTo(667));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rider-u221: Add place scrolls on a small phone with the '
+      'keyboard up and the error shown', (tester) async {
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    addTearDown(tester.view.resetViewInsets);
+    await pump(tester, const AddPlace(), size: const Size(320, 568), textScale: 1.3);
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(find.text('Add both a name and a location.'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pump();
+    expect(tester.getRect(find.text('Save')).bottom, lessThanOrEqualTo(568 - 260));
   });
 }
