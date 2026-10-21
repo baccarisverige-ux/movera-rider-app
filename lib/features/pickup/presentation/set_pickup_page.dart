@@ -486,7 +486,18 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (!_moving) _lift.reverse();
   }
 
+  /// rider-u140: a Confirm tapped while the camera still moves waits here
+  /// for the next idle (which starts the new pin's lookup and quote).
+  Completer<void>? _settled;
+
   void _onCameraIdle() {
+    _settleIdle();
+    final settled = _settled;
+    _settled = null;
+    settled?.complete();
+  }
+
+  void _settleIdle() {
     if (!_moving) return;
     _moving = false;
     if (!_fingerDown) _lift.reverse();
@@ -734,6 +745,22 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (_confirming || !_usable) return;
     _confirming = true;
     HapticFeedback.mediumImpact();
+    // rider-u140: mid-glide the pin's street and fare are still the old
+    // point's; only the idle marks them stale and asks again. Wait for it.
+    if (_moving || _isAwayFrom(_center, _routeStart)) {
+      setState(() => _confirmWaiting = true);
+      try {
+        await (_settled ??= Completer<void>()).future.timeout(confirmWait);
+      } catch (_) {
+        // Still moving: the rider confirms again once it rests.
+      }
+      if (!mounted) return;
+      setState(() => _confirmWaiting = false);
+      if (_moving || _isAwayFrom(_center, _routeStart)) {
+        _confirming = false;
+        return;
+      }
+    }
     final at = _center;
     final pending = <Future<void>>[
       if (_resolving && _resolveTask != null) _resolveTask!,

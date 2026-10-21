@@ -3,12 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   const start = LatLng(59.3293, 18.0686);
+  const moved = LatLng(59.3340, 18.0686);
 
   Future<Future<SetPickupResult?>> open(
     WidgetTester tester, {
@@ -63,6 +65,10 @@ void main() {
     return result;
   }
 
+  CustomGoogleMap map(WidgetTester tester) => tester.widget<CustomGoogleMap>(
+    find.byKey(const ValueKey('set-pickup-map')),
+  );
+
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(seconds: 2));
@@ -91,5 +97,32 @@ void main() {
     await tester.enterText(field, 'Kungsgatan 1');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await settle(tester);
+  });
+
+  testWidgets('rider-u140: Confirm during a glide waits for the pin to '
+      'settle and books its own street and fare', (tester) async {
+    final quotes = <LatLng>[];
+    final result = await open(
+      tester,
+      onRequote: (pin) async {
+        quotes.add(pin);
+        return const SetPickupFare(totalKr: 301);
+      },
+    );
+    // A fling: the finger is up, the camera still slides.
+    map(tester).onCameraMoveStarted!();
+    map(tester).onCameraMove!(const CameraPosition(target: moved, zoom: 16));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('set-pickup-confirm')));
+    await tester.pump(const Duration(milliseconds: 300));
+    // The glide ends.
+    map(tester).onCameraIdle!();
+    await settle(tester);
+    final picked = await result;
+    expect(picked, isNotNull);
+    expect(picked!.address, isNot('Klockarvägen 37'));
+    expect(quotes, isNotEmpty);
+    expect(picked.fareTotalKr, 301);
+    expect(picked.position.latitude, closeTo(quotes.last.latitude, 1e-9));
   });
 }
