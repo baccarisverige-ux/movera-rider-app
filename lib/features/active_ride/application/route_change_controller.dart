@@ -275,13 +275,23 @@ class RouteChangeController {
     // R-O2: the version the price was asked for, kept out of the key so a
     // resend of the same confirmed change is the same request.
     final expectedVersion = quote.expectedVersion;
-    final response = await _send(
-      () => _api.patch(
-        '/api/v1/rides/$id',
-        body: {...body, 'expectedVersion': ?expectedVersion},
-        idempotencyKey: key,
-      ),
+    Future<Map<String, dynamic>> patch() => _api.patch(
+      '/api/v1/rides/$id',
+      body: {...body, 'expectedVersion': ?expectedVersion},
+      idempotencyKey: key,
     );
+    final response = await _send(() async {
+      try {
+        return await patch();
+      } catch (error) {
+        // rider-u38: a timeout or dropped connection says nothing about
+        // whether the server applied the change. The same request again
+        // (same key) gets the server's answer, so a change it already
+        // applied is adopted instead of being reported as failed.
+        if (error is ApiError && !error.isRetryable) rethrow;
+        return await patch();
+      }
+    });
     _session?.observeProjection(response);
     final newPrice =
         _newPrice(response, ride.currency)?.major ?? quote.newPriceKr;
