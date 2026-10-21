@@ -224,6 +224,7 @@ class RideCheckController extends ChangeNotifier {
     final sameRide = _trip?.rideId == trip.rideId;
     _trip = trip;
     if (!sameRide) _waiting.removeWhere((w) => w.rideId != trip.rideId);
+    _parkOtherRide(trip.rideId);
     if (!sameRide || _monitor == null) {
       _monitor = RideCheckMonitor(
         settings: _service.policy().triggers,
@@ -232,6 +233,24 @@ class RideCheckController extends ChangeNotifier {
     }
     _visibleRideId = trip.rideId;
     _onQaSimulate();
+  }
+
+  /// rider-u194: a card still open for another ride belongs to a trip
+  /// that ended without a completion screen (admin cancel, failed), where
+  /// no screen can show it again. It is put aside, so it no longer blocks
+  /// this trip's Ride checks. Its event stays unanswered on the device, so
+  /// that ride's own screen would bring it back.
+  void _parkOtherRide(String rideId) {
+    final current = _session;
+    if (current == null || current.rideId == rideId) return;
+    _session = null;
+    AppLog.info(
+      'safety.ridecheck.parked',
+      extra: {'rideId': current.rideId, 'trigger': current.trigger.wire},
+    );
+    unawaited(_audio.stopIfRecording(reason: 'ride_check_parked'));
+    // attachTrip runs while the trip screen builds.
+    scheduleMicrotask(_changed);
   }
 
   /// The driver, status or route the alert should carry changed.
