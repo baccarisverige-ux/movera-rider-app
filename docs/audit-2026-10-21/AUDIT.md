@@ -1,12 +1,12 @@
 # Movera rider app: bug audit
 
-Confirmed: 205 (high 6, medium 80, low 119). Rejected as false alarms: 35.
+Confirmed: 256 (high 9, medium 99, low 148). Rejected as false alarms: 45.
 
-Runs finished: 16 of 18. Still running at this save: none.
+Runs finished: 17 of 18. Still running at this save: none.
 
 Each finding was checked by an independent code tracer and a reproducer (often with a throwaway flutter test), with a third reviewer on disagreements. Findings from read-only runs were verified by code reading only. Possible duplicates across runs are not yet merged.
 
-## High (6)
+## High (9)
 
 ### H1. Driver drop while a child route is open pops that route instead of Waiting; Waiting is left dead and Finding never restarts the search
 
@@ -38,7 +38,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In _reservationStatus treat RideStatus.closed and RideStatus.paymentFailed as ReservationStatus.completed (optionally carry a payment-failed flag on the Reservation for the receipt), or add a separate mapping for server trips in ApiRideHistoryRepository. Add a test that a `completed`+settled+rated projection appears in History.
 
-### H4. Reservation completion screen shows the previous Book-now ride's driver, receipt and tip currency (LastCompletedRide is never cleared after a normal close)
+### H4. The profile is never read from the server, so an empty device copy overwrites the rider's name and consents on the server with blanks
+
+`lib/features/profile/data/synced_profile_repository.dart:42` (found by r2-rider4)
+
+**What happens:** A rider named 'Ada Lovelace' with promotions on signs out, then signs back in with the same phone (a returning rider, so no name step). She changes the app language in Account. The app sends PATCH /rider/profile {name: '', consents: {promotions: false, ...}}. Her name on the server (which the driver app shows) is erased and her marketing consent is switched off without her doing it.
+
+**Why:** SyncedProfileRepository calls itself 'the profile the server knows', with the device copy only a cache (FLOW-7). But hydrate() only reads the local cache (`await _cache.hydrate()`). No GET is made. After any sign-out the cache is empty, because UserDataWipe removes movera_profile_v1 and clearLocal resets it to defaults; the same is true on a new device. Sign-in for a returning rider (isNewRider false) goes straight to Home, so the cache is never filled. Every later save sends the whole cached profile through body(): `'name': profile.name.trim()` (''), `language` 'en' and the default consents. The mock accepts an empty name, since it only rejects non-strings or names over 80 characters, and stores it. This was seen in a throwaway run, where the server profile became `{name: , language: en, consents: {rideUpdates: true, emailUpdates: false, promotions: false}}`.
+
+**Suggested fix:** Read the server profile on hydrate or after sign-in (a GET or the verify response). Until it is known, send only the fields the rider changed, never the whole cached default profile.
+
+### H5. Duplicate of rider-u148: the server profile is never read, so a returning rider's first save sends name '' and the default consents
+
+`lib/features/profile/data/synced_profile_repository.dart:60` (found by r2-rider4)
+
+**What happens:** A rider whose server profile is {name: 'Anna Berg', emailUpdates: false} signs out and back in (or signs in on a new phone). Account shows 'Add your name'. They pick Svenska under Language, and pickAppLanguage -> ProfileController.update -> PATCH /api/v1/rider/profile {name:'', language:'sv', consents:{rideUpdates:true, emailUpdates:true, promotions:false}}. The server's name is now empty, so the driver sees no rider name, and the e-mail consent is flipped back to true without the rider asking.
+
+**Why:** SyncedProfileRepository is described as 'the profile the server knows', but it has no GET. hydrate() only reads the device cache (`await _cache.hydrate(); if (_syncPending) await _sync(...)`). Every save sends the full body built from that cache: name, language and all three consents. Two cases leave the cache empty or at defaults for a rider who already has a server profile: (a) sign-out, where UserDataWipe removes `movera_profile_v1` and clearLocal() resets the cache to RiderProfileData.defaults(); (b) a fresh device or browser. Nothing on the sign-in path fills the cache from the server: enterMoveraApp only shows Home, and RiderNameScreen is shown only for isNewRider. The returning rider's first profile write is any Privacy switch, a language pick or a gender pick. It PATCHes `{name: '', language: ..., consents: {rideUpdates: true, emailUpdates: true, promotions: false}}` (the defaults, apart from the one switch they changed). The mock and the proposed contract accept an empty name and merge the consents, so the server-side name (which the driver app shows) is erased. A rider who opted out of e-mail updates on another device is silently opted back in. Account also shows 'Add your name' to a rider who has one.
+
+**Suggested fix:** Fetch the server profile (GET /api/v1/rider/profile) after sign-in or on hydrate, and seed the cache from it before any save. Until it has loaded, either block saves or send only the fields the rider changed.
+
+### H6. Reservation completion screen shows the previous Book-now ride's driver, receipt and tip currency (LastCompletedRide is never cleared after a normal close)
 
 `lib/features/ride_complete/data/last_completed_ride.dart:13` (found by r2-rider3)
 
@@ -48,7 +68,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Clear LastCompletedRide in closeCompletedRide/markClosed. Also have DriverRepository.current/TripReceiptRepository.last/_tripCurrency return null unless `LastCompletedRide.value?.rideId` equals the screen's rideId. The reservation completion path should build its own driver and receipt from the Reservation.
 
-### H5. Ride check buttons (Call 112, I'm OK, Done, answer rows, options, Record) have no semantic tap action because excludeSemantics also drops the InkWell's action
+### H7. Ride check buttons (Call 112, I'm OK, Done, answer rows, options, Record) have no semantic tap action because excludeSemantics also drops the InkWell's action
 
 `lib/features/safety/presentation/ride_check_card.dart:797` (found by r2-rider1)
 
@@ -58,7 +78,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass `onTap: onTap` (and `enabled`) to each of these Semantics widgets, as safety_ui.dart and side_menu.dart already do, and add a test that asserts SemanticsAction.tap on the Ride check buttons.
 
-### H6. "Arrive by" mode books the chosen arrival time as the pickup time
+### H8. "Arrive by" mode books the chosen arrival time as the pickup time
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:153` (found by rider1)
 
@@ -68,7 +88,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When `_pickupMode == false` and `tripMinutes` is known, commit/return `_selectedDateTime.subtract(Duration(minutes: trip))` (clamped with `clampPickup`) as the pickup; hide the Arrive-by mode when `tripMinutes` is null.
 
-## Medium (80)
+### H9. In release builds the default chosen on the Payments tab only goes to local prefs, while Select Ride reads and writes the server default, so the choice is ignored at booking
+
+`lib/features/wallet/presentation/wallet.dart:774` (found by r2-rider4)
+
+**What happens:** Staging/production. On the Payments tab the rider taps Google Pay, and the tile shows the check and 'Default for rides'. They open Select Ride, which calls ApiPaymentMethodRepository.read(), gets the server's defaultMethodId ('cash') and preselects Cash. The rider books a cash ride although they set Google Pay as their default.
+
+**Why:** In release, di.dart sets `defaultPayment = methods` (ApiPaymentMethodRepository, server GET/PATCH /api/v1/payment-methods). RideSelectionController.restoreDefaultPayment and _persistSelectedBrand use that store (select_ride.dart:274 `paymentStore: AppScope.instance.defaultPayment`). The Wallet & Payments 'How do you want to pay' tab (WalletScreen) does not use it: _restorePaymentSettings and _savePaymentSettings go through WalletController.loadPayments/savePayments, which call WalletStore and read and write the SharedPreferences key 'movera_default_payment' directly. This tab is a bottom tab in every build (home.dart:1849 `WalletAndPaymentsScreen(initialTab: 1)`). In release the two defaults therefore drift apart. The tab marks a method 'Default for rides' that Select Ride never preselects, and a default the rider picks at Select Ride is never shown on the tab.
+
+**Suggested fix:** Read and save the default method on the Payments tab through AppScope.instance.defaultPayment (the composed DefaultPaymentStore), and keep WalletStore for the wallet-only settings (business, use wallet first).
+
+## Medium (99)
 
 ### M1. Cold start awaits push re-registration (Firebase init, getToken, POST /push/devices) before runApp, blocking the first frame on the network
 
@@ -110,7 +140,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Store `bookedKm` from the routed distance through the booked stops (reuse `_routedMeters(body)`), and only add the 25 kr fee for stops that are new relative to the booked `ride['stops']` (or drop the per-stop fee, since `_quote` never charges one).
 
-### M5. `MatchedDriver.fromJson` reads `id`/`vehicleMake`/... but the contract `DriverSummary` carries `driverId` and a nested `vehicle`, so a contract-conformant projection parses to no driver
+### M5. A brand-new install on iOS signs in as the previous owner: Keychain tokens survive uninstall and nothing clears them on first launch
+
+`lib/core/auth/secure_token_store.dart:38` (found by r2-rider4)
+
+**What happens:** Rider A uses the app on a family iPad and uninstalls it without signing out. Rider B installs Movera and opens it for the first time. There is no Sign in screen: B lands on Home signed in as A, with A's server-side history, payment methods and any live trip, and can book on A's account.
+
+**Why:** Tokens (and the ride PIN, SecureRidePinStore) live in the iOS Keychain through flutter_secure_storage with default options. iOS keeps Keychain items after the app is uninstalled, but it wipes SharedPreferences, including `movera_rider_fingerprint`. Nothing records a first run and clears the secure store on first launch. On a 'fresh' install, RideRestoreCoordinator._root -> _shouldRequireSignIn -> _hasSession() reads the surviving access and refresh tokens and skips Sign in. It then calls adoptServerActiveTrip() and opens Home, or the previous rider's live trip, under that rider's account. The fingerprint is gone too, so enterSessionAs can never notice that the rider changed.
+
+**Suggested fix:** Keep a first-run marker in SharedPreferences. When it is missing at bootstrap, clear the secure token store and the ride PIN before the restore gate reads the session.
+
+### M6. `MatchedDriver.fromJson` reads `id`/`vehicleMake`/... but the contract `DriverSummary` carries `driverId` and a nested `vehicle`, so a contract-conformant projection parses to no driver
 
 `lib/core/contracts/matched_driver.dart:80` (found by rider1)
 
@@ -120,7 +160,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Accept `driverId` (and `photoUrl`, nested `vehicle.{make,model,color,plate}`) in `fromJson` alongside the legacy flat keys, and have the mock emit the contract shape so the contract tests exercise it.
 
-### M6. isLateEcho drops every camera report for 600 ms after a web flight lands, including the rider's own pan or pinch, so MapView.pose goes stale and the next glide jumps back
+### M7. isLateEcho drops every camera report for 600 ms after a web flight lands, including the rider's own pan or pinch, so MapView.pose goes stale and the next glide jumps back
 
 `lib/core/maps/map_camera_motion.dart:115` (found by rider-j8)
 
@@ -130,7 +170,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Clear _landedAt in interrupt() and in the touching setter, and when movedByHandAt is set, so only echoes that arrive before any newer gesture or command are filtered.
 
-### M7. Firebase-configured web builds (none deployed today) would replace the root-scope Firebase SW with Flutter's self-unregistering flutter_service_worker.js on every cold start, forcing a reload and killing the push subscription
+### M8. Firebase-configured web builds (none deployed today) would replace the root-scope Firebase SW with Flutter's self-unregistering flutter_service_worker.js on every cold start, forcing a reload and killing the push subscription
 
 `lib/core/notifications/firebase_push_service.dart:118` (found by rider3)
 
@@ -140,7 +180,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Build with `--pwa-strategy=none` (or ship a custom web/flutter_bootstrap.js that calls `_flutter.loader.load()` without `serviceWorkerSettings`), and/or register firebase-messaging-sw.js under its own scope (e.g. `firebase-cloud-messaging-push-scope`) so the loader's root-scope `getRegistration()` finds nothing.
 
-### M8. After the not-found pause, a successful resync never restarts periodic polling: the ride freezes while the connection reports connected
+### M9. Inbound push routing (foreground, opened and the launch notification) is attached only after the backend acknowledges the device token
+
+`lib/core/notifications/firebase_push_service.dart:226` (found by r2-rider4)
+
+**What happens:** The API is briefly unavailable when a rider taps a 'Your driver has arrived' notification that launches the app. POST /push/devices fails, so the tap lands on the default root instead of the ride. Later notification taps in that session also do nothing in the app.
+
+**Why:** register() calls `_attachInboundStreams()` only after `await _replaceToken(token)` succeeds. That call POSTs /push/devices and throws when the request fails or is not acknowledged. `_attachInboundStreams` is the only place that listens to onMessage and onMessageOpenedApp and that reads getInitialMessage into `_initialMessage`. If the registration POST fails at cold start (5xx, timeout, offline; bootstrap catches and only logs it), PushCoordinator.start() gets null from takeInitialMessage(), and no foreground or opened push reaches it for the rest of the session. The OS still shows the notifications, because the FCM token exists. Sign-out's unregister() cancels the subscriptions, so a failed re-registration after the next sign-in has the same effect.
+
+**Suggested fix:** Attach the inbound listeners and read getInitialMessage as soon as Firebase is initialised and permission is granted, separately from whether the server acknowledged the token.
+
+### M10. Polling transport misses a driver drop when the first poll of a new subscription (after the Finding to Waiting handover or a retry) already sees searching, or when a later poll jumps straight to a different driver's accepted status
+
+`lib/core/realtime/api_ride_realtime.dart:193` (found by r2-rider4)
+
+**What happens:** Release build on the polling transport. The rider is at the 'driver waiting' stage, the arrived sheet showing driver A (Elin, plate MVR 204) is up, and the phone is pocketed so the app is backgrounded. A drops and dispatch matches B within a minute. On resume, the first poll returns `accepted` with driver B. Waiting swaps the card to B with no 'your driver cancelled' notice. The arrived sheet with A's name and plate stays on top, because it closes only on trip start (line 396). B's arrival is never announced, because `_arrivalAnnounced` is already true (line 452). Variant (a): A accepts and drops within about 1 s. Waiting shows 'Driver found / leave now, Elin' while the server is searching. If no one accepts, `expired` reaches Waiting as noDriverFound and `markExternalTerminal` clears it without archiving (noDriverFound is not in the archive list at active_ride_controller.dart:353-358). The rider is also never offered RIDE-19 'Try again'.
+
+**Why:** ApiRideRealtime reports a driver drop only when `status.isSearching && (poll.lastStatus?.isMatched ?? false)` (lines 193-199). `poll.lastStatus` lives on the per-subscription `_RidePoll`, and `onCancel` (lines 78-84) removes that poll as soon as its only listener cancels. Every handover cancels the only listener: Finding `_openWaiting` calls `_match.dispose()`, which cancels `_sub` (finding_driver_controller.dart:1682), before Waiting subscribes again. `_retryLiveFeed` does the same. So Waiting's tracking always starts with a new poll whose `lastStatus` is null. (a) When the driver drops in the 'just assigned' stage, before Waiting's first poll returns, that first projection is `searching`, `reassigned` is false, and the event goes out as plain `findingDriver`. The first poll can be late because it fails and backs off for 1, 2, 4... s. DriverTrackingController accepts it. Waiting `_onLiveTick` (waiting_for_driver.dart:410-433) only re-dispatches on `cancelledByDriver`, so Waiting stays up with the dropped driver's card. (b) Even inside one poll, a drop is missed when driver B accepts before the next successful poll: every 2 s, or a backgrounded app whose timers paused. The stream then goes straight from driverArriving/driverWaiting(A) to driverAssigned(B). Nothing compares driver ids, so no notice is shown.
+
+**Suggested fix:** Keep reassignment state (last lifecycle status and driver id) per ride id, outside the per-subscription poll, for example in a map like `_sequences`. Also treat a change of `driver.id` between two matched projections as a driver-cancelled reassignment, so Waiting re-dispatches or at least shows the notice, closes the old arrived sheet and resets `_arrivalAnnounced`.
+
+### M11. After the not-found pause, a successful resync never restarts periodic polling: the ride freezes while the connection reports connected
 
 `lib/core/realtime/api_ride_realtime.dart:383` (found by rider1)
 
@@ -150,7 +210,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In `reconnectAndResync` (or in `_poll`'s success path when `poll.timer == null` and the controller has listeners) re-create `poll.timer = Timer.periodic(pollInterval, (_) => unawaited(_poll(poll)))` once the forced read succeeds; keep it cancelled while `poll.ended` is true.
 
-### M9. Mock driver position and arrival are computed against a hard-coded central-Stockholm pickup (never hydrated on resume, hydrated only after the first assignment fix), so after a reload the driver approaches and 'arrives' at Stockholm instead of the trip's pickup
+### M12. Mock driver position and arrival are computed against a hard-coded central-Stockholm pickup (never hydrated on resume, hydrated only after the first assignment fix), so after a reload the driver approaches and 'arrives' at Stockholm instead of the trip's pickup
 
 `lib/core/realtime/mock_ride_realtime.dart:183` (found by rider2)
 
@@ -160,7 +220,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Let `primeResume` (and the first assignment) take the pickup coordinates and the snapshot's `acceptedAt`/`waitingArrivedAt`; hydrate the pickup before emitting `driverAssigned`, and do not stamp `_acceptedAt`/`_waitingSince` with the resume time.
 
-### M10. A queued (offline) end-early that the server later applies is committed as a plain cancel: no receipt, History shows 'Cancelled · booked price', and the reason is lost
+### M13. A queued (offline) end-early that the server later applies is committed as a plain cancel: no receipt, History shows 'Cancelled · booked price', and the reason is lost
 
 `lib/features/active_ride/application/active_ride_controller.dart:160` (found by r2-rider1)
 
@@ -170,7 +230,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep the queued command and reason (or read `cancellation`/`fare`/`endedEarly` from the projection). For an end-early, commit it with an EndedEarlyTrip (charged = projection fare) and open the ended-early summary instead of going Home.
 
-### M11. The cancel fee charged for a Book-now ride is never stored on the History record, so History shows 'Cancelled · Booked price X' with no fee line
+### M14. The cancel fee charged for a Book-now ride is never stored on the History record, so History shows 'Cancelled · Booked price X' with no fee line
 
 `lib/features/active_ride/application/active_ride_controller.dart:308` (found by r2-rider1)
 
@@ -180,7 +240,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Parse `projection/ride.cancellation.fee` (Money) from the cancel response and from server trips. Pass it through `_archive` / `archive` / `recordFor` into `Reservation.cancellationFee`.
 
-### M12. A trip that ends in paymentFailed is cleared without a History record or receipt; the rider is told only 'the trip is not active'
+### M15. A trip that ends in paymentFailed is cleared without a History record or receipt; the rider is told only 'the trip is not active'
 
 `lib/features/active_ride/application/active_ride_controller.dart:353` (found by r2-rider1)
 
@@ -190,7 +250,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Archive paymentFailed (it is a completed trip) before clearing, and/or route it to the completion surface that can show the payment problem.
 
-### M13. Scheduled ride's live screen takes the waiting-fee terms and cancel-fee preview from the on-demand RideSession's last booked category
+### M16. A destination or pickup moved on the map is discarded when its label matches the current address; the rider is told the route was updated
+
+`lib/features/active_ride/application/route_change_controller.dart:172` (found by r2-rider4)
+
+**What happens:** Destination 'Mall of Scandinavia'. The rider opens 'Pick on map', drags the pin 400 m to the other entrance and confirms before the label changes (or it resolves to the same name). The sheet shows 'Same price', the rider confirms and gets 'Route updated, driver told', but the destination coordinates did not change.
+
+**Why:** `preview` picks the coordinates by comparing the address string: if the new destination text equals `ride.destinationAddress`, it uses the old point and ignores the `destinationPoint` the picker passed. The pickup is handled the same way at :153. ConfirmPickupSpot often returns the same label after a pin move: it keeps `initialAddress` until the reverse geocode settles, a nearby pin resolves to the same street address, and an unresolvable point gives the 'Pickup location' fallback. In those cases the moved point is thrown away, the server prices and applies the old route ('Same price'), and Waiting shows 'Route updated · driver told'.
+
+**Suggested fix:** Use the explicit point whenever one was given (`destinationPoint ?? (same label ? old point : locate)`), and the same for pickup.
+
+### M17. Scheduled ride's live screen takes the waiting-fee terms and cancel-fee preview from the on-demand RideSession's last booked category
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:296` (found by r2-rider1)
 
@@ -200,7 +270,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass the trip's categoryId into WaitingForDriver (the reservation's categoryId; for Book-now, the snapshot's) and use it instead of the session. Accept the stored snapshot only when its rideId equals `_rideId`. Clear the booked* fields in RideSession.reset().
 
-### M14. After a reload, the server's waiting.arrivedAt and acceptedAt are thrown away, so the waiting fee clock restarts on every rebuild and the cancel-fee preview counts from reload time
+### M18. After a reload, the server's waiting.arrivedAt and acceptedAt are thrown away, so the waiting fee clock restarts on every rebuild and the cancel-fee preview counts from reload time
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:322` (found by r2-rider1)
 
@@ -210,7 +280,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Apply acceptedAt and waitingArrivedAt (timestamps from the server) even when the status part of a same-version event is not accepted. At minimum, compute the WaitingFeeCounter fallback once and keep it, rather than DateTime.now() on each build.
 
-### M15. Reload during re-dispatch after a driver drop restores Waiting with the dropped driver; Waiting never reacts to a searching status
+### M19. Reload during re-dispatch after a driver drop restores Waiting with the dropped driver; Waiting never reacts to a searching status
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:417` (found by rider2)
 
@@ -220,7 +290,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Persist the `findingDriver` status (without driver) when the research starts, and have Waiting treat an incoming `isSearching` status the same way as `cancelledByDriver` (back to Finding).
 
-### M16. A terminal or completion status that arrives while a cancel/end-early is in flight is dropped. After a rejected or pendingRetry outcome, Waiting stays on an ended trip until the next live tick, and for a truly terminal status (noShow, cancelledByAdmin) that tick may never come
+### M20. A terminal or completion status that arrives while a cancel/end-early is in flight is dropped. After a rejected or pendingRetry outcome, Waiting stays on an ended trip until the next live tick, and for a truly terminal status (noShow, cancelledByAdmin) that tick may never come
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:515` (found by r2-rider1)
 
@@ -230,7 +300,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Store the status in _pendingStageStatus even while _leaving, and drain it (or re-check _tracking.status) after a non-confirmed cancel outcome. Alternatively, resync on rejected as is done for stale.
 
-### M17. A queued on-board End trip that the outbox later delivers is committed as a plain cancel, with no ended-early receipt or rating
+### M21. A queued on-board End trip that the outbox later delivers is committed as a plain cancel, with no ended-early receipt or rating
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:570` (found by r2-rider1)
 
@@ -240,7 +310,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When committing a server-confirmed cancelledByRider, check the outbox entry or the last in-trip stage. If it was end_early, build an EndedEarlyTrip (fare from the projection) and open the ended-early summary as the direct path does.
 
-### M18. A 'closed' projection reaching Waiting throws ArgumentError in markExternalTerminal and leaves Waiting dead
+### M22. A 'closed' projection reaching Waiting throws ArgumentError in markExternalTerminal and leaves Waiting dead
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:589` (found by r2-rider1)
 
@@ -250,7 +320,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Route closed (and other post-trip statuses) to the completion surface or Home without calling markExternalTerminal, e.g. treat closed like a completed surface in _onLiveTick/_drainStageNavigation, or close the ride via closeCompletedRide.
 
-### M19. On the reservation live screen, the cancel-fee note and waiting terms use the Book Now session's leftover category and live fee rule, not the reservation's
+### M23. On the reservation live screen, the cancel-fee note and waiting terms use the Book Now session's leftover category and live fee rule, not the reservation's
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:774` (found by r2-rider1)
 
@@ -260,7 +330,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass the reservation's categoryId (and a fee-note provider using ReservationController.cancelTermsFor) into WaitingForDriver from ReservationLiveRide.pageFor.
 
-### M20. Back gesture while the Waiting cancel/end-early request is in flight pops Waiting; Finding underneath stays parked and the cancel result is lost
+### M24. Back gesture while the Waiting cancel/end-early request is in flight pops Waiting; Finding underneath stays parked and the cancel result is lost
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:820` (found by rider2)
 
@@ -270,7 +340,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep `canPop` false while `_cancelling` is true (set `_leaving` only after the outcome is known), or handle `didPop` by finishing the flow from the result.
 
-### M21. Cancel confirmed on a sheet opened before boarding sends a charged end_early if the trip starts while the sheet is open
+### M25. Cancel confirmed on a sheet opened before boarding sends a charged end_early if the trip starts while the sheet is open
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:838` (found by r2-rider1)
 
@@ -280,7 +350,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Close the cancel and reason sheets when `_isInTrip` changes, as RIDE-15 does on Finding. Or pass the phase the rider confirmed into markCancelled, and refuse or re-ask when the session's onboard state no longer matches it.
 
-### M22. Ride check 'long stop' fires when the rider's own connection drops mid-trip, because connectionDegraded is never set on the polling transport (default threshold 2 min, not 4)
+### M26. Ride check 'long stop' fires when the rider's own connection drops mid-trip, because connectionDegraded is never set on the polling transport (default threshold 2 min, not 4)
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:1113` (found by r2-rider1)
 
@@ -290,7 +360,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Also skip `checkStill` while `AppScope.instance.realtime.state != RealtimeState.connected`, or have the poller mark the tracking feed degraded on failure. Reset the still anchor when the feed returns.
 
-### M23. The 'not in traffic' exemption for long stops is dead: samples never set inTraffic, so stops in a traffic queue open Ride check
+### M27. The 'not in traffic' exemption for long stops is dead: samples never set inTraffic, so stops in a traffic queue open Ride check
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:1212` (found by r2-rider1)
 
@@ -300,7 +370,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Feed a traffic signal into RideCheckSample, for example from server ETA growth or speed versus the route's expected speed, or a server-provided flag. Otherwise remove 'or in traffic' from the copy.
 
-### M24. On web, the moving driver car makes a new blob URL that is never revoked, plus an image load, about 20 times a second for the whole live ride
+### M28. On web, the moving driver car makes a new blob URL that is never revoked, plus an image load, about 20 times a second for the whole live ride
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2012` (found by r2-rider1)
 
@@ -310,7 +380,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On web, give frequently moving markers an icon that does not go through a blob. One option is an AssetMapBitmap (BitmapDescriptor.asset with explicit width/height), which resolves to a stable asset URL with no Blob and no size probe. Another is to cap web driver-marker updates to once per fix (no 20 fps interpolation). At minimum, pass width/height to BitmapDescriptor.bytes to skip the per-update image probe.
 
-### M25. In-trip road route and Ride check's planned route go driver to destination only and ignore stops (booked or added), so driving to a stop more than 2 km off the direct line fires a false 'off route' alert
+### M29. In-trip road route and Ride check's planned route go driver to destination only and ignore stops (booked or added), so driving to a stop more than 2 km off the direct line fires a false 'off route' alert
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2334` (found by r2-rider1)
 
@@ -320,7 +390,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Route driver → remaining stops → destination (a waypoint route), and give Ride check that route; or drop the planned route when stops exist and use the per-stop plan only.
 
-### M26. In-trip road route and Ride check planned route go straight from driver to destination and ignore booked stops, causing false off-route alerts on multi-stop trips
+### M30. In-trip road route and Ride check planned route go straight from driver to destination and ignore booked stops, causing false off-route alerts on multi-stop trips
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2386` (found by r2-rider1)
 
@@ -330,7 +400,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Route the in-trip leg through the remaining stops (or concatenate per-leg road routes) before showing it and handing it to Ride check, or do not set a planned route when the trip has stops.
 
-### M27. Sign-out wipe deletes the recording index but leaves the previous rider's Safety audio files on disk
+### M31. Safety Kit row on the Waiting sheet uses the on-demand session's rideId, not the screen's ride, so SOS, share and recording target no ride or the wrong one on scheduled live rides
+
+`lib/features/active_ride/presentation/waiting_sheet_bits.dart:550` (found by r2-rider4)
+
+**What happens:** On a scheduled ride's live screen, the rider opens Safety Kit from the row in the sheet and taps SOS. The SOS is not registered with the trip (sos returns false). Trip share starts for an empty ride id. The same actions from the map button work.
+
+**Why:** WaitingNotesAndPin builds SafetyKitSheetRow with AppScope.instance.ride.rideId. The rest of Waiting uses _rideId, which is widget.rideId ?? session.rideId (for example SafetyKitMapButton(rideId: _rideId) at waiting_for_driver.dart:1503). ReservationLiveRide.pageFor passes rideId: reservationId with its own realtime, while the on-demand session holds null or a previous on-demand ride. From the sheet row, RideSafetyKitSheet then calls _ctl.sos(rideId: null), which returns false (not registered), startShare(''), and audio.start(rideId: 'ride_local'). It could also use a stale on-demand ride id.
+
+**Suggested fix:** Pass the screen's ride id into WaitingNotesAndPin (rideId: _rideId) and use it for SafetyKitSheetRow.
+
+### M32. Sign-out wipe deletes the recording index but leaves the previous rider's Safety audio files on disk
 
 `lib/features/auth/application/user_data_wipe.dart:92` (found by r2-rider3)
 
@@ -340,7 +420,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In UserDataWipe.run, delete the safety_recordings directory (on native only), or delete every localPath found in the safety cache before removing the key.
 
-### M28. Sign-out wipe leaves the rider's safety audio files on disk (Documents/safety_recordings) and drops their only index
+### M33. Sign-out wipe leaves the rider's safety audio files on disk (Documents/safety_recordings) and drops their only index
 
 `lib/features/auth/application/user_data_wipe.dart:135` (found by r2-rider3)
 
@@ -350,7 +430,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In UserDataWipe.run, delete the safety_recordings directory (and the files of any cached recordings). Consider storing recordings in a non-backed-up location (Application Support with excludeFromBackup).
 
-### M29. A pasted international number (+46 …) at sign-in or Add phone is either rejected or, in the spaced form, cut short and accepted as a wrong number (+4646…) that the OTP is sent to
+### M34. OTP expiry is checked against the device clock, so a phone whose clock runs a few minutes fast can never sign in
+
+`lib/features/auth/domain/otp_challenge.dart:21` (found by r2-rider4)
+
+**What happens:** A laptop or phone with its clock set 6 minutes ahead opens Sign in. The rider types the correct code and gets 'This code has expired'. Resend gives the same result every time, so the rider cannot sign in.
+
+**Why:** OtpChallenge.isExpired compares the server's absolute `expiresAt` (mock: now + 5 min) with `DateTime.now().toUtc()` on the device. PhoneVerification._verify returns 'code expired' locally when it is true, before any request, and AuthRepository.verifyOtp throws StateError in the same case. If the device clock is ahead by more than the OTP lifetime, every challenge, including each one from Resend, is already expired on arrival and the code is never sent. The server is the authority and would answer 410 itself. The client check can only block valid codes.
+
+**Suggested fix:** Work out the expiry from the local receipt time plus the server's remaining lifetime (expiresAt minus the server's issue time, or a TTL field), or let the server's 410 decide.
+
+### M35. A pasted international number (+46 …) at sign-in or Add phone is either rejected or, in the spaced form, cut short and accepted as a wrong number (+4646…) that the OTP is sent to
 
 `lib/features/auth/presentation/auth_navigation.dart:993` (found by rider4)
 
@@ -360,7 +450,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Strip a leading `46`/`0046` before prefixing, or pass the raw digits to `toE164` which already handles `46…`/`0046…` prefixes.
 
-### M30. Sign-in Continue/Verify and the Apple/Google buttons expose no tap action to screen readers
+### M36. Sign-in Continue/Verify and the Apple/Google buttons expose no tap action to screen readers
 
 `lib/features/auth/presentation/widgets/auth_controls.dart:26` (found by r2-rider1)
 
@@ -370,7 +460,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass `onTap: enabled ? onPressed : null` to the outer Semantics, or drop excludeSemantics and use MergeSemantics.
 
-### M31. Names over 80 characters (40+1+40 at sign-up, or any length in Personal info) are rejected by the mock/proposed profile PATCH, and SyncedProfileRepository hides this permanent 422 as 'pending', so later consent and language syncs fail silently
+### M37. Names over 80 characters (40+1+40 at sign-up, or any length in Personal info) are rejected by the mock/proposed profile PATCH, and SyncedProfileRepository hides this permanent 422 as 'pending', so later consent and language syncs fail silently
 
 `lib/features/auth/presentation/widgets/auth_controls.dart:377` (found by r2-rider1)
 
@@ -380,7 +470,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Validate the combined name against the server limit (80) in the sign-up and Personal info editors. Treat a 4xx validation answer as a user-facing error instead of as pending.
 
-### M32. A booking that may have been created is not checked against the server before a retry gets a fresh key, so a retry books a second live ride
+### M38. A booking that may have been created is not checked against the server before a retry gets a fresh key, so a retry books a second live ride
 
 `lib/features/booking/application/booking_coordinator.dart:355` (found by r2-rider1)
 
@@ -390,7 +480,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When the previous attempt ended 'maybe created' (an attempt with a replay that never succeeded or was refused), call `_adoptActiveTrip`/`fetchActive` before minting a new key for any intent, and adopt or block if the server already has a live trip. Alternatively keep the uncertain key until the server has been asked.
 
-### M33. Swapping the last stop and the destination in Change route makes preview re-geocode both from text instead of using the booked coordinates
+### M39. Swapping the last stop and the destination in Change route makes preview re-geocode both from text instead of using the booked coordinates
 
 `lib/features/destination_search/presentation/route_picker_page.dart:320` (found by r2-rider3)
 
@@ -400,7 +490,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Accept and track per-field points in the picker, including an initial destinationPoint and stop points, and swap them along with the text. Pass stopPoints to preview.
 
-### M34. Back during the finish step does not cancel it: a date picker or route-change price sheet appears after the picker has closed
+### M40. Back during the finish step does not cancel it: a date picker or route-change price sheet appears after the picker has closed
 
 `lib/features/destination_search/presentation/route_picker_page.dart:390` (found by r2-rider3)
 
@@ -410,7 +500,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Wrap the page in `PopScope(canPop: !_finishing)`, or make onFinish cancellable and check the picker route is still current before opening follow-up UI.
 
-### M35. Choose-on-map passes the shortened or translated pickup field text, so Home treats the GPS or placeholder label as typed and geocodes it instead of opening at GPS
+### M41. Choose-on-map passes the shortened or translated pickup field text, so Home treats the GPS or placeholder label as typed and geocodes it instead of opening at GPS
 
 `lib/features/destination_search/presentation/route_picker_page.dart:440` (found by r2-rider3)
 
@@ -420,7 +510,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass _expand(_activeController.text) (and the current _pickupPoint) to onPickOnMap. In Home, open at the picker's known point when one is given.
 
-### M36. Pressing Enter picks the first result of an older query still on screen and goes straight to booking
+### M42. Pressing Enter picks the first result of an older query still on screen and goes straight to booking
 
 `lib/features/destination_search/presentation/route_picker_page.dart:511` (found by r2-rider3)
 
@@ -430,7 +520,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Store the query that `_results` belongs to and only accept Enter when it equals the current text, or clear `_results` when the text changes. Pick the first row actually displayed.
 
-### M37. Finding treats a driver drop (cancelledByDriver) that arrives while a match is deferred as the end of the ride: it archives the ride as cancelled, clears the snapshot and sends the rider Home while the server trip is searching again
+### M43. Finding treats a driver drop (cancelledByDriver) that arrives while a match is deferred as the end of the ride: it archives the ride as cancelled, clears the snapshot and sends the rider Home while the server trip is searching again
 
 `lib/features/finding_driver/application/finding_driver_controller.dart:394` (found by rider4)
 
@@ -440,7 +530,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In the Finding listener treat `cancelledByDriver` as 'back to searching' (reset `_assigned`/`_assignmentPending`, keep the search) instead of routing it to `_completeTerminal`.
 
-### M38. After location is revoked and then allowed again, Home never restarts live tracking; the puck freezes while the state says 'live'
+### M44. "Try again" after no driver found leaves the screen poppable while the new booking is created, orphaning a live search
+
+`lib/features/finding_driver/presentation/finding_drivers.dart:340` (found by r2-rider4)
+
+**What happens:** No driver found → the rider taps Try again, sees nothing change for a second and swipes back. Finding pops to Select Ride/Home. The server has a new searching ride with the stored snapshot, but no screen shows it. A driver can accept it unseen. If the rider books again from Select Ride, `_findingAlreadyActive` is false, so a second live ride is created.
+
+**Why:** `_handleTerminal` sets `_leaving = true` (line 323) before showing the no-driver sheet. On Try again, `_requestAgain` awaits `submitFinding` (a quote plus POST /rides, two round trips) and only resets `_leaving = false` after success (line 380). The screen's `PopScope(canPop: _leaving)` therefore lets a system back / swipe pop Finding during the request, and the X is inert (`_confirmCancel` returns on `_leaving`). The booking still creates the server ride and saves its snapshot (BookingCoordinator._submitFinding), but `_requestAgain` sees `!mounted` and returns false. No Finding owns the new live ride, `FindingDriverController.active` is null (cleared by `_completeTerminal`), and nothing navigates to it until a later lifecycle resume/reload restore.
+
+**Suggested fix:** Set `_leaving = false` (or keep a separate rebooking flag that keeps canPop false and shows progress) while `_requestAgain` is in flight. If the widget unmounted after the ride was created, hand the ride to `RideRestoreCoordinator.recoverCreatedFinding`.
+
+### M45. 'Try again' after no driver found reports a may-have-booked failure as a plain failure and sends the rider Home while the new ride may exist
+
+`lib/features/finding_driver/presentation/finding_drivers.dart:370` (found by r2-rider4)
+
+**What happens:** The search ends with no driver found and the rider taps Try again. The POST /rides creates the ride but the connection drops before the answer. The replay and adopt fail, and the rider sees 'We couldn't request a new ride. Choose your route and try again.' and lands on Home. The server ride keeps searching, may be matched with a driver who comes to an empty pickup, or the rider books again and has two rides. Traced by reading the code.
+
+**Why:** `_requestAgain` catches every error with `rebookFailed` ('We couldn't request a new ride. Choose your route and try again.') and returns false, and `_handleTerminal` then goes Home. It never checks `BookingController.mayHaveBooked(error)`, which Select Ride uses (RC-09) for exactly this case. A timeout or dropped connection after the POST may have created the ride. The rider is told it failed and is told to rebook from Home, so the ghost ride stays live with no screen. If the rider rebooks with any different intent, that books a second ride (see the BookingAttempt finding).
+
+**Suggested fix:** When `BookingController.mayHaveBooked(error)` is true, show `bookingUncertain`, stay on the screen, and try `fetchActive` to adopt the ride (or offer Retry, which reuses the same attempt) instead of sending the rider Home.
+
+### M46. After location is revoked and then allowed again, Home never restarts live tracking; the puck freezes while the state says 'live'
 
 `lib/features/home/application/home_controller.dart:478` (found by r2-rider3)
 
@@ -450,7 +560,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On resume, when the controller has no active _positionSub and permission is granted, call startTracking again (for example through recoverLiveLocation), not only for temporarilyUnavailable.
 
-### M39. Home puck pulse on web creates a never-revoked blob URL every 850 ms while Home is open
+### M47. Home puck pulse on web creates a never-revoked blob URL every 850 ms while Home is open
 
 `lib/features/home/application/home_controller.dart:642` (found by r2-rider3)
 
@@ -460,7 +570,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On web, draw the pulse without swapping marker bitmaps, for example with a Circle overlay whose radius alternates, or with asset-backed icons. Another option is to keep one icon and stop pulsing on web. Do not send BytesMapBitmap icon changes at timer cadence.
 
-### M40. Home's load() keeps only the first 8 custom places and every Home persist() writes that cut list back, so places 9 and later are deleted from storage
+### M48. Home's load() keeps only the first 8 custom places and every Home persist() writes that cut list back, so places 9 and later are deleted from storage
 
 `lib/features/home/application/home_places_controller.dart:69` (found by rider3)
 
@@ -470,7 +580,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Either enforce the same cap in SavedPlacesController.save, or keep the untruncated list (or re-read storage) when Home persists so it never writes fewer places than are stored.
 
-### M41. Custom saved places are matched by type: editing or adding a second place of the same kind overwrites the first
+### M49. Custom saved places are matched by type: editing or adding a second place of the same kind overwrites the first
 
 `lib/features/home/application/home_places_controller.dart:133` (found by rider3)
 
@@ -480,7 +590,37 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass the SavedPlaceData id (or index) through onEditSavedPlace/_showAddressPicker/applyResolved and match on id; for Add place with an existing type, append a new entry (as Saved Places does) or ask.
 
-### M42. Late first GPS fix glides whichever map is on top (pickup / Set pickup / Select ride), not Home's
+### M50. After signing back in mid-ride on web, Home says 'Your ride search was interrupted. Book again' while the kept ride is being resumed
+
+`lib/features/home/presentation/home.dart:191` (found by r2-rider4)
+
+**What happens:** Web staging: the rider's refresh token expires while a driver is on the way, and Sign in is shown with the ride kept. The rider signs in and lands on Home with the toast 'Your ride search was interrupted. Book again when you are ready.' A moment later the Waiting screen for the same ride appears under the same toast. The rider may book a second ride or think the trip was lost. Traced by reading the code; not run.
+
+**Why:** Whether a ride is live is recorded twice on web: in `RideSnapshotStore` and in a sessionStorage flag (`movera_search_live`). Every `RideSnapshotStore.save` sets the flag (`markSearchLive`). Only `RideRestoreCoordinator.goHome` and the sign-out wipe clear it; `RideSnapshotStore.clear()` does not. Home's initState treats a set flag as proof the search was dropped. Its comment still assumes the old document-load wipe ('the web build's snapshot is gone before Flutter starts'), which R-web removed. When a session expires mid-ride (staging/production, authRequired), `onSessionExpired` deliberately keeps the snapshot and roots Sign in. After the rider signs back in, `enterMoveraApp` mounts Home first, and Home takes the flag and posts the 8-second toast. Only then does `resumeIfNeeded` (which awaits the session check, the snapshot read and a network resync) swap the root to the live Finding/Waiting screen. The SnackBar lives in the root ScaffoldMessenger, so it is still showing on the ride screen. The same mismatch occurs when `_dropIfCancelQueued` ends a ride on reload: it clears the store without clearing the flag, so Home claims the search was interrupted although the rider's own cancel went through.
+
+**Suggested fix:** Derive the notice from the snapshot store, not a second flag. Call clearSearchLive() inside RideSnapshotStore.clear(). Have Home skip the notice while `RideSnapshotStore.read()` still returns a fresh live ride, or announce only after the restore decision (the first root/resumeIfNeeded result) says the ride was dropped.
+
+### M51. Resume-recovery after a failed first fix tracks GPS but never draws the puck, never moves the camera and keeps 'Location off, set pickup'
+
+`lib/features/home/presentation/home.dart:257` (found by r2-rider4)
+
+**What happens:** On the web, the first GPS fix takes longer than 16 s (indoors), then the rider switches tabs and comes back. The location stream now delivers fixes and the recenter button appears, but no rider puck is ever painted. The map stays on central Stockholm, and the pickup still reads 'Location off, set pickup' although location works.
+
+**Why:** If the first detectCurrent() throws (the 16 s detectFixTimeout or a platform error), the controller state is temporarilyUnavailable and _runDetectCurrentAddress returns after setting _pickupAddress = locationOffPickupLabel. It never reaches _prepareLocationPuckIcons, bindLiveLocation or the camera move. On the next app resume Home calls _locationCtl.recoverLiveLocation(...), which only starts the position stream. Its onFix sets _currentLatLng and calls _updateLocationVisuals(), which returns early because _locationPuckCompact/_locationPuckExpanded are still null. _refreshPickupLabelIfMoved sees _pickupLabelAt == null, stores the fix and returns, so the label stays 'Location off, set pickup'. The pulse and compass are never started and the camera stays on the default Stockholm view.
+
+**Suggested fix:** On a recovered first fix, run the same first-fix work as _runDetectCurrentAddress: prepare the puck icons, bind pulse and heading, set the pickup label/_pickupLabelAt and do a follow camera move. Or simply call _detectCurrentAddress() when no fix has ever been bound.
+
+### M52. When the first GPS fix on Home times out, no position stream starts, no notice or retry is shown, and the puck stays missing until the app is resumed or a booking starts
+
+`lib/features/home/presentation/home.dart:365` (found by r2-rider4)
+
+**What happens:** An Android rider opens the app indoors with location permitted and services on. The high-accuracy cold fix takes longer than 16 s. Home keeps the default map with no puck and the pickup label 'Location off, set pickup', and offers no retry. The puck never appears while the rider stays on Home, even after the GPS gets a fix seconds later, until the app is backgrounded or the rider starts a booking.
+
+**Why:** HomeLocationController.detectCurrent times out after 16 s (detectFixTimeout). It then catches the error, sets state temporarilyUnavailable and returns target null (home_controller.dart:438-446). _runDetectCurrentAddress then writes the 'Location off, set pickup' label and returns, so bindLiveLocation/startTracking never runs and no position stream exists. accessIssue maps only servicesDisabled and permissionRequired to a notice, so temporarilyUnavailable shows no notice and no Try again button. Nothing schedules a retry. The only recovery is an app pause/resume (didChangeAppLifecycleState → recoverLiveLocation) or a booking action that calls _awaitCurrentFix.
+
+**Suggested fix:** On an 'unavailable' result, start the position stream anyway (startTracking has its own resubscribe backoff), or schedule detectCurrent again. Do not label a timeout as 'Location off'.
+
+### M53. Late first GPS fix glides whichever map is on top (pickup / Set pickup / Select ride), not Home's
 
 `lib/features/home/presentation/home.dart:395` (found by rider1)
 
@@ -490,7 +630,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In _runDetectCurrentAddress skip the animateCamera when `_mapParked.value || AppScope.instance.maps.activeOwner != MapOwners.home` (onMapCreated already re-centres from _currentLatLng when Home's map comes back).
 
-### M43. A failed forward geocode after the route picker closes, or when a saved place is tapped, aborts the flow silently with an unhandled async error
+### M54. Tapping a saved place prices and books the previous route's stops, which the rider never added in this flow
+
+`lib/features/home/presentation/home.dart:595` (found by r2-rider4)
+
+**What happens:** The rider plans Home -> stop 'Odenplan' -> 'Arlanda', looks at the prices and backs out to Home. Later they tap the 'Work' chip. SelectRide quotes Work via Odenplan (an extra stop and detour in the price), and Set pickup shows 'via Odenplan'. If they book, the trip carries a stop they never asked for.
+
+**Why:** _useSavedPlaceAsDestination opens SelectRide with stops: List<String>.from(_routeStops). _routeStops is whatever the last Where to flow left. It is cleared in _withParkedHomeMap only when a ride changed and reached a terminal or completed state, and nothing clears it when the rider backs out of SelectRide without booking. SelectRide quotes include the stops (select_ride.dart:466-471, 'Quotes include the stops'), and Set pickup shows 'via ...'. So a one-tap saved-place booking silently carries stops from an earlier abandoned route.
+
+**Suggested fix:** A saved-place destination starts a new route: pass const [] (or clear _routeStops) in _useSavedPlaceAsDestination. Also clear _routeStops when a flow ends without a booking.
+
+### M55. A failed forward geocode after the route picker closes, or when a saved place is tapped, aborts the flow silently with an unhandled async error
 
 `lib/features/home/presentation/home.dart:953` (found by rider1)
 
@@ -500,7 +650,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Wrap the post-pop normalisation (and the saved-place / favourite / pickup-search paths) in try/catch; on failure fall back to the raw strings (the draft already carries pickupLat/Lng and destinationLat/Lng) or show homeChooseValidRoute / routeCouldNotReach, instead of letting the exception escape.
 
-### M44. 'Use current location' row saves the placeholder 'Location off, set pickup' as Home/Work and into Recents
+### M56. Save Home/Work address sheet adds the keyboard inset a second time, overflows, and its buttons stop taking taps once the keyboard opens
+
+`lib/features/home/presentation/home.dart:1100` (found by r2-rider4)
+
+**What happens:** Native iPhone 390x844 with a 336 px keyboard: sheet content max = 844 - 2*336 = 172, minus the Container's ~32 px padding leaves 140 px. The fixed content (handle, title row with close button 48, field ~50, 'Use current location' row ~56, spacers) needs about 197 px. Typing a query adds 'Use this address' (+62). The Column overflows by 57-119 px. The parts outside the Column are painted but not hit-tested (RenderBox.hitTest checks size), so 'Use current location' and 'Use this address' cannot be tapped. The sheet is pushed up to y=0 under the status bar, with a transparent keyboard-height band below it. On a 360x640 Android phone (Android Chrome web reports the keyboard as viewInsets too), only about 9 px is left.
+
+**Why:** MoveraSheet.show already wraps every builder in `Padding(bottom: MediaQuery.viewInsetsOf(ctx).bottom)` (movera_sheet.dart:36-41). MoveraModalSheetRoute uses `SheetViewport(child: child)` with zero padding, and smooth_sheets 1.2 does not consume viewInsets (viewport.dart:225-240 asks the caller to pad), so the builder still sees the full keyboard inset. _showAddressPicker pads by `MediaQuery.of(context).viewInsets.bottom` again, so the content area shrinks by twice the keyboard height. The TextField has autofocus, so this happens as soon as the sheet opens.
+
+**Suggested fix:** Remove the inner viewInsets Padding (MoveraSheet already applies it), and make the sheet body scrollable.
+
+### M57. 'Use current location' row saves the placeholder 'Location off, set pickup' as Home/Work and into Recents
 
 `lib/features/home/presentation/home.dart:1211` (found by rider1)
 
@@ -510,7 +670,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use isPlaceholderPickupLabel (and isUnusablePickupLabel) in _placeOrNull / the row's enabled check, and have HomePlacesController.remember reject placeholder and raw-coordinate labels like Home._rememberAddress does.
 
-### M45. Pickup 'My location' / 'Use current location' has no Dart-side timeout; on the web it can hang for about 4 hours (D-003)
+### M58. Pickup 'My location' / 'Use current location' has no Dart-side timeout; on the web it can hang for about 4 hours (D-003)
 
 `lib/features/pickup/application/pickup_controller.dart:97` (found by r2-rider1)
 
@@ -520,7 +680,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add .timeout(...) inside PickupMapController.currentPosition (mapped to PickupLocationFailure.unavailable), and drop a late result when the pin has moved since the tap.
 
-### M46. Pickup address search sheet floats a full keyboard height above the keyboard and overflows on short phones
+### M59. Pickup address search sheet floats a full keyboard height above the keyboard and overflows on short phones
 
 `lib/features/pickup/presentation/set_pickup_page.dart:663` (found by r2-rider3)
 
@@ -530,7 +690,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Remove the extra viewInsets Padding.
 
-### M47. Confirm tapped while the map is still gliding books the new pin point with the previous street and the previous fare
+### M60. Confirm tapped while the map is still gliding books the new pin point with the previous street and the previous fare
 
 `lib/features/pickup/presentation/set_pickup_page.dart:754` (found by r2-rider3)
 
@@ -540,7 +700,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In _confirm, treat _moving (or _isAwayFrom(_center, _routeStart)) as pending: mark the address stale and wait for the next idle, resolve and requote. Or disable Confirm while the camera moves.
 
-### M48. Expanded Set pickup sheet clips the Confirm button off-screen (NeverScrollableScrollPhysics inside a 72% height cap), even without a promotion at 375x667
+### M61. Expanded Set pickup sheet clips the Confirm button off-screen (NeverScrollableScrollPhysics inside a 72% height cap), even without a promotion at 375x667
 
 `lib/features/pickup/presentation/set_pickup_page.dart:980` (found by r2-rider3)
 
@@ -550,7 +710,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep Confirm outside the clipped area (a pinned footer), or allow scrolling once content exceeds the cap (the drag gesture can still move the sheet when the scroll is at the top).
 
-### M49. Leaving Delete account during the in-flight request signs the rider out and wipes the device, but never routes to Sign in
+### M62. A 422 from the profile PATCH is treated as 'pending, retry later', so an over-long name blocks every later profile sync while the UI shows success
+
+`lib/features/profile/data/synced_profile_repository.dart:78` (found by r2-rider4)
+
+**What happens:** A rider enters a long full name (over 80 characters) in Personal info. The tile shows the new name and no error appears. The server never gets it, and from then on every privacy or language change fails silently, so the server keeps stale consents.
+
+**Why:** _sync catches every error, sets `_syncPending = true` and returns normally. A permanent 422 invalid_profile (the contract and mock reject names over 80 characters) therefore looks the same as a network failure. Every later save resends the same cached invalid name and fails again, so no consent or language change reaches the server. Callers are never told: PersonalInfoPage._save only shows saveFailed when update() throws, and it never throws for this. The name editor (showAccountTextEditor) has no length limit, and RiderNameScreen allows 40 + 1 + 40 = 81 characters. A throwaway run with an 81-character name showed `thrown=null pending=true server=null`. A later consent change gave `pending=true server=null`.
+
+**Suggested fix:** Mark only network/5xx/timeout errors as pending. Rethrow 4xx (422) errors so the screen can show them, and limit the name field to the contract's 80 characters.
+
+### M63. Leaving Delete account during the in-flight request signs the rider out and wipes the device, but never routes to Sign in
 
 `lib/features/profile/presentation/delete_account.dart:66` (found by r2-rider3)
 
@@ -560,7 +730,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Block pop while _sending, or call showSignInRoot from the controller path when the page is no longer mounted (the root navigator is available through moveraNavigatorKey).
 
-### M50. Privacy switches build the next profile from a stale copy and do not move until the PATCH returns, so a second toggle reverts the first one locally and on the server
+### M64. Privacy switches build the next profile from a stale copy and do not move until the PATCH returns, so a second toggle reverts the first one locally and on the server
 
 `lib/features/profile/presentation/privacy.dart:97` (found by r2-rider1)
 
@@ -570,7 +740,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Notify listeners right after the cache write, before the network sync. Build each change from `_profile.profile` read at tap time, not from the build-time copy.
 
-### M51. Zone wall-clock pickup time is stored as a device-local DateTime and compared with DateTime.now()
+### M65. Zone wall-clock pickup time is stored as a device-local DateTime and compared with DateTime.now()
 
 `lib/features/reservations/application/reservation_controller.dart:334` (found by rider3)
 
@@ -580,7 +750,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Convert the picked wall-clock time to an instant (`PickupSchedule(timeZone).toUtc(when)`) before building the ReservationDraft, and render it back with `ZoneClock.wallTime` in the reservation screens; or store the IANA zone with the reservation and use it in every comparison.
 
-### M52. Queued dispatch/lifecycle writes resurrect a ride the rider just cancelled (no status check inside the serialized change)
+### M66. Queued dispatch/lifecycle writes resurrect a ride the rider just cancelled (no status check inside the serialized change)
 
 `lib/features/reservations/data/local_reservation_repository.dart:266` (found by r2-rider3)
 
@@ -590,7 +760,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Inside the serialized change, re-check the current status (e.g. assignDriver/updateReservation status patches refuse when `!current.status.isUpcoming`, or take an expected `from` status) and return the current record unchanged.
 
-### M53. Pickup and creation times are persisted as offset-less local ISO strings, so a device time-zone change moves the booked pickup instant
+### M67. Pickup and creation times are persisted as offset-less local ISO strings, so a device time-zone change moves the booked pickup instant
 
 `lib/features/reservations/domain/reservation.dart:369` (found by rider-j8)
 
@@ -600,7 +770,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Serialize with toUtc().toIso8601String() (WireTime) and convert to local only for display.
 
-### M54. Reservation status banner and driver-left banner name the driver even when admin set showDriverOnAccept=false
+### M68. Reservation status banner and driver-left banner name the driver even when admin set showDriverOnAccept=false
 
 `lib/features/reservations/presentation/reservation_format.dart:192` (found by r2-rider3)
 
@@ -610,7 +780,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass `showsDriverOf(ride)` into statusBody and use `resBodyDriverAssigned` (no name) when false. Gate the driver-left banner the same way.
 
-### M55. Cancelling a reservation from its live screen skips the reservation late-cancel terms, so no fee is recorded
+### M69. Cancelling a reservation from its live screen skips the reservation late-cancel terms, so no fee is recorded
 
 `lib/features/reservations/presentation/reservation_live_ride.dart:79` (found by rider4)
 
@@ -620,7 +790,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Compute `reservations.cancelTermsFor(ride)` in both live-screen cancel paths and pass `fee: terms.fee` (and show the terms note in the live cancel sheet).
 
-### M56. Scheduled-ride Terms page shows only the admin's single cancel rule (1 h / kr 50), while Comfort/Premium/XL reservations are charged by their category rule
+### M70. Scheduled-ride Terms page shows only the admin's single cancel rule (1 h / kr 50), while Comfort/Premium/XL reservations are charged by their category rule
 
 `lib/features/reservations/presentation/scheduled_ride_terms.dart:58` (found by r2-rider1)
 
@@ -630,7 +800,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Show the rule that applies to the ride (pass the Reservation and use cancelTermsFor / the category FeeRule), or list the per-category rules.
 
-### M57. Upcoming reservation page says 'Reservation confirmed' for a ride the app has already declared 'No driver found'
+### M71. Cancel confirmed on a stale ride overwrites a ride that already went live or completed, and records a late fee
+
+`lib/features/reservations/presentation/upcoming_reservation.dart:138` (found by r2-rider4)
+
+**What happens:** At 23:47 the rider opens Cancel on the 23:50 ride and lingers on the reason sheet. At 23:48 the ride goes en route, and about 46 s later it is completed. The rider then taps a reason. The completed ride is rewritten as cancelled by the rider with a 'Cancelled · fee kr 50' chip. It moves from History › Completed to Cancelled, and a fee is recorded for a trip that was delivered.
+
+**Why:** `_cancel(ride)` uses the `ride` captured at build time and works out `terms` before the two cancel sheets open. After the sheets it calls `_reservations.cancel(...)` without re-reading the ride or checking `status.canCancel`. `LocalReservationRepository.cancelReservation` has no status guard either: it always sets `status: cancelled`, `cancellationActor: rider`, `cancelledAt` and the fee. While the sheets are open, the Home chrono tick keeps running `startLiveIfDue`, which moves the ride driverAssigned → driverEnRoute, and the mock trip then runs to completed in about 46 s. `_handoffIfLive` does not fire because the page route is not current while a sheet is up.
+
+**Suggested fix:** In cancelReservation (or the controller), re-read the ride and refuse when `!current.status.canCancel`. In the page, re-read `byId` after the sheets and abort when the status changed.
+
+### M72. Upcoming reservation page says 'Reservation confirmed' for a ride the app has already declared 'No driver found'
 
 `lib/features/reservations/presentation/upcoming_reservation.dart:287` (found by rider-j8)
 
@@ -640,7 +820,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In the build, check _reservations.isNoDriverFound(ride). When it is true, show the termNoDriverFound title and body (and the resolve/rebook actions) instead of the confirmed banner.
 
-### M58. Cold start of a signed-in rider with no local ride waits up to about 30 s on GET /rider/trips/active, showing a blank white screen
+### M73. Cold start of a signed-in rider with no local ride waits up to about 30 s on GET /rider/trips/active, showing a blank white screen
 
 `lib/features/ride_booking/application/ride_restore_coordinator.dart:453` (found by r2-rider1)
 
@@ -650,7 +830,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Render Home immediately and adopt the server trip in the background (replace the root if one comes back), or give the cold-start lookup a short deadline.
 
-### M59. A leftover suppressRestore from a ride closed earlier makes resumeIfNeeded delete a just-adopted server trip on a push tap, so the ride does not open
+### M74. A leftover suppressRestore from a ride closed earlier makes resumeIfNeeded delete a just-adopted server trip on a push tap, so the ride does not open
 
 `lib/features/ride_booking/application/ride_restore_coordinator.dart:595` (found by rider4)
 
@@ -660,7 +840,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Scope `suppressRestore` to the ride id it was set for (ignore it when the snapshot's rideId differs from `session.rideId`), or clear it in `adoptServerActiveTrip`.
 
-### M60. A terminal status (e.g. paymentFailed) reconciled during the Waiting->RideCompleted handoff makes closeCompletedRide throw InvalidRideTransition, so Done and Back both fail with a misleading 'feedback could not be saved' and the rider cannot leave
+### M75. Driver rating stars have no labels and no value for screen readers
+
+`lib/features/ride_complete/presentation/give_review.dart:49` (found by r2-rider4)
+
+**What happens:** On the ride summary a VoiceOver or TalkBack user swipes to the rating area and hears five unnamed 'button's (or nothing useful), with no '3 of 5 stars' state. They cannot tell what they are rating or what they already chose, on the main post-trip feedback path.
+
+**Why:** RideCompletedGiveReview uses flutter_rating_bar 4.0.1's RatingBar.builder with plain `Icon(Icons.star_rounded)` items (no semanticLabel) and no Semantics wrapper. RatingBar builds a GestureDetector per star with onTapDown/drag only. Each star becomes an unlabeled actionable node: Flutter turns the TapGestureRecognizer into a semantic tap (gesture_detector.dart:1721), but nothing says which star it is, and the current rating is never exposed (no value, increase or decrease actions).
+
+**Suggested fix:** Wrap the bar in a Semantics slider (label 'Rate your driver', value '$n of 5', onIncrease/onDecrease), or label each star item ('1 star' … '5 stars', selected).
+
+### M76. A terminal status (e.g. paymentFailed) reconciled during the Waiting->RideCompleted handoff makes closeCompletedRide throw InvalidRideTransition, so Done and Back both fail with a misleading 'feedback could not be saved' and the rider cannot leave
 
 `lib/features/ride_complete/presentation/ride_completed.dart:252` (found by rider1)
 
@@ -670,7 +860,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Separate the two failure classes: keep the error only for a refused feedback submission, and make leaving tolerant (catch `InvalidRideTransition`/archive errors, clear the snapshot and still navigate Home).
 
-### M61. Receipt dispute sheet double-pads for the keyboard, so Submit is out of reach while the rider types
+### M77. Receipt dispute sheet double-pads for the keyboard, so Submit is out of reach while the rider types
 
 `lib/features/ride_complete/presentation/trip_detail.dart:150` (found by r2-rider3)
 
@@ -680,7 +870,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Drop the viewInsets term (keep the 20), and wrap the Column in a SingleChildScrollView.
 
-### M62. Wallet is offered as the full payment method even when the fare is above the balance, and completing the ride drives the local wallet ledger negative (demo/dev builds, where the local wallet is enabled)
+### M78. Wallet is offered as the full payment method even when the fare is above the balance, and completing the ride drives the local wallet ledger negative (demo/dev builds, where the local wallet is enabled)
 
 `lib/features/ride_selection/application/ride_selection_controller.dart:267` (found by rider4)
 
@@ -690,7 +880,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Offer the wallet as a full method only when `walletBalance >= fare` of the selected ride (or show it disabled with 'Balance too low'), and clamp `debitRide` to the available balance / refuse the charge with a logged error.
 
-### M63. Saved 'wallet' default payment is silently replaced by Cash on every Select Ride open (load-order race)
+### M79. Saved 'wallet' default payment is silently replaced by Cash on every Select Ride open (load-order race)
 
 `lib/features/ride_selection/application/ride_selection_controller.dart:576` (found by rider4)
 
@@ -700,7 +890,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Remember the saved brand in the controller (e.g. `_pendingDefaultBrand`) when it is not yet offered, and re-apply it in `setWalletBalance`/`setZonePaymentMethods` once it appears; or have SelectRide await the wallet balance before `restoreDefaultPayment`.
 
-### M64. Ride category notes and badges ('Affordable and convenient rides', 'RECOMMENDED', 'FASTER') from the built-in and mock catalogs are shown in English to fr/sv riders
+### M80. Ride category notes and badges ('Affordable and convenient rides', 'RECOMMENDED', 'FASTER') from the built-in and mock catalogs are shown in English to fr/sv riders
 
 `lib/features/ride_selection/data/ride_selection_repository.dart:14` (found by rider3)
 
@@ -710,7 +900,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Map built-in/mock notes and badges by category id to ARB keys at display time (as payment_labels.dart does), and send Accept-Language with L10n.code so the server can localize catalog text.
 
-### M65. After a confirmed pickup-pin move, other categories (and the selected one when its pin re-quote failed) are booked with quotes priced at the original pickup
+### M81. Editing a reservation or planning a return ride paid with Movera Wallet always reopens Select Ride with Cash, because the wallet row is not offered until the balance loads and the requested name is never re-applied after that
+
+`lib/features/ride_selection/presentation/select_ride.dart:406` (found by r2-rider4)
+
+**What happens:** The rider edits a scheduled ride that was booked with Movera Wallet. Select Ride opens with Cash selected, Review changes lists the payment change to Cash, and saving the edit stores Cash.
+
+**Why:** initState calls selectPaymentNamed(paymentName) and then _loadSavedCards(paymentName), which re-applies the name after the cards load (line 406). The wallet row exists only once walletBalance > 0, which _loadWalletBalance sets in a separate future (two awaits). If the cards load first, 'Movera Wallet' is not in payments(). selectPaymentNamed finds nothing and leaves the constructor default (Cash), and setWalletBalance later re-selects that current brand (cash). The reservation's stored payment is lost. In the edit flow, ReviewChanges then saves Cash. This has the same root race as the known restoreDefaultPayment finding, but on the explicit initialPaymentMethod / editingReservationId path.
+
+**Suggested fix:** Re-apply the requested payment name (or brand) after the wallet balance has loaded too, for example by awaiting both loads before resolving the initial method.
+
+### M82. Cancelling Set pickup in Book for later after the pin was re-priced keeps the pin's price, and the next Schedule books it at the original pickup
+
+`lib/features/ride_selection/presentation/select_ride.dart:1137` (found by r2-rider4)
+
+**What happens:** A rider scheduling a ride drags the pin toward the airport terminal, then changes their mind and goes back. The Movera row now shows 301 kr for the original pickup. Tapping Schedule and confirming at the original point saves a reservation priced 301 kr instead of the 259 kr quote for that point.
+
+**Why:** When the rider backs out of Set pickup after a pin quote was adopted, Book now reloads the list quotes (line 1484: `if (_pinQuoteAdopted) unawaited(_loadQuotes());`) because 'the pin's price belongs to a point the rider did not confirm'. The scheduled path just returns (line 1137: `if (spot == null || !mounted) return;`). It never resets or checks _pinQuoteAdopted, so the selection keeps the moved pin's quote as the authoritative price at the unchanged original pickup. On the next Schedule tap, Set pickup opens at the original point and shows that price. Confirming without moving the pin creates the reservation at the moved pin's price for the original pickup.
+
+**Suggested fix:** In _bookScheduled, reset _pinQuote/_pinQuoteAdopted before opening Set pickup and reload quotes when Set pickup is cancelled after a pin quote, as _bookNow does.
+
+### M83. After a confirmed pickup-pin move, other categories (and the selected one when its pin re-quote failed) are booked with quotes priced at the original pickup
 
 `lib/features/ride_selection/presentation/select_ride.dart:1487` (found by rider2)
 
@@ -720,7 +930,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** After a confirmed pin move (and on 'Not now'), call `_loadQuotes()` so every category is re-priced from `_pickupPosition`; in `_quoteAfterPickup`, treat a quote whose pickup point differs from the confirmed one (or a failed pin re-quote) as unavailable and re-quote before booking; have `_bookScheduled` await `_pinQuote` the way `_bookNow` does.
 
-### M66. A Ride check the rider already answered reappears if any ride screen resumes while the close is still queued behind a slow alert
+### M84. A Ride check the rider already answered reappears if any ride screen resumes while the close is still queued behind a slow alert
 
 `lib/features/safety/application/ride_check_service.dart:97` (found by r2-rider1)
 
@@ -730,7 +940,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Mark the event resolved locally and synchronously in _close, before enqueuing the network work. Alternatively, keep a set of closed checkIds and make resume() skip them, or wait for settle() before it calls unanswered().
 
-### M67. The card and Kit keep showing 'Recording m:ss' after the OS has interrupted capture (112 call or app in background); the app has no background audio mode
+### M85. The card and Kit keep showing 'Recording m:ss' after the OS has interrupted capture (112 call or app in background); the app has no background audio mode
 
 `lib/features/safety/application/safety_audio_service.dart:30` (found by r2-rider1)
 
@@ -740,7 +950,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Subscribe to the recorder's state/interruption stream and update the card (stop, or show 'paused by call'). Declare background audio (iOS) or a microphone foreground service (Android) if recording must survive a call or a locked screen.
 
-### M68. Wipe disposes the Safety and Ride check controllers without stopping a running recording, so the microphone keeps recording with no owner
+### M86. Wipe disposes the Safety and Ride check controllers without stopping a running recording, so the microphone keeps recording with no owner
 
 `lib/features/safety/application/safety_controller.dart:71` (found by r2-rider1)
 
@@ -750,7 +960,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In resetShared (or in UserDataWipe.resetInMemory, before resetting), await or fire `_shared?.audio.stopIfRecording(reason: 'session_end')` and delete the result. Also stop the recording when the trip screen is disposed by a forced Sign in.
 
-### M69. Share trip uses the stored tripShareContactIds whenever that list is non-empty, so deleted contacts are sent the trip and contacts marked 'Share trips' are left out
+### M87. Share trip uses the stored tripShareContactIds whenever that list is non-empty, so deleted contacts are sent the trip and contacts marked 'Share trips' are left out
 
 `lib/features/safety/application/safety_controller.dart:300` (found by r2-rider1)
 
@@ -760,7 +970,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Derive the recipient list from the current contacts only: enabled contacts that are in the selected ids or have shareTrips. Prune ids for deleted or disabled contacts in deleteContact and updateContact. Better, keep a single source of truth for the selection.
 
-### M70. Opening a Ride check card pops the Safety Kit sheet, which silently stops the rider's ongoing Safety Kit recording
+### M88. Emergency contact editor shrinks by twice the keyboard height and leaves a 40-140 px strip to edit in
+
+`lib/features/safety/presentation/emergency_contacts_page.dart:296` (found by r2-rider4)
+
+**What happens:** Rider adds a trusted contact on a 360x640 phone with a ~280 px keyboard: the scrollable form viewport is 640 - 560 - 36 = 44 px, floating 280 px above the keyboard. Name, phone, relationship, share-trips switch and Save show through a 44 px slit. On 390x844 iOS it is about 136 px.
+
+**Why:** _ContactEditor (opened via MoveraSheet.show at :42) pads by `20 + MediaQuery.of(context).viewInsets.bottom`, and MoveraSheet already pads by the keyboard inset. The SingleChildScrollView keeps it from overflowing, but its viewport is the screen height minus 2x keyboard minus 36.
+
+**Suggested fix:** Use only the fixed 20 px bottom padding, since MoveraSheet applies the keyboard inset.
+
+### M89. Opening a Ride check card pops the Safety Kit sheet, which silently stops the rider's ongoing Safety Kit recording
 
 `lib/features/safety/presentation/ride_check_card.dart:216` (found by r2-rider1)
 
@@ -770,7 +990,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Do not stop the recording when the kit is closed programmatically by the Ride check, or hand the running recording over to the card (the same audio service), so the card shows it as still recording.
 
-### M71. When a Ride check card opens, it closes the Safety Kit sheet, and the kit's dispose stops the rider's ongoing recording
+### M90. When a Ride check card opens, it closes the Safety Kit sheet, and the kit's dispose stops the rider's ongoing recording
 
 `lib/features/safety/presentation/ride_safety_kit.dart:146` (found by r2-rider3)
 
@@ -780,7 +1000,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Do not stop the recording when the sheet is closed programmatically by the Ride check layer: pass a flag, or let the card take over the active recording. Alternatively, have _comeToFront skip routes whose dispose has side effects.
 
-### M72. Safety Kit 'Contact 112' sends no SOS to Movera when the phone dialer cannot be opened
+### M91. Safety Kit 'Contact 112' sends no SOS to Movera when the phone dialer cannot be opened
 
 `lib/features/safety/presentation/ride_safety_kit.dart:167` (found by r2-rider3)
 
@@ -790,7 +1010,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Send the SOS whatever the dialer outcome (or before dialing), and report both results to the rider.
 
-### M73. 'Automatically share every ride' can be switched on and Safety shows 'Every ride', but nothing ever starts a share when a ride starts
+### M92. 'Automatically share every ride' can be switched on and Safety shows 'Every ride', but nothing ever starts a share when a ride starts
 
 `lib/features/safety/presentation/trip_share_page.dart:94` (found by r2-rider3)
 
@@ -800,7 +1020,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When a ride reaches in-trip (or accepted) with tripShareEnabled and mode auto, call SafetyController.startShare once per ride. Otherwise document it as server-side and make the mock do it.
 
-### M74. Trip-share contact checkbox (trip_share_page.dart:167-188): a failed save gets no rider feedback, editContact's error escapes unhandled, and a partial failure leaves the preference list and shareTrips inconsistent
+### M93. Trip-share contact checkbox (trip_share_page.dart:167-188): a failed save gets no rider feedback, editContact's error escapes unhandled, and a partial failure leaves the preference list and shareTrips inconsistent
 
 `lib/features/safety/presentation/trip_share_page.dart:612` (found by rider4)
 
@@ -810,7 +1030,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Wrap the handler in try/catch, show `controller.error`/a toast on failure, and keep a single source of truth (either the preference list or `shareTrips`) so the box reflects one flag.
 
-### M75. Book-for-later pickup field is pre-filled with the English string 'Current location'
+### M94. Book-for-later pickup field is pre-filled with the English string 'Current location'
 
 `lib/features/scheduled_rides/presentation/schedule_ride.dart:58` (found by rider2)
 
@@ -820,7 +1040,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Initialise the controller with L10n.current.currentLocation (and treat that translated value, or an empty value, as the 'current location' sentinel in resolveScheduledPoint), or keep the field empty and show the translated hint.
 
-### M76. Continue button stays disabled as 'Continuing…' after the category step returns or fails (needs Back to the address step to recover)
+### M95. Continue button stays disabled as 'Continuing…' after the category step returns or fails (needs Back to the address step to recover)
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:126` (found by rider1)
 
@@ -830,7 +1050,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Make `onConfirm` a `Future<void>` and reset `_continuing = false` (with setState) when it completes, or reset it in `didUpdateWidget`/when the route becomes current again.
 
-### M77. Booking screen promises free cancellation before a driver is assigned and terms before booking; neither is true
+### M96. Booking screen promises free cancellation before a driver is assigned and terms before booking; neither is true
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:532` (found by r2-rider3)
 
@@ -840,7 +1060,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Replace the copy with the actual rule (`ReservationFormat.cancelRule` / cancelTermsFor on a draft). Show the cancel terms on the scheduled Select Ride CTA before booking.
 
-### M78. Schedule Continue exposes a hard-coded English semantics label with no tap action, hiding the localized and busy text
+### M97. Schedule Continue exposes a hard-coded English semantics label with no tap action, hiding the localized and busy text
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:792` (found by r2-rider3)
 
@@ -850,7 +1070,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Drop the wrapper (the ElevatedButton already has correct semantics), or use a localized label plus `onTap: enabled ? _goNext : null`. Make the test assert SemanticsAction.tap.
 
-### M79. 'Open settings' in the push primer calls Geolocator.openAppSettings, which throws UnsupportedError on web
+### M98. 'Open settings' in the push primer calls Geolocator.openAppSettings, which throws UnsupportedError on web
 
 `lib/shared/widgets/push_permission_primer.dart:86` (found by rider3)
 
@@ -860,7 +1080,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On web hide the settings action (or show copy explaining the browser's site-permission UI) the way `locationSettingsOpenerFor` does; wrap the call in try/catch and show a toast on failure.
 
-### M80. Web FCM worker suppresses pushes when a tab is visible but never forwards them, so FirebaseMessaging.onMessage (foreground in-app push) never fires on web
+### M99. Web FCM worker suppresses pushes when a tab is visible but never forwards them, so FirebaseMessaging.onMessage (foreground in-app push) never fires on web
 
 `web/firebase-messaging-sw.js:75` (found by r2-rider3)
 
@@ -870,7 +1090,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When a client is visible, postMessage the payload to the clients in the Firebase internal format, or importScripts the Firebase messaging SW SDK and let it route foreground messages. Otherwise always show the notification.
 
-## Low (119)
+## Low (148)
 
 ### L1. Documented live URL points at /-movera-rider/, the Pages build is published under /movera-rider-app/
 
@@ -892,7 +1112,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Call `WalletController.topUp(...)` with the mock gateway and assert the balance from `walletBalances.loadBalance()`. Complete the Wallet-paid ride through `chargeCompletedRide` and assert the debit.
 
-### L3. QA_HOOKS.md (and its rule not to leave hooks ungated) is stale: moveraOpenSafety is deliberately exposed in public release builds as a navigation-only bridge
+### L3. iOS permission purpose strings exist only in English; no sv/fr InfoPlist.strings or CFBundleLocalizations although the app ships sv/fr and defaults Stockholm riders to Swedish
+
+`ios/Runner/Info.plist:5` (found by r2-rider4)
+
+**What happens:** A rider whose iPhone is set to Swedish opens Movera, which is in Swedish. The location prompt reads 'Movera uses your location while you use the app...' in English, and the same happens when they tap Record audio. Verified by reading the config.
+
+**Why:** The app supports en, fr and sv (lib/l10n/app_*.arb), and the zone default (Q48) picks the language for Stockholm. The OS location and microphone prompts that iOS shows use NSLocationWhenInUseUsageDescription/NSMicrophoneUsageDescription from Info.plist. There is no sv.lproj/fr.lproj InfoPlist.strings and no CFBundleLocalizations (ios/Runner holds only Base.lproj). So a Swedish rider gets English system prompts in the middle of a Swedish UI, and iOS does not offer the app's languages in per-app Language settings.
+
+**Suggested fix:** Add CFBundleLocalizations (en, sv, fr) and sv.lproj/fr.lproj/InfoPlist.strings with translated purpose strings.
+
+### L4. QA_HOOKS.md (and its rule not to leave hooks ungated) is stale: moveraOpenSafety is deliberately exposed in public release builds as a navigation-only bridge
 
 `lib/app/bootstrap.dart:76` (found by rider4)
 
@@ -902,7 +1132,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Either gate `installSafetyNavigationBridge` behind `moveraQaHooksEnabled` (and drop the public-Pages step from qa-live-rider-flow.yml) or correct QA_HOOKS.md/ARCHITECTURE.md to list `moveraOpenSafety` as a release-available navigation bridge.
 
-### L4. docs/API_V1_MOCK.md:27 says X-Api-Version is 'v1', but ApiClient sends '0.4', which matches the contract
+### L5. docs/API_V1_MOCK.md:27 says X-Api-Version is 'v1', but ApiClient sends '0.4', which matches the contract
 
 `lib/core/api/api_client.dart:15` (found by r2-rider1)
 
@@ -912,7 +1142,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Fix the table row in docs/API_V1_MOCK.md to '0.4' (contract.json#headers).
 
-### L5. Web auth-preview: a wrong OTP while an earlier session's tokens are still in sessionStorage expires the session and re-roots Sign in instead of showing 'wrong code'
+### L6. Web auth-preview: a wrong OTP while an earlier session's tokens are still in sessionStorage expires the session and re-roots Sign in instead of showing 'wrong code'
 
 `lib/core/api/api_client.dart:89` (found by rider1)
 
@@ -922,7 +1152,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Exclude `/api/v1/auth/*` paths from the refresh/expire path (or let callers opt out), or clear tokens before showing the preview Sign in.
 
-### L6. `PATCH /rides/{id}` offer raise / searching edit changes the fare, pickup and destination without `_touch`, so version, updatedAt, sequence and eventId stay unchanged
+### L7. `PATCH /rides/{id}` offer raise / searching edit changes the fare, pickup and destination without `_touch`, so version, updatedAt, sequence and eventId stay unchanged
 
 `lib/core/api/in_process_mock_client.dart:993` (found by rider3)
 
@@ -932,7 +1162,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Call `_touch(ride)` after applying the offer raise / pickup / destination edit in that branch.
 
-### L7. The Q40 pickup-move limit is checked per move against the current pickup, so chained moves after accept take the pickup past the limit without a cancel/rebook
+### L8. The Q40 pickup-move limit is checked per move against the current pickup, so chained moves after accept take the pickup past the limit without a cancel/rebook
 
 `lib/core/api/in_process_mock_client.dart:1813` (found by r2-rider3)
 
@@ -942,7 +1172,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Store the pickup at accept (`acceptedPickupLat/Lng`) and measure every later move from it, on both client and server.
 
-### L8. Mock safety PIN is predictable: on the web demo it is always one of 10 values ending in 000, and the mock saves it in plain text
+### L9. Mock safety PIN is predictable: on the web demo it is always one of 10 values ending in 000, and the mock saves it in plain text
 
 `lib/core/api/safety_mock_api.dart:157` (found by r2-rider3)
 
@@ -952,7 +1182,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Generate the mock PIN with `Random.secure().nextInt(10000)`. Do not persist the digits in the plaintext demo blob.
 
-### L9. PickupSchedule.zoneNow builds the zone wall-clock as a device-local DateTime: for a Tunis pickup on an EU-DST phone, during 02:00-02:59 Tunis on the EU spring-forward day, the earliest legal pickup is pushed an hour late
+### L10. PickupSchedule.zoneNow builds the zone wall-clock as a device-local DateTime: for a Tunis pickup on an EU-DST phone, during 02:00-02:59 Tunis on the EU spring-forward day, the earliest legal pickup is pushed an hour late
 
 `lib/core/config/zone_clock.dart:60` (found by rider2)
 
@@ -962,7 +1192,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Return `DateTime.utc(local.year, ..., local.millisecond)` (a UTC-flagged carrier of wall components, which never shifts) and have the pickers treat it as offset-free; fix the toUtc doc comment or the algorithm to match.
 
-### L10. Telemetry version comment says CI passes MOVERA_APP_VERSION, but no workflow does, so every release-like build reports appVersion 'dev'
+### L11. Telemetry version comment says CI passes MOVERA_APP_VERSION, but no workflow does, so every release-like build reports appVersion 'dev'
 
 `lib/core/constants/app_version.dart:1` (found by r2-rider1)
 
@@ -972,7 +1202,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass --dart-define=MOVERA_APP_VERSION=$(grep '^version:' pubspec.yaml ...) in every release build step, or derive it from package info.
 
-### L11. docs/QA_HOOKS.md still lists moveraOpenSafety as absent from release builds, but code and CI intentionally expose a navigation-only bridge
+### L12. docs/QA_HOOKS.md still lists moveraOpenSafety as absent from release builds, but code and CI intentionally expose a navigation-only bridge
 
 `lib/core/debug/web_qa_hooks_web.dart:67` (found by rider3)
 
@@ -982,7 +1212,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Either gate the bridge with moveraQaHooksEnabled (and use the gated installSafetyQaOpener only), or correct docs/QA_HOOKS.md / ARCHITECTURE.md to state that moveraOpenSafety is a public navigation-only hook.
 
-### L12. A web JS flight stopped by a tap leaves MapView.pose at the flight's starting pose, so the next stepped glide starts from the wrong place
+### L13. A web JS flight stopped by a tap leaves MapView.pose at the flight's starting pose, so the next stepped glide starts from the wrong place
 
 `lib/core/maps/map_camera_motion.dart:86` (found by rider-j8)
 
@@ -992,7 +1222,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When a JS flight is cancelled, read the live camera into view.pose, for example by having cancelFlight return the current pose or by calling controller.getVisibleRegion/zoom, or mark pose unknown so the next report is accepted.
 
-### L13. A recenter that joins a running follow glide is stepped on the Dart timer on the web and keeps the old glide's 240-frame cap, which can cut the flight short
+### L14. A recenter that joins a running follow glide is stepped on the Dart timer on the web and keeps the old glide's 240-frame cap, which can cut the flight short
 
 `lib/core/maps/map_camera_motion.dart:318` (found by rider-j8)
 
@@ -1002,7 +1232,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When a flight-length goal arrives during a follow glide, interrupt and start a fresh flight (JS on the web), or reset the frame counter when converting to a flight.
 
-### L14. Road-route cache is unbounded and gets a new entry every 10 s of a live ride (driver position is part of the key)
+### L15. Road-route cache is unbounded and gets a new entry every 10 s of a live ride (driver position is part of the key)
 
 `lib/core/maps/routing_service.dart:77` (found by r2-rider3)
 
@@ -1012,7 +1242,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Bound the cache: an LRU of a few dozen entries. Another option is to skip caching for requests whose origin is a live driver position.
 
-### L15. MotionEngine lerp window is anchored at the previous fix's timestamp, so with fixes 420 ms or more apart t clamps to 1 and the home puck snaps between raw smoothed fixes (pose heading is unused)
+### L16. MotionEngine lerp window is anchored at the previous fix's timestamp, so with fixes 420 ms or more apart t clamps to 1 and the home puck snaps between raw smoothed fixes (pose heading is unused)
 
 `lib/core/motion/motion_engine.dart:47` (found by rider2)
 
@@ -1022,7 +1252,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Record `startedAt = clock` when a new sample arrives and expose a `poseAt(now)` used by a frame ticker; or drop the interpolator if snapping is intended.
 
-### L16. Trip completion silently stops a Ride check recording while the card, with its Stop control, is still open on the summary
+### L17. Polling drops fresh driver fixes whose coordinates did not change, so a driver stopped on the way to pickup shows 'Updating location…'
+
+`lib/core/realtime/api_ride_realtime.dart:205` (found by r2-rider4)
+
+**What happens:** In a release build the driver waits at the pickup and the phone reports the same coordinates every few seconds. About 25 s later the rider's Waiting sheet switches to 'Updating location…' and stays there while the driver waits, although the server has fresh fixes.
+
+**Why:** The 'nothing changed' short-circuit compares version, updatedAt, status and lat/lng, but not the fix time (`location.at` from `driverLocation.measuredAt` / `locationAt`). Location-only updates keep the version (and, in the documented stand-in, updatedAt) unchanged. So when the driver is stationary, for example waiting at the pickup or stopped at lights, every new fix with identical coordinates is swallowed and `locationAt` never advances. DriverTrackingController's 5 s stale check then marks the ETA stale after `DriverEta.staleAfter` (25 s) and shows 'Updating location…' / 'Waiting for fresh location' even though fresh fixes are arriving.
+
+**Suggested fix:** Include the fix timestamp (and the eventId or sequence) in the no-change comparison, and track `poll.lastLocationAt`.
+
+### L18. A driver drop followed by a re-offer within one poll is labelled an admin reassign, so the rider never sees the 'driver cancelled' notice
+
+`lib/core/realtime/api_ride_realtime.dart:299` (found by r2-rider4)
+
+**What happens:** The driver cancels before pickup and dispatch sends the trip to the next driver within about 2 s. The rider's poll sees `offered` with kind trip_projection. Waiting treats it as an admin reassign (Q13 path): no 'your driver cancelled' notice, only a silent return to searching.
+
+**Why:** When a matched trip comes back as searching or offered, `_poll` calls `_reassignedByAdmin(ride, explicitKind)` (line 198) to decide between a driver drop and an admin reassign. With no `cancellation.actor` in the projection (the mock never sets one for the non-terminal driver cancel → searching, see `_apply` line 1426, which only fills it for terminals), the check falls back to `explicitKind != null && explicitKind != RealtimeKind.driverCancelled`. `explicitKind` is the kind of the latest committed event (`envelope['kind'] ?? ride['eventKind']`), not the kind of the event that ended the match. Dispatch normally re-offers the trip right after a driver drops it (`send_offer`, kind `trip_projection`). If that happens inside the 2 s poll window, the poll sees status `offered` with kind `trip_projection` and labels the driver drop as an admin reassign. The event then carries `reassignedBy: admin` and kind `trip_projection` instead of `driver_cancelled`, so the rider is never told their driver cancelled. Reproduced with a throwaway test against InProcessMockClient: after driver_to_pickup, `POST /status {command: cancel, actor: driver}` then `{command: send_offer, actor: system}`, then resync. Output: `status=RideStatus.cancelledByDriver kind=trip_projection adminReassign=true server=offered cancellation=null`.
+
+**Suggested fix:** Decide driver drop or admin reassign from the event or command that left the matched state, or from `cancellation.actor`. Do not use the newest event's kind. When the polled projection cannot tell, default to the driver-cancelled notice, or read `GET /trips/{id}/events?after=` for the skipped events.
+
+### L19. Trip completion silently stops a Ride check recording while the card, with its Stop control, is still open on the summary
 
 `lib/features/active_ride/application/active_ride_controller.dart:371` (found by r2-rider1)
 
@@ -1032,7 +1282,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Skip the ride-end stop for a deviceOnly recording while a Ride check card is open for that ride; let `_close` stop it. Or set a recordingNote telling the rider the recording was stopped and saved.
 
-### L17. History record time is overwritten with the Done-tap time; receipt date uses savedAt which lifecycle refreshes move
+### L20. History record time is overwritten with the Done-tap time; receipt date uses savedAt which lifecycle refreshes move
 
 `lib/features/active_ride/application/active_ride_controller.dart:454` (found by rider3)
 
@@ -1042,7 +1292,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Record a completion timestamp in the snapshot when `markCompleted` runs and pass it as `endedAt` on every later archive and to the receipt.
 
-### L18. The in-trip status pill (unflexed Row, rider_in_trip_panel.dart:76) overflows on narrow phones at 2x text scale
+### L21. After a route-change PATCH whose response was lost, a later route change shows and reports a locally computed difference, not the server's differenceMinor
+
+`lib/features/active_ride/application/route_change_controller.dart:66` (found by r2-rider4)
+
+**What happens:** A first destination change times out on the client after the server applied it and captured +49 kr. The rider sees 'Couldn't update route' and tries again. The second quote's sheet says '+49 kr charged now to Visa' and the snackbar repeats it, but the server's difference is 0 and nothing is charged.
+
+**Why:** `differenceKr` is `newPriceKr - oldPriceKr`, where `oldPriceKr` is the device's `_price`. The server charges `differenceMinor = newMinor - current fare`. The client parses that value into `quote.differenceMinor` but never shows it, and `showRouteUpdated` uses `updated.price - ride.price` as well. When the device price lags the server, the rider is shown a wrong charge. This happens when a PATCH reached the server but its response was lost: `_send` reports `network`, Waiting keeps the old route and price, and it never reads the route back from the projection.
+
+**Suggested fix:** Show `quote.differenceMinor` (the server's), and after a lost PATCH response re-read the trip projection before offering another change.
+
+### L22. A route change committed on the server but whose PATCH response is lost (15 s timeout or network drop) is reported as failed, and Waiting keeps the old route and price unless the rider retries
+
+`lib/features/active_ride/application/route_change_controller.dart:350` (found by r2-rider4)
+
+**What happens:** In trip, the rider changes the destination and confirms +kr 60. The PATCH lands but the response is lost, and the rider sees 'Couldn't update the route. Try again.' and closes the picker. The driver drives to the new destination and the card is charged kr 60, while the rider's map and price still show the old trip. Traced by reading the code.
+
+**Why:** `apply` maps any non-ApiError (ClientException) and any retryable ApiError (TIMEOUT, NETWORK, 5xx) to `RouteChangeFailure.network`. Waiting's snapshot, map, destination and price stay as before. The PATCH may have been applied: the server changed the destination, notified the driver and charged the difference. Realtime projections are never read for the route, so Waiting keeps showing the old destination and price for the rest of the ride unless the rider retries.
+
+**Suggested fix:** For a retryable apply failure, re-send the same request (the key is stable) or re-read the projection and adopt the server's route and fare before telling the rider it failed.
+
+### L23. The in-trip status pill (unflexed Row, rider_in_trip_panel.dart:76) overflows on narrow phones at 2x text scale
 
 `lib/features/active_ride/presentation/rider_in_trip_panel.dart:85` (found by r2-rider1)
 
@@ -1052,7 +1322,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Make the Text Flexible with maxLines: 1 and ellipsis (or use FittedBox.scaleDown).
 
-### L19. A no-show or other pre-trip terminal status stays hidden behind the 'Your driver has arrived' sheet until the rider dismisses it
+### L24. A no-show or other pre-trip terminal status stays hidden behind the 'Your driver has arrived' sheet until the rider dismisses it
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:396` (found by r2-rider1)
 
@@ -1062,7 +1332,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Also close `_arrivedSheetRoute` (by reference, as for trip start) when a terminal or cancelledByDriver status arrives, then drain the stage navigation.
 
-### L20. In-trip 'Arrive by HH:MM' on the sheet freezes because the rebuild signature ignores ETA changes during the trip
+### L25. In-trip 'Arrive by HH:MM' on the sheet freezes because the rebuild signature ignores ETA changes during the trip
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:430` (found by r2-rider1)
 
@@ -1072,7 +1342,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Include the in-trip arrival minute (or eta.seconds rounded to a minute) in _sheetSignatureFor.
 
-### L21. 'Driver has arrived' modal pops up again after every reload during the waiting stage
+### L26. 'Driver has arrived' modal pops up again after every reload during the waiting stage
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:463` (found by r2-rider1)
 
@@ -1082,7 +1352,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Persist the announced flag per rideId (for example in the snapshot or session storage) and check it before showing the sheet.
 
-### L22. Route change and 'change destination instead' are offered on scheduled live rides but can never succeed
+### L27. Route change and 'change destination instead' are offered on scheduled live rides but can never succeed
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:1004` (found by r2-rider1)
 
@@ -1092,7 +1362,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Disable route editing when widget.realtime/onCancel indicate a reservation-backed page, or route it through the reservation controller.
 
-### L23. A rebuilt Waiting map (after a route change) shows no car until the next tracking event, which never comes if the feed is already quiet and stale
+### L28. A rebuilt Waiting map (after a route change) shows no car until the next tracking event, which never comes if the feed is already quiet and stale
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2031` (found by r2-rider1)
 
@@ -1102,7 +1372,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Seed the animation from widget.tracking.eta in initState (call _updateDriverAnimation, or paintIfDue after the first frame).
 
-### L24. Pre-trip 'Arrive by' destination pin ignores the stops the rider added
+### L29. Pre-trip 'Arrive by' destination pin ignores the stops the rider added
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2232` (found by r2-rider1)
 
@@ -1112,7 +1382,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Sum the estimate over pickup → stops → destination.
 
-### L25. Driver car (and Finding's nearby cars) never rotate on web: Marker.rotation is ignored by google_maps_flutter_web
+### L30. Driver car (and Finding's nearby cars) never rotate on web: Marker.rotation is ignored by google_maps_flutter_web
 
 `lib/features/active_ride/presentation/waiting_for_driver.dart:2302` (found by r2-rider1)
 
@@ -1122,7 +1392,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Reuse Home's approach for the car on web: a small cache of pre-rotated car bitmaps per heading bucket, with heading minus the map bearing. Give those icons explicit width/height or asset URLs so the blob leak above is not made worse.
 
-### L26. Successful OTP or provider sign-in waits for push registration (Firebase init, getToken, POST /push/devices) before the rider can continue
+### L31. Share-trip button on Waiting and in-trip panels is a 40x40 target, below the 44 px floor
+
+`lib/features/active_ride/presentation/waiting_sheet_bits.dart:84` (found by r2-rider4)
+
+**What happens:** A rider in a moving car tries to share the trip from the in-trip panel and misses the 40 px circle. The tap lands on the sheet or the headline instead.
+
+**Why:** WaitingShareButton is `Padding(EdgeInsets.all(10), child: Icon(size: 20))` inside a circular InkWell, so the hit area is 40x40. A11y.minTapIOS documents 44 as 'the floor for every tap target', and MoveraIconButton uses 48. This button is in the pickup header (_fixedPickupHeader) and the in-trip panel header, a main safety action.
+
+**Suggested fix:** Constrain to A11y.minTap (48) or wrap in MoveraHitArea.
+
+### L32. Driver card 'Message' button Row has no flex: overflows into the call chip in Swedish or at large text
+
+`lib/features/active_ride/presentation/waiting_sheet_bits.dart:396` (found by r2-rider4)
+
+**What happens:** 360 px phone, Waiting or in-trip, driver assigned. The Expanded gets 360-40-28-104 = 188 px. In Swedish at 2x text the Row needs 18+8+~169 = 195 px (+~33 with an unread badge), so a RenderFlex overflow pushes the text under the call button. At 320 px even English at 2x overflows once a message arrives (~147 + 33 > 148). The 200% tests pump WaitingForDriver without a driver, so this card is never laid out.
+
+**Why:** The Message control sits in an Expanded next to two 44 px icon chips. Inside it a centred Row holds Icon(18) + 8 + Text(message) + optional unread badge, and no child is Flexible. Swedish 'Meddelande' is about 6.0em at 14 px w600. Row overflow paints past the Material (Clip.none) over the phone chip.
+
+**Suggested fix:** Wrap the Text in Flexible with maxLines: 1 and ellipsis.
+
+### L33. Successful OTP or provider sign-in waits for push registration (Firebase init, getToken, POST /push/devices) before the rider can continue
 
 `lib/features/auth/application/auth_controller.dart:35` (found by r2-rider3)
 
@@ -1132,7 +1422,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Run registration with unawaited() after entering the app, as the bootstrap comment intends for the first frame.
 
-### L27. Sign-out abandons the pending-cancel flush after 5 s, and the still-running flush can write the previous rider's queued cancels back after the wipe
+### L34. Sign-out abandons the pending-cancel flush after 5 s, and the still-running flush can write the previous rider's queued cancels back after the wipe
 
 `lib/features/auth/application/user_data_wipe.dart:80` (found by r2-rider3)
 
@@ -1142,7 +1432,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Give the flush a cancellation token or a session generation that the wipe bumps. Make PendingCancelStore.add a no-op once the session it started under is over, and clear `_flushInFlight` in the wipe.
 
-### L28. The new-rider name step is decided once from isNewRider; a reload or kill on that step skips it forever
+### L35. The new-rider name step is decided once from isNewRider; a reload or kill on that step skips it forever
 
 `lib/features/auth/presentation/phone_verify.dart:140` (found by r2-rider1)
 
@@ -1152,7 +1442,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Persist a 'name pending' flag with the session, or show RiderNameScreen whenever a signed-in profile has an empty name.
 
-### L29. Sign-out shows no progress and does not block taps while flush, push unregister and server sign-out run
+### L36. Sign-out shows no progress and does not block taps while flush, push unregister and server sign-out run
 
 `lib/features/auth/presentation/sign_out_flow.dart:43` (found by r2-rider3)
 
@@ -1162,7 +1452,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Show a modal progress barrier (or disable navigation) from the confirm until showSignInRoot, and ignore repeated sign-out taps while one is running.
 
-### L30. Sign-in hero tagline 'Moving to a new era.' is English although brandTagline is translated in the ARB
+### L37. Sign-in hero tagline 'Moving to a new era.' is English although brandTagline is translated in the ARB
 
 `lib/features/auth/presentation/widgets/balloon_brand_intro.dart:95` (found by rider1)
 
@@ -1172,7 +1462,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Render the translated tagline (strip the leading ' · ' or add a dedicated key) in the intro and its Semantics label.
 
-### L31. The duplicate-ride stand-down cancel is sent once and never queued, so a failure leaves two live rides
+### L38. The duplicate-ride stand-down cancel is sent once and never queued, so a failure leaves two live rides
 
 `lib/features/booking/application/booking_coordinator.dart:777` (found by r2-rider1)
 
@@ -1182,7 +1472,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Enqueue the stand-down through `PendingCancelStore.enqueue` before sending, so the outbox flush retries it, and do not treat the stand-down's failure as a booking failure.
 
-### L32. Suggestion distances and the CO2 figure always use '.' as the decimal separator in sv/fr
+### L39. A failed autocomplete request is shown as 'No address found'
+
+`lib/features/destination_search/data/place_suggestion_repository.dart:30` (found by r2-rider4)
+
+**What happens:** With a dropped connection, the rider types a valid street. The spinner stops and 'No address found' appears for every query, with no hint that it is a connection problem or that retrying would help.
+
+**Why:** `suggest` catches every error (offline, timeout, 5xx, 401) and returns an empty list. RoutePickerPage cannot tell that apart from a real empty result, so `_whileTyping` shows 'No address found' with the noAddressFoundBody copy and a map button. The rider is told the address does not exist when the lookup never ran. The saved-place picker does the same: `_submitQuery` turns a thrown geocode into 'spAddressNotFound' (pickup_location.dart:70-80).
+
+**Suggested fix:** Return a result type that separates failure from empty, and show a connection or retry message on failure.
+
+### L40. Suggestion distances and the CO2 figure always use '.' as the decimal separator in sv/fr
 
 `lib/features/destination_search/domain/place_suggestion.dart:64` (found by r2-rider3)
 
@@ -1192,7 +1492,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Format with NumberFormat for L10n's current locale (or the app's shared decimal formatter).
 
-### L33. On web only, matchRange can return offsets past the original string (e.g. 'İ' folds to two code units), so the suggestion highlight is misplaced or substring throws RangeError
+### L41. On web only, matchRange can return offsets past the original string (e.g. 'İ' folds to two code units), so the suggestion highlight is misplaced or substring throws RangeError
 
 `lib/features/destination_search/domain/place_suggestion.dart:91` (found by r2-rider3)
 
@@ -1202,7 +1502,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Fold character by character while keeping a map from folded index to original index, or clamp and validate the range before calling substring.
 
-### L34. Compact-to-full address map is keyed by the short label, so two fields with the same short form expand to the same full address
+### L42. Compact-to-full address map is keyed by the short label, so two fields with the same short form expand to the same full address
 
 `lib/features/destination_search/presentation/route_picker_page.dart:154` (found by r2-rider3)
 
@@ -1212,7 +1512,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep the full address per field (pickup, destination, each stop) rather than in a map keyed by display text.
 
-### L35. Route picker sends an autocomplete request on every keystroke (no debounce)
+### L43. Route picker sends an autocomplete request on every keystroke (no debounce)
 
 `lib/features/destination_search/presentation/route_picker_page.dart:291` (found by r2-rider3)
 
@@ -1222,7 +1522,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Debounce suggest (for example reuse PlaceSearchService) and cancel or skip superseded requests before sending.
 
-### L36. Custom saved places appear in Where to? under their type label ('Other'), not the name the rider gave them
+### L44. Custom saved places appear in Where to? under their type label ('Other'), not the name the rider gave them
 
 `lib/features/destination_search/presentation/route_picker_page.dart:866` (found by r2-rider3)
 
@@ -1232,7 +1532,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Show place.title, falling back to placeLabelFor(type) only when the title is empty or equals the raw type key.
 
-### L37. Prefix dedupe hides real suggestions, such as 'Kungsgatan 4' whenever 'Kungsgatan 44' is a recent
+### L45. Prefix dedupe hides real suggestions, such as 'Kungsgatan 4' whenever 'Kungsgatan 44' is a recent
 
 `lib/features/destination_search/presentation/route_picker_page.dart:939` (found by r2-rider3)
 
@@ -1242,7 +1542,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Compare whole normalized addresses (or the title against the recent's first comma part) for equality instead of startsWith.
 
-### L38. ARCHITECTURE.md and the cancelSearch doc comment still describe the old offline cancel (commit locally); the code implements RC-03 (queued, not committed), so the docs are out of date
+### L46. ARCHITECTURE.md and the cancelSearch doc comment still describe the old offline cancel (commit locally); the code implements RC-03 (queued, not committed), so the docs are out of date
 
 `lib/features/finding_driver/application/finding_driver_controller.dart:1090` (found by rider4)
 
@@ -1252,7 +1552,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Update ARCHITECTURE.md and the `cancelSearch` doc comment to the RC-03 behaviour (or restore the documented behaviour, whichever is the decision).
 
-### L39. Re-tapping cancel while an unreachable attempt is still queued resends the first tap's expectedVersion and reason: a 409 'ride just changed' if the trip moved on, or a server reason that differs from the one History archives
+### L47. Re-tapping cancel while an unreachable attempt is still queued resends the first tap's expectedVersion and reason: a 409 'ride just changed' if the trip moved on, or a server reason that differs from the one History archives
 
 `lib/features/finding_driver/data/pending_cancel_store.dart:295` (found by r2-rider1)
 
@@ -1262,7 +1562,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On a new rider tap, refresh the entry with the current version and reason (new key, since the body changed), as the flush does with `forVersion`.
 
-### L40. `_refreshRoadRoute` has no request generation, so an older road-route answer can overwrite the route drawn for a changed destination
+### L48. 'Try again' after no driver found books a fresh quote without asking the rider to confirm a changed price (Select Ride asks in that case)
+
+`lib/features/finding_driver/presentation/finding_drivers.dart:360` (found by r2-rider4)
+
+**What happens:** The rider raised the offer from 120 kr to 140 kr, the server then answered noDriverFound, and the rider taps 'Try again'. A new ride is created at the fresh quote, say 165 kr in surge, or the plain 120 kr without the raise, with no confirmation step. The rider believes they re-requested the same 140 kr ride.
+
+**Why:** `_requestAgain` calls `submitFinding(price: ended.price, ...)` without any quote fields. In `BookingCoordinator._resolveQuoteBinding`, `suppliedCount == 0`, so it fetches a new quote and calls `..validate()` without `requestedPrice`. The `ended.price` the rider last saw is never compared. `_prepareFinding` then books `effectivePrice = binding.total.major`, which can be higher or lower. Select Ride stops for `_acceptNewPrice` whenever the price to book differs from the one shown (RIDE-1/2). This path books silently, and the new search starts at whatever the server quotes now. A raised offer the rider made in the previous search is also lost. The new price only appears afterwards, on the payment line.
+
+**Suggested fix:** Quote first in `_requestAgain`. If the quote differs from `ended.price`, ask the rider to accept the new price, the same prompt as `_acceptNewPrice` on Select Ride. Otherwise pass `requestedPrice` into validation so a changed fare is refused, not silently booked.
+
+### L49. `_refreshRoadRoute` has no request generation, so an older road-route answer can overwrite the route drawn for a changed destination
 
 `lib/features/finding_driver/presentation/finding_drivers.dart:506` (found by rider2)
 
@@ -1272,7 +1582,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Capture `from`/`to` (or a `++_routeGeneration`) before the await and discard the result when `_pickupPosition`/`_destinationPosition` changed (or the generation moved on) in the meantime.
 
-### L41. Upcoming tab lists reservations in booking order, not pickup order
+### L50. Price-bump state raises the Finding sheet to a fixed 520 px and covers the Cancel and Safety buttons on short viewports
+
+`lib/features/finding_driver/presentation/finding_drivers.dart:792` (found by r2-rider4)
+
+**What happens:** iPhone SE in Safari (viewport ~375x548, padding.top 0): when the raise-your-offer card appears, the sheet top sits at y=28. The X button (y 8-56) and Safety Kit button are mostly covered and take taps only in their top 20 px. Dragging to the max stop (568 > 548) pushes the sheet's handle above the screen.
+
+**Why:** _minSheet is a constant 520 (+bottom padding) while the price-bump card shows, and _maxSheet is forced to at least minH+48 = 568. The top Cancel (X) and Safety Kit buttons sit at padding.top+8 and are drawn before the SheetViewport in the Stack, so the sheet paints over them when the viewport is shorter than about 576 px.
+
+**Suggested fix:** Clamp the sheet stops to media.size.height - media.padding.top - 64 (below the top bar) and let the panel scroll.
+
+### L51. New History records store English cancel reasons ('No driver found', 'Request expired', 'Cancelled by Movera', ...), which the detail sheet shows untranslated
+
+`lib/features/history/data/on_demand_ride_history_store.dart:261` (found by r2-rider4)
+
+**What happens:** App language is Swedish. A search ends with no driver, so the ride is archived as noDriverFound. In History › Cancelled › tap the ride, the line reads 'Reason: No driver found' in English inside a Swedish sheet.
+
+**Why:** recordFor falls back to `_endedSearchReason(terminalStatus)` when no reason code is given. That writes English sentences into Reservation.cancellationReason for every server-ended ride (noDriverFound, bookingExpired, cancelledByAdmin, cancelledBySystem, noShow, tripFailed, endedByDriver). The History detail line shows them through ReservationFormat.reasonLabel. That function only translates reason ids, `system_*` codes, `admin_*` and snake_case strings, and returns anything else unchanged ('older records already hold a label ... and are shown as they are'). Records created today therefore keep English text in sv and fr, although translated strings exist (L10n.termNoDriverFound, cancelledByMovera, reasonNoShow, ...).
+
+**Suggested fix:** Store reason codes (for example 'system_no_driver', 'system_expired', 'admin_cancelled', 'rider_no_show', 'system_error', 'driver_ended') and map them in ReservationFormat._reasonLabels to the existing l10n strings.
+
+### L52. Upcoming tab lists reservations in booking order, not pickup order
 
 `lib/features/history/presentation/ride_history.dart:268` (found by r2-rider1)
 
@@ -1282,7 +1612,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Sort by scheduledPickupAt ascending before building the list.
 
-### L42. History detail shows 'Movera Wallet' / 'Card' untranslated; only Cash is localized
+### L53. History detail shows 'Movera Wallet' / 'Card' untranslated; only Cash is localized
 
 `lib/features/history/presentation/ride_history.dart:552` (found by rider3)
 
@@ -1292,7 +1622,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use `paymentLabelFor(ride.paymentMethod)` in the History detail sheet.
 
-### L43. normaliseAddress forward-geocodes placeholder pickup labels, contrary to its own contract
+### L54. normaliseAddress forward-geocodes placeholder pickup labels, contrary to its own contract
 
 `lib/features/home/application/home_controller.dart:256` (found by rider4)
 
@@ -1302,7 +1632,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Return early in normaliseAddress when isPlaceholderPickupLabel(clean) || needsDroppedPinLabel(clean), and skip normalising the pickup when the draft already carries pickupLat/Lng.
 
-### L44. Approximate-only location grant is used as the 'Current location' pickup with no 'precise location off' notice
+### L55. Approximate-only location grant is used as the 'Current location' pickup with no 'precise location off' notice
 
 `lib/features/home/application/home_controller.dart:397` (found by r2-rider3)
 
@@ -1312,7 +1642,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Check getLocationAccuracy() / Position.accuracy, show the 'precise location off' notice, and on iOS request temporary full accuracy (NSLocationTemporaryUsageDescriptionDictionary) before using the fix as a pickup.
 
-### L45. Custom place added from Home gets the raw type key as its title ('gym', 'restaurant', 'other') shown verbatim in every locale
+### L56. Custom place added from Home gets the raw type key as its title ('gym', 'restaurant', 'other') shown verbatim in every locale
 
 `lib/features/home/application/home_places_controller.dart:145` (found by rider3)
 
@@ -1322,7 +1652,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Store the localized label (placeLabelFor(type)) or leave title empty and let the UI derive it from type.
 
-### L46. Location permission is requested again immediately after the rider denies it, and again on every app resume
+### L57. Location permission is requested again immediately after the rider denies it, and again on every app resume
 
 `lib/features/home/presentation/home.dart:343` (found by rider1)
 
@@ -1332,7 +1662,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Stop retrying when the first attempt ended in a permission failure (track the last DetectedLocation.failure), and on resume only re-detect when the last state was not permissionRequired.
 
-### L47. Recenter button is hidden after a recenter that was interrupted or blocked, leaving the map off the rider with no way back
+### L58. Home can start GPS tracking, pulse and compass on its disposed location controller if it is replaced while the puck icons are being built
+
+`lib/features/home/presentation/home.dart:380` (found by r2-rider4)
+
+**What happens:** On a cold start that restores a ride, Home is built, its first fix lands, and the root is replaced while the puck bitmaps are still being drawn. The rider is on the ride screen, but a dead Home location subscription and two periodic timers keep running for the rest of the session.
+
+**Why:** _runDetectCurrentAddress awaits _prepareLocationPuckIcons() (picture rasterisation, which spans frames) and then calls _locationCtl.bindLiveLocation without re-checking mounted. If Home is disposed in that window, for example when the restore coordinator replaces the root on cold start, startTracking subscribes to the position stream on an already disposed controller. That subscription is never cancelled and keeps GPS on. startPulse and startHeading create periodic timers (850 ms and 100/250 ms) that are never cancelled, and _startCompass runs again after dispose() stopped it. A later stream error calls _setState -> notifyListeners on a disposed ChangeNotifier. The new ui.Images are also kept on the dead State.
+
+**Suggested fix:** Check `if (!mounted) return;` after `await _prepareLocationPuckIcons()`. Make bindLiveLocation/startTracking/startPulse no-ops after the controller is disposed.
+
+### L59. Backing out of Plan your ride while it is preparing a Book for later route still opens the date picker over Home
+
+`lib/features/home/presentation/home.dart:864` (found by r2-rider4)
+
+**What happens:** The rider taps Book for later, picks a destination, and while the spinner shows (waiting for a first GPS fix) presses Back to leave. A few seconds later the date and time picker pops up over Home, and choosing a time does nothing.
+
+**Why:** RoutePickerPage has no PopScope while _finishing. On Android, system back pops it while onFinish (_confirmRouteSelection) is still running, which can take up to 8 s in _awaitCurrentFix or the destination geocode. _confirmRouteSelection checks only Home's mounted and then pushes ScheduleDateTimeSelector.choose(context, ...) from Home's context. The picker is gone and _showRouteAddressPicker already returned with a null draft, so any time chosen there is thrown away.
+
+**Suggested fix:** Pass a cancellation or 'still open' check from the route picker to onFinish (or block pop while _finishing), and stop _confirmRouteSelection when the picker is gone.
+
+### L60. Recenter button is hidden after a recenter that was interrupted or blocked, leaving the map off the rider with no way back
 
 `lib/features/home/presentation/home.dart:1668` (found by rider1)
 
@@ -1342,7 +1692,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Only clear _showRecenterButton when the glide actually landed (e.g. re-evaluate with AppScope.instance.camera.showRecenter against the last camera pose), or leave it to _handleMapCameraMove.
 
-### L48. Your month card has no load generation, so an older history read can overwrite a newer one
+### L61. Release builds switch Book for later off only in the repository: every entry point still runs the full scheduling flow, which then ends in an honest 'isn't available yet' error
+
+`lib/features/home/presentation/home.dart:2077` (found by r2-rider4)
+
+**What happens:** A production rider taps 'Schedule' on Home. They choose a destination, a date and time, a category and a pickup, then tap Book. They get 'Booking for later isn't available yet, so nothing was booked.' The feature the docs say is switched off is fully offered, and the rider wastes the whole flow. Verified by reading the code.
+
+**Why:** FeatureFlags.release sets enableScheduledRide/enableBookingLater false, and AppScope composes DisabledReservationRepository. ARCHITECTURE.md and docs/backend-readiness-gate.md say Book for later is 'switched off in staging/production'. No UI reads flags.scheduledRides or flags.bookingLater (the only flag consumers are RideSelectionController and wallet.dart's businessProfile). The release build still shows AdvanceBookingCard, the Schedule bottom-nav item, the WhereTo card's schedule action, the side menu 'Later' chip and History's schedule button. Each runs route picker, date/time, Select Ride and Set pickup. Only on Book does createReservation reject with ReservationsUnavailableException ('Booking for later isn't available yet, so nothing was booked.'). The comment in reservation_controller wiring also leaves rulesSource null, so the flow runs on default rules.
+
+**Suggested fix:** Gate every Book-for-later entry point (Home card, nav item, WhereTo, side menu, History, plan-return) on AppScope.instance.flags.scheduledRides || bookingLater.
+
+### L62. Your month card has no load generation, so an older history read can overwrite a newer one
 
 `lib/features/home/presentation/widgets/home_journey_section.dart:184` (found by r2-rider3)
 
@@ -1352,7 +1712,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Increment a generation counter per _load and ignore results from superseded calls.
 
-### L49. Chat message times use the Material 12/24-hour locale default instead of the app's 24-hour rule
+### L63. Chat message times use the Material 12/24-hour locale default instead of the app's 24-hour rule
 
 `lib/features/messages/presentation/chat.dart:196` (found by rider1)
 
@@ -1362,7 +1722,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use L10n.formatTime(sentAt.toLocal()) in chat.dart.
 
-### L50. Hard-coded English UI strings in localized screens (notification toast, account security errors)
+### L64. Hard-coded English UI strings in localized screens (notification toast, account security errors)
 
 `lib/features/notifications/application/notification_navigation.dart:154` (found by rider2)
 
@@ -1372,7 +1732,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add ARB keys and use `L10n.current`/`context.l10n` for these three strings.
 
-### L51. A push sent the day before is labelled with no day (as today) when it is ingested on the day after spring-forward, because Duration.inDays between local midnights is 0 (23h)
+### L65. A push sent the day before is labelled with no day (as today) when it is ingested on the day after spring-forward, because Duration.inDays between local midnights is 0 (23h)
 
 `lib/features/notifications/data/notifications_repository.dart:95` (found by rider2)
 
@@ -1382,7 +1742,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Compare calendar days with UTC-constructed midnights: `DateTime.utc(now.year, now.month, now.day).difference(DateTime.utc(time.year, time.month, time.day)).inDays`.
 
-### L52. Notification time label is frozen at ingest, so items never become "Yesterday …"
+### L66. Notification time label is frozen at ingest, so items never become "Yesterday …"
 
 `lib/features/notifications/data/notifications_repository.dart:213` (found by rider2)
 
@@ -1392,7 +1752,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Format from `notification.at` at build time (or recompute labels on emit).
 
-### L53. Unread notifications are marked only by an 8 px dot with no semantics
+### L67. Unread notifications are marked only by an 8 px dot with no semantics
 
 `lib/features/notifications/presentation/notifications.dart:195` (found by r2-rider1)
 
@@ -1402,7 +1762,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add a localized 'Unread' semantics label (or Semantics(label:) on the card) when !notification.read.
 
-### L54. Card brand error 'We accept Visa and Mastercard' is shown untranslated under the card number
+### L68. Card brand error 'We accept Visa and Mastercard' is shown untranslated under the card number
 
 `lib/features/payments/application/saved_cards_controller.dart:67` (found by rider3)
 
@@ -1412,7 +1772,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add an ARB key (cardBrandsAccepted) and return context.l10n.cardBrandsAccepted from _numberError; keep the controller's ArgumentError for programmer errors only.
 
-### L55. A failed PATCH of the default payment method is swallowed, and the next read() puts the server's old default back, so the rider's choice silently reverts
+### L69. A failed PATCH of the default payment method is swallowed, and the next read() puts the server's old default back, so the rider's choice silently reverts
 
 `lib/features/payments/data/api_payment_method_repository.dart:55` (found by r2-rider3)
 
@@ -1422,7 +1782,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep a pending-save flag: retry the PATCH on the next read(), and don't let the server value overwrite the local choice until the PATCH succeeds. Or surface the failure so the UI can tell the rider.
 
-### L56. Card brand rejection error is a hardcoded English string in a localized form
+### L70. Card brand rejection error is a hardcoded English string in a localized form
 
 `lib/features/payments/presentation/add_card_page.dart:125` (found by rider4)
 
@@ -1432,7 +1792,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add an ARB key (e.g. `cardBrandUnsupported`) and return `context.l10n.cardBrandUnsupported` from `_numberError`.
 
-### L57. Fallback 'Dropped pin · lat° N lng° E' pickup label is hard-coded English and is saved as the booking address
+### L71. After a late GPS fix, the 'Location off, set pickup' placeholder is passed through as the booking pickup label and overwrites the address Home just detected
+
+`lib/features/pickup/application/pickup_address.dart:18` (found by r2-rider4)
+
+**What happens:** The rider denies location, then allows it in the browser and taps Where to -> a destination. _awaitCurrentFix gets a fix, but Select ride shows the pickup as 'Location off, set pickup' next to a map centred on their real position.
+
+**Why:** isUnusablePickupLabel only rejects empty text, 'current location' and raw coordinates. bookingPickupAddress therefore returns locationOffPickupLabel unchanged instead of reverse-geocoding the real position. Home reaches it with a real fix in two ways. (1) The first detect failed or was denied, and the fix arrives later through _awaitCurrentFix: _prefillPickup keeps address: clean, the old placeholder, at home.dart:811. (2) The recover path above. SelectRide then opens with pickupAddress 'Location off, set pickup' (translated by L10n.place) and pickupIsFallback false. Set pickup later re-resolves it because its own _isPlaceholder covers 'location off', but Select ride, and the pickup Home remembers in _pickupAddress, say location is off while it works.
+
+**Suggested fix:** Treat locationOffPickupLabel (isPlaceholderPickupLabel) as unusable in isUnusablePickupLabel/bookingPickupAddress so a real point is reverse-geocoded.
+
+### L72. Fallback 'Dropped pin · lat° N lng° E' pickup label is hard-coded English and is saved as the booking address
 
 `lib/features/pickup/application/pickup_address.dart:35` (found by rider1)
 
@@ -1442,7 +1812,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add an ARB message with a {coords} placeholder (and localized N/S/E/W) and render it through L10n; store the coordinates, not the sentence, as the booking label.
 
-### L58. Pickup spot chips and the booked pickup label use hard-coded English ('Main entrance', 'Side entrance', 'Parking', 'Near Home', 'Previously used', 'Short walk')
+### L73. Pickup spot chips and the booked pickup label use hard-coded English ('Main entrance', 'Side entrance', 'Parking', 'Near Home', 'Previously used', 'Short walk')
 
 `lib/features/pickup/application/pickup_spots_controller.dart:75` (found by rider2)
 
@@ -1452,7 +1822,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Move the titles/subtitles to the ARB files (L10n.current.*) and localize the 'CURRENT' label.
 
-### L59. Confirm pickup spot shows untranslated 'Current location' / 'Pickup location' / 'Location off, set pickup' in its search field and address caption
+### L74. Confirm pickup spot shows untranslated 'Current location' / 'Pickup location' / 'Location off, set pickup' in its search field and address caption
 
 `lib/features/pickup/presentation/confirm_pickup_spot.dart:170` (found by rider1)
 
@@ -1462,7 +1832,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep the English sentinel internally but render `L10n.place(_address)` / `L10n.current.pickupLocation` in the TextField and Text, and extend L10n.place to cover pickupLocationFallbackLabel.
 
-### L60. `_idle` turns a superseded (null) reverse-geocode into the 'Pickup location' fallback and can overwrite the newer resolved address
+### L75. `_idle` turns a superseded (null) reverse-geocode into the 'Pickup location' fallback and can overwrite the newer resolved address
 
 `lib/features/pickup/presentation/confirm_pickup_spot.dart:222` (found by rider1)
 
@@ -1472,7 +1842,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Give `_idle` its own generation counter (or read `_pickup`'s) and return without touching state when the lookup was superseded or when `_isAwayFrom(at)`; only apply the fallback label when the current lookup genuinely returned no address.
 
-### L61. Set pickup can stay on 'Finding the address…' forever when the pin returns near its last rest point during a lookup
+### L76. Set pickup can stay on 'Finding the address…' forever when the pin returns near its last rest point during a lookup
 
 `lib/features/pickup/presentation/set_pickup_page.dart:556` (found by r2-rider3)
 
@@ -1482,7 +1852,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Reset _resolving (and re-run the lookup for the current point) instead of returning silently when the pin moved.
 
-### L62. Set pickup address search has no try/catch (a failed geocode shows no feedback) and no staleness guard against a pin moved while it was pending
+### L77. Set pickup address search has no try/catch (a failed geocode shows no feedback) and no staleness guard against a pin moved while it was pending
 
 `lib/features/pickup/presentation/set_pickup_page.dart:702` (found by rider3)
 
@@ -1492,7 +1862,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Bump a generation (or compare _center/_routeStart before and after) around the search and ignore a result once the pin has moved or a newer search started; wrap in try/catch and show the not-found snackbar on failure.
 
-### L63. Set pickup shows the payment method name and detail in English ('Cash' / 'Pay the driver in cash') in every language
+### L78. Set pickup shows the payment method name and detail in English ('Cash' / 'Pay the driver in cash') in every language
 
 `lib/features/pickup/presentation/set_pickup_page.dart:1431` (found by r2-rider3)
 
@@ -1502,7 +1872,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Render `paymentNameFor(_payment.brand, _payment.name)` and `paymentDetailFor(_payment.brand, _payment.detail)` in Set pickup, or pass the translated strings from SelectRide.
 
-### L64. CurvedAnimations created in build leak a status listener on _lift/_sheet on every rebuild
+### L79. CurvedAnimations created in build leak a status listener on _lift/_sheet on every rebuild
 
 `lib/features/pickup/presentation/set_pickup_page.dart:1491` (found by r2-rider3)
 
@@ -1512,7 +1882,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Create the CurvedAnimations once (in initState, or in a StatefulWidget for _PickupPin) and dispose them.
 
-### L65. Account security error messages are English literals shown on the Security screen
+### L80. Account security error messages are English literals shown on the Security screen
 
 `lib/features/profile/application/account_security_controller.dart:42` (found by rider4)
 
@@ -1522,7 +1892,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Set errorMessage from L10n.current (reuse securityUnavailableBody and add a key for the sign-out failure).
 
-### L66. Menu greeting falls back to the English literal 'Welcome to Movera' in every language
+### L81. 'Sign out other devices' reports failure when the sign-out succeeded but the follow-up GET failed
+
+`lib/features/profile/data/account_security_repository.dart:14` (found by r2-rider4)
+
+**What happens:** The rider confirms Sign out other devices. The POST returns 200 and the GET times out. The Security page shows 'Could not update active sessions.' and still lists the iPhone session, although it was revoked. Retrying fails with 403.
+
+**Why:** signOutOtherDevices() POSTs the sign-out and ignores its response, although the mock returns the new `security` in that response. It then does a separate GET. If the POST succeeds but the GET fails (network drop, timeout), the controller's catch sets 'Could not update active sessions.' and leaves the old state, still listing the other devices and still holding a fresh reauthenticatedAt. The server has already revoked those sessions and cleared reauthenticatedAt. A retry therefore gets 403 reauth_required and shows the same error.
+
+**Suggested fix:** Decode the `security` from the POST response. If only the refresh fails, report success and reload in the background.
+
+### L82. Menu greeting falls back to the English literal 'Welcome to Movera' in every language
 
 `lib/features/profile/data/profile_repository.dart:25` (found by r2-rider1)
 
@@ -1532,7 +1912,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use a localized string (e.g. L10n.current for a new key) for the empty-name greeting.
 
-### L67. Pending profile sync (name/consents) is lost on app restart; class doc promises resend on launch
+### L83. Pending profile sync (name/consents) is lost on app restart; class doc promises resend on launch
 
 `lib/features/profile/data/synced_profile_repository.dart:315` (found by rider1)
 
@@ -1542,7 +1922,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Persist the pending flag (e.g. a `movera_profile_sync_pending` pref) and read it in `hydrate`, or compare a stored "last synced" hash with the cache.
 
-### L68. Password 'Last changed' date is formatted from a UTC DateTime, so it shows the UTC day
+### L84. Language picker ignores the zone config's `languages.available` list it is documented to honour
+
+`lib/features/profile/presentation/language_picker.dart:21` (found by r2-rider4)
+
+**What happens:** An operator sets a zone's `languages.available` to ['fr','en']. A rider in that zone still sees and can pick 'SV · Svenska', and that choice wins over the zone forever.
+
+**Why:** AppLanguages.available is documented as 'what the user may pick' (zone_settings.dart:27-28), and readAppLanguages parses and keeps it. pickAppLanguage always offers every shipped language, and AppLanguageController.choose saves any supported code. Neither reads `document.languages.available`, so an admin restriction of a zone's languages has no effect on the rider app.
+
+**Suggested fix:** Keep the zone's available list in AppLanguageController, filter the picker options by it, and fall back to the zone default when a saved choice is not available.
+
+### L85. Password 'Last changed' date is formatted from a UTC DateTime, so it shows the UTC day
 
 `lib/features/profile/presentation/security.dart:46` (found by r2-rider1)
 
@@ -1552,7 +1942,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Format `when.toLocal()`, or the zone wall time.
 
-### L69. Sign out other devices stays tappable after the 5-minute reauthentication window passes, then silently does nothing
+### L86. Sign out other devices stays tappable after the 5-minute reauthentication window passes, then silently does nothing
 
 `lib/features/profile/presentation/security.dart:214` (found by r2-rider1)
 
@@ -1562,7 +1952,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Re-check freshness after the confirm and show reauthBeforeRevoke (or rebuild with a timer when the window ends) instead of returning silently.
 
-### L70. Login activity shows a dangling separator when a session has no place ('This session  ·  ', '  ·  Movera')
+### L87. Login activity shows a dangling separator when a session has no place ('This session  ·  ', '  ·  Movera')
 
 `lib/features/profile/presentation/security.dart:261` (found by r2-rider1)
 
@@ -1572,7 +1962,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Leave out the separator and the place when the place is empty.
 
-### L71. Promotion details opened outside Select Ride use the built-in category list instead of the live RideCatalogController catalog, so admin-disabled, renamed or added categories show wrongly
+### L88. Promotion details opened outside Select Ride use the built-in category list instead of the live RideCatalogController catalog, so admin-disabled, renamed or added categories show wrongly
 
 `lib/features/promotions/presentation/promotion_details_sheet.dart:77` (found by rider2)
 
@@ -1582,7 +1972,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Default to `AppScope.instance.catalog.current` (the server/cached catalog) instead of `rideCatalog.rides()`.
 
-### L72. Reservation cancel reasons written by the app ('no_driver_found', 'rider_cancelled_live') have no translation and show as English text
+### L89. Reservation cancel reasons written by the app ('no_driver_found', 'rider_cancelled_live') have no translation and show as English text
 
 `lib/features/reservations/application/reservation_controller.dart:302` (found by rider-j8)
 
@@ -1592,7 +1982,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Record the canonical 'system_no_driver' code, or add 'no_driver_found' and 'rider_cancelled_live' to _reasonLabels with translated labels.
 
-### L73. ReservationPriceChange treats any change under 0.5 major units as unchanged, so EUR/TND edits under half a unit show a zero difference and a 'price unchanged' summary
+### L90. ReservationPriceChange treats any change under 0.5 major units as unchanged, so EUR/TND edits under half a unit show a zero difference and a 'price unchanged' summary
 
 `lib/features/reservations/domain/reservation.dart:178` (found by rider-j8)
 
@@ -1602,7 +1992,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Compare in minor units with Money.fromLegacyMajor(next, currency) != Money.fromLegacyMajor(previous, currency), or set the threshold at half a displayed unit per currency. Refuse, or show separately, a change across currencies.
 
-### L74. A failed no-driver resolve escapes as an unhandled async error: no message, and Rebook is never opened
+### L91. A failed no-driver resolve escapes as an unhandled async error: no message, and Rebook is never opened
 
 `lib/features/reservations/presentation/home_reservation_chrono.dart:124` (found by rider-j8)
 
@@ -1612,7 +2002,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Catch around resolveNoDriverFound, record the error and show MoveraToast with reservationErrorMessage(error, ReservationAction.cancel), as UpcomingReservationPage._cancel does.
 
-### L75. An unresolved 'No driver found' ride stays the chrono's next ride and stops a later ride's live screen from auto-opening
+### L92. An unresolved 'No driver found' ride stays the chrono's next ride and stops a later ride's live screen from auto-opening
 
 `lib/features/reservations/presentation/home_reservation_chrono.dart:199` (found by rider-j8)
 
@@ -1622,7 +2012,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** For live auto-open, pick the first ride that reveals a driver. For the chrono, skip rides already prompted as no-driver when a later actionable ride exists.
 
-### L76. Chrono screen-reader label reads 'Reservation in Now' for a due or live ride
+### L93. Chrono screen-reader label reads 'Reservation in Now' for a due or live ride
 
 `lib/features/reservations/presentation/home_reservation_chrono.dart:255` (found by rider-j8)
 
@@ -1632,7 +2022,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When the remaining time is under a minute or past, use a separate label (for example 'Reservation now' or a status-based label) instead of interpolating 'Now'.
 
-### L77. Reservation cancel reason codes 'no_driver_found' and 'rider_cancelled_live' show as raw English text
+### L94. Home reservation chrono's countdown overflows its 54 px disc at large text sizes (no textScaler clamp); in French 'Maintenant' breaks mid-word
+
+`lib/features/reservations/presentation/home_reservation_chrono.dart:283` (found by r2-rider4)
+
+**What happens:** French rider with a reservation, in its last minute: primary 'Maintenant' wraps to about 3 lines * 13 = 39 px, plus 12 = 51 > 41 → RenderFlex overflow (about 10 px), text spills past the disc. At 1.3x text, sv/fr '45 min' (2 lines of 16.9 px) gives 46 > 41. At 2x in English, '2h'/'45m' gives 11+1+26+19.8 = 58 > 41. The matrix tests render Home without reservations, so the chrono is never laid out there.
+
+**Why:** The chrono is a fixed 54x54 box. Inside Padding(8,7,8,6) the Column gets 38x41 px and holds an 11 px car image, 1 px, and the countdown Text(s) with no maxLines. French strings are longer: 'Maintenant' (now) and '{m} min' (durMinutes) at 13 px w700 are wider than 38 px and wrap. 'Maintenant' is one word, so it breaks per character onto about 3 lines. The badge Stack uses Clip.none, so overflowing text paints outside the circle over the map.
+
+**Suggested fix:** Wrap the countdown in FittedBox(fit: BoxFit.scaleDown) with maxLines: 1, or use a short 'now' form for the chrono.
+
+### L95. Reservation cancel reason codes 'no_driver_found' and 'rider_cancelled_live' show as raw English text
 
 `lib/features/reservations/presentation/reservation_format.dart:39` (found by r2-rider3)
 
@@ -1642,7 +2042,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Map 'no_driver_found' to termNoDriverFound and 'rider_cancelled_live' to a translated label in _reasonLabels, or record 'system_no_driver' instead.
 
-### L78. Reservation reasons the app itself writes ('no_driver_found', 'rider_cancelled_live') are shown as English text in every language
+### L96. Reservation reasons the app itself writes ('no_driver_found', 'rider_cancelled_live') are shown as English text in every language
 
 `lib/features/reservations/presentation/reservation_format.dart:60` (found by r2-rider3)
 
@@ -1652,7 +2052,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add 'no_driver_found' (-> termNoDriverFound) and 'rider_cancelled_live' (-> a translated 'Cancelled by you' label) to the reason map, or store contract codes that are already mapped.
 
-### L79. cardDate 'Tomorrow' label breaks on the spring-forward day because today.add(Duration(days:1)) is not the next local midnight
+### L97. cardDate 'Tomorrow' label breaks on the spring-forward day because today.add(Duration(days:1)) is not the next local midnight
 
 `lib/features/reservations/presentation/reservation_format.dart:143` (found by rider3)
 
@@ -1662,7 +2062,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Build tomorrow as `DateTime(now.year, now.month, now.day + 1)` (calendar arithmetic) instead of adding a Duration.
 
-### L80. Completed reservations opened from History are headed 'Upcoming ride', and both completed and cancelled ones say 'Your ride is reserved for ...'
+### L98. Icon-only close/back buttons in the scheduling flow have no accessible name; two are 42 px, below the app's 44 px floor
+
+`lib/features/reservations/presentation/ride_scheduled.dart:128` (found by r2-rider4)
+
+**What happens:** After booking a scheduled ride, a VoiceOver/TalkBack user on RideScheduledPage hears 'button' with no name for the only exit control. The same happens on the date/time step's back button and the address step's back button, so the scheduling flow cannot be navigated by name.
+
+**Why:** Several icon-only navigation buttons are a bare InkWell around an Icon with no tooltip, semanticLabel or Semantics label. Screen readers announce an unlabeled button. Two of them are also 42x42, below the app's own 44 px floor (A11y.minTapIOS, 'the floor for every tap target').
+
+**Suggested fix:** Use MoveraIconButton (tooltip + 48 px) or wrap in Semantics(button: true, label: l10n.close/back).
+
+### L99. Completed reservations opened from History are headed 'Upcoming ride', and both completed and cancelled ones say 'Your ride is reserved for ...'
 
 `lib/features/reservations/presentation/upcoming_reservation.dart:235` (found by rider-j8)
 
@@ -1672,7 +2082,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Choose the title and subtitle by status: completed and cancelled get past-tense copy with no 'reserved for'. Limit the resDriverOnTheWay hint to status.isUpcoming.
 
-### L81. Editing a reservation keeps its dispatch status: a searching or no-driver ride moved to a later day stays 'searching'
+### L100. Editing a reservation keeps its dispatch status: a searching or no-driver ride moved to a later day stays 'searching'
 
 `lib/features/reservations/presentation/upcoming_reservation.dart:374` (found by rider-j8)
 
@@ -1682,7 +2092,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** When an edit moves the pickup out of the assignment window and no driver is assigned, include status: ReservationStatus.scheduled in the patch (the repository's updateReservation or the booking patch).
 
-### L82. Driver card accessibility label hard-codes the English word 'plate'
+### L101. 'Things to know' cancellation line keeps saying 'free until …' after the free window has closed
+
+`lib/features/reservations/presentation/upcoming_reservation.dart:440` (found by r2-rider4)
+
+**What happens:** At 08:50 the rider opens a reservation for 10:00 (free until 09:00) and keeps the page open. At 09:05 it still reads 'Free until 09:00, then 50 kr', and the fee only shows once they tap Cancel.
+
+**Why:** The cancellation summary is worked out from cancelTermsFor(ride) at build time. UpcomingReservationPage only rebuilds when the ReservationController notifies, and nothing rebuilds it on a timer. While the rider stays on the page past freeUntil, it still says cancelling is free until HH:mm. The cancel sheet works out fresh terms, so the fee does appear before confirming.
+
+**Suggested fix:** Rebuild when freeUntil passes (a one-shot Timer), or word the line without the live 'until' state.
+
+### L102. Driver card accessibility label hard-codes the English word 'plate'
 
 `lib/features/reservations/presentation/upcoming_reservation.dart:506` (found by rider-j8)
 
@@ -1692,7 +2112,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add an ARB key such as resPlateLabel('{plate}') and use it here.
 
-### L83. A restored completion screen does not prime the mock transport, which restarts a whole fake ride (search, assignment, trip) for the finished trip
+### L103. A restored completion screen does not prime the mock transport, which restarts a whole fake ride (search, assignment, trip) for the finished trip
 
 `lib/features/ride_booking/application/ride_restore_coordinator.dart:332` (found by r2-rider1)
 
@@ -1702,7 +2122,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** For a completed-surface restore, prime the mock to resume the post-trip flow (_startPostTripFlow from the stored stage), or have RideCompleted use a resync that never restarts dispatch.
 
-### L84. Driver card screen-reader label says 'plate …' in English in every language (the recovery-barrier label is also English but only on screen for one frame)
+### L104. Driver card screen-reader label says 'plate …' in English in every language (the recovery-barrier label is also English but only on screen for one frame)
 
 `lib/features/ride_booking/application/ride_restore_coordinator.dart:620` (found by rider4)
 
@@ -1712,7 +2132,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use L10n.current (e.g. rtConnectingBody or a new key) for both labels.
 
-### L85. restoreFromBackend/backendReconcile never logs the `ride.restore.jump` record that DECISIONS R6 specifies for illegal jumps
+### L105. restoreFromBackend/backendReconcile never logs the `ride.restore.jump` record that DECISIONS R6 specifies for illegal jumps
 
 `lib/features/ride_booking/application/ride_session.dart:98` (found by rider2)
 
@@ -1722,7 +2142,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** In `backendReconcile`, when `!canTransition(status, backendStatus)` log `AppLog.info('ride.restore.jump', ...)` before assigning.
 
-### L86. Ride completed driver panel shows the English fallback 'Vehicle details unavailable' when the matched driver has no vehicle fields
+### L106. Ride completed driver panel shows the English fallback 'Vehicle details unavailable' when the matched driver has no vehicle fields
 
 `lib/features/ride_booking/data/driver_repository.dart:55` (found by rider3)
 
@@ -1732,7 +2152,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use L10n.current for the vehicle fallback (and the tagline, which also has no localized form).
 
-### L87. Ride receipt shows the stored payment names 'Movera Wallet' / 'Card' in English; only Cash is translated
+### L107. Ride receipt shows the stored payment names 'Movera Wallet' / 'Card' in English; only Cash is translated
 
 `lib/features/ride_complete/presentation/trip_detail.dart:77` (found by r2-rider3)
 
@@ -1742,7 +2162,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use `paymentLabelFor(trip.method)` for the receipt row, and also accept the localized cash label if isCashLabel is still needed.
 
-### L88. Scheduled booking does not re-quote a quote that expired during the date picker and Set pickup; booking fails with a no-price toast and needs two more taps
+### L108. A catalog answer that changes the category ids while Set pickup is open starts a list re-quote at the unconfirmed original pickup that can overwrite the pin's quote
+
+`lib/features/ride_selection/presentation/select_ride.dart:435` (found by r2-rider4)
+
+**What happens:** On a slow first launch, the ride-types answer lands while the rider is on Set pickup with the pin already moved and re-priced. The selected ride's quote reverts to the original point's price, and the booking dialog proposes that wrong price for the moved pickup.
+
+**Why:** _onCatalogChanged runs _loadQuotes() whenever the ids differ (for example, the server list replacing the 14 built-in ids on first use). _loadQuotes prices every category at _pickupPosition, which is still the original point while Set pickup is open. RIDE-11 protects the pin quote only from list loads begun before it (quoteFromPin bumps _quoteGeneration). A list load begun after the pin quote is adopted overwrites the selected category's authoritative quote with the original point's price. Book now then shows a 'price updated' dialog asking the rider to accept the original pickup's price for the moved pickup.
+
+**Suggested fix:** Defer catalog-triggered re-quotes while the booking flow (_bookingInFlight / Set pickup) is open, or skip overwriting a quote adopted from a pin after the list load began.
+
+### L109. Scheduled booking does not re-quote a quote that expired during the date picker and Set pickup; booking fails with a no-price toast and needs two more taps
 
 `lib/features/ride_selection/presentation/select_ride.dart:1155` (found by rider2)
 
@@ -1752,7 +2182,37 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Before `ScheduledRideCheckout.run`, reuse `_quoteAfterPickup(ride)` (awaiting `_pinQuote`, re-quoting from the confirmed pickup when stale) and pass its price, mirroring `_bookNow`.
 
-### L89. Wallet split line is computed from the SEK list price for a pickup priced in another currency before the quote arrives
+### L110. Select Ride stays interactive during the Home lookup before Set pickup opens, so category, payment and booking-mode taps race the booking already captured
+
+`lib/features/ride_selection/presentation/select_ride.dart:1280` (found by r2-rider4)
+
+**What happens:** A rider with Home saved taps Select Movera, then immediately taps Comfort. Comfort is highlighted on Select Ride, but Set pickup and the booking are for Movera. Or they tap the calendar and a 'When do you want to ride' sheet stays under Set pickup and Finding.
+
+**Why:** _bookNow captures `selected` and `payment`, parks the map, and _openSetPickup then awaits _homePosition() (saved-places hydrate up to 600 ms plus a Home geocode up to 900 ms) before pushing Set pickup. During that window only the Book CTA is disabled (_bookingInFlight). Ride tiles (_selectRide, line 2187), the payment row (_showPaymentPicker) and the calendar button (_showBookingPicker) still respond. A tap on another category highlights it, but Set pickup and the booking use the captured one. A tap on Pay with or the calendar pushes that page or sheet, and Set pickup then opens on top of it.
+
+**Suggested fix:** Ignore row, payment and booking-mode taps while _bookingInFlight, or resolve Home before setting the lock and capturing the selection.
+
+### L111. The 'Price updated' dialog has no time limit, so a quote that expires while it is open fails the booking with a generic error after the rider accepted
+
+`lib/features/ride_selection/presentation/select_ride.dart:1517` (found by r2-rider4)
+
+**What happens:** After moving the pin, the rider gets 'Price updated: 301 kr', leaves the phone for a couple of minutes, comes back and taps 'Book for 301 kr'. They are told the booking failed and must start again.
+
+**Why:** _bookableQuote guarantees only 10 s of quote life (_quoteMargin) before _acceptNewPrice opens. The dialog waits for the rider indefinitely, and the quote is not re-checked or refreshed after they accept. Mock quotes live 2 minutes. If the rider takes longer, BookingCoordinator refuses the expired quote locally (booking_coordinator.dart:630) and the rider sees 'bookingFailed' right after tapping 'Book for X'.
+
+**Suggested fix:** After the dialog, re-run _bookableQuote (refreshing via _quoteAfterPickup if needed) and ask again only if the refreshed price differs.
+
+### L112. Select ride filter chips and ride tiles show selection only visually: no button/selected semantics; filter chips are ~34 px tall
+
+`lib/features/ride_selection/presentation/select_ride.dart:2108` (found by r2-rider4)
+
+**What happens:** A VoiceOver user on Select ride swipes through Economy/Comfort/Premium and hears names and prices with no 'selected' state. They tap Faster and get no confirmation of which filter is active.
+
+**Why:** _filterChip is a GestureDetector > AnimatedContainer(padding 14/8) > Row(icon, Text 13). It is about 34 px tall and has no Semantics(button/selected), so the active filter (Recommended/Faster/Cheaper) is never announced. _rideTile marks the chosen category only with an accent border. Its InkWell has no Semantics(selected:), so a screen-reader user cannot tell which category will be booked. The Book CTA text includes it, but the list does not. The same visual-only pattern is in select_date_time.dart _modeOption (Pickup at / Arrive by) and the wallet top-up amount chips (wallet.dart:390-400).
+
+**Suggested fix:** Wrap chips and tiles in Semantics(button: true, selected: selected, ...) and give the chips a minimum height of 44.
+
+### L113. Wallet split line is computed from the SEK list price for a pickup priced in another currency before the quote arrives
 
 `lib/features/ride_selection/presentation/select_ride.dart:2334` (found by rider2)
 
@@ -1762,7 +2222,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Guard the wallet line with `_hasPrice(ride)` (and ideally with an available quote).
 
-### L90. Ride check saves the answer 'Called 112' even when the dialer failed to open (alert is still correctly sent)
+### L114. Ride check saves the answer 'Called 112' even when the dialer failed to open (alert is still correctly sent)
 
 `lib/features/safety/application/ride_check_controller.dart:495` (found by rider4)
 
@@ -1772,7 +2232,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Record a distinct answer (e.g. `call_112_failed`) or omit the "Called 112" answer when `failure != null`, while still sending the alert.
 
-### L91. A failed stop (NO_AUDIO / SAVE_FAILED) leaves an orphan recording entry with endedAt == null (and any 0-byte or captured file) that nothing ever cleans up
+### L115. A failed stop (NO_AUDIO / SAVE_FAILED) leaves an orphan recording entry with endedAt == null (and any 0-byte or captured file) that nothing ever cleans up
 
 `lib/features/safety/application/safety_audio_service.dart:89` (found by r2-rider1)
 
@@ -1782,7 +2242,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** On NO_AUDIO, delete the store entry and the empty file. On SAVE_FAILED, keep the localPath in memory and retry, or delete the file.
 
-### L92. Ride check recording keeps the microphone on after session expiry replaces the trip screen with Sign in
+### L116. Ride check recording keeps the microphone on after session expiry replaces the trip screen with Sign in
 
 `lib/features/safety/application/safety_audio_service.dart:118` (found by r2-rider1)
 
@@ -1792,7 +2252,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Call `audio.stopIfRecording` on session expiry and in SafetyController.resetShared before discarding the service.
 
-### L93. Failures to change the PIN, the PIN requirement, trip-share settings or the Ride check switch are never shown to the rider
+### L117. Failures to change the PIN, the PIN requirement, trip-share settings or the Ride check switch are never shown to the rider
 
 `lib/features/safety/application/safety_controller.dart:208` (found by r2-rider1)
 
@@ -1802,7 +2262,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Show `_ctl.error` (a toast or inline text) on the PIN, Trip share and Ride check pages after these calls, or have the calls return a result that the pages report.
 
-### L94. A trip share is never stopped: no caller of stopShare, so the live link stays active after the trip ends
+### L118. A trip share is never stopped: no caller of stopShare, so the live link stays active after the trip ends
 
 `lib/features/safety/application/safety_controller.dart:309` (found by r2-rider1)
 
@@ -1812,7 +2272,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Stop the ride's share (best effort) wherever the ride ends (markCompleted / markExternalTerminal / cancel commit), and offer a Stop sharing action in the kit.
 
-### L95. Safety Kit audio cannot start without a successful server init (fails offline); each successful init also leaves an orphaned optimistic recording in the persisted cache
+### L119. Safety Kit audio cannot start without a successful server init (fails offline); each successful init also leaves an orphaned optimistic recording in the persisted cache
 
 `lib/features/safety/data/safety_store.dart:501` (found by r2-rider3)
 
@@ -1822,7 +2282,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Start capture locally first and register with the server best effort (queue the init when offline). In apply, replace the optimistic entry by its local id.
 
-### L96. SwedishPhone.toE164 accepts a trunk zero after +46 and stores an invalid contact number
+### L120. SwedishPhone.toE164 accepts a trunk zero after +46 and stores an invalid contact number
 
 `lib/features/safety/domain/phone_e164.dart:116` (found by rider2)
 
@@ -1832,7 +2292,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Strip a leading `0` from `rest` (or reject it), and require the national number to start with a non-zero digit.
 
-### L97. Ride check distances use '.' as decimal separator in Swedish/French ('1.2 km')
+### L121. The monitor marks a trigger as fired even when the card could not open (another card up), so that trigger is lost for the rest of the trip
+
+`lib/features/safety/domain/ride_check_monitor.dart:252` (found by r2-rider4)
+
+**What happens:** A long-stop card is open and the rider has not answered. The driver then finishes 5 km from the drop-off. tripEnded fires droppedFar, open() returns busy, and droppedFar is now marked fired. After the rider answers the long-stop card, no 'finished far from drop-off' check ever appears for this trip.
+
+**Why:** RideCheckMonitor._fire adds the trigger to `_fired` before the controller tries to open it. RideCheckController.open returns `busy` when any session is up (line 379), and the result is ignored (`unawaited(open(...))` at lines 274/290, and the tripEnded result). Because `_canFire` checks `_fired`, the trigger can never fire again on this trip. The droppedFar check at finish is lost if an unanswered mid-trip card is still up, and an off-route hit is lost while a long-stop card is open.
+
+**Suggested fix:** Mark the trigger fired only when open() returns shown, or queue the detection and open it after the current card closes.
+
+### L122. Ride check distances use '.' as decimal separator in Swedish/French ('1.2 km')
 
 `lib/features/safety/domain/ride_check_trigger.dart:244` (found by r2-rider1)
 
@@ -1842,7 +2312,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Format with NumberFormat for the current locale (the same helper the money formatter fix will use).
 
-### L98. `_ContactEditorState._save` calls setState in its catch block without a mounted check; the editor is a dismissible sheet
+### L123. `_ContactEditorState._save` calls setState in its catch block without a mounted check; the editor is a dismissible sheet
 
 `lib/features/safety/presentation/emergency_contacts_page.dart:287` (found by rider3)
 
@@ -1852,7 +2322,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add `if (!mounted) return;` at the top of the catch block (mirroring the success branch).
 
-### L99. Safety Kit sheet overflows at 2x text on a 375x667 screen (no scroll view), clipping the Safety preferences link
+### L124. Safety Kit sheet overflows at 2x text on a 375x667 screen (no scroll view), clipping the Safety preferences link
 
 `lib/features/safety/presentation/ride_safety_kit.dart:252` (found by r2-rider3)
 
@@ -1862,7 +2332,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Wrap these sheet bodies in SingleChildScrollView (as cancel_reason_sheet.dart and emergency contact editor already do).
 
-### L100. Trip share contact list shows the raw English relationship ('Family', 'Partner') in every language
+### L125. Trip share contact list shows the raw English relationship ('Family', 'Partner') in every language
 
 `lib/features/safety/presentation/trip_share_page.dart:161` (found by r2-rider3)
 
@@ -1872,7 +2342,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use relationshipLabel(shareable[i].relationship).
 
-### L101. 'CURRENT' button caption on the saved-places location picker is hard-coded English
+### L126. 'CURRENT' button caption on the saved-places location picker is hard-coded English
 
 `lib/features/saved_places/presentation/pickup_location.dart:228` (found by rider1)
 
@@ -1882,7 +2352,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use a localized caption (e.g. context.l10n.currentLocation shortened or a new key).
 
-### L102. Return-ride picker silently moves a stale or off-grid prefill: choose() clamps before initState, so the 'pickup time updated' notice never shows
+### L127. Return-ride picker silently moves a stale or off-grid prefill: choose() clamps before initState, so the 'pickup time updated' notice never shows
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:52` (found by r2-rider3)
 
@@ -1892,7 +2362,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass the raw initial time to the selector (for example a separate field), or compare against the unclamped value.
 
-### L103. Untranslated '24-hour', 'SCHEDULE' and 'Current location' on the scheduling screens (the realtime 'driver arrived' message is never displayed)
+### L128. Untranslated '24-hour', 'SCHEDULE' and 'Current location' on the scheduling screens (the realtime 'driver arrived' message is never displayed)
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:342` (found by rider1)
 
@@ -1902,7 +2372,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Move these to ARB keys; keep an internal sentinel constant for the "current location" pickup rather than comparing the displayed text.
 
-### L104. After a rebuild that happens without a pick (e.g. backing out of the category step), a pickup time that has gone stale greys out Continue with no correction message
+### L129. After a rebuild that happens without a pick (e.g. backing out of the category step), a pickup time that has gone stale greys out Continue with no correction message
 
 `lib/features/scheduled_rides/presentation/select_date_time.dart:753` (found by r2-rider3)
 
@@ -1912,7 +2382,27 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Keep the button enabled (apart from _continuing) and let _goNext do the correction, or clamp the time and show the message during build/tick when the selection becomes illegal.
 
-### L105. Finding and Waiting ride cards (and the route-change sentences) show the English payment name ('Cash', 'Movera Wallet') in sv/fr, even when the ride was booked in sv/fr
+### L130. Support 'Cases' is a static empty state that says 'No active cases' even after the rider has submitted a ride issue
+
+`lib/features/support/presentation/support.dart:526` (found by r2-rider4)
+
+**What happens:** A rider reports 'I was charged twice', sees 'Sent to Movera', taps Support › Cases and reads 'No active cases'. They conclude the report was lost and send it again.
+
+**Why:** SupportMessages is static: it always renders 'No active cases' and 'You have no closed support cases.' No data source backs it. SupportChat really sends the message (POST /rides/{id}/disputes, which answers `status: submitted`) and says 'Sent to Movera. The team reviews it…'. Opening Cases straight afterwards states that there is no active case.
+
+**Suggested fix:** Keep the disputes sent in this session (or read them from the server) and list them, or replace the empty state with copy that does not claim there are no cases.
+
+### L131. Support shows a cancelled ride as the full fare in Select ride (_RideRow) and as '0 · Cancelled' elsewhere, dropping a late-cancel fee that History shows
+
+`lib/features/support/presentation/support.dart:1097` (found by r2-rider4)
+
+**What happens:** A rider cancelled a kr 189 Comfort ride. Support › View all lists it at 'kr 189', while Support Home says 'kr 0 · Cancelled'. For a late-cancelled reservation with a kr 50 fee, History shows the kr 50 fee but Support shows kr 0. The rider raising a money issue sees the wrong amount.
+
+**Why:** SupportController.rideFor never passes the reservation's cancellationFee (`extra` is never set). SupportRide.priceLabel therefore shows `formatMajor(0)` · Cancelled for every cancelled ride (SupportHome cards, the SupportChat header and SelectIssue's trip line), even when a late-cancel fee was recorded. Ride History shows the same fee (`ride.cancellationFee ... context.l10n.cancelFee`). The 'View all' list (_RideRow) shows `formatMajor(ride.price, ...)` for the same cancelled ride, i.e. the full fare as if it had been charged. The two Support screens contradict each other, and both can differ from History.
+
+**Suggested fix:** Carry the cancellation fee into SupportRide (extra or a fee field), and make _RideRow use the same priceLabel for cancelled rides.
+
+### L132. Finding and Waiting ride cards (and the route-change sentences) show the English payment name ('Cash', 'Movera Wallet') in sv/fr, even when the ride was booked in sv/fr
 
 `lib/features/wallet/domain/wallet_split.dart:110` (found by r2-rider3)
 
@@ -1922,7 +2412,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pass the stored name through paymentLabelFor (and map ids such as 'cash', 'wallet', 'card:*' too) inside bookedPaymentLine and before the moreCharged/lessReturned/chargedTo/refundedToDays calls.
 
-### L106. L10n.place never translates the 'Pickup location' fallback label, so it shows in English on every later screen
+### L133. L10n.place never translates the 'Pickup location' fallback label, so it shows in English on every later screen
 
 `lib/l10n/l10n.dart:92` (found by rider3)
 
@@ -1932,7 +2422,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Add `'Pickup location' => current.pickupLocation` to L10n.place.
 
-### L107. Confirm sheet's Cancel button stays English in sv/fr: default cancelLabel 'Cancel' is never overridden by the three callers
+### L134. Confirm sheet's Cancel button stays English in sv/fr: default cancelLabel 'Cancel' is never overridden by the three callers
 
 `lib/shared/design_system/movera_confirm_sheet.dart:13` (found by rider-j8)
 
@@ -1942,7 +2432,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Default cancelLabel to null and use `cancelLabel ?? sheetContext.l10n.cancel`, or pass context.l10n.cancel at every call site.
 
-### L108. HorizontalSwipe keeps the drag origin in build-local variables, so a rebuild mid-drag resets start to 0: a leftward drag is swallowed or read as a right swipe
+### L135. HorizontalSwipe keeps the drag origin in build-local variables, so a rebuild mid-drag resets start to 0: a leftward drag is swallowed or read as a right swipe
 
 `lib/shared/widgets/horizontal_swipe.dart:22` (found by rider1)
 
@@ -1952,7 +2442,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Make HorizontalSwipe a StatefulWidget (or keep start/last in a ValueNotifier/record owned outside build) so the drag origin survives rebuilds; alternatively use DragStartDetails/DragEndDetails only (d.velocity + accumulated delta from onHorizontalDragUpdate stored in State).
 
-### L109. Transition builders allocate an undisposed CurvedAnimation on every transition frame, leaking status listeners on the route controller for the route's lifetime and losing curve-direction continuity on mid-animation reversal
+### L136. Transition builders allocate an undisposed CurvedAnimation on every transition frame, leaking status listeners on the route controller for the route's lifetime and losing curve-direction continuity on mid-animation reversal
 
 `lib/shared/widgets/navigation_transition.dart:28` (found by rider-j8)
 
@@ -1962,7 +2452,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Use `CurveTween(curve: ...)` chained on the animation, for example `animation.drive(CurveTween(curve: MoveraCurves.open))`, or move the curves into a StatefulWidget that owns and disposes its CurvedAnimation.
 
-### L110. Connection banner and MoveraEmptyState are read twice by screen readers: an explicit Semantics label plus the unexcluded child Texts (empty state is at lib/shared/design_system/movera_empty_state.dart)
+### L137. Connection banner and MoveraEmptyState are read twice by screen readers: an explicit Semantics label plus the unexcluded child Texts (empty state is at lib/shared/design_system/movera_empty_state.dart)
 
 `lib/shared/widgets/realtime_connection_banner.dart:34` (found by rider-j8)
 
@@ -1972,7 +2462,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Wrap the visual content in ExcludeSemantics, or drop the explicit label and keep only the Texts.
 
-### L111. screenHorizPadding is computed once (lazy top-level), so after a web/desktop window resize side gutters stay at the first scale (e.g. 16 px vs 20 px) while ResSize-scaled layout rescales
+### L138. screenHorizPadding is computed once (lazy top-level), so after a web/desktop window resize side gutters stay at the first scale (e.g. 16 px vs 20 px) while ResSize-scaled layout rescales
 
 `lib/shared/widgets/responsive_size.dart:3` (found by rider4)
 
@@ -1982,7 +2472,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Make it a getter: `double get screenHorizPadding => ScreenUtil().setWidth(16);`.
 
-### L112. core -> features/di import guard only matches single-quoted package: imports, so a relative import from lib/core bypasses it (no current breach)
+### L139. core -> features/di import guard only matches single-quoted package: imports, so a relative import from lib/core bypasses it (no current breach)
 
 `test/architecture/guard_test.dart:188` (found by rider2)
 
@@ -1992,7 +2482,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Match both quote styles (`['"]([^'"]+)['"]`), resolve relative URIs against the file's directory before checking, and also reject any resolved path under lib/features or lib/app/di.dart; optionally add `always_use_package_imports` to analysis_options to make relative imports impossible.
 
-### L113. lock_test idempotency-key tests are vacuous: failNext fails the quote POST, so only one ride POST is ever made and no keys are compared (coverage exists elsewhere)
+### L140. lock_test idempotency-key tests are vacuous: failNext fails the quote POST, so only one ride POST is ever made and no keys are compared (coverage exists elsewhere)
 
 `test/booking/lock_test.dart:105` (found by rider3)
 
@@ -2002,7 +2492,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Make the failure hit the rides endpoint (e.g. a mock that fails only `POST /api/v1/rides` once, or pre-fetch the quote and pass the quote binding), then assert `idempotencyKeys` has length 2 and `keys[0] == keys[1]` for the retry case and `keys[0] != keys[1]` for the changed-intent case.
 
-### L114. Required Phase 69 journey 'rider cancels after driver assignment' never mounts WaitingForDriver, and its cancel only succeeds through the 404 'no such ride' branch
+### L141. Required Phase 69 journey 'rider cancels after driver assignment' never mounts WaitingForDriver, and its cancel only succeeds through the 404 'no such ride' branch
 
 `test/journeys/rider_cancel_test.dart:178` (found by r2-rider3)
 
@@ -2012,7 +2502,17 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Mount the real WaitingForDriver (as waiting_external_terminal_test does) and seed `server.rides[rideId]` with an accepted trip. Assert that the server row becomes cancelled_by_rider, the route returns Home, and History holds the record.
 
-### L115. 'Book for later keeps the addresses already entered' never sends the addresses to any production object, so its address assertions compare constants with themselves
+### L142. 'each placeholder survives translation' skips every count/number placeholder, and plural =1 branches are never rendered
+
+`test/l10n/l10n_parity_test.dart:68` (found by r2-rider4)
+
+**What happens:** Change the sv text of retrySeconds to `{count, plural, =1{1 sekund} other{några sekunder}}`, or leave the fr `=1` branch of tripSharingStarted in English. The rider then sees 'några sekunder' with no number, or English in French, and rider-l10n.yml stays green.
+
+**Why:** tool/gen_l10n_messages.py passes the sample `3` for int/num/double placeholders. It writes into `messagePlaceholders` only the names whose type is String (`if dart_type(s) == 'String'`). So for homeRideCount, ridesLeft, validUntilDays(days), driverTripCount, tripSharingStarted, safetyContactsCount, retrySeconds and resSeatsPayment(count), the test never checks that `{count}`/`{days}` survives in fr/sv. Every message is also rendered only with 3, so the `=1{...}` branch of each plural is never checked, for either 'translated' or 'placeholder present'.
+
+**Suggested fix:** Use a distinctive numeric sample (for example 37), check that the rendered text contains '37' for numeric placeholders, and render each plural message with 1 as well, comparing it against English.
+
+### L143. 'Book for later keeps the addresses already entered' never sends the addresses to any production object, so its address assertions compare constants with themselves
 
 `test/reservations/scheduled_booking_flow_test.dart:363` (found by r2-rider1)
 
@@ -2022,7 +2522,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Enter both addresses on Home or RoutePicker, choose Later, and assert the addresses shown on ScheduleDateTimeSelector/SelectRide/SetPickup and in the created reservation.
 
-### L116. 'edit hydrates the saved payment instead of defaulting to Cash' does the hydration itself, so it cannot catch SelectRide losing it
+### L144. 'edit hydrates the saved payment instead of defaulting to Cash' does the hydration itself, so it cannot catch SelectRide losing it
 
 `test/reservations/scheduled_booking_flow_test.dart:409` (found by r2-rider1)
 
@@ -2032,7 +2532,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Pump SelectRide with `editingReservationId` pointing at a reservation paid by Card, let `_loadSavedCards` finish, and assert the selected payment before confirming.
 
-### L117. book_now_two_paths_e2e_test names are misleading: the 'starts Finding Driver' test only pumps ConfirmPickupSpot behind a stand-in button, and its findsNothing check is on copy no longer in lib; guard_test only checks that the strings exist. The real Book now flow is covered by book_to_home_test
+### L145. book_now_two_paths_e2e_test names are misleading: the 'starts Finding Driver' test only pumps ConfirmPickupSpot behind a stand-in button, and its findsNothing check is on copy no longer in lib; guard_test only checks that the strings exist. The real Book now flow is covered by book_to_home_test
 
 `test/ride/book_now_two_paths_e2e_test.dart:128` (found by r2-rider1)
 
@@ -2042,7 +2542,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Drive the real flow: pump Home or SelectRide with a fake location repository (fix and no fix), tap the real CTA, and assert that ConfirmPickupSpot/SetPickupPage appears and then FindingDrivers with `ride.status == findingDriver`. Replace the dead-copy findsNothing with `find.byType(FindingDrivers)`, and delete the string-presence guard.
 
-### L118. Empty `_guards()` body: the documented replacement guard for 'mock never invents a driver' asserts nothing
+### L146. Empty `_guards()` body: the documented replacement guard for 'mock never invents a driver' asserts nothing
 
 `test/ride/mock_driver_assignment_test.dart:49` (found by rider1)
 
@@ -2052,7 +2552,7 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 
 **Suggested fix:** Implement the guard (e.g. assert that no file outside lib/core/api constructs `MatchedDriver(` with literal mock identities, or that `MockDriverPool` is only referenced from the in-process mock client) or delete the empty function and its misleading comment.
 
-### L119. The phase71 'driver call is explicitly unavailable' tests supply the unavailable-dialog callback themselves, so WaitingForDriver's real onCall wiring (waiting_for_driver.dart:1894/1909) is never tested
+### L147. The phase71 'driver call is explicitly unavailable' tests supply the unavailable-dialog callback themselves, so WaitingForDriver's real onCall wiring (waiting_for_driver.dart:1894/1909) is never tested
 
 `test/safety/phase71_real_calling_test.dart:87` (found by r2-rider3)
 
@@ -2061,3 +2561,13 @@ Each finding was checked by an independent code tracer and a reproducer (often w
 **Why:** Both widget tests build WaitingDriverCard/RiderInTripPanel with `onCall: () => showDriverCallUnavailable(...)` written in the test, then tap Call and find the dialog. The production wiring is WaitingForDriver passing `onCall: _callDriverUnavailable` (waiting_for_driver.dart:1888, :1903), and it is never exercised. The tests only show that a callback the test supplies is called.
 
 **Suggested fix:** Pump WaitingForDriver with a matched driver (as waiting_external_terminal_test does), tap 'Call driver', and assert the unavailable dialog appears.
+
+### L148. 'duplicate payment key returns same intent family' asserts only the amount, so it cannot detect a second intent (or the wrong intent) being returned
+
+`test/wallet/gateway_test.dart:28` (found by r2-rider4)
+
+**What happens:** Remove the idempotency check, so every call creates `pi_<new>`, and the test still passes. Or create key A (100 kr), then key B (200 kr), then retry A. The mock returns B's 200 kr intent, and no test notices.
+
+**Why:** The test creates two intents with key 'dup' and asserts `second.amountMinor == 5000`. Any newly created intent for 5000 öre satisfies that, so idempotency is not tested. It also hides a defect in the mock: on a reused key MockPaymentGateway returns `_intents.values.last`, the most recently created intent of any key, not the one created for that key. ops_test 'top-up idempotency key reused' uses a single key too, so the mismatch is never seen.
+
+**Suggested fix:** Assert `second.id == first.id`. Add a two-key case and key the mock's map by idempotency key.
