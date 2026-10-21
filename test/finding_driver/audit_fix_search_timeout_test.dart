@@ -37,6 +37,9 @@ class _Backend extends http.BaseClient {
   /// A new booking waits for this before it reaches the backend.
   Completer<void>? holdBooking;
 
+  /// A new booking is lost on the way (no answer: it may exist).
+  bool bookingOffline = false;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final path = request.url.path;
@@ -44,6 +47,7 @@ class _Backend extends http.BaseClient {
     if (request.method == 'POST' && path == '/api/v1/rides') {
       bookingKeys.add(request.headers['Idempotency-Key']);
       await holdBooking?.future;
+      if (bookingOffline) throw http.ClientException('connection lost');
     }
     if (request.method == 'GET' &&
         RegExp(r'^/api/v1/rides/[^/]+$').hasMatch(path)) {
@@ -471,6 +475,38 @@ void main() {
       await searchingAgain(tester, controller, firstId);
       expect(find.byType(FindingDrivers), findsOneWidget);
       expect(controller.ownedRideId, isNot(firstId));
+    });
+
+    testWidgets('rider-u108: a Try again that may have booked stays on the '
+        'screen and retries the same booking', (tester) async {
+      const firstId = 'to-maybe-booked';
+      final controller = await noDriverFound(tester, firstId);
+      server.rides.clear();
+      backend.bookingOffline = true;
+      await tester.tap(find.text('Try again'));
+      final uncertain = find.text(
+        'We couldn’t confirm your booking. Check your connection and try '
+        'again.',
+      );
+      await pumpUntil(
+        tester,
+        () =>
+            uncertain.evaluate().isNotEmpty ||
+            find.text('timeout-home').evaluate().isNotEmpty,
+        max: 200,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(uncertain, findsOneWidget);
+      expect(find.text('timeout-home'), findsNothing);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+
+      backend.bookingOffline = false;
+      await tester.tap(find.text('Try again'));
+      await searchingAgain(tester, controller, firstId);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      // Every send was the same booking: one key, so at most one ride.
+      expect(backend.bookingKeys.toSet(), hasLength(1));
     });
   });
 }

@@ -116,6 +116,18 @@ class FindingDrivers extends StatefulWidget {
   State<FindingDrivers> createState() => _FindingDriversState();
 }
 
+/// How a "Try again" after no driver found ended.
+enum _Rebook {
+  /// The new search runs.
+  started,
+
+  /// Refused or failed: no new ride exists.
+  failed,
+
+  /// No answer (timeout, dropped connection): the ride may exist (RC-09).
+  uncertain,
+}
+
 class _FindingDriversState extends State<FindingDrivers> {
   /// The trip's currency: the one the search holds once it started (a
   /// restored or re-requested trip keeps its own), else the widget's.
@@ -350,18 +362,27 @@ class _FindingDriversState extends State<FindingDrivers> {
     }
     // RIDE-19: the server found no driver. Offer the same request again, or
     // a different route from "Where to?".
-    final choice = await showNoDriverFoundSheet(context);
-    if (!mounted) return;
-    if (choice == NoDriverChoice.tryAgain && await _requestAgain(ended)) {
-      return;
+    var choice = await showNoDriverFoundSheet(context);
+    while (mounted && choice == NoDriverChoice.tryAgain) {
+      final outcome = await _requestAgain(ended);
+      if (outcome == _Rebook.started) return;
+      if (outcome != _Rebook.uncertain || !mounted) break;
+      // rider-u108: the new ride may exist on the server. The rider stays
+      // here and may send the same booking again (same key, so never a
+      // second ride) rather than being sent Home with a live ride unseen.
+      choice = await showNoDriverFoundSheet(
+        context,
+        message: context.l10n.bookingUncertain,
+      );
     }
     if (!mounted) return;
     RideNavigator.home(context, status: status);
   }
 
   /// Requests the same route, category and payment again as a new booking
-  /// (a new ride, so a new idempotency key). True when the new search runs.
-  Future<bool> _requestAgain(RideSnapshot ended) async {
+  /// (a new ride, so a new idempotency key; a retry after an uncertain
+  /// answer reuses it).
+  Future<_Rebook> _requestAgain(RideSnapshot ended) async {
     String rideId;
     setState(() => _rebooking = true);
     try {
@@ -383,25 +404,27 @@ class _FindingDriversState extends State<FindingDrivers> {
         useWalletFirst: widget.walletAmountMinor > 0,
         walletAmountMinor: widget.walletAmountMinor,
       );
-    } catch (_) {
+    } catch (error) {
+      // RC-09: a timeout or dropped connection may still have booked it.
+      if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
       _showCancelNotice(
         L10n.current.rebookFailed,
       );
-      return false;
+      return _Rebook.failed;
     } finally {
       if (mounted) setState(() => _rebooking = false);
     }
-    if (rideId.trim().isEmpty) return false;
+    if (rideId.trim().isEmpty) return _Rebook.failed;
     if (!mounted) {
       // The new ride exists on the server: it gets a screen now.
       await RideRestoreCoordinator.instance.recoverCreatedFinding(
         rideId,
         realtime: widget.realtime,
       );
-      return false;
+      return _Rebook.started;
     }
     final booked = await _match.storedRide(rideId: rideId);
-    if (!mounted) return false;
+    if (!mounted) return _Rebook.failed;
     if (booked != null) _adoptRoute(booked);
     _leaving = false;
     _terminalPending = null;
@@ -415,7 +438,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       createdAt: booked?.createdAt,
     );
     _loadMapBits();
-    return true;
+    return _Rebook.started;
   }
 
   /// Takes over [ride]'s route on this screen (without telling the server,
