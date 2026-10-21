@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "note": "Rider cancel fee = 0 inside the free window. Live: minutesSinceAccept < freeMin is free. Reservation: minutesBeforePickup >= freeMin is free. Else fixed value (minor units) or percent of fare rounded half-up to a whole minor unit, then clamped to min/max.",
   "cases": [
     { "id": "live_fixed_inside_free", "kind": "live", "rule": { "freeMin": 2, "type": "fixed", "value": 4500, "min": null, "max": null }, "fare": { "amountMinor": 25000, "currency": "SEK" }, "minutesSinceAccept": 1, "fee": { "amountMinor": 0, "currency": "SEK" } },

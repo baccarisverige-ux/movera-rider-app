@@ -1,4 +1,6 @@
-# Movera shared contract v0.4.0
+# Movera shared contract v0.4.1
+
+v0.4.1 (additive): `DriverAppConfig.reservations` carries the Dispatch › Reservations timings to the driver app, with the new running-late ETA watch (`reservations.lateEta`, §6.1).
 
 One contract for **Rider** (Flutter), **Driver** (Flutter) and **Admin** (React/TS), so one future backend can serve all three.
 This folder is copied byte-for-byte into each repo at `contracts/`. Each repo runs contract tests that (1) check its copy matches `contracts/CHECKSUMS` and (2) replay `fixtures/*.json` through its own code. Change the contract here first, bump `version`, then copy to all three repos.
@@ -165,6 +167,7 @@ Every admin control below has one owner page, one config path and one defined ef
 | Default languages (Settings, per country) | `rider.languages`, `driver.languages` | Default app language | Default app language | — |
 | Offer modes, timers, offer card (Dispatch › Modes) | `driver.offers` | — | Radar/Exclusive timers, card fields, auto-offline | Dispatch |
 | Exclusive reasons (Dispatch) | `driver.offers.exclusiveReasons` | — | Reason line on Exclusive | — |
+| Reservations: steps, smart gap, Leave now, running late, cancels (Dispatch › Reservations) | `driver.reservations` (§6.1) | — | Home popup / Exclusive / Radar times, Leave now, late warning, ETA watch, offline backup, late-cancel pause | Reassigns a late or offline driver's ride |
 | Destination mode, next trips (Dispatch) | `driver.destinationMode`, `driver.nextTrips` | — | Filters, limits | Dispatch filter |
 | Cancel reasons (Dispatch › Cancel reasons) | `rider.cancelReasons`, `driver.cancelReasons` | Rider reason list | Driver reason sheets | Validates `reasonCode` per actor |
 | Ride check thresholds (Safety) | `rider.rideCheck`, `driver.rideCheck` | Ride check prompts | Ride check prompts | Triggers |
@@ -205,6 +208,7 @@ DriverAppConfig { version, publishedAt, zoneId, currency, timeZone, country, lan
   cancelFees: { live: {...}, reservation: {...} },
   waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct, driverShareWaitPct, byCategory: { [categoryId]: CategoryWaiting } },
   destinationMode: {...}, nextTrips: {...},
+  reservations: DriverReservations,             // §6.1
   cancelReasons: { driverBeforeTrip, driverDuringTrip, driverNextTrip, scheduled, noShow },
   drivingLimits: {...}, rideCheck: {...}, texts: {...}, notices: {...}, appUpdate: {...} }
 
@@ -236,6 +240,36 @@ Per-zone settings (owner round 2; defaults in `contract.json#configDefaults`, us
 | `driverBonus.defaultLimit` / `hardMax` | — | ✓ | SE 200 / 1000 kr · FR 20 / 95 € · TN 60 / 300 DT |
 
 All Money above is in the zone's currency; an amount in another currency is invalid and falls back to the default. The top-level `waiting` terms are the headline category's (`economy`, else the first).
+
+### 6.1 `DriverAppConfig.reservations`
+
+Built by Admin from Dispatch › Reservations of the zone. Every field is optional on read: a missing or invalid field keeps the driver app's default, which is `contract.json#configDefaults.reservations` (the values below).
+
+```
+DriverReservations {
+  on: true,                     // reservations enabled in this zone
+  leaveNow: true,               // open the trip automatically at "Leave now"
+  lateWarn: true,               // "Head to your 07:40 pickup" island warning when Leave now cannot start
+  offlineBackupAfterMin: 5,     // 1–60. Only an OFFLINE driver loses the ride this long after Leave now; an online driver keeps it
+  homePopupAfterMin: 10,        // untaken: Home popup this long after booking
+  exclusiveBeforeMin: 20,       // untaken: Exclusive from this long before pickup
+  radarBeforeMin: 15,           // untaken: Radar trips from this long before pickup
+  onDriverCancel: "byTime",     // byTime | list | home | exclusive
+  hideClashing: true,           // rides that do not fit the smart gap leave the driver's list once they take one
+  towardPickup: true, towardPickupBeforeMin: 60,
+  longTripKm: 50,               // a ride longer than this is a longTrip
+  driverLateCancelHours: 1,     // a driver cancel closer to pickup is a late cancel
+  lateCancelLimit: 2, lateCancelPeriodDays: 7, pauseDays: 7,   // limit late cancels in the period → no scheduled rides for pauseDays
+  assignAcceptSeconds: 30,      // time to accept a ride assigned by Movera
+  rideTypes: { normal | airport | longTrip | comfortPremium | event:
+               { onlineBeforeMin, spareMin, reminderMin: [int] } },  // defaults 30/60/60/45/45, spare 15, reminders [60, 15]
+  lateEta: { on: true, toleranceMin: 3, checkEverySeconds: 60, reassignTo: "exclusive" } }
+```
+
+- **Leave now** fires at the driver's estimated drive time to the pickup + `rideTypes[kind].spareMin` before pickup (an estimate, not live traffic).
+- **Running late (`lateEta`)**: from Leave now until the driver arrives at the pickup, the driver's ETA is checked every `checkEverySeconds` (15–600). When `now + ETA > pickup time + toleranceMin` (`toleranceMin` 0–30), the ride is reassigned early to `reassignTo`: `exclusive` (Exclusive offer to the nearest available driver), `radar` (Radar trips) or `dispatch` (back to admin dispatch). Otherwise an online driver keeps the ride.
+- **Offline driver**: only a driver who is offline at Leave now loses the ride, after `offlineBackupAfterMin`. An online driver is never removed by that timer.
+- Admin ids map: `normal → normal`, `airport → airport`, `long → longTrip`, `premium → comfortPremium`, `event → event`; Admin `lateBackupAfterMin` is `offlineBackupAfterMin`.
 
 Cancel reasons: the rider document lists `{code, title}` in the rider's language; the driver document lists codes per group and the titles come from `texts`. Unknown keys are ignored; missing keys fall back to the app's seed. `version` only increases; apps keep the last good document.
 
