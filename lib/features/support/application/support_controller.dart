@@ -39,7 +39,10 @@ class SupportController {
     return SupportRide(
       id: ride.reservationId,
       title: to.isEmpty ? ride.categoryName : L10n.current.toPlace(to),
-      when: ride.scheduledPickupAt.toLocal(),
+      // rider-63: a zone booking reads in its pickup zone's time.
+      when: ride.timeZone == null
+          ? ride.scheduledPickupAt.toLocal()
+          : ride.pickupWallTime,
       price: ride.price,
       currency: ride.currency,
       image: ride.categoryImage,

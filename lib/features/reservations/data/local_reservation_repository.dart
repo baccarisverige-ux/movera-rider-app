@@ -179,6 +179,7 @@ class LocalReservationRepository implements ReservationRepository {
         note: draft.note,
         policyVersion: policy.version,
         parentReservationId: draft.parentReservationId,
+        timeZone: draft.timeZone,
       );
       await _commit([created, ..._items]);
       return created;
@@ -214,6 +215,7 @@ class LocalReservationRepository implements ReservationRepository {
         driver: patch.driver,
         clearDriver: patch.clearDriver,
         previousDriver: patch.previousDriver,
+        timeZone: patch.timeZone,
       );
       await _commit(_replacing(reservationId, next));
       return next;

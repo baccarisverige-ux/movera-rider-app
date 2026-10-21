@@ -206,7 +206,7 @@ abstract final class ReservationFormat {
   }
 
   static String historyWhen(Reservation ride) {
-    return '${cardDate(ride.scheduledPickupAt)} · ${time(ride.scheduledPickupAt)}';
+    return '${cardDate(ride.pickupWallTime)} · ${time(ride.pickupWallTime)}';
   }
 
   /// "50 kr", "5 €": the app's one money format (UI-10).

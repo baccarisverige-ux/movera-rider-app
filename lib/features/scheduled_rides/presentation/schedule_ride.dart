@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -93,7 +94,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
     if (editing != null) {
       _pickupController.text = L10n.place(editing.pickup.label);
       _dropoffController.text = editing.destination.label;
-      _session.captureSchedule(editing.scheduledPickupAt);
+      // rider-63: the booked time in its own pickup zone.
+      _session.captureSchedule(
+        editing.pickupWallTime,
+        timezone: editing.timeZone ?? ZoneClock.stockholm,
+      );
       _session.captureRideType(editing.categoryId);
       _session.capturePayment(editing.paymentMethod);
       if (editing.hasPreferences) _session.captureNote(editing.note!.trim());

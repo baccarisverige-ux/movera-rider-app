@@ -246,21 +246,21 @@ void main() {
     final booked = c.all.single;
     expect(opened, [booked.reservationId]);
     expect(booked.parentReservationId, 'rsv_origin');
-    expect(booked.scheduledPickupAt, isNot(prefill));
+    expect(booked.pickupWallTime, isNot(prefill));
     expect(
-      booked.scheduledPickupAt.isBefore(slotAtStart) ||
-          booked.scheduledPickupAt.isAfter(slotAtEnd),
+      booked.pickupWallTime.isBefore(slotAtStart) ||
+          booked.pickupWallTime.isAfter(slotAtEnd),
       isFalse,
       reason: 'the picker books the clamped prefill: the earliest legal slot '
           'at some moment between $slotAtStart and $slotAtEnd, '
-          'got ${booked.scheduledPickupAt}',
+          'got ${booked.pickupWallTime}',
     );
     expect(
-      StockholmSchedule.isLegalPickup(booked.scheduledPickupAt, startedAt),
+      StockholmSchedule.isLegalPickup(booked.pickupWallTime, startedAt),
       isTrue,
       reason: 'the booked return pickup satisfies the 30-minute lead',
     );
-    expect(booked.scheduledPickupAt.minute % StockholmSchedule.slotMinutes, 0);
+    expect(booked.pickupWallTime.minute % StockholmSchedule.slotMinutes, 0);
   }
 
   phase114Widgets(
@@ -342,7 +342,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      final booked = c.all.single.scheduledPickupAt;
+      final booked = c.all.single.pickupWallTime;
       expect(StockholmSchedule.isLegalPickup(booked), isTrue);
       expect(StockholmSchedule.isOnGrid(booked), isTrue);
       expect(opened, [c.all.single.reservationId]);
@@ -394,7 +394,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      final booked = c.all.single.scheduledPickupAt;
+      final booked = c.all.single.pickupWallTime;
       expect(StockholmSchedule.isLegalPickup(booked), isTrue);
       expect(StockholmSchedule.isOnGrid(booked), isTrue);
       expect(opened, [c.all.single.reservationId]);
@@ -510,7 +510,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      expect(c.all.single.scheduledPickupAt, prefill);
+      expect(c.all.single.pickupWallTime, prefill);
       expect(c.all.single.parentReservationId, 'rsv_origin');
       expect(opened, [c.all.single.reservationId]);
     },
@@ -584,7 +584,7 @@ void main() {
       expect(opened, [booked.reservationId]);
       expect(booked.parentReservationId, 'rsv_origin');
       expect(
-        StockholmSchedule.isOnGrid(booked.scheduledPickupAt),
+        StockholmSchedule.isOnGrid(booked.pickupWallTime),
         isTrue,
         reason: 'the picker grid-aligns the final booked time',
       );
@@ -620,7 +620,7 @@ void main() {
 
       expect(find.byType(ScheduleDateTimeSelector), findsNothing);
       expect(c.all, hasLength(1));
-      expect(c.all.single.scheduledPickupAt, picked);
+      expect(c.all.single.pickupWallTime, picked);
       expect(c.all.single.parentReservationId, isNull);
       expect(opened, [c.all.single.reservationId]);
     },

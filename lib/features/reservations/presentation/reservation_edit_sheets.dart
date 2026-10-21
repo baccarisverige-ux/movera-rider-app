@@ -43,8 +43,8 @@ Future<CancelOutcome> showCancelReservationFlow(
             const SizedBox(height: 8),
             Text(
               context.l10n.resCancelBody(
-                ReservationFormat.weekdayDate(ride.scheduledPickupAt),
-                ReservationFormat.time(ride.scheduledPickupAt),
+                ReservationFormat.weekdayDate(ride.pickupWallTime),
+                ReservationFormat.time(ride.pickupWallTime),
               ),
               style: reservationText(
                 14,

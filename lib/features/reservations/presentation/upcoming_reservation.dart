@@ -247,7 +247,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),
+                  ReservationFormat.reservedHeadline(ride.pickupWallTime),
                   style: reservationText(
                     13.5,
                     color: kReservationMuted,
@@ -352,7 +352,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   asset: AppAssets.scheduleCalendar,
                   label: context.l10n.resScheduledFor,
                   value:
-                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                      '${ReservationFormat.longDate(ride.pickupWallTime)}, ${ReservationFormat.time(ride.pickupWallTime)}',
                 ),
                 ReservationFact(
                   asset: AppAssets.gps,

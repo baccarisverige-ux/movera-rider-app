@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
@@ -145,8 +146,11 @@ class ReservationDraft {
     this.estimatedDropoffAt,
     this.note,
     this.parentReservationId,
+    this.timeZone,
   });
 
+  /// The pickup instant. With a [timeZone] it is the instant of the
+  /// rider's pick in that zone's wall-clock time (rider-63).
   final DateTime scheduledPickupAt;
   final ReservationPlace pickup;
   final ReservationPlace destination;
@@ -160,7 +164,19 @@ class ReservationDraft {
   final DateTime? estimatedDropoffAt;
   final String? note;
   final String? parentReservationId;
+
+  /// The pickup zone's IANA time zone (Q9), or null for a ride booked in
+  /// device-local time.
+  final String? timeZone;
+
+  /// The pickup as the rider picked it: the zone's wall-clock time.
+  DateTime get pickupWallTime => zoneWallTime(scheduledPickupAt, timeZone);
 }
+
+/// [instant] as wall-clock time in [timeZone] (rider-63); without a zone,
+/// [instant] as it is (a device-local booking).
+DateTime zoneWallTime(DateTime instant, String? timeZone) =>
+    timeZone == null ? instant : ZoneClock.wallTime(timeZone, instant);
 
 class ReservationPriceChange {
   const ReservationPriceChange({
@@ -204,6 +220,7 @@ class ReservationPatch {
     this.driver,
     this.clearDriver = false,
     this.previousDriver,
+    this.timeZone,
   });
 
   final DateTime? scheduledPickupAt;
@@ -226,6 +243,9 @@ class ReservationPatch {
 
   /// The driver who handed this ride over, when the driver changes.
   final ReservationDriver? previousDriver;
+
+  /// The pickup zone of a new [scheduledPickupAt] (rider-63).
+  final String? timeZone;
 }
 
 class Reservation {
@@ -256,6 +276,7 @@ class Reservation {
     this.endedEarly = false,
     this.chargedFare,
     this.paymentFailed = false,
+    this.timeZone,
   });
 
   final String reservationId;
@@ -299,6 +320,20 @@ class Reservation {
   /// `paymentStatus: failed`). History lists it as completed and says so.
   final bool paymentFailed;
 
+  /// rider-63: the pickup zone's IANA time zone. [scheduledPickupAt] and
+  /// [estimatedDropoffAt] are instants; screens show them as this zone's
+  /// wall-clock time. Null: an older ride booked in device-local time.
+  final String? timeZone;
+
+  /// The pickup time as the rider booked it, in the pickup zone.
+  DateTime get pickupWallTime => zoneWallTime(scheduledPickupAt, timeZone);
+
+  /// The drop-off estimate in the pickup zone's wall-clock time.
+  DateTime? get dropoffWallTime {
+    final dropoff = estimatedDropoffAt;
+    return dropoff == null ? null : zoneWallTime(dropoff, timeZone);
+  }
+
   bool get driverAssigned => status.hasDriver && driver != null;
 
   bool get isSearchingDriver => status.isSearchingDriver;
@@ -340,6 +375,7 @@ class Reservation {
     bool? endedEarly,
     Money? chargedFare,
     bool? paymentFailed,
+    String? timeZone,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -368,6 +404,7 @@ class Reservation {
       endedEarly: endedEarly ?? this.endedEarly,
       chargedFare: chargedFare ?? this.chargedFare,
       paymentFailed: paymentFailed ?? this.paymentFailed,
+      timeZone: timeZone ?? this.timeZone,
     );
   }
 
@@ -401,6 +438,7 @@ class Reservation {
     if (endedEarly) 'endedEarly': true,
     if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
     if (paymentFailed) 'paymentFailed': true,
+    if (timeZone != null) 'timeZone': timeZone,
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -462,6 +500,7 @@ class Reservation {
         endedEarly: map['endedEarly'] == true,
         chargedFare: Money.fromWire(map['chargedFare']),
         paymentFailed: map['paymentFailed'] == true,
+        timeZone: map['timeZone'] as String?,
       );
     } catch (_) {
       return null;
