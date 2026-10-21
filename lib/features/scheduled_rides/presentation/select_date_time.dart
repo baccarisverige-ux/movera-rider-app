@@ -192,11 +192,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     }
   }
 
-  void _applyPickedDateTime(DateTime candidate) {
+  void _applyPickedDateTime(DateTime candidate, {bool moved = false}) {
     final corrected = _clampChosen(candidate, widget.now?.call());
     setState(() {
       _selectedDateTime = corrected;
-      _pickupCorrectionMessage = corrected == candidate
+      _pickupCorrectionMessage = corrected == candidate && !moved
           ? null
           : context.l10n.pickupTimeUpdated;
     });
@@ -498,14 +498,20 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     hourController.dispose();
     minuteController.dispose();
     if (result == null || !mounted) return;
+    final candidate = DateTime(
+      _selectedDateTime.year,
+      _selectedDateTime.month,
+      _selectedDateTime.day,
+      result.hour,
+      result.minute,
+    );
+    // rider-r4-12: a time the device's own zone skips is normalised by
+    // DateTime (02:30 becomes 03:30 on an EU phone); the rider is told it
+    // moved rather than booked silently. A time the pickup zone skips is
+    // moved by the clamp.
     _applyPickedDateTime(
-      DateTime(
-        _selectedDateTime.year,
-        _selectedDateTime.month,
-        _selectedDateTime.day,
-        result.hour,
-        result.minute,
-      ),
+      candidate,
+      moved: candidate.hour != result.hour || candidate.minute != result.minute,
     );
   }
 

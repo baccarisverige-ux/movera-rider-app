@@ -39,9 +39,16 @@ class PickupSchedule {
   DateTime clampPickup(DateTime dt, [DateTime? now]) {
     final min = minimumPickup(now);
     if (dt.isBefore(min)) return min;
-    return StockholmSchedule.roundToFive(
+    final slot = StockholmSchedule.roundToFive(
       DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute),
     );
+    // rider-r4-12: a wall time the zone skips (02:30 on the EU
+    // spring-forward night) is booked as the instant it resolves to, so
+    // what the rider sees is what the driver is sent for.
+    final real = ZoneClock.wallTime(timeZone, toUtc(slot));
+    return real == slot
+        ? slot
+        : DateTime(real.year, real.month, real.day, real.hour, real.minute);
   }
 
   bool isLegalPickup(DateTime dt, [DateTime? now]) =>

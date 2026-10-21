@@ -97,4 +97,16 @@ void main() {
       trip: 80,
     );
   });
+
+  test('rider-r4-12: a pickup in the spring-forward gap is booked as the '
+      'time it really is, never an hour later than shown', () {
+    final now = DateTime.utc(2026, 3, 27, 10);
+    const stockholm = PickupSchedule(ZoneClock.stockholm);
+    final picked = stockholm.clampPickup(DateTime(2026, 3, 29, 2, 30), now);
+    expect(picked, DateTime(2026, 3, 29, 3, 30));
+    expect(
+      ZoneClock.wallTime(ZoneClock.stockholm, stockholm.toUtc(picked)),
+      picked,
+    );
+  });
 }
