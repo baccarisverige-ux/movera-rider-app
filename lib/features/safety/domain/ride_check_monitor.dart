@@ -77,6 +77,11 @@ class RideCheckMonitor {
   /// short hop that takes two extra minutes is not flagged.
   static const minimumExtraDelay = Duration(minutes: 3);
 
+  /// The trip's time budget is taken from the ETAs of its first minute.
+  /// The first sample can still carry the ETA to the pickup, so a later
+  /// one in that minute can raise it (rider-r3-3).
+  static const budgetWindow = Duration(minutes: 1);
+
   RideCheckTriggerSettings settings;
   RideCheckPlan _plan;
   RideCheckPlan get plan => _plan;
@@ -115,7 +120,7 @@ class RideCheckMonitor {
     if (previous != null && !sample.at.isAfter(previous.at)) return null;
     _previous = sample;
     _tripStartedAt ??= sample.at;
-    _expectedSeconds ??= sample.etaSeconds;
+    _budget(sample);
 
     double? speed;
     Duration? gap;
@@ -234,6 +239,19 @@ class RideCheckMonitor {
       RideCheckTrigger.offRoute,
       RideCheckReason(longerPercent: percent),
     );
+  }
+
+  /// rider-r3-3: a missing or non-positive ETA is unknown (the straight
+  /// line stands in), never a budget of 0.
+  void _budget(RideCheckSample sample) {
+    final eta = sample.etaSeconds;
+    final started = _tripStartedAt;
+    if (eta == null || eta <= 0 || started == null) return;
+    final elapsed = sample.at.difference(started);
+    if (elapsed > budgetWindow) return;
+    final candidate = elapsed.inSeconds + eta;
+    final current = _expectedSeconds;
+    if (current == null || candidate > current) _expectedSeconds = candidate;
   }
 
   int _straightLineSeconds() {

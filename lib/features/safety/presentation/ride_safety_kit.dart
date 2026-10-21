@@ -148,7 +148,14 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      // rider-u199: the OS interrupted the recording and it was saved.
+      if (!_ctl.audio.isRecording &&
+          _audioNote == context.l10n.safetyKitRecording) {
+        _audioNote = context.l10n.recordingSavedLocal;
+      }
+    });
   }
 
   TextStyle _text(

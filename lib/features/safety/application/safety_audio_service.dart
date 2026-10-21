@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
@@ -12,13 +15,22 @@ class SafetyAudioException implements Exception {
   String toString() => 'SafetyAudioException($code, $message)';
 }
 
-class SafetyAudioService {
+/// Notifies its listeners when the platform interrupted a recording and it
+/// was stopped and saved (rider-u199).
+class SafetyAudioService extends ChangeNotifier {
   SafetyAudioService({
     SafetyRecorder? recorder,
     SafetyStore? store,
     this.supported = true,
   })  : _recorder = recorder ?? createSafetyRecorder(),
-        _store = store ?? SafetyStore.shared;
+        _store = store ?? SafetyStore.shared {
+    final recorder = _recorder;
+    if (recorder is SafetyRecorderInterruptions) {
+      _interruptions = (recorder as SafetyRecorderInterruptions)
+          .interruptions
+          .listen((_) => unawaited(_onInterrupted()));
+    }
+  }
 
   final SafetyRecorder _recorder;
   final SafetyStore _store;
@@ -28,6 +40,21 @@ class SafetyAudioService {
 
   AudioRecording? get active => _active;
   bool get isRecording => _active?.isRecording == true;
+
+  StreamSubscription<void>? _interruptions;
+
+  /// Whether the recording the platform last interrupted was saved.
+  bool? lastInterruptionSaved;
+
+  /// rider-u199: the OS paused or stopped capture (a 112 call, the app in
+  /// the background). The file holds the audio up to here, so it is saved
+  /// and the card and Kit stop showing "Recording".
+  Future<void> _onInterrupted() async {
+    if (_active == null) return;
+    final saved = await stopIfRecording(reason: 'interrupted');
+    lastInterruptionSaved = saved != null;
+    notifyListeners();
+  }
 
   /// Starts the microphone. With [deviceOnly] (Ride check, RC5) the
   /// recording is kept on this phone only: nothing about it is sent to
@@ -139,6 +166,30 @@ class SafetyAudioService {
       }
       return null;
     }
+  }
+
+  /// rider-u202: the rider's data is being wiped (sign-out, another rider
+  /// signing in). A running recording is cancelled at once so the
+  /// microphone is released; it is not saved, since it belongs to the
+  /// rider whose data is going away.
+  void discardForWipe() {
+    if (_active == null) return;
+    _active = null;
+    unawaited(
+      _recorder.cancel().catchError((Object error) {
+        AppLog.warning(
+          'safety.audio.cancel_failed',
+          extra: {'reason': 'wipe', 'error': '$error'},
+        );
+      }),
+    );
+    AppLog.info('safety.audio.discarded', extra: {'reason': 'wipe'});
+  }
+
+  @override
+  void dispose() {
+    unawaited(_interruptions?.cancel());
+    super.dispose();
   }
 
   Future<void> delete(AudioRecording recording) async {

@@ -144,6 +144,7 @@ class RideCheckController extends ChangeNotifier {
        _emergency = emergency,
        _audio = audio,
        _clock = clock ?? DateTime.now {
+    _audio.addListener(_onRecordingInterrupted);
     _qaOwner = this;
     listenForRideCheckQa(_onQaSimulate);
   }
@@ -170,6 +171,8 @@ class RideCheckController extends ChangeNotifier {
   static void resetShared() {
     final old = _shared;
     _shared = null;
+    // rider-u202: a Ride check recording stops with the rider's data.
+    old?._audio.discardForWipe();
     old?.dispose();
   }
 
@@ -188,6 +191,16 @@ class RideCheckController extends ChangeNotifier {
   RideCheckSession? _session;
   String? _visibleRideId;
   final Set<String> _shown = {};
+
+  /// rider-u192: triggers detected while another card was up. The monitor
+  /// counts them as fired, so they wait here and open when that card
+  /// closes instead of being lost.
+  final List<({String rideId, RideCheckDetection hit})> _waiting = [];
+
+  /// rider-u198: checks the rider answered. Their final save can still be
+  /// queued behind a slow alert, so the saved event is not resolved yet and
+  /// resume() must not bring them back.
+  final Set<String> _closed = {};
   Future<void>? _queue;
   bool _disposed = false;
 
@@ -218,6 +231,8 @@ class RideCheckController extends ChangeNotifier {
   void attachTrip(RideCheckTripContext trip, RideCheckPlan plan) {
     final sameRide = _trip?.rideId == trip.rideId;
     _trip = trip;
+    if (!sameRide) _waiting.removeWhere((w) => w.rideId != trip.rideId);
+    _parkOtherRide(trip.rideId);
     if (!sameRide || _monitor == null) {
       _monitor = RideCheckMonitor(
         settings: _service.policy().triggers,
@@ -226,6 +241,24 @@ class RideCheckController extends ChangeNotifier {
     }
     _visibleRideId = trip.rideId;
     _onQaSimulate();
+  }
+
+  /// rider-u194: a card still open for another ride belongs to a trip
+  /// that ended without a completion screen (admin cancel, failed), where
+  /// no screen can show it again. It is put aside, so it no longer blocks
+  /// this trip's Ride checks. Its event stays unanswered on the device, so
+  /// that ride's own screen would bring it back.
+  void _parkOtherRide(String rideId) {
+    final current = _session;
+    if (current == null || current.rideId == rideId) return;
+    _session = null;
+    AppLog.info(
+      'safety.ridecheck.parked',
+      extra: {'rideId': current.rideId, 'trigger': current.trigger.wire},
+    );
+    unawaited(_audio.stopIfRecording(reason: 'ride_check_parked'));
+    // attachTrip runs while the trip screen builds.
+    scheduleMicrotask(_changed);
   }
 
   /// The driver, status or route the alert should carry changed.
@@ -270,9 +303,7 @@ class RideCheckController extends ChangeNotifier {
     if (!policy.enabled) return;
     monitor.settings = policy.triggers;
     final hit = monitor.addSample(sample);
-    if (hit != null) {
-      unawaited(open(hit.trigger, reason: hit.reason, rideId: rideId));
-    }
+    if (hit != null) unawaited(_openDetected(rideId, hit));
   }
 
   /// No new position for a while: checks the long stop against the clock,
@@ -286,9 +317,7 @@ class RideCheckController extends ChangeNotifier {
     if (!policy.enabled) return;
     monitor.settings = policy.triggers;
     final hit = monitor.checkStill(_clock());
-    if (hit != null) {
-      unawaited(open(hit.trigger, reason: hit.reason, rideId: rideId));
-    }
+    if (hit != null) unawaited(_openDetected(rideId, hit));
   }
 
   /// The trip ended at [end] (the car's last position).
@@ -303,7 +332,27 @@ class RideCheckController extends ChangeNotifier {
     monitor.settings = policy.triggers;
     final hit = monitor.tripEnded(end);
     if (hit == null) return RideCheckOpenResult.noTrigger;
-    return open(hit.trigger, reason: hit.reason, rideId: rideId);
+    return _openDetected(rideId, hit);
+  }
+
+  /// Opens a trigger the monitor detected. When another card is up it waits
+  /// for that card to close (rider-u192).
+  Future<RideCheckOpenResult> _openDetected(
+    String rideId,
+    RideCheckDetection hit,
+  ) async {
+    final result = await open(hit.trigger, reason: hit.reason, rideId: rideId);
+    if (result == RideCheckOpenResult.busy) {
+      _waiting.add((rideId: rideId, hit: hit));
+    }
+    return result;
+  }
+
+  void _openWaiting(String rideId) {
+    final index = _waiting.indexWhere((w) => w.rideId == rideId);
+    if (index < 0) return;
+    final next = _waiting.removeAt(index);
+    unawaited(_openDetected(next.rideId, next.hit));
   }
 
   // ---- Demo ---------------------------------------------------------------
@@ -435,6 +484,7 @@ class RideCheckController extends ChangeNotifier {
       return;
     }
     if (event == null || _session != null || _disposed) return;
+    if (_closed.contains(event.eventId)) return;
     final record = RideCheckRecord.fromEvent(event);
     if (record == null) return;
     final alertId = event.payload['alertId'];
@@ -617,6 +667,19 @@ class RideCheckController extends ChangeNotifier {
     _setRecordingNote(current.checkId, note);
   }
 
+  /// rider-u199: the OS interrupted the card's recording and it was
+  /// stopped and saved, so the card stops counting "Recording m:ss".
+  void _onRecordingInterrupted() {
+    final current = _session;
+    if (current == null) return;
+    _setRecordingNote(
+      current.checkId,
+      _audio.lastInterruptionSaved == false
+          ? L10n.current.audioSaveFailed
+          : L10n.current.rcRecordingSaved,
+    );
+  }
+
   void _setRecordingNote(String checkId, String? note) {
     final latest = _session;
     if (latest == null || latest.checkId != checkId) {
@@ -685,6 +748,7 @@ class RideCheckController extends ChangeNotifier {
 
   void _close(RideCheckSession closing) {
     _session = null;
+    _closed.add(closing.checkId);
     AppLog.info(
       'safety.ridecheck.answered',
       extra: {
@@ -717,6 +781,7 @@ class RideCheckController extends ChangeNotifier {
         _changed();
       }
     });
+    _openWaiting(closing.rideId);
   }
 
   /// Writes run one after another, so an update never overtakes the alert
@@ -823,6 +888,7 @@ class RideCheckController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _audio.removeListener(_onRecordingInterrupted);
     if (identical(_qaOwner, this)) {
       _qaOwner = null;
       listenForRideCheckQa(null);
