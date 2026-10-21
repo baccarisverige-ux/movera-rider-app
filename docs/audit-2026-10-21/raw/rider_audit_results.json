@@ -1822,6 +1822,44 @@
    "source": "rider4"
   },
   {
+   "id": "rider-r3-10",
+   "file": "lib/features/auth/presentation/phone_verify.dart",
+   "line": 138,
+   "title": "Leaving the code screen while Verify is in flight completes sign-in but leaves the rider on Sign in, and a new rider skips the name step",
+   "original_title": "Leaving the code screen while Verify is in flight completes sign-in but leaves the rider on Sign in, and a new rider skips the name step",
+   "category": "state-corruption",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:r3-home-auth-profile"
+   ],
+   "merged_from": [],
+   "description": "_verify() awaits `_auth.verifyOtp(...)`. AuthController.verifyOtp saves the session tokens, runs `_enterSession` (the user-data wipe for a different rider) and registers push. Only after that does the screen decide where to go. The Back button (`onBack: () => Navigator.of(context).maybePop()`, line 163) and Android system back are still enabled while `_submitting` is true; only the Verify button shows busy. If the rider goes back while the request is running, the widget is unmounted, so after a successful verify `if (!mounted) return;` (line 138) skips both `showMoveraRoot(RiderNameScreen…)` and `enterMoveraApp`. The SignIn screen's `await Navigator.push(...)` returns and resets `_busy`. The rider is now signed in, with tokens stored, but is looking at the Sign in form. RideRestoreCoordinator.resumeIfNeeded and the push primer never run. For a rider whose result had isNewRider = true, the name step is lost: on the next launch the stored session goes straight to Home with an empty name. That is the state the known 'reload skips name step' finding describes, here reached without any reload.",
+   "failure_scenario": "A new rider types the 4-digit code, taps Verify, and on a slow connection taps the back chevron (or Android back) before the spinner stops. The server accepts the code. The app shows the Sign in phone form again, although a session now exists. Entering the number again sends another SMS. Killing and reopening the app lands on Home with no name, so drivers see an empty rider name.",
+   "evidence": "phone_verify.dart:137-138 `final result = await _auth.verifyOtp(challenge: challenge, code: code);\n      if (!mounted) return;`\nphone_verify.dart:163 `onBack: () => Navigator.of(context).maybePop(),` (not disabled while `_submitting`)\nauth_controller.dart:28-36 verifyOtp saves the session (`_enterSession`, `_registerPushBestEffort`) before returning.",
+   "suggested_fix": "Block pops while `_submitting` (PopScope canPop: !_submitting, and pass onBack: null while submitting). Or, once verifyOtp succeeds, navigate through the root navigator or moveraNavigatorKey even if this widget has been unmounted.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "phone_verify.dart:163 passes onBack: () => Navigator.of(context).maybePop() unconditionally. The file has no PopScope, so the chevron and Android back both work while _submitting is true. AuthController.verifyOtp (auth_controller.dart:28-36) stores the session, runs _enterSession and registers push before it returns. Back on the screen, `if (!mounted) return;` (phone_verify.dart:138) then skips both showMoveraRoot(RiderNameScreen) and enterMoveraApp. Nothing else watches the session to move the rider on: the only session check is the root _AuthenticatedHomeGate (ride_restore_coordinator.dart:630-640), which reads hasSession once and is not reached again. SignIn._continue's `await Navigator.push` returns and its finally block resets _busy, so the rider sees the Sign in form while signed in. RideRestoreCoordinator.resumeIfNeeded and the push primer (auth_navigation.dart:26-35) never run. A new rider also skips RiderNameScreen.",
+     "repro": "Traced sign_in._continue -> PhoneVerification._verify -> AuthController.verifyOtp, plus enterMoveraApp/showMoveraRoot. Searched lib for any session listener that navigates and found none. Static reading only, no test run.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "phone_verify.dart:163 always passes onBack: () => maybePop(), whatever the value of _submitting. There is no PopScope in phone_verify.dart or in auth_scaffold.dart, so both the back chevron and Android system back stay enabled. AuthController.verifyOtp (auth_controller.dart:28-36) saves the session, runs _enterSession and registers push before it returns. After that, phone_verify.dart:138 `if (!mounted) return;` skips both showMoveraRoot(RiderNameScreen) and enterMoveraApp. The await Navigator.push in sign_in.dart then returns and only resets _busy. Nothing at the root listens for a session and navigates, so the rider stays on Sign in while signed in, and a new rider loses the name step.",
+     "repro": "Read the code: _verify -> verifyOtp -> mounted check; the onBack wiring in AuthScaffold (auth_scaffold.dart:181-196, which disables back only when onBack is null); and the sign_in.dart:105-120 continuation. Not run.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-r3"
+  },
+  {
    "file": "lib/features/auth/presentation/widgets/auth_controls.dart",
    "line": 26,
    "title": "Sign-in Continue/Verify and the Apple/Google buttons expose no tap action to screen readers",
@@ -2711,6 +2749,44 @@
    "source": "rider1"
   },
   {
+   "id": "rider-fixrev-1",
+   "file": "lib/features/home/presentation/widgets/home_journey_section.dart",
+   "line": 74,
+   "title": "Home \"Your month\" card now counts trips whose payment failed as rides and money spent",
+   "original_title": "Home \"Your month\" card now counts trips whose payment failed as rides and money spent",
+   "category": "wrong-math",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.6,
+   "reported_by": [
+    "area:fix-regressions-rider"
+   ],
+   "merged_from": [],
+   "description": "R2 (rider-37) changed OnDemandRideHistoryStore._reservationStatus so that RideStatus.paymentFailed maps to ReservationStatus.completed, with only a paymentFailed flag to tell it apart. MonthRideStats.fromRides filters on `ride.status.isCompleted` alone and adds `ride.price` to the month's spend. It never looks at `ride.paymentFailed`. In release, ApiRideHistoryRepository._record -> recordFor(terminalStatus: snapshot.status), and a server trip with paymentStatus failed becomes RideStatus.paymentFailed (trip_status.dart _afterCompletion). Before the change recordFor returned null for these trips, so they never reached the card. Now HomeJourneySection.defaultRides -> OnDemandHistoryController().load() returns them, and the card adds an amount the rider was never charged.",
+   "failure_scenario": "In a release build, the rider finishes a 250 SEK trip and the card charge fails (server: status completed, paymentStatus failed). Home's \"Your month\" card shows one more ride and 250 SEK more spent, while History labels the same trip \"Payment failed\".",
+   "evidence": "home_journey_section.dart:74-81:\n      if (!ride.status.isCompleted) continue;\n      ...\n      count++;\n      final price = Money.fromLegacyMajor(ride.price, ride.currency);\n      totals[price.currency] = total == null ? price : total + price;\non_demand_ride_history_store.dart:262-266:\n    if (status.isCompletedSurface ||\n        status == RideStatus.closed ||\n        status == RideStatus.paymentFailed) {\n      return ReservationStatus.completed;",
+   "suggested_fix": "In MonthRideStats.fromRides, skip `ride.paymentFailed` (or at least leave it out of `spent`), and add a test for it.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "In release, di.dart:154 sets rideHistory to ApiRideHistoryRepository. Its _record (ride_history_repositories.dart:56-64) calls recordFor(terminalStatus: snapshot.status). A server trip with paymentStatus failed maps to RideStatus.paymentFailed (trip_status.dart:183). Since commit 268e0dd, _reservationStatus (on_demand_ride_history_store.dart:262-266) maps that status to ReservationStatus.completed. Before the change it returned null, so these trips were dropped. HomeJourneySection.defaultRides (home_journey_section.dart:142-146) loads these records. MonthRideStats.fromRides (home_journey_section.dart:74-81) filters only on status.isCompleted and adds ride.price to spent, and it never reads ride.paymentFailed. Nothing guards this. The 'Your month' card counts a trip the rider was not charged for and adds its fare to the amount spent.",
+     "repro": "Read the code only, no test run. I traced di.dart -> OnDemandHistoryController.load -> ApiRideHistoryRepository._record -> recordFor/_reservationStatus -> MonthRideStats.fromRides, and checked with git show 268e0dd that the paymentFailed -> completed mapping is new.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "MonthRideStats.fromRides (home_journey_section.dart:74-81) filters only on ride.status.isCompleted and adds ride.price to the month's spend. It never reads Reservation.paymentFailed (reservation.dart:299). Since commit 268e0dd (rider-37), _reservationStatus (on_demand_ride_history_store.dart:262-266) maps RideStatus.paymentFailed to ReservationStatus.completed, and recordFor sets paymentFailed: true (line 237). In release, ApiRideHistoryRepository._record (ride_history_repositories.dart:56-64) passes terminalStatus: snapshot.status, and TripStatus completed with payment failed becomes RideStatus.paymentFailed (trip_status.dart:183). HomeJourneySection.defaultRides (home_journey_section.dart:142-145) loads these records through OnDemandHistoryController().load(), so the card now counts the trip and its uncharged fare. Before the commit, recordFor returned null for this status, so the commit message confirms this is a regression. Nothing in DECISIONS.md or ARCHITECTURE.md says the month card should count unpaid fares.",
+     "repro": "Wrote and ran the throwaway test test/_audit_fixrev13_test.dart (now deleted). It builds a Reservation with status completed, paymentFailed: true and price 250 SEK, then calls MonthRideStats.fromRides([r], DateTime(2026,10,21)). Output: `rides=1 spent=[Money(25000 SEK)]`. The trip counts as one ride and 250 SEK spent. I also traced the release path _record -> recordFor -> _reservationStatus and the git history of 268e0dd.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-fixrev"
+  },
+  {
    "file": "lib/features/pickup/application/pickup_controller.dart",
    "line": 97,
    "title": "Pickup 'My location' / 'Use current location' has no Dart-side timeout; on the web it can hang for about 4 hours (D-003)",
@@ -2960,6 +3036,44 @@
     }
    ],
    "source": "r2-rider3"
+  },
+  {
+   "id": "rider-r3-9",
+   "file": "lib/features/profile/presentation/personal_info.dart",
+   "line": 125,
+   "title": "Personal info saves edits from a stale copy of the profile, so editing the name while a gender save is still in flight puts the old gender back",
+   "original_title": "Personal info saves edits from a stale copy of the profile, so editing the name while a gender save is still in flight puts the old gender back",
+   "category": "state-corruption",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.7,
+   "reported_by": [
+    "area:r3-home-auth-profile"
+   ],
+   "merged_from": [],
+   "description": "build() reads `final ride = _profile.profile;` (line 83), and each tile's onTap closure saves `ride.copyWith(...)` from that copy (name at line 125, gender at line 156). ProfileController.update awaits `_store.save(next)` and only calls notifyListeners afterwards. In SyncedProfileRepository.save, the cache is written first and then the PATCH /api/v1/rider/profile is awaited. So the page does not rebuild until the network call returns. The tiles have no busy guard. If the rider picks a gender and then taps Name before that PATCH returns, the editor's save builds the next profile from the copy taken before the gender change. That overwrites the cached gender with the old value. The same path also writes back an old `language` if the language was changed through the menu in the meantime. This is the same stale-copy pattern as the known privacy.dart finding, but in a different screen and through a different reachable path.",
+   "failure_scenario": "On a slow network the rider opens Account > Personal info, taps Gender and picks Woman, then taps Name, types Lina and taps Save. When both saves finish, the stored profile has name 'Lina' and gender '' (the Gender row shows 'Not added'), so the gender choice is silently lost. Reproduced with a throwaway widget test: a repository wrapping ProfileRepository that writes the cache and then waits (like SyncedProfileRepository). Result: `Expected: 'Woman' Actual: ''` (test failed as predicted, then the test file was deleted).",
+   "evidence": "personal_info.dart:83 `final ride = _profile.profile;`\npersonal_info.dart:125 `await _save(ride.copyWith(name: next));`\npersonal_info.dart:156 `await _save(ride.copyWith(gender: next));`\nprofile_controller.dart:30-33 `Future<void> update(RiderProfileData next) async { await _store.save(next); notifyListeners(); }`\nsynced_profile_repository.dart save(): `final saved = await _cache.save(next); await _sync(saved);`",
+   "suggested_fix": "Build the next profile from the current value when the save runs (`_profile.profile.copyWith(...)` inside the onTap, after the editor or choice sheet returns), or have ProfileController notify right after the cache write. Optionally disable the tiles while a save is in flight.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "build() captures `final ride = _profile.profile;` (personal_info.dart:83). Both onTap closures build the next profile from that copy: ride.copyWith(name:) and ride.copyWith(gender:). ProfileController.update (profile_controller.dart:30-33) calls notifyListeners only after _store.save returns. SyncedProfileRepository.save (synced_profile_repository.dart:54-57) writes the cache and then awaits the PATCH. So until the network call returns, the page does not rebuild and the Name tile's closure still holds the old gender. A Name save made during that window writes the old gender back to the cache. The tiles have no busy guard. _save only adds a try/catch toast and does not serialise saves.",
+     "repro": "Traced personal_info build/_save -> ProfileController.update -> SyncedProfileRepository.save -> _cache.save/_sync. The finder reports a throwaway widget test with a delayed repository that failed with Expected 'Woman' Actual ''. The static trace agrees with that result. I did not rerun it.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "personal_info.dart:83 captures `ride` when build runs, and the onTap closures at :125 and :156 call copyWith on that captured copy after awaiting the editor. ProfileController.update (profile_controller.dart:30-33) notifies only after SyncedProfileRepository.save finishes, and save waits for the PATCH (synced_profile_repository.dart:54-57). So the page does not rebuild between the cache write and the end of the network call, and a second edit inside that window rebuilds the profile from the pre-change copy, overwriting the first change. Nothing marks the tiles busy. It needs a slow network and a quick second edit, so this is an edge path.",
+     "repro": "Read the code and checked the finder's reported widget-test repro, which failed with Expected 'Woman', Actual ''. That result matches the code path. I did not re-run it.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-r3"
   },
   {
    "file": "lib/features/profile/presentation/privacy.dart",
@@ -4145,6 +4259,82 @@
    "source": "r2-rider2"
   },
   {
+   "id": "rider-r3-1",
+   "file": "lib/features/safety/data/safety_store.dart",
+   "line": 98,
+   "title": "A failed Safety write restores a snapshot of the whole cache, which wipes Ride check answers, events, recordings and contacts saved while it was in flight",
+   "original_title": "A failed Safety write restores a snapshot of the whole cache, which wipes Ride check answers, events, recordings and contacts saved while it was in flight",
+   "category": "data-loss",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.7,
+   "reported_by": [
+    "area:r3-wallet-support-safety"
+   ],
+   "merged_from": [],
+   "description": "Each `_write` call takes `previous = SafetyCache.fromJson(_cache.toJson())` (line 83). On a remote failure it runs `_cache = previous; await _local.save(_cache);` (lines 98-99). That replaces the entire cache: preferences, contacts, shares, events and recordings. Nothing serializes writes across the store. RideCheckController queues only its own jobs, and the Safety Kit (startShare, initAudio/completeAudio), the preference toggles (patchPreferences, patchRideCheck) and contact edits all call `_write` independently. Anything written to the cache after the snapshot and before the failure is erased from memory and from the persisted blob. That includes `submitRideCheckAnswers` (its `keep()` plus `_local.save`, lines 452-455), which RC5 says must keep the answers on the device even when the send fails. The reverse also happens: when a concurrent write succeeded first, the failing write's rollback drops the confirmed change (for example a contact the server created) from the device copy.",
+   "failure_scenario": "During a trip on a flaky connection, the rider taps Share trip in the Safety Kit, so startShare's `_write` takes its snapshot and waits on POST /rides/{id}/share. A Ride check card opens and the rider answers 'I'm OK'. submitRideCheckAnswers saves the answers locally, and its own send fails offline (the answers are meant to stay). The share request then times out and `_cache = previous` restores the snapshot taken before the answers. The Ride check event and its answers are gone from the device: the trip's details show no Ride check, and after a reload `unanswered()` cannot find it. Reproduced with a throwaway test against SafetyStore (fake remote, memoryOnly local): 'answers saved before share fails: 1' and then 'answers after share rollback: 0'.",
+   "evidence": "safety_store.dart:83 `final previous = SafetyCache.fromJson(_cache.toJson());`\nsafety_store.dart:97-100 `} catch (error) { _cache = previous; await _local.save(_cache); rethrow; }`\nsafety_store.dart:443-455 submitRideCheckAnswers `keep(withAnswers(...)); await _local.save(_cache);` (not through _write, no lock)\nsafety_store.dart:271-275 startShare -> _write(...)",
+   "suggested_fix": "Roll back only the slice the write changed. Capture the previous value of that field or entry and restore it, for example the previous share for that rideId or the previous preferences, instead of reassigning the whole cache. Or serialize every store mutation behind one queue.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "_write snapshots the whole cache at safety_store.dart:83 and, when the remote call fails, restores all of it at :97-99 (`_cache = previous; await _local.save(_cache);`). Nothing serializes access to the store. startShare (:271) and the other _write callers (:105,165,211,246,318,339,378,501,515) await the network while holding that snapshot. submitRideCheckAnswers (:412-455) does not go through _write: it writes cache.events through keep() and calls _local.save. So answers saved while a share or preferences write is in flight are erased from memory and from the persisted blob when that write fails. The same rollback also drops a change that a concurrent write had already confirmed. No guard or idempotency check stops this.",
+     "repro": "Static trace of _write, startShare and submitRideCheckAnswers. The rollback assigns the whole SafetyCache and nothing else writes the store under a lock. I did not rerun the finder's store test because the pure-code path is clear.",
+     "evidence": "safety_store.dart:83 `final previous = SafetyCache.fromJson(_cache.toJson());`; :97-99 `catch (error) { _cache = previous; await _local.save(_cache); rethrow; }`; :443-455 keep(...) + _local.save outside _write."
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "safety_store.dart:83 takes a snapshot of the whole cache, and on a remote failure safety_store.dart:97-99 runs `_cache = previous; await _local.save(_cache)`. Nothing serialises store mutations: there is no lock or queue in SafetyStore. submitRideCheckAnswers (around lines 443-455) writes `_cache.events` and saves while startShare's `_write` (271-275) is still waiting on its remote call. The rollback then throws away the saved answers, both in memory and in the persisted blob. That breaks RC5's rule that the answers stay on the device even when the send fails. The race needs the share request to be in flight while the rider answers a card, which is realistic on a slow connection during a trip.",
+     "repro": "Ran a throwaway test (test/_audit_r3v_test.dart, now deleted) using SafetyStore with a memoryOnly local store and a fake remote. startShare waits on a gate and then throws, and postRideCheckAnswers throws. Output: 'events before rollback: 1' then 'events after rollback: 0'.",
+     "evidence": "safety_store.dart:83 `final previous = SafetyCache.fromJson(_cache.toJson());` and :97-99 `_cache = previous; await _local.save(_cache); rethrow;`"
+    }
+   ],
+   "source": "r2-rider-r3"
+  },
+  {
+   "id": "rider-r3-3",
+   "file": "lib/features/safety/domain/ride_check_monitor.dart",
+   "line": 118,
+   "title": "The 'longer than expected' budget is fixed from the first in-trip sample's ETA and never revised; a stale pickup ETA fires a false off-route Ride check, and an ETA of 0 turns the trigger off for the whole trip",
+   "original_title": "The 'longer than expected' budget is fixed from the first in-trip sample's ETA and never revised; a stale pickup ETA fires a false off-route Ride check, and an ETA of 0 turns the trigger off for the whole trip",
+   "category": "wrong-time",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:r3-wallet-support-safety"
+   ],
+   "merged_from": [],
+   "description": "`addSample` sets `_tripStartedAt ??= sample.at` and `_expectedSeconds ??= sample.etaSeconds` once, from whichever sample comes first, and `_tooLong` compares all later elapsed time against that one value. The first in-trip sample comes from Waiting's `_feedRideCheck`, which takes `_tracking.eta`. When the trip-start status event carries no new fix, DriverTrackingController rebuilds the eta with `etaSeconds: event.etaSeconds ?? eta!.seconds` (driver_tracking_controller.dart:174). That carries over the pre-trip ETA to pickup, which is about 20 s (the clamp minimum) or 0, together with the old fix's `locationAt`. With a small budget, `_tooLong` fires after about 3 minutes of normal driving. With a budget of 0, `expected <= 0` returns null on every sample, and because `??=` never replaces a 0, the off-route-by-time trigger is dead for that trip.",
+   "failure_scenario": "The driver starts the trip at the pickup. The first in-trip sample has etaSeconds 20 (the pickup ETA), followed by normal samples whose ETA to the drop-off counts down from 600 s. Reproduced with a throwaway test on RideCheckMonitor: driving normally along the planned route, it returned `RideCheckTrigger.offRoute` with longerPercent 900% at 200 s into a 10-minute trip. The rider sees a 'trip is taking much longer than expected' Ride check card on a normal trip.",
+   "evidence": "ride_check_monitor.dart:117-118 `_tripStartedAt ??= sample.at; _expectedSeconds ??= sample.etaSeconds;`\nride_check_monitor.dart:226-227 `final expected = _expectedSeconds ?? _straightLineSeconds(); if (started == null || expected <= 0) return null;`\ndriver_tracking_controller.dart:174 `etaSeconds: event.etaSeconds ?? eta!.seconds,`\nwaiting_for_driver.dart:1216-1218 `rideCheck.addSample(rideId, RideCheckSample(point: point, at: at, etaSeconds: eta?.seconds));`",
+   "suggested_fix": "Take the budget from a sample whose fix is newer than the trip start and whose ETA is positive, or use the larger of the ETA and the straight-line estimate. Do not keep a non-positive value: treat 0 or null as unknown and fall back to `_straightLineSeconds()`.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "high",
+     "reason": "A trip_projection status event normally carries no location, because location is its own event kind per contracts/fixtures/events.json and CONTRACT.md:139. For such an event, driver_tracking_controller.dart:164-176 rebuilds the eta from the old pickup fix with `etaSeconds: event.etaSeconds ?? eta!.seconds`. That is the pickup ETA, clamped to at least 20 s by geo_distance.dart:26 when the driver is waiting at the pickup, together with the old locationAt. waiting_for_driver.dart:421 then calls _feedRideCheck, and :1215-1218 feeds this as the first in-trip sample, because the monitor was attached before the trip (:272) and only receives samples in trip. ride_check_monitor.dart:117-118 fixes the budget once with `??=`, and nothing replaces it until replan(). _tooLong (:224-236) then fires once elapsed >= expected + 3 min. Because the trip start comes from the old fix's time, the card can open even sooner. A server etaSeconds of 0 makes `expected <= 0` return null for the whole trip. This is a false safety card on an ordinary trip, on the main path.",
+     "repro": "Throwaway test test/_audit_r3mon_test.dart, now deleted: a first sample at the pickup with etaSeconds 20, then normal samples along the planned route counting down from 600 s. Output: `budget20: RideCheckTrigger.offRoute 900 at 200`.",
+     "evidence": "ride_check_monitor.dart:117-118 `_tripStartedAt ??= sample.at; _expectedSeconds ??= sample.etaSeconds;`; driver_tracking_controller.dart:174; geo_distance.dart:26 clamp(20, 1800)."
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "ride_check_monitor.dart:117-118 fixes `_expectedSeconds ??= sample.etaSeconds` from the first in-trip sample and never revises it. When the trip-start status event has no new fix, driver_tracking_controller.dart:174 rebuilds the ETA with `event.etaSeconds ?? eta!.seconds`, which carries over the pre-trip ETA to the pickup. waiting_for_driver.dart:1216-1218 then passes that value as the first in-trip sample. CONTRACT.md:139 marks both `location` and `etaSeconds` as optional on the realtime envelope, so a status event without them is a valid input. With a 20 s budget, `_tooLong` (226-233) fires once 200 s have passed (20 s + the 3-minute minimumExtraDelay). With a budget of 0, `expected <= 0` returns null on every sample, `??=` never replaces the 0, and the straight-line fallback is never used.",
+     "repro": "Ran a throwaway test on RideCheckMonitor with default settings and the planned route set. The first sample had etaSeconds 20, and later samples moved along the route counting down from 600. Output: 'eta20 first: RideCheckTrigger.offRoute 900 at 200'. With etaSeconds 0 first and then two hours of samples: 'eta0 first, 2h in traffic: null', so the time trigger never fires.",
+     "evidence": "ride_check_monitor.dart:118, :226-227; driver_tracking_controller.dart:174"
+    }
+   ],
+   "source": "r2-rider-r3"
+  },
+  {
    "file": "lib/features/safety/presentation/emergency_contacts_page.dart",
    "line": 296,
    "title": "Emergency contact editor shrinks by twice the keyboard height and leaves a 40-140 px strip to edit in",
@@ -4425,6 +4615,44 @@
     }
    ],
    "source": "rider2"
+  },
+  {
+   "id": "rider-fixrev2-1",
+   "file": "lib/features/scheduled_rides/presentation/select_date_time.dart",
+   "line": 123,
+   "title": "Arrive by on the fall-back night: the Duration-based pickup lands in the first copy of the repeated hour, but the booking reads that wall time as the second copy, so the rider is picked up 60 min late (edge case)",
+   "original_title": "Arrive by: the Duration-based pickup lands in the first copy of the repeated DST hour, but the booking reads that wall time as the second copy, so the rider is picked up 60 minutes late",
+   "category": "wrong-time",
+   "severity": "medium",
+   "claimed_severity": "high",
+   "confidence": 0.85,
+   "reported_by": [
+    "area:fix2-rider"
+   ],
+   "merged_from": [],
+   "description": "Commit 7137eee changed _pickupFor from wall-clock field arithmetic to `chosen.subtract(Duration(minutes: trip))`. The values on this screen are plain device-local DateTimes that hold the pickup zone's wall-clock fields (PickupSchedule docs: 'Times in and out are plain wall-clock DateTimes of timeZone'). Downstream, only the fields count. captureSchedule -> PickupSchedule.clampPickup rebuilds the value from y/m/d/h/min (stockholm_schedule.dart:42-44). ScheduledRideSession.confirm sends `WireTime.format(PickupSchedule(timezone).toUtc(at))` (scheduled_rides_controller.dart:64). ZoneClock.toUtc resolves a repeated wall hour to the LATER occurrence (zone_clock.dart:71-86). The choose() callers (home.dart:864, select_ride.dart:943/1145) pass the popped `_pickupAt` on, and they are converted the same way.\n\nOn a fall-back night in the device zone, subtracting real elapsed time from an arrival after the change can land in the FIRST (summer) occurrence of the repeated hour. Its wall fields (e.g. 02:50) are then booked as the SECOND occurrence, one hour later. Before the commit, field subtraction gave a wall time that ZoneClock maps to exactly `trip` minutes before the arrival, so this is a regression. The commit fixed spring-forward and broke fall-back. The new DST test and CI step (TZ=Europe/Stockholm) only cover 2027-03-28 spring-forward, so they cannot catch this.\n\nThe same thing happens when the device zone and the pickup zone differ. Duration arithmetic follows the DEVICE zone's DST rules, not the pickup zone's. A phone on America/New_York booking a Stockholm pickup on 2026-11-01 (the US fall-back, no change in Stockholm) is also booked 60 minutes late.",
+   "failure_scenario": "I reproduced this with a throwaway widget test that drives ScheduleDateTimeSelector.choose in Arrive by mode, presses Continue, and converts the result with ZoneClock.toUtc as booking does. The file is deleted and git status is clean.\n\nTZ=Europe/Stockholm, Stockholm pickup, now 2026-10-24 10:00Z, arrival 2026-10-25 03:10 (= 02:10Z), trip 80 min:\n`arrival wall 2026-10-25 03:10 trip 80 -> pickup wall 2026-10-25 02:50 ; booked UTC 2026-10-25 01:50Z ; arrival UTC 02:10Z ; lead 20 min`\nThe correct pickup is 00:50Z. The rider is picked up 60 min late and arrives at 04:10 local, not 03:10. The old code gave wall 01:50 (23:50Z), 60 min early, never late. Any arrival and trip where arrival_utc - trip falls in [00:00Z, 01:00Z) on that night is affected, e.g. arrival 03:30 with trip 90.\n\nTZ=America/New_York, Stockholm pickup, arrival 2026-11-01 02:10, trip 80:\n`pickup wall 01:50 ; booked UTC 2026-11-01 00:50Z ; arrival UTC 01:10Z ; lead 20 min`\nThe correct pickup is wall 00:50 (23:50Z), which the old field arithmetic produced.\n\nThe UI says nothing about it, and the 'Estimated pickup' row shows 02:50 / 01:50.",
+   "evidence": "select_date_time.dart:121-131:\n```\n    // Real elapsed time, not wall-clock fields: across a DST change the\n    // constructor would move a pickup in the skipped hour after the arrival.\n    final pickup = chosen.subtract(Duration(minutes: trip));\n    return pickup.subtract(\n      Duration(\n        minutes: pickup.minute % StockholmSchedule.slotMinutes,\n        seconds: pickup.second, ...\n```\nzone_clock.dart:71-73: `/// The UTC instant of the wall-clock time [wall] in [timeZone]. In the hour that does not exist (spring forward) the summer offset is used; in the hour that happens twice, the later one.`\nscheduled_rides_controller.dart:37: `scheduledAt = PickupSchedule(timezone).clampPickup(at);` and :64: `final at? => WireTime.format(PickupSchedule(timezone).toUtc(at)),`\nTest output (TZ=Europe/Stockholm): `arrival wall 2026-10-25 03:10:00.000 trip 80 -> pickup wall 2026-10-25 02:50:00.000 ; booked UTC 2026-10-25 01:50:00.000Z ; arrival UTC 2026-10-25 02:10:00.000Z ; lead 20 min`",
+   "suggested_fix": "Do the arithmetic in the pickup zone, not the device zone. Convert the arrival with `_schedule.toUtc(chosen)`, subtract `trip` minutes as a UTC Duration, and convert back with `ZoneClock.wallTime(widget.timeZone, …)`. Then floor to the 5-minute grid with fields. Where the floored wall time is ambiguous and ZoneClock would read it as the later occurrence, step back to the slot whose `toUtc` is at or before `arrivalUtc - trip`. Add a fall-back case (2026-10-25 03:10, trip 80) and a device-zone ≠ pickup-zone case to audit_fix_arrive_by_dst_test.dart.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "select_date_time.dart:123 subtracts a real Duration from a device-local DateTime. On 2026-10-25 in Europe/Stockholm, 03:10 local is 02:10Z, and minus 80 min gives 00:50Z, which the device shows as 02:50 CEST (the first copy of the repeated hour). After that only the wall fields count. captureSchedule calls clampPickup (stockholm_schedule.dart:39-44), which rebuilds the time from y/m/d/h/min. confirm sends PickupSchedule.toUtc(at) (scheduled_rides_controller.dart:64). ZoneClock.toUtc (zone_clock.dart:74-86) takes a guess at 02:50Z, which is past the 01:00Z switch, so it gets offset +1 and returns 01:50Z, the second copy. So the pickup is booked only 20 min before the arrival instead of 80, and the rider is 60 min late. No guard stops it: isLegalPickup only checks the minimum lead time, and no document records this as intended (DECISIONS/ARCHITECTURE say nothing about DST; FIX_PLAN R6 lists DST as something to fix). It is an edge path: Arrive by, only on the fall-back night, only when arrival minus trip falls in the repeated hour, or when the device zone and pickup zone differ around a DST change. That makes it medium, not high.",
+     "repro": "Throwaway test /home/user/movera-rider-app/test/_audit_fb_test.dart, run with TZ=Europe/Stockholm flutter test, then deleted; git status clean. It does the same Duration subtraction as _pickupFor and converts with ZoneClock.toUtc as booking does. Output: `arr 2026-10-25 02:10:00.000Z pickup wall 2026-10-25 02:50:00.000 booked 2026-10-25 01:50:00.000Z arrUtc 2026-10-25 02:10:00.000Z` (All tests passed). The booked pickup is 20 min before the arrival, not 80. I traced the clampPickup and confirm path by reading the code.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "select_date_time.dart:123 subtracts a real Duration in the device zone. With TZ=Europe/Stockholm, DateTime(2026,10,25,3,10) is 02:10Z (CET, after fall-back). Subtracting 80 min gives 00:50Z, which shows as wall 02:50 in the first (CEST) copy of the repeated hour. Only the wall fields go downstream. ZoneClock.toUtc (zone_clock.dart:74-86) reads 02:50 as: asUtc 02:50Z, offset +1, guess 01:50Z, offset +1, result 01:50Z. That is the later copy, as its doc says. scheduled_rides_controller.dart:37 and :64 send that instant. No guard catches it: the pickup is still legal and in the future, so _goNext/_clampChosen never correct it. The docs (DECISIONS/ARCHITECTURE/CONTRACT) record no DST decision. The rider is picked up 60 min late, with 20 min lead instead of 80. Severity is medium, not high: it only happens on one night a year (fall-back), when arrival_utc minus trip falls in a one-hour window, or when the device zone differs from the pickup zone around a device-zone DST change. It is an edge path, but the result is real: the rider arrives late.",
+     "repro": "Ran a throwaway test with TZ=Europe/Stockholm, `flutter test test/_audit_dstfb_test.dart`. It used the same arithmetic as _pickupFor (chosen.subtract(Duration(minutes:80))) and then ZoneClock.toUtc as booking does. Output: `chosenUtc=2026-10-25 02:10:00.000Z pickupWall=2026-10-25 02:50:00.000 booked=2026-10-25 01:50:00.000Z arrival=2026-10-25 02:10:00.000Z lead=20`, All tests passed. File deleted; git status clean. Did not separately run the cross-zone America/New_York case. It follows from the same mechanism: device-zone Duration arithmetic with pickup-zone field interpretation.",
+     "evidence": "lead=20 minutes for an 80-minute trip, so the booked pickup is 01:50Z instead of the correct 00:50Z"
+    }
+   ],
+   "source": "r2-rider-fixrev2"
   },
   {
    "file": "lib/features/scheduled_rides/presentation/select_date_time.dart",
@@ -6055,6 +6283,44 @@
     }
    ],
    "source": "r2-rider3"
+  },
+  {
+   "id": "rider-r3-11",
+   "file": "lib/features/auth/presentation/auth_navigation.dart",
+   "line": 71,
+   "title": "Sign-in and Add phone accept any +46 number with 7-10 digits (too-short or landline numbers), so an SMS code is 'sent' to a number that cannot receive it",
+   "original_title": "Sign-in phone check accepts incomplete mobile numbers (any 7-10 digits), so a code is 'sent' to a number that cannot exist",
+   "category": "parsing",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.4,
+   "reported_by": [
+    "area:r3-home-auth-profile"
+   ],
+   "merged_from": [],
+   "description": "swedishNumberFromField hands the typed digits to SwedishPhone.toE164. That function accepts any '+46' followed by 7 to 10 digits (`if (rest.length < 7 || rest.length > 10) return null;`). It does not check that the number is a mobile number: Swedish mobile numbers are '7' followed by 8 digits. The error text the app shows when the check fails is `invalidSwedishMobile`, and the screen promises an SMS code. A rider who misses a digit (\"70 123 45 6\" gives +46701234 56, only 8 digits) or types a landline passes the check. requestOtp is called, the app moves to 'Enter your code, sent to +46 70 123 456', and the SMS never arrives. The rider waits out the resend timer with no hint that the number is wrong. The known finding covers pasted '+46' numbers; this one covers ordinary typed national numbers that are too short.",
+   "failure_scenario": "The rider types '70 123 45 6' (one digit missing) and taps Continue. No 'invalid Swedish mobile' error appears. The code screen opens with 'sent to +46 70 123 456' and a resend countdown, and no SMS can arrive.",
+   "evidence": "auth_navigation.dart:68-71 `final digits = typed.replaceAll(RegExp(r'\\s+'), '').trim(); ... return SwedishPhone.toE164(digits.startsWith('0') ? digits : '+46$digits');`\nphone_e164.dart:14-18 `if (!value.startsWith('+46')) return null; final rest = value.substring(3); if (rest.length < 7 || rest.length > 10) return null;`\nsign_in.dart:96-99 shows `invalidSwedishMobile` only when this returns null.",
+   "suggested_fix": "For sign-in and Add phone, check for a Swedish mobile number (rest matches ^7\\d{8}$) before calling requestOtp, and keep the broader toE164 for Safety contacts that may be landlines.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "swedishNumberFromField (auth_navigation.dart:68-71) calls SwedishPhone.toE164 (lib/features/safety/domain/phone_e164.dart:14-18). That function only checks that the number starts with +46 and has 7-10 digits after it. It never checks for the mobile shape 7 followed by 8 digits. sign_in.dart:96-99 and add_phone.dart:52 show invalidSwedishMobile only when the result is null. So '70 123 45 6' becomes +4670123456 and requestOtp is called. The stand-in server does not stop it either: in_process_mock_client.dart:388-393 rejects only an empty phone. No document records a decision to allow landlines at sign-in. The broad check exists because Safety contacts share it (safety_store.dart:136,190).",
+     "repro": "Read swedishNumberFromField, SwedishPhone.toE164, the sign_in._continue guard and the mock otp/request handler. Worked it by hand: '70123456' -> '+4670123456', and rest '70123456' has 8 digits, so it passes. No test was run.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "auth_navigation.dart:71 hands the digits to SwedishPhone.toE164, and phone_e164.dart:16 checks only that the number after +46 has 7 to 10 digits. There is no check that it is a mobile number (^7\\d{8}$). sign_in.dart:97-99 shows invalidSwedishMobile only when the result is null, so short or landline numbers reach requestOtp. Nothing in the client or in CONTRACT.md stops it. A real backend might reject the number, but the client does not.",
+     "repro": "Ran a throwaway test, test/_audit_r311_test.dart, then deleted it. swedishNumberFromField(\"70 123 45 6\") returned +4670123456 and swedishNumberFromField(\"08 123 456\") returned +468123456. Result: '+1: All tests passed!' Both numbers were accepted.",
+     "evidence": "short=+4670123456 land=+468123456"
+    }
+   ],
+   "source": "r2-rider-r3"
   },
   {
    "file": "lib/features/auth/presentation/phone_verify.dart",
@@ -9393,6 +9659,44 @@
    "source": "r2-rider4"
   },
   {
+   "id": "rider-r3-7",
+   "file": "lib/features/ride_selection/presentation/select_ride.dart",
+   "line": 668,
+   "title": "'Cheaper' filter sorts by catalog list price instead of the quoted fare shown on each row, so a promoted or cheaper-quoted ride can appear below dearer ones",
+   "original_title": "'Cheaper' filter sorts by the catalog list price, not the fare shown on each row, so cheaper rides are listed below dearer ones",
+   "category": "ui-truth",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.55,
+   "reported_by": [
+    "area:r3-finding-driver-selection"
+   ],
+   "merged_from": [],
+   "description": "_visibleRides orders with `price: (ride) => ride.price`, and ride.price is the catalog list price. Each tile shows `_kr(_priceFor(ride))`, which is the server quote after distance pricing and the promotion. The promotion takes off up to 50 kr on comfort/priority/premium only, so the list-price order and the shown-price order differ. orderRidesForFilter's doc comment admits it compares the catalog base price, but the rider only sees the chip 'Cheaper' and the quoted prices. I checked it on the stand-in server with a throwaway test (POST /quotes, Stockholm Central to Drottninggatan): economy 22800, priority 20800, comfort 25800, premium 28800, pet 24800 öre. The list prices are economy 259, pet 279 and priority 289 kr.",
+   "failure_scenario": "A rider taps 'Cheaper'. The list shows Movera 228 kr, then Electric, then Pet 248 kr and others, and only after them Priority at 208 kr, even though Priority is the cheapest car on screen. The filter claims an order the prices it shows contradict.",
+   "evidence": "select_ride.dart:668-673 `List<_RideOption> get _visibleRides => orderRidesForFilter(_allRides, _filter, etaMin: (ride) => ride.etaMin, price: (ride) => ride.price,);`\nselect_ride.dart:2306 `_hasPrice(ride) ? _kr(price) : '…'` where `price = _priceFor(ride)`\nselect_ride_filter.dart:19-20 `case SelectRideFilter.cheaper: ordered.sort((a, b) => price(a).compareTo(price(b)));`\nTest output: `economy 22800 list=25900`, `priority 20800 list=28900`, `pet 24800 list=27900`",
+   "suggested_fix": "Sort by `_priceFor(ride)` (the shown quote) when a quote exists, and fall back to the list price only for rides without one.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_visibleRides (select_ride.dart:668-673) sorts with `price: (ride) => ride.price`, which is the catalog list price. Tiles show _priceFor(ride) = _selection.priceFor(ride.id, ride.price) (select_ride.dart:642-643), and that is the quote. The doc comment in select_ride_filter.dart:4-6 says the code compares the base price, but it gives no reason, and DECISIONS.md has no matching decision. The mock applies a promotion only to the ride types it names (in_process_mock_client.dart:2144-2159), and per-type distance pricing differs too. So the list-price order can contradict the prices on screen, and the 'Cheaper' chip shows a dearer ride above a cheaper one.",
+     "repro": "Read select_ride.dart _visibleRides/_priceFor, select_ride_filter.dart and the mock quote promotion code. Searched DECISIONS.md for catalog/filter/cheaper and found nothing. The finder's mock-server numbers (priority 20800 vs economy 22800 öre) are consistent with the promotion code. I did not rerun them.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "select_ride.dart:668-673 sorts with price: ride.price, the catalog list price, while each tile shows _priceFor(ride) (select_ride.dart:642, the quote). select_ride_filter.dart:5-6 and the characterization test (phase139_select_ride_characterization_test.dart:150-151) describe this behaviour and pin it 'so a change is a decision'. That records current behaviour, not a decision: DECISIONS.md has no entry for it. When a promotion or distance pricing changes the order, the 'Cheaper' list disagrees with the prices on screen.",
+     "repro": "Read the code and the pinning test. I relied on the finder's quote values (priority 20800 öre against economy 22800, with priority's list price higher) and did not re-run them.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-r3"
+  },
+  {
    "file": "lib/features/ride_selection/presentation/select_ride.dart",
    "line": 1155,
    "title": "Scheduled booking does not re-quote a quote that expired during the date picker and Set pickup; booking fails with a no-price toast and needs two more taps",
@@ -9463,6 +9767,44 @@
     }
    ],
    "source": "r2-rider4"
+  },
+  {
+   "id": "rider-r3-6",
+   "file": "lib/features/ride_selection/presentation/select_ride.dart",
+   "line": 1493,
+   "title": "In demo/dev builds (mock transport only), picking the generic 'Card' row in Set pickup's payment picker books with paymentMethod 'cards' and no saved card",
+   "original_title": "Picking the generic 'Card' row inside Set pickup skips Add card, so the ride is booked as 'cards' with no card on file",
+   "category": "state-corruption",
+   "severity": "low",
+   "claimed_severity": "medium",
+   "confidence": 0.7,
+   "reported_by": [
+    "area:r3-finding-driver-selection"
+   ],
+   "merged_from": [],
+   "description": "In _bookNow the Add-card gate runs only once, before Set pickup opens: `if (payment.brand == 'cards' && !_selection.hasSavedCard) { AddCardPage.open ... }` (line 1465). Set pickup is then opened with `onChangePayment: () async { await _showPaymentPicker(); ... }` (line 1320). PayWithPage lists the generic 'Card' row whenever there is no saved card (ride_selection_controller.dart:243-247: `return CardEntryPolicy.enabled ? [item] : ...`; pay_with_page.dart:199 only hides it once a saved card exists), and tapping it pops 'cards' (`onTap: () => Navigator.of(context).pop(method.brand)`). _showPaymentPicker selects it. After Set pickup returns, _bookNow re-reads the method (`final chosen = _selection.selectedPaymentItem(); if (chosen != null) { payment = _PaymentOption(brand: chosen.brand, ...) }`, lines 1493-1500) and goes straight to `submitFinding(paymentMethod: payment.brand, ...)` (line 1542) without checking the card gate again. BookingCoordinator sends it as is (`'paymentMethodId': paymentMethod`, booking_coordinator.dart:654), and the stand-in server stores any string (in_process_mock_client.dart:2264).",
+   "failure_scenario": "In a demo/dev build (CardEntryPolicy.enabled) a rider with no saved card and Cash selected taps Book. On Set pickup they tap the payment line, choose 'Card' and tap Confirm. The ride is booked with paymentMethodId 'cards', and Finding/Waiting show 'Card · 259 kr', but no card exists. Add card never opened, so nothing can be charged. Choosing 'Card' from the Select Ride footer instead would have opened Add card.",
+   "evidence": "select_ride.dart:1465 `if (payment.brand == 'cards' && !_selection.hasSavedCard) {` (before Set pickup only)\nselect_ride.dart:1320 `onChangePayment: () async { await _showPaymentPicker(); return paymentLine(); },`\nselect_ride.dart:1493-1500 `final chosen = _selection.selectedPaymentItem(); if (chosen != null) { payment = _PaymentOption(brand: chosen.brand, ...`\nselect_ride.dart:1542 `paymentMethod: payment.brand,`\nride_selection_controller.dart:247 `return CardEntryPolicy.enabled ? [item] : const <RidePaymentItem>[];`",
+   "suggested_fix": "Run the same Add-card gate after Set pickup returns (when the chosen brand is 'cards' and there is no saved card). Alternatively, make PayWithPage open Add card when the generic Card row is tapped.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "The Add-card gate `if (payment.brand == 'cards' && !_selection.hasSavedCard)` (select_ride.dart:1465) runs only before _openSetPickup. Inside Set pickup, onChangePayment calls _showPaymentPicker (select_ride.dart:1024-1052, 1321). With no saved card, payments() keeps the generic 'cards' row when CardEntryPolicy.enabled (ride_selection_controller.dart:243-247), and PayWithPage pops 'cards' for it (pay_with_page.dart:254). The picker selects it. After Set pickup returns, _bookNow re-reads selectedPaymentItem (select_ride.dart:1493-1500) and calls submitFinding(paymentMethod: payment.brand) (line 1542) without checking the gate again. Severity is low rather than medium because CardEntryPolicy.enabled is only true when environment.allowsMockTransport (card_entry_policy.dart:12-16). Staging and production builds never show the generic Card row, so only demo/dev mock-transport builds can book with no card on file, and no real charge path is involved.",
+     "repro": "Traced _bookNow -> _openSetPickup(onChangePayment) -> _showPaymentPicker -> PayWithPage -> selectPayment -> post-pickup payment re-read -> submitFinding. Searched lib for other 'cards' guards and found only the pre-pickup one at line 1465. Checked CardEntryPolicy for which builds enable it. Static reading only.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "The Add-card gate at select_ride.dart:1465 runs only before _openSetPickup. onChangePayment (select_ride.dart:1320) calls _showPaymentPicker, which selects whatever PayWithPage pops; tapping the generic row pops 'cards' (pay_with_page.dart:254). After Set pickup returns, select_ride.dart:1493-1500 reads the method again and submitFinding sends payment.brand (select_ride.dart:1542) without checking the gate again. Severity is low because CardEntryPolicy.enabled (card_entry_policy.dart:12-16) is true only when the environment allows mock transport. ride_selection_controller.dart:247 hides the generic Card row in staging and production, so no real money path is affected.",
+     "repro": "Traced the code from _bookNow through _openSetPickup, onChangePayment, _showPaymentPicker and PayWithPage row onTap, then the payment re-read and submitFinding. Not run.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-r3"
   },
   {
    "file": "lib/features/ride_selection/presentation/select_ride.dart",
@@ -9902,6 +10244,44 @@
    "source": "rider2"
   },
   {
+   "id": "rider-r3-4",
+   "file": "lib/features/safety/domain/ride_check_monitor.dart",
+   "line": 134,
+   "title": "One implausible GPS fix (a jump) opens an off-route Ride check and resets the long-stop timer, although the monitor already detects such jumps",
+   "original_title": "One implausible GPS fix (a jump) opens an off-route Ride check and resets the long-stop timer, although the monitor already detects such jumps",
+   "category": "other",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.4,
+   "reported_by": [
+    "area:r3-wallet-support-safety"
+   ],
+   "merged_from": [],
+   "description": "`addSample` treats a fix faster than `plausibleSpeedMps` (60 m/s) as a GPS jump, but only by leaving `speed` null. The same sample is still stored as `_previous` and passed to `_longStop`, which resets `_stillAt` and `_stillSince` because the point moved more than 25 m, and to `_offRoute`, which fires when the point is more than `offRouteKm` (2 km) from the planned route. Each trigger fires at most once per trip, so the glitch also uses up the real off-route trigger.",
+   "failure_scenario": "Reproduced with a throwaway test. Two normal fixes on the route, then one fix 5 km east 3 s later (about 1.7 km/s, impossible), returned `[null, null, RideCheckTrigger.offRoute]`. The rider gets an 'off the route' safety card from a GPS glitch, and later real off-route driving on the same trip never triggers. A glitch during a real long stop also restarts the stop timer.",
+   "evidence": "ride_check_monitor.dart:125-128 `if (seconds >= 0.5 && seconds <= 10) { final candidate = ...; if (candidate <= plausibleSpeedMps) speed = candidate; }`\nride_check_monitor.dart:131-135 `_crash(speed, gap) ?? _longStop(sample) ?? _offRoute(sample) ?? _tooLong(sample);` (runs for the jump sample too)\nride_check_monitor.dart:215-216 `final off = distanceToPolyline(sample.point, route); if (off <= settings.offRouteKm * 1000) return null;`",
+   "suggested_fix": "When the speed from the previous fix is implausible, drop the sample: do not update `_previous` or the anchor, and do not run the triggers. Or require the off-route distance to persist across two or more consecutive fixes.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "The plausibility check at ride_check_monitor.dart:125-128 only leaves `speed` null, which affects _crash and nothing else. The same sample is stored as _previous (:116). It is still passed to _longStop (:180-189), which resets the anchor and the timer because the point moved more than 25 m, and to _offRoute (:212-221), which fires when the point is more than offRouteKm from the route. Each trigger fires once per trip (_fire adds it to _fired), so the glitch also uses up the real off-route trigger. I found no upstream jump filter: the only grep hits for plausible/jump are this file. The impact is a spurious card, so low.",
+     "repro": "Throwaway test test/_audit_r3mon_test.dart, now deleted: two fixes on the route, then one fix about 5 km away 3 s later. Output: `jump: [null, null, RideCheckTrigger.offRoute]`.",
+     "evidence": "ride_check_monitor.dart:131-135 runs every trigger for the implausible sample."
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "ride_check_monitor.dart:125-128 only leaves `speed` null for an implausible fix. The same sample still becomes `_previous` (line 116), goes through `_longStop`, which resets the anchor, and goes through `_offRoute` (215-216), which fires once per trip. The likelihood is lower than the finding suggests: the driver app drops fixes with accuracy above 50 m (Movera-driver-app/lib/core/location/driver_location_repository.dart:53-54), and the jump check only runs when the gap is 0.5-10 s. A multi-km jump that still reports good accuracy is uncommon, so this stays low.",
+     "repro": "Ran a throwaway test with two on-route fixes 3 s apart, then a fix about 5 km east 3 s later. Output: 'jump: [null, null, RideCheckTrigger.offRoute]'.",
+     "evidence": "ride_check_monitor.dart:125-135, 215-216"
+    }
+   ],
+   "source": "r2-rider-r3"
+  },
+  {
    "file": "lib/features/safety/domain/ride_check_monitor.dart",
    "line": 252,
    "title": "The monitor marks a trigger as fired even when the card could not open (another card up), so that trigger is lost for the rest of the trip",
@@ -9970,6 +10350,44 @@
     }
    ],
    "source": "r2-rider1"
+  },
+  {
+   "id": "rider-r3-5",
+   "file": "lib/features/safety/domain/ride_check_trigger.dart",
+   "line": 401,
+   "title": "formatRideCheckDistance (ride_check_trigger.dart:238-245) prints '1000 m' for 995-999 m; this is only reachable when an admin sets a threshold below 1 km",
+   "original_title": "formatRideCheckDistance shows '1000 m' for 995-999 m instead of switching to km",
+   "category": "other",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:r3-wallet-support-safety"
+   ],
+   "merged_from": [],
+   "description": "For `meters < 1000`, the value is rounded to the nearest 10 m: `(meters / 10).round() * 10`. Anything from 995 m to just under 1000 m rounds to 1000 and is printed as '1000 m', while 1000 m and above print as '1.0 km'. The function's own doc says '650 m' below a kilometre and '1.2 km' from there.",
+   "failure_scenario": "A trip whose driver went 997 m off the route, or ended 997 m from the drop-off, shows 'Your trip ended 1000 m from …' on the Ride check card and in the trip details.",
+   "evidence": "ride_check_trigger.dart:399-403 `if (meters < 1000) { final rounded = (meters / 10).round() * 10; return '$rounded m'; }`",
+   "suggested_fix": "Round first, then choose the unit: `if (rounded < 1000) return '$rounded m';` and otherwise format as km.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "The code is at ride_check_trigger.dart:238-245, not :401. `(meters / 10).round() * 10` turns 995-999.9 m into 1000, which prints as '1000 m'. Callers are ride_check_card.dart:55 (droppedFar) and :84 (offRoute). With the defaults the bug cannot show, because droppedFar fires only above 3 km (:64, :92-93) and offRoute only above 2 km (:58). Policy parsing (:165-180) accepts any positive offRouteKm and any finish-far threshold, including legacy meters, so an admin threshold below 1 km makes it reachable. That makes it real but cosmetic.",
+     "repro": "Static read of the function and of its thresholds and callers.",
+     "evidence": "ride_check_trigger.dart:239-241 `if (meters < 1000) { final rounded = (meters / 10).round() * 10; return '$rounded m'; }`"
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "ride_check_trigger.dart:239-241 rounds to 10 m inside the `< 1000` branch, so 995-999.x m prints '1000 m'. With default settings this cannot happen: off-route fires only above 2 km and dropped-far only above 3 km. It shows up only when the admin sets a threshold below 1 km, which fromJson's `positive()` accepts (for example 0.5). It also appears in ride_check_card.dart:55/84.",
+     "repro": "Ran a throwaway test. Output: '997 -> 1000 m, 1000 -> 1.0 km'.",
+     "evidence": "ride_check_trigger.dart:238-245"
+    }
+   ],
+   "source": "r2-rider-r3"
   },
   {
    "file": "lib/features/safety/presentation/emergency_contacts_page.dart",
@@ -10256,6 +10674,44 @@
    "source": "r2-rider3"
   },
   {
+   "id": "rider-fixrev-3",
+   "file": "lib/features/scheduled_rides/presentation/select_date_time.dart",
+   "line": 121,
+   "title": "Arrive by into the DST spring-forward gap gives an estimated pickup after the requested arrival",
+   "original_title": "Arrive by across a DST spring-forward gap books a pickup after the requested arrival",
+   "category": "wrong-time",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:fix-regressions-rider"
+   ],
+   "merged_from": [],
+   "description": "_pickupFor works out the pickup as `DateTime(y, m, d, h, minute - trip)` with the local DateTime constructor. When the result falls in the device zone's DST gap, Dart moves it forward by an hour. On 29 Mar 2026 in Europe/Stockholm, an arrival of 03:10 minus 20 minutes is 02:50, which does not exist, so Dart returns 03:50. The slot floor keeps 03:50. The booked pickup is 40 minutes after the arrival the rider asked for, which breaks the rider-89 rule that the rider is never late. _goNext, _continueButton and _commitSchedule all use this value, and choose() returns it to SelectRide.",
+   "failure_scenario": "The device is set to Europe/Stockholm. The rider picks Arrive by 03:10 on 29 March 2026 with a 20-minute trip. \"Estimated pickup\" shows 03:50 and Continue books a 03:50 pickup, so the rider arrives about an hour late.",
+   "evidence": "select_date_time.dart:118-135:\n    final pickup = DateTime(chosen.year, chosen.month, chosen.day, chosen.hour, chosen.minute - trip);\n    return DateTime(pickup.year, pickup.month, pickup.day, pickup.hour, pickup.minute - pickup.minute % StockholmSchedule.slotMinutes);\nReproduced with TZ=Europe/Stockholm dart: `chosen=2026-03-29 03:10:00.000 pickup=2026-03-29 03:50:00.000 floored=2026-03-29 03:50:00.000`",
+   "suggested_fix": "Subtract the trip as a Duration on a UTC-based value (for example DateTime.utc(...) wall-clock arithmetic, then back), or fall back to the last valid slot at or before the arrival.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_pickupFor (select_date_time.dart:118-135) works out the pickup with the local DateTime constructor, using minute minus trip. When the result falls in the device zone's spring-forward gap, it resolves to the same instant written in the new offset. With the device on Europe/Stockholm, 02:50 on 29 Mar 2026 resolves to 03:50 CEST. Flooring to the 5-minute slot keeps 03:50. _clampChosen (lines 141-151) checks only that this pickup is legal (in the future), not that it comes before the arrival, so nothing corrects it. _pickupAt then goes to _commitSchedule, _goNext and Navigator.pop(context, _pickupAt). This can only happen for an arrival between 03:00 and 03:00 plus the trip time on one night a year, so the severity is low.",
+     "repro": "Read the code only. I read select_date_time.dart:95-200 and StockholmSchedule.roundToFive and clampPickup. I relied on the finder's TZ=Europe/Stockholm dart run (chosen 03:10 -> pickup 03:50) and on Dart's known handling of local times that fall in the gap. I did not run my own test.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_pickupFor (select_date_time.dart:118-135) subtracts the trip with the local DateTime constructor, DateTime(y,m,d,h,minute - trip). The app keeps zone wall times as plain local DateTimes (zone_clock.dart:57-68), so the device's own time zone decides how a time inside the DST gap resolves. With the device on Europe/Stockholm, an arrival of 03:10 on 29 Mar 2026 minus 20 minutes is 02:50, which does not exist, and Dart moves it forward to 03:50. The slot floor rebuilds the value with the same constructor and keeps 03:50. No guard compares the pickup with the arrival. The correct pickup is 00:50 UTC (01:50 CET). The booked pickup, 03:50 CEST (01:50 UTC), is 40 minutes after the requested arrival (01:10 UTC), which breaks rider-89. The path is real but narrow: it needs Arrive by, an arrival inside about the first hour after the spring change, one night a year.",
+     "repro": "Ran the same throwaway test with TZ=Europe/Stockholm through flutter test. `DateTime(2026, 3, 29, 3, 10 - 20)` printed `tz=CEST pickup=2026-03-29 03:50:00.000`, which matches the finder's figure. Read _pickupFor and ZoneClock.wallTime/toUtc to confirm nothing corrects the value afterwards.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-fixrev"
+  },
+  {
    "file": "lib/features/scheduled_rides/presentation/select_date_time.dart",
    "line": 342,
    "title": "Untranslated '24-hour', 'SCHEDULE' and 'Current location' on the scheduling screens (the realtime 'driver arrived' message is never displayed)",
@@ -10400,6 +10856,44 @@
     }
    ],
    "source": "r2-rider4"
+  },
+  {
+   "id": "rider-r3-2",
+   "file": "lib/features/support/presentation/support.dart",
+   "line": 1449,
+   "title": "Support's ride list shows the 'No rides to review' / 'No rides yet' empty state with no retry when GET /rider/trips fails or takes more than 8 s",
+   "original_title": "Support shows 'No rides to review' when the ride history fails to load or times out, with no retry, so a rider with a ride problem is told they have no rides",
+   "category": "ui-truth",
+   "severity": "low",
+   "claimed_severity": "medium",
+   "confidence": 0.55,
+   "reported_by": [
+    "area:r3-wallet-support-safety"
+   ],
+   "merged_from": [],
+   "description": "`_SupportRides` builds with `snapshot.data ?? const []` and never checks `snapshot.hasError`. Its future is `widget.load().timeout(const Duration(seconds: 8))`, held in a `late final` field, so it is never retried. In release, `SupportController.loadRides` reads `ApiRideHistoryRepository.loadOnDemand` (GET /api/v1/rider/trips). That call throws offline, on a server error, or when 8 s pass. Support Home and Select ride then show the empty state 'No rides to review / Your completed and cancelled rides will appear here.' (or 'No rides yet'). This is the only in-app path to report a ride (SupportChat needs a ride id), and there is no retry button or error text, so the rider is told something false and is stuck.",
+   "failure_scenario": "A rider with 20 past trips opens Help on a slow or offline connection. The GET /rider/trips call fails or takes more than 8 s. Support shows 'No rides to review' and Select ride shows 'No rides yet'. They cannot pick the ride they were overcharged on, and the screen gives no hint that loading failed or how to try again.",
+   "evidence": "support.dart:1434-1436 `late final Future<List<SupportRide>> _rides = widget.load().timeout(const Duration(seconds: 8));`\nsupport.dart:1449 `return widget.builder(context, snapshot.data ?? const []);`\nsupport.dart:142-147 `if (recent.isEmpty) { return _EmptyCard(... supportNoRidesToReview, supportRidesAppearHere) }`\nride_history_repositories.dart:34 `final json = await _api.get(...)` (throws offline)",
+   "suggested_fix": "When `snapshot.hasError`, show a load-failed state with a Retry action that recreates the future, separate from the true empty state.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "support.dart:1433-1435 creates the future once (`late final ... .timeout(8s)`) and :1449 builds with `snapshot.data ?? const []` without checking hasError. In release, di.dart:154 wires ApiRideHistoryRepository with no fallback, and its loadOnDemand (ride_history_repositories.dart:30-54) throws on a network or server error. SupportController.loadRides (support_controller.dart:23-32) does not catch either. A failed load therefore looks like a true empty history, and nothing lets the rider retry short of leaving the screen. The comment at support.dart:1421 shows the empty state on failure is deliberate, but no decision document records it. The finding overstates one point: this is not the only in-app path. A ride-less SupportChat is reachable at support.dart:288, so the rider is not completely stuck.",
+     "repro": "Traced _SupportRides, SupportController.loadRides, OnDemandHistoryController.load, the di.dart wiring and ApiRideHistoryRepository.loadOnDemand. There is no try/catch along the path.",
+     "evidence": "support.dart:1449 `return widget.builder(context, snapshot.data ?? const []);`; di.dart:154 `rideHistory = ApiRideHistoryRepository(api: api);`"
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "support.dart:1449 uses `snapshot.data ?? const []` without checking hasError. loadOnDemand (ride_history_repositories.dart:34) throws when offline and has no cache fallback (on_demand_history_controller.dart:17-18), so offline or after the 8 s timeout the rider sees 'No rides to review' or 'No rides yet', which is false. Two parts of the finding are overstated. First, the empty state on failure is the documented design in the widget's own doc comment (support.dart:1420-1421, 'the empty state when the history cannot be read'). Second, the rider is not stuck: 'Something else' opens SupportChat() with no ride (support.dart:283-288), and going back and reopening the screen creates a new State, which retries the load. What remains is misleading copy and no in-place retry.",
+     "repro": "Traced by reading: SupportHome/SelectSupportRide -> _SupportRides (1433-1449) -> SupportController.loadRides (support_controller.dart:23-24) -> OnDemandHistoryController.load -> ApiRideHistoryRepository.loadOnDemand -> _api.get throws. FutureBuilder completes with an error, data is null, and the builder receives []. I did not run a widget test for this.",
+     "evidence": "support.dart:1434-1436, 1449; support.dart:283-288 SupportChat() without ride"
+    }
+   ],
+   "source": "r2-rider-r3"
   },
   {
    "file": "lib/features/wallet/domain/wallet_split.dart",
@@ -12655,6 +13149,96 @@
     }
    ],
    "source": "r2-rider4"
+  },
+  {
+   "id": "rider-fixrev-4",
+   "file": "lib/features/active_ride/presentation/waiting_for_driver.dart",
+   "line": 655,
+   "title": "Driver-drop popUntil also closes Safety Kit, SOS or Safety Hub pages open above Waiting, cutting off their in-progress flows",
+   "original_title": "Driver-drop popUntil also closes Safety Kit, SOS or Safety Hub pages open above Waiting, cutting off their in-progress flows",
+   "category": "ui-truth",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.3,
+   "reported_by": [
+    "area:fix-regressions-rider"
+   ],
+   "merged_from": [],
+   "description": "The R1 fix pops every route above Waiting's ModalRoute, not just Waiting's own transient sheets. That includes the Safety Kit sheet (showRideSafetyKit), plus SafetyHub and TripSharePage pushed from it. If the rider is in the middle of `_call112` (callEmergencyNumber, then `_ctl.sos`), the sheet is popped and the SOS result toast is dropped by its `if (!mounted) return`, so the rider never learns whether the SOS was registered. Unsaved Safety Hub or trip-share edits are discarded the same way. The codebase already has closeRouteByReference / NAV-9, which removes one route without touching routes above it; that was the documented way not to close Safety or notification pages above Waiting.",
+   "failure_scenario": "While the driver is on the way, the rider opens the Safety Kit and taps the emergency call. The driver drops the ride at that moment. The sheet closes under the rider and no \"SOS registered\" or \"not registered\" message is shown. A Safety Hub page with contact edits is likewise closed without saving.",
+   "evidence": "waiting_for_driver.dart:651-656:\n    final own = ModalRoute.of(context);\n    if (own != null && own.isActive && !own.isCurrent) {\n      navigator.popUntil((route) => route == own);\n    }\nwaiting_for_driver.dart:398-399: `// NAV-9: close the arrived sheet itself, not whatever route is on top (a notification or Safety page pushed above it stays open).`\nride_safety_kit.dart:170-172: `final registered = await _ctl.sos(...); if (!mounted) return; MoveraToast.show(...)`",
+   "suggested_fix": "Remove the Waiting route with navigator.removeRoute(own) (or closeRouteByReference) and leave unrelated pages on top, or pop only the routes Waiting tracks itself (arrived sheet, cancel sheet, driver profile).",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "refuted",
+     "severity": "low",
+     "reason": "Closing pages that are open above Waiting on a driver drop is what R1 set out to do. Commit 0076cfc says 'close that page first so the pop leaves Waiting and the search restarts (audit rider-27)', and the comment at waiting_for_driver.dart:651-652 says the same. The NAV-9 rule at waiting_for_driver.dart:398-402 covers trip start, where the ride and Waiting go on, so a Safety page should stay. It does not cover Waiting leaving because dispatch restarts. Before R1 the same driver drop popped the Safety Kit anyway (that was the rider-27 bug), so the sheet closing is not new. The SOS flow itself is not cut off. ride_safety_kit.dart:166-176 has already dialled 112 before the SOS call, and `_ctl.sos` runs on the shared SafetyController, which keeps going after the sheet is gone. The `if (!mounted) return` only drops the confirmation toast, and only if the driver drops in the short window between dialling and the SOS reply. The claim about unsaved Safety Hub edits is not backed by any traced edit buffer.",
+     "repro": "Read the code only, no test run. I read waiting_for_driver.dart:636-664 and 390-403, showRideSafetyKit and _call112 in ride_safety_kit.dart:111-176, commit 0076cfc (message and stat) and FIX_PLAN.md:53 (R1).",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-fixrev"
+  },
+  {
+   "id": "rider-fixrev-2",
+   "file": "lib/features/history/data/on_demand_ride_history_store.dart",
+   "line": 237,
+   "title": "On-device History never stores paymentFailed: no local path archives a ride with terminalStatus paymentFailed",
+   "original_title": "On-device History never stores paymentFailed: no local path archives a ride with terminalStatus paymentFailed",
+   "category": "contract-mismatch",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:fix-regressions-rider"
+   ],
+   "merged_from": [],
+   "description": "R2 says History archives paymentFailed trips as completed with a \"Payment failed\" label. On the device-archive path (LocalRideHistoryRepository, used in demo/dev), nothing ever calls archive() with RideStatus.paymentFailed. (1) In Waiting, a paymentFailed event is terminal and not a completed surface, so it goes to _handleExternalTerminal -> ActiveRideController.markExternalTerminal. That method archives only cancelledByDriver, cancelledBySystem, cancelledByAdmin, endedByDriver, noShow and tripFailed, then clears the snapshot. If the ride never showed a completed surface first, it is missing from History. (2) On RideCompleted, the realtime listener drops anything that is not isCompletedSurface, so paymentFailed is ignored and persistCompletedStatus would throw for it anyway. On Done, closeCompletedRide archives `snapshot.status` (tripCompleted or paymentProcessing), so the record is written with paymentFailed=false. The new flag and label only work for server trips.",
+   "failure_scenario": "In a demo/dev build, the QA hook sets a live ride to paymentFailed (in_process_mock_client maps the legacy paymentFailed status to paymentStatus failed). History then shows the trip as \"Completed\", or does not list it at all if Waiting received paymentFailed directly. \"Payment failed\" never appears.",
+   "evidence": "active_ride_controller.dart:352-359:\n    if (status == RideStatus.cancelledByDriver ||\n        status == RideStatus.cancelledBySystem ||\n        ... status == RideStatus.tripFailed) {\n      await _archive(snapshot, status, expectedRideId: id);\n    }\n    await _store.clear();\nride_completed.dart:122-127: `!status.isCompletedSurface || ... return;`\nactive_ride_controller.dart:454-457: `if (snapshot != null && snapshot.status.isCompletedSurface) { await OnDemandRideHistoryStore.archive(snapshot, terminalStatus: snapshot.status);`\non_demand_ride_history_store.dart:237: `paymentFailed: terminalStatus == RideStatus.paymentFailed,`",
+   "suggested_fix": "Archive paymentFailed in markExternalTerminal. On RideCompleted, let paymentFailed through and re-archive the ride with that terminal status before closing.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "refuted",
+     "severity": "low",
+     "reason": "The device archive (LocalRideHistoryRepository, di.dart:159) is used only in non-release builds. Those builds never produce paymentFailed. The mock realtime's commit table (mock_ride_realtime.dart:723-737) only moves payment to authorized or captured and never sends failed. Nothing in mock_ride_realtime.dart mentions paymentFailed. The only place that turns a status into TripPaymentStatus.failed is the demo simulator branch in in_process_mock_client.dart:1723, which handles a legacy 'paymentFailed' sent in a POST /status body. No app code or QA hook (docs/QA_HOOKS.md lists none for payment) sends that. The missing archive branch in markExternalTerminal (active_ride_controller.dart:352-359) is therefore unreachable on the local path. R2 (commit 268e0dd) targeted only server-backed History ('server-backed History dropped them'), and that path is ApiRideHistoryRepository._record -> recordFor, which does set paymentFailed.",
+     "repro": "Read the code only. I traced di.dart:150-160, ride_history_repositories.dart, active_ride_controller.dart:337-460, mock_ride_realtime.dart:720-760 and in_process_mock_client.dart:1692-1730, and grepped lib/ for every paymentFailed and TripPaymentStatus.failed producer.",
+     "evidence": ""
+    }
+   ],
+   "source": "r2-rider-fixrev"
+  },
+  {
+   "id": "rider-r3-8",
+   "file": "lib/ride_selection_and_mock_contract_note_placeholder",
+   "line": 0,
+   "title": "placeholder",
+   "original_title": "placeholder",
+   "category": "other",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0,
+   "reported_by": [
+    "area:r3-finding-driver-selection"
+   ],
+   "merged_from": [],
+   "description": "placeholder",
+   "failure_scenario": "placeholder",
+   "evidence": "placeholder",
+   "suggested_fix": "",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "refuted",
+     "severity": "low",
+     "reason": "The finding has no content to check. Its title, description, failure scenario and evidence are all the word 'placeholder', and its claimed confidence is 0. The cited file lib/ride_selection_and_mock_contract_note_placeholder:0 does not exist; ls shows lib/ holds only app, core, features, l10n, shared and the main*.dart entry points. No caller or input can reach a failure that was never described.",
+     "repro": "Ran ls on /home/user/movera-rider-app/lib and on the cited path, which returned 'No such file or directory'. I ran no test because there was nothing to reproduce.",
+     "evidence": "ls: cannot access '/home/user/movera-rider-app/lib/ride_selection_and_mock_contract_note_placeholder': No such file or directory"
+    }
+   ],
+   "source": "r2-rider-r3"
   }
  ],
  "runs_done": [
@@ -12675,7 +13259,13 @@
   "r2-rider1",
   "r2-rider2",
   "r2-rider3",
-  "r2-rider4"
+  "r2-rider4",
+  "r2-driver-fixrev",
+  "r2-rider-fixrev",
+  "r2-driver-fixrev2",
+  "r2-rider-fixrev2",
+  "r2-rider-r3",
+  "r2-driver-r3"
  ],
  "runs_pending": []
 }

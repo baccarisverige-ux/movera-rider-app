@@ -21,11 +21,14 @@ String _reference(String rideId) {
 }
 
 class RideCompletedDriverInfo extends StatelessWidget {
-  const RideCompletedDriverInfo({super.key});
+  const RideCompletedDriverInfo({super.key, this.rideId});
+
+  /// The ride this screen completes; another ride's driver is never shown.
+  final String? rideId;
 
   @override
   Widget build(BuildContext context) {
-    final driver = AppScope.instance.rideComplete.driver();
+    final driver = AppScope.instance.rideComplete.driver(rideId: rideId);
     if (driver == null) {
       return MoveraEmptyState(
         icon: Icons.person_search_outlined,

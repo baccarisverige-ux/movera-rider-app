@@ -358,6 +358,7 @@ class _RideCompletedState extends State<RideCompleted> {
                                 const SizedBox(height: 14),
                                 _SurfaceCard(
                                   child: RideCompletedAddTip(
+                                    rideId: widget.rideId,
                                     onTipChanged: (amount) => _tipMinor = amount,
                                   ),
                                 ),
@@ -384,7 +385,7 @@ class _RideCompletedState extends State<RideCompleted> {
                       const _BelongingsReminder(),
                       const SizedBox(height: 14),
                       _SurfaceCard(
-                        child: const RideCompletedDriverInfo(),
+                        child: RideCompletedDriverInfo(rideId: widget.rideId),
                       ),
                       const SizedBox(height: 14),
                       _SurfaceCard(

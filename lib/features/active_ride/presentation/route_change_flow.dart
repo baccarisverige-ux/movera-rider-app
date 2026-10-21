@@ -11,6 +11,7 @@ import 'package:movera_rider/features/destination_search/presentation/route_pick
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -113,7 +114,12 @@ Future<RideSnapshot?> openRouteChange(
                 quote: quote,
                 refundTo: decision.refundTo,
               );
-              await _creditWallet(decision.refundTo, quote);
+              await _creditWallet(
+                decision.refundTo,
+                quote,
+                before: ride,
+                after: updated,
+              );
               return {'ride': updated, 'refundTo': decision.refundTo};
             } on RouteChangeException catch (error) {
               messenger
@@ -155,19 +161,71 @@ Future<int> _maxPickupMoveMeters(RideSnapshot ride) async {
 RefundDestination? lastRefundDestination;
 
 /// A refund the rider sent to the Movera Wallet is credited right away.
-Future<void> _creditWallet(RefundDestination? refundTo, RouteChangeQuote quote) async {
+///
+/// rider-u42: the wallet part of a trip is only debited at completion, from
+/// the saved (already lower) fare, so that part of the cut must not also be
+/// credited now. Only what another method no longer pays is credited.
+Future<void> _creditWallet(
+  RefundDestination? refundTo,
+  RouteChangeQuote quote, {
+  required RideSnapshot before,
+  required RideSnapshot after,
+}) async {
   if (refundTo != RefundDestination.wallet || quote.differenceKr >= 0) return;
   try {
+    final creditMinor = routeChangeWalletCreditMinor(
+      quote: quote,
+      before: before,
+      after: after,
+    );
+    if (creditMinor <= 0) return;
     // Q8: the refund goes to the wallet balance of the trip's currency.
     final wallet = AppScope.instance.walletController.forCurrency(
       quote.currency,
     );
     final previous = await wallet.loadBalance();
-    await wallet.refund(previous: previous, amount: -quote.differenceKr);
+    await wallet.refund(
+      previous: previous,
+      amount: Money(creditMinor, quote.currency).major,
+    );
   } catch (_) {
     // The mock backend already holds the refund; the local ledger is a
     // convenience and must not block the route change.
   }
+}
+
+/// rider-u42: how much of a cheaper route change ([before] -> [after]) is
+/// credited to the wallet now, in minor units of the quote's currency.
+///
+/// The completion charge (`WalletController.chargeCompletedRide`) debits a
+/// wallet ride for its saved fare, and a "wallet first" ride for
+/// min(wallet part, fare). Whatever that debit is now smaller by is already
+/// the refund, so it is taken off the credit; only the rest (the part the
+/// card no longer pays) is credited.
+@visibleForTesting
+int routeChangeWalletCreditMinor({
+  required RouteChangeQuote quote,
+  required RideSnapshot before,
+  required RideSnapshot after,
+}) {
+  final refundMinor = -(quote.differenceMinor ??
+      Money.fromLegacyMajor(quote.differenceKr, quote.currency).amountMinor);
+  if (refundMinor <= 0) return 0;
+  int walletPart(RideSnapshot ride) {
+    final methodId = ride.paymentMethodId;
+    final paidByWallet = methodId != null
+        ? methodId == 'wallet'
+        : WalletController.isWalletPayment(ride.paymentMethod);
+    final fare = ride.fare.amountMinor;
+    if (paidByWallet) return fare;
+    final wallet = ride.walletAmountMinor;
+    if (wallet <= 0) return 0;
+    return wallet < fare ? wallet : fare;
+  }
+
+  final alreadyLess = walletPart(before) - walletPart(after);
+  final credit = refundMinor - (alreadyLess > 0 ? alreadyLess : 0);
+  return credit > 0 ? credit : 0;
 }
 
 /// The short confirmation shown after a route change went through.
@@ -244,7 +302,12 @@ Future<RideSnapshot?> removeRouteStop(
       quote: quote,
       refundTo: decision.refundTo,
     );
-    await _creditWallet(decision.refundTo, quote);
+    await _creditWallet(
+      decision.refundTo,
+      quote,
+      before: ride,
+      after: updated,
+    );
     lastRefundDestination = decision.refundTo;
     return updated;
   } on RouteChangeException catch (error) {

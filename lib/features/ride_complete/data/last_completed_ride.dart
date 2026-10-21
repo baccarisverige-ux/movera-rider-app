@@ -18,6 +18,20 @@ abstract final class LastCompletedRide {
 
   static RideSnapshot? get value => _snapshot;
 
+  /// rider-u166: the remembered ride only when it is [rideId], so a
+  /// completion screen never shows another ride's driver, receipt or tip
+  /// currency. A null [rideId] (a caller that does not know its ride) gets
+  /// [value].
+  static RideSnapshot? forRide(String? rideId) {
+    final id = rideId?.trim();
+    if (id == null) return _snapshot;
+    final snapshot = _snapshot;
+    if (id.isEmpty || snapshot == null || snapshot.rideId?.trim() != id) {
+      return null;
+    }
+    return snapshot;
+  }
+
   /// What the server said the rider pays, when known (an ended-early
   /// trip's `fare`, UI-01). Null: only the booked price is known.
   static Money? get charged => _charged;

@@ -52,7 +52,8 @@ Times are RFC 3339 UTC. Money on new fields is integer minor units
 - `GET /api/v1/account/security` → `{security}`.
 - `POST /api/v1/account/security/sessions/sign-out-others` → `{security}`; `403 REAUTH_REQUIRED` unless re-authenticated in the last 5 minutes.
 - `POST /api/v1/account/deletion` → `202 {status: scheduled}`.
-- `PATCH /api/v1/rider/profile` **PROPOSED** (FLOW-7) `{name, language, consents: {rideUpdates, emailUpdates, promotions}}` → `{profile}`; `422 INVALID_PROFILE` (name not a string or over 80 characters). Sent on every profile save; the device copy is a cache.
+- `GET /api/v1/rider/profile` **PROPOSED** (FLOW-7) → `{profile}` (`{name, language, consents}`, or `null` for a rider with none). Read at launch, after sign-in and before the first save; nothing is sent until it has been read, so an empty device copy never blanks the server one (rider-u148).
+- `PATCH /api/v1/rider/profile` **PROPOSED** (FLOW-7) `{name?, language, consents: {rideUpdates, emailUpdates, promotions}}` → `{profile}`; `422 INVALID_PROFILE` (name not a string or over 80 characters). A field left out keeps the server value; a blank name is never sent. Sent on every profile save; the device copy is a cache.
 
 ### Push devices
 

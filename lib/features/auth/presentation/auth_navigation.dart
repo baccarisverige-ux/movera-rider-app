@@ -25,6 +25,9 @@ void enterMoveraApp(BuildContext context) {
   if (shown) {
     unawaited(RideRestoreCoordinator.instance.resumeIfNeeded());
   }
+  // rider-u148: a returning rider gets their server profile (name,
+  // language, consents) on this device.
+  unawaited(AppScope.instance.profile.hydrate());
   // UI-17: explain ride updates before the OS notification prompt.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final home = moveraNavigatorKey.currentContext;

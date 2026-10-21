@@ -325,6 +325,8 @@ class AppScope {
   late final RideCompleteController rideComplete = RideCompleteController();
   late final WalletController walletController = WalletController(
     balances: walletBalances,
+    // rider-u232: the Payments tab's default is the one Select Ride uses.
+    defaultPayment: defaultPayment,
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
 

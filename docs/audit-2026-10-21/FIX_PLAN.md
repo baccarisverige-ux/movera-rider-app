@@ -1,101 +1,113 @@
-# Movera: safe plan to fix the audit findings
+# Movera: safe plan to fix every audit finding
 
-Audit of 2026-10-21. Driver app: 82 confirmed bugs (5 high, 22 medium, 55 low). Rider app: 94 confirmed bugs (4 high, 30 medium, 60 low).
-Full list: `docs/audit-2026-10-21/AUDIT.md` in each repo. IDs below (for example `driver-40`) match `raw/*_audit_results.json`.
+Updated 2026-10-21, after audit rounds 1-3 and two reviews of our own fixes.
 
-## Rules for every fix
+| App | Confirmed | Already fixed and merged | In wave 2 (in progress) | Still to fix | Of those: medium | low |
+|---|---|---|---|---|---|---|
+| Driver | 256 | 18 | 7 (6 bugs) | 231 | 75 | 156 |
+| Rider | 320 | 8 | 8 (6 bugs) | 304 | 119 | 185 |
 
-1. **Test first.** Write a test that fails because of the bug. Then fix the code and watch the test pass. A fix without such a test is not merged.
-2. **Small pull requests.** One area per PR, at most about 10 bugs. Never mix the driver and rider apps in one PR.
-3. **CI must be green on the exact PR head.** Driver: `Drider CI` (analyze `--fatal-infos`, the full test suite, the lifecycle integration test, web build). Rider: `Architecture gates`, `Rider languages` and the QA workflows. Today both are clean: driver 1,632 tests and rider 2,254 tests passing, and `flutter analyze` reports no issues.
-4. **Never change an existing test only to make it pass.** If an old test fails, decide first: was the test asserting the bug? If yes, change it in the same PR and say so in the PR text. If not, the fix is wrong.
-5. **Merge one PR at a time** and rebase the next one on the new `main`. Shared files (`accept_ride_trip.dart`, `home_offer_radar.dart`, `waiting_for_driver.dart`) are touched by several PRs, so the order below matters.
-6. **Check on a real device after each high or medium PR.** Use the live demo links: one rider trip and one driver trip, on iPhone Safari and on Android Chrome.
-7. **If a merged PR breaks something,** revert that one PR. Do not patch on top of it. Each PR is small, so it reverts cleanly.
+No high-severity bug is left outside wave 2. Full lists: `DRIVER_AUDIT.md` and `RIDER_AUDIT.md` (also in each repo under `docs/audit-2026-10-21/`). IDs below (for example `driver-u39`) match `raw/*_audit_results.json`.
 
-## Decisions the product owner makes before the work starts
+## The rules that keep this safe
 
-Some fixes change what users see, or the shared contract. The rider docs say the approved UI is frozen, so these need a yes or no first:
+These held for wave 1 and the feature work, and they stay for every wave:
 
-| Topic | Fix changes | Bugs |
-|---|---|---|
-| History times | Times are shown in local time instead of UTC | rider-36 |
-| History list | Settled and payment-failed trips are listed (a new or changed status label) | rider-37 |
-| Arrive-by booking | Pickup time is computed from arrival time minus trip time; the screen shows both | rider-89 |
-| Error messages | New honest error or "not sent" messages where the app now shows success | ui-truth items in both apps |
-| Route-change price | The stand-in server stops charging booked stops twice; this must match the admin panel and backend contract | rider-9 |
-| Contract wording | Docs updated where code and docs disagree (ARCHITECTURE.md, DECISIONS.md) | rider-34, driver docs items |
+1. **Test first.** Every bug gets a test that fails on the old code and passes with the fix. The pull request text says how the test failed before. No test, no merge.
+2. **One pull request per area, at most about 10 bugs.** Never mix driver and rider in one PR. Bugs in the same file go in the same PR, so two PRs never fight over one function.
+3. **Checks must be green on the exact PR head.** Driver: analyze with `--fatal-infos`, the full suite (1,683 today), the lifecycle integration test, the web and release builds. Rider: all 21 checks (2,275 tests today), including the time-zone runs added in #350/#351.
+4. **Never change an old test only to make it pass.** If an old test fails, first decide: was it asserting the bug? If yes, change it in the same PR and say so. If not, the fix is wrong.
+5. **Merge one PR at a time per app** and start the next one from the new `main`. The two apps can run in parallel because they are separate repos. The shared `contracts/` folder is touched only by a PR set that lands in all three repos together (as #128/#330/#350 did).
+6. **Review our own fixes after each wave.** Rounds "fixrev" and "fixrev2" found 10 bugs that our wave-1 fixes introduced. That review is cheap (about 15 minutes per app) and it stays in the plan after every wave.
+7. **If a merged PR breaks something, revert that one PR.** Do not patch on top of it. Each PR is small, so it reverts cleanly.
+8. **Frozen UI.** The rider docs say the approved UI is frozen. A fix that changes what users see is listed in its PR under "Visible change" so the owner can say no before merge. Honest error messages where the app now claims success count as visible changes.
+9. **No backend yet.** Fixes to the server seam (realtime projections, profile sync, wallet refunds) are tested with the in-process stand-in and the contract files. They are marked "server seam" in the PR so they get re-checked when a backend exists.
 
-## Phase 0: preparation (no app code changes)
+## Owner decisions (answered 2026-10-21)
 
-- **0.1** Check the 585 saved but unchecked findings (`raw/*_unverified_findings.json`) with the same two-step check. Expected: many repeats, plus a few new real bugs that get added to the phases below.
-- **0.2** Merge repeated findings. For example `driver-74` and `driver-75` are one bug.
-- **0.3** Get the owner decisions above.
-- **0.4** Create a tracking issue per phase with the bug IDs as a checklist.
+| # | Question | Decision | Where it lands |
+|---|---|---|---|
+| 1 | With admin "Leave now" off, an online driver can never start a reservation. | **Remove the "Leave now" switch.** The trip always opens by itself when it is time to leave. The admin keeps the timing values. | Admin + driver PR set (contract change), wave 3 |
+| 2 | The admin's reservations on/off switch is saved but unused. | **Make it work, and make it per driver as well as global.** The admin can pause reservations for one driver or for everyone. Rides already accepted still run. | New small feature: admin + driver PR set, wave 3 |
+| 3 | Forced offline (daily limit, missed Exclusives) during a 1-3 s "Matching trip…" wait. | **The accept wins.** Wait for dispatch's answer; if the ride is his, do it and go offline when it ends; if not, go offline at once. | D3.1 |
+| 4 | Settings changed (category, destination mode) during the match wait. | **Lock the settings while matching.** The buttons are greyed out for those seconds; the change applies after. | D3.1 |
+| 5 | The stand-in server charges a booked stop twice on a route change. | **Fix the stand-in now**, write the rule in the shared contract, add a test. | R4.2 (contract change: lands in all three repos) |
 
-## Phase 1: driver high-severity bugs (trip ends, offers, scheduled rides)
+Nothing is decision-blocked any more.
 
-All of these are about a trip or offer ending the wrong way. They touch the same files, so they go in this order, one PR each:
+## Wave 2: the last high-severity bugs (in progress now)
 
-| PR | Bugs | What gets fixed |
-|---|---|---|
-| D1 | driver-40, then j2-7 | Trip exits close the trip screen itself, not whatever screen is on top. Driver cancel and no-show release the trip, so the driver can go online again. |
-| D2 | driver-71, driver-69, driver-70, driver-87 | Offer claims in flight survive closing the card, going offline, system Back and two offers leaving together. A won trip is never dropped. |
-| D3 | driver-74/75 | "Leave now" only removes the scheduled ride after the trip screen has opened. |
-| D4 | driver-37, driver-38, driver-39 | Admin-completed and repeated-status trips keep their cash payment, the next-trip offer and the last-trip data. |
-
-Tests to add: widget tests for each case. The audit's throwaway tests show the exact steps.
-
-## Phase 2: rider high-severity bugs
+Two helpers are working, one per app, one commit per bug, test first.
 
 | PR | Bugs | What gets fixed |
 |---|---|---|
-| R1 | rider-27, rider-26, rider-32 | Driver drop or reassign closes the waiting screen itself, restarts the search and never sends the rider Home by mistake. |
-| R2 | rider-36, rider-37 | History stores times correctly and lists every finished trip (after the owner decision). |
-| R3 | rider-89 and the select date/time items | "Arrive by" books the correct pickup time; the Continue button does not stay disabled. |
+| D-W2 | driver-u1, u39, u64, u130, u149+u150, u174 | Pages deploy trusts fork PRs; "Continue straight" while the arrow turns; screen-reader swipe skips the confirm dialog; in sv/fr an Exclusive reservation is treated as a normal ride; Back on Ride completed leaves the session "on trip"; web car marker leaks memory |
+| R-W2 | rider-u42, u148+u149, u166+u176, u195, u213, u232 | Cheaper route change refunded twice; blank profile overwrites the server; reservation completion shows the last Book-now ride; failed safety alert shown as "alerted" after reload; safety buttons unusable with a screen reader; default payment ignored at booking |
 
-## Phase 3: medium bugs, one PR per area
+Then: fixrev round on both apps (about 15 minutes each). Any regression is fixed in the same PR before merge.
 
-Driver:
+## Wave 3: medium bugs, driver (75 bugs, 8 PRs)
 
-| PR | Area | Bugs |
-|---|---|---|
-| D5 | Trip screen, rest | medium items in `accept ride/` not already in D1-D4 |
-| D6 | Home, rest | medium items in `home/` not already in D2-D3 |
-| D7 | Ride requests, dispatch, overlays | 4 medium |
-| D8 | Settings and data: preferences (category choice after restart, driver-78), profile, vehicle, add vehicle | 4 medium |
-| D9 | Navigation, location, waybill money (thousands parsing), safety recording, scheduled rides, ride data privacy | 7 medium |
+Grouped by area so each PR touches one part of the app. Order matters where files are shared (`home/*` first, then `accept ride/*`).
 
-Rider:
+| PR | Area | Bugs | Note |
+|---|---|---|---|
+| D3.1 | Home: offers, claims, Exclusive timeouts | 11 | includes driver-r3-14 (background network error counts as a miss) |
+| D3.2 | Home: scheduled rides, radar, island notices | 11 | the rest of `home/` (22 in total with D3.1) |
+| D3.3 | Trip screen: realtime, projections, restore | 8 | includes driver-r3-12 (admin cancel lost during a background save), server seam |
+| D3.4 | Trip screen: stops, waybill, fare, cancel reasons | 7 | plus `core/waybill` (3), money |
+| D3.5 | Scheduled rides, ride requests, dispatch | 7 | `scheduled rides` 4, `ride requests` 2, `core/dispatch` 1 |
+| D3.6 | Navigation, location, safety, sound | 10 | `core/navigation` 4, `core/location` 2, `core/safety` 3, `core/sound` 1 |
+| D3.7 | Settings and data: preferences, profile, vehicle, add vehicle, ride data | 6 | includes driver-78 (category choice lost after restart) |
+| D3.8 | Platform: iOS, Android, web, main.dart, overlays, demo banner, test/integration gaps | 9 | small, independent fixes; the test-integrity items make existing tests able to fail |
 
-| PR | Area | Bugs |
-|---|---|---|
-| R4 | Home and pickup (location prompt, map moved by a late fix, geocode errors) | 5 medium |
-| R5 | Select ride and fare | 4 medium |
-| R6 | Reservations and scheduled rides (time zone storage, DST) | 6 medium |
-| R7 | Active ride, finding a driver, realtime, ride booking | 6 medium |
-| R8 | Stand-in server and API (route-change pricing, version bump on edits) | 2 medium, after the owner decision |
-| R9 | Safety, notifications, auth, ride complete, shared widgets, maps | 7 medium |
+Decision-blocked (not in any PR yet): driver-fixrev-5, driver-fixrev-12, the forced-offline and settings-during-match items (4 bugs).
 
-## Phase 4: low bugs, grouped by kind
+## Wave 4: medium bugs, rider (119 bugs, 12 PRs)
 
-| PR | Kind | Notes |
-|---|---|---|
-| D10 / R10 | Translations (en, fr, sv) | Hard-coded English, plurals, labels parsed in one language. The largest group, low risk, add l10n tests. |
-| D11 / R11 | UI truth | Messages that claim success they did not get, for example "Emergency dialer opened" on web. |
-| D12 / R12 | Remaining low items per area | Small local fixes. |
-| D13 / R13 | Tests and docs | Tests that cannot fail, and docs that contradict the code. |
+| PR | Area | Bugs | Note |
+|---|---|---|---|
+| R4.1 | Active ride: waiting, driver drop, terminal states | 10 | |
+| R4.2 | Active ride: route change, in-trip panel, fees | 9 | server seam for route pricing; rider-9 waits for decision 5 |
+| R4.3 | Safety: ride check, triggers, store | 15 | includes rider-r3-1 (failed save wipes other safety data) and rider-r3-3 (stale "longer than expected" budget) |
+| R4.4 | Home and pickup | 17 | `home` 12, `pickup` 5 |
+| R4.5 | Reservations and scheduled rides | 12 | `reservations` 8, `scheduled_rides` 4; time-zone and DST items get the three-zone CI run |
+| R4.6 | Ride selection and fare | 8 | |
+| R4.7 | Sign-in and profile | 11 | `auth` 7 (includes rider-r3-10: Back during Verify), `profile` 4 (includes rider-r3-9: stale profile copy) |
+| R4.8 | Ride complete and booking | 10 | `ride_complete` 7, `ride_booking` 2, `booking` 1 |
+| R4.9 | Finding a driver and destination search | 9 | `finding_driver` 5, `destination_search` 4 |
+| R4.10 | Realtime, API, contracts, notifications | 12 | `core/realtime` 5, `core/api` 3, `core/contracts` 2, `core/notifications` 2; server seam |
+| R4.11 | Saved places, maps, shared widgets, bootstrap, web, core/auth | 6 | small independent fixes |
 
-## Phase 5: final check
+Waves 3 and 4 run in parallel (different repos). After each wave: fixrev round.
 
-- Run the same audit again on the new `main` (finders plus the two-step check) to confirm the fixed bugs are gone and nothing new appeared.
-- Do a full device check of both apps using `docs/UAT_CHECKLIST.md`.
+## Wave 5: low bugs, both apps (156 driver, 185 rider)
 
-## Order and size
+Grouped by kind, not by area, because the fixes are alike and low risk:
 
-About 30 PRs in total. Each PR is reviewed and merged before the next one starts in the same area. PRs for the other app can run in parallel, because the two apps are separate repos.
+| PR | Kind | Driver | Rider | Note |
+|---|---|---|---|---|
+| D5.1 / R5.1 | Translations (en, fr, sv) | 43 | 33 | hard-coded English, plurals, mixed-language rows; add l10n parity tests |
+| D5.2 / R5.2 | UI truth | 33 | 38 | messages that claim success they did not get; **visible changes**, listed for the owner |
+| D5.3 / R5.3 | Accessibility | 14 | 11 | labels, tap actions, contrast; semantics tests |
+| D5.4 / R5.4 | State and time: state-corruption, wrong-time, data-loss, contract-mismatch | 35 | 47 | one PR per area if a group grows past 10 |
+| D5.5 / R5.5 | Tests and docs | 9 + 5 | 12 + 2 | tests that cannot fail; docs that contradict the code |
+| D5.6 / R5.6 | Everything else | 17 | 42 | small local fixes, by area |
+
+Each of these rows may become 2-3 PRs to stay under about 10 bugs each.
+
+## Wave 6: final check
+
+1. Run the full audit once more on the new `main` of both apps (finders, two verifiers, tie-break) to confirm the fixed bugs are gone and nothing new appeared.
+2. Device check of both apps on the live demo links, with `docs/UAT_CHECKLIST.md`: one rider trip, one driver trip, one reservation, on iPhone Safari and Android Chrome.
+3. Re-check the "server seam" PRs when a backend exists.
+
+## Size and pace
+
+About 45 pull requests in total (2 in wave 2, 8 + 11 in waves 3-4, about 18 in wave 5, plus fixrev fixes). With two helpers in parallel and test-first on every bug, waves 2-4 take about one working day of sessions each, wave 5 about one more. Count on 3-4 days of sessions, less if the low bugs go quickly.
 
 ## What is not in this plan
 
-- Fixes in the admin panel or the backend contract, except where a rider or driver fix needs them (they are flagged in R8).
-- New features. Mocks stay mocks; the audit only reports where the app pretends success.
+- Admin panel bugs, except where a rider or driver fix needs an admin change (then all three repos move together).
+- The backend itself. Server-seam fixes make the apps correct against the contract; the server must still be built to match it.
+- New features. The late-ETA watch is done; anything else is a separate request.

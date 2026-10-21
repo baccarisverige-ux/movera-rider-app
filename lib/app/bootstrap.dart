@@ -109,7 +109,7 @@ Future<void> bootstrap() async {
     await WalletStore.seedDemoBalance();
   }
   await AppScope.instance.reservations.hydrate();
-  await AppScope.instance.profile.hydrate();
+  await AppScope.instance.profile.hydrateLocalThenServer();
   // Q48: the saved language, else the default of the rider's zone; a
   // later good fix in another zone moves the default with it.
   await AppScope.instance.language.load(

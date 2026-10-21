@@ -31,6 +31,16 @@ abstract final class ReservationLiveRide {
     );
   }
 
+  /// rider-u166: makes [ride] the ride the completion screen describes, so
+  /// it shows this reservation's driver, receipt and tip currency rather
+  /// than the previous Book Now ride's.
+  static void rememberCompleted(Reservation ride) =>
+      ReservationController.rememberCompleted(
+        ride,
+        driver: ride.driver == null ? null : driverOf(ride.driver!),
+        notes: notesOf(ride),
+      );
+
   static RideNotes notesOf(Reservation ride) {
     final note = ride.note ?? '';
     return RideNotes(
@@ -95,6 +105,7 @@ abstract final class ReservationLiveRide {
       },
       onCompleted: (context, status) async {
         if (!context.mounted) return;
+        rememberCompleted(reservations.byId(ride.reservationId) ?? ride);
         final completionRealtime = ReservationRideRealtime(
           controller: reservations,
           reservationId: ride.reservationId,
