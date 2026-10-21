@@ -212,8 +212,14 @@ class RideSelectionController {
   /// The wallet / method split of [totalMinor] (minor units of [currency]),
   /// worked out in minor units so the parts always add up to the total.
   /// None until the balance of this trip's currency is known (Q8).
+  ///
+  /// rider-r4-31: none for Book for later either: a reservation carries
+  /// only its price and method, so a split shown there is never applied.
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
+    if (!useWalletFirst ||
+        !_flags.enableWallet ||
+        !walletMatchesTrip ||
+        createsReservation) {
       return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {

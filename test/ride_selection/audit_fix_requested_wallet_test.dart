@@ -27,6 +27,15 @@ void main() {
     flags: FeatureFlags(),
   );
 
+  test('rider-r4-31: Book for later shows no wallet split it never books', () {
+    final selection = controller()..setWalletBalance(100);
+    expect(selection.walletSplitFor(31200).usesWallet, isTrue);
+    selection.scheduleFor(DateTime(2026, 10, 30, 9));
+    expect(selection.createsReservation, isTrue);
+    expect(selection.walletSplitFor(31200).usesWallet, isFalse);
+    expect(selection.walletAppliedKr(312), 0);
+  });
+
   group('rider-u186: a requested Movera Wallet method', () {
     test('is chosen once the balance arrives', () {
       final selection = controller();
