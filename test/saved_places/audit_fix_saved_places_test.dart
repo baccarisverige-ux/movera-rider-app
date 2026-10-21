@@ -125,6 +125,26 @@ void main() {
     expect(prefs.getString('movera_home_address'), 'Sveavägen 1');
   });
 
+  // rider-r4-47: a new name typed for Home was accepted and then dropped
+  // (the slot keeps its name), so the field is not editable there.
+  testWidgets('Home and Work keep their name in Edit saved place', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const AddPlace(
+        initial: PlaceShortcut(
+          title: 'Home',
+          subtitle: 'Sveavägen 1',
+          kind: 'home',
+        ),
+      ),
+    );
+    final name = tester.widget<TextField>(find.byType(TextField).first);
+    expect(name.enabled, isFalse);
+    expect(name.controller?.text, 'Home');
+  });
+
   test('FLOW-5: two custom places with the same name are both kept', () async {
     final places = SavedPlacesController();
     await places.save(

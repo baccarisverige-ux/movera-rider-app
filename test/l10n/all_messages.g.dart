@@ -1189,6 +1189,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'spDeletePlace': l.spDeletePlace('<place>'),
   'spLocationOff': l.spLocationOff,
   'spLocationDeniedForever': l.spLocationDeniedForever,
+  'spWebLocationDeniedForever': l.spWebLocationDeniedForever,
   'spLocationDenied': l.spLocationDenied,
   'spNoAddressHere': l.spNoAddressHere,
   'spLocationUnavailable': l.spLocationUnavailable,
@@ -3853,6 +3854,8 @@ class _Exhaustive implements AppLocalizations {
   String get spLocationOff => '';
   @override
   String get spLocationDeniedForever => '';
+  @override
+  String get spWebLocationDeniedForever => '';
   @override
   String get spLocationDenied => '';
   @override

@@ -1183,6 +1183,7 @@
   "spDeletePlace": "Ta bort {place}",
   "spLocationOff": "Platstjänster är avstängda. Slå på dem eller sök efter adressen.",
   "spLocationDeniedForever": "Platsåtkomst är avstängd för Movera. Tillåt den i Inställningar eller sök efter adressen.",
+  "spWebLocationDeniedForever": "Plats är blockerad för den här webbplatsen. Tillåt den i webbläsarens inställningar eller sök efter adressen.",
   "spLocationDenied": "Tillåt platsåtkomst för att använda var du är, eller sök efter adressen.",
   "spNoAddressHere": "Vi hittade ingen adress där du är. Sök efter den i stället.",
   "spLocationUnavailable": "Platsen är inte tillgänglig",

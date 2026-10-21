@@ -151,7 +151,9 @@ class RideRestoreCoordinator {
       'answer': answer?.name ?? 'none',
     });
     // An end-early that went through ends the trip, it does not cancel it:
-    // the restored trip resyncs and shows how the server closed it.
+    // the restored trip resyncs and shows how the server closed it. So does
+    // a trip the server had already closed some other way (rider-r4-24:
+    // `ended`, e.g. no driver found), which is not the rider's cancel.
     if (queued.command != PendingCancelCommand.cancel ||
         (answer != PendingCancelResult.sent &&
             answer != PendingCancelResult.gone)) {

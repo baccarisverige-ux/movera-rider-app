@@ -8,7 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Screens talk to this, never to Geolocator.
 class LocationRepository {
-  const LocationRepository();
+  const LocationRepository({bool? isWeb}) : _isWeb = isWeb;
+
+  final bool? _isWeb;
+
+  /// Whether the browser's geolocation backs this repository.
+  bool get isWeb => _isWeb ?? kIsWeb;
 
   /// Where the app keeps its own last good high-accuracy fix (Batch 10
   /// Phase 110). Coordinates only; used solely as a map-camera hint.
@@ -28,8 +33,22 @@ class LocationRepository {
     return Geolocator.checkPermission();
   }
 
-  Future<LocationPermission> requestPermission() {
-    return Geolocator.requestPermission();
+  /// rider-r4-21 / rider-r4-42: geolocator_web runs a bare
+  /// getCurrentPosition() and answers deniedForever for *any* failure (the
+  /// prompt dismissed, no position, a timeout). Only the Permissions API
+  /// saying 'denied' is a real block, so the web answer is read again:
+  /// 'prompt' is denied (ask again), 'granted' means the fix itself failed
+  /// and the caller's position request reports it as unavailable.
+  Future<LocationPermission> requestPermission() async {
+    final requested = await Geolocator.requestPermission();
+    if (!isWeb || requested != LocationPermission.deniedForever) {
+      return requested;
+    }
+    try {
+      return await Geolocator.checkPermission();
+    } catch (_) {
+      return requested;
+    }
   }
 
   Future<Position> getCurrentPosition({LocationSettings? locationSettings}) {

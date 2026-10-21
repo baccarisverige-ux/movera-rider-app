@@ -842,7 +842,8 @@ void main() {
           'version': 12,
         })),
       );
-      expect(results['o4'], PendingCancelResult.gone);
+      // rider-r4-24: the server closed it, so `ended` (was `gone`).
+      expect(results['o4'], PendingCancelResult.ended);
       expect(seen.map((r) => r.method), ['GET']);
     });
 

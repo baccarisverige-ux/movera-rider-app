@@ -39,7 +39,12 @@ Future<String> resolveCurrentAddress({
       permission = await loc.requestPermission();
     }
     if (permission == LocationPermission.deniedForever) {
-      throw CurrentAddressException(L10n.current.spLocationDeniedForever);
+      // rider-r4-42: the web has no app Settings; the block is the site's.
+      throw CurrentAddressException(
+        loc.isWeb
+            ? L10n.current.spWebLocationDeniedForever
+            : L10n.current.spLocationDeniedForever,
+      );
     }
     if (permission == LocationPermission.denied) {
       throw CurrentAddressException(L10n.current.spLocationDenied);

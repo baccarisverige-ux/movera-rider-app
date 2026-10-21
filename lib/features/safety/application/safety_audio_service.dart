@@ -80,12 +80,28 @@ class SafetyAudioService extends ChangeNotifier {
         L10n.current.audioUnsupported,
       );
     }
-    if (isRecording) {
+    // rider-r4-27: _active is set only after the awaits below, so a second
+    // start() during them (a double tap on Record) is refused here too.
+    if (isRecording || _starting) {
       throw SafetyAudioException(
         'ALREADY_RECORDING',
         L10n.current.audioAlreadyRecording,
       );
     }
+    _starting = true;
+    try {
+      return await _start(rideId: rideId, deviceOnly: deviceOnly);
+    } finally {
+      _starting = false;
+    }
+  }
+
+  bool _starting = false;
+
+  Future<AudioRecording> _start({
+    required String rideId,
+    required bool deviceOnly,
+  }) async {
     if (!await _recorder.requestPermission()) {
       throw SafetyAudioException(
         'MIC_DENIED',

@@ -1291,6 +1291,25 @@ class FindingDriverController {
       case PendingCancelResult.sent:
       case PendingCancelResult.gone:
         unawaited(_confirmQueuedCancel());
+      case PendingCancelResult.ended:
+        // rider-r4-24: the server closed the search itself (no driver
+        // found, cancelled by Movera...). File and show it that way, not
+        // as the rider's cancel: nothing of theirs was sent.
+        _cancelQueued = false;
+        final endedAs = outcome.endedAs;
+        if (endedAs != null && endedAs.isTerminal) {
+          unawaited(_completeTerminal(endedAs));
+        } else {
+          // How it ended is unknown here: read it from the server.
+          unawaited(
+            resync().catchError((Object error) {
+              AppLog.warning(
+                'ride.cancel.resync_failed',
+                extra: {'rideId': ownedRideId, 'error': error.toString()},
+              );
+            }),
+          );
+        }
       case PendingCancelResult.refused:
       case PendingCancelResult.stale:
         // The server kept the ride (a driver accepted first), or the trip
@@ -1491,6 +1510,10 @@ class FindingDriverController {
       PendingCancelResult? result = current.result;
       // rider-u32: what the server answered a delivered command with.
       Map<String, dynamic>? answered = current.projection;
+      final reread = current.projection;
+      RideStatus? endedAs = result == PendingCancelResult.ended && reread != null
+          ? RideStatusWire.fromProjection(reread)
+          : null;
       if (result == null) {
         final version = current.version;
         if (version != null && version != cancel.expectedVersion) {
@@ -1516,7 +1539,9 @@ class FindingDriverController {
             );
             continue;
           }
-          result = await _refusalResult(client, cancel, error);
+          final refusal = await _refusalResult(client, cancel, error);
+          result = refusal.result;
+          endedAs = refusal.endedAs;
           answered = (error as ApiError).projection;
         }
       }
@@ -1537,6 +1562,7 @@ class FindingDriverController {
         fee: sent && answered != null
             ? RideProjection.cancellationFee(answered)
             : null,
+        endedAs: endedAs,
       ));
     }
     return results;
@@ -1602,8 +1628,9 @@ class FindingDriverController {
       );
     }
     if (status.isTerminal) {
+      // rider-r4-24: closed by the server or someone else, not the rider.
       return (
-        result: PendingCancelResult.gone,
+        result: PendingCancelResult.ended,
         version: version,
         projection: projection,
       );
@@ -1658,7 +1685,8 @@ class FindingDriverController {
   /// ride is read again, since "a driver accepted first" and "already
   /// over" both refuse (RC-03). A ride that is still live is a refusal the
   /// rider must hear about; it is logged as an error, not dropped quietly.
-  static Future<PendingCancelResult> _refusalResult(
+  static Future<({PendingCancelResult result, RideStatus? endedAs})>
+  _refusalResult(
     ApiClient client,
     PendingCancel cancel,
     Object error,
@@ -1666,14 +1694,16 @@ class FindingDriverController {
     final apiError = error as ApiError;
     AppScope.instance.ride.observeProjection(apiError.projection);
     // R-O3: the rider already cancelled it; nothing more to do.
-    if (alreadyCancelledByRider(apiError)) return PendingCancelResult.sent;
+    if (alreadyCancelledByRider(apiError)) {
+      return (result: PendingCancelResult.sent, endedAs: null);
+    }
     final status = apiError.statusCode;
     if (status == 404 || status == 410) {
       AppLog.warning(
         'ride.cancel.flush_dropped_permanent',
         extra: {'rideId': cancel.rideId, 'error': error.toString()},
       );
-      return PendingCancelResult.gone;
+      return (result: PendingCancelResult.gone, endedAs: null);
     }
     RideStatus? current;
     try {
@@ -1688,7 +1718,9 @@ class FindingDriverController {
         extra: {'rideId': cancel.rideId, 'error': readError.toString()},
       );
     }
-    if (current == RideStatus.cancelledByRider) return PendingCancelResult.sent;
+    if (current == RideStatus.cancelledByRider) {
+      return (result: PendingCancelResult.sent, endedAs: null);
+    }
     if (current == null || !current.tripStatus.isTerminal) {
       // Live, or unknown: treated as live, so the ride stays on screen and
       // realtime shows how it really stands.
@@ -1702,15 +1734,19 @@ class FindingDriverController {
         },
       );
       // R-O2: the trip changed between the re-read and the replay.
-      return apiError.isVersionMismatch
-          ? PendingCancelResult.stale
-          : PendingCancelResult.refused;
+      return (
+        result: apiError.isVersionMismatch
+            ? PendingCancelResult.stale
+            : PendingCancelResult.refused,
+        endedAs: null,
+      );
     }
     AppLog.warning(
       'ride.cancel.flush_dropped_permanent',
       extra: {'rideId': cancel.rideId, 'error': error.toString()},
     );
-    return PendingCancelResult.gone;
+    // rider-r4-24: the server ended the trip some other way.
+    return (result: PendingCancelResult.ended, endedAs: current);
   }
 
   Future<void> resync() async {

@@ -1097,13 +1097,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _leaving = true;
       _cancelling = true;
     });
+    RideCancelOutcome? outcome;
     try {
-      await _ride.cancelUntrackedRide(rideId: _rideId);
+      outcome = await _ride.cancelUntrackedRide(rideId: _rideId);
     } catch (_) {
       // cancelUntrackedRide already logs; a transient failure stays queued
       // in the pending-cancel outbox. Leaving is still what the rider chose.
     }
     if (!mounted) return;
+    // rider-r4-25: a refused cancel is not queued; say so rather than
+    // going Home as if the ride had been cancelled.
+    if (outcome == RideCancelOutcome.rejected ||
+        outcome == RideCancelOutcome.stale) {
+      _showCancelProblem(outcome!);
+    }
     RideNavigator.home(context);
   }
 

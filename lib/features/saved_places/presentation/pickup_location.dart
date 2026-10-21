@@ -249,7 +249,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       title: context.l10n.placeHome,
                       subtitle: homeSubtitle,
                       isLeftRounded: true,
-                      onTap: () => _onShortcutTap(subtitle: homeSubtitle),
+                      onTap: _shortcutTap(homeSubtitle),
                     ),
                   ),
                   2.width,
@@ -258,16 +258,19 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       icon: AppAssets.office,
                       title: context.l10n.placeWork,
                       subtitle: workSubtitle,
-                      onTap: () => _onShortcutTap(subtitle: workSubtitle),
+                      onTap: _shortcutTap(workSubtitle),
                     ),
                   ),
-                  2.width,
-                  InkWell(
-                    // Was dead while the Home and Work chips beside it worked.
-                    onTap: () =>
-                        _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
-                    child: _buildFavorite(),
-                  ),
+                  // rider-r4-46: Favorite only adds a place; a picker that
+                  // cannot (Add place's own) does not show a dead chip.
+                  if (widget.allowCreateShortcut) ...[
+                    2.width,
+                    InkWell(
+                      onTap: () =>
+                          _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
+                      child: _buildFavorite(),
+                    ),
+                  ],
                 ],
               ),
               10.height,
@@ -333,9 +336,18 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     );
   }
 
+  bool _isSaved(String subtitle) =>
+      subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
+
+  /// rider-r4-46: an unsaved Home/Work chip has nothing to do when this
+  /// picker cannot create shortcuts, so it is not tappable.
+  VoidCallback? _shortcutTap(String subtitle) =>
+      _isSaved(subtitle) || widget.allowCreateShortcut
+      ? () => _onShortcutTap(subtitle: subtitle)
+      : null;
+
   void _onShortcutTap({required String subtitle}) {
-    final saved = subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
-    if (saved) {
+    if (_isSaved(subtitle)) {
       Navigator.maybePop(context, subtitle);
       return;
     }
@@ -358,7 +370,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     required String icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     bool isLeftRounded = false,
   }) {
     return Material(

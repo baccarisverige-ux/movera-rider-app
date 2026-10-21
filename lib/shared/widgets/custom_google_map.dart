@@ -88,6 +88,13 @@ class CustomGoogleMap extends StatefulWidget {
     this.tiltWithZoom = true,
   });
 
+  /// rider-r4-20: whether a map built before the Maps engine is available
+  /// keeps checking for it. On the web the Maps script loads `async` and can
+  /// land after the first build; screens such as Home cache this widget, so
+  /// nothing else would rebuild the placeholder. Null: the web only.
+  @visibleForTesting
+  static bool? debugWaitForMaps;
+
   @override
   State<CustomGoogleMap> createState() => _CustomGoogleMapState();
 }
@@ -118,6 +125,21 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   void initState() {
     super.initState();
     _webTouch = watchMapTouch(onDown: _fingerDown, onUp: _fingerUp);
+  }
+
+  Timer? _mapsPoll;
+
+  /// rider-r4-20: rebuild once the Maps engine turns up.
+  void _waitForMaps() {
+    if (_mapsPoll != null || !(CustomGoogleMap.debugWaitForMaps ?? kIsWeb)) {
+      return;
+    }
+    _mapsPoll = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!googleMapsAvailable()) return;
+      timer.cancel();
+      _mapsPoll = null;
+      if (mounted) setState(() {});
+    });
   }
 
   MapView? get _view {
@@ -263,6 +285,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // On the web without the Maps JavaScript API, a GoogleMap throws while
     // building; show a calm map-coloured surface instead of an error.
     if (!googleMapsAvailable()) {
+      _waitForMaps();
       return const ColoredBox(
         key: ValueKey('map-unavailable'),
         color: Color(0xFFE9EEF1),
@@ -363,6 +386,8 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // web controller again here races the platform view teardown and throws a
     // generic browser page error when a map screen is popped (for example when
     // confirming the exact pickup before SelectRide opens).
+    _mapsPoll?.cancel();
+    _mapsPoll = null;
     _webTouch?.cancel();
     _webTouch = null;
     _stopWebGestures?.call();

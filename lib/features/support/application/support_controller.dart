@@ -36,6 +36,7 @@ class SupportController {
   /// The Support row for a History ride (also "Get help" in History).
   static SupportRide rideFor(Reservation ride) {
     final to = ride.destination.label.trim();
+    final charged = ride.chargedFare;
     return SupportRide(
       id: ride.reservationId,
       title: to.isEmpty ? ride.categoryName : L10n.current.toPlace(to),
@@ -43,10 +44,15 @@ class SupportController {
       when: ride.timeZone == null
           ? ride.scheduledPickupAt.toLocal()
           : ride.pickupWallTime,
-      price: ride.price,
-      currency: ride.currency,
+      // rider-r4-37: an ended-early trip is cancelled but charged, so it
+      // shows the server's final fare, as History does.
+      price: charged?.major ?? ride.price,
+      currency: charged?.currency ?? ride.currency,
       image: ride.categoryImage,
-      cancelled: ride.status.isCancelled,
+      cancelled: ride.status.isCancelled && !ride.endedEarly,
+      // rider-r4-38: History shows "Payment failed"; so does Support.
+      failed: ride.paymentFailed,
+      endedEarly: ride.endedEarly,
     );
   }
 }
