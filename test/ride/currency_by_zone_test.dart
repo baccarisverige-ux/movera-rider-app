@@ -222,7 +222,7 @@ void main() {
       expect(formatKr(100.4), '100 kr');
       expect(formatKr(-25), '-25 kr');
       expect(formatMoney(const Money(3500)), '35 kr');
-      expect(formatMoney(const Money(3550)), '35.50 kr');
+      expect(formatMoney(const Money(3550)), '35,50 kr'); // rider-r4-16
       expect(formatMoney(const Money(7410), whole: true), '74 kr');
     });
 

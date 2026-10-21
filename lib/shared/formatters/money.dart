@@ -13,7 +13,7 @@ String formatKr(num amount) =>
 /// The app's one money format, per currency (Q7: the pickup's zone decides
 /// the currency):
 ///
-/// * SEK: "35 kr", "35.50 kr"; with [whole] rounded to the krona, "36 kr"
+/// * SEK: "35 kr", "35,50 kr"; with [whole] rounded to the krona, "36 kr"
 ///   (the Swedish fare look, unchanged).
 /// * EUR: "7,41 €", always with cents.
 /// * TND: "7,410 DT", always with the three millime digits.
@@ -30,7 +30,9 @@ String formatMoney(Money money, {bool whole = false}) {
       }
       final major = money.majorString;
       final isWhole = money.amountMinor % Money.minorPerMajor('SEK') == 0;
-      return '${isWhole ? major.split('.').first : major} kr';
+      // rider-r4-16: öre with a comma, like euros and dinars ("35,50 kr").
+      final shown = isWhole ? major.split('.').first : major.replaceFirst('.', ',');
+      return '$shown kr';
     case 'EUR':
       return '${money.majorString.replaceFirst('.', ',')} €';
     case 'TND':
