@@ -6,6 +6,10 @@ import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
+
+/// The display name of a category id (catalog `label`), or null.
+typedef CategoryLabel = String? Function(String categoryId);
 
 /// Reads a server ride projection (contract C-6, PROPOSED) into the
 /// [RideSnapshot] the client restores and archives from (ARCH-12).
@@ -16,7 +20,14 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 /// today (`pickupAddress`, `pickupLat`, `price`). Returns null when a field
 /// the ride surfaces cannot do without is missing.
 abstract final class RideProjection {
-  static RideSnapshot? toSnapshot(Map<String, dynamic> ride, {DateTime? now}) {
+  /// [categoryLabel] names the trip's category (rider-r4-7: a contract
+  /// trip carries only `categoryId`; labels live in the catalog), then the
+  /// built-in catalog, then the id itself.
+  static RideSnapshot? toSnapshot(
+    Map<String, dynamic> ride, {
+    DateTime? now,
+    CategoryLabel? categoryLabel,
+  }) {
     // tripId is canonical; id / rideId are legacy aliases (contract v0.3.0).
     final id = _string(ride['tripId'] ?? ride['id'] ?? ride['rideId']);
     final status = RideStatusWire.fromProjection(ride);
@@ -58,7 +69,14 @@ abstract final class RideProjection {
       destinationLat: destination.latitude,
       destinationLng: destination.longitude,
       stops: _stops(ride['stops']),
-      rideType: _string(ride['categoryName']) ?? categoryId ?? 'Movera',
+      rideType:
+          _string(ride['categoryName']) ??
+          (categoryId == null
+              ? null
+              : categoryLabel?.call(categoryId) ??
+                    builtInCategoryLabel(categoryId)) ??
+          categoryId ??
+          'Movera',
       categoryId: categoryId,
       price: price,
       currency: fare!.currency,
@@ -78,6 +96,14 @@ abstract final class RideProjection {
       searchStartedAt: WireTime.tryParse(ride['searchStartedAt']),
       cancellationReason: _string(ride['cancellationReason']),
     );
+  }
+
+  /// The built-in catalog's name for [categoryId], or null.
+  static String? builtInCategoryLabel(String categoryId) {
+    for (final item in RideSelectionRepository.builtInRides) {
+      if (CategoryIds.canonical(item.id) == categoryId) return item.name;
+    }
+    return null;
   }
 
   /// rider-u33: the fee the server charged for a cancel (contract §6

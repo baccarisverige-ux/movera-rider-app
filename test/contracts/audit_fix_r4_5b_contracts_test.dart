@@ -121,5 +121,20 @@ void main() {
       expect(snapshot.destinationLat, 59.6498);
     });
 
+    test('rider-r4-7: History titles a server trip with the catalog label',
+        () async {
+      final mock = InProcessMockClient()..rides['t1'] = _contractTrip('t1');
+      final record = (await ApiRideHistoryRepository(
+        api: ApiClient(
+          client: mock,
+          env: const AppEnv(
+            flavor: AppFlavor.demo,
+            apiBaseUrl: 'https://api.demo.movera.invalid',
+          ),
+        ),
+      ).loadOnDemand()).single;
+      expect(record.categoryName, 'Movera XL');
+    });
+
   });
 }

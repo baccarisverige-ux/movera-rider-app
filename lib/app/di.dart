@@ -151,8 +151,16 @@ class AppScope {
       final methods = ApiPaymentMethodRepository(api: api);
       payments = methods;
       defaultPayment = methods;
-      rideHistory = ApiRideHistoryRepository(api: api);
-      activeTrips = ApiActiveTripRepository(api: api);
+      // rider-r4-7: a server trip names only its categoryId; the
+      // catalog the rider sees names it.
+      rideHistory = ApiRideHistoryRepository(
+        api: api,
+        categoryLabel: (id) => catalog.labelOf(id),
+      );
+      activeTrips = ApiActiveTripRepository(
+        api: api,
+        categoryLabel: (id) => catalog.labelOf(id),
+      );
     } else {
       payments = LocalPaymentRepository();
       defaultPayment = const PrefsDefaultPaymentStore();

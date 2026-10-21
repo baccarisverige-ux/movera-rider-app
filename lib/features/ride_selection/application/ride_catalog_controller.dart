@@ -40,6 +40,18 @@ class RideCatalogController extends ChangeNotifier {
 
   RideCatalogSource get source => _source;
 
+  /// The current catalog's name for [categoryId] (aliases resolved), or
+  /// null when it has no such category.
+  String? labelOf(String categoryId) {
+    final id = CategoryIds.tryCanonical(categoryId) ?? categoryId;
+    for (final item in _current) {
+      if ((CategoryIds.tryCanonical(item.id) ?? item.id) == id) {
+        return item.name;
+      }
+    }
+    return null;
+  }
+
   /// Asks the server, then the cache, then the built-in list. Never throws;
   /// concurrent calls share one request.
   Future<List<RideCatalogItem>> load() {

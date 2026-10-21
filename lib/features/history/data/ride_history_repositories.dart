@@ -18,13 +18,19 @@ class LocalRideHistoryRepository implements RideHistoryRepository {
 /// for at most [maxPages] pages.
 class ApiRideHistoryRepository
     implements RideHistoryRepository, ServerBackedRepository {
-  ApiRideHistoryRepository({required ApiClient api, this.maxPages = 5})
-    : _api = api;
+  ApiRideHistoryRepository({
+    required ApiClient api,
+    this.maxPages = 5,
+    this.categoryLabel,
+  }) : _api = api;
 
   static const path = '/api/v1/rider/trips';
 
   final ApiClient _api;
   final int maxPages;
+
+  /// The catalog's category names; null is the built-in catalog.
+  final CategoryLabel? categoryLabel;
 
   @override
   Future<List<Reservation>> loadOnDemand() async {
@@ -53,8 +59,11 @@ class ApiRideHistoryRepository
     return list;
   }
 
-  static Reservation? _record(Map<String, dynamic> trip) {
-    final snapshot = RideProjection.toSnapshot(trip);
+  Reservation? _record(Map<String, dynamic> trip) {
+    final snapshot = RideProjection.toSnapshot(
+      trip,
+      categoryLabel: categoryLabel,
+    );
     if (snapshot == null) return null;
     return OnDemandRideHistoryStore.recordFor(
       snapshot,
