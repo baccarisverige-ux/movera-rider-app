@@ -24,7 +24,7 @@ in the frontend audit report.
 |---|---|---|
 | `X-Request-Id` | yes (client always sends) | Echoed as `requestId` in bodies |
 | `Idempotency-Key` | mutating calls that send one | Same key returns the cached 2xx body |
-| `X-Api-Version` | yes | Always `v1` from `ApiClient` |
+| `X-Api-Version` | yes | Always `0.4` from `ApiClient` (`contract.json#headers`) |
 | `Authorization` | optional | `Bearer <access>`; a 401 with a token triggers one refresh + retry |
 | `Content-Type` | JSON bodies | `application/json` |
 
@@ -82,12 +82,12 @@ Times are RFC 3339 UTC. Money on new fields is integer minor units
 
 ### Rides
 
-- `POST /api/v1/rides` with `Idempotency-Key` `{categoryId, paymentMethodId, pickupAddress, pickupLat, pickupLng, destinationAddress, destinationLat, destinationLng, stops[], notes, price, quoteId, quoteSignedPayload, quoteExpiresAt, quoteTotalMinor, useWalletFirst?, walletAmountMinor?, scheduledAt?}` → `{ride}` with `id`, `status` (`findingDriver`, or `bookingRequested` with `scheduledAt`), `version: 1`, `updatedAt`, `searchStartedAt`, `maxOfferMinor`, … . `409 QUOTE_REQUIRED | QUOTE_NOT_FOUND | QUOTE_SIGNATURE_MISMATCH | QUOTE_EXPIRED | QUOTE_AMOUNT_MISMATCH | QUOTE_CATEGORY_MISMATCH`. A scheduled booking without a quote is still accepted by the mock (older contract), but the client no longer sends one (ARCH-16).
-- `GET /api/v1/rides/:id` → `{ride}` (the projection realtime polls); `404 NOT_FOUND`. A search past its expiry becomes `noDriverFound`.
+- `POST /api/v1/rides` with `Idempotency-Key` `{categoryId, paymentMethodId, pickupAddress, pickupLat, pickupLng, destinationAddress, destinationLat, destinationLng, stops[], notes, price, quoteId, quoteSignedPayload, quoteExpiresAt, quoteTotalMinor, useWalletFirst?, walletAmountMinor?, scheduledAt?}` → `{ride}` with `id`, `status` in contract wire names (`searching`, or `requested` with `scheduledAt`), `version: 1`, `updatedAt`, `searchStartedAt`, `maxOfferMinor`, … . `409 QUOTE_REQUIRED | QUOTE_NOT_FOUND | QUOTE_SIGNATURE_MISMATCH | QUOTE_EXPIRED | QUOTE_AMOUNT_MISMATCH | QUOTE_CATEGORY_MISMATCH`. A scheduled booking without a quote is still accepted by the mock (older contract), but the client no longer sends one (ARCH-16).
+- `GET /api/v1/rides/:id` → `{ride}` (the projection realtime polls); `404 NOT_FOUND`. A search past its expiry becomes `expired` (the app shows it as no driver found).
 - `PATCH /api/v1/rides/:id` `{offerIncreaseKr}` while searching → `{ride}` with the server-priced fare (a client `price` is ignored, D-012); `409 RIDE_NOT_SEARCHING | OFFER_ABOVE_MAXIMUM`, `422 INVALID_OFFER`.
 - `PATCH /api/v1/rides/:id` `{routeChange: true, routeQuoteId, pickup…?, destination…, stops, paymentMethodId, refundTo?}` → `{ride, newPriceKr, differenceKr, stops}`; `409` with the denial code (pickup locked, finished, quote missing/expired/mismatched).
 - `POST /api/v1/rides/:id/route-quote` `{pickup…?, destination…, stops}` → `{routeQuoteId, expiresAt, newTotalMinor, differenceMinor, newPriceKr, differenceKr, …}`; `409` denial code; `404`.
-- `POST /api/v1/rides/:id/cancel` `{reason?}` → `{ride}` with `cancelledByRider`. Idempotent; a second call with a `reason` stores it when none is stored. `404` for an unknown id. (Contract, not mocked: `409` when the ride moved on first.)
+- `POST /api/v1/rides/:id/cancel` `{reason?}` → `{ride}` with `cancelled_by_rider`. Idempotent; a second call with a `reason` stores it when none is stored. `404` for an unknown id. (Contract, not mocked: `409` when the ride moved on first.)
 - `GET /api/v1/rides/:id/nearby` → `{vehicles: [{id, lat, lng, bearing}]}`.
 - `POST /api/v1/rides/:id/status` `{status, driver?, lat?, lng?}` → `{ride}`, bumping `version` (QA/realtime helper only; never called by app code).
 - `POST /api/v1/rides/:id/feedback` `{rating?, tipMinor?, currency}` → `{status: accepted}`; `409 RIDE_NOT_COMPLETE`, `400 INVALID_FEEDBACK`.
@@ -97,7 +97,9 @@ Realtime (`ApiRideRealtime`) polls `GET /api/v1/rides/:id` and reads, besides
 the projection, an optional envelope **PROPOSED** (C-6, ARCH-13):
 `eventId` (deduplicated), `serverTime` (server clock at answer time, used to
 judge location age), `etaSeconds`; ordering is by the projection's `version`.
-Three `404`s in a row end the ride as `cancelledBySystem`; failures back off.
+Three `404`s in a row stop polling that ride and mark the connection failed;
+the client does not invent a status, so the ride keeps its last known one.
+Other failures back off.
 
 ### Trips (read models) — PROPOSED (ARCH-12, C-5)
 
