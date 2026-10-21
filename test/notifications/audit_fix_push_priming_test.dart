@@ -68,13 +68,18 @@ void main() {
     expect(push.registers, 2);
   });
 
-  test('a system refusal is remembered instead of asked again', () async {
+  test('rider-r4-40: a system refusal is remembered, and push registers '
+      'again once Settings allows it', () async {
     final push = _Push()..deny = true;
     final gate = PushPermissionGate(push: push, enabled: true);
     expect(await gate.accept(), PushOptInResult.blockedBySystem);
     expect(await gate.consent(), PushConsent.blockedBySystem);
+    // The rider turns notifications on in Settings; the next sign-in or
+    // cold start registers (the OS answers without a new prompt).
+    push.deny = false;
     await gate.registerIfConsented(logEvent: 'test');
-    expect(push.registers, 1);
+    expect(push.registers, 2);
+    expect(await gate.consent(), PushConsent.accepted);
   });
 
   test('signing in never shows the OS prompt before the explanation', () async {
