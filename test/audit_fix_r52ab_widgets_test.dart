@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -11,6 +10,7 @@ import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sh
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
@@ -26,6 +26,9 @@ void main() {
     RideSnapshotStore.epoch = 0;
     AppScope.instance.ride
       ..rideId = null
+      // The previous test's ride must not make this one's events stale.
+      ..authoritativeVersion = null
+      ..authoritativeUpdatedAt = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.idle);
   });
@@ -46,16 +49,20 @@ void main() {
   );
 
   /// Waiting for a driver on a saved ride (as audit_fix_arrived_sheet_test).
+  /// Each call is a new ride, so the shared mock feed starts fresh.
+  var rides = 0;
   Future<MockRideRealtime> openWaiting(WidgetTester tester) async {
-    await RideSnapshotStore.save(ride.copyWith(savedAt: DateTime.now()));
+    final id = 'r52-waiting-${rides++}';
+    await RideSnapshotStore.save(
+      ride.copyWith(savedAt: DateTime.now(), rideId: id),
+    );
     AppScope.instance.ride.restoreFromBackend(
       RideStatus.driverAssigned,
-      id: ride.rideId,
+      id: id,
     );
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(MaterialApp(
       navigatorKey: navigatorKey,
-      navigatorObservers: [HomeHistoryObserver()],
       home: const Scaffold(body: Center(child: Text('audit-root'))),
     ));
     navigatorKey.currentState!.push(MaterialPageRoute<void>(
@@ -150,6 +157,35 @@ void main() {
         ));
     expect(find.text('Set Home'), findsNothing);
     expect(find.text('Set Work'), findsNothing);
+  });
+
+  testWidgets('rider-u48: in the trip "Arrive by" follows the live ETA',
+      (tester) async {
+    final realtime = await openWaiting(tester);
+    String arriveBy(int seconds) =>
+        'Arrive by ${clockTime(DateTime.now().add(Duration(seconds: seconds)))}';
+
+    realtime.emit(
+      RideStatus.tripInProgress,
+      latitude: 59.335,
+      longitude: 18.06,
+      etaSeconds: 600,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('Arrive by'), findsWidgets);
+
+    realtime.emit(
+      RideStatus.tripInProgress,
+      latitude: 59.335,
+      longitude: 18.06,
+      etaSeconds: 3600,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('Arrive by'), findsWidgets);
+    expect(find.text(arriveBy(600)), findsNothing,
+        reason: 'the sheet must not keep the old arrival time');
   });
 
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '

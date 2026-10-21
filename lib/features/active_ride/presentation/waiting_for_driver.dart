@@ -501,8 +501,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
+    // rider-u48: in the trip the sheet's "Arrive by HH:MM" comes from the
+    // live ETA, not from the constant in-trip headline, so it is part of
+    // the signature too (else the sheet keeps the first arrival time).
+    final arriveBy = _tripHeadline(eta, status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
-        '|${_tracking.connectionDegraded}';
+        '|${_tracking.connectionDegraded}|$arriveBy';
   }
 
   /// rider-u23: the feed went straight from the dropped driver to the next
