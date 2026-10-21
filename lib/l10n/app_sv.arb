@@ -805,7 +805,7 @@
   "selectTime": "Välj tid",
   "whenPickUp": "När ska vi\nhämta dig?",
   "chooseDateTime": "Välj datum och tid för din förbokade resa.",
-  "cancelBeforeAssigned": "Du kan avboka utan avgift innan en förare har tilldelats. De slutliga villkoren visas före bokningen.",
+  "scheduleCancelTermsNote": "Avbokning är gratis fram till en viss tid före upphämtning, som beror på resetypen. Din bokning visar de exakta villkoren.",
   "pickupAtMode": "Hämtas kl.",
   "arriveByMode": "Framme kl.",
   "date": "Datum",

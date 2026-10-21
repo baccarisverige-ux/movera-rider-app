@@ -805,7 +805,7 @@
   "selectTime": "Choisir l’heure",
   "whenPickUp": "Quand devons-nous\nvenir vous chercher ?",
   "chooseDateTime": "Choisissez une date et une heure pour votre course planifiée.",
-  "cancelBeforeAssigned": "Vous pouvez annuler sans frais avant l’attribution d’un chauffeur. Les conditions finales s’affichent avant la réservation.",
+  "scheduleCancelTermsNote": "L’annulation est gratuite jusqu’à un délai avant le départ, qui dépend du type de course. Votre réservation affiche les conditions exactes.",
   "pickupAtMode": "Départ à",
   "arriveByMode": "Arrivée à",
   "date": "Date",

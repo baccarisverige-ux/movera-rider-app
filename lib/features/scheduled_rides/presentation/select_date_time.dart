@@ -588,7 +588,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ],
                       const SizedBox(height: 25),
                       Text(
-                        context.l10n.cancelBeforeAssigned,
+                        context.l10n.scheduleCancelTermsNote,
                         style: _style(
                           10.5,
                           weight: FontWeight.w400,

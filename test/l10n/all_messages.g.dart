@@ -811,7 +811,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
   'chooseDateTime': l.chooseDateTime,
-  'cancelBeforeAssigned': l.cancelBeforeAssigned,
+  'scheduleCancelTermsNote': l.scheduleCancelTermsNote,
   'pickupAtMode': l.pickupAtMode,
   'arriveByMode': l.arriveByMode,
   'date': l.date,
@@ -3092,7 +3092,7 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get chooseDateTime => '';
   @override
-  String get cancelBeforeAssigned => '';
+  String get scheduleCancelTermsNote => '';
   @override
   String get pickupAtMode => '';
   @override
