@@ -565,16 +565,20 @@ class ActiveRideController {
     }
     final ride = AppScope.instance.ride;
     if (snapshot != null && snapshot.status.isCompletedSurface) {
-      await _archive(snapshot, snapshot.status, expectedRideId: rideId);
+      // A decline whose own filing is still on its way keeps its label.
+      final declined = ride.status == RideStatus.paymentFailed;
+      await _archive(
+        snapshot,
+        declined ? RideStatus.paymentFailed : snapshot.status,
+        expectedRideId: rideId,
+      );
       // rider-u180/u181: the rider may leave before the payment is final
       // (Done and Back work at every completion status). No screen then
       // sees paymentFinalized and the snapshot is about to go, so a
       // wallet ride is debited here. The local wallet exists only in
       // demo/dev builds, whose transport always settles a completed trip;
       // a decline already dropped the snapshot (rider-u179).
-      if (ride.status != RideStatus.paymentFailed) {
-        await _chargeWallet(snapshot);
-      }
+      if (!declined) await _chargeWallet(snapshot);
     }
     if (canTransition(ride.status, RideStatus.closed)) {
       ride.localTransition(RideStatus.closed);
