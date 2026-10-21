@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -50,6 +51,17 @@ class DriverTrackingController {
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
+
+  /// rider-u23: the driver who dropped the trip when the feed went straight
+  /// to another driver (the polls never saw the `searching` between).
+  /// Waiting takes it once to say so and to forget the old arrival.
+  MatchedDriver? takeReplacedDriver() {
+    final replaced = _replacedDriver;
+    _replacedDriver = null;
+    return replaced;
+  }
+
+  MatchedDriver? _replacedDriver;
   RideStatus? _lastPersistedStatus;
   int? _lastVersion;
   DateTime? _lastServerTime;
@@ -138,6 +150,13 @@ class DriverTrackingController {
           if (event.status.isSearching ||
               event.status == RideStatus.cancelledByDriver) {
             // Back in dispatch: the next accept starts new clocks.
+            acceptedAt = null;
+            waitingSince = null;
+          } else if (event.kind == RealtimeKind.driverCancelled &&
+              event.status.isMatched) {
+            // rider-u23: another driver already took the dropped trip; the
+            // new accept starts new clocks too.
+            _replacedDriver = driver;
             acceptedAt = null;
             waitingSince = null;
           }

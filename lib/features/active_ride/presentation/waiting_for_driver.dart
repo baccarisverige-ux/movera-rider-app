@@ -467,6 +467,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       }
       return;
     }
+    final replaced = _tracking.takeReplacedDriver();
+    if (replaced != null) _onDriverReplaced(replaced);
 
     if (status.isTerminal && !status.isCompletedSurface) {
       _queueStageNavigation(status);
@@ -496,6 +498,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
         '|${_tracking.connectionDegraded}';
+  }
+
+  /// rider-u23: the feed went straight from the dropped driver to the next
+  /// one. Say so, close the old driver's arrived sheet, and announce the
+  /// new driver's arrival when it comes.
+  void _onDriverReplaced(MatchedDriver lost) {
+    if (_arrivedSheetShowing) {
+      _arrivedSheetShowing = false;
+      final route = _arrivedSheetRoute;
+      _arrivedSheetRoute = null;
+      closeRouteByReference(route);
+    }
+    _arrivalAnnounced = false;
+    showDriverCancelledNotice(context, driverName: lost.firstName);
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not

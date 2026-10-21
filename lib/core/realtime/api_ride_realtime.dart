@@ -53,6 +53,13 @@ class ApiRideRealtime implements RideRealtime {
 
   /// Per-ride transport sequence, kept across subscriptions (ARCH-13).
   final Map<String, int> _sequences = {};
+
+  /// rider-u23: the lifecycle status and driver each ride was last shown
+  /// with, kept across subscriptions like [_sequences]. Every handover
+  /// (Finding to Waiting, a feed retry) starts a new poll, so a drop judged
+  /// by the poll's own last status was missed when the new poll's first
+  /// read already said `searching`.
+  final Map<String, ({RideStatus status, String? driverId})> _shown = {};
   bool _disposed = false;
 
   @override
@@ -188,21 +195,33 @@ class ApiRideRealtime implements RideRealtime {
         connection.markConnected();
         return;
       }
-      // Contract v0.3.0: a driver drop before boarding (or an admin
-      // reassign) puts the trip back to `searching`. The rider keeps the
-      // trip; Waiting shows the reassignment notice for it.
-      final reassigned = status.isSearching &&
-          (poll.lastStatus?.isMatched ?? false);
-      // Q13 / X19: an admin reassign is not a driver cancel. The rider
-      // keeps the same redispatch path but is never told "driver
-      // cancelled": they see searching, then the next driver assigned.
-      final byAdmin = reassigned && _reassignedByAdmin(ride, explicitKind);
-      if (reassigned) status = RideStatus.cancelledByDriver;
-      final location = _location(ride);
       final rawDriver = ride['driver'];
       final driver = rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
           : null;
+      final shown = _shown[poll.id];
+      final wasMatched = shown?.status.isMatched ?? false;
+      // Contract v0.3.0: a driver drop before boarding (or an admin
+      // reassign) puts the trip back to `searching`. The rider keeps the
+      // trip; Waiting shows the reassignment notice for it.
+      final reassigned = status.isSearching && wasMatched;
+      // rider-u23: the polls can also skip the `searching` step (a
+      // backgrounded app, a failed poll): a different driver on a matched
+      // trip is that drop too. The event keeps the new driver's status.
+      final swapped = !reassigned &&
+          wasMatched &&
+          status.isMatched &&
+          driver != null &&
+          shown?.driverId != null &&
+          driver.id != shown!.driverId;
+      // Q13 / X19: an admin reassign is not a driver cancel. The rider
+      // keeps the same redispatch path but is never told "driver
+      // cancelled": they see searching, then the next driver assigned.
+      final byAdmin =
+          (reassigned || swapped) && _reassignedByAdmin(ride, explicitKind);
+      final dropped = (reassigned || swapped) && !byAdmin;
+      if (reassigned) status = RideStatus.cancelledByDriver;
+      final location = _location(ride);
       if (poll.version == version && poll.updatedAt == updatedAt &&
           poll.lastStatus == status &&
           poll.lastLat == location.lat &&
@@ -219,6 +238,11 @@ class ApiRideRealtime implements RideRealtime {
       poll.lastRatingStatus = ride['ratingStatus'];
       poll.lastLat = location.lat;
       poll.lastLng = location.lng;
+      _shown[poll.id] = (
+        status: status,
+        // A matched projection without a driver keeps the one shown.
+        driverId: driver?.id ?? (status.isMatched ? shown?.driverId : null),
+      );
       if (eventId != null) poll.remember(eventId);
       // The server's sequence (0 = no realtime event yet), else its
       // version. Only a legacy server that sends neither gets a local
@@ -229,7 +253,7 @@ class ApiRideRealtime implements RideRealtime {
         rideId: poll.id,
         status: status,
         sequence: sequence,
-        kind: reassigned && !byAdmin ? RealtimeKind.driverCancelled : kind,
+        kind: dropped ? RealtimeKind.driverCancelled : kind,
         eventId: eventId,
         version: version,
         serverTime: updatedAt,
@@ -250,7 +274,7 @@ class ApiRideRealtime implements RideRealtime {
           if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],
           if (_waitingArrivedAt(ride) case final String at)
             waitingArrivedAtKey: at,
-          if (reassigned && !byAdmin) 'kind': 'driver_cancelled',
+          if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
       ));
