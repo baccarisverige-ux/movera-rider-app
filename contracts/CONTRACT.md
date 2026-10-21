@@ -1,4 +1,6 @@
-# Movera shared contract v0.4.2
+# Movera shared contract v0.4.3
+
+v0.4.3: owner decision 5, route-change pricing (§3): a route change is priced from the booking, with the booked route through its booked stops; only stops that were not booked pay the stop fee, and the rider's offer raises stay in the price.
 
 v0.4.2: owner decision 1, the `reservations.leaveNow` switch is removed. Leave now always opens the trip (§6.1); apps ignore a `leaveNow` field in an older document. Owner decision 2, reservations on/off is binding on the driver app for the whole zone (`reservations.on`) and for one driver (new `Driver.scheduledRides`, `GET /driver/profile`); reservations already accepted still run (§6.1).
 
@@ -131,6 +133,13 @@ Both tools are the admin `assign` transition (`contract.json#adminDispatch`); th
 - **Events**: `GET /admin/dispatch/stream` (SSE, `AdminDispatchEvent`): `offer_sent, offer_declined, offer_expired, offer_withdrawn, offer_accepted, assignment_locked, driver_bonus_added`. The rider only sees "searching" then "driver assigned".
 
 Multi-stop: `stops[]` ordered on quote, request and projection; quotes MUST include stops. Waiting at a stop is billed per `pickupWait` rules. Route changes after request create a new quote (`/trips/{id}/route-quote`) and a `PATCH` with `expectedVersion`.
+
+Route-change pricing (v0.4.3, owner decision 5). The route quote and the `PATCH` that applies it price the whole new route from the booking, never from the current fare alone:
+
+- `total` = booked fare (the fare at request) + every offer raise the rider made while searching + the distance price of (new route km − booked route km) + the stop fee for each stop of the new route that was not booked. It is never below half of (booked fare + raises) and is rounded to the zone's price step.
+- **Booked route** = pickup → booked stops, in order → dropoff: the route the booking quote priced. A booked stop is already in the booked fare, so a booked stop the new route keeps adds no kilometres and no stop fee. A stop of the new route within 50 m of a booked stop is that booked stop; each booked stop matches one new stop, once. A booked stop the new route drops gives back its kilometres (and its `stops` fare line, if the booking quote had one).
+- **Offer raises stay.** A raise the rider made to find a driver is part of the price of every new route: a route change never cancels or refunds it. The offer ceiling is worked out again from the new total.
+- `difference` = `total` − current `fare`; positive is charged, negative refunded (cash: only shown). Because `total` always starts from the booking, re-quoting the route the trip already has gives `difference` 0, successive changes do not add up, and going back to the booked route gives back what the changes cost.
 
 Live free cancel: the `freeMin` of a live FeeRule counts from `acceptedAt` (owner Q12).
 
