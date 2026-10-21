@@ -78,14 +78,23 @@ class SafetyStore {
     if (!_loaded) await load();
   }
 
-  Future<T> _write<T>(Future<T> Function() remote, T optimistic, void Function(T value) apply) async {
+  /// rider-r3-1: [keep] runs before the optimistic change and returns how
+  /// to undo it. A failed write undoes only its own slice of the cache, so
+  /// answers, events, recordings and contacts saved by other writes while
+  /// it was in flight stay.
+  Future<T> _write<T>(
+    Future<T> Function() remote,
+    T optimistic,
+    void Function(T value) apply, {
+    required void Function() Function() keep,
+  }) async {
     await _ensure();
-    final previous = SafetyCache.fromJson(_cache.toJson());
+    final undo = keep();
     apply(optimistic);
     await _local.save(_cache);
     if (failNextWrite) {
       failNextWrite = false;
-      _cache = previous;
+      undo();
       await _local.save(_cache);
       throw const SafetyException('SERVER_ERROR', 'Simulated write failure');
     }
@@ -95,10 +104,43 @@ class SafetyStore {
       await _local.save(_cache);
       return confirmed;
     } catch (error) {
-      _cache = previous;
+      undo();
       await _local.save(_cache);
       rethrow;
     }
+  }
+
+  void Function() _keepPreferences() {
+    final previous = _cache.preferences;
+    return () => _cache.preferences = previous;
+  }
+
+  void Function() _keepContacts() {
+    final previous = [..._cache.contacts];
+    return () => _cache.contacts = previous;
+  }
+
+  void Function() _keepEvent(String eventId) {
+    final previous = _cache.events.where((e) => e.eventId == eventId);
+    final before = previous.isEmpty ? null : previous.last;
+    return () => _cache.events = [
+          for (final event in _cache.events)
+            if (event.eventId != eventId) event
+            else if (before != null) before,
+          if (before != null && !_cache.events.any((e) => e.eventId == eventId))
+            before,
+        ];
+  }
+
+  void Function() _keepRecording(String id) {
+    final previous = _cache.recordings.where((r) => r.id == id);
+    final before = previous.isEmpty ? null : previous.last;
+    return () => _cache.recordings = [
+          for (final item in _cache.recordings)
+            if (item.id != id) item else if (before != null) before,
+          if (before != null && !_cache.recordings.any((r) => r.id == id))
+            before,
+        ];
   }
 
   Future<SafetyPreferences> patchPreferences(SafetyPreferences next) {
@@ -106,6 +148,7 @@ class SafetyStore {
       () => _remote.patchPreferences(next),
       next.copyWith(updatedAt: DateTime.now().toUtc()),
       (value) => _cache.preferences = value,
+      keep: _keepPreferences,
     );
   }
 
@@ -183,6 +226,7 @@ class SafetyStore {
           _cache.contacts = next;
         }
       },
+      keep: _keepContacts,
     );
   }
 
@@ -217,6 +261,7 @@ class SafetyStore {
             if (item.id == value.id) value else item,
         ];
       },
+      keep: _keepContacts,
     );
   }
 
@@ -247,6 +292,7 @@ class SafetyStore {
       () => _remote.setPrimary(id),
       optimistic,
       (value) => _cache.contacts = value,
+      keep: _keepContacts,
     );
   }
 
@@ -272,6 +318,12 @@ class SafetyStore {
       () => _remote.startShare(rideId, contactIds: ids),
       optimistic,
       (value) => _cache.shares[rideId] = value,
+      keep: () {
+        final previous = _cache.shares[rideId];
+        return () => previous == null
+            ? _cache.shares.remove(rideId)
+            : _cache.shares[rideId] = previous;
+      },
     );
   }
 
@@ -322,6 +374,15 @@ class SafetyStore {
         _cache.rideCheck = value;
         _cache.preferences = _cache.preferences.copyWith(rideCheckEnabled: value.enabled);
       },
+      keep: () {
+        final policy = _cache.rideCheck;
+        final enabled = _cache.preferences.rideCheckEnabled;
+        return () {
+          _cache.rideCheck = policy;
+          _cache.preferences =
+              _cache.preferences.copyWith(rideCheckEnabled: enabled);
+        };
+      },
     );
   }
 
@@ -342,6 +403,7 @@ class SafetyStore {
       (value) {
         _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), value];
       },
+      keep: () => _keepEvent(event.eventId),
     );
   }
 
@@ -389,6 +451,7 @@ class SafetyStore {
               item,
         ];
       },
+      keep: () => _keepEvent(eventId),
     );
   }
 
@@ -509,6 +572,7 @@ class SafetyStore {
       (value) {
         _cache.recordings = [..._cache.recordings.where((r) => r.id != value.id), value];
       },
+      keep: () => _keepRecording(rec.id),
     );
   }
 
@@ -536,6 +600,7 @@ class SafetyStore {
             if (item.id == value.id) local else item,
         ];
       },
+      keep: () => _keepRecording(recording.id),
     ).then((value) => value.copyWith(
           localPath: recording.localPath,
           durationMs: recording.durationMs,
