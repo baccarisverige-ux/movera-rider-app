@@ -15,6 +15,7 @@ import 'package:movera_rider/features/notifications/data/notifications_repositor
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 
 /// Removes everything a rider left on this device (FLOW-1, ARCH-15).
@@ -48,6 +49,7 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   `movera_safety_demo_v1` (the demo Safety mock's saved state; its
 ///   in-memory copy is reset too)
 ///   and the `movera_ride_pin` secure-storage entry.
+/// - The Safety audio files in `<documents>/safety_recordings` (native).
 /// - `movera_pending_cancels`: flushed first while the rider's own session is
 ///   still valid (sign-out only), then dropped. Once the tokens are gone no
 ///   one can send them as that rider, and sending them later with another
@@ -99,6 +101,7 @@ abstract final class UserDataWipe {
     clearSearchLive();
     await LocationRepository.clearLastGoodFix();
     await const SecureRidePinStore().clear();
+    await _deleteSafetyRecordings();
     try {
       final prefs = await PreferencesStore.load();
       for (final key in prefs.getKeys().toList()) {
@@ -112,6 +115,19 @@ abstract final class UserDataWipe {
     // Nothing is left to belong to anyone: anything that re-read storage
     // while the keys were going reads an empty store now.
     resetInMemory();
+  }
+
+  /// rider-u69 / rider-u71: the audio files themselves, not just their
+  /// index in `movera_safety_cache_v1`.
+  static Future<void> _deleteSafetyRecordings() async {
+    try {
+      await deleteAllSafetyRecordings();
+    } catch (error) {
+      AppLog.warning(
+        'auth.wipe.recordings_failed',
+        extra: {'error': error.toString()},
+      );
+    }
   }
 
   static void resetInMemory() {
