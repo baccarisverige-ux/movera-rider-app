@@ -138,6 +138,21 @@ void main() {
     expect(quote.differenceKr, isNegative);
   });
 
+  test('rider-u37: a pin moved on the map keeps its point when the label '
+      'did not change', () async {
+    const movedPickup = GeoPoint(59.3330, 18.0660);
+    final quote = await controller(backend(), _Geo({})).preview(
+      ride: ride(),
+      pickupAddress: 'Sergels torg 1',
+      pickupPoint: movedPickup,
+      destinationAddress: 'Odenplan 2',
+      destinationPoint: farAway,
+    );
+    expect(quote.pickupPoint.latitude, movedPickup.latitude);
+    expect(quote.destinationPoint.latitude, farAway.latitude);
+    expect(quote.newPriceKr, greaterThan(200));
+  });
+
   test('the pickup is locked once the driver is there', () async {
     final mock = backend(status: 'driverWaiting');
     final geo = _Geo({'Somewhere else': farAway});
