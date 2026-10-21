@@ -56,6 +56,11 @@ class HomePlacesController {
   List<String> routeStops = [];
   List<String> recentAddresses = [];
   List<SavedPlaceData> savedPlaces = [];
+
+  /// rider-40: stored custom places past [maxCustom]. Home shows only the
+  /// first [maxCustom], but Saved Places has no cap, so these are written
+  /// back unchanged on every [persist] instead of being deleted.
+  List<Map<String, String>> _placesBeyondCap = [];
   LatLng? currentLatLng;
   LatLng? tripPickupLatLng;
 
@@ -68,6 +73,10 @@ class HomePlacesController {
         .map((place) => SavedPlaceData.fromJson(Map<String, dynamic>.from(place)))
         .take(maxCustom)
         .toList();
+    _placesBeyondCap = [
+      for (final place in saved.places.skip(maxCustom))
+        Map<String, String>.from(place),
+    ];
   }
 
   Future<void> persist() {
@@ -76,7 +85,10 @@ class HomePlacesController {
         home: homeAddress,
         work: workAddress,
         recent: recentAddresses,
-        places: savedPlaces.map((place) => place.toJson()).toList(),
+        places: [
+          ...savedPlaces.map((place) => place.toJson()),
+          ..._placesBeyondCap,
+        ],
       ),
     );
   }
