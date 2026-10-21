@@ -39,6 +39,7 @@ import 'package:movera_rider/features/ride_selection/application/ride_catalog_co
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -395,5 +396,33 @@ void main() {
     handle.dispose();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('rider-u216: the Safety Kit sheet scrolls at 2x text instead '
+      'of clipping Safety preferences', (tester) async {
+    L10n.use('fr');
+    addTearDown(() => L10n.use('en'));
+    await pump(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showRideSafetyKit(context, rideId: 'ride-a11y'),
+            child: const Text('open-kit'),
+          ),
+        ),
+      ),
+      size: const Size(375, 667),
+      textScale: 2,
+    );
+    await tester.tap(find.text('open-kit'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+    final prefs = find.text('Préférences de sécurité');
+    await tester.ensureVisible(prefs);
+    await tester.pump();
+    expect(tester.getRect(prefs).bottom, lessThanOrEqualTo(667));
+    expect(tester.takeException(), isNull);
   });
 }
