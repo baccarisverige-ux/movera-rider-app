@@ -63,7 +63,13 @@ class RouteChangeQuote {
   final int? expectedVersion;
 
   /// Positive when the rider pays more, negative when money comes back.
-  double get differenceKr => newPriceKr - oldPriceKr;
+  ///
+  /// rider-u36: the server's `differenceMinor` (what it charges or refunds,
+  /// against the trip's fare as the server holds it) wins; the difference
+  /// to this device's price is only a fallback for a server that sends none.
+  double get differenceKr => differenceMinor != null
+      ? Money(differenceMinor!, currency).major
+      : newPriceKr - oldPriceKr;
 
   Map<String, dynamic> toRequest() => {
     'pickupAddress': pickupAddress,

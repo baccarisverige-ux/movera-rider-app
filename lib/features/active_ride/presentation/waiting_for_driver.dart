@@ -1232,7 +1232,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           context,
           driverAssigned: true,
           paymentMethod: widget.paymentMethod,
-          differenceKr: updated.price - ride.price,
+          // rider-u36: the server's difference, as the sheet showed it.
+          differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
           currency: updated.currency,
         );
       }

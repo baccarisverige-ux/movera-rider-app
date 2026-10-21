@@ -740,7 +740,8 @@ class _FindingDriversState extends State<FindingDrivers> {
         context,
         driverAssigned: _match.matchCount > 0,
         paymentMethod: widget.paymentMethod,
-        differenceKr: updated.price - ride.price,
+        // rider-u36: the server's difference, as the sheet showed it.
+        differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
         currency: updated.currency,
       );
     }
