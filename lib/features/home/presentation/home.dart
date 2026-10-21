@@ -465,6 +465,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     String target,
     String address, {
     String? customType,
+    String? placeId,
   }) async {
     final resolved = await _normaliseAddress(address);
     if (resolved.isEmpty || !mounted) return;
@@ -488,6 +489,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         address: resolved,
         pickupPosition: resolvedPickupPosition,
         customType: customType,
+        placeId: placeId,
       );
       if (target == 'destination') {
         AppScope.instance.destinationMemory.remember(address: resolved);
@@ -530,6 +532,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// Long-press on Home / Work / a custom place: change its address.
   Future<void> _editSavedPlace(String target, {String? customType}) =>
       _showAddressPicker(target: target, customType: customType);
+
+  /// rider-41: a custom place is edited by its id; another place of the
+  /// same kind is left alone.
+  Future<void> _editCustomPlace(_SavedPlaceData place) => _showAddressPicker(
+    target: 'custom',
+    customType: place.type,
+    placeId: place.id,
+  );
 
   Future<void> _useSavedPlaceAsDestination(
     String? savedAddress, {
@@ -1055,6 +1065,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _showAddressPicker({
     required String target,
     String? customType,
+    String? placeId,
   }) async {
     final initialAddress = _existingAddressFor(target);
     final controller = TextEditingController(
@@ -1353,7 +1364,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       capture.stop();
     }
     if (selected == null || selected.trim().isEmpty || !mounted) return;
-    await _saveAddressFor(target, selected, customType: customType);
+    await _saveAddressFor(
+      target,
+      selected,
+      customType: customType,
+      placeId: placeId,
+    );
   }
 
   Future<void> _openAddPlacePicker() async {
@@ -2068,6 +2084,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             reveal: reveal,
                             onUseSavedPlace: _useSavedPlaceAsDestination,
                             onEditSavedPlace: _editSavedPlace,
+                            onEditCustomPlace: _editCustomPlace,
                             onAddPlace: _openAddPlacePicker,
                           ),
                         ],

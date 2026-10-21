@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 
 class SavedPlaceData {
@@ -69,10 +70,16 @@ class HomePlacesController {
     homeAddress = saved.home;
     workAddress = saved.work;
     recentAddresses = List<String>.from(saved.recent);
-    savedPlaces = saved.places
-        .map((place) => SavedPlaceData.fromJson(Map<String, dynamic>.from(place)))
-        .take(maxCustom)
-        .toList();
+    // rider-41: a place stored before ids existed gets the id Saved Places
+    // gives it (its position), so it can be edited on its own.
+    savedPlaces = [
+      for (var i = 0; i < saved.places.length && i < maxCustom; i++)
+        SavedPlaceData.fromJson({
+          ...saved.places[i],
+          if ((saved.places[i]['id'] ?? '').trim().isEmpty)
+            'id': 'place_legacy_$i',
+        }),
+    ];
     _placesBeyondCap = [
       for (final place in saved.places.skip(maxCustom))
         Map<String, String>.from(place),
@@ -125,6 +132,7 @@ class HomePlacesController {
     required String address,
     LatLng? pickupPosition,
     String? customType,
+    String? placeId,
   }) {
     switch (target) {
       case 'pickup':
@@ -142,19 +150,28 @@ class HomePlacesController {
         break;
       case 'custom':
         final type = customType ?? 'other';
-        final existingIndex = savedPlaces.indexWhere((place) => place.type == type);
+        // rider-41: an edit names its place by id. Several places can share
+        // a kind (FLOW-5), so without an id this is a new place.
+        final existingIndex = placeId == null
+            ? -1
+            : savedPlaces.indexWhere((place) => place.id == placeId);
         if (existingIndex >= 0) {
           // Same place, new address: keep its name and id (FLOW-5).
           final existing = savedPlaces[existingIndex];
           savedPlaces[existingIndex] = SavedPlaceData(
             id: existing.id,
             title: existing.title,
-            type: type,
+            type: existing.type,
             address: address,
           );
         } else if (savedPlaces.length < maxCustom) {
           savedPlaces.add(
-            SavedPlaceData(title: type, type: type, address: address),
+            SavedPlaceData(
+              id: 'place_${newRequestId()}',
+              title: type,
+              type: type,
+              address: address,
+            ),
           );
         }
         break;
