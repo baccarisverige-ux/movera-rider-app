@@ -628,8 +628,14 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Future<void> _useCurrentLocation() async {
+    final at = _center;
     final result = await _pickup.currentPosition();
     if (!mounted) return;
+    // rider-u134: the rider moved the pin while the fix was coming; a late
+    // answer must not glide it away from there.
+    if (result.position != null && (_moving || _isAwayFrom(at, _center))) {
+      return;
+    }
     final position = result.position;
     if (position == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(

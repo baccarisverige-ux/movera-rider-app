@@ -45,6 +45,9 @@ class PickupMapController {
   final StaleGuard _stale = StaleGuard();
   int _inFlight = 0;
 
+  /// How long My location waits for a fix before it reports "unavailable".
+  static const currentPositionTimeout = Duration(seconds: 16);
+
   /// A lookup is running.
   bool get resolving => _inFlight > 0;
 
@@ -95,12 +98,17 @@ class PickupMapController {
           PickupLocationFailure.permissionDenied,
         );
       }
-      final current = await location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      // D-003 / rider-u134: geolocator_web passes timeLimit in microseconds
+      // (15 s becomes ~4 h). The Dart-side timeout makes a fix that never
+      // comes end as "unavailable".
+      final current = await location
+          .getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 15),
+            ),
+          )
+          .timeout(currentPositionTimeout);
       return PickupCurrentPositionResult.success(
         LatLng(current.latitude, current.longitude),
       );

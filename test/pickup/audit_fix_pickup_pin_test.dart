@@ -1,0 +1,43 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
+
+/// Location allowed; the one-shot fix never answers (geolocator_web's
+/// microsecond timeLimit, D-003).
+class _HangingLocation extends LocationRepository {
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+
+  @override
+  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) =>
+      Completer<Position>().future;
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  testWidgets('rider-u134: My location gives up with "unavailable" instead '
+      'of hanging', (tester) async {
+    final pickup = PickupMapController(
+      location: _HangingLocation(),
+      geocoding: AppGeocoding(),
+    );
+    PickupCurrentPositionResult? result;
+    unawaited(pickup.currentPosition().then((value) => result = value));
+    await tester.pump(const Duration(seconds: 30));
+    expect(result, isNotNull);
+    expect(result!.position, isNull);
+    expect(result!.failure, PickupLocationFailure.unavailable);
+    pickup.dispose();
+  });
+}

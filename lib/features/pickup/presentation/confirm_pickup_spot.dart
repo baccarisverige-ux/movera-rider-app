@@ -238,8 +238,12 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _pickupError = null;
       _pickupSettings = null;
     });
+    final at = _center;
     final result = await _pickup.currentPosition();
     if (!mounted) return;
+    // rider-u134: the rider moved the pin while the fix was coming; a late
+    // answer must not move it away from there.
+    if (result.position != null && (_moving || _isAwayFrom(at))) return;
     final position = result.position;
     if (position == null) {
       setState(() {
