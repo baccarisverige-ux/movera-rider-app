@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/web/rider_map_bridge_io.dart'
     if (dart.library.js_interop) 'package:movera_rider/core/web/rider_map_bridge_web.dart'
@@ -37,16 +38,32 @@ abstract final class RiderMapBridge {
   /// (one camera move per painted frame, the flight ease of
   /// map_camera_motion.dart). Completes with true when it lands, false when
   /// cancelled; null when the layer is not there (the Dart loop steps).
-  static Future<bool>? flight(int mapId, CameraPosition to, Duration duration) =>
-      impl.flight(
-        mapId,
-        to.target.latitude,
-        to.target.longitude,
-        to.zoom,
-        to.bearing,
-        to.tilt,
-        duration.inMilliseconds,
-      );
+  static Future<bool>? flight(
+    int mapId,
+    CameraPosition to,
+    Duration duration,
+  ) {
+    final fake = debugFlight;
+    if (fake != null) return fake(mapId, to, duration);
+    return impl.flight(
+      mapId,
+      to.target.latitude,
+      to.target.longitude,
+      to.zoom,
+      to.bearing,
+      to.tilt,
+      duration.inMilliseconds,
+    );
+  }
+
+  /// Tests stand in for the web layer's [flight] (off the web there is none).
+  @visibleForTesting
+  static Future<bool>? Function(
+    int mapId,
+    CameraPosition to,
+    Duration duration,
+  )?
+  debugFlight;
 
   /// A running flight turns towards [to] on its own clock.
   static void retarget(int mapId, CameraPosition to) => impl.retarget(

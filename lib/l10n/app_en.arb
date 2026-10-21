@@ -1835,6 +1835,8 @@
   "pushRideUpdatesOff": "Ride updates are off",
   "pushTurnOnInSettings": "Turn them on in Settings.",
   "pushHearDriver": "Hear when your driver is on the way.",
+  "pushWebBlockedBody": "Allow notifications for this site in your browser settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
+  "pushTurnOnInBrowser": "Turn them on in your browser settings.",
   "safetyTitle": "Safety",
   "safetyHubTagline": "Quiet protection for every ride.",
   "safetyPinTitle": "PIN verification",

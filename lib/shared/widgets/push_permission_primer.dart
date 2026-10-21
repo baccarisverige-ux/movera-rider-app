@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -37,10 +39,16 @@ class PushPrimerSheet extends StatefulWidget {
     required this.gate,
     this.openAppSettings,
     this.startBlocked = false,
+    this.isWeb = kIsWeb,
   });
 
   final PushPermissionGate gate;
   final AppSettingsOpener? openAppSettings;
+
+  /// rider-95: a browser has no app Settings page to open (geolocator's
+  /// openAppSettings throws there). The rider allows notifications in the
+  /// browser's site settings and taps Try again.
+  final bool isWeb;
 
   /// Opens straight on the Settings path (the rider already refused).
   final bool startBlocked;
@@ -83,15 +91,27 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
   }
 
   Future<void> _openSettings() async {
-    await (widget.openAppSettings ?? Geolocator.openAppSettings)();
+    try {
+      await (widget.openAppSettings ?? Geolocator.openAppSettings)();
+    } catch (error) {
+      AppLog.warning(
+        'push.open_settings_failed',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final title = _blocked ? context.l10n.pushOff : context.l10n.pushGetUpdates;
-    final body = _blocked
-        ? context.l10n.pushBlockedBody
-        : context.l10n.pushBody;
+    final body = !_blocked
+        ? context.l10n.pushBody
+        : widget.isWeb
+        ? context.l10n.pushWebBlockedBody
+        : context.l10n.pushBlockedBody;
+    // On the web the browser's site settings are the way back, so the main
+    // action is Try again and there is no Open settings.
+    final settings = _blocked && !widget.isWeb;
     return MoveraSheet(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
@@ -146,9 +166,13 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: _busy ? null : (_blocked ? _openSettings : _turnOn),
+                onPressed: _busy ? null : (settings ? _openSettings : _turnOn),
                 child: Text(
-                  _blocked ? context.l10n.openSettings : context.l10n.pushTurnOn,
+                  settings
+                      ? context.l10n.openSettings
+                      : _blocked
+                      ? context.l10n.tryAgain
+                      : context.l10n.pushTurnOn,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -159,7 +183,7 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
             const SizedBox(height: 6),
             Row(
               children: [
-                if (_blocked)
+                if (settings)
                   Expanded(
                     child: TextButton(
                       key: const ValueKey('push-primer-retry'),
@@ -188,10 +212,18 @@ class _PushPrimerSheetState extends State<PushPrimerSheet> {
 /// A row for the Notifications screen while ride updates are not on: it
 /// reopens the explanation, or the Settings path after a system refusal.
 class PushStatusBanner extends StatefulWidget {
-  const PushStatusBanner({super.key, required this.gate, this.openAppSettings});
+  const PushStatusBanner({
+    super.key,
+    required this.gate,
+    this.openAppSettings,
+    this.isWeb = kIsWeb,
+  });
 
   final PushPermissionGate gate;
   final AppSettingsOpener? openAppSettings;
+
+  /// See [PushPrimerSheet.isWeb].
+  final bool isWeb;
 
   @override
   State<PushStatusBanner> createState() => _PushStatusBannerState();
@@ -207,9 +239,14 @@ class _PushStatusBannerState extends State<PushStatusBanner> {
         gate: widget.gate,
         openAppSettings: widget.openAppSettings,
         startBlocked: blocked,
+        isWeb: widget.isWeb,
       ),
     );
-    if (mounted) setState(() => _consent = widget.gate.consent());
+    if (!mounted) return;
+    // A block body: an arrow returning the Future trips setState's assert.
+    setState(() {
+      _consent = widget.gate.consent();
+    });
   }
 
   @override
@@ -243,9 +280,11 @@ class _PushStatusBannerState extends State<PushStatusBanner> {
                 ),
               ),
               subtitle: Text(
-                blocked
-                    ? context.l10n.pushTurnOnInSettings
-                    : context.l10n.pushHearDriver,
+                !blocked
+                    ? context.l10n.pushHearDriver
+                    : widget.isWeb
+                    ? context.l10n.pushTurnOnInBrowser
+                    : context.l10n.pushTurnOnInSettings,
                 style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
               ),
               trailing: const Icon(Icons.chevron_right_rounded, color: _muted),

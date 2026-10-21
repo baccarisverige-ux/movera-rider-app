@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
@@ -183,6 +184,25 @@ void main() {
       expect(places.shortcuts().map((p) => p.subtitle), ['A', 'C']);
     },
   );
+
+  test('rider-u220: a place stored without an id, or with an id another '
+      'place has, gets its own id; deleting it removes only it', () async {
+    SharedPreferences.setMockInitialValues({
+      'movera_saved_places':
+          '[{"id":"place_legacy_1","title":"Bar","type":"other","address":"B"},'
+          '{"title":"School","type":"school","address":"C"},'
+          '{"id":"place_legacy_1","title":"Gym","type":"gym","address":"D"}]',
+    });
+    final places = SavedPlacesController();
+    await places.hydrate();
+    final ids = places.shortcuts().map((p) => p.id).toList();
+    expect(ids.toSet(), hasLength(3));
+    final home = HomePlacesController();
+    await home.load();
+    expect(home.savedPlaces.map((p) => p.id), ids, reason: 'Home agrees');
+    await places.remove(places.shortcuts()[1]);
+    expect(places.shortcuts().map((p) => p.subtitle), ['B', 'D']);
+  });
 
   testWidgets('FLOW-15: delete asks first and keeps the place on Cancel', (
     tester,

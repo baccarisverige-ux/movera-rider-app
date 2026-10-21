@@ -18,6 +18,40 @@ class HomeAddressSnapshot {
   final List<Map<String, String>> places;
 }
 
+/// [places] with an id on every custom place, the same in Home and Saved
+/// Places. A place stored before ids existed gets one from its position
+/// (`place_legacy_<i>`).
+///
+/// rider-u220: a position-derived id could already be stored on another
+/// place (after a delete the list shifts, and an older Home then appended
+/// a place without an id), and an older Home wrote such a shared id back.
+/// Deleting one of them removed both and editing one overwrote the other.
+/// So the first place keeps a stored id, and a place without an id, or
+/// with one an earlier place already has, gets an id no stored place uses.
+List<Map<String, String>> withPlaceIds(List<Map<String, String>> places) {
+  final taken = {
+    for (final place in places)
+      if ((place['id'] ?? '').trim().isNotEmpty) place['id']!.trim(),
+  };
+  final kept = <String>{};
+  final result = <Map<String, String>>[];
+  for (var i = 0; i < places.length; i++) {
+    final id = (places[i]['id'] ?? '').trim();
+    if (id.isNotEmpty && kept.add(id)) {
+      result.add(places[i]);
+      continue;
+    }
+    var fresh = 'place_legacy_$i';
+    for (var n = 2; taken.contains(fresh); n++) {
+      fresh = 'place_legacy_${i}_$n';
+    }
+    taken.add(fresh);
+    kept.add(fresh);
+    result.add({...places[i], 'id': fresh});
+  }
+  return result;
+}
+
 class HomeAddressRepository {
   static final StreamController<void> _changes = StreamController<void>.broadcast();
 

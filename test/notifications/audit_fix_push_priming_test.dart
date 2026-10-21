@@ -168,6 +168,29 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
   });
 
+  testWidgets('rider-95: on the web the way back is the browser, not an '
+      'Open settings button that throws', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PushPermissionGate.storageKey: PushConsent.blockedBySystem.name,
+    });
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: PushStatusBanner(gate: gate, isWeb: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Turn them on in your browser settings.'), findsOneWidget);
+    await tester.tap(find.text('Ride updates are off'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open settings'), findsNothing);
+    expect(find.textContaining('this site in your browser'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(push.registers, 1);
+  });
+
   testWidgets('mock push offers nothing', (tester) async {
     final gate = PushPermissionGate(push: _Push(), enabled: false);
     expect(await gate.shouldOffer(), isFalse);
