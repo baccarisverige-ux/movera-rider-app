@@ -208,6 +208,8 @@
   "payWith": "Betala med",
   "walletBalance": "Saldo: {amount}",
   "walletTapToPay": "Tryck för att betala resan med ditt saldo",
+  "walletTooLowForRide": "Saldot räcker inte för den här resan",
+  "walletTooLowChooseAnother": "Ditt saldo räcker inte för den här resan. Välj ett annat betalsätt.",
   "walletFirst": "Använd plånbokssaldot först",
   "walletFirstBody": "Ditt saldo dras från varje resa; resten betalas med det sätt du väljer.",
   "paymentMethods": "Betalsätt",

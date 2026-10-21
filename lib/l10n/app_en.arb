@@ -435,6 +435,8 @@
     }
   },
   "walletTapToPay": "Tap to pay this ride from your balance",
+  "walletTooLowForRide": "Balance too low for this ride",
+  "walletTooLowChooseAnother": "Your wallet balance does not cover this ride. Choose another way to pay.",
   "walletFirst": "Use wallet balance first",
   "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
   "paymentMethods": "Payment methods",

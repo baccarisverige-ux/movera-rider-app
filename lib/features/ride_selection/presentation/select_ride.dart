@@ -1023,6 +1023,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _showPaymentPicker() async {
     final current = _selection.selectedPaymentItem();
+    final ride = _selectedRideOrNull;
     final brand = await PayWithPage.open(
       context,
       methods: [
@@ -1036,6 +1037,8 @@ class _SelectRideState extends State<SelectRide>
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
       walletCurrency: _selection.walletCurrency,
+      walletCoversFare:
+          ride == null || _selection.walletCovers(_priceFor(ride)),
       promotion: _promotion,
       brandMark: _brandMark,
       useWalletFirst: _selection.useWalletFirst,
@@ -1049,6 +1052,19 @@ class _SelectRideState extends State<SelectRide>
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
     if (index < 0) return;
     setState(() => _selection.selectPayment(index));
+  }
+
+  /// rider-74: the wallet alone cannot pay a fare above its balance. Says
+  /// so and returns true when the wallet is the chosen method for it.
+  bool _walletCannotPay(double priceKr) {
+    if (_selection.selectedPaymentItem()?.brand != 'wallet' ||
+        _selection.walletCovers(priceKr)) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.walletTooLowChooseAnother)),
+    );
+    return true;
   }
 
   Future<void> _loadWalletBalance() async {
@@ -1152,6 +1168,8 @@ class _SelectRideState extends State<SelectRide>
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
         }
+        final booked = _selectedRideOrNull;
+        if (booked != null && _walletCannotPay(_priceFor(booked))) return;
         final Reservation? created;
         try {
           created = await ScheduledRideCheckout.run(
@@ -1246,6 +1264,7 @@ class _SelectRideState extends State<SelectRide>
       unawaited(_loadQuotes());
       return;
     }
+    if (_walletCannotPay(_priceFor(selected))) return;
 
     _bookingInFlight = true;
     setState(() {});
@@ -1521,6 +1540,7 @@ class _SelectRideState extends State<SelectRide>
           return;
         }
         if (!mounted) return;
+        if (_walletCannotPay(authoritativePrice)) return;
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);
 

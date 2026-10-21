@@ -188,6 +188,14 @@ class RideSelectionController {
       Money(walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor, currency)
           .major;
 
+  /// Whether the wallet alone can pay [priceKr] (whole units of
+  /// [currency]): a balance of the trip's currency of at least the fare.
+  /// Below it the wallet is not a method for the whole ride (rider-74).
+  bool walletCovers(double priceKr) =>
+      walletMatchesTrip &&
+      Money.fromLegacyMajor(walletBalance, walletCurrency).amountMinor >=
+          moneyOf(priceKr).amountMinor;
+
   /// What the chosen method is charged after the wallet part.
   double remainderKr(double priceKr) => Money(
     walletSplitFor(moneyOf(priceKr).amountMinor).remainderMinor,

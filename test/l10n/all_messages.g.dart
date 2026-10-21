@@ -214,6 +214,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'payWith': l.payWith,
   'walletBalance': l.walletBalance('<amount>'),
   'walletTapToPay': l.walletTapToPay,
+  'walletTooLowForRide': l.walletTooLowForRide,
+  'walletTooLowChooseAnother': l.walletTooLowChooseAnother,
   'walletFirst': l.walletFirst,
   'walletFirstBody': l.walletFirstBody,
   'paymentMethods': l.paymentMethods,
@@ -1880,6 +1882,10 @@ class _Exhaustive implements AppLocalizations {
   String walletBalance(String amount) => '';
   @override
   String get walletTapToPay => '';
+  @override
+  String get walletTooLowForRide => '';
+  @override
+  String get walletTooLowChooseAnother => '';
   @override
   String get walletFirst => '';
   @override

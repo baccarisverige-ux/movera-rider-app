@@ -208,6 +208,8 @@
   "payWith": "Payer avec",
   "walletBalance": "Solde : {amount}",
   "walletTapToPay": "Touchez pour payer cette course avec votre solde",
+  "walletTooLowForRide": "Solde insuffisant pour cette course",
+  "walletTooLowChooseAnother": "Votre solde ne couvre pas cette course. Choisissez un autre moyen de paiement.",
   "walletFirst": "Utiliser d’abord le solde du portefeuille",
   "walletFirstBody": "Votre solde est déduit de chaque course ; le reste est payé avec le moyen choisi.",
   "paymentMethods": "Moyens de paiement",
