@@ -49,7 +49,8 @@ class AccountScaffold extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    // maybePop: a page can hold Back while it is busy.
+                    onPressed: () => Navigator.maybePop(context),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
