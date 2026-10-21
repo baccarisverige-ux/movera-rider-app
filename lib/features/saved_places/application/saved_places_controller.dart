@@ -61,7 +61,7 @@ class SavedPlacesController {
     }
 
     final snapshot = await _store.load();
-    final places = _withIds(snapshot.places);
+    final places = withPlaceIds(snapshot.places);
 
     String? home = snapshot.home;
     String? work = snapshot.work;
@@ -120,7 +120,7 @@ class SavedPlacesController {
     final kind = _normalizeKind(place.kind);
     final snapshot = await _store.load();
     final id = place.id;
-    final places = _withIds(snapshot.places)
+    final places = withPlaceIds(snapshot.places)
         .where((item) => id == null || item['id'] != id)
         .toList();
 
@@ -133,18 +133,6 @@ class SavedPlacesController {
       ),
     );
     await hydrate();
-  }
-
-  /// Custom places saved before ids existed get a stable id from their
-  /// position, so they can be edited and removed one by one.
-  List<Map<String, String>> _withIds(List<Map<String, String>> raw) {
-    return [
-      for (var i = 0; i < raw.length; i++)
-        {
-          ...raw[i],
-          if ((raw[i]['id'] ?? '').trim().isEmpty) 'id': 'place_legacy_$i',
-        },
-    ];
   }
 
   List<PlaceShortcut> _fromSnapshot(HomeAddressSnapshot snapshot) {
@@ -169,7 +157,7 @@ class SavedPlacesController {
         ),
       );
     }
-    final places = _withIds(snapshot.places);
+    final places = withPlaceIds(snapshot.places);
     for (final item in places) {
       final address = (item['address'] ?? '').trim();
       if (address.isEmpty) continue;

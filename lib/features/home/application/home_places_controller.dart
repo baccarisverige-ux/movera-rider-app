@@ -73,14 +73,11 @@ class HomePlacesController {
     workAddress = saved.work;
     recentAddresses = List<String>.from(saved.recent);
     // rider-41: a place stored before ids existed gets the id Saved Places
-    // gives it (its position), so it can be edited on its own.
+    // gives it, so it can be edited on its own (rider-u220: never an id
+    // another place has).
     savedPlaces = [
-      for (var i = 0; i < saved.places.length && i < maxCustom; i++)
-        SavedPlaceData.fromJson({
-          ...saved.places[i],
-          if ((saved.places[i]['id'] ?? '').trim().isEmpty)
-            'id': 'place_legacy_$i',
-        }),
+      for (final place in withPlaceIds(saved.places).take(maxCustom))
+        SavedPlaceData.fromJson(place),
     ];
     _placesBeyondCap = [
       for (final place in saved.places.skip(maxCustom))
