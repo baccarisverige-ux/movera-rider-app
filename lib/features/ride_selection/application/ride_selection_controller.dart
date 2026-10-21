@@ -59,13 +59,17 @@ class RideSelectionController {
   /// Q7: the currency of the pickup's zone. Every price below is in whole
   /// units of it. Select Ride sets it from the pickup; a quote the server
   /// prices in another currency moves it (the server decides). A change
-  /// drops the prices held in the old currency.
+  /// drops the prices held in the old currency. The wallet row may come
+  /// or go with it (Q8), so the chosen method is kept by brand
+  /// (rider-u184).
   String get currency => _currency;
   String _currency;
   set currency(String value) {
     if (value == _currency) return;
-    _currency = value;
-    offeredPrices.clear();
+    _keepPayment(() {
+      _currency = value;
+      offeredPrices.clear();
+    });
   }
 
   /// The currency of [walletBalance]: the trip's (Q8: one balance per
@@ -275,6 +279,20 @@ class RideSelectionController {
     final list = payments();
     final i = list.indexWhere((item) => item.brand == 'cash');
     selectedPayment = i >= 0 ? i : 0;
+  }
+
+  /// Runs [change], which may add or drop payment rows, and keeps the
+  /// chosen method on its brand: [selectedPayment] is an index, so a row
+  /// that drops out above it would otherwise move the choice to another
+  /// method. When the chosen brand itself is gone, the default.
+  void _keepPayment(void Function() change) {
+    final current = selectedPaymentItem()?.brand;
+    change();
+    if (current != null && payments().any((item) => item.brand == current)) {
+      selectPaymentByBrand(current);
+    } else {
+      _selectDefaultPayment();
+    }
   }
 
   int beginQuotes() => ++_quoteGeneration;
