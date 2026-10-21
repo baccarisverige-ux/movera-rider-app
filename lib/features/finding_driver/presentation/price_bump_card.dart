@@ -163,8 +163,14 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         _selectedStep = null;
         return;
       }
-      final extra = total - _current;
-      _selectedStep = widget.steps.contains(extra) ? extra : null;
+      // rider-r4-17: the step the typed total really raises by, to the
+      // minor unit (27 on a 24,60 € fare is +2,40 €, no step).
+      final extraMinor = total * _unitMinor - _currentMinor;
+      final extra = extraMinor ~/ _unitMinor;
+      _selectedStep =
+          extraMinor % _unitMinor == 0 && widget.steps.contains(extra)
+              ? extra
+              : null;
     });
   }
 
