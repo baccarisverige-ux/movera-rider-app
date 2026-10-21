@@ -62,6 +62,12 @@ class RideRestoreCoordinator {
   /// cancel before it shows the ride as still cancelling.
   static const queuedCancelWait = Duration(seconds: 4);
 
+  /// rider-u174: how long a cold start with no ride on this device waits
+  /// for the server's active trip before it shows Home. A hanging network
+  /// used to hold a blank screen for the client's full timeout (about
+  /// 30 s); a trip that comes back later still opens.
+  static const serverTripWait = Duration(seconds: 2);
+
   static Future<PendingCancelResult?> _defaultFlushCancel(String rideId) =>
       FindingDriverController.flushPendingCancels()
           .then<PendingCancelResult?>((results) => results[rideId])
@@ -84,6 +90,9 @@ class RideRestoreCoordinator {
         return null;
       }
       if (expectedRideId != null && id != expectedRideId.trim()) return null;
+      // The lookup may have been slow: a ride this device started meanwhile
+      // keeps its own snapshot.
+      if (await _reader() != null) return null;
       await RideSnapshotStore.save(trip);
       AppLog.info('ride.restore.server_active_trip', extra: {
         'rideId': id,
@@ -453,7 +462,7 @@ class RideRestoreCoordinator {
         reportRestoreSurface('signInPreview');
         return const SignIn();
       }
-      return pageFor(snapshot ?? await adoptServerActiveTrip());
+      return pageFor(snapshot ?? await _serverTripForColdStart());
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
@@ -464,6 +473,33 @@ class RideRestoreCoordinator {
       }
       return const Home();
     }
+  }
+
+  /// The server's active trip when it answers within [serverTripWait];
+  /// otherwise null (Home shows), and a trip that arrives later replaces
+  /// the root while the rider is still on Home.
+  Future<RideSnapshot?> _serverTripForColdStart() {
+    final lookup = adoptServerActiveTrip();
+    return lookup.timeout(
+      serverTripWait,
+      onTimeout: () {
+        AppLog.info('ride.restore.server_active_trip_slow');
+        unawaited(lookup.then(_openLateServerTrip));
+        return null;
+      },
+    );
+  }
+
+  void _openLateServerTrip(RideSnapshot? trip) {
+    if (trip == null ||
+        showing != RestoredSurface.home ||
+        authRootShowing ||
+        !atRoot) {
+      // Kept as the snapshot: the next resume opens it.
+      return;
+    }
+    if (surfaceFor(trip) == RestoredSurface.home) return;
+    onReplaceRoot?.call(pageFor(trip));
   }
 
   bool get atRoot {
@@ -595,7 +631,12 @@ class RideRestoreCoordinator {
     }
     snapshot = await _dropIfCancelQueued(snapshot);
     if (!atRoot) return null;
-    if (AppScope.instance.ride.suppressRestore) {
+    // rider-67: the flag belongs to the ride that ended on this device. A
+    // snapshot of another ride (one a push tap just adopted from the
+    // server) is not that ride and is opened.
+    final session = AppScope.instance.ride;
+    if (session.suppressRestore &&
+        snapshot?.rideId?.trim() == session.rideId?.trim()) {
       unawaited(RideSnapshotStore.clear());
       return null;
     }

@@ -975,6 +975,7 @@
   "paymentProcessing": "Payment processing",
   "completeConfirmedBody": "Your ride has ended and the payment has been confirmed.",
   "paymentConfirmed": "Payment confirmed",
+  "paymentNotCompleted": "Payment not completed",
   "completeRateBody": "Your ride and payment are complete. You can now rate your driver.",
   "readyForFeedback": "Ready for feedback",
   "completeDefaultBody": "Your ride has ended. Payment status will update when it is confirmed.",
@@ -1034,6 +1035,15 @@
   },
   "howWasTrip": "How was your trip",
   "rateYourDriver": "Give rating to your driver",
+  "ratingNotRated": "Not rated",
+  "ratingStarsValue": "{count} of 5 stars",
+  "@ratingStarsValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "topUpUnconfirmed": "We couldn't confirm your top-up. If it went through, it will show in your balance — trying again won't charge you twice.",
   "topUpDeclined": "The payment was declined, so you weren't charged.",
   "topUpOffline": "No connection, so the top-up didn't go through. You weren't charged — try again when you're back online.",

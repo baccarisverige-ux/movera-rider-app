@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
@@ -178,5 +182,57 @@ void main() {
     );
     expect((await controller.load()).single.reservationId, 'ondemand-ride_a');
     expect(AppScope.instance.rideHistory, isA<LocalRideHistoryRepository>());
+  });
+
+  Future<RideSnapshot?> serverTrip(String id) => ApiActiveTripRepository(
+    api: ApiClient(
+      client: InProcessMockClient()..rides[id] = ride(id, 'findingDriver'),
+      env: demo,
+    ),
+  ).fetchActive();
+
+  test('rider-u174: a slow active-trip lookup does not hold the cold start; '
+      'a trip that arrives late still opens', () async {
+    final lookup = Completer<RideSnapshot?>();
+    final replaced = <Widget>[];
+    final restore = RideRestoreCoordinator(
+      resync: (_) async {},
+      authRequired: () => false,
+      serverActiveTrip: () => lookup.future,
+    )
+      ..debugAtRoot = (() => true)
+      ..onReplaceRoot = replaced.add;
+    final page = await restore.root().timeout(const Duration(seconds: 10));
+    expect(page, isA<Home>());
+    expect(restore.showing, RestoredSurface.home);
+
+    lookup.complete(await serverTrip('ride_late'));
+    await pumpEventQueue();
+    expect(replaced.single, isA<FindingDrivers>());
+    expect(restore.showing, RestoredSurface.finding);
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_late');
+  });
+
+  test('rider-67: a leftover suppressRestore from an earlier ride does not '
+      'delete the trip a push tap just adopted', () async {
+    // Ride A was closed on this device earlier.
+    AppScope.instance.ride
+      ..restoreFromBackend(RideStatus.ratingPending, id: 'ride_a')
+      ..localTransition(RideStatus.closed);
+    expect(AppScope.instance.ride.suppressRestore, isTrue);
+    final replaced = <Widget>[];
+    final restore = RideRestoreCoordinator(
+      resync: (_) async {},
+      authRequired: () => false,
+      serverActiveTrip: () => serverTrip('ride_b'),
+    )
+      ..debugAtRoot = (() => true)
+      ..onReplaceRoot = replaced.add;
+    expect(
+      (await restore.adoptServerActiveTrip(expectedRideId: 'ride_b'))?.rideId,
+      'ride_b',
+    );
+    expect(await restore.resumeIfNeeded(), isA<FindingDrivers>());
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_b');
   });
 }

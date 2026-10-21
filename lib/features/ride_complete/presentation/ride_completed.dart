@@ -115,14 +115,27 @@ class _RideCompletedState extends State<RideCompleted> {
           _completionRank(session.status) > _completionRank(_status)) {
         _status = session.status;
       }
+      // rider-u179: a decline reconciled during the handoff.
+      if (session.rideId?.trim() == rideId &&
+          session.status == RideStatus.paymentFailed) {
+        _status = RideStatus.paymentFailed;
+        unawaited(_controller.markCompletedPaymentFailed(rideId));
+      }
     }
 
     final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
     _completionSub = realtime.subscribe(rideId).listen((event) {
       final status = event.status;
-      if (!mounted ||
-          _leaving ||
-          !status.isCompletedSurface ||
+      // rider-u179: a declined card arrives as paymentFailed, which is not
+      // a completion surface. It used to be dropped here, leaving the
+      // rider on "Payment processing" and the trip filed as completed.
+      // It is final for this screen.
+      if (!mounted || _leaving || _status == RideStatus.paymentFailed) return;
+      if (status == RideStatus.paymentFailed) {
+        _onPaymentFailed(event, rideId);
+        return;
+      }
+      if (!status.isCompletedSurface ||
           _completionRank(status) <= _completionRank(_status)) {
         return;
       }
@@ -143,9 +156,25 @@ class _RideCompletedState extends State<RideCompleted> {
     _maybeChargeWallet();
   }
 
+  void _onPaymentFailed(RideRealtimeEvent event, String rideId) {
+    if (widget.persistOnDemandState) {
+      AppScope.instance.ride.backendReconcile(
+        RideStatus.paymentFailed,
+        id: event.tripId,
+        version: event.version ?? event.sequence,
+        updatedAt: event.serverTime ?? event.occurredAt,
+      );
+      unawaited(_controller.markCompletedPaymentFailed(rideId));
+    }
+    setState(() => _status = RideStatus.paymentFailed);
+  }
+
   /// D-022: a wallet-paid on-demand ride is deducted from the local wallet
-  /// balance once it reaches a charged status. WalletController guards
-  /// against charging the same ride twice.
+  /// balance once it reaches a charged status. The debit itself belongs to
+  /// the ride's lifecycle (ActiveRideController), which also debits when
+  /// the rider leaves before then (rider-u180/u181) or ended the trip
+  /// early (rider-u178); WalletController guards against charging the
+  /// same ride twice.
   void _maybeChargeWallet() {
     if (!widget.persistOnDemandState || _walletChargeRequested) return;
     if (_completionRank(_status) <
@@ -155,18 +184,7 @@ class _RideCompletedState extends State<RideCompleted> {
     final rideId = widget.rideId?.trim();
     if (rideId == null || rideId.isEmpty) return;
     _walletChargeRequested = true;
-    unawaited(_chargeWallet(rideId));
-  }
-
-  Future<void> _chargeWallet(String rideId) async {
-    try {
-      await AppScope.instance.walletController.chargeCompletedRideById(rideId);
-    } catch (error) {
-      AppLog.warning(
-        'wallet.ride_charge_failed',
-        extra: {'rideId': rideId, 'error': error.toString()},
-      );
-    }
+    unawaited(_controller.chargeCompletedWallet(rideId));
   }
 
   @override
@@ -224,6 +242,9 @@ class _RideCompletedState extends State<RideCompleted> {
       _leaving = true;
       _submitError = null;
     });
+    // rider-72: a refused feedback and a failed close are told apart. Only
+    // the first keeps the rider here to try again; closing tolerates a
+    // session the server already ended.
     try {
       if (submitFeedback && (_rating != null || _tipMinor != null)) {
         final id = widget.rideId;
@@ -243,7 +264,12 @@ class _RideCompletedState extends State<RideCompleted> {
           _feedbackMutation.succeeded(feedbackIntent);
         }
       }
-      if (!mounted) return;
+    } catch (_) {
+      _stayWithError();
+      return;
+    }
+    if (!mounted) return;
+    try {
       final customClose = widget.onClose;
       if (customClose != null) {
         await customClose(context);
@@ -254,15 +280,24 @@ class _RideCompletedState extends State<RideCompleted> {
       } else {
         _controller.close();
       }
-      if (!mounted) return;
-      RideNavigator.home(context, status: RideStatus.closed);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _leaving = false;
-        _submitError = context.l10n.feedbackSaveFailed;
-      });
+    } catch (error) {
+      AppLog.warning(
+        'ride.complete.close_failed',
+        extra: {'rideId': widget.rideId, 'error': error.toString()},
+      );
+      _stayWithError();
+      return;
     }
+    if (!mounted) return;
+    RideNavigator.home(context, status: RideStatus.closed);
+  }
+
+  void _stayWithError() {
+    if (!mounted) return;
+    setState(() {
+      _leaving = false;
+      _submitError = context.l10n.feedbackSaveFailed;
+    });
   }
 
   _CompletionSpec get _spec {
@@ -677,6 +712,14 @@ class _CompletionSpec {
 
   factory _CompletionSpec.fromStatus(RideStatus status) {
     switch (status) {
+      case RideStatus.paymentFailed:
+        return _CompletionSpec(
+          title: L10n.current.termPaymentTitle,
+          message: L10n.current.termPaymentNote,
+          statusLabel: L10n.current.paymentNotCompleted,
+          icon: Icons.credit_card_off_outlined,
+          statusIcon: Icons.error_outline_rounded,
+        );
       case RideStatus.paymentProcessing:
         return _CompletionSpec(
           title: L10n.current.tripComplete,

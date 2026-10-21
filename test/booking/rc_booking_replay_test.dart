@@ -17,15 +17,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _ActiveTrip implements ActiveTripRepository {
   _ActiveTrip(this.trip);
-  final RideSnapshot? trip;
+  RideSnapshot? trip;
+
+  /// When set, the lookup fails with it (the rider is offline).
+  Object? error;
   int calls = 0;
 
   @override
   Future<RideSnapshot?> fetchActive() async {
     calls += 1;
+    if (error != null) throw error!;
     return trip;
   }
 }
+
+RideSnapshot _liveTrip(String rideId) => RideSnapshot(
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'A',
+  destinationAddress: 'B',
+  pickupLat: 59.3293,
+  pickupLng: 18.0686,
+  destinationLat: 59.34,
+  destinationLng: 18.07,
+  rideType: 'standard',
+  price: 120,
+  paymentMethod: 'card',
+  rideId: rideId,
+  categoryId: 'standard',
+);
 
 /// RC-04 / RC-09: a booking retried after a failure that may have created
 /// the ride resends the first request (same key, same body), and is not
@@ -115,25 +135,40 @@ void main() {
   test('RC-09: the live trip the server holds for this booking is adopted',
       () async {
     final t = unavailable();
-    final trips = _ActiveTrip(RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3293,
-      pickupLng: 18.0686,
-      destinationLat: 59.34,
-      destinationLng: 18.07,
-      rideType: 'standard',
-      price: 120,
-      paymentMethod: 'card',
-      rideId: 'srv-1',
-      categoryId: 'standard',
-    ));
+    final trips = _ActiveTrip(_liveTrip('srv-1'));
     final booking = BookingCoordinator(api: t.api, activeTrips: trips);
     expect(await attempt(booking, 'q1', 59.3293), 'srv-1');
     expect(AppScope.instance.ride.rideId, 'srv-1');
     expect((await RideSnapshotStore.read())?.rideId, 'srv-1');
+  });
+
+  test('rider-u80: a booking that may exist is checked on the server before '
+      'a new key is sent', () async {
+    final t = unavailable();
+    final trips = _ActiveTrip(null)
+      ..error = http.ClientException('offline');
+    final booking = BookingCoordinator(api: t.api, activeTrips: trips);
+    await expectLater(attempt(booking, 'q1', 59.3293), throwsA(isA<ApiError>()));
+    expect(t.keys.toSet(), hasLength(1));
+
+    // A different intent (the pin crossed a cell edge), still offline: the
+    // first ride may exist, so no new key goes out.
+    Object? failure;
+    try {
+      await attempt(booking, 'q2', 59.3299);
+    } catch (error) {
+      failure = error;
+    }
+    expect(BookingController.mayHaveBooked(failure!), isTrue);
+    expect(t.keys.toSet(), hasLength(1));
+
+    // Back online, the server holds the first ride: it is adopted.
+    trips
+      ..error = null
+      ..trip = _liveTrip('srv-ghost');
+    expect(await attempt(booking, 'q3', 59.3299), 'srv-ghost');
+    expect(t.keys.toSet(), hasLength(1));
+    expect(AppScope.instance.ride.rideId, 'srv-ghost');
   });
 
   test('a refusal is not "maybe booked"', () {

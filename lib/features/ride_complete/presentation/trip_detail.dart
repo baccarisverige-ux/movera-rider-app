@@ -144,13 +144,11 @@ class RideCompletedTripDetail extends StatelessWidget {
             }
           }
 
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
+          // rider-u183: MoveraSheet.show already lifts the sheet over the
+          // keyboard; padding by the inset here as well pushed Submit out
+          // of reach while the rider typed. It scrolls on a short screen.
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

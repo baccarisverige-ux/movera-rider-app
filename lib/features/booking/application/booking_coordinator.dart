@@ -352,6 +352,22 @@ class BookingCoordinator {
       'notes': notes.toJson(),
       'useWalletFirst': useWalletFirst,
     });
+    // rider-u80: the last attempt was sent and never answered (it may have
+    // created the ride) and this one would get a new key: a moved pin, or
+    // a retry after the reuse window. Ask the server first, so the ghost
+    // ride is adopted rather than booked a second time.
+    final uncertain = _attempt;
+    if (uncertain != null &&
+        uncertain.replay != null &&
+        !uncertain.matches(intentKey)) {
+      final adopted = await _adoptActiveTrip(
+        destinationLat,
+        destinationLng,
+        anyDestination: true,
+      );
+      if (identical(_attempt, uncertain)) _attempt = null;
+      if (adopted != null) return adopted;
+    }
     final attempt = _attemptFor(intentKey);
 
     try {
@@ -462,15 +478,22 @@ class BookingCoordinator {
 
   /// The rider's live trip on the server, when it is the booking being
   /// made (same destination): adopted as the created ride. Null otherwise.
+  ///
+  /// [anyDestination] (rider-u80): an earlier booking may exist, and the
+  /// server keeps no one-live-trip rule, so any live trip is that booking.
+  /// A lookup that fails the way a request can while offline is then
+  /// rethrown: no new key may go out until the server was asked.
   Future<String?> _adoptActiveTrip(
     double destinationLat,
-    double destinationLng,
-  ) async {
+    double destinationLng, {
+    bool anyDestination = false,
+  }) async {
     RideSnapshot? trip;
     try {
       trip = await (_activeTrips ?? AppScope.instance.activeTrips).fetchActive();
     } catch (error) {
       AppLog.warning('booking.active_trip_failed', extra: {'error': '$error'});
+      if (anyDestination && maybeCreated(error)) rethrow;
       return null;
     }
     final id = trip?.rideId?.trim();
@@ -484,7 +507,7 @@ class BookingCoordinator {
     final same = _intentPoint(trip.destinationLat, trip.destinationLng)
             ?.join(',') ==
         _intentPoint(destinationLat, destinationLng)?.join(',');
-    if (!same) return null;
+    if (!same && !anyDestination) return null;
     final collision = await _standDownIfFindingOwned(createdRideId: id);
     if (collision != null) return collision;
     final session = AppScope.instance.ride;
