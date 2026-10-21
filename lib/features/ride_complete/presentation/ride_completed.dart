@@ -224,6 +224,9 @@ class _RideCompletedState extends State<RideCompleted> {
       _leaving = true;
       _submitError = null;
     });
+    // rider-72: a refused feedback and a failed close are told apart. Only
+    // the first keeps the rider here to try again; closing tolerates a
+    // session the server already ended.
     try {
       if (submitFeedback && (_rating != null || _tipMinor != null)) {
         final id = widget.rideId;
@@ -243,7 +246,12 @@ class _RideCompletedState extends State<RideCompleted> {
           _feedbackMutation.succeeded(feedbackIntent);
         }
       }
-      if (!mounted) return;
+    } catch (_) {
+      _stayWithError();
+      return;
+    }
+    if (!mounted) return;
+    try {
       final customClose = widget.onClose;
       if (customClose != null) {
         await customClose(context);
@@ -254,15 +262,24 @@ class _RideCompletedState extends State<RideCompleted> {
       } else {
         _controller.close();
       }
-      if (!mounted) return;
-      RideNavigator.home(context, status: RideStatus.closed);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _leaving = false;
-        _submitError = context.l10n.feedbackSaveFailed;
-      });
+    } catch (error) {
+      AppLog.warning(
+        'ride.complete.close_failed',
+        extra: {'rideId': widget.rideId, 'error': error.toString()},
+      );
+      _stayWithError();
+      return;
     }
+    if (!mounted) return;
+    RideNavigator.home(context, status: RideStatus.closed);
+  }
+
+  void _stayWithError() {
+    if (!mounted) return;
+    setState(() {
+      _leaving = false;
+      _submitError = context.l10n.feedbackSaveFailed;
+    });
   }
 
   _CompletionSpec get _spec {

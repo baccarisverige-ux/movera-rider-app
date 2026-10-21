@@ -13,6 +13,7 @@ import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dar
 import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 
 /// What the server said about a Waiting/in-trip cancel request (D-013).
@@ -525,18 +526,25 @@ class ActiveRideController {
   }
 
   /// Finish History archival before clearing the restorable completion record.
+  ///
+  /// rider-72: leaving never fails once the ride is this one. A session
+  /// the server already moved to a terminal status (a paymentFailed
+  /// reconciled during the Waiting handoff) is kept as it is instead of
+  /// throwing InvalidRideTransition, and a History write that keeps losing
+  /// its slot is logged; either used to trap the rider on the summary.
+  /// Throws only when the stored snapshot belongs to a different ride.
   Future<void> closeCompletedRide(String rideId) async {
     final snapshot = await _store.historyCandidate();
     if (snapshot != null && snapshot.rideId?.trim() != rideId.trim()) {
       throw StateError('A different ride is active.');
     }
     if (snapshot != null && snapshot.status.isCompletedSurface) {
-      await OnDemandRideHistoryStore.archive(
-        snapshot,
-        terminalStatus: snapshot.status,
-      );
+      await _archive(snapshot, snapshot.status, expectedRideId: rideId);
     }
-    AppScope.instance.ride.localTransition(RideStatus.closed);
+    final ride = AppScope.instance.ride;
+    if (canTransition(ride.status, RideStatus.closed)) {
+      ride.localTransition(RideStatus.closed);
+    }
     _stopSafetyRecording();
     await _store.clear();
   }

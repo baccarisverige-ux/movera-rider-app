@@ -107,6 +107,39 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// The completion screen of [snapshot] as Waiting leaves it: the snapshot
+/// saved and remembered, the session on [session] for that ride.
+Future<_CompletionRealtime> _openCompletion(
+  WidgetTester tester,
+  RideSnapshot snapshot, {
+  RideStatus session = RideStatus.tripCompleted,
+}) async {
+  await tester.runAsync(() => RideSnapshotStore.save(snapshot));
+  LastCompletedRide.remember(snapshot);
+  AppScope.instance.ride
+    ..rideId = snapshot.rideId
+    ..status = session;
+  final realtime = _CompletionRealtime();
+  addTearDown(realtime.dispose);
+  await _pumpCompletion(
+    tester,
+    rideId: snapshot.rideId!,
+    status: snapshot.status,
+    realtime: realtime,
+  );
+  await _settle(tester);
+  return realtime;
+}
+
+Future<void> _tapDone(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('ride-completed-done')));
+  for (var i = 0; i < 4; i++) {
+    await _settle(tester);
+  }
+}
+
+final _submitError = find.byKey(const ValueKey('completion-submit-error'));
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -208,5 +241,18 @@ void main() {
       AppScope.instance.wallet.entries.where((e) => e.amountMinor == -25900),
       isNotEmpty,
     );
+  });
+
+  testWidgets('rider-72: Done still leaves when the session already holds a '
+      'terminal payment status', (tester) async {
+    // paymentFailed was reconciled while Waiting handed over to the summary.
+    await _openCompletion(
+      tester,
+      _completed('pf-1', paymentMethod: 'Apple Pay'),
+      session: RideStatus.paymentFailed,
+    );
+    await _tapDone(tester);
+    expect(_submitError, findsNothing);
+    expect(await tester.runAsync(RideSnapshotStore.readForArchive), isNull);
   });
 }
