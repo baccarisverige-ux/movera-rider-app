@@ -70,10 +70,7 @@ class ApiRideRealtime implements RideRealtime {
         if (poll.timer != null) return;
         connection.state = RealtimeState.connecting;
         unawaited(_poll(poll));
-        poll.timer = Timer.periodic(
-          pollInterval,
-          (_) => unawaited(_poll(poll)),
-        );
+        _startPolling(poll);
       },
       onCancel: () {
         poll.timer?.cancel();
@@ -85,6 +82,10 @@ class ApiRideRealtime implements RideRealtime {
       },
     );
     return poll.controller!.stream;
+  }
+
+  void _startPolling(_RidePoll poll) {
+    poll.timer = Timer.periodic(pollInterval, (_) => unawaited(_poll(poll)));
   }
 
   Future<void> _poll(_RidePoll poll, {bool force = false}) async {
@@ -387,6 +388,16 @@ class ApiRideRealtime implements RideRealtime {
       poll.notFound = poll.notFound > 0 ? notFoundLimit - 1 : 0;
     }
     await _poll(poll, force: true);
+    // rider-23: the pause cancelled the periodic poll, and onListen never
+    // runs again for the listener still attached. Without this a resync
+    // that reads the trip left it frozen while the banner said connected.
+    if (!_disposed &&
+        identical(_rides[poll.id], poll) &&
+        !poll.ended &&
+        poll.timer == null &&
+        (poll.controller?.hasListener ?? false)) {
+      _startPolling(poll);
+    }
   }
 
   @override
