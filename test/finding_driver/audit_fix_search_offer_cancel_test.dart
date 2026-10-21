@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -122,5 +123,23 @@ void main() {
     expect(controller.currentPrice, 279);
     expect(controller.offerConfirmation, 'Updated offer: 279 kr');
     expect((await RideSnapshotStore.read())?.price, 279);
+  });
+
+  test('rider-u103: a cancel queued while searching is not replayed once a '
+      'driver has accepted', () async {
+    backend.onCancel = () => throw http.ClientException('offline');
+    expect(await controller.cancelSearch(), SearchCancelResult.queued);
+    expect(backend.cancelPosts, 2);
+    // The rider closes the app; a driver accepts before it opens again.
+    controller.dispose();
+    server.rides['r1']!['status'] = 'accepted';
+
+    backend.onCancel = null;
+    final results = await FindingDriverController.flushPendingCancels(api: api);
+
+    expect(results['r1'], PendingCancelResult.stale);
+    expect(backend.cancelPosts, 2);
+    expect(server.rides['r1']!['status'], 'accepted');
+    expect(await PendingCancelStore.all(), isEmpty);
   });
 }

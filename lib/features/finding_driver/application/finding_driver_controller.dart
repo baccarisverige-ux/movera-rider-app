@@ -1196,6 +1196,7 @@ class FindingDriverController {
       rideId: id,
       reasonId: reasonId,
       expectedVersion: ride.projectionVersionOf(id),
+      whileSearching: true,
     );
     // One in-session retry, only for an unreachable server: a refusal is
     // final and is never sent again.
@@ -1603,6 +1604,23 @@ class FindingDriverController {
     if (status.isTerminal) {
       return (
         result: PendingCancelResult.gone,
+        version: version,
+        projection: projection,
+      );
+    }
+    // rider-u103 (RC-03): a driver accepted before a cancel queued during
+    // the search reached the server. It was free when the rider tapped;
+    // replayed now it would cancel the matched ride and charge the live
+    // fee. It is dropped as stale and the rider decides again.
+    if (cancel.whileSearching &&
+        cancel.command == PendingCancelCommand.cancel &&
+        tripDriverAssignedStatuses.contains(status)) {
+      AppLog.warning(
+        'ride.cancel.flush_dropped_overtaken_by_match',
+        extra: {'rideId': cancel.rideId, 'status': status.wireName},
+      );
+      return (
+        result: PendingCancelResult.stale,
         version: version,
         projection: projection,
       );
