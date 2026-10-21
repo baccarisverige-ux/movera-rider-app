@@ -48,10 +48,8 @@ void main() {
     final ratings = await pumpReview(tester);
     final rating = find.bySemanticsLabel('Give rating to your driver');
     expect(tester.getSemantics(rating).value, 'Not rated');
-    tester.binding.pipelineOwner.semanticsOwner!.performAction(
-      tester.getSemantics(rating).id,
-      SemanticsAction.increase,
-    );
+    final node = tester.getSemantics(rating);
+    node.owner!.performAction(node.id, SemanticsAction.increase);
     await tester.pumpAndSettle();
     expect(ratings.last, 1);
     expect(tester.getSemantics(rating).value, '1 of 5 stars');
