@@ -1,5 +1,5 @@
 {
-  "version": "0.4.3",
+  "version": "0.4.4",
   "note": "amountMinor uses the currency's ISO-4217 exponent. 'major' is the decimal amount as a string.",
   "cases": [
     { "money": { "amountMinor": 12675, "currency": "SEK" }, "major": "126.75" },

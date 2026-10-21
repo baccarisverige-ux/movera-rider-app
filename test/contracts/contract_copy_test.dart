@@ -7,7 +7,7 @@ import 'package:movera_rider/core/contracts/trip_transitions.dart';
 
 import 'contract_fixtures.dart';
 
-/// The repo ships a byte-for-byte copy of the shared contract (v0.4.3).
+/// The repo ships a byte-for-byte copy of the shared contract (v0.4.4).
 /// CHECKSUMS is written by the sync script; a hand edit of any contract file
 /// fails here.
 void main() {
@@ -36,9 +36,9 @@ void main() {
     expect(onDisk, listed, reason: 'files added or removed without a re-sync');
   });
 
-  test('the copy is contract v0.4.3', () {
+  test('the copy is contract v0.4.4', () {
     expect(contract['contract'], 'movera');
-    expect(contract['version'], '0.4.3');
+    expect(contract['version'], '0.4.4');
     expect(TripStateMachine.contractVersion, contract['version']);
   });
 }
