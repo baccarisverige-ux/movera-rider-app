@@ -164,6 +164,20 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chooseYourRide': l.chooseYourRide,
   'filterRecommended': l.filterRecommended,
   'filterFaster': l.filterFaster,
+  'rideNoteEconomy': l.rideNoteEconomy,
+  'rideNoteComfort': l.rideNoteComfort,
+  'rideNotePremium': l.rideNotePremium,
+  'rideNotePriority': l.rideNotePriority,
+  'rideNoteXl': l.rideNoteXl,
+  'rideNoteElectric': l.rideNoteElectric,
+  'rideNotePet': l.rideNotePet,
+  'rideNoteVan': l.rideNoteVan,
+  'rideNoteWheelchair': l.rideNoteWheelchair,
+  'rideNoteBusiness': l.rideNoteBusiness,
+  'rideNoteAirport': l.rideNoteAirport,
+  'rideNoteKids': l.rideNoteKids,
+  'rideNoteWomen': l.rideNoteWomen,
+  'rideNoteDelivery': l.rideNoteDelivery,
   'filterCheaper': l.filterCheaper,
   'walletWrongCurrency': l.walletWrongCurrency('<wallet>', '<ride>'),
   'paidByWallet': l.paidByWallet,
@@ -214,6 +228,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'payWith': l.payWith,
   'walletBalance': l.walletBalance('<amount>'),
   'walletTapToPay': l.walletTapToPay,
+  'walletTooLowForRide': l.walletTooLowForRide,
+  'walletTooLowChooseAnother': l.walletTooLowChooseAnother,
   'walletFirst': l.walletFirst,
   'walletFirstBody': l.walletFirstBody,
   'paymentMethods': l.paymentMethods,
@@ -1781,6 +1797,34 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get filterFaster => '';
   @override
+  String get rideNoteEconomy => '';
+  @override
+  String get rideNoteComfort => '';
+  @override
+  String get rideNotePremium => '';
+  @override
+  String get rideNotePriority => '';
+  @override
+  String get rideNoteXl => '';
+  @override
+  String get rideNoteElectric => '';
+  @override
+  String get rideNotePet => '';
+  @override
+  String get rideNoteVan => '';
+  @override
+  String get rideNoteWheelchair => '';
+  @override
+  String get rideNoteBusiness => '';
+  @override
+  String get rideNoteAirport => '';
+  @override
+  String get rideNoteKids => '';
+  @override
+  String get rideNoteWomen => '';
+  @override
+  String get rideNoteDelivery => '';
+  @override
   String get filterCheaper => '';
   @override
   String walletWrongCurrency(String wallet, String ride) => '';
@@ -1880,6 +1924,10 @@ class _Exhaustive implements AppLocalizations {
   String walletBalance(String amount) => '';
   @override
   String get walletTapToPay => '';
+  @override
+  String get walletTooLowForRide => '';
+  @override
+  String get walletTooLowChooseAnother => '';
   @override
   String get walletFirst => '';
   @override

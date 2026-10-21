@@ -63,6 +63,7 @@ import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -236,13 +237,14 @@ class _SelectRideState extends State<SelectRide>
         id: ride.id,
         image: ride.image,
         name: ride.name,
-        note: ride.note,
+        // rider-77: the built-in notes and badges in the rider's language.
+        note: rideNoteFor(ride.note),
         arrival: ride.arrival,
         etaMin: ride.etaMin,
         price: ride.price,
         currency: ride.currency,
         seats: ride.seats,
-        badge: ride.badge,
+        badge: ride.badge == null ? null : rideBadgeFor(ride.badge!),
         glyph: _glyphIcon(ride.glyph),
       );
     }).toList();
@@ -470,7 +472,7 @@ class _SelectRideState extends State<SelectRide>
     await _selection.loadQuotes(
       stops: stops,
       generation: generation,
-      pickup: widget.pickupAddress,
+      pickup: _pickupAddress,
       destination: widget.destinationAddress,
       distanceMeters: straightLineMeters(
         _pickupPosition,
@@ -479,7 +481,35 @@ class _SelectRideState extends State<SelectRide>
       pickupPoint: _geoPoint(_pickupPosition),
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _scheduleExpiryRequote();
+  }
+
+  /// rider-u185: prices the rides again when their quotes run out, so the
+  /// list never sits on a fare that is no longer offered.
+  Timer? _expiryRequote;
+
+  void _scheduleExpiryRequote() {
+    _expiryRequote?.cancel();
+    _expiryRequote = null;
+    final next = _selection.nextQuoteExpiry;
+    if (next == null) return;
+    final wait = next.difference(DateTime.now());
+    // A quote that arrived already spent is not chased in a loop; Book
+    // refreshes it.
+    if (wait.isNegative) return;
+    _expiryRequote = Timer(wait, _onQuotesExpired);
+  }
+
+  void _onQuotesExpired() {
+    _expiryRequote = null;
+    // While Set pickup is open the booking refreshes its own quote, and a
+    // list load must not replace the pin's price; the lock's release
+    // schedules again.
+    if (!mounted || _bookingInFlight) return;
+    setState(() {});
+    unawaited(_loadQuotes());
   }
 
   /// ARCH-8: quotes carry the points, so the server prices the route itself.
@@ -536,6 +566,12 @@ class _SelectRideState extends State<SelectRide>
     final price = _selection.authoritativePriceFor(rideId, now: soon);
     final quote = _selection.authoritativeQuotes[rideId];
     if (price == null || quote == null) return null;
+    // rider-79: a quote priced at another point than the confirmed pickup
+    // (a category not re-priced after the pin moved, or a pin re-quote
+    // that failed) is priced again from it.
+    if (!_selection.quoteIsAt(rideId, _geoPoint(_pickupPosition))) {
+      return null;
+    }
     return (quote: quote, price: price);
   }
 
@@ -612,6 +648,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    _expiryRequote?.cancel();
     _selection.catalogChanges?.removeListener(_onCatalogChanged);
     if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
@@ -1023,6 +1060,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _showPaymentPicker() async {
     final current = _selection.selectedPaymentItem();
+    final ride = _selectedRideOrNull;
     final brand = await PayWithPage.open(
       context,
       methods: [
@@ -1036,6 +1074,8 @@ class _SelectRideState extends State<SelectRide>
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
       walletCurrency: _selection.walletCurrency,
+      walletCoversFare:
+          ride == null || _selection.walletCovers(_priceFor(ride)),
       promotion: _promotion,
       brandMark: _brandMark,
       useWalletFirst: _selection.useWalletFirst,
@@ -1049,6 +1089,19 @@ class _SelectRideState extends State<SelectRide>
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
     if (index < 0) return;
     setState(() => _selection.selectPayment(index));
+  }
+
+  /// rider-74: the wallet alone cannot pay a fare above its balance. Says
+  /// so and returns true when the wallet is the chosen method for it.
+  bool _walletCannotPay(double priceKr) {
+    if (_selection.selectedPaymentItem()?.brand != 'wallet' ||
+        _selection.walletCovers(priceKr)) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.walletTooLowChooseAnother)),
+    );
+    return true;
   }
 
   Future<void> _loadWalletBalance() async {
@@ -1124,17 +1177,26 @@ class _SelectRideState extends State<SelectRide>
       }
       await _withParkedMap(() async {
         if (!mounted) return;
+        SetPickupResult? spot;
         if (!_pickupConfirmed) {
           // Same Set pickup sheet as Book now, ending in "Confirm and
           // schedule" instead of a search.
           final ride = _selectedRideOrNull;
           if (ride == null) return;
-          final spot = await _openSetPickup(
+          _pinQuote = null;
+          _pinQuoteAdopted = false;
+          spot = await _openSetPickup(
             ride,
             confirmLabel: context.l10n.confirmAndSchedule,
             scheduledPickup: _selection.scheduledFor,
           );
-          if (spot == null || !mounted) return;
+          if (!mounted) return;
+          if (spot == null) {
+            // rider-u188: as Book now, the pin's price belongs to a point
+            // the rider did not confirm.
+            if (_pinQuoteAdopted) unawaited(_loadQuotes());
+            return;
+          }
           _pickupAddress = spot.address;
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
@@ -1152,6 +1214,32 @@ class _SelectRideState extends State<SelectRide>
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
         }
+        final booked = _selectedRideOrNull;
+        if (booked == null) return;
+        // rider-79: as Book now, the price booked is the confirmed
+        // pickup's: a pin price still loading is waited for, and a quote
+        // from another point is priced again.
+        final bookable = await _quoteAfterPickup(booked);
+        if (!mounted) return;
+        if (bookable == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
+          );
+          unawaited(_loadQuotes());
+          return;
+        }
+        final shown = spot?.fareTotalKr;
+        if (shown != null &&
+            _selection.moneyOf(shown).amountMinor !=
+                bookable.quote.totalMinor &&
+            !await _acceptNewPrice(shown, bookable.price)) {
+          if (!mounted) return;
+          setState(() {});
+          unawaited(_loadQuotes());
+          return;
+        }
+        if (!mounted) return;
+        if (_walletCannotPay(bookable.price)) return;
         final Reservation? created;
         try {
           created = await ScheduledRideCheckout.run(
@@ -1214,11 +1302,15 @@ class _SelectRideState extends State<SelectRide>
 
   void _releaseBookingLock() {
     _bookingInFlight = false;
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (_expiryRequote == null) _scheduleExpiryRequote();
   }
 
   void _releaseRouteWork() {
     _bookingInFlight = false;
+    _expiryRequote?.cancel();
+    _expiryRequote = null;
     _selection.cancelPendingQuotes();
   }
 
@@ -1246,6 +1338,7 @@ class _SelectRideState extends State<SelectRide>
       unawaited(_loadQuotes());
       return;
     }
+    if (_walletCannotPay(_priceFor(selected))) return;
 
     _bookingInFlight = true;
     setState(() {});
@@ -1517,10 +1610,15 @@ class _SelectRideState extends State<SelectRide>
         if (shown != null &&
             _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
             !await _acceptNewPrice(shown, authoritativePrice)) {
-          if (mounted) setState(() {});
+          if (!mounted) return;
+          setState(() {});
+          // rider-79: the other categories are priced from the confirmed
+          // pickup too.
+          unawaited(_loadQuotes());
           return;
         }
         if (!mounted) return;
+        if (_walletCannotPay(authoritativePrice)) return;
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);
 
