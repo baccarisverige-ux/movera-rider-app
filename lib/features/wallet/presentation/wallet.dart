@@ -652,9 +652,13 @@ class WalletScreen extends StatefulWidget {
     this.embedded = false,
     this.refreshToken = 0,
     this.flags = FeatureFlags.current,
+    this.wallet,
   });
 
   final bool embedded;
+
+  /// The wallet to read and save payment settings with; the app's without.
+  final WalletController? wallet;
 
   /// A new value re-reads the wallet balance (FLOW-17).
   final int refreshToken;
@@ -670,7 +674,8 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
-  final _homeWallet = AppScope.instance.walletController;
+  late final WalletController _homeWallet =
+      widget.wallet ?? AppScope.instance.walletController;
   final SavedCardsController _cards = AppScope.instance.savedCards;
 
   /// Q7/Q8: the rider's current zone decides which wallet balance and
@@ -700,6 +705,12 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _businessProfile = false;
   String _selectedMethod = 'cash';
   double _balance = 0;
+
+  /// rider-fixrev3-5: bumped by every method or profile choice made on
+  /// this screen, so a settings load that answers after a tap (the server
+  /// default can take seconds in release) does not put the older value back.
+  int _methodEdits = 0;
+  int _profileEdits = 0;
 
   bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
   bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
@@ -760,13 +771,15 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Future<void> _restorePaymentSettings() async {
     final currency = _currency;
+    final methodEdits = _methodEdits;
+    final profileEdits = _profileEdits;
     final saved = await _wallet.loadPayments();
     final balance = await _wallet.loadBalance();
     if (!mounted) return;
     setState(() {
       if (currency == _currency) _balance = balance;
-      _selectedMethod = saved.defaultMethod;
-      _businessProfile = saved.business;
+      if (methodEdits == _methodEdits) _selectedMethod = saved.defaultMethod;
+      if (profileEdits == _profileEdits) _businessProfile = saved.business;
       _extraMethods = saved.extraMethods;
     });
   }
@@ -782,13 +795,15 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   void _selectMethod(String id) {
+    _methodEdits++;
     setState(() => _selectedMethod = id);
     _savePaymentSettings();
   }
 
   void _selectProfile(bool business) {
+    _profileEdits++;
     setState(() => _businessProfile = business);
-    _savePaymentSettings();
+    _wallet.saveBusiness(business);
   }
 
   Future<void> _openAddPaymentMethod() async {

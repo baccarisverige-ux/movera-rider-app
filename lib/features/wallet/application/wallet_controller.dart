@@ -145,6 +145,10 @@ class WalletController {
     );
   }
 
+  /// rider-fixrev3-5: the Personal/Business toggle saves only its flag, so
+  /// it never re-sends a default method that has not been loaded yet.
+  Future<void> saveBusiness(bool business) => _store.saveBusiness(business);
+
   Future<double> loadBalance() => _balances.loadBalance();
 
   Future<TopUpOutcome> topUp({

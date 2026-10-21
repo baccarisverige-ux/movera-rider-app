@@ -131,6 +131,12 @@ class WalletStore implements WalletBalanceSource {
     await prefs.remove('movera_payment_methods');
   }
 
+  /// The Personal/Business choice alone; the default method is not touched.
+  Future<void> saveBusiness(bool business) async {
+    final prefs = await PreferencesStore.load();
+    await prefs.setBool('movera_payment_business', business);
+  }
+
   static const walletFirstKey = 'movera_wallet_first';
 
   /// Demo flavour only: a rider with 50 kr in the wallet, so the split
