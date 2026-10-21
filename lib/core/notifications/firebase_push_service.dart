@@ -278,11 +278,12 @@ class FirebasePushService implements PushService {
     return initial;
   }
 
+  /// rider-r4-23: the new token is registered first and the old one is
+  /// then removed best effort. Unregistering first let a 404 (the backend
+  /// already dropped a token FCM reported dead) or any API failure abort
+  /// the rotation and leave the device on the dead token.
   Future<void> _replaceToken(String token) async {
     final previous = _registeredToken;
-    if (previous != null && previous != token) {
-      await _unregisterToken(previous);
-    }
 
     final response = await _api.post(
       '/api/v1/push/devices',
@@ -298,6 +299,17 @@ class FirebasePushService implements PushService {
       );
     }
     _registeredToken = token;
+
+    if (previous != null && previous != token) {
+      try {
+        await _unregisterToken(previous);
+      } catch (error) {
+        AppLog.warning(
+          'push.old_token_unregister_failed',
+          extra: {'error': error.runtimeType.toString()},
+        );
+      }
+    }
   }
 
   Future<void> _unregisterToken(String token) async {
