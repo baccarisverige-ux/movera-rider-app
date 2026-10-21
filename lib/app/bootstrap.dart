@@ -16,6 +16,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
+import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
@@ -105,6 +106,11 @@ Future<void> bootstrap() async {
   };
 
   AppScope.instance.lifecycle.attach();
+  // rider-u17: before anything writes a preference or reads the session,
+  // drop a Keychain session a previous install of the app left behind.
+  if (!kIsWeb) {
+    await FreshInstallReset.run(tokens: AppScope.instance.tokens);
+  }
   if (AppEnv.current.flavor == AppFlavor.demo) {
     await WalletStore.seedDemoBalance();
   }

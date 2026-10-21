@@ -7,6 +7,7 @@ import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
+import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
@@ -28,6 +29,8 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   panel; no rider data in it.
 /// - `movera_app_language`: the app language picked in Account (Q48); Sign
 ///   in speaks it too.
+/// - `movera_install_seen`: this install has started before
+///   ([FreshInstallReset], rider-u17).
 ///
 /// Removed (per user):
 /// - `movera_profile_v1` (name, photo, settings), `movera_rider_fingerprint`
@@ -68,6 +71,7 @@ abstract final class UserDataWipe {
     'movera_onboarding_done',
     'movera_ride_catalog_v1',
     'movera_app_language',
+    FreshInstallReset.markerKey,
   };
 
   static const _flushBudget = Duration(seconds: 5);
