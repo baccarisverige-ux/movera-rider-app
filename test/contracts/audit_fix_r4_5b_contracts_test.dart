@@ -115,5 +115,11 @@ void main() {
   });
 
   group('trip projection', () {
+    test('rider-r4-1: a contract TripProjection (dropoff: Place) parses', () {
+      final snapshot = RideProjection.toSnapshot(_contractTrip('t1'))!;
+      expect(snapshot.destinationAddress, 'Arlanda');
+      expect(snapshot.destinationLat, 59.6498);
+    });
+
   });
 }

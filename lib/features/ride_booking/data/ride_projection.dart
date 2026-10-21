@@ -10,7 +10,8 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 /// Reads a server ride projection (contract C-6, PROPOSED) into the
 /// [RideSnapshot] the client restores and archives from (ARCH-12).
 ///
-/// Accepts both the nested proposal (`pickup: {address, lat, lng}`,
+/// Accepts the contract shape (`pickup` / `dropoff: Place`, `fare:
+/// Money`), the nested proposal (`destination: {address, lat, lng}`,
 /// `totalMinor` + `currency`) and the flat fields the in-process mock sends
 /// today (`pickupAddress`, `pickupLat`, `price`). Returns null when a field
 /// the ride surfaces cannot do without is missing.
@@ -20,7 +21,9 @@ abstract final class RideProjection {
     final id = _string(ride['tripId'] ?? ride['id'] ?? ride['rideId']);
     final status = RideStatusWire.fromProjection(ride);
     final pickup = _place(ride, 'pickup');
-    final destination = _place(ride, 'destination');
+    // rider-r4-1: openapi TripProjection names it `dropoff: Place`;
+    // `destination` (nested or flat) is the stand-in's legacy shape.
+    final destination = _place(ride, 'dropoff') ?? _place(ride, 'destination');
     final fare = _fare(ride);
     final price = fare?.major;
     if (id == null ||
