@@ -663,41 +663,38 @@ class _SetPickupPageState extends State<SetPickupPage>
     final controller = TextEditingController();
     final query = await MoveraSheet.show<String>(
       context: context,
+      // rider-u139: MoveraSheet already lifts the sheet over the keyboard;
+      // padding by the inset again here doubled it.
       builder: (sheetContext) => PointerInterceptor(
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (value) => Navigator.pop(sheetContext, value),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.searchAddress,
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: _field,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) => Navigator.pop(sheetContext, value),
+                decoration: InputDecoration(
+                  hintText: context.l10n.searchAddress,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: _field,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
