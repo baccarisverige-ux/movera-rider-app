@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
+  });
 
   Future<void> pump(
     WidgetTester tester, {
@@ -95,5 +101,34 @@ void main() {
       ),
     );
     expect(newStop.focusNode?.hasFocus, isTrue);
+  });
+
+  testWidgets('rider-u41: a stop chosen from a suggestion keeps its point',
+      (tester) async {
+    RoutePickerSelection? sent;
+    await pump(
+      tester,
+      pickupLocked: true,
+      openWithNewStop: true,
+      onFinish: (selection) async {
+        sent = selection;
+        return {'ok': true};
+      },
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Stop 2',
+      ),
+      'Friend',
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byIcon(Icons.location_on_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('route-picker-done')));
+    await tester.pumpAndSettle();
+    expect(sent?.stops, hasLength(2));
+    expect(sent?.stopPoints, hasLength(2));
+    expect(sent?.stopPoints.first, isNull, reason: 'known by its label');
+    expect(sent?.stopPoints.last, isNotNull);
   });
 }
