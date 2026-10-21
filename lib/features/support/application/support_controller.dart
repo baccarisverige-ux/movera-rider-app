@@ -50,6 +50,8 @@ class SupportController {
       currency: charged?.currency ?? ride.currency,
       image: ride.categoryImage,
       cancelled: ride.status.isCancelled && !ride.endedEarly,
+      // rider-r4-38: History shows "Payment failed"; so does Support.
+      failed: ride.paymentFailed,
       endedEarly: ride.endedEarly,
     );
   }

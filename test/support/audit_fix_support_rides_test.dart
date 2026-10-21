@@ -129,4 +129,18 @@ void main() {
     expect(find.text('80 kr'), findsOneWidget);
     expect(find.text('249 kr'), findsNothing);
   });
+
+  // rider-r4-38: a completed ride whose payment failed read as a paid fare.
+  test('a payment-failed ride is marked failed in Support', () {
+    final ride = SupportController.rideFor(
+      _ride(
+        'od_4',
+        'Slussen',
+        ReservationStatus.completed,
+        13,
+      ).copyWith(paymentFailed: true),
+    );
+    expect(ride.failed, isTrue);
+    expect(ride.priceLabel, 'Failed');
+  });
 }
