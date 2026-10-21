@@ -491,9 +491,17 @@ class _SelectRideState extends State<SelectRide>
   /// list never sits on a fare that is no longer offered.
   Timer? _expiryRequote;
 
-  void _scheduleExpiryRequote() {
+  /// rider-r4-29: [requoteSpent] (a booking flow just released the lock)
+  /// prices again right away when a quote ran out meanwhile: the expiry
+  /// timer skipped it while the flow was open.
+  void _scheduleExpiryRequote({bool requoteSpent = false}) {
     _expiryRequote?.cancel();
     _expiryRequote = null;
+    final spent = _selection.discardExpiredQuotes();
+    if (spent && requoteSpent) {
+      unawaited(_loadQuotes());
+      return;
+    }
     final next = _selection.nextQuoteExpiry;
     if (next == null) return;
     final wait = next.difference(ServerClock.now());
@@ -1324,7 +1332,7 @@ class _SelectRideState extends State<SelectRide>
     _bookingInFlight = false;
     if (!mounted) return;
     setState(() {});
-    if (_expiryRequote == null) _scheduleExpiryRequote();
+    if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
   }
 
   void _releaseRouteWork() {

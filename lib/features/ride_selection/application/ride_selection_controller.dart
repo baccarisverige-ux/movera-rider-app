@@ -405,6 +405,18 @@ class RideSelectionController {
     usedFallback = false;
     final catalog = rides();
     if (catalog.isEmpty) return;
+    // rider-r4-29: a category the catalog no longer offers keeps no quote;
+    // its row is never built, so its expiry would never be discarded and
+    // would hold the expiry re-quote in the past for good.
+    final offered = {for (final ride in catalog) ride.id};
+    for (final id in quoteExpiresAt.keys.toList()) {
+      if (offered.contains(id)) continue;
+      offeredPrices.remove(id);
+      quoteIds.remove(id);
+      quoteExpiresAt.remove(id);
+      authoritativeQuotes.remove(id);
+      _quotePickups.remove(id);
+    }
     final width = parallelism.clamp(1, catalog.length).toInt();
 
     for (var start = 0; start < catalog.length; start += width) {
@@ -581,6 +593,20 @@ class RideSelectionController {
     _quotePickups.remove(id);
     unavailableQuoteIds.add(id);
     _expiredQuoteIds.add(id);
+  }
+
+  /// rider-r4-29: drops every quote spent by [now] (default the server
+  /// clock), as a row's build does for its own, and says whether any was.
+  bool discardExpiredQuotes({DateTime? now}) {
+    final at = now ?? ServerClock.now();
+    final spent = [
+      for (final entry in quoteExpiresAt.entries)
+        if (!entry.value.isAfter(at)) entry.key,
+    ];
+    for (final id in spent) {
+      _discardExpiredQuote(id, now: at);
+    }
+    return spent.isNotEmpty;
   }
 
   /// The earliest time a quote held now runs out, or null.
