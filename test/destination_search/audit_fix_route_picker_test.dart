@@ -32,7 +32,7 @@ class _Geo implements GeocodingRepository {
   Future<String?> reverse(GeoPoint point) async => null;
 }
 
-/// R4.9: Where to? / Change route.
+/// R4.9: Where to? / Change route (rider-u87, u88, u89, u90).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -216,5 +216,57 @@ void main() {
         'Location off, set pickup',
       );
     });
+  });
+
+  testWidgets('rider-u90: Enter never books a result of an older query', (
+    tester,
+  ) async {
+    final sent = <String>[];
+    await open(
+      tester,
+      picker(
+        onFinish: (selection) async {
+          sent.add(selection.destination);
+          return null;
+        },
+      ),
+    );
+    TextField destination() => tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Where to?',
+      ),
+    );
+    // Suggestions come from the app's in-process backend, on a real clock.
+    Future<void> until(Finder rows) async {
+      for (var i = 0; i < 100 && rows.evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+    }
+
+    final row = find.byIcon(Icons.location_on_outlined);
+    await tester.enterText(find.byWidget(destination()), 'Kungsgatan');
+    await until(row);
+    expect(row, findsWidgets);
+
+    // The rider types on and presses Enter before the new answer arrives.
+    destination().controller!.text = 'Kungsgatan 44';
+    destination().onChanged!('Kungsgatan 44');
+    destination().onSubmitted!('Kungsgatan 44');
+    await tester.pump();
+    expect(sent, isEmpty);
+
+    // Once the list is for what the field says, Enter takes its first row.
+    await until(
+      find.descendant(
+        of: find.byType(ListView),
+        matching: find.textContaining('Kungsgatan 44', findRichText: true),
+      ),
+    );
+    destination().onSubmitted!('Kungsgatan 44');
+    await tester.pump();
+    expect(sent.single, startsWith('Kungsgatan 44'));
   });
 }

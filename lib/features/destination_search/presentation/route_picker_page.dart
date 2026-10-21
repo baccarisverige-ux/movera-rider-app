@@ -201,6 +201,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   int _activeStop = -1;
   String _query = '';
   List<PlaceSuggestion> _results = const [];
+
+  /// rider-u90: the query [_results] answer. They stay on screen while a
+  /// longer query is on its way, so Enter checks they are for the text.
+  String _resultsQuery = '';
   bool _searching = false;
   bool _showAll = false;
   bool _finishing = false;
@@ -292,6 +296,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _activeStop = stop;
       _query = '';
       _results = const [];
+      _resultsQuery = '';
       _showAll = false;
     });
   }
@@ -317,6 +322,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           if (!mounted || query != _activeController.text) return;
           setState(() {
             _results = results;
+            _resultsQuery = query;
             _searching = false;
           });
         },
@@ -465,6 +471,23 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       );
   }
 
+  /// Enter takes the first row the rider sees: a matching recent place,
+  /// else the first suggestion, but only once the list answers what the
+  /// field says now (rider-u90).
+  void _chooseFirstRow() {
+    final recent = _recentMatches();
+    if (recent.isNotEmpty) {
+      _choose(recent.first);
+      return;
+    }
+    if (_results.isEmpty ||
+        _resultsQuery.trim() != _activeController.text.trim()) {
+      return;
+    }
+    final first = _results.first;
+    _choose(first.address, point: first.point);
+  }
+
   Future<void> _pickOnMap() async {
     final pickup = _active == 'pickup';
     // rider-u89: the field shows the short, translated label; the caller
@@ -542,12 +565,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               },
               onChanged: active ? _onTyped : null,
               textInputAction: TextInputAction.search,
-              onSubmitted: (_) {
-                if (_results.isNotEmpty) {
-                  final first = _results.first;
-                  _choose(first.address, point: first.point);
-                }
-              },
+              onSubmitted: (_) => _chooseFirstRow(),
               style: _t(16.5, color: locked ? _muted : _ink),
               cursorColor: _accent,
               decoration: InputDecoration(
@@ -949,11 +967,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return rows;
   }
 
+  List<String> _recentMatches() => widget.recent
+      .where((r) => matchRange(r, _query) != null)
+      .take(2)
+      .toList();
+
   List<Widget> _whileTyping() {
-    final recentMatches = widget.recent
-        .where((r) => matchRange(r, _query) != null)
-        .take(2)
-        .toList();
+    final recentMatches = _recentMatches();
     final shown = _showAll ? _results : _results.take(4).toList();
     final rows = <Widget>[
       for (final address in recentMatches)
