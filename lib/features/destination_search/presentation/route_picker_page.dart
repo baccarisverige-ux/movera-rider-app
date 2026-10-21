@@ -26,6 +26,7 @@ class RoutePickerSelection {
     required this.stops,
     this.pickupPoint,
     this.destinationPoint,
+    this.stopPoints = const [],
   });
 
   final String pickup;
@@ -33,6 +34,10 @@ class RoutePickerSelection {
   final String destination;
   final GeoPoint? destinationPoint;
   final List<String> stops;
+
+  /// The point of each of [stops], in the same order; null where the stop
+  /// has none yet (typed, not picked) and must be located from its address.
+  final List<GeoPoint?> stopPoints;
 }
 
 /// A point the rider placed on the map from inside the picker.
@@ -50,7 +55,9 @@ class RoutePickerPage extends StatefulWidget {
     super.key,
     required this.pickupAddress,
     required this.destinationAddress,
+    this.destinationPoint,
     required this.stops,
+    this.stopPoints = const [],
     required this.stopsSupported,
     required this.initialField,
     required this.capture,
@@ -71,7 +78,13 @@ class RoutePickerPage extends StatefulWidget {
   /// The rider's exact pickup address, or null while it is still unknown.
   final String? pickupAddress;
   final String destinationAddress;
+
+  /// rider-u87: the exact points of the route already booked (Change
+  /// route), so a swap moves them with their addresses instead of
+  /// locating each address again from its text.
+  final GeoPoint? destinationPoint;
   final List<String> stops;
+  final List<GeoPoint?> stopPoints;
   final bool stopsSupported;
   final String initialField;
   final EarlyInputCapture capture;
@@ -179,6 +192,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   final FocusNode _pickupFocus = FocusNode();
   final FocusNode _destinationFocus = FocusNode();
   late final List<FocusNode> _stopFocus = [for (final _ in _stops) FocusNode()];
+  late final List<GeoPoint?> _stopPoints = [
+    for (var i = 0; i < _stops.length; i++)
+      i < widget.stopPoints.length ? widget.stopPoints[i] : null,
+  ];
 
   late String _active = widget.initialField;
   int _activeStop = -1;
@@ -192,7 +209,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   /// again, so the bottom button is offered even where it usually is not.
   bool _rerouted = false;
   GeoPoint? _pickupPoint;
-  GeoPoint? _destinationPoint;
+  late GeoPoint? _destinationPoint = widget.destinationPoint;
   late String? _home = widget.homeAddress;
   late String? _work = widget.workAddress;
 
@@ -214,6 +231,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         _stops.length < _maxStops) {
       _stops.add(TextEditingController());
       _stopFocus.add(FocusNode());
+      _stopPoints.add(null);
       _active = 'stop';
       _activeStop = _stops.length - 1;
     } else if (_active == 'pickup' && widget.pickupLocked) {
@@ -281,6 +299,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void _onTyped(String value) {
     if (_active == 'pickup') _pickupPoint = null;
     if (_active == 'destination') _destinationPoint = null;
+    if (_active == 'stop' && _activeStop >= 0 && _activeStop < _stops.length) {
+      _stopPoints[_activeStop] = null;
+    }
     setState(() {
       _query = value;
       _showAll = false;
@@ -316,12 +337,14 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_stops.isNotEmpty) {
       final last = _stops.last;
       final lastText = last.text;
+      final lastPoint = _stopPoints.last;
       setState(() {
         last.text = _destination.text;
+        _stopPoints.last = _destinationPoint;
         _destination.text = lastText;
-        // A stop has no map point; the new destination is located from
-        // its address.
-        _destinationPoint = null;
+        // rider-u87: each point moves with its address; only one the
+        // picker never had is located from its text.
+        _destinationPoint = lastPoint;
         _rerouted = true;
       });
       return;
@@ -346,6 +369,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     setState(() {
       _stops.add(controller);
       _stopFocus.add(focus);
+      _stopPoints.add(null);
     });
     _activate('stop', stop: _stops.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) => focus.requestFocus());
@@ -354,6 +378,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void _removeStop(int index) {
     final controller = _stops.removeAt(index);
     final focus = _stopFocus.removeAt(index);
+    _stopPoints.removeAt(index);
     controller.dispose();
     focus.dispose();
     _activate('destination');
@@ -374,7 +399,12 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         return;
       }
     } else if (_active == 'stop') {
-      setState(() => _activeController.text = _show(address));
+      setState(() {
+        _activeController.text = _show(address);
+        if (_activeStop >= 0 && _activeStop < _stops.length) {
+          _stopPoints[_activeStop] = point;
+        }
+      });
       _activate('destination');
       _destinationFocus.requestFocus();
       return;
@@ -391,6 +421,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing || _destination.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _finishing = true);
+    final filled = [
+      for (var i = 0; i < _stops.length; i++)
+        if (_stops[i].text.trim().isNotEmpty) i,
+    ];
     Map<String, dynamic>? draft;
     try {
       draft = await widget.onFinish(
@@ -399,10 +433,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           pickupPoint: _pickupPoint,
           destination: _expand(_destination.text),
           destinationPoint: _destinationPoint,
-          stops: [
-            for (final c in _stops)
-              if (c.text.trim().isNotEmpty) _expand(c.text),
-          ],
+          stops: [for (final i in filled) _expand(_stops[i].text)],
+          stopPoints: [for (final i in filled) _stopPoints[i]],
         ),
       );
     } catch (_) {

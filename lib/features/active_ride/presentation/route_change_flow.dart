@@ -52,7 +52,11 @@ Future<RideSnapshot?> openRouteChange(
           pageTitle: context.l10n.changeRoute,
           pickupAddress: ride.pickupAddress,
           destinationAddress: ride.destinationAddress,
+          destinationPoint: GeoPoint(ride.destinationLat, ride.destinationLng),
           stops: [for (final stop in ride.stops) stop.address],
+          stopPoints: [
+            for (final stop in ride.stops) GeoPoint(stop.latitude, stop.longitude),
+          ],
           stopsSupported: true,
           pickupLocked: pickupLocked,
           openWithNewStop: entry == RouteChangeEntry.newStop,
@@ -96,6 +100,7 @@ Future<RideSnapshot?> openRouteChange(
                 destinationAddress: selection.destination,
                 destinationPoint: selection.destinationPoint,
                 stops: selection.stops,
+                stopPoints: selection.stopPoints,
                 // Q40: the trip zone's `booking.maxPickupMoveMeters`.
                 maxPickupMoveMeters: driverAccepted
                     ? await _maxPickupMoveMeters(ride)
