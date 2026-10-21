@@ -15,6 +15,7 @@ import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -43,6 +44,8 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Geocoder implements GeocodingRepository {
@@ -457,6 +460,40 @@ void main() {
       isSemantics(isButton: true, hasTapAction: true),
     );
     expect(tester.getSize(close).shortestSide, greaterThanOrEqualTo(44));
+    handle.dispose();
+  });
+
+  testWidgets('rider-j8-16: the connection banner and empty state are read '
+      'once', (tester) async {
+    final handle = tester.ensureSemantics();
+    final connection = RealtimeConnection()..markReconnecting();
+    await pump(
+      tester,
+      Scaffold(body: RealtimeConnectionBanner(connection: connection)),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    final title = L10n.current.rtReconnecting;
+    final body = L10n.current.rtReconnectingBody;
+    final banner = find.bySemanticsLabel(RegExp(RegExp.escape(body)));
+    expect(banner, findsOneWidget);
+    expect(tester.getSemantics(banner).label, '$title. $body');
+
+    await pump(
+      tester,
+      const Scaffold(
+        body: MoveraEmptyState(
+          icon: Icons.history_rounded,
+          title: 'No rides yet',
+          message: 'Your trips will show here.',
+        ),
+      ),
+    );
+    final empty = find.bySemanticsLabel(RegExp('No rides yet'));
+    expect(empty, findsOneWidget);
+    expect(
+      tester.getSemantics(empty).label,
+      'No rides yet. Your trips will show here.',
+    );
     handle.dispose();
   });
 }
