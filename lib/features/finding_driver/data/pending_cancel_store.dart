@@ -176,13 +176,19 @@ class PendingCancelOutcome {
 }
 
 /// True when a cancel request failed in a way no retry can fix: the server
-/// no longer knows the ride (404/410) or refuses the transition because the
-/// ride is already finished/cancelled (409/422). Those entries must leave the
-/// outbox instead of being retried forever (D-020).
+/// no longer knows the ride (404/410), refuses the transition because the
+/// ride is already finished/cancelled (409/422), or refuses the body itself
+/// (400 invalid_request, rider-u19: the same body is refused every time).
+/// Those entries must leave the outbox instead of being retried forever
+/// (D-020).
 bool isPermanentCancelFailure(Object error) {
   if (error is! ApiError) return false;
   final status = error.statusCode;
-  return status == 404 || status == 409 || status == 410 || status == 422;
+  return status == 400 ||
+      status == 404 ||
+      status == 409 ||
+      status == 410 ||
+      status == 422;
 }
 
 /// R-O3: a refusal whose projection says the rider already cancelled the

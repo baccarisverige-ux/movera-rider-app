@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -67,13 +68,19 @@ void main() {
     fail('expected an ApiError');
   }
 
+  // openapi CancelCommand requires a reasonCode (rider-u19); a rider who
+  // picked none sends the unspecified one, as the app does.
   Future<Map<String, dynamic>> cancel(
     String id, {
-    Map<String, dynamic> body = const {},
+    Map<String, dynamic>? body,
     String path = 'cancel',
   }) async =>
       Map<String, dynamic>.from(
-        (await api.post('/api/v1/rides/$id/$path', body: body))['ride'] as Map,
+        (await api.post(
+          '/api/v1/rides/$id/$path',
+          body: body ??
+              (path == 'cancel' ? CancelReasonCodes.riderCancelBody(null) : {}),
+        ))['ride'] as Map,
       );
 
   group('expectedVersion', () {
@@ -148,7 +155,10 @@ void main() {
         body: {'reasonCode': 'system_error'},
       ));
       expect(error.code, 'invalid_request');
-      expect((server.rides[id]!['cancellation'] as Map)['reasonCode'], isNull);
+      expect(
+        (server.rides[id]!['cancellation'] as Map)['reasonCode'],
+        CancelReasonCodes.unspecified,
+      );
       final late = await cancel(id, body: {'reasonCode': 'wait_too_long'});
       expect((late['cancellation'] as Map)['reasonCode'], 'wait_too_long');
     });
@@ -158,10 +168,13 @@ void main() {
       final ride = await book();
       final cancelled = await cancel(
         ride['id'] as String,
-        body: {'reason': 'changed-plans'},
+        body: CancelReasonCodes.riderCancelBody('changed-plans'),
       );
       expect(cancelled['cancellationReason'], 'changed-plans');
-      expect((cancelled['cancellation'] as Map)['reasonCode'], isNull);
+      expect(
+        (cancelled['cancellation'] as Map)['reasonCode'],
+        CancelReasonCodes.unspecified,
+      );
     });
 
     test('a driver cancel takes driver codes only', () async {

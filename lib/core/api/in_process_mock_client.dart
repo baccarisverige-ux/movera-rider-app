@@ -687,6 +687,17 @@ class InProcessMockClient extends http.BaseClient {
         // #cancelReasons) is refused, never stored.
         status = 400;
         payload = _invalidReason(reasonCode, TripActor.rider, requestId);
+      } else if (command == 'cancel' && reasonCode == null) {
+        // rider-u19: openapi `CancelCommand` requires `reasonCode`, and a
+        // validation error is `400 invalid_request` (CONTRACT §1). Accepting
+        // a cancel without one hid that the app never sent it.
+        status = 400;
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'reason_code_required',
+          message: 'reasonCode is required.',
+        );
       } else if (_statusOf(ride) == TripStatus.cancelledByRider) {
         // R-O3 (owner decision): cancelling a trip that is already
         // cancelled is quietly OK: 200 with the projection, no error, no
@@ -719,7 +730,11 @@ class InProcessMockClient extends http.BaseClient {
           status = 409;
           payload = _invalidTransition(ride, command, requestId);
         } else {
-          final reason = reasonCode ?? body['reason'];
+          // A cancel-first names the unspecified code only (rider-u19): the
+          // rider picked no reason yet, and the one they pick afterwards is
+          // stored then (R-O3 above).
+          final reason = body['reason'] ??
+              (reasonCode == CancelReasonCodes.unspecified ? null : reasonCode);
           if (reason is String) ride['cancellationReason'] = reason;
           ride['cancellation'] = {
             'actor': TripActor.rider.wireName,

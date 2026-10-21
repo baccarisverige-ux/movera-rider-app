@@ -131,6 +131,9 @@ ApiClient _scripted(
 http.Response _json(int status, Map<String, dynamic> body) =>
     http.Response(jsonEncode(body), status);
 
+/// openapi CancelCommand requires a reasonCode (rider-u19).
+const _reason = {'reasonCode': 'plans_changed'};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -303,7 +306,7 @@ void main() {
       expect(server.rides[ended]!['ratingStatus'], 'submitted');
 
       final cancelled = await book();
-      await api.post('/api/v1/rides/$cancelled/cancel');
+      await api.post('/api/v1/rides/$cancelled/cancel', body: _reason);
       final error = await refused(
         feedback.submit(rideId: cancelled, rating: 4, idempotencyKey: 'fb-2'),
       );
@@ -414,7 +417,7 @@ void main() {
         () async {
       final id = await book();
       await simulate(id, {'status': 'accepted'});
-      await api.post('/api/v1/rides/$id/cancel');
+      await api.post('/api/v1/rides/$id/cancel', body: _reason);
       final ride = AppScope.instance.ride
         ..rideId = null
         ..suppressRestore = false
@@ -452,7 +455,7 @@ void main() {
 
     test('Finding: a second cancel is confirmed', () async {
       final id = await book();
-      await api.post('/api/v1/rides/$id/cancel');
+      await api.post('/api/v1/rides/$id/cancel', body: _reason);
       final feed = _Feed();
       addTearDown(feed.dispose);
       final session = RideSession()
