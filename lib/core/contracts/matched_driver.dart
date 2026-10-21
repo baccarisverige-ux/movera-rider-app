@@ -60,15 +60,19 @@ class MatchedDriver {
     return '$count trips';
   }
 
+  /// Contract `DriverSummary` (`driverId`, nested `vehicle`), plus the
+  /// app-only extras the mock driver pool and the ride snapshot carry.
   Map<String, dynamic> toJson() => {
-    'id': id,
+    'driverId': id,
     'firstName': firstName,
     if (rating != null) 'rating': rating,
     if (tripCount != null) 'tripCount': tripCount,
-    if (vehicleMake != null) 'vehicleMake': vehicleMake,
-    if (vehicleModel != null) 'vehicleModel': vehicleModel,
-    if (vehicleColor != null) 'vehicleColor': vehicleColor,
-    if (plate != null) 'plate': plate,
+    'vehicle': {
+      if (vehicleMake != null) 'make': vehicleMake,
+      if (vehicleModel != null) 'model': vehicleModel,
+      if (vehicleColor != null) 'color': vehicleColor,
+      if (plate != null) 'plate': plate,
+    },
     if (photoAsset != null) 'photoAsset': photoAsset,
     if (vehicleImageAsset != null) 'vehicleImageAsset': vehicleImageAsset,
     if (languages.isNotEmpty) 'languages': languages,
@@ -77,20 +81,28 @@ class MatchedDriver {
 
   static MatchedDriver? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
-    final id = json['id'] as String? ?? '';
+    // rider-16: contract `DriverSummary` carries `driverId` and a nested
+    // `vehicle`; the flat pre-contract keys are still read (old snapshots).
+    final id = json['driverId'] as String? ?? json['id'] as String? ?? '';
     final firstName =
         (json['firstName'] as String? ?? json['name'] as String? ?? '').trim();
     if (id.isEmpty || firstName.isEmpty) return null;
     final langs = json['languages'];
+    final rawVehicle = json['vehicle'];
+    final vehicle = rawVehicle is Map ? rawVehicle : const {};
     return MatchedDriver(
       id: id,
       firstName: firstName,
       rating: (json['rating'] as num?)?.toDouble(),
       tripCount: (json['tripCount'] as num?)?.toInt(),
-      vehicleMake: json['vehicleMake'] as String?,
-      vehicleModel: json['vehicleModel'] as String?,
-      vehicleColor: json['vehicleColor'] as String?,
-      plate: json['plate'] as String?,
+      vehicleMake:
+          vehicle['make'] as String? ?? json['vehicleMake'] as String?,
+      vehicleModel:
+          vehicle['model'] as String? ?? json['vehicleModel'] as String?,
+      vehicleColor:
+          vehicle['color'] as String? ?? json['vehicleColor'] as String?,
+      plate:
+          vehicle['plate'] as String? ?? json['plate'] as String?,
       photoAsset: json['photoAsset'] as String?,
       vehicleImageAsset: json['vehicleImageAsset'] as String?,
       languages: langs is List
