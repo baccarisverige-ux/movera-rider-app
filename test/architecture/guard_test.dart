@@ -609,31 +609,6 @@ void main() {
   });
 
   test(
-    'book now two-path e2e covers GPS on, GPS off, back, and Finding Driver',
-    () {
-      final src = File(
-        'test/ride/book_now_two_paths_e2e_test.dart',
-      ).readAsStringSync();
-      expect(src.contains('GPS available still opens Confirm pickup'), isTrue);
-      expect(
-        src.contains('GPS unavailable still opens Confirm pickup'),
-        isTrue,
-      );
-      expect(
-        src.contains('Back on Confirm pickup returns without booking'),
-        isTrue,
-      );
-      expect(src.contains('Select Movera starts Finding Driver'), isTrue);
-      expect(
-        src.contains('Select Movera submitFinding marks Finding Driver'),
-        isTrue,
-      );
-      expect(src.contains('Book later stays off Finding Driver'), isTrue);
-      expect(src.contains('Connecting you with nearby drivers'), isTrue);
-    },
-  );
-
-  test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',
     () {
       // Round 4: screen copy lives in l10n; read each source with the

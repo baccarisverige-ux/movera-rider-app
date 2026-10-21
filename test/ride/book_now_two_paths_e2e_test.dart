@@ -17,8 +17,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../reservations/scheduled_quote_harness.dart';
 
-/// Book now E2E on two paths: GPS available and GPS unavailable.
-/// Both must open Confirm pickup. Later stays off Finding Driver.
+/// Confirm pickup screen checks (with a GPS fix and with the no-GPS
+/// fallback) and the Book now / Book for later booking-mode rules.
+///
+/// rider-u239: these do not drive Home or Select ride. The real Book now
+/// flow (Home, Select ride, Confirm pickup, Finding) is
+/// test/journeys/book_to_home_test.dart.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -61,7 +65,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
   }
 
-  testWidgets('GPS available still opens Confirm pickup', (tester) async {
+  testWidgets('Confirm pickup renders on a GPS fix', (tester) async {
     await phone(tester);
     await showPickup(
       tester,
@@ -71,10 +75,9 @@ void main() {
     expect(find.text('Confirm pickup spot'), findsOneWidget);
     expect(find.text('Drag map to move pin'), findsOneWidget);
     expect(find.text('Confirm pickup'), findsOneWidget);
-    expect(find.text('Connecting you with nearby drivers'), findsNothing);
   });
 
-  testWidgets('GPS unavailable still opens Confirm pickup', (tester) async {
+  testWidgets('Confirm pickup renders on the no-GPS fallback', (tester) async {
     await phone(tester);
     await showPickup(
       tester,
@@ -83,7 +86,6 @@ void main() {
     );
     expect(find.text('Confirm pickup spot'), findsOneWidget);
     expect(find.text('Confirm pickup'), findsOneWidget);
-    expect(find.text('Connecting you with nearby drivers'), findsNothing);
   });
 
   testWidgets('Back on Confirm pickup returns without booking', (tester) async {
@@ -126,7 +128,7 @@ void main() {
   });
 
   testWidgets(
-    'Confirm pickup then Select Movera starts Finding Driver',
+    'Confirm pickup returns the confirmed spot to its caller',
     (tester) async {
       await phone(tester);
       ConfirmPickupResult? spot;
@@ -143,14 +145,14 @@ void main() {
                       initialAddress: 'Current location',
                     );
                   },
-                  child: const Text('Select Movera'),
+                  child: const Text('open-pickup'),
                 ),
               );
             },
           ),
         ),
       );
-      await tester.tap(find.text('Select Movera'));
+      await tester.tap(find.text('open-pickup'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Confirm pickup spot'), findsOneWidget);
