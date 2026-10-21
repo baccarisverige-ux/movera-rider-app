@@ -9,6 +9,7 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
@@ -81,8 +82,9 @@ class WaitingShareButton extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => _share(context),
-          child: const Padding(
-            padding: EdgeInsets.all(10),
+          // rider-u64: the 44 px floor; the 20 px icon was a 40 px target.
+          child: const SizedBox.square(
+            dimension: A11y.minTapIOS,
             child: Icon(
               Icons.ios_share_rounded,
               size: 20,
