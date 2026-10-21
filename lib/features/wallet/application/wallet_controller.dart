@@ -284,22 +284,27 @@ class WalletController {
   /// does not make it authoritative — the balance is still a client-side
   /// value (R-043) until a server-owned ledger replaces [WalletStore].
   ///
+  /// [fare] is what the server charged when it differs from the booked
+  /// price: an ended-early trip pays for the distance driven (rider-u178).
+  ///
   /// Returns the new balance, or null when nothing was charged (not a wallet
   /// ride, a different ride, no usable price, or already charged).
   Future<double?> chargeCompletedRide(
     RideSnapshot? snapshot, {
     required String rideId,
+    Money? fare,
   }) async {
     final id = rideId.trim();
     if (id.isEmpty || snapshot == null || snapshot.rideId?.trim() != id) {
       return null;
     }
     if (!_balances.available) return null;
+    if (fare != null && fare.currency != snapshot.currency) return null;
     // Q8: the trip is paid from the balance of its own currency.
     if (snapshot.currency != currency) {
       return forCurrency(
         snapshot.currency,
-      ).chargeCompletedRide(snapshot, rideId: id);
+      ).chargeCompletedRide(snapshot, rideId: id, fare: fare);
     }
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the
@@ -312,9 +317,9 @@ class WalletController {
         ? methodId == 'wallet'
         : isWalletPayment(snapshot.paymentMethod);
     if (paidByWallet) {
-      amount = snapshot.price;
+      amount = fare?.major ?? snapshot.price;
     } else if (snapshot.walletAmountMinor > 0) {
-      final fareMinor = snapshot.fare.amountMinor;
+      final fareMinor = (fare ?? snapshot.fare).amountMinor;
       final part = snapshot.walletAmountMinor < fareMinor
           ? snapshot.walletAmountMinor
           : fareMinor;

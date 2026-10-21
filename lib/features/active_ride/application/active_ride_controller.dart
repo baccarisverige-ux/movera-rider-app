@@ -365,6 +365,13 @@ class ActiveRideController {
         endedEarly: true,
         drivenMeters: endedEarly.drivenMeters,
       );
+      // rider-u178: the summary says "You pay X"; a wallet-paid trip (or
+      // its wallet part) is debited X here. Without the server's amount
+      // nothing is known to debit.
+      final charged = endedEarly.charged;
+      if (charged != null && _clean(snapshot.rideId) == id) {
+        await _chargeWallet(snapshot, fare: charged);
+      }
     }
     await _archive(
       snapshot,
@@ -565,6 +572,27 @@ class ActiveRideController {
     }
     _stopSafetyRecording();
     await _store.clear();
+  }
+
+  /// D-022: the local wallet debit of a finished ride. It is made here,
+  /// with the ride's lifecycle, rather than by a screen the rider may have
+  /// left already. WalletController keeps the ids it charged, so every
+  /// call after the first for a ride is a no-op. Never blocks the flow.
+  Future<void> _chargeWallet(RideSnapshot snapshot, {Money? fare}) async {
+    final id = _clean(snapshot.rideId);
+    if (id == null) return;
+    try {
+      await AppScope.instance.walletController.chargeCompletedRide(
+        snapshot,
+        rideId: id,
+        fare: fare,
+      );
+    } catch (error) {
+      AppLog.warning(
+        'wallet.ride_charge_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
   }
 
   /// FLOW-6: a Safety Kit recording belongs to the ride; once the ride is

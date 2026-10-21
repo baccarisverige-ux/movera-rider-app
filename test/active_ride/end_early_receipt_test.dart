@@ -17,6 +17,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// R-UI UI-01: on board, "Cancel ride" sent `POST …/end-early` (contract:
@@ -49,8 +50,31 @@ void main() {
     }),
   );
 
+  Future<void> saveInTrip({
+    String paymentMethod = 'Apple Pay',
+    int walletAmountMinor = 0,
+  }) => RideSnapshotStore.save(
+    RideSnapshot(
+      status: RideStatus.tripInProgress,
+      savedAt: DateTime.now(),
+      pickupAddress: 'Sveavägen 1',
+      destinationAddress: 'Stockholm Arlanda Airport',
+      pickupLat: 59.34,
+      pickupLng: 18.05,
+      destinationLat: 59.65,
+      destinationLng: 17.93,
+      rideType: 'Movera',
+      price: 659,
+      paymentMethod: paymentMethod,
+      walletAmountMinor: walletAmountMinor,
+      rideId: rideId,
+    ),
+  );
+
   setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      WalletStore.balanceKey: 500.0,
+    });
     RideSnapshotStore.epoch = 0;
     LastCompletedRide.clear();
     paths.clear();
@@ -58,22 +82,31 @@ void main() {
       ..rideId = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.tripInProgress, id: rideId);
-    await RideSnapshotStore.save(
-      RideSnapshot(
-        status: RideStatus.tripInProgress,
-        savedAt: DateTime.now(),
-        pickupAddress: 'Sveavägen 1',
-        destinationAddress: 'Stockholm Arlanda Airport',
-        pickupLat: 59.34,
-        pickupLng: 18.05,
-        destinationLat: 59.65,
-        destinationLng: 17.93,
-        rideType: 'Movera',
-        price: 659,
-        paymentMethod: 'Apple Pay',
-        rideId: rideId,
-      ),
+    await saveInTrip();
+  });
+
+  test('rider-u178: an ended-early trip paid by wallet is debited what the '
+      'server charged, once; a wallet part is debited up to that part',
+      () async {
+    final fare = {'amountMinor': 24500, 'currency': 'SEK'};
+    await saveInTrip(paymentMethod: 'Movera Wallet');
+    await ActiveRideController(api: api(fare: fare)).markCancelled();
+    expect(await WalletStore().loadBalance(), 255);
+    // A second confirmation of the same trip never charges again.
+    await ActiveRideController(api: api(fare: fare))
+        .completeServerConfirmedCancel();
+    expect(await WalletStore().loadBalance(), 255);
+
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      WalletStore.balanceKey: 500.0,
+    });
+    AppScope.instance.ride.restoreFromBackend(
+      RideStatus.tripInProgress,
+      id: rideId,
     );
+    await saveInTrip(walletAmountMinor: 10000);
+    await ActiveRideController(api: api(fare: fare)).markCancelled();
+    expect(await WalletStore().loadBalance(), 400);
   });
 
   test('end-early keeps what the rider pays for the receipt and History',
