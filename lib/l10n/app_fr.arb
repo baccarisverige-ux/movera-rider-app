@@ -876,6 +876,8 @@
   "pushRideUpdatesOff": "Les infos sur les courses sont désactivées",
   "pushTurnOnInSettings": "Activez-les dans les Réglages.",
   "pushHearDriver": "Sachez quand votre chauffeur est en route.",
+  "pushWebBlockedBody": "Autorisez les notifications pour ce site dans les réglages du navigateur pour savoir quand votre chauffeur est attribué, arrive et vous attend. Touchez ensuite Réessayer.",
+  "pushTurnOnInBrowser": "Activez-les dans les réglages du navigateur.",
   "safetyTitle": "Sécurité",
   "safetyHubTagline": "Une protection discrète pour chaque trajet.",
   "safetyPinTitle": "Vérification par code PIN",

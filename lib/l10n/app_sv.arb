@@ -876,6 +876,8 @@
   "pushRideUpdatesOff": "Reseuppdateringar är avstängda",
   "pushTurnOnInSettings": "Slå på dem i Inställningar.",
   "pushHearDriver": "Få veta när din förare är på väg.",
+  "pushWebBlockedBody": "Tillåt aviseringar för den här webbplatsen i webbläsarens inställningar för att få veta när din förare tilldelas, är på väg och väntar. Tryck sedan på Försök igen.",
+  "pushTurnOnInBrowser": "Slå på dem i webbläsarens inställningar.",
   "safetyTitle": "Säkerhet",
   "safetyHubTagline": "Diskret skydd på varje resa.",
   "safetyPinTitle": "PIN-verifiering",

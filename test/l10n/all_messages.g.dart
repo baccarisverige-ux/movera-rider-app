@@ -882,6 +882,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pushRideUpdatesOff': l.pushRideUpdatesOff,
   'pushTurnOnInSettings': l.pushTurnOnInSettings,
   'pushHearDriver': l.pushHearDriver,
+  'pushWebBlockedBody': l.pushWebBlockedBody,
+  'pushTurnOnInBrowser': l.pushTurnOnInBrowser,
   'safetyTitle': l.safetyTitle,
   'safetyHubTagline': l.safetyHubTagline,
   'safetyPinTitle': l.safetyPinTitle,
@@ -3237,6 +3239,10 @@ class _Exhaustive implements AppLocalizations {
   String get pushTurnOnInSettings => '';
   @override
   String get pushHearDriver => '';
+  @override
+  String get pushWebBlockedBody => '';
+  @override
+  String get pushTurnOnInBrowser => '';
   @override
   String get safetyTitle => '';
   @override
