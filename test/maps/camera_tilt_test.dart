@@ -13,6 +13,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/maps/map_camera_controller.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/home/presentation/home.dart'
     show homeOpeningZoom;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -659,6 +660,35 @@ void main() {
       await _frames(tester, limit: 30);
       expect(fake.calls, isEmpty);
       expect(mapViewOf(fake).tiltWithZoom, isFalse);
+    });
+
+    testWidgets('rider-j8-12: the rider\'s own move right after a web flight '
+        'lands becomes the pose; only flight echoes are dropped', (
+      tester,
+    ) async {
+      MapView.now = () => DateTime(2026);
+      RiderMapBridge.debugFlight = (_, _, _) => Future.value(true);
+      addTearDown(() => RiderMapBridge.debugFlight = null);
+      final (fake, map) = await pumpMap(tester);
+      final view = mapViewOf(fake)
+        ..mapId = 1
+        ..pose = const CameraPosition(target: _stockholm, zoom: 13);
+      const goal = CameraPosition(target: LatLng(59.34, 18.07), zoom: 15);
+      const far = CameraPosition(target: LatLng(59.4, 18.2), zoom: 15);
+      Future<void> land() async {
+        await easeCameraTo(fake, goal, duration: cameraFlightDuration);
+        expect(view.pose, goal);
+        expect(view.isLateEcho(far), isTrue, reason: 'a flight echo');
+      }
+
+      await land();
+      final (a, b) = await pinch(tester, map, 16);
+      await b.up();
+      await a.up();
+      expect(view.pose!.zoom, 16, reason: 'the pinch is the new pose');
+      await land();
+      view.movedByHandAt = MapView.now(); // A wheel zoom: no finger.
+      expect(view.isLateEcho(far), isFalse);
     });
 
     testWidgets('a pinch makes the map the rider\'s: follow updates wait', (

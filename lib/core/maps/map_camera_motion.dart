@@ -46,7 +46,14 @@ class MapView {
 
   /// When the rider last moved the map by hand (pan, pinch, wheel); null
   /// once the app recentred it.
-  DateTime? movedByHandAt;
+  DateTime? get movedByHandAt => _movedByHandAt;
+  DateTime? _movedByHandAt;
+  set movedByHandAt(DateTime? value) {
+    _movedByHandAt = value;
+    // rider-j8-12: camera reports after a hand move are the rider's, not
+    // late echoes of a flight that landed before it.
+    if (value != null) _landedAt = null;
+  }
 
   /// How long a map the rider moved by hand stays theirs: follow updates
   /// (the driver's position on the trip map, a late location fix on Home)
@@ -80,6 +87,9 @@ class MapView {
   void interrupt() {
     generation += 1;
     easing = false;
+    // rider-j8-12: a touch or a newer command ends the landed flight's echo
+    // window; the camera reports after it are new poses.
+    _landedAt = null;
     _goal = null;
     _tiltEase = null;
     _flight = null;
