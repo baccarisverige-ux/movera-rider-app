@@ -2,6 +2,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
@@ -27,6 +28,11 @@ import 'package:movera_rider/features/profile/domain/rider_profile_repository.da
 /// never sent. The fields the rider changed before the server copy was read
 /// are kept on the device, marked [syncPending], laid over the server copy
 /// once it arrives and sent then.
+///
+/// rider-fixrev3-3: the names of those fields are stored next to the device
+/// copy (under [pendingKey]) so a change the server never received (the
+/// read or the PATCH failed) is still laid over the server copy and sent
+/// after a restart, instead of being silently reverted.
 class SyncedProfileRepository
     implements RiderProfileRepository, ServerBackedRepository {
   SyncedProfileRepository({required ApiClient api, ProfileRepository? cache})
@@ -44,6 +50,11 @@ class SyncedProfileRepository
 
   /// The fields the rider changed that the server does not have yet.
   final Set<_Field> _changed = {};
+  bool _pendingLoaded = false;
+
+  /// Where the names of the fields in [_changed] are kept on the device.
+  /// UserDataWipe removes it with the device copy at sign-out.
+  String get pendingKey => '${_cache.storageKey}.pending';
 
   Future<void>? _reading;
 
@@ -62,14 +73,22 @@ class SyncedProfileRepository
   String displayName() => _cache.displayName();
 
   @override
-  Future<void> hydrateLocal() => _cache.hydrate();
+  Future<void> hydrateLocal() => _hydrateCache();
 
   @override
   Future<void> hydrate() async {
-    await _cache.hydrate();
+    await _hydrateCache();
     await _readServer();
-    if (_syncPending && _serverKnown) await _sync(_cache.current);
+    if (_syncPending && _serverKnown) await _resync();
   }
+
+  Future<void>? _resyncing;
+
+  /// Sends the pending change once, however many hydrates are waiting on
+  /// the same read (launch and sign-in).
+  Future<void> _resync() => _resyncing ??= _sync(
+    _cache.current,
+  ).whenComplete(() => _resyncing = null);
 
   @override
   void clearLocal() {
@@ -77,6 +96,7 @@ class SyncedProfileRepository
     _syncPending = false;
     _serverKnown = false;
     _changed.clear();
+    _pendingLoaded = false;
     // A read still in flight belongs to the signed-out rider: the next
     // hydrate starts its own.
     _session++;
@@ -87,6 +107,7 @@ class SyncedProfileRepository
   Future<RiderProfileData> save(RiderProfileData next) async {
     _changed.addAll(_Field.changedBetween(_cache.current, next));
     await _cache.save(next);
+    await _storePending();
     await _readServer();
     if (_serverKnown) {
       await _sync(_cache.current);
@@ -106,6 +127,40 @@ class SyncedProfileRepository
       'promotions': profile.promotions,
     },
   };
+
+  /// The device copy, with the fields not yet sent (from an earlier launch)
+  /// marked so the server copy does not revert them.
+  Future<void> _hydrateCache() async {
+    await _cache.hydrate();
+    if (_pendingLoaded) return;
+    _pendingLoaded = true;
+    try {
+      final prefs = await PreferencesStore.load();
+      final names = _Field.values.asNameMap();
+      for (final name in prefs.getStringList(pendingKey) ?? const []) {
+        final field = names[name];
+        if (field != null) _changed.add(field);
+      }
+    } catch (error) {
+      AppLog.warning('profile.pending_load_failed', extra: {'error': '$error'});
+    }
+    if (_changed.isNotEmpty) _syncPending = true;
+  }
+
+  Future<void> _storePending() async {
+    try {
+      final prefs = await PreferencesStore.load();
+      if (_changed.isEmpty) {
+        await prefs.remove(pendingKey);
+      } else {
+        await prefs.setStringList(pendingKey, [
+          for (final field in _changed) field.name,
+        ]);
+      }
+    } catch (error) {
+      AppLog.warning('profile.pending_save_failed', extra: {'error': '$error'});
+    }
+  }
 
   /// Reads the server copy once per signed-in rider and makes it the cache,
   /// with the rider's not yet sent changes laid over it.
@@ -180,6 +235,7 @@ class SyncedProfileRepository
       );
       _syncPending = false;
       _changed.clear();
+      await _storePending();
     } catch (error) {
       _syncPending = true;
       AppLog.warning('profile.sync_failed', extra: {'error': '$error'});
