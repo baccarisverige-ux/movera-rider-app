@@ -1,4 +1,13 @@
+import 'dart:convert';
+import 'dart:io' show HttpDate;
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
@@ -41,5 +50,38 @@ void main() {
     expect(selection.priceFor('xl', 399), 399);
     expect(selection.quoteIsFresh('xl'), isFalse);
     expect(selection.quoteIsAvailable('xl'), isFalse);
+  });
+
+  test('rider-r4-32: a quote is judged on the server clock, so a phone '
+      'three minutes fast still shows and books it', () async {
+    addTearDown(ServerClock.reset);
+    final server = DateTime.now().toUtc().subtract(const Duration(minutes: 3));
+    final api = ApiClient(
+      env: AppEnv.current,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'quote': {
+              'quoteId': 'q-skew',
+              'rideType': 'economy',
+              'total': {'amountMinor': 24900, 'currency': 'SEK'},
+              'signedPayload': 'signed',
+              'expiresAt': server
+                  .add(const Duration(minutes: 2))
+                  .toIso8601String(),
+            },
+          }),
+          200,
+          headers: {'date': HttpDate.format(server)},
+        ),
+      ),
+    );
+    final quote = await ApiQuoteRepository(
+      api: api,
+    ).quote(rideType: 'economy', distanceMeters: 3000);
+    final selection = controller()..adoptQuote('economy', quote);
+
+    expect(selection.quoteIsFresh('economy'), isTrue);
+    expect(selection.priceFor('economy', 259), 249);
   });
 }

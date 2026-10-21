@@ -22,6 +22,7 @@ import 'package:movera_rider/features/ride_booking/domain/active_trip_repository
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class BookingCoordinator {
   BookingCoordinator({ApiClient? api, ActiveTripRepository? activeTrips})
@@ -571,7 +572,7 @@ class BookingCoordinator {
     final cached = _autoQuoteBinding;
     if (_autoQuoteIntent == baseIntent &&
         cached != null &&
-        cached.expiresAt.isAfter(DateTime.now())) {
+        cached.expiresAt.isAfter(ServerClock.now())) {
       return cached;
     }
 
@@ -651,7 +652,7 @@ class BookingCoordinator {
         quoteSignedPayload.trim().isEmpty ||
         // A replay may carry a quote that expired meanwhile: the server
         // either returns the ride it already created or refuses it.
-        (!isReplay && !quoteExpiresAt.isAfter(DateTime.now())) ||
+        (!isReplay && !quoteExpiresAt.isAfter(ServerClock.now())) ||
         quoteTotalMinor <= 0 ||
         // ARCH-11: the shown price must be the quote, compared in minor
         // units of the quote's currency.
@@ -869,7 +870,7 @@ class _BookingQuoteBinding {
   void validate({double? requestedPrice}) {
     if (id.trim().isEmpty ||
         signedPayload.trim().isEmpty ||
-        !expiresAt.isAfter(DateTime.now()) ||
+        !expiresAt.isAfter(ServerClock.now()) ||
         totalMinor <= 0) {
       throw StateError('A fresh authoritative quote is required for booking');
     }

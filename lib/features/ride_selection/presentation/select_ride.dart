@@ -65,6 +65,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -495,7 +496,7 @@ class _SelectRideState extends State<SelectRide>
     _expiryRequote = null;
     final next = _selection.nextQuoteExpiry;
     if (next == null) return;
-    final wait = next.difference(DateTime.now());
+    final wait = next.difference(ServerClock.now());
     // A quote that arrived already spent is not chased in a loop; Book
     // refreshes it.
     if (wait.isNegative) return;
@@ -562,7 +563,7 @@ class _SelectRideState extends State<SelectRide>
   static const _quoteMargin = Duration(seconds: 10);
 
   ({RideQuote quote, double price})? _bookableQuote(String rideId) {
-    final soon = DateTime.now().add(_quoteMargin);
+    final soon = ServerClock.now().add(_quoteMargin);
     final price = _selection.authoritativePriceFor(rideId, now: soon);
     final quote = _selection.authoritativeQuotes[rideId];
     if (price == null || quote == null) return null;

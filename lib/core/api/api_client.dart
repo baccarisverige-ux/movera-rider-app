@@ -9,6 +9,7 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class ApiClient {
   /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
@@ -111,6 +112,8 @@ class ApiClient {
           await _expireSession(replacement ?? access);
         }
       }
+      // rider-r4-32: how far this device's clock is from the server's.
+      ServerClock.observeDateHeader(response.headers['date']);
       AppLog.info(
         'api.$method',
         extra: {

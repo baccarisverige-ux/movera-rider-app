@@ -21,6 +21,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -543,10 +544,12 @@ class RideSelectionController {
         (at.longitude - pickup.longitude).abs() <= quotePickupTolerance;
   }
 
+  /// rider-r4-32: a quote's expiry is server time; without [now] it is
+  /// judged on the server clock, not the raw device clock.
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
     if (expiresAt == null) return false;
-    return expiresAt.isAfter(now ?? DateTime.now());
+    return expiresAt.isAfter(now ?? ServerClock.now());
   }
 
   bool quoteIsAvailable(String id, {DateTime? now}) {
@@ -568,7 +571,9 @@ class RideSelectionController {
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
-    if (expiresAt == null || expiresAt.isAfter(now ?? DateTime.now())) return;
+    if (expiresAt == null || expiresAt.isAfter(now ?? ServerClock.now())) {
+      return;
+    }
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
