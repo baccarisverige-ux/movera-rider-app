@@ -277,4 +277,39 @@ void main() {
     final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!.single;
     expect(record.paymentFailed, isTrue);
   });
+
+  testWidgets('rider-u181: Done before payment is final still debits a '
+      'wallet ride, once', (tester) async {
+    final realtime = await _openCompletion(tester, _completed('wd-1'));
+    await _tapDone(tester);
+    expect(await _balance(tester), 241);
+    realtime.emit(RideStatus.paymentFinalized);
+    await _settle(tester);
+    expect(await _balance(tester), 241);
+  });
+
+  testWidgets('rider-u180: Back at paymentProcessing debits the wallet ride; '
+      'a later completion surface for it never debits again', (tester) async {
+    await _openCompletion(
+      tester,
+      _completed('wd-2').copyWith(status: RideStatus.paymentProcessing),
+      session: RideStatus.paymentProcessing,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_rounded));
+    for (var i = 0; i < 4; i++) {
+      await _settle(tester);
+    }
+    expect(await _balance(tester), 241);
+
+    LastCompletedRide.remember(_completed('wd-2'));
+    await tester.pumpWidget(const SizedBox());
+    await _pumpCompletion(
+      tester,
+      rideId: 'wd-2',
+      status: RideStatus.paymentFinalized,
+      realtime: _CompletionRealtime(),
+    );
+    await _settle(tester);
+    expect(await _balance(tester), 241);
+  });
 }

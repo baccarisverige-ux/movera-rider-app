@@ -170,8 +170,11 @@ class _RideCompletedState extends State<RideCompleted> {
   }
 
   /// D-022: a wallet-paid on-demand ride is deducted from the local wallet
-  /// balance once it reaches a charged status. WalletController guards
-  /// against charging the same ride twice.
+  /// balance once it reaches a charged status. The debit itself belongs to
+  /// the ride's lifecycle (ActiveRideController), which also debits when
+  /// the rider leaves before then (rider-u180/u181) or ended the trip
+  /// early (rider-u178); WalletController guards against charging the
+  /// same ride twice.
   void _maybeChargeWallet() {
     if (!widget.persistOnDemandState || _walletChargeRequested) return;
     if (_completionRank(_status) <
@@ -181,18 +184,7 @@ class _RideCompletedState extends State<RideCompleted> {
     final rideId = widget.rideId?.trim();
     if (rideId == null || rideId.isEmpty) return;
     _walletChargeRequested = true;
-    unawaited(_chargeWallet(rideId));
-  }
-
-  Future<void> _chargeWallet(String rideId) async {
-    try {
-      await AppScope.instance.walletController.chargeCompletedRideById(rideId);
-    } catch (error) {
-      AppLog.warning(
-        'wallet.ride_charge_failed',
-        extra: {'rideId': rideId, 'error': error.toString()},
-      );
-    }
+    unawaited(_controller.chargeCompletedWallet(rideId));
   }
 
   @override

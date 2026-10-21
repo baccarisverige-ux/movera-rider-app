@@ -563,15 +563,38 @@ class ActiveRideController {
     if (snapshot != null && snapshot.rideId?.trim() != rideId.trim()) {
       throw StateError('A different ride is active.');
     }
+    final ride = AppScope.instance.ride;
     if (snapshot != null && snapshot.status.isCompletedSurface) {
       await _archive(snapshot, snapshot.status, expectedRideId: rideId);
+      // rider-u180/u181: the rider may leave before the payment is final
+      // (Done and Back work at every completion status). No screen then
+      // sees paymentFinalized and the snapshot is about to go, so a
+      // wallet ride is debited here. The local wallet exists only in
+      // demo/dev builds, whose transport always settles a completed trip;
+      // a decline already dropped the snapshot (rider-u179).
+      if (ride.status != RideStatus.paymentFailed) {
+        await _chargeWallet(snapshot);
+      }
     }
-    final ride = AppScope.instance.ride;
     if (canTransition(ride.status, RideStatus.closed)) {
       ride.localTransition(RideStatus.closed);
     }
     _stopSafetyRecording();
     await _store.clear();
+  }
+
+  /// D-022: debits a wallet ride the completion screen saw reach
+  /// paymentFinalized. See [_chargeWallet].
+  Future<void> chargeCompletedWallet(String rideId) async {
+    final id = rideId.trim();
+    try {
+      await AppScope.instance.walletController.chargeCompletedRideById(id);
+    } catch (error) {
+      AppLog.warning(
+        'wallet.ride_charge_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
   }
 
   /// D-022: the local wallet debit of a finished ride. It is made here,

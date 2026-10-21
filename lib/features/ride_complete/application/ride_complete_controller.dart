@@ -50,6 +50,8 @@ class RideCompleteController {
     tipCurrency: _tripCurrency(rideId),
     idempotencyKey: idempotencyKey,
   );
+  Future<void> chargeCompletedWallet(String rideId) =>
+      _ride.chargeCompletedWallet(rideId);
   Future<void> markCompletedPaymentFailed(String rideId) =>
       _ride.markCompletedPaymentFailed(rideId);
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
