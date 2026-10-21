@@ -193,6 +193,11 @@ class RideCheckController extends ChangeNotifier {
   /// counts them as fired, so they wait here and open when that card
   /// closes instead of being lost.
   final List<({String rideId, RideCheckDetection hit})> _waiting = [];
+
+  /// rider-u198: checks the rider answered. Their final save can still be
+  /// queued behind a slow alert, so the saved event is not resolved yet and
+  /// resume() must not bring them back.
+  final Set<String> _closed = {};
   Future<void>? _queue;
   bool _disposed = false;
 
@@ -476,6 +481,7 @@ class RideCheckController extends ChangeNotifier {
       return;
     }
     if (event == null || _session != null || _disposed) return;
+    if (_closed.contains(event.eventId)) return;
     final record = RideCheckRecord.fromEvent(event);
     if (record == null) return;
     final alertId = event.payload['alertId'];
@@ -726,6 +732,7 @@ class RideCheckController extends ChangeNotifier {
 
   void _close(RideCheckSession closing) {
     _session = null;
+    _closed.add(closing.checkId);
     AppLog.info(
       'safety.ridecheck.answered',
       extra: {
