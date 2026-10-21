@@ -454,13 +454,14 @@ class RideSelectionController {
         timeout,
       );
       if (generation != _quoteGeneration) return;
-      adoptQuote(rideId, quote);
+      adoptQuote(rideId, quote, pickupPoint: pickupPoint);
     } catch (_) {
       if (generation != _quoteGeneration) return;
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
       authoritativeQuotes.remove(rideId);
+      _quotePickups.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
   }
@@ -498,14 +499,15 @@ class RideSelectionController {
       timeout,
     );
     if (_disposed || generation != _pinQuoteGeneration) return null;
-    adoptQuote(rideId, quote);
+    adoptQuote(rideId, quote, pickupPoint: pickupPoint);
     return quote;
   }
 
   /// Takes [quote] as the authoritative price for [rideId], exactly as a
   /// loaded quote is. Set location calls this after pricing the ride from
-  /// the exact pin, so booking sends that quote.
-  void adoptQuote(String rideId, RideQuote quote) {
+  /// the exact pin, so booking sends that quote. [pickupPoint] is the
+  /// pickup it was priced at, when known.
+  void adoptQuote(String rideId, RideQuote quote, {GeoPoint? pickupPoint}) {
     if (_disposed) return;
     // The server priced the pickup in another zone's currency: every
     // price held so far was in the old one, and is dropped.
@@ -514,8 +516,31 @@ class RideSelectionController {
     quoteIds[rideId] = quote.id;
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
+    if (pickupPoint == null) {
+      _quotePickups.remove(rideId);
+    } else {
+      _quotePickups[rideId] = pickupPoint;
+    }
     unavailableQuoteIds.remove(rideId);
     _expiredQuoteIds.remove(rideId);
+  }
+
+  /// The pickup point each held quote was priced at, when known.
+  final Map<String, GeoPoint> _quotePickups = {};
+
+  /// How far (in degrees, either axis) a pickup may be from the point a
+  /// quote was priced at and still be that quote's pickup: the distance
+  /// Set pickup moves before it prices the pin again.
+  static const quotePickupTolerance = 0.00015;
+
+  /// Whether [id]'s quote was priced at [pickup] (rider-79): after the
+  /// rider confirms a moved pickup, a quote from the old point is not the
+  /// price of that ride. A quote of unknown pickup is taken as it is.
+  bool quoteIsAt(String id, GeoPoint pickup) {
+    final at = _quotePickups[id];
+    if (at == null) return true;
+    return (at.latitude - pickup.latitude).abs() <= quotePickupTolerance &&
+        (at.longitude - pickup.longitude).abs() <= quotePickupTolerance;
   }
 
   bool quoteIsFresh(String id, {DateTime? now}) {
@@ -548,6 +573,7 @@ class RideSelectionController {
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
     authoritativeQuotes.remove(id);
+    _quotePickups.remove(id);
     unavailableQuoteIds.add(id);
     _expiredQuoteIds.add(id);
   }

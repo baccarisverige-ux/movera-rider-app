@@ -472,7 +472,7 @@ class _SelectRideState extends State<SelectRide>
     await _selection.loadQuotes(
       stops: stops,
       generation: generation,
-      pickup: widget.pickupAddress,
+      pickup: _pickupAddress,
       destination: widget.destinationAddress,
       distanceMeters: straightLineMeters(
         _pickupPosition,
@@ -566,6 +566,12 @@ class _SelectRideState extends State<SelectRide>
     final price = _selection.authoritativePriceFor(rideId, now: soon);
     final quote = _selection.authoritativeQuotes[rideId];
     if (price == null || quote == null) return null;
+    // rider-79: a quote priced at another point than the confirmed pickup
+    // (a category not re-priced after the pin moved, or a pin re-quote
+    // that failed) is priced again from it.
+    if (!_selection.quoteIsAt(rideId, _geoPoint(_pickupPosition))) {
+      return null;
+    }
     return (quote: quote, price: price);
   }
 
@@ -1171,6 +1177,7 @@ class _SelectRideState extends State<SelectRide>
       }
       await _withParkedMap(() async {
         if (!mounted) return;
+        SetPickupResult? spot;
         if (!_pickupConfirmed) {
           // Same Set pickup sheet as Book now, ending in "Confirm and
           // schedule" instead of a search.
@@ -1178,7 +1185,7 @@ class _SelectRideState extends State<SelectRide>
           if (ride == null) return;
           _pinQuote = null;
           _pinQuoteAdopted = false;
-          final spot = await _openSetPickup(
+          spot = await _openSetPickup(
             ride,
             confirmLabel: context.l10n.confirmAndSchedule,
             scheduledPickup: _selection.scheduledFor,
@@ -1208,7 +1215,31 @@ class _SelectRideState extends State<SelectRide>
           _selection.scheduleFor(when);
         }
         final booked = _selectedRideOrNull;
-        if (booked != null && _walletCannotPay(_priceFor(booked))) return;
+        if (booked == null) return;
+        // rider-79: as Book now, the price booked is the confirmed
+        // pickup's: a pin price still loading is waited for, and a quote
+        // from another point is priced again.
+        final bookable = await _quoteAfterPickup(booked);
+        if (!mounted) return;
+        if (bookable == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
+          );
+          unawaited(_loadQuotes());
+          return;
+        }
+        final shown = spot?.fareTotalKr;
+        if (shown != null &&
+            _selection.moneyOf(shown).amountMinor !=
+                bookable.quote.totalMinor &&
+            !await _acceptNewPrice(shown, bookable.price)) {
+          if (!mounted) return;
+          setState(() {});
+          unawaited(_loadQuotes());
+          return;
+        }
+        if (!mounted) return;
+        if (_walletCannotPay(bookable.price)) return;
         final Reservation? created;
         try {
           created = await ScheduledRideCheckout.run(
@@ -1579,7 +1610,11 @@ class _SelectRideState extends State<SelectRide>
         if (shown != null &&
             _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
             !await _acceptNewPrice(shown, authoritativePrice)) {
-          if (mounted) setState(() {});
+          if (!mounted) return;
+          setState(() {});
+          // rider-79: the other categories are priced from the confirmed
+          // pickup too.
+          unawaited(_loadQuotes());
           return;
         }
         if (!mounted) return;
