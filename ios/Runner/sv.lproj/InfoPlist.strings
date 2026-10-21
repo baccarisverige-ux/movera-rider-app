@@ -1,0 +1,3 @@
+/* iOS permission prompts in Swedish (rider-u6). */
+"NSLocationWhenInUseUsageDescription" = "Movera använder din plats medan du använder appen för att ange upphämtningsplatsen, hitta förare i närheten och visa föraren var ni ska mötas.";
+"NSMicrophoneUsageDescription" = "Movera använder mikrofonen bara när du väljer att spela in ljud under en resa.";

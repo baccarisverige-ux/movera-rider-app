@@ -1,0 +1,3 @@
+/* iOS permission prompts in English (rider-u6). Keep in step with Info.plist. */
+"NSLocationWhenInUseUsageDescription" = "Movera uses your location while you use the app to set your pickup point, find nearby drivers and show your driver where to meet you.";
+"NSMicrophoneUsageDescription" = "Movera uses the microphone only when you choose to record audio during a ride.";

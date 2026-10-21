@@ -8,6 +8,12 @@
     <string>Movera uses your location while you use the app to set your pickup point, find nearby drivers and show your driver where to meet you.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>fr</string>
+		<string>sv</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Movera</string>
 	<key>CFBundleExecutable</key>
