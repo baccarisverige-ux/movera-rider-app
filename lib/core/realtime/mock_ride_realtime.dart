@@ -244,9 +244,16 @@ class MockRideRealtime implements RideRealtime {
       RideStatus.approachingDropoff,
     };
     final onTrip = tripStatuses.contains(status);
-    if (!onTrip) {
+    // rider-u27: a driver already waiting stays at the pickup and the ride
+    // goes on to boarding. Through the approach below, the first GPS tick
+    // put them back about 800 m away as "driver arriving".
+    final waiting = status == RideStatus.driverWaiting;
+    if (waiting) {
+      lastLat ??= _pickupLat;
+      lastLng ??= _pickupLng;
+    } else if (!onTrip) {
       // The remaining isMatched statuses are the pre-trip approach:
-      // driverAssigned, driverArriving, driverWaiting.
+      // driverAssigned, driverArriving.
       lastLat ??= _pickupLat! + 0.0072;
       lastLng ??= _pickupLng! - 0.0048;
     }
@@ -255,6 +262,8 @@ class MockRideRealtime implements RideRealtime {
       _tripStartLat ??= _pickupLat;
       _tripStartLng ??= _pickupLng;
       _runTripTicks();
+    } else if (waiting) {
+      _startTrip();
     } else {
       _startGps();
     }

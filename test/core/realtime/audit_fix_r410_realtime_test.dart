@@ -179,7 +179,10 @@ void main() {
     double metresFrom(({double lat, double lng}) at, RideRealtimeEvent e) =>
         GeoDistance.metersBetween(e.latitude!, e.longitude!, at.lat, at.lng);
 
-    Future<RideRealtimeEvent> next(WidgetTester tester, RideStatus status) async {
+    Future<RideRealtimeEvent> next(
+      WidgetTester tester,
+      RideStatus status,
+    ) async {
       for (var i = 0; i < 200; i++) {
         final hit = events.where((e) => e.status == status);
         if (hit.isNotEmpty) return hit.last;
@@ -213,6 +216,21 @@ void main() {
       final resumed = await next(tester, RideStatus.driverArriving);
       expect(metresFrom(paris, resumed), lessThan(2000));
       expect(resumed.acceptedAt, DateTime.utc(2026, 10, 21, 8, 58));
+      mock.dispose();
+    });
+
+    testWidgets('rider-u27: a reload while the driver waits stays waiting',
+        (tester) async {
+      seed('r-wait', 'arrived', paris);
+      mock.primeResume(status: RideStatus.driverWaiting, driver: sara);
+      mock.subscribe('r-wait').listen(events.add);
+      final resumed = await next(tester, RideStatus.driverWaiting);
+      expect(metresFrom(paris, resumed), lessThan(50));
+      await next(tester, RideStatus.tripStarted);
+      expect(
+        events.map((e) => e.status),
+        isNot(contains(RideStatus.driverArriving)),
+      );
       mock.dispose();
     });
   });
