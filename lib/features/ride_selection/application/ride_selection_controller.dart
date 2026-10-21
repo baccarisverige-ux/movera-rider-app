@@ -110,6 +110,11 @@ class RideSelectionController {
   final Map<String, DateTime> quoteExpiresAt = {};
   final Map<String, RideQuote> authoritativeQuotes = {};
   final Set<String> unavailableQuoteIds = <String>{};
+
+  /// Rides whose quote ran out: until a new one lands they have no price
+  /// to show, and their list price is never taken as the fare
+  /// (rider-u185, P4).
+  final Set<String> _expiredQuoteIds = <String>{};
   int _quoteGeneration = 0;
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
   bool _disposed = false;
@@ -166,7 +171,8 @@ class RideSelectionController {
     if (current != null) return current;
     final fallback = catalog.first;
     selectedRideId = fallback.id;
-    if (fallback.currency == currency) {
+    if (fallback.currency == currency &&
+        !_expiredQuoteIds.contains(fallback.id)) {
       offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
     }
     return fallback;
@@ -509,6 +515,7 @@ class RideSelectionController {
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
     unavailableQuoteIds.remove(rideId);
+    _expiredQuoteIds.remove(rideId);
   }
 
   bool quoteIsFresh(String id, {DateTime? now}) {
@@ -542,6 +549,16 @@ class RideSelectionController {
     quoteExpiresAt.remove(id);
     authoritativeQuotes.remove(id);
     unavailableQuoteIds.add(id);
+    _expiredQuoteIds.add(id);
+  }
+
+  /// The earliest time a quote held now runs out, or null.
+  DateTime? get nextQuoteExpiry {
+    DateTime? next;
+    for (final at in quoteExpiresAt.values) {
+      if (next == null || at.isBefore(next)) next = at;
+    }
+    return next;
   }
 
   double priceFor(String id, double catalog, {DateTime? now}) {
@@ -563,15 +580,23 @@ class RideSelectionController {
     String catalogCurrency = Money.defaultCurrency,
   }) {
     selectedRideId = id;
-    if (catalogCurrency == currency) {
+    if (catalogCurrency == currency && !_expiredQuoteIds.contains(id)) {
       offeredPrices.putIfAbsent(id, () => catalog);
     }
   }
 
   /// Whether [id] has a price to show in this pickup's currency: a quote,
-  /// or a list price in the same currency.
-  bool hasPriceFor(String id, {required String catalogCurrency}) =>
-      offeredPrices.containsKey(id) || catalogCurrency == currency;
+  /// or a list price in the same currency. Not once its quote ran out:
+  /// the list price is not that fare (rider-u185).
+  bool hasPriceFor(
+    String id, {
+    required String catalogCurrency,
+    DateTime? now,
+  }) {
+    _discardExpiredQuote(id, now: now);
+    return offeredPrices.containsKey(id) ||
+        (catalogCurrency == currency && !_expiredQuoteIds.contains(id));
+  }
 
   RidePaymentItem? selectedPaymentItem() {
     final list = payments();

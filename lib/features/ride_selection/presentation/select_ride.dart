@@ -479,7 +479,35 @@ class _SelectRideState extends State<SelectRide>
       pickupPoint: _geoPoint(_pickupPosition),
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _scheduleExpiryRequote();
+  }
+
+  /// rider-u185: prices the rides again when their quotes run out, so the
+  /// list never sits on a fare that is no longer offered.
+  Timer? _expiryRequote;
+
+  void _scheduleExpiryRequote() {
+    _expiryRequote?.cancel();
+    _expiryRequote = null;
+    final next = _selection.nextQuoteExpiry;
+    if (next == null) return;
+    final wait = next.difference(DateTime.now());
+    // A quote that arrived already spent is not chased in a loop; Book
+    // refreshes it.
+    if (wait.isNegative) return;
+    _expiryRequote = Timer(wait, _onQuotesExpired);
+  }
+
+  void _onQuotesExpired() {
+    _expiryRequote = null;
+    // While Set pickup is open the booking refreshes its own quote, and a
+    // list load must not replace the pin's price; the lock's release
+    // schedules again.
+    if (!mounted || _bookingInFlight) return;
+    setState(() {});
+    unawaited(_loadQuotes());
   }
 
   /// ARCH-8: quotes carry the points, so the server prices the route itself.
@@ -612,6 +640,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    _expiryRequote?.cancel();
     _selection.catalogChanges?.removeListener(_onCatalogChanged);
     if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
@@ -1232,11 +1261,15 @@ class _SelectRideState extends State<SelectRide>
 
   void _releaseBookingLock() {
     _bookingInFlight = false;
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (_expiryRequote == null) _scheduleExpiryRequote();
   }
 
   void _releaseRouteWork() {
     _bookingInFlight = false;
+    _expiryRequote?.cancel();
+    _expiryRequote = null;
     _selection.cancelPendingQuotes();
   }
 
