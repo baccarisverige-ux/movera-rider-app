@@ -92,6 +92,12 @@ final class GeocodeStale<T> extends GeocodeOutcome<T> {
   const GeocodeStale();
 }
 
+/// The lookup itself failed (offline, a timeout, a server error), as
+/// opposed to finding nothing (rider-45).
+final class GeocodeFailed<T> extends GeocodeOutcome<T> {
+  const GeocodeFailed();
+}
+
 /// Whether [text] is a raw "lat, lng" coordinate string (D-004).
 bool isRawCoordinateLabel(String? text) => RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
@@ -146,7 +152,9 @@ class HomeLocationController extends ChangeNotifier {
     void Function()? stopCompass,
     bool? compassSupported,
     DateTime Function()? clock,
+    bool? pulseAnimates,
   }) : _now = clock ?? DateTime.now,
+       _pulseAnimates = pulseAnimates ?? !kIsWeb,
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
@@ -161,6 +169,12 @@ class HomeLocationController extends ChangeNotifier {
   final double? Function() _readCompass;
   final void Function() _stopCompass;
   final DateTime Function() _now;
+
+  /// rider-u116: false on the web. Each pulse swaps the puck between two
+  /// bitmaps, and the web map plugin turns every swapped bitmap into a new
+  /// blob URL it never revokes (one every 850 ms while Home is open). The
+  /// web puck therefore stays in its compact state instead of pulsing.
+  final bool _pulseAnimates;
 
   /// UI-12: a compass sample repaints the puck only when it turned at least
   /// this far since the last repaint, or [headingRepaintInterval] has passed.
@@ -255,7 +269,14 @@ class HomeLocationController extends ChangeNotifier {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
     final scope = generation ?? _normaliseGuard.next();
-    final result = await geocoding.forward(clean);
+    PlaceResult? result;
+    try {
+      result = await geocoding.forward(clean);
+    } catch (_) {
+      // rider-45: normalising only tidies the text; a failed lookup keeps
+      // what the rider chose instead of aborting the flow.
+      return clean;
+    }
     if (!_normaliseGuard.isCurrent(scope)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
@@ -273,7 +294,13 @@ class HomeLocationController extends ChangeNotifier {
   /// call superseded this one" (RIDE-18).
   Future<GeocodeOutcome<LatLng>> resolveLatLng(String address) async {
     final generation = _pointGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound(LatLng(result.point.latitude, result.point.longitude));
@@ -285,7 +312,13 @@ class HomeLocationController extends ChangeNotifier {
     String address,
   ) async {
     final generation = _placeGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound((
@@ -637,8 +670,10 @@ class HomeLocationController extends ChangeNotifier {
     required void Function() onTick,
   }) {
     _pulseTimer?.cancel();
+    _pulseTimer = null;
     pulseExpanded = false;
     onTick();
+    if (!_pulseAnimates) return;
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
       if (!isMounted() || _livePaused || cameraMoving) return;
       pulseExpanded = !pulseExpanded;
@@ -756,6 +791,12 @@ class HomeLocationController extends ChangeNotifier {
       if (target == null || !isMounted() || _livePaused) return;
       _setState(HomeLocationState.live);
       onFix(target, heading);
+      // rider-u115: a revoke or services-off error ended the stream without
+      // a resubscribe. A fresh fix means location works again, so follow
+      // the rider again instead of freezing the puck on this one fix.
+      if (_positionSub == null && _resubscribeTimer == null) {
+        startTracking(isMounted: isMounted, onFix: onFix);
+      }
     } catch (_) {
       // No fresh fix: keep the last one; the stream will deliver the next.
     } finally {

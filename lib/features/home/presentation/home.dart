@@ -36,8 +36,7 @@ import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.da
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
-import 'package:movera_rider/core/web/web_search_interrupted.dart';
-import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
+import 'package:movera_rider/features/ride_booking/application/home_search_interrupted.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
@@ -184,12 +183,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// with no explanation reads as though the ride was never requested, so say
   /// what happened.
   void _announceInterruptedSearch() {
-    // Two sources: builds that keep the snapshot have the restore coordinator
-    // set the shared notice; the web build's snapshot is gone before Flutter
-    // starts, so it leaves a note in the session instead.
-    final interrupted =
-        SearchInterruptedNotice.shared.take() | takeWebSearchInterrupted();
-    if (!interrupted) return;
+    // rider-u117: a ride that is still stored (and about to be resumed) was
+    // not interrupted; see takeHomeSearchInterrupted.
+    final interrupted = takeHomeSearchInterrupted();
+    if (interrupted is bool) {
+      if (interrupted) _showSearchInterrupted();
+      return;
+    }
+    unawaited(
+      interrupted.then((value) {
+        if (!value || !mounted) return;
+        _showSearchInterrupted();
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }),
+    );
+  }
+
+  void _showSearchInterrupted() {
     // Let the first frame settle so the messenger has a Scaffold to put this
     // in, and leave it up long enough to actually be read.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -253,7 +263,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // it resumes when the map is unparked.
     if (_mapParked.value) return;
     _locationCtl.resumeLiveUpdates();
-    if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
+    // rider-u118: no first fix was ever bound (it failed or is still
+    // pending): run the whole first-fix path (puck, label, stream, camera).
+    // Restarting only the stream tracked GPS but never drew the puck.
+    if (_currentLatLng == null) {
+      unawaited(_detectCurrentAddress());
+    } else if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
@@ -263,8 +278,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _refreshPickupLabelIfMoved(latLng);
         },
       );
-    } else if (_currentLatLng == null) {
-      _detectCurrentAddress();
     }
   }
 
@@ -273,6 +286,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
+    _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
     _locationCtl.dispose();
@@ -317,6 +331,34 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void>? _detectInFlight;
+
+  /// rider-u119: a first fix that failed for a transient reason (the
+  /// 16 s timeout of a cold GPS, a platform error) is tried again with
+  /// backoff while Home has no fix, instead of waiting for an app resume.
+  Timer? _detectRetryTimer;
+  int _detectRetries = 0;
+
+  void _scheduleDetectRetry() {
+    _detectRetryTimer?.cancel();
+    // 2, 4, 8, 16, then 30 s: the live stream's resubscribe backoff.
+    final delay = Duration(
+      seconds: math.min(30, 2 << _detectRetries.clamp(0, 4)),
+    );
+    _detectRetries += 1;
+    _detectRetryTimer = Timer(delay, () {
+      _detectRetryTimer = null;
+      if (!mounted || _currentLatLng != null) return;
+      // Parked under a ride screen or in the background: keep waiting (the
+      // booking flow and an app resume ask for their own fix).
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (_mapParked.value ||
+          (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+        _scheduleDetectRetry();
+        return;
+      }
+      unawaited(_detectCurrentAddress());
+    });
+  }
 
   /// Detects the rider's location once; a second call while one is running
   /// joins it, so the booking flow can wait for the fix Home already asked
@@ -367,8 +409,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (isPlaceholderPickupLabel(_pickupAddress)) {
           setState(() => _pickupAddress = locationOffPickupLabel);
         }
+        if (detected.failure == HomeLocationFailure.unavailable &&
+            _currentLatLng == null) {
+          _scheduleDetectRetry();
+        }
         return;
       }
+      _detectRetryTimer?.cancel();
+      _detectRetryTimer = null;
+      _detectRetries = 0;
       setState(() {
         _pickupAddress = detected.address;
         _pickupLabelAt = target;
@@ -392,7 +441,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         },
         onPulse: _updateLocationVisuals,
       );
-      await AppScope.instance.maps.animateCamera(
+      // rider-44: a late fix must not glide the map of the screen on top
+      // (pickup, Set pickup, Select ride). Home's own map re-centres on
+      // [_currentLatLng] when it is created again.
+      final maps = AppScope.instance.maps;
+      if (!mounted ||
+          _mapParked.value ||
+          maps.activeOwner != MapOwners.home) {
+        return;
+      }
+      await maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
         zoom: homeOpeningZoom,
         follow: true,
@@ -465,6 +523,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     String target,
     String address, {
     String? customType,
+    String? placeId,
   }) async {
     final resolved = await _normaliseAddress(address);
     if (resolved.isEmpty || !mounted) return;
@@ -488,6 +547,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         address: resolved,
         pickupPosition: resolvedPickupPosition,
         customType: customType,
+        placeId: placeId,
       );
       if (target == 'destination') {
         AppScope.instance.destinationMemory.remember(address: resolved);
@@ -531,6 +591,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _editSavedPlace(String target, {String? customType}) =>
       _showAddressPicker(target: target, customType: customType);
 
+  /// rider-41: a custom place is edited by its id; another place of the
+  /// same kind is left alone.
+  Future<void> _editCustomPlace(_SavedPlaceData place) => _showAddressPicker(
+    target: 'custom',
+    customType: place.type,
+    placeId: place.id,
+  );
+
   Future<void> _useSavedPlaceAsDestination(
     String? savedAddress, {
     required String target,
@@ -547,6 +615,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
     setState(() {
       _destinationAddress = destination;
+      // rider-u121: a saved place is a new route; stops left by an earlier
+      // Where to flow the rider backed out of are not carried into it.
+      _routeStops = const <String>[];
       _rememberAddress(destination);
     });
     await _persistAddressData();
@@ -581,6 +652,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             MoveraToast.show(context, context.l10n.homeChooseValidDestination);
           }
           return null;
+        case GeocodeFailed():
+          // rider-45: offline or the lookup failed; say so, never abort
+          // silently.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
@@ -592,7 +670,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             pickupPosition: confirmedPickupPosition,
             pickupIsFallback: pickupResult.isFallback,
             destinationPosition: confirmedDestinationPosition,
-            stops: List<String>.from(_routeStops),
+            stops: const <String>[],
             bookingMode: BookingMode.now,
             onScheduled: (context, id) => RideScheduledPage.open(
               context,
@@ -798,6 +876,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         case GeocodeStale():
           // RIDE-18: superseded — never swap the typed pickup for GPS.
           return null;
+        case GeocodeFailed():
+          // rider-45: the lookup failed; the typed pickup is not swapped for
+          // GPS either.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
         case GeocodeNotFound():
           break;
       }
@@ -842,6 +927,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (geocoded == null) {
         if (mounted && outcome is GeocodeNotFound) {
           MoveraToast.show(context, context.l10n.homeChooseValidDestination);
+        } else if (mounted && outcome is GeocodeFailed) {
+          MoveraToast.show(context, context.l10n.routeCouldNotReach);
         }
         return null;
       }
@@ -1055,6 +1142,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _showAddressPicker({
     required String target,
     String? customType,
+    String? placeId,
   }) async {
     final initialAddress = _existingAddressFor(target);
     final controller = TextEditingController(
@@ -1353,7 +1441,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       capture.stop();
     }
     if (selected == null || selected.trim().isEmpty || !mounted) return;
-    await _saveAddressFor(target, selected, customType: customType);
+    await _saveAddressFor(
+      target,
+      selected,
+      customType: customType,
+      placeId: placeId,
+    );
   }
 
   Future<void> _openAddPlacePicker() async {
@@ -2068,6 +2161,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             reveal: reveal,
                             onUseSavedPlace: _useSavedPlaceAsDestination,
                             onEditSavedPlace: _editSavedPlace,
+                            onEditCustomPlace: _editCustomPlace,
                             onAddPlace: _openAddPlacePicker,
                           ),
                         ],

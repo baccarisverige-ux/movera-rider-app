@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/pickup/data/pickup_repository.dart';
@@ -110,8 +111,15 @@ class PickupMapController {
     }
   }
 
+  /// Null when nothing was found or the lookup failed (offline, a timeout):
+  /// the callers treat both as "not found" (rider-45).
   Future<PickupMapFix?> search(String query) async {
-    final result = await geocoding.geocodeAddress(query);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.geocodeAddress(query);
+    } catch (_) {
+      return null;
+    }
     if (result == null) return null;
     return PickupMapFix(
       position: LatLng(result.point.latitude, result.point.longitude),

@@ -160,6 +160,9 @@ class RideRestoreCoordinator {
     } catch (_) {
       await RideSnapshotStore.clear();
     }
+    // The rider's own cancel went through: nothing was interrupted
+    // (rider-u117).
+    clearSearchLive();
     return null;
   }
 
