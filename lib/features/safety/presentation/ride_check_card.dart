@@ -794,6 +794,8 @@ class _BigButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      // rider-u213: excludeSemantics drops the InkWell's own tap action.
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: red ? RideCheckColors.red : Colors.white,
@@ -840,6 +842,7 @@ class _Call112Now extends StatelessWidget {
     return Semantics(
       button: true,
       label: context.l10n.rcCall112NowSemantics,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         key: const ValueKey<String>('ride-check-call-112-now'),
@@ -1013,6 +1016,7 @@ class _RecordAudioState extends State<_RecordAudio> {
           label: recording
               ? context.l10n.rcStopRecordingSemantics
               : context.l10n.rcRecordAudioSemantics,
+          onTap: widget.controller.toggleRecording,
           excludeSemantics: true,
           child: Material(
             key: const ValueKey<String>('ride-check-record'),
@@ -1089,6 +1093,7 @@ class _RowTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: row.displayLabel,
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         key: ValueKey<String>('ride-check-row-${row.wire}'),
@@ -1160,6 +1165,7 @@ class _OptionButton extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: selected ? Colors.white : RideCheckColors.fill,
