@@ -90,6 +90,30 @@ void main() {
     await close(tester);
   });
 
+  testWidgets('rider-r4-33: a balance just short of the fare is shown to '
+      'the öre next to "too low"', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PayWithPage(
+          methods: const [
+            PayWithMethod(brand: 'wallet', name: 'Wallet', detail: 'Wallet'),
+            PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
+          ],
+          selectedBrand: 'cash',
+          walletBalance: 249.6,
+          walletCoversFare: false,
+          promotion: null,
+          brandMark: (_) => const SizedBox(width: 42, height: 38),
+        ),
+      ),
+    );
+    expect(find.text('Balance: 249,60 kr'), findsOneWidget);
+    expect(find.text('Balance too low for this ride'), findsOneWidget);
+  });
+
   testWidgets('a saved wallet default below the fare does not book', (
     tester,
   ) async {

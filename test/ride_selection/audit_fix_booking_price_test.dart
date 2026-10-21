@@ -28,9 +28,15 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 /// Prices depend on the pin: a quote from a moved pin costs more. The first
 /// quote can be made short-lived to let it expire on Set pickup.
 class _Quotes implements QuoteRepository {
-  _Quotes({this.firstTtl = const Duration(minutes: 5)});
+  _Quotes({
+    this.firstTtl = const Duration(minutes: 5),
+    this.baseMinor = 25900,
+    this.movedMinor = 30100,
+  });
 
   final Duration firstTtl;
+  final int baseMinor;
+  final int movedMinor;
   int calls = 0;
   int? first;
 
@@ -47,7 +53,7 @@ class _Quotes implements QuoteRepository {
   }) {
     calls++;
     first ??= distanceMeters;
-    final minor = distanceMeters != first ? 30100 : 25900;
+    final minor = distanceMeters != first ? movedMinor : baseMinor;
     return Future<RideQuote>.value(
       RideQuote(
         id: 'quote-$rideType-$calls',
@@ -65,6 +71,8 @@ class _Quotes implements QuoteRepository {
 
 /// Like [_Quotes], but the moved pin's quote waits for [pin].
 class _SlowPinQuotes extends _Quotes {
+  _SlowPinQuotes({super.baseMinor, super.movedMinor});
+
   Completer<void>? pin;
 
   @override
@@ -220,6 +228,51 @@ void main() {
     expect(booking.submits, 1);
     expect(booking.price, 301);
     expect(booking.quoteId, pinQuoteId);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(seconds: 2));
+    }
+  });
+
+  Future<void> priceLandsAfterConfirm(
+    WidgetTester tester,
+    _SlowPinQuotes quotes,
+    _CaptureBooking booking,
+  ) async {
+    final selection = selectionWith(quotes);
+    await openSetPickup(tester, selection, booking);
+    final map = tester.widget<CustomGoogleMap>(
+      find.byKey(const ValueKey('set-pickup-map')),
+    );
+    map.onCameraMoveStarted!();
+    map.onCameraMove!(
+      const CameraPosition(target: LatLng(59.31, 18.0686), zoom: 16),
+    );
+    map.onCameraIdle!();
+    await tester.pump();
+    await confirm(tester);
+    quotes.pin!.complete();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('rider-r4-33: "Price updated" shows the öre when the whole '
+      'kronor are the same', (tester) async {
+    await priceLandsAfterConfirm(
+      tester,
+      _SlowPinQuotes(baseMinor: 25440, movedMinor: 25420),
+      _CaptureBooking(),
+    );
+    final dialog = find.byKey(const ValueKey('select-ride-price-updated'));
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining('254,20 kr')),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining('254,40 kr')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Not now'));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(seconds: 2));
     }

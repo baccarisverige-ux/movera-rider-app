@@ -630,13 +630,16 @@ class _SelectRideState extends State<SelectRide>
   /// The price to book differs from the one Set pickup showed: the rider
   /// agrees to the new one first.
   Future<bool> _acceptNewPrice(double shown, double next) async {
+    // rider-r4-33: the dialog opens on any öre difference, so it shows the
+    // öre ("254,20 kr, was 254,40 kr"), never two equal whole kronor.
+    String exact(double value) => formatMoney(_selection.moneyOf(value));
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const ValueKey('select-ride-price-updated'),
         title: Text(context.l10n.priceUpdated, style: _text(18, weight: FontWeight.w600)),
         content: Text(
-          context.l10n.priceUpdatedBody(_kr(next), _kr(shown)),
+          context.l10n.priceUpdatedBody(exact(next), exact(shown)),
           style: _text(14.5),
         ),
         actions: [
@@ -647,7 +650,7 @@ class _SelectRideState extends State<SelectRide>
           FilledButton(
             key: const ValueKey('select-ride-price-accept'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.bookForPrice(_kr(next))),
+            child: Text(context.l10n.bookForPrice(exact(next))),
           ),
         ],
       ),
