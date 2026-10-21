@@ -1183,252 +1183,249 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       )
                       .take(6)
                       .toList();
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                  // rider-u123: MoveraSheet already lifts the sheet over the
+                  // keyboard; padding by the inset again here doubled it.
+                  return Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.78,
                     ),
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.78,
+                    padding: EdgeInsets.fromLTRB(
+                      ResSize.w * 18,
+                      ResSize.h * 11,
+                      ResSize.w * 18,
+                      ResSize.h * 20,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30),
+                        topRight: Radius.circular(30),
                       ),
-                      padding: EdgeInsets.fromLTRB(
-                        ResSize.w * 18,
-                        ResSize.h * 11,
-                        ResSize.w * 18,
-                        ResSize.h * 20,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: ResSize.w * 42,
+                          height: ResSize.h * 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCED4D8),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: ResSize.w * 42,
-                            height: ResSize.h * 4,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFCED4D8),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          16.height,
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextWidget(
-                                  text: _targetTitle(target, customType),
-                                  color: _premiumInk,
-                                  fontSize: 18,
-                                  fontWeight: fwBold,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => Navigator.pop(sheetContext),
-                                icon: const Icon(Icons.close_rounded),
-                                color: _premiumInk,
-                                tooltip: context.l10n.close,
-                              ),
-                            ],
-                          ),
-                          10.height,
-                          TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            autofocus: true,
-                            textInputAction: TextInputAction.search,
-                            onChanged: (value) {
-                              AppScope.instance.destinationSearch.type(value, (
-                                text,
-                              ) {
-                                if (!context.mounted) return;
-                                setModalState(() => query = text);
-                              });
-                            },
-                            onSubmitted: (value) {
-                              if (value.trim().isNotEmpty) {
-                                Navigator.pop(sheetContext, value.trim());
-                              }
-                            },
-                            style: TextStyle(
-                              color: _premiumInk,
-                              fontSize: ResSize.setSp(15),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: context.l10n.searchOrEnterAddress,
-                              hintStyle: TextStyle(
-                                color: _premiumMuted.withValues(alpha: 0.72),
-                                fontSize: ResSize.setSp(14),
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search_rounded,
-                                color: _premiumInk.withValues(alpha: 0.72),
-                              ),
-                              suffixIcon: query.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        controller.clear();
-                                        setModalState(() => query = '');
-                                      },
-                                      tooltip: context.l10n.clear,
-                                      icon: const Icon(Icons.close_rounded),
-                                    ),
-                              filled: true,
-                              fillColor: const Color(0xFFF5F7F7),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: ResSize.w * 15,
-                                vertical: ResSize.h * 15,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          12.height,
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              // Save the real street address, never the
-                              // words "Current location".
-                              onTap: _placeOrNull(_pickupAddress) == null
-                                  ? null
-                                  : () => Navigator.pop(
-                                      sheetContext,
-                                      _placeOrNull(_pickupAddress),
-                                    ),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: ResSize.w * 13,
-                                  vertical: ResSize.h * 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _premiumAccentSoft.withValues(
-                                    alpha: 0.62,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.my_location_rounded,
-                                      color: _premiumAccent,
-                                      size: ResSize.h * 20,
-                                    ),
-                                    11.width,
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          TextWidget(
-                                            text: context.l10n.useCurrentLocation,
-                                            color: _premiumInk,
-                                            fontSize: 12.5,
-                                            fontWeight: fwSemiBold,
-                                          ),
-                                          2.height,
-                                          TextWidget(
-                                            text:
-                                                _placeOrNull(_pickupAddress) ==
-                                                    null
-                                                ? context.l10n.findingYourAddress
-                                                : _shortAddress(
-                                                    _pickupAddress,
-                                                    maxLength: 38,
-                                                  ),
-                                            color: _premiumMuted,
-                                            fontSize: 9,
-                                            fontWeight: fwNormal,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (filteredRecent.isNotEmpty) ...[
-                            16.height,
-                            Align(
-                              alignment: Alignment.centerLeft,
+                        16.height,
+                        Row(
+                          children: [
+                            Expanded(
                               child: TextWidget(
-                                text: context.l10n.recentAddresses,
-                                color: _premiumMuted,
-                                fontSize: 10.5,
-                                fontWeight: fwSemiBold,
+                                text: _targetTitle(target, customType),
+                                color: _premiumInk,
+                                fontSize: 18,
+                                fontWeight: fwBold,
                               ),
                             ),
-                            6.height,
-                            Flexible(
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: filteredRecent.length,
-                                separatorBuilder: (_, __) => const Divider(
-                                  color: Color(0xFFE7EBEE),
-                                  height: 1,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final address = filteredRecent[index];
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: ResSize.w * 4,
-                                    ),
-                                    leading: Icon(
-                                      Icons.history_rounded,
-                                      color: _premiumMuted,
-                                      size: ResSize.h * 20,
-                                    ),
-                                    title: TextWidget(
-                                      text: address,
-                                      color: _premiumInk,
-                                      fontSize: 11,
-                                      fontWeight: fwMedium,
-                                    ),
-                                    onTap: () =>
-                                        Navigator.pop(sheetContext, address),
-                                  );
-                                },
-                              ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(sheetContext),
+                              icon: const Icon(Icons.close_rounded),
+                              color: _premiumInk,
+                              tooltip: context.l10n.close,
                             ),
                           ],
-                          if (query.trim().isNotEmpty) ...[
-                            14.height,
-                            Material(
-                              color: _premiumAccent,
-                              borderRadius: BorderRadius.circular(17),
-                              child: InkWell(
-                                onTap: () => Navigator.pop(
-                                  sheetContext,
-                                  controller.text.trim(),
+                        ),
+                        10.height,
+                        TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) {
+                            AppScope.instance.destinationSearch.type(value, (
+                              text,
+                            ) {
+                              if (!context.mounted) return;
+                              setModalState(() => query = text);
+                            });
+                          },
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              Navigator.pop(sheetContext, value.trim());
+                            }
+                          },
+                          style: TextStyle(
+                            color: _premiumInk,
+                            fontSize: ResSize.setSp(15),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.searchOrEnterAddress,
+                            hintStyle: TextStyle(
+                              color: _premiumMuted.withValues(alpha: 0.72),
+                              fontSize: ResSize.setSp(14),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: _premiumInk.withValues(alpha: 0.72),
+                            ),
+                            suffixIcon: query.isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      controller.clear();
+                                      setModalState(() => query = '');
+                                    },
+                                    tooltip: context.l10n.clear,
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F7F7),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: ResSize.w * 15,
+                              vertical: ResSize.h * 15,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        12.height,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            // Save the real street address, never the
+                            // words "Current location".
+                            onTap: _placeOrNull(_pickupAddress) == null
+                                ? null
+                                : () => Navigator.pop(
+                                    sheetContext,
+                                    _placeOrNull(_pickupAddress),
+                                  ),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ResSize.w * 13,
+                                vertical: ResSize.h * 11,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _premiumAccentSoft.withValues(
+                                  alpha: 0.62,
                                 ),
-                                borderRadius: BorderRadius.circular(17),
-                                child: SizedBox(
-                                  height: ResSize.h * 46,
-                                  width: double.infinity,
-                                  child: Center(
-                                    child: TextWidget(
-                                      text: context.l10n.useThisAddress,
-                                      color: Colors.white,
-                                      fontSize: 12.5,
-                                      fontWeight: fwSemiBold,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.my_location_rounded,
+                                    color: _premiumAccent,
+                                    size: ResSize.h * 20,
+                                  ),
+                                  11.width,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        TextWidget(
+                                          text: context.l10n.useCurrentLocation,
+                                          color: _premiumInk,
+                                          fontSize: 12.5,
+                                          fontWeight: fwSemiBold,
+                                        ),
+                                        2.height,
+                                        TextWidget(
+                                          text:
+                                              _placeOrNull(_pickupAddress) ==
+                                                  null
+                                              ? context.l10n.findingYourAddress
+                                              : _shortAddress(
+                                                  _pickupAddress,
+                                                  maxLength: 38,
+                                                ),
+                                          color: _premiumMuted,
+                                          fontSize: 9,
+                                          fontWeight: fwNormal,
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (filteredRecent.isNotEmpty) ...[
+                          16.height,
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextWidget(
+                              text: context.l10n.recentAddresses,
+                              color: _premiumMuted,
+                              fontSize: 10.5,
+                              fontWeight: fwSemiBold,
+                            ),
+                          ),
+                          6.height,
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: filteredRecent.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                color: Color(0xFFE7EBEE),
+                                height: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final address = filteredRecent[index];
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: ResSize.w * 4,
+                                  ),
+                                  leading: Icon(
+                                    Icons.history_rounded,
+                                    color: _premiumMuted,
+                                    size: ResSize.h * 20,
+                                  ),
+                                  title: TextWidget(
+                                    text: address,
+                                    color: _premiumInk,
+                                    fontSize: 11,
+                                    fontWeight: fwMedium,
+                                  ),
+                                  onTap: () =>
+                                      Navigator.pop(sheetContext, address),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                        if (query.trim().isNotEmpty) ...[
+                          14.height,
+                          Material(
+                            color: _premiumAccent,
+                            borderRadius: BorderRadius.circular(17),
+                            child: InkWell(
+                              onTap: () => Navigator.pop(
+                                sheetContext,
+                                controller.text.trim(),
+                              ),
+                              borderRadius: BorderRadius.circular(17),
+                              child: SizedBox(
+                                height: ResSize.h * 46,
+                                width: double.infinity,
+                                child: Center(
+                                  child: TextWidget(
+                                    text: context.l10n.useThisAddress,
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                    fontWeight: fwSemiBold,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   );
                 },
