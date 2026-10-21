@@ -135,6 +135,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
         terms: terms,
       );
       if (!outcome.cancelled) return;
+      // rider-u170: the ride may have moved on while the sheets were open.
+      final current = _reservations.byId(ride.reservationId);
+      if (current == null || !current.status.canCancel) return;
       await _reservations.cancel(
         ride.reservationId,
         reason: outcome.reasonId,

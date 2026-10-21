@@ -229,6 +229,9 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u170: confirmed against an older copy of the ride. One that
+      // has since completed (or was already cancelled) stays as it is.
+      if (!current.status.canCancel) return current;
       final next = current.copyWith(
         status: ReservationStatus.cancelled,
         cancellationReason: reason,
