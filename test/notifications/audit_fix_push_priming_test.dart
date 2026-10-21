@@ -155,6 +155,33 @@ void main() {
     expect(settings, 1);
   });
 
+  testWidgets('rider-r4-45: swiping the explanation away counts as Not now', (
+    tester,
+  ) async {
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => maybeShowPushPrimer(context, gate: gate),
+              child: const Text('go'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // the barrier
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsNothing);
+    expect(await gate.shouldOffer(), isFalse);
+    expect(push.registers, 0);
+  });
+
   testWidgets('the Notifications screen offers a way back', (tester) async {
     SharedPreferences.setMockInitialValues({
       PushPermissionGate.storageKey: PushConsent.blockedBySystem.name,
