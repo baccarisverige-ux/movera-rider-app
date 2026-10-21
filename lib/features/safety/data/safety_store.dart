@@ -438,6 +438,11 @@ class SafetyStore {
             'answers': [for (final a in submission.answers) a.toJson()],
             'answeredAt': DateTime.now().toUtc().toIso8601String(),
             if (alertId != null) 'alertId': alertId,
+            // rider-u195: an alert was asked for. Kept on the device before
+            // it is sent, so after a reload a failed alert is known as
+            // failed (no alertId) rather than as no alert.
+            if (submission.alert || base.payload['alertRequested'] == true)
+              'alertRequested': true,
           },
         );
     void keep(RideCheckEvent next) {

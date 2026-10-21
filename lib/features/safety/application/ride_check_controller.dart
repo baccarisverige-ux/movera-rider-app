@@ -438,6 +438,9 @@ class RideCheckController extends ChangeNotifier {
     final record = RideCheckRecord.fromEvent(event);
     if (record == null) return;
     final alertId = event.payload['alertId'];
+    // rider-u195: an alert that was asked for and never confirmed is
+    // restored as failed (with its retry), never as sent or as none.
+    final alertRequested = event.payload['alertRequested'] == true;
     _shown.add('$id|${record.trigger.name}');
     _session = RideCheckSession(
       checkId: record.checkId,
@@ -449,6 +452,8 @@ class RideCheckController extends ChangeNotifier {
       alertId: alertId is String ? alertId : null,
       alertState: alertId is String
           ? RideCheckAlertState.sent
+          : alertRequested
+          ? RideCheckAlertState.failed
           : RideCheckAlertState.none,
       called112: record.answers.any(
         (answer) => answer.kind == RideCheckAnswerKind.call112,
