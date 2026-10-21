@@ -21,6 +21,10 @@ class ApiPaymentMethodRepository
   final ApiClient _api;
   String? _defaultId;
 
+  /// rider-fixrev3-5: bumped by every [save]. A read that answers after a
+  /// save was made keeps the saved choice instead of the server's older one.
+  int _saves = 0;
+
   @override
   Future<List<PaymentMethod>> listMethods() async {
     final json = await _api.get(path);
@@ -38,9 +42,12 @@ class ApiPaymentMethodRepository
 
   @override
   Future<String?> read() async {
+    final saves = _saves;
     try {
       final json = await _api.get(path);
-      _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+      if (saves == _saves) {
+        _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+      }
     } catch (error) {
       // The last known choice (or the caller's Cash fallback) stands.
       AppLog.warning(
@@ -54,6 +61,7 @@ class ApiPaymentMethodRepository
   @override
   Future<void> save(String brand) async {
     _defaultId = brand;
+    _saves++;
     try {
       await _api.patch(
         '$path/default',
