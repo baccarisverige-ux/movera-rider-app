@@ -833,6 +833,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'sosRegistered': l.sosRegistered,
   'sosNeedsRide': l.sosNeedsRide,
   'sosNotRegistered': l.sosNotRegistered,
+  'sosRegisteredNoDialer': l.sosRegisteredNoDialer,
   'recordingSavedLocal': l.recordingSavedLocal,
   'recordingFailed': l.recordingFailed,
   'tripSharingStarted': l.tripSharingStarted(3),
@@ -3117,6 +3118,8 @@ class _Exhaustive implements AppLocalizations {
   String get sosNeedsRide => '';
   @override
   String get sosNotRegistered => '';
+  @override
+  String get sosRegisteredNoDialer => '';
   @override
   String get recordingSavedLocal => '';
   @override
