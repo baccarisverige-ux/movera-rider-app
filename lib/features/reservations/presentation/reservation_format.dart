@@ -277,6 +277,15 @@ abstract final class ReservationFormat {
     return L10n.current.cancelRuleText(window(rules.freeCancelWindow), money(rules.lateCancelFee));
   }
 
+  /// The cancel rule [terms] apply (rider-u169): the ride's own window
+  /// and late fee, which may be its ride type's rule.
+  static String cancelRuleOf(ReservationCancelTerms terms) {
+    if (!terms.lateFee.isPositive) {
+      return L10n.current.scheduledCancelFree;
+    }
+    return L10n.current.cancelRuleText(window(terms.window), money(terms.lateFee));
+  }
+
   static String get driverChangedTitle => L10n.current.driverChangedTitle;
 
   static String driverChangedBody(

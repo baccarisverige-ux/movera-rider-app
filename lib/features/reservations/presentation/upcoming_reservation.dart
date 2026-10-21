@@ -465,6 +465,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     onTap: () => ScheduledRideTermsPage.open(
                       context,
                       controller: _reservations,
+                      reservationId: ride.reservationId,
                     ),
                     child: Text(
                       context.l10n.resViewTerms,
