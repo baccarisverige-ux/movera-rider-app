@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,11 +26,15 @@ class PhoneVerification extends StatefulWidget {
     this.challenge,
     this.phoneNumber,
     this.controller,
+    this.clock,
   });
 
   final OtpChallenge? challenge;
   final String? phoneNumber;
   final AuthController? controller;
+
+  /// The wall clock the resend window is measured on (tests).
+  final DateTime Function()? clock;
 
   @override
   State<PhoneVerification> createState() => _PhoneVerificationState();
@@ -74,14 +79,24 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   }
 
   /// Counts the server's retry window down once a second.
+  ///
+  /// rider-r4-11: a suspended app or a throttled web tab fires the timer
+  /// once after a long gap, so the wait left is measured, not counted per
+  /// callback: whichever of the wall clock and the timer's own tick count
+  /// has seen more time pass.
   void _startResendWindow(Duration wait) {
     _ticker?.cancel();
-    _secondsUntilResend =
+    final seconds =
         wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
-    if (_secondsUntilResend <= 0) return;
+    _secondsUntilResend = seconds;
+    if (seconds <= 0) return;
+    final now = widget.clock ?? DateTime.now;
+    final allowedAt = now().add(Duration(seconds: seconds));
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
-      setState(() => _secondsUntilResend--);
+      final byClock = allowedAt.difference(now()).inMilliseconds;
+      final left = min(seconds - timer.tick, (byClock / 1000).ceil());
+      setState(() => _secondsUntilResend = max(0, left));
       if (_secondsUntilResend <= 0) timer.cancel();
     });
   }

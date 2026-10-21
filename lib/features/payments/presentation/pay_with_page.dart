@@ -232,7 +232,9 @@ class _PayWithPageState extends State<PayWithPage> {
               _section(context.l10n.moveraWallet),
               _row(
                 leading: brandMark('wallet'),
-                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency), whole: true)),
+                // rider-r4-33: to the öre, as walletCoversFare compares it
+                // ("249,60 kr" is too low for 250 kr, never "250 kr").
+                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency))),
                 subtitle: widget.walletCoversFare
                     ? context.l10n.walletTapToPay
                     : context.l10n.walletTooLowForRide,

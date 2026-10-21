@@ -804,6 +804,7 @@
   "errProvider": "Connexion impossible avec {provider}. Réessayez.",
   "thatAccount": "ce compte",
   "pickupTimeUpdated": "Heure de départ décalée au prochain créneau disponible.",
+  "pickupTimeWithinHorizon": "{days, plural, =1{Les courses se réservent jusqu’à 1 jour à l’avance. Heure de départ modifiée.} other{Les courses se réservent jusqu’à {days} jours à l’avance. Heure de départ modifiée.}}",
   "selectDate": "Choisir la date",
   "selectTime": "Choisir l’heure",
   "whenPickUp": "Quand devons-nous\nvenir vous chercher ?",

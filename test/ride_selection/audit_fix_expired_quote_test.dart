@@ -165,4 +165,39 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
     });
   });
+
+  test('rider-r4-29: a spent quote or one of a removed category never '
+      'holds up the next expiry re-quote', () async {
+    final selection = RideSelectionController(
+      store: RideSelectionRepository(),
+      quotes: CatalogQuoteRepository(),
+      flags: FeatureFlags(),
+    );
+    final t0 = DateTime.now();
+    RideQuote quote(String id, Duration ttl) => RideQuote(
+      id: 'q-$id',
+      rideType: id,
+      totalMinor: 41200,
+      currency: 'SEK',
+      expiresAt: t0.add(ttl),
+      signedPayload: 'signed',
+    );
+    final first = selection.rides().first.id;
+    selection.adoptQuote(first, quote(first, const Duration(minutes: 2)));
+    selection.adoptQuote('retired', quote('retired', const Duration(minutes: 1)));
+    final later = t0.add(const Duration(minutes: 3));
+    // Back from a booking flow that outlasted the quote: it is spent.
+    expect(selection.discardExpiredQuotes(now: later), isTrue);
+    expect(selection.nextQuoteExpiry, isNull);
+    expect(selection.discardExpiredQuotes(now: later), isFalse);
+
+    // A category the catalog no longer has loses its quote on the next load.
+    selection.adoptQuote('retired', quote('retired', const Duration(minutes: 1)));
+    await selection.loadQuotes(
+      generation: selection.beginQuotes(),
+      pickup: 'A',
+      destination: 'B',
+    );
+    expect(selection.expiryFor('retired'), isNull);
+  });
 }

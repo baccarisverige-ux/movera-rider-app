@@ -67,6 +67,7 @@ class ScheduledRideCheckout {
     Reservation? original,
     String? timeZone,
     List<ReservationPlace> stops = const <ReservationPlace>[],
+    Future<double?> Function(double reviewedPrice)? requote,
   }) async {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled checkout cannot enter Finding Driver');
@@ -100,6 +101,16 @@ class ScheduledRideCheckout {
         ),
       );
       if (accepted != true || !context.mounted) return null;
+      // rider-r4-35: Review changes has no time limit; a quote that ran out
+      // meanwhile is priced again ([requote] agrees a new price with the
+      // rider, null: nothing is saved) instead of refusing the edit.
+      var price = draft.price;
+      final ride = selection.selectedRideId;
+      if (requote != null && selection.authoritativePriceFor(ride) == null) {
+        final next = await requote(price);
+        if (next == null || !context.mounted) return null;
+        price = next;
+      }
       return ScheduledRideBooking.confirm(
         reservations: reservations,
         selection: selection,
@@ -107,7 +118,7 @@ class ScheduledRideCheckout {
         destination: destination,
         note: note,
         editingReservationId: editingReservationId,
-        price: draft.price,
+        price: price,
         timeZone: timeZone,
         stops: stops,
       );

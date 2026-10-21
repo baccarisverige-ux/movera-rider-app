@@ -37,6 +37,7 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/payments/domain/saved_card.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -65,6 +66,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -490,12 +492,20 @@ class _SelectRideState extends State<SelectRide>
   /// list never sits on a fare that is no longer offered.
   Timer? _expiryRequote;
 
-  void _scheduleExpiryRequote() {
+  /// rider-r4-29: [requoteSpent] (a booking flow just released the lock)
+  /// prices again right away when a quote ran out meanwhile: the expiry
+  /// timer skipped it while the flow was open.
+  void _scheduleExpiryRequote({bool requoteSpent = false}) {
     _expiryRequote?.cancel();
     _expiryRequote = null;
+    final spent = _selection.discardExpiredQuotes();
+    if (spent && requoteSpent) {
+      unawaited(_loadQuotes());
+      return;
+    }
     final next = _selection.nextQuoteExpiry;
     if (next == null) return;
-    final wait = next.difference(DateTime.now());
+    final wait = next.difference(ServerClock.now());
     // A quote that arrived already spent is not chased in a loop; Book
     // refreshes it.
     if (wait.isNegative) return;
@@ -562,7 +572,7 @@ class _SelectRideState extends State<SelectRide>
   static const _quoteMargin = Duration(seconds: 10);
 
   ({RideQuote quote, double price})? _bookableQuote(String rideId) {
-    final soon = DateTime.now().add(_quoteMargin);
+    final soon = ServerClock.now().add(_quoteMargin);
     final price = _selection.authoritativePriceFor(rideId, now: soon);
     final quote = _selection.authoritativeQuotes[rideId];
     if (price == null || quote == null) return null;
@@ -621,13 +631,16 @@ class _SelectRideState extends State<SelectRide>
   /// The price to book differs from the one Set pickup showed: the rider
   /// agrees to the new one first.
   Future<bool> _acceptNewPrice(double shown, double next) async {
+    // rider-r4-33: the dialog opens on any öre difference, so it shows the
+    // öre ("254,20 kr, was 254,40 kr"), never two equal whole kronor.
+    String exact(double value) => formatMoney(_selection.moneyOf(value));
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const ValueKey('select-ride-price-updated'),
         title: Text(context.l10n.priceUpdated, style: _text(18, weight: FontWeight.w600)),
         content: Text(
-          context.l10n.priceUpdatedBody(_kr(next), _kr(shown)),
+          context.l10n.priceUpdatedBody(exact(next), exact(shown)),
           style: _text(14.5),
         ),
         actions: [
@@ -638,7 +651,7 @@ class _SelectRideState extends State<SelectRide>
           FilledButton(
             key: const ValueKey('select-ride-price-accept'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.bookForPrice(_kr(next))),
+            child: Text(context.l10n.bookForPrice(exact(next))),
           ),
         ],
       ),
@@ -982,6 +995,7 @@ class _SelectRideState extends State<SelectRide>
         initial: initial,
         tripMinutes: _tripMinutes(),
         timeZone: _pickupSchedule.timeZone,
+        horizonDays: _pickupSchedule.horizonDays,
       );
       if (when == null || !mounted) return;
       // Only the time here; the pickup is set once, on Set pickup after
@@ -1147,7 +1161,11 @@ class _SelectRideState extends State<SelectRide>
     final when = _selection.scheduledFor;
     return when != null &&
         (!_pickupSchedule.isLegalPickup(when) ||
-            !StockholmSchedule.isOnGrid(when));
+            !StockholmSchedule.isOnGrid(when) ||
+            // rider-r4-10: nor past the zone's reservation horizon.
+            when.isAfter(
+              _pickupSchedule.latestPickup(_pickupSchedule.horizonDays),
+            ));
   }
 
   /// Q9: Book later times are the pickup zone's wall-clock time.
@@ -1177,12 +1195,33 @@ class _SelectRideState extends State<SelectRide>
       }
       await _withParkedMap(() async {
         if (!mounted) return;
+        // rider-r4-34: as Book now, the generic Card row needs a saved card
+        // first; a reservation is never paid by "Card" with none behind it.
+        final method = _selection.selectedPaymentItem();
+        if (method?.brand == 'cards' && !_selection.hasSavedCard) {
+          if (await _addCardFirst() == null || !mounted) return;
+        }
         SetPickupResult? spot;
         if (!_pickupConfirmed) {
           // Same Set pickup sheet as Book now, ending in "Confirm and
           // schedule" instead of a search.
           final ride = _selectedRideOrNull;
           if (ride == null) return;
+          // rider-r4-30: the date picker can outlast the quote; Set pickup
+          // shows a live quote, never the list price it falls back to.
+          if (_bookableQuote(ride.id) == null) {
+            final fresh = await _quoteAfterPickup(ride);
+            if (!mounted) return;
+            if (fresh == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.l10n.priceUnavailableRefreshing),
+                ),
+              );
+              unawaited(_loadQuotes());
+              return;
+            }
+          }
           _pinQuote = null;
           _pinQuoteAdopted = false;
           spot = await _openSetPickup(
@@ -1210,6 +1249,7 @@ class _SelectRideState extends State<SelectRide>
             // rider-89: Arrive by needs the trip estimate here too.
             tripMinutes: _tripMinutes(),
             timeZone: _pickupSchedule.timeZone,
+            horizonDays: _pickupSchedule.horizonDays,
           );
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
@@ -1276,6 +1316,8 @@ class _SelectRideState extends State<SelectRide>
                   lng: stop.longitude,
                 ),
             ],
+            // rider-r4-35: the quote ran out on Review changes.
+            requote: (reviewed) => _requoteReviewed(booked, reviewed),
           );
         } catch (error, stack) {
           final action = widget.editingReservationId == null
@@ -1304,6 +1346,24 @@ class _SelectRideState extends State<SelectRide>
     }
   }
 
+  /// rider-r4-35: prices [ride] again after Review changes outlasted its
+  /// quote; a different price is agreed to first. Null: nothing to save.
+  Future<double?> _requoteReviewed(_RideOption ride, double reviewed) async {
+    final bookable = await _quoteAfterPickup(ride);
+    if (!mounted) return null;
+    if (bookable == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
+      );
+      return null;
+    }
+    if (_selection.moneyOf(reviewed).amountMinor != bookable.quote.totalMinor &&
+        !await _acceptNewPrice(reviewed, bookable.price)) {
+      return null;
+    }
+    return mounted ? bookable.price : null;
+  }
+
   String? _driverNote(String? extra) {
     final parts = <String>[
       if (extra != null && extra.trim().isNotEmpty) extra.trim(),
@@ -1317,7 +1377,7 @@ class _SelectRideState extends State<SelectRide>
     _bookingInFlight = false;
     if (!mounted) return;
     setState(() {});
-    if (_expiryRequote == null) _scheduleExpiryRequote();
+    if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
   }
 
   void _releaseRouteWork() {
@@ -1569,13 +1629,8 @@ class _SelectRideState extends State<SelectRide>
         // A card needs to be saved first: Add card opens before Set pickup
         // and the new card becomes the chosen method.
         if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          final card = await AddCardPage.open(context);
+          final card = await _addCardFirst();
           if (card == null || !mounted) return;
-          final index = _selection.payments().indexWhere(
-            (p) => p.brand == card.methodBrand,
-          );
-          if (index < 0) return;
-          setState(() => _selection.selectPayment(index));
           payment = _PaymentOption(
             brand: card.methodBrand,
             name: card.displayName,
@@ -2246,6 +2301,19 @@ class _SelectRideState extends State<SelectRide>
         ),
       ),
     );
+  }
+
+  /// Add card for the generic Card row (no saved card yet): the new card
+  /// becomes the chosen method. Null: no card was added.
+  Future<SavedCard?> _addCardFirst() async {
+    final card = await AddCardPage.open(context);
+    if (card == null || !mounted) return null;
+    final index = _selection.payments().indexWhere(
+      (p) => p.brand == card.methodBrand,
+    );
+    if (index < 0) return null;
+    setState(() => _selection.selectPayment(index));
+    return card;
   }
 
   /// Every category's price before and after the promotion, from the quotes

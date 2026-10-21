@@ -21,6 +21,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -211,8 +212,14 @@ class RideSelectionController {
   /// The wallet / method split of [totalMinor] (minor units of [currency]),
   /// worked out in minor units so the parts always add up to the total.
   /// None until the balance of this trip's currency is known (Q8).
+  ///
+  /// rider-r4-31: none for Book for later either: a reservation carries
+  /// only its price and method, so a split shown there is never applied.
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
+    if (!useWalletFirst ||
+        !_flags.enableWallet ||
+        !walletMatchesTrip ||
+        createsReservation) {
       return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {
@@ -404,6 +411,18 @@ class RideSelectionController {
     usedFallback = false;
     final catalog = rides();
     if (catalog.isEmpty) return;
+    // rider-r4-29: a category the catalog no longer offers keeps no quote;
+    // its row is never built, so its expiry would never be discarded and
+    // would hold the expiry re-quote in the past for good.
+    final offered = {for (final ride in catalog) ride.id};
+    for (final id in quoteExpiresAt.keys.toList()) {
+      if (offered.contains(id)) continue;
+      offeredPrices.remove(id);
+      quoteIds.remove(id);
+      quoteExpiresAt.remove(id);
+      authoritativeQuotes.remove(id);
+      _quotePickups.remove(id);
+    }
     final width = parallelism.clamp(1, catalog.length).toInt();
 
     for (var start = 0; start < catalog.length; start += width) {
@@ -543,10 +562,12 @@ class RideSelectionController {
         (at.longitude - pickup.longitude).abs() <= quotePickupTolerance;
   }
 
+  /// rider-r4-32: a quote's expiry is server time; without [now] it is
+  /// judged on the server clock, not the raw device clock.
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
     if (expiresAt == null) return false;
-    return expiresAt.isAfter(now ?? DateTime.now());
+    return expiresAt.isAfter(now ?? ServerClock.now());
   }
 
   bool quoteIsAvailable(String id, {DateTime? now}) {
@@ -568,7 +589,9 @@ class RideSelectionController {
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
-    if (expiresAt == null || expiresAt.isAfter(now ?? DateTime.now())) return;
+    if (expiresAt == null || expiresAt.isAfter(now ?? ServerClock.now())) {
+      return;
+    }
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
@@ -576,6 +599,20 @@ class RideSelectionController {
     _quotePickups.remove(id);
     unavailableQuoteIds.add(id);
     _expiredQuoteIds.add(id);
+  }
+
+  /// rider-r4-29: drops every quote spent by [now] (default the server
+  /// clock), as a row's build does for its own, and says whether any was.
+  bool discardExpiredQuotes({DateTime? now}) {
+    final at = now ?? ServerClock.now();
+    final spent = [
+      for (final entry in quoteExpiresAt.entries)
+        if (!entry.value.isAfter(at)) entry.key,
+    ];
+    for (final id in spent) {
+      _discardExpiredQuote(id, now: at);
+    }
+    return spent.isNotEmpty;
   }
 
   /// The earliest time a quote held now runs out, or null.

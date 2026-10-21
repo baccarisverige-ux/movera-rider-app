@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/contracts/server_clock.dart';
+
 /// Server-owned fare quote. The app displays it; it does not invent prices.
 class RideQuote {
   const RideQuote({
@@ -28,5 +30,6 @@ class RideQuote {
   final int discountMinor;
   final String? signedPayload;
 
-  bool get expired => DateTime.now().isAfter(expiresAt);
+  /// rider-r4-32: [expiresAt] is server time, judged on the server clock.
+  bool get expired => ServerClock.now().isAfter(expiresAt);
 }

@@ -263,7 +263,10 @@ class ApiRideRealtime implements RideRealtime {
         etaSeconds: _seconds(ride['etaSeconds']),
         locationAt: _onDeviceClock(
           serverLocationAt,
-          serverNow: _date(envelope['serverTime'] ?? ride['serverTime']),
+          // rider-r4-9: the contract's bare TripProjection has no
+          // serverTime; its own updatedAt is the newest server stamp then.
+          serverNow:
+              _date(envelope['serverTime'] ?? ride['serverTime']) ?? updatedAt,
         ),
         payload: {
           if (serverLocationAt != null)
@@ -381,6 +384,8 @@ class ApiRideRealtime implements RideRealtime {
   /// device clock. With the server's own clock at answer time the age is
   /// `serverNow - locationAt`, which is moved onto the device clock so a
   /// phone whose clock runs fast or slow does not see a fresh fix as stale.
+  /// Without a `serverTime` the projection's `updatedAt` stands in for it
+  /// (rider-r4-9), never the device clock.
   DateTime? _onDeviceClock(DateTime? locationAt, {DateTime? serverNow}) {
     if (locationAt == null || serverNow == null) return locationAt;
     final age = serverNow.difference(locationAt);
