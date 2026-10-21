@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -303,6 +304,7 @@ Future<String?> showAccountTextEditor(
   required String value,
   TextInputType keyboard = TextInputType.text,
   String? emptyError,
+  int? maxLength,
 }) {
   final controller = TextEditingController(text: value);
   final error = ValueNotifier<String?>(null);
@@ -339,6 +341,10 @@ Future<String?> showAccountTextEditor(
                   TextField(
                     controller: controller,
                     keyboardType: keyboard,
+                    inputFormatters: [
+                      if (maxLength != null)
+                        LengthLimitingTextInputFormatter(maxLength),
+                    ],
                     autofocus: true,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => save(),

@@ -120,6 +120,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     title: context.l10n.name,
                     value: ride.name,
                     emptyError: context.l10n.enterYourName,
+                    // rider-u78: the server refuses a longer name.
+                    maxLength: RiderProfileData.maxNameLength,
                   );
                   if (next != null && next.isNotEmpty) {
                     await _save(ride.copyWith(name: next));

@@ -396,6 +396,7 @@ class AuthTextField extends StatelessWidget {
     this.textInputAction = TextInputAction.next,
     this.onSubmitted,
     this.autofillHints,
+    this.maxLength = 40,
   });
 
   final TextEditingController controller;
@@ -404,6 +405,7 @@ class AuthTextField extends StatelessWidget {
   final TextInputAction textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Iterable<String>? autofillHints;
+  final int maxLength;
 
   @override
   Widget build(BuildContext context) {
@@ -416,7 +418,7 @@ class AuthTextField extends StatelessWidget {
         textInputAction: textInputAction,
         autofillHints: autofillHints,
         onSubmitted: onSubmitted,
-        inputFormatters: [LengthLimitingTextInputFormatter(40)],
+        inputFormatters: [LengthLimitingTextInputFormatter(maxLength)],
         style: AuthText.input(),
         cursorColor: AuthColors.deepGreen,
         decoration: InputDecoration(
