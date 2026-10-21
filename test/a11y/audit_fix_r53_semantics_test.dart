@@ -14,6 +14,7 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -167,6 +168,39 @@ void main() {
     expect(
       tester.getSemantics(find.bySemanticsLabel(RegExp('Unread'))).label,
       contains('New one'),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('rider-u151: a choice sheet marks the current option selected', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showAccountChoice(
+              context,
+              title: 'Language',
+              options: const ['English', 'Français', 'Svenska'],
+              selected: 'Svenska',
+            ),
+            child: const Text('open-choice'),
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    await tester.tap(find.text('open-choice'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.text('Svenska')),
+      isSemantics(isSelected: true, hasSelectedState: true, hasTapAction: true),
+    );
+    expect(
+      tester.getSemantics(find.text('English')),
+      isSemantics(isSelected: false, hasTapAction: true),
     );
     handle.dispose();
   });
