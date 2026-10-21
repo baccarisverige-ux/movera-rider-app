@@ -37,6 +37,7 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/payments/domain/saved_card.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -1194,6 +1195,12 @@ class _SelectRideState extends State<SelectRide>
       }
       await _withParkedMap(() async {
         if (!mounted) return;
+        // rider-r4-34: as Book now, the generic Card row needs a saved card
+        // first; a reservation is never paid by "Card" with none behind it.
+        final method = _selection.selectedPaymentItem();
+        if (method?.brand == 'cards' && !_selection.hasSavedCard) {
+          if (await _addCardFirst() == null || !mounted) return;
+        }
         SetPickupResult? spot;
         if (!_pickupConfirmed) {
           // Same Set pickup sheet as Book now, ending in "Confirm and
@@ -1622,13 +1629,8 @@ class _SelectRideState extends State<SelectRide>
         // A card needs to be saved first: Add card opens before Set pickup
         // and the new card becomes the chosen method.
         if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          final card = await AddCardPage.open(context);
+          final card = await _addCardFirst();
           if (card == null || !mounted) return;
-          final index = _selection.payments().indexWhere(
-            (p) => p.brand == card.methodBrand,
-          );
-          if (index < 0) return;
-          setState(() => _selection.selectPayment(index));
           payment = _PaymentOption(
             brand: card.methodBrand,
             name: card.displayName,
@@ -2299,6 +2301,19 @@ class _SelectRideState extends State<SelectRide>
         ),
       ),
     );
+  }
+
+  /// Add card for the generic Card row (no saved card yet): the new card
+  /// becomes the chosen method. Null: no card was added.
+  Future<SavedCard?> _addCardFirst() async {
+    final card = await AddCardPage.open(context);
+    if (card == null || !mounted) return null;
+    final index = _selection.payments().indexWhere(
+      (p) => p.brand == card.methodBrand,
+    );
+    if (index < 0) return null;
+    setState(() => _selection.selectPayment(index));
+    return card;
   }
 
   /// Every category's price before and after the promotion, from the quotes

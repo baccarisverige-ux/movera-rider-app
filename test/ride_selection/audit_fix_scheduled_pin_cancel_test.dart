@@ -9,6 +9,8 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
+import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -213,6 +215,26 @@ void main() {
     expect(find.byType(SetPickupPage), findsOneWidget);
     expect(find.text('259 kr'), findsNothing);
     expect(find.text('245 kr'), findsWidgets);
+    await unmount(tester);
+  });
+
+  testWidgets('rider-r4-34: Book for later with the generic Card row adds a '
+      'card first, as Book now does', (tester) async {
+    CardEntryPolicy.debugOverride = true;
+    addTearDown(() => CardEntryPolicy.debugOverride = null);
+    final selection = await pumpScheduled(
+      tester,
+      _PinQuotes(),
+      pickupAt: StockholmSchedule.clampPickup(
+        StockholmSchedule.stockholmNow().add(const Duration(days: 1)),
+      ),
+    );
+    selection.selectPaymentByBrand('cards');
+    expect(selection.selectedPaymentItem()?.brand, 'cards');
+    await tester.tap(find.text('Schedule Movera'));
+    await settleFor(tester, 30);
+    expect(find.byType(AddCardPage), findsOneWidget);
+    expect(find.byType(SetPickupPage), findsNothing);
     await unmount(tester);
   });
 }
