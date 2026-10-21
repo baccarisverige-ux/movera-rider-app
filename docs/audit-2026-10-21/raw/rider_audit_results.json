@@ -4085,10 +4085,10 @@
   "rider4",
   "driver-j2",
   "rider-j8",
+  "r2-driver1",
   "r2-driver2"
  ],
  "runs_pending": [
-  "r2-driver1",
   "r2-driver3",
   "r2-driver4",
   "r2-rider1",

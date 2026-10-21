@@ -2,7 +2,7 @@
 
 Confirmed: 94 (high 4, medium 30, low 60). Rejected as false alarms: 24.
 
-Runs finished: 11 of 18. Still running at this save: none.
+Runs finished: 12 of 18. Still running at this save: none.
 
 Each finding was checked by an independent code tracer and a reproducer (often with a throwaway flutter test), with a third reviewer on disagreements. Findings from read-only runs were verified by code reading only. Possible duplicates across runs are not yet merged.
 
