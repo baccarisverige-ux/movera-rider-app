@@ -649,6 +649,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setState(() {});
 
     final navigator = Navigator.of(context);
+    // Close what Waiting opened on top of itself (driver profile, chat, a
+    // sheet) first, so the pop below leaves Waiting and not that page.
+    final own = ModalRoute.of(context);
+    if (own != null && own.isActive && !own.isCurrent) {
+      navigator.popUntil((route) => route == own);
+    }
     if (navigator.canPop()) {
       // Normal forward path already has the parked Finding route directly
       // underneath this screen. Return to it instead of stacking another
