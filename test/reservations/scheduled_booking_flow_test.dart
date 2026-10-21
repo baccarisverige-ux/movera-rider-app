@@ -1,7 +1,22 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -13,11 +28,40 @@ import 'package:movera_rider/features/reservations/presentation/ride_scheduled.d
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
-import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 
 import 'scheduled_quote_harness.dart';
+
+class _Geocoder implements GeocodingRepository {
+  @override
+  Future<PlaceResult?> forward(String query) async =>
+      PlaceResult(address: query, point: const GeoPoint(59.35, 18.07));
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => null;
+}
+
+class _Quotes implements QuoteRepository {
+  @override
+  Future<RideQuote> quote({
+    required String rideType,
+    required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) async => RideQuote(
+    id: 'q-$rideType',
+    rideType: rideType,
+    totalMinor: 25900,
+    currency: 'SEK',
+    expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+    signedPayload: 'signature',
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +108,57 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(MaterialApp(home: home));
     await tester.pump();
+  }
+
+  Future<void> settle(WidgetTester tester, [int steps = 10]) async {
+    for (var i = 0; i < steps; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  /// The real Select ride screen on fakes (catalog, quotes, geocoding).
+  Future<RideSelectionController> pumpSelectRide(
+    WidgetTester tester, {
+    required ReservationController reservations,
+    String pickup = 'Klockarvägen 37',
+    String destination = 'Arlanda Airport',
+    String? editingReservationId,
+    DateTime? scheduledFor,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final selection = RideSelectionController(
+      catalog: RideCatalogController(
+        api: ApiClient(
+          client: MockClient(
+            (_) async => http.Response(jsonEncode({'code': 'X'}), 500),
+          ),
+        ),
+        cache: MemoryRideCatalogCache(),
+      ),
+      quotes: _Quotes(),
+      flags: FeatureFlags(),
+    );
+    addTearDown(selection.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SelectRide(
+          pickupAddress: pickup,
+          destinationAddress: destination,
+          pickupPosition: const LatLng(59.3293, 18.0686),
+          destinationPosition: const LatLng(59.6519, 17.9186),
+          geocoding: _Geocoder(),
+          selection: selection,
+          reservations: reservations,
+          editingReservationId: editingReservationId,
+          initialScheduledFor: scheduledFor,
+          onScheduled: (_, _) async {},
+        ),
+      ),
+    );
+    await settle(tester);
+    return selection;
   }
 
   test('now mode still shows Select [category] and enters Finding Driver', () {
@@ -360,18 +455,38 @@ void main() {
     expect(selection.entersFindingDriver, isFalse);
   });
 
-  test('Book for later keeps the addresses already entered', () {
-    const pickup = 'Klockarvägen 37';
-    const dropoff = 'Arlanda Express';
-    final selection = RideSelectionController(bookingMode: BookingMode.now);
-    expect(selection.bookingMode.ctaLabel('Movera'), 'Select Movera');
-    expect(selection.entersFindingDriver, isTrue);
-    selection.scheduleFor(DateTime(2026, 9, 23, 15, 50));
-    expect(selection.bookingMode, BookingMode.scheduled);
-    expect(selection.bookingMode.ctaLabel('Movera'), 'Schedule Movera');
-    expect(selection.entersFindingDriver, isFalse);
-    expect(pickup, 'Klockarvägen 37');
-    expect(dropoff, 'Arlanda Express');
+  testWidgets('Book for later keeps the addresses already entered', (
+    tester,
+  ) async {
+    // rider-u237: the addresses go through the real Select ride screen,
+    // its Book now or later picker and Book for later, into the
+    // reservation it creates.
+    final c = reservations();
+    await pumpSelectRide(
+      tester,
+      reservations: c,
+      pickup: 'Klockarvägen 37',
+      destination: 'Arlanda Express',
+    );
+    expect(find.text('Select Movera'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel(RegExp('Book now or later')));
+    await settle(tester);
+    await tester.tap(find.text('Book for later'));
+    await settle(tester);
+    expect(find.textContaining('When should we'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await settle(tester);
+    await tester.tap(find.text('Schedule Movera'));
+    await settle(tester, 30);
+    await tester.tap(find.text('Confirm and schedule'));
+    await settle(tester, 30);
+
+    final booked = c.all.single;
+    expect(booked.pickup.label, 'Klockarvägen 37');
+    expect(booked.destination.label, 'Arlanda Express');
+    expect(FindingDriverController.active, isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
   });
 
   test('editing a reservation keeps the same id after the full flow', () async {
