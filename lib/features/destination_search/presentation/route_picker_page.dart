@@ -1043,99 +1043,105 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   @override
   Widget build(BuildContext context) {
     final typing = _query.trim().isNotEmpty;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                // Swipe down on the header to close, like a sheet.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragEnd: (details) {
-                    if ((details.primaryVelocity ?? 0) > 300) {
-                      Navigator.of(context).maybePop();
-                    }
-                  },
-                  child: SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: context.l10n.close,
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.close_rounded, size: 26),
-                          color: _ink,
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              widget.pageTitle ?? context.l10n.planYourRide,
-                              style: _t(18, weight: FontWeight.w700),
+    // rider-u88: while the next step runs (geocoding, the time picker, the
+    // route-change price) back must not close the picker under it; that
+    // step would then open its sheet over the screen the rider went back to.
+    return PopScope(
+      canPop: !_finishing,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Swipe down on the header to close, like a sheet.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragEnd: (details) {
+                      if ((details.primaryVelocity ?? 0) > 300) {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                    child: SizedBox(
+                      height: 56,
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: context.l10n.close,
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.close_rounded, size: 26),
+                            color: _ink,
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                widget.pageTitle ?? context.l10n.planYourRide,
+                                style: _t(18, weight: FontWeight.w700),
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 52),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                    child: _fields(),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      children: typing ? _whileTyping() : _beforeTyping(),
+                    ),
+                  ),
+                ],
+              ),
+              if ((widget.finishLabel != null || _rerouted) &&
+                  !typing &&
+                  _destination.text.trim().isNotEmpty)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: MediaQuery.paddingOf(context).bottom + 16,
+                  child: SizedBox(
+                    height: 54,
+                    child: FilledButton(
+                      key: const ValueKey('route-picker-done'),
+                      onPressed: _finishing ? null : _finish,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF11181D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        const SizedBox(width: 52),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                  child: _fields(),
-                ),
-                Expanded(
-                  child: ListView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    children: typing ? _whileTyping() : _beforeTyping(),
-                  ),
-                ),
-              ],
-            ),
-            if ((widget.finishLabel != null || _rerouted) &&
-                !typing &&
-                _destination.text.trim().isNotEmpty)
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.paddingOf(context).bottom + 16,
-                child: SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    key: const ValueKey('route-picker-done'),
-                    onPressed: _finishing ? null : _finish,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF11181D),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                    child: Text(
-                      widget.finishLabel ?? context.l10n.seePrices,
-                      style: _t(
-                        16,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
+                      child: Text(
+                        widget.finishLabel ?? context.l10n.seePrices,
+                        style: _t(
+                          16,
+                          weight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            if (_finishing)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x33FFFFFF),
-                  child: Center(
-                    child: CircularProgressIndicator(color: _accent),
+              if (_finishing)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x33FFFFFF),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _accent),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

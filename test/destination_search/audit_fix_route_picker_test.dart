@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,8 +10,10 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Records what Change route asks the geocoder; knows no address.
@@ -31,6 +35,55 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  /// Opens [page] over a home screen, as Home and the ride screens do.
+  Future<void> open(WidgetTester tester, Widget page) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => page)),
+            child: const Text('under'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('under'));
+    await tester.pumpAndSettle();
+  }
+
+  RoutePickerPage picker({
+    String? pickup = 'Sveavägen 1, Stockholm',
+    String initialField = 'destination',
+    List<String> recent = const [],
+    Future<RoutePickerMapPick?> Function({
+      required bool pickup,
+      required String address,
+    })?
+    onPickOnMap,
+    required Future<Map<String, dynamic>?> Function(RoutePickerSelection)
+    onFinish,
+  }) => RoutePickerPage(
+    pickupAddress: pickup,
+    destinationAddress: '',
+    stops: const [],
+    stopsSupported: true,
+    initialField: initialField,
+    capture: EarlyInputCapture(),
+    here: const GeoPoint(59.33, 18.06),
+    homeAddress: null,
+    workAddress: null,
+    recent: recent,
+    onSetFavourite: (_) async => null,
+    onPickOnMap:
+        onPickOnMap ?? ({required pickup, required address}) async => null,
+    onFinish: onFinish,
+  );
 
   testWidgets('rider-u87: swapping the last stop and the destination keeps '
       'their booked points, so nothing is geocoded from text', (tester) async {
@@ -104,5 +157,27 @@ void main() {
 
     expect(geo.asked, isEmpty);
     expect(sheet, findsOneWidget);
+  });
+
+  testWidgets('rider-u88: back while the next step runs does not close the '
+      'picker under it', (tester) async {
+    final step = Completer<Map<String, dynamic>?>();
+    await open(
+      tester,
+      picker(
+        recent: const ['Drottninggatan 50, Stockholm'],
+        onFinish: (_) => step.future,
+      ),
+    );
+    await tester.tap(find.textContaining('Drottninggatan').first);
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(RoutePickerPage), findsOneWidget);
+
+    step.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePickerPage), findsOneWidget);
   });
 }
