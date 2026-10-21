@@ -105,4 +105,36 @@ void main() {
     expect(fixes.length, before + 1);
     ctl.dispose();
   });
+
+  group('rider-u116: the web puck does not swap bitmaps on a timer', () {
+    HomeLocationController pulsing({required bool web}) =>
+        HomeLocationController(
+          location: _Location(),
+          geocoding: AppGeocoding(),
+          motion: MotionEngine(),
+          startCompass: () async => false,
+          readCompass: () => null,
+          stopCompass: () {},
+          pulseAnimates: !web,
+        );
+
+    testWidgets('web: one paint, no pulse ticks', (tester) async {
+      final ctl = pulsing(web: true);
+      var ticks = 0;
+      ctl.startPulse(isMounted: () => true, onTick: () => ticks += 1);
+      await tester.pump(const Duration(seconds: 10));
+      expect(ticks, 1);
+      expect(ctl.pulseExpanded, isFalse);
+      ctl.dispose();
+    });
+
+    testWidgets('Android/iOS keep the pulse', (tester) async {
+      final ctl = pulsing(web: false);
+      var ticks = 0;
+      ctl.startPulse(isMounted: () => true, onTick: () => ticks += 1);
+      await tester.pump(const Duration(milliseconds: 1800));
+      expect(ticks, 3);
+      ctl.dispose();
+    });
+  });
 }

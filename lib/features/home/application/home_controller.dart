@@ -146,7 +146,9 @@ class HomeLocationController extends ChangeNotifier {
     void Function()? stopCompass,
     bool? compassSupported,
     DateTime Function()? clock,
+    bool? pulseAnimates,
   }) : _now = clock ?? DateTime.now,
+       _pulseAnimates = pulseAnimates ?? !kIsWeb,
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
@@ -161,6 +163,12 @@ class HomeLocationController extends ChangeNotifier {
   final double? Function() _readCompass;
   final void Function() _stopCompass;
   final DateTime Function() _now;
+
+  /// rider-u116: false on the web. Each pulse swaps the puck between two
+  /// bitmaps, and the web map plugin turns every swapped bitmap into a new
+  /// blob URL it never revokes (one every 850 ms while Home is open). The
+  /// web puck therefore stays in its compact state instead of pulsing.
+  final bool _pulseAnimates;
 
   /// UI-12: a compass sample repaints the puck only when it turned at least
   /// this far since the last repaint, or [headingRepaintInterval] has passed.
@@ -637,8 +645,10 @@ class HomeLocationController extends ChangeNotifier {
     required void Function() onTick,
   }) {
     _pulseTimer?.cancel();
+    _pulseTimer = null;
     pulseExpanded = false;
     onTick();
+    if (!_pulseAnimates) return;
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
       if (!isMounted() || _livePaused || cameraMoving) return;
       pulseExpanded = !pulseExpanded;
