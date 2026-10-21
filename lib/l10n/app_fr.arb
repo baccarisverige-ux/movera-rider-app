@@ -523,6 +523,8 @@
   "tipAmount": "Pourboire de {amount}",
   "howWasTrip": "Comment s’est passé votre trajet",
   "rateYourDriver": "Notez votre chauffeur",
+  "ratingNotRated": "Pas encore noté",
+  "ratingStarsValue": "Note de {count} sur 5",
   "topUpUnconfirmed": "Nous n’avons pas pu confirmer votre rechargement. S’il a abouti, il apparaîtra dans votre solde ; réessayer ne vous débitera pas deux fois.",
   "topUpDeclined": "Le paiement a été refusé, vous n’avez donc pas été débité.",
   "topUpOffline": "Pas de connexion, le rechargement n’a pas abouti. Vous n’avez pas été débité : réessayez une fois en ligne.",

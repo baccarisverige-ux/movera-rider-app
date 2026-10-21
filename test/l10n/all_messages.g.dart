@@ -529,6 +529,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tipAmount': l.tipAmount('<amount>'),
   'howWasTrip': l.howWasTrip,
   'rateYourDriver': l.rateYourDriver,
+  'ratingNotRated': l.ratingNotRated,
+  'ratingStarsValue': l.ratingStarsValue(3),
   'topUpUnconfirmed': l.topUpUnconfirmed,
   'topUpDeclined': l.topUpDeclined,
   'topUpOffline': l.topUpOffline,
@@ -1384,6 +1386,7 @@ const messagePlaceholders = <String, List<String>>{
   'tipName': ['name'],
   'tipSelected': ['amount'],
   'tipAmount': ['amount'],
+  'ratingStarsValue': [],
   'topUpRateLimited': ['when'],
   'inDuration': ['duration'],
   'walletAmount': ['amount'],
@@ -2527,6 +2530,10 @@ class _Exhaustive implements AppLocalizations {
   String get howWasTrip => '';
   @override
   String get rateYourDriver => '';
+  @override
+  String get ratingNotRated => '';
+  @override
+  String ratingStarsValue(int count) => '';
   @override
   String get topUpUnconfirmed => '';
   @override

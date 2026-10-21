@@ -523,6 +523,8 @@
   "tipAmount": "Dricks {amount}",
   "howWasTrip": "Hur var din resa",
   "rateYourDriver": "Betygsätt din förare",
+  "ratingNotRated": "Inte betygsatt",
+  "ratingStarsValue": "{count} av 5 stjärnor",
   "topUpUnconfirmed": "Vi kunde inte bekräfta din påfyllning. Om den gick igenom syns den i ditt saldo – att försöka igen debiterar dig inte två gånger.",
   "topUpDeclined": "Betalningen nekades, så du debiterades inte.",
   "topUpOffline": "Ingen anslutning, så påfyllningen gick inte igenom. Du debiterades inte – försök igen när du är online.",
