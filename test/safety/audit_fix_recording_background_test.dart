@@ -2,22 +2,13 @@
 // background or the 112 dialer opened: iOS had no audio background mode,
 // and on Android a backgrounded app records silence while the saved
 // recording claimed the full time.
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder_background.dart';
 
 void main() {
-  test('iOS keeps recording in the background (audio background mode)', () {
-    final plist = File('ios/Runner/Info.plist').readAsStringSync();
-    final modes = RegExp(
-      r'<key>UIBackgroundModes</key>\s*<array>(.*?)</array>',
-      dotAll: true,
-    ).firstMatch(plist);
-    expect(modes, isNotNull);
-    expect(modes!.group(1), contains('<string>audio</string>'));
-  });
+  // The iOS audio background mode is checked with the other Info.plist
+  // release checks in test/platform/audit_fix_release_readiness_test.dart.
 
   testWidgets('where the background silences the mic, capture ends when the '
       'app leaves the foreground', (tester) async {

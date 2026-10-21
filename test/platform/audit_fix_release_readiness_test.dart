@@ -126,6 +126,16 @@ void main() {
     expect(workflow, contains(r'MAPS_API_KEY: ${{ secrets.MAPS_API_KEY'));
   });
 
+  test('rider-u206: iOS keeps Safety audio recording in the background', () {
+    final plist = _read('ios/Runner/Info.plist');
+    final modes = RegExp(
+      r'<key>UIBackgroundModes</key>\s*<array>(.*?)</array>',
+      dotAll: true,
+    ).firstMatch(plist);
+    expect(modes, isNotNull);
+    expect(modes!.group(1), contains('<string>audio</string>'));
+  });
+
   group('CODE-8 store blockers', () {
     test('location purpose string is specific and when-in-use only', () {
       final plist = _read('ios/Runner/Info.plist');
