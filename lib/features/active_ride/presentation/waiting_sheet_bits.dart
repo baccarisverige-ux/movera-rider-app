@@ -456,9 +456,14 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
 }
 
 class WaitingNotesAndPin extends StatelessWidget {
-  const WaitingNotesAndPin({super.key, required this.notes});
+  const WaitingNotesAndPin({super.key, required this.notes, this.rideId});
 
   final RideNotes notes;
+
+  /// rider-u66: the screen's ride (a reservation's id on a scheduled live
+  /// ride), which SOS, trip sharing and recording target. Null: the
+  /// on-demand session's ride.
+  final String? rideId;
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +552,7 @@ class WaitingNotesAndPin extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        SafetyKitSheetRow(rideId: AppScope.instance.ride.rideId),
+        SafetyKitSheetRow(rideId: rideId ?? AppScope.instance.ride.rideId),
       ],
     );
   }

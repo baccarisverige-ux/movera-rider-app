@@ -2024,7 +2024,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             currency: widget.currency,
             onMore: _openDetails,
           ),
-          WaitingNotesAndPin(notes: widget.notes),
+          WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],
       ),
     );
