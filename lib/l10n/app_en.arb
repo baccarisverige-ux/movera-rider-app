@@ -1688,6 +1688,14 @@
   },
   "thatAccount": "that account",
   "pickupTimeUpdated": "Pickup time updated to the next available slot.",
+  "pickupTimeWithinHorizon": "{days, plural, =1{Rides can be booked up to 1 day ahead. Pickup time updated.} other{Rides can be booked up to {days} days ahead. Pickup time updated.}}",
+  "@pickupTimeWithinHorizon": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "selectDate": "Select date",
   "selectTime": "Select time",
   "whenPickUp": "When should we\npick you up?",

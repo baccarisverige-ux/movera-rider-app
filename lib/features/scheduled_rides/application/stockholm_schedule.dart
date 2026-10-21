@@ -7,7 +7,10 @@ import 'package:movera_rider/core/config/zone_clock.dart';
 /// zone's local time). Times in and out are plain wall-clock [DateTime]s
 /// of [timeZone].
 class PickupSchedule {
-  const PickupSchedule(this.timeZone);
+  const PickupSchedule(
+    this.timeZone, {
+    this.horizonDays = RiderAppConfig.defaultBookingHorizonDays,
+  });
 
   /// The schedule of the zone a pickup at [lat], [lng] is in, in the time
   /// zone its config names ([config] when the caller has the zone's
@@ -17,13 +20,20 @@ class PickupSchedule {
     final document = config != null && config.zoneId == zone.id
         ? config
         : SeedRiderConfigRepository.seedFor(zone.id);
-    return PickupSchedule(document.timeZone);
+    return PickupSchedule(
+      document.timeZone,
+      horizonDays: document.bookingHorizonDays,
+    );
   }
 
   static const stockholm = PickupSchedule(ZoneClock.stockholm);
 
   /// IANA id, e.g. `Europe/Stockholm`, `Africa/Tunis`.
   final String timeZone;
+
+  /// rider-r4-10: how many days ahead the zone takes reservations
+  /// (`booking.bookingHorizonDays`).
+  final int horizonDays;
 
   /// Current wall-clock time in [timeZone]. [now] is any instant.
   DateTime zoneNow([DateTime? now]) =>
@@ -35,6 +45,23 @@ class PickupSchedule {
   );
 
   DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
+
+  /// rider-r4-10: the latest pickup a zone taking reservations [days]
+  /// ahead accepts, on the slot at or before it. The horizon is elapsed
+  /// time from [now] (a DST change in between does not stretch it), read
+  /// as the zone's wall clock.
+  DateTime latestPickup(int days, [DateTime? now]) {
+    final latest = zoneNow(
+      (now ?? StockholmSchedule.clock()).add(Duration(days: days)),
+    );
+    return DateTime(
+      latest.year,
+      latest.month,
+      latest.day,
+      latest.hour,
+      latest.minute - latest.minute % StockholmSchedule.slotMinutes,
+    );
+  }
 
   DateTime clampPickup(DateTime dt, [DateTime? now]) {
     final min = minimumPickup(now);

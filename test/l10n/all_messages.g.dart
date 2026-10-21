@@ -810,6 +810,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errProvider': l.errProvider('<provider>'),
   'thatAccount': l.thatAccount,
   'pickupTimeUpdated': l.pickupTimeUpdated,
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(3),
   'selectDate': l.selectDate,
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
@@ -1436,6 +1437,7 @@ const messagePlaceholders = <String, List<String>>{
   'stepOf': ['step', 'total'],
   'errTooManyIn': ['wait'],
   'errProvider': ['provider'],
+  'pickupTimeWithinHorizon': [],
   'reservationIn': ['time'],
   'expiredOn': ['date'],
   'validUntilDays': ['date'],
@@ -3096,6 +3098,8 @@ class _Exhaustive implements AppLocalizations {
   String get thatAccount => '';
   @override
   String get pickupTimeUpdated => '';
+  @override
+  String pickupTimeWithinHorizon(int days) => '';
   @override
   String get selectDate => '';
   @override

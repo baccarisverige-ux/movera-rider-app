@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -31,6 +32,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   /// that zone's wall-clock time.
   final String timeZone;
 
+  /// rider-r4-10: how many days ahead the zone takes reservations
+  /// (`booking.bookingHorizonDays` of its config).
+  final int horizonDays;
+
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
@@ -41,6 +46,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.now,
     this.tripMinutes,
     this.timeZone = ZoneClock.stockholm,
+    this.horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -51,6 +57,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     DateTime Function()? now,
     int? tripMinutes,
     String timeZone = ZoneClock.stockholm,
+    int horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   }) {
     final session = ScheduledRideSession();
     if (initial != null) session.captureSchedule(initial, timezone: timeZone);
@@ -63,6 +70,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           now: now,
           tripMinutes: tripMinutes,
           timeZone: timeZone,
+          horizonDays: horizonDays,
           onConfirm: () {},
         ),
       ),
@@ -94,11 +102,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final existing = widget.session?.scheduledAt;
     final now = widget.now?.call();
     if (existing != null) {
-      final corrected = _schedule.clampPickup(existing, now);
+      final corrected = _withinHorizon(_schedule.clampPickup(existing, now));
       _selectedDateTime = corrected;
       if (corrected != existing) {
-        _pickupCorrectionMessage =
-            context.l10n.pickupTimeUpdated;
+        _pickupCorrectionMessage = _beyondHorizon(existing, now)
+            ? context.l10n.pickupTimeWithinHorizon(widget.horizonDays)
+            : context.l10n.pickupTimeUpdated;
       }
     } else {
       _selectedDateTime = _schedule.defaultPickup(now);
@@ -144,13 +153,28 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   DateTime get _pickupAt => _pickupFor(_selectedDateTime);
 
+  /// rider-r4-10: the latest pickup the zone takes (its horizon from now).
+  DateTime _latestPickup([DateTime? now]) =>
+      _schedule.latestPickup(widget.horizonDays, now ?? widget.now?.call());
+
+  bool _beyondHorizon(DateTime chosen, [DateTime? now]) =>
+      chosen.isAfter(_latestPickup(now));
+
+  DateTime _withinHorizon(DateTime chosen, [DateTime? now]) =>
+      _beyondHorizon(chosen, now) ? _latestPickup(now) : chosen;
+
   /// [chosen] on the slot grid, raised to the first time whose pickup is
   /// legal.
   DateTime _clampChosen(DateTime chosen, DateTime? now) {
     final trip = widget.tripMinutes;
-    if (_pickupMode || trip == null) return _schedule.clampPickup(chosen, now);
+    if (_pickupMode || trip == null) {
+      return _withinHorizon(_schedule.clampPickup(chosen, now), now);
+    }
     if (_schedule.isLegalPickup(_pickupFor(chosen), now)) {
-      return StockholmSchedule.roundToFive(chosen);
+      final arrival = StockholmSchedule.roundToFive(chosen);
+      return _beyondHorizon(_pickupFor(arrival), now)
+          ? _latestPickup(now)
+          : arrival;
     }
     final first = _schedule.minimumPickup(now);
     return StockholmSchedule.roundToFive(
@@ -198,6 +222,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       _selectedDateTime = corrected;
       _pickupCorrectionMessage = corrected == candidate && !moved
           ? null
+          : _beyondHorizon(candidate)
+          ? context.l10n.pickupTimeWithinHorizon(widget.horizonDays)
           : context.l10n.pickupTimeUpdated;
     });
     _commitSchedule();
@@ -233,10 +259,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
     final first = _schedule.zoneNow(widget.now?.call());
-    final last = first.add(const Duration(days: 365));
+    final last = _latestPickup();
     if (draftDate.isBefore(first)) {
       draftDate = _schedule.clampPickup(draftDate, widget.now?.call());
     }
+    if (draftDate.isAfter(last)) draftDate = last;
     final result = await MoveraSheet.show<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,

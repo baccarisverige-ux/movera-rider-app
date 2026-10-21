@@ -285,6 +285,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
       timeZone:
           _pickupTimeZone ??
           PickupSchedule.at(_session.pickupLat, _session.pickupLng).timeZone,
+      // rider-r4-10: the zone's reservation horizon.
+      horizonDays: PickupSchedule.at(
+        _session.pickupLat,
+        _session.pickupLng,
+      ).horizonDays,
     );
   }
 

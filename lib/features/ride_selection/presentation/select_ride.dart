@@ -982,6 +982,7 @@ class _SelectRideState extends State<SelectRide>
         initial: initial,
         tripMinutes: _tripMinutes(),
         timeZone: _pickupSchedule.timeZone,
+        horizonDays: _pickupSchedule.horizonDays,
       );
       if (when == null || !mounted) return;
       // Only the time here; the pickup is set once, on Set pickup after
@@ -1147,7 +1148,11 @@ class _SelectRideState extends State<SelectRide>
     final when = _selection.scheduledFor;
     return when != null &&
         (!_pickupSchedule.isLegalPickup(when) ||
-            !StockholmSchedule.isOnGrid(when));
+            !StockholmSchedule.isOnGrid(when) ||
+            // rider-r4-10: nor past the zone's reservation horizon.
+            when.isAfter(
+              _pickupSchedule.latestPickup(_pickupSchedule.horizonDays),
+            ));
   }
 
   /// Q9: Book later times are the pickup zone's wall-clock time.
@@ -1210,6 +1215,7 @@ class _SelectRideState extends State<SelectRide>
             // rider-89: Arrive by needs the trip estimate here too.
             tripMinutes: _tripMinutes(),
             timeZone: _pickupSchedule.timeZone,
+            horizonDays: _pickupSchedule.horizonDays,
           );
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);

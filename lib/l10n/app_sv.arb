@@ -804,6 +804,7 @@
   "errProvider": "Kunde inte logga in med {provider}. Försök igen.",
   "thatAccount": "det kontot",
   "pickupTimeUpdated": "Upphämtningstiden har flyttats till nästa lediga tid.",
+  "pickupTimeWithinHorizon": "{days, plural, =1{Resor kan bokas upp till 1 dag i förväg. Upphämtningstiden har ändrats.} other{Resor kan bokas upp till {days} dagar i förväg. Upphämtningstiden har ändrats.}}",
   "selectDate": "Välj datum",
   "selectTime": "Välj tid",
   "whenPickUp": "När ska vi\nhämta dig?",
