@@ -1794,6 +1794,10 @@
   "notification": "Notification",
   "allCaughtUp": "You're all caught up.",
   "notificationsEmptyBody": "Ride and account updates will appear here when they arrive.",
+  "notificationUnread": "Unread",
+  "@notificationUnread": {
+    "description": "Screen-reader label of the dot on an unread notification."
+  },
   "driverTripCount": "{count, plural, =1{1 trip} other{{count} trips}}",
   "@driverTripCount": {
     "placeholders": {

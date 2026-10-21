@@ -842,6 +842,7 @@
   "notification": "Notification",
   "allCaughtUp": "Vous êtes à jour.",
   "notificationsEmptyBody": "Les infos sur vos courses et votre compte apparaîtront ici.",
+  "notificationUnread": "Non lu",
   "driverTripCount": "{count, plural, =1{1 course} other{{count} courses}}",
   "safetyKit": "Kit de sécurité",
   "safetyKitRecording": "Enregistrement en cours. Il s’arrête et est sauvegardé sur cet appareil quand vous touchez Arrêter l’audio ou fermez le kit de sécurité.",

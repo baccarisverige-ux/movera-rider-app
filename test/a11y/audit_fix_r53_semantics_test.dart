@@ -5,11 +5,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -130,5 +134,40 @@ void main() {
     realtime.dispose();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('rider-u130: an unread notification is announced as unread', (
+    tester,
+  ) async {
+    final controller = NotificationsController(store: NotificationsRepository())
+      ..ingest(
+        const PushPayload(
+          type: 'ride.completed',
+          title: 'New one',
+          body: 'Not read yet.',
+          messageId: 'a11y-unread',
+        ),
+        read: false,
+      )
+      ..ingest(
+        const PushPayload(
+          type: 'ride.completed',
+          title: 'Old one',
+          body: 'Already read.',
+          messageId: 'a11y-read',
+        ),
+        read: true,
+      );
+    final handle = tester.ensureSemantics();
+    await pump(tester, NotificationScreen(controller: controller));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('New one'), findsOneWidget);
+    expect(find.text('Old one'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Unread')), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel(RegExp('Unread'))).label,
+      contains('New one'),
+    );
+    handle.dispose();
   });
 }

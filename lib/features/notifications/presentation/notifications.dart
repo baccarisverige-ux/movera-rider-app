@@ -109,7 +109,7 @@ class NotificationScreen extends StatelessWidget {
                               ),
                             );
                           },
-                          child: _buildNotificationCard(notification),
+                          child: _buildNotificationCard(context, notification),
                         ),
                       );
                     },
@@ -127,7 +127,10 @@ class NotificationScreen extends StatelessWidget {
     Navigator.of(context).push(RightToLeftTransition(RideHistory()));
   }
 
-  Widget _buildNotificationCard(AppNotification notification) {
+  Widget _buildNotificationCard(
+    BuildContext context,
+    AppNotification notification,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResSize.w * 4,
@@ -194,12 +197,16 @@ class NotificationScreen extends StatelessWidget {
               ),
               if (!notification.read) ...[
                 4.width,
-                Container(
-                  width: ResSize.w * 8,
-                  height: ResSize.w * 8,
-                  decoration: BoxDecoration(
-                    color: AppColor.primary,
-                    shape: BoxShape.circle,
+                // rider-u130: the dot is not the only sign of a new one.
+                Semantics(
+                  label: context.l10n.notificationUnread,
+                  child: Container(
+                    width: ResSize.w * 8,
+                    height: ResSize.w * 8,
+                    decoration: BoxDecoration(
+                      color: AppColor.primary,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ],
