@@ -32,6 +32,7 @@ import 'package:movera_rider/features/finding_driver/presentation/still_looking_
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
     show RideSnapshot;
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -128,6 +129,10 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _mapParked = false;
   bool _mapReady = false;
   bool _leaving = false;
+
+  /// rider-u106: "Try again" is creating the new booking. The screen must
+  /// not be left meanwhile, or the new live search has no owner.
+  bool _rebooking = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
   final bool _detailsSheetOpen = false;
@@ -358,6 +363,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// (a new ride, so a new idempotency key). True when the new search runs.
   Future<bool> _requestAgain(RideSnapshot ended) async {
     String rideId;
+    setState(() => _rebooking = true);
     try {
       rideId = await (widget.booking ?? BookingController()).submitFinding(
         pickupAddress: ended.pickupAddress,
@@ -382,8 +388,18 @@ class _FindingDriversState extends State<FindingDrivers> {
         L10n.current.rebookFailed,
       );
       return false;
+    } finally {
+      if (mounted) setState(() => _rebooking = false);
     }
-    if (!mounted || rideId.trim().isEmpty) return false;
+    if (rideId.trim().isEmpty) return false;
+    if (!mounted) {
+      // The new ride exists on the server: it gets a screen now.
+      await RideRestoreCoordinator.instance.recoverCreatedFinding(
+        rideId,
+        realtime: widget.realtime,
+      );
+      return false;
+    }
     final booked = await _match.storedRide(rideId: rideId);
     if (!mounted) return false;
     if (booked != null) _adoptRoute(booked);
@@ -816,7 +832,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     final progress = (_match.elapsedSeconds / 90).clamp(0.08, 0.86);
     const mapReserve = 300.0;
     return PopScope(
-      canPop: _leaving,
+      canPop: _leaving && !_rebooking,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmCancel();
       },
@@ -1005,6 +1021,16 @@ class _FindingDriversState extends State<FindingDrivers> {
                 ),
               ),
             ),
+            if (_rebooking)
+              const Positioned.fill(
+                child: ColoredBox(
+                  key: ValueKey('finding-rebooking'),
+                  color: Color(0x33FFFFFF),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF2D5878)),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
