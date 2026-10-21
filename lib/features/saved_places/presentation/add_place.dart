@@ -46,7 +46,15 @@ class _AddPlaceState extends State<AddPlace> {
   void initState() {
     super.initState();
     _places = widget.controller ?? AppScope.instance.savedPlaces;
-    _nameController = TextEditingController(text: widget.initial?.title ?? '');
+    _nameController = TextEditingController(
+      text:
+          widget.initial?.title ??
+          switch (_slot) {
+            'home' => L10n.current.placeHome,
+            'office' => L10n.current.placeWork,
+            _ => '',
+          },
+    );
     _locationController =
         TextEditingController(text: widget.initial?.subtitle ?? '');
   }
@@ -131,6 +139,17 @@ class _AddPlaceState extends State<AddPlace> {
         _error = context.l10n.spSaveFailed;
       });
     }
+  }
+
+  /// rider-r4-47: the Home or Work slot this screen edits, if any. Those
+  /// keep their name (the controller stores only the address there), so
+  /// the name field is not editable rather than silently ignored.
+  String? get _slot {
+    final requested = widget.kind?.trim();
+    final kind = requested?.isNotEmpty == true
+        ? requested!
+        : widget.initial?.kind.trim();
+    return kind == 'home' || kind == 'office' ? kind : null;
   }
 
   bool get _isNewPlace =>
@@ -219,6 +238,7 @@ class _AddPlaceState extends State<AddPlace> {
             16.height,
             TextField(
               controller: _nameController,
+              enabled: _slot == null,
               style: GoogleFonts.poppins(
                 color: AppColor.title,
                 fontSize: 16,
