@@ -22,6 +22,10 @@ abstract final class ServerClock {
   /// The server's time now, on the device clock.
   static DateTime now() => DateTime.now().add(_offset);
 
+  /// A server stamp [server] on the device clock, so elapsed time measured
+  /// with `DateTime.now()` from it is the server's (rider-r4-13).
+  static DateTime toDevice(DateTime server) => server.subtract(_offset);
+
   /// Learns the offset from a response's `Date` header [header], received
   /// at [receivedAt] on the device clock. An unreadable header is ignored.
   static void observeDateHeader(String? header, {DateTime? receivedAt}) {

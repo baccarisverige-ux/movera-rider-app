@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class DriverTrackingController {
   DriverTrackingController({
@@ -101,6 +102,13 @@ class DriverTrackingController {
   /// runs when an event actually arrives.
   static const _staleCheckInterval = Duration(seconds: 5);
 
+  /// rider-r4-13: `acceptedAt` and `waiting.arrivedAt` are server stamps;
+  /// the waiting-fee clock and the cancel-fee preview measure from them
+  /// with the device clock, so they are moved onto it (a phone 90 s fast
+  /// would otherwise show the fee 90 s early).
+  static DateTime? _onDevice(DateTime? server) =>
+      server == null ? null : ServerClock.toDevice(server);
+
   void start({
     required String rideId,
     MatchedDriver? initial,
@@ -160,9 +168,9 @@ class DriverTrackingController {
             acceptedAt = null;
             waitingSince = null;
           }
-          acceptedAt = event.acceptedAt ?? acceptedAt;
+          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
-            waitingSince = event.waitingArrivedAt;
+            waitingSince = _onDevice(event.waitingArrivedAt);
           } else if (event.status == RideStatus.driverWaiting) {
             waitingSince ??= DateTime.now();
           }
@@ -173,9 +181,9 @@ class DriverTrackingController {
           // version the restore seeded and is rejected as a duplicate;
           // dropping its stamps restarted the waiting clock and the
           // free-cancel preview on the device clock.
-          acceptedAt = event.acceptedAt ?? acceptedAt;
+          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
-            waitingSince = event.waitingArrivedAt;
+            waitingSince = _onDevice(event.waitingArrivedAt);
           }
         }
         if (event.driver != null) driver = event.driver;

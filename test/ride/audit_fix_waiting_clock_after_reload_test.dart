@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io' show HttpDate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
@@ -112,6 +114,37 @@ void main() {
     expect(tracking.status, RideStatus.driverWaiting);
     expect(tracking.acceptedAt, acceptedAt);
     expect(tracking.waitingSince, arrivedAt);
+  });
+
+  test('rider-r4-13: the server stamps are moved onto a fast device clock',
+      () async {
+    addTearDown(ServerClock.reset);
+    final device = DateTime.utc(2026, 10, 21, 9, 10);
+    // The API's Date header: this phone runs 90 s fast.
+    ServerClock.observeDateHeader(
+      HttpDate.format(device.subtract(const Duration(seconds: 90))),
+      receivedAt: device,
+    );
+    final session = RideSession()
+      ..restoreFromBackend(RideStatus.driverWaiting, id: rideId)
+      ..authoritativeVersion = 5;
+    final feed = _Feed();
+    addTearDown(feed.dispose);
+    final tracking = DriverTrackingController(
+      realtime: feed,
+      pickupLat: 59.3293,
+      pickupLng: 18.0686,
+      ride: session,
+    );
+    addTearDown(tracking.dispose);
+    tracking.start(rideId: rideId, initialStatus: RideStatus.driverWaiting);
+
+    feed.add(replay(version: 6));
+    await Future<void>.delayed(Duration.zero);
+
+    const fast = Duration(seconds: 90);
+    expect(tracking.acceptedAt, acceptedAt.add(fast));
+    expect(tracking.waitingSince, arrivedAt.add(fast));
   });
 
   test('an older replay never moves the clocks back', () async {
