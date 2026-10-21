@@ -615,6 +615,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
     setState(() {
       _destinationAddress = destination;
+      // rider-u121: a saved place is a new route; stops left by an earlier
+      // Where to flow the rider backed out of are not carried into it.
+      _routeStops = const <String>[];
       _rememberAddress(destination);
     });
     await _persistAddressData();
@@ -667,7 +670,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             pickupPosition: confirmedPickupPosition,
             pickupIsFallback: pickupResult.isFallback,
             destinationPosition: confirmedDestinationPosition,
-            stops: List<String>.from(_routeStops),
+            stops: const <String>[],
             bookingMode: BookingMode.now,
             onScheduled: (context, id) => RideScheduledPage.open(
               context,
