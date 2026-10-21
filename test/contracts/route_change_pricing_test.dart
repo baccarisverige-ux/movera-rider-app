@@ -69,4 +69,28 @@ void main() {
     ]);
     expect(more['differenceMinor'], inInclusiveRange(2500, 2600));
   });
+
+  test('rider-u14: a route change keeps the offer raise the rider paid',
+      () async {
+    final id = await book();
+    final booked = fareOf(id);
+    await api.patch('/api/v1/rides/$id', body: {
+      'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
+    });
+    await api.patch('/api/v1/rides/$id', body: {
+      'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
+    });
+    await api.post('/api/v1/rides/$id/status', body: {'status': 'accepted'});
+    final same = await requote(id);
+    expect(same['newTotalMinor'], booked + 7000);
+    expect(same['differenceMinor'], 0);
+
+    // Dropping the booked stop gives back distance only, never the raise.
+    final shorter = await requote(id, stops: const []);
+    expect(
+      shorter['newTotalMinor'] as int,
+      greaterThanOrEqualTo((booked + 7000) ~/ 2),
+    );
+    expect(shorter['differenceMinor'] as int, isNegative);
+  });
 }

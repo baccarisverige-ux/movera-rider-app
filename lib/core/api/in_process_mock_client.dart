@@ -992,6 +992,11 @@ class InProcessMockClient extends http.BaseClient {
           if (increase != null && fare != null) {
             _setFare(ride, fare + increase);
             ride['offerIncrease'] = _money(increase, rideCurrency);
+            // rider-u14: every raise, kept for route-change pricing.
+            ride['offerRaised'] = _money(
+              _offerRaisedMinor(ride) + increase,
+              rideCurrency,
+            );
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -1947,6 +1952,14 @@ class InProcessMockClient extends http.BaseClient {
         : _fareMinor(ride);
   }
 
+  /// rider-u14: every offer raise the rider made while searching, summed.
+  static int _offerRaisedMinor(Map<String, dynamic> ride) {
+    final raised = ride['offerRaised'];
+    return raised is Map && raised['amountMinor'] is int
+        ? raised['amountMinor'] as int
+        : 0;
+  }
+
   /// Contract money on the wire: `fare: Money` in the trip's currency,
   /// never whole-unit doubles.
   static void _setFare(Map<String, dynamic> ride, int amountMinor) {
@@ -2050,14 +2063,18 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// New price for a changed route (contract §3 "Route-change pricing"):
-  /// the booked price, plus 25 kr per stop that was not booked and 12 kr per
-  /// kilometre beyond the booked route through its stops, in the trip's
-  /// currency ([MockZoneRates]: 2.40 € and 1.15 € in Paris). Shorter routes
+  /// the booked price with the offer raises, plus 25 kr per stop that was
+  /// not booked and 12 kr per kilometre beyond the booked route through its
+  /// stops, in the trip's currency ([MockZoneRates]: 2.40 € and 1.15 € in Paris). Shorter routes
   /// get the difference back. Minor units, on the zone's price step.
   ///
   /// rider-9 / owner decision 5: a booked stop is counted once. The booked
   /// kilometres already go through it and the booking charged it no stop
   /// fee, so keeping it costs nothing more.
+  ///
+  /// rider-u14: the rider's offer raises are part of every new route's
+  /// price, so a route change never takes back the raise the driver
+  /// accepted.
   Map<String, dynamic> _routeChangePricing(
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
@@ -2067,7 +2084,7 @@ class InProcessMockClient extends http.BaseClient {
       (ride['categoryId'] ?? ride['rideType'] ?? '').toString(),
       code,
     );
-    final bookedMinor = _bookedMinor(ride) ?? 0;
+    final baseMinor = (_bookedMinor(ride) ?? 0) + _offerRaisedMinor(ride);
     final pLat = (body['pickupLat'] ?? ride['pickupLat']) as num?;
     final pLng = (body['pickupLng'] ?? ride['pickupLng']) as num?;
     final dLat = body['destinationLat'] as num;
@@ -2093,12 +2110,12 @@ class InProcessMockClient extends http.BaseClient {
         0;
     final bookedKm = (ride['bookedKm'] as num?)?.toDouble() ?? routeKm;
     final newMinor = rates.roundToStep(
-      (bookedMinor +
+      (baseMinor +
               _unbookedStops(ride, stops) * rates.convertKronor(25) +
               (routeKm - bookedKm) * rates.perKmMinor)
-          .clamp(bookedMinor * 0.5, double.infinity),
+          .clamp(baseMinor * 0.5, double.infinity),
     );
-    final currentMinor = _fareMinor(ride) ?? bookedMinor;
+    final currentMinor = _fareMinor(ride) ?? baseMinor;
     return {
       'newMinor': newMinor,
       'differenceMinor': newMinor - currentMinor,
