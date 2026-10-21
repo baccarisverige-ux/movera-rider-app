@@ -248,6 +248,44 @@
    "source": "rider1"
   },
   {
+   "id": "rider-j8-12",
+   "file": "lib/core/maps/map_camera_motion.dart",
+   "line": 115,
+   "title": "isLateEcho drops every camera report for 600 ms after a web flight lands, including the rider's own pan or pinch, so MapView.pose goes stale and the next glide jumps back",
+   "original_title": "isLateEcho drops every camera report for 600 ms after a web flight lands, including the rider's own pan or pinch, so MapView.pose goes stale and the next glide jumps back",
+   "category": "state-corruption",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "After a JS (web) flight lands, _jsGlide sets view.pose to the goal and _landedAt to now (lines 366-368). For the next cameraEchoGrace (600 ms), CustomGoogleMap._onMove discards any reported pose that is not near the landing pose (custom_google_map.dart:202). The check assumes such reports are late echoes of flight frames. Nothing clears _landedAt when the rider touches or moves the map: interrupt() (lines 80-94) and the touching setter leave it set, and _movedByHand only sets movedByHandAt. So the camera moves from a pan, pinch or wheel zoom in that window are thrown away too, as are those of an app animateCamera bounds fit (runCameraUpdate). view.pose stays at the landing pose. The next stepped glide starts from view.pose (easeCameraTo line 325, _glide line 391) and its first frame is sent from that stale origin. This affects a requested trip-map refit (fitBounds with the 450 ms default, a Dart glide) or a follow update once the 12 s hold ends.",
+   "failure_scenario": "On the web Home map, the rider taps recenter (a 1 s JS flight). Right after it lands, they quickly drag the map a few hundred metres and let go, all within 0.6 s. Every report is dropped as a late echo, so pose still holds the recenter point. Later an app glide (for example the follow update after the 12 s hold, or a 450 ms refit on a trip map) steps from that stale pose. Its first frame moves the camera back next to the old recenter point, then it glides, which looks like a jump. Worked by reading the code: easing is false after landing, so _onMove's only remaining filter is isLateEcho.",
+   "evidence": "map_camera_motion.dart:115-121 `bool isLateEcho(CameraPosition reported) { final landed = _landedAt; ... if (now().difference(landed) > cameraEchoGrace) return false; return !_settled(reported, current); }`; :366-368 `view.pose = view._goal; view._landedAt = MapView.now();`; interrupt() :80-94 never resets _landedAt. custom_google_map.dart:202-204 `if (view != null && !view.easing && !view.isLateEcho(position)) { view.pose = position; }`",
+   "suggested_fix": "Clear _landedAt in interrupt() and in the touching setter, and when movedByHandAt is set, so only echoes that arrive before any newer gesture or command are filtered.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "isLateEcho (map_camera_motion.dart:115-121) rejects any report that is not near the landing pose for 600 ms after _landedAt is set (:366-368). The only thing that writes _landedAt is _jsGlide. interrupt(), the touching setter (:70-75) and _movedByHand (custom_google_map.dart:186-193) never clear it. A web drag sets touching (pointerdown) and calls release() -> _movedByHand, which only stamps movedByHandAt and does not interrupt because easing is already false. Its bounds_changed reports reach _onMove (custom_google_map.dart:202) with easing false, and isLateEcho drops them. If the gesture's last report falls inside the 600 ms window, pose stays at the landing pose. _settleTilt on idle then sees the landing pose's tilt already matching its zoom and does nothing. The next stepped glide (a follow update once the 12 s hold ends, or a 450 ms fitBounds) starts its first _approach frame from that stale pose and jumps back. This needs a fast gesture right after a recenter, so it is an edge path.",
+     "repro": "Static trace only (read-only run). Read isLateEcho, _jsGlide, interrupt and the touching setter, and in CustomGoogleMap: _onMove, _movedByHand, _settleTilt and the RiderMapBridge.listen wiring; also release() in web/rider_map_camera.js. I confirmed by grep that nothing else resets _landedAt.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "_landedAt is set only at map_camera_motion.dart:368 and nothing clears it. interrupt() (:80-94), the touching setter (:71-77) and _movedByHand (custom_google_map.dart:186-193) all leave it set. For 600 ms after landing (cameraEchoGrace, :147), _onMove (custom_google_map.dart:202) drops every report that is not _settled with the landing pose. The tolerance is 0.00002 deg, about 2 m (:158-163). So the rider's own pan reports in that window are thrown away. A drag that ends inside the window produces no later CameraMoveEvent, and onIdle carries no pose, so view.pose stays at the landing pose. On the web the touch pan is done by the JS layer itself, with no inertia to emit later events. Once the 12 s followHold ends, a follow easeCameraTo starts from that stale pose (:325, _glide :391), and its first frame moves the camera back near the recenter point. A requested fitBounds does the same at once, because _mayMove clears movedByHandAt. The window is narrow (the gesture must finish within 0.6 s of landing), so this is an edge path.",
+     "repro": "Read-only, no run. Worked it by hand. A recenter flight lands at T, so _landedAt = T. The rider drags 300 m between T+100 ms and T+500 ms. Each report r has |r.lat - landing.lat| > 0.00002, so isLateEcho returns true and the report is dropped. After T+500 ms there are no more reports. At T+12.5 s, a GPS fix calls animateCamera(follow:true): heldByRider is false because 12.5 - 0.5 = 12 s has passed, so easeCameraTo runs. It sets from = the landing pose, and the _approach frame sends a pose about 5% of the way from the landing point toward the goal, far from where the camera actually is.",
+     "evidence": "map_camera_motion.dart:115-121 isLateEcho; :366-368 sets _landedAt; interrupt() :80-94 never resets _landedAt; custom_google_map.dart:202-204."
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
    "file": "lib/core/notifications/firebase_push_service.dart",
    "line": 118,
    "title": "Firebase-configured web builds (none deployed today) would replace the root-scope Firebase SW with Flutter's self-unregistering flutter_service_worker.js on every cold start, forcing a reload and killing the push subscription",
@@ -713,6 +751,44 @@
    "source": "rider3"
   },
   {
+   "id": "rider-j8-5",
+   "file": "lib/features/reservations/domain/reservation.dart",
+   "line": 369,
+   "title": "Pickup and creation times are persisted as offset-less local ISO strings, so a device time-zone change moves the booked pickup instant",
+   "original_title": "Pickup and creation times are persisted as offset-less local ISO strings, so a device time-zone change moves the booked pickup instant",
+   "category": "wrong-time",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "toJson writes scheduledPickupAt, createdAt and estimatedDropoffAt with DateTime.toIso8601String(). For a local DateTime (what the booking flow passes) that gives '2026-10-22T10:00:00.000' with no offset. tryParse (DateTime.tryParse) reads it back as local time in whatever zone the device is in at hydrate. cancelledAt is stored as UTC (local_reservation_repository.dart:232), so only some timestamps keep their instant. This is the persistence side, separate from the known zone wall-clock construction issue at line 334: even a booking made correctly in the device zone changes instant after a zone change and an app restart. ARCHITECTURE.md names WireTime (RFC 3339 UTC) as the time contract.",
+   "failure_scenario": "In Stockholm (UTC+2) the rider books 10:00 tomorrow, stored as '...T10:00:00.000' (08:00Z). They fly to London (UTC+1) and relaunch. Hydrate parses 10:00 London time = 09:00Z. The chrono counts down to a pickup an hour late, startLiveIfDue starts assignment and en-route an hour late, and the free-cancel window and fee are worked out against the wrong instant.",
+   "evidence": "reservation.dart:368-371:\n  'createdAt': createdAt.toIso8601String(),\n  'scheduledPickupAt': scheduledPickupAt.toIso8601String(),\n  if (estimatedDropoffAt != null) 'estimatedDropoffAt': estimatedDropoffAt!.toIso8601String(),\nreservation.dart:407-410: DateTime.tryParse(map['createdAt'] ...), DateTime.tryParse(map['scheduledPickupAt'] ...)",
+   "suggested_fix": "Serialize with toUtc().toIso8601String() (WireTime) and convert to local only for display.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "The pickup time is a local DateTime. select_date_time.dart:284 and :443 build it with `DateTime(...)` and scheduleFor passes it on (select_ride.dart:952, ride_selection_controller.dart:620). It reaches the repository unchanged (local_reservation_repository.dart:167). toJson (reservation.dart:368-371) writes toIso8601String() with no offset, and tryParse (reservation.dart:407-410) reads it back as local time in the device zone at hydrate. No toUtc() is applied on the write path, while cancelledAt is stored as UTC (local_reservation_repository.dart:232). ARCHITECTURE.md:83 names WireTime (RFC 3339 UTC) as the contract. Nothing in DECISIONS.md makes local storage intentional. A device zone change followed by a restart moves the stored instant, and isNoDriverFound and startLiveIfDue (reservation_controller.dart:306-372) then use the shifted time. It needs a device time-zone change, so it is an edge path.",
+     "repro": "Read-only static trace of the booking path from the date picker to the repository, then toJson and tryParse. Worked by hand: '2026-10-22T10:00:00.000' stored at UTC+2 (08:00Z) and parsed at UTC+1 gives 09:00Z.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "reservation.dart:368-371 serialises createdAt, scheduledPickupAt and estimatedDropoffAt with toIso8601String(). For a local (non-UTC) DateTime, Dart writes no offset or Z. tryParse at reservation.dart:407-410 uses DateTime.tryParse, which reads an offset-less string as local time in the device's zone at hydrate time. cancelledAt, by contrast, is written as UTC (local_reservation_repository.dart:232). Every check that uses the instant (isNoDriverFound at reservation_controller.dart:306-316, startLiveIfDue's untilPickup at :334, the chrono countdown) compares against DateTime.now(), so after a zone change and an app restart the pickup instant moves by the offset difference. ARCHITECTURE.md:83 names WireTime (RFC 3339 UTC) as the contract, and DECISIONS.md does not exempt this. It only happens when a rider with a pending booking changes zone and restarts, so I rate it an edge path (medium).",
+     "repro": "Read only, no run. Dart semantics: DateTime(2026,10,22,10).toIso8601String() gives '2026-10-22T10:00:00.000' with no Z. DateTime.parse of that string in Europe/London (UTC+1 on 22 Oct) gives 09:00Z, versus 08:00Z when written in Stockholm (UTC+2): a shift of one hour.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
    "file": "lib/features/reservations/presentation/reservation_live_ride.dart",
    "line": 79,
    "title": "Cancelling a reservation from its live screen skips the reservation late-cancel terms, so no fee is recorded",
@@ -748,6 +824,44 @@
     }
    ],
    "source": "rider4"
+  },
+  {
+   "id": "rider-j8-1",
+   "file": "lib/features/reservations/presentation/upcoming_reservation.dart",
+   "line": 287,
+   "title": "Upcoming reservation page says 'Reservation confirmed' for a ride the app has already declared 'No driver found'",
+   "original_title": "Upcoming reservation page says 'Reservation confirmed' for a ride the app has already declared 'No driver found'",
+   "category": "ui-truth",
+   "severity": "medium",
+   "claimed_severity": "medium",
+   "confidence": 0.55,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "ReservationController.isNoDriverFound (reservation_controller.dart:306-317) marks a scheduled/driverAssignmentPending ride with no driver as 'No driver found' 5 minutes after pickup, and the Home chrono turns red and opens the no-driver sheet. UpcomingReservationPage never asks the controller. It renders ReservationFormat.statusTitle(ride) / statusBody(ride, assignmentDisclaimer: ...), which map scheduled and driverAssignmentPending to resStatusConfirmed ('Reservation confirmed') plus the policy's assignment disclaimer. It also keeps showing Edit and Cancel with the 'Things to know' copy. The page is reachable for such a ride from History > Upcoming (ride_history.dart:283) and from notifications (notification_navigation.dart:133). In staging or production with flags.scheduledRides or bookingLater on, di.dart:143-168 composes LocalReservationRepository with no dispatch, so every reservation ends up in this state.",
+   "failure_scenario": "A ride is booked for 10:00 in a build without dispatch. At 10:06 Home's chrono shows the red '!' badge and the 'No driver found' sheet. The rider opens History > Upcoming and taps the ride. The page shows a green 'Reservation confirmed' banner and says a driver will be assigned, which contradicts Home.",
+   "evidence": "upcoming_reservation.dart:286-293:\n  ReservationStatusBanner(\n    title: ReservationFormat.statusTitle(ride),\n    body: ReservationFormat.statusBody(ride, assignmentDisclaimer: policy.assignmentDisclaimer),\n    positive: !ride.status.isCancelled,\n  ),\nreservation_format.dart:166-168: case scheduled: case driverAssignmentPending: return L10n.current.resStatusConfirmed;\nreservation_controller.dart:306-317 isNoDriverFound(...) is never consulted by this page.",
+   "suggested_fix": "In the build, check _reservations.isNoDriverFound(ride). When it is true, show the termNoDriverFound title and body (and the resolve/rebook actions) instead of the confirmed banner.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "UpcomingReservationPage never calls isNoDriverFound: grep finds no use in upcoming_reservation.dart, which only calls showsDriverOf at :198. statusTitle maps scheduled and driverAssignmentPending to resStatusConfirmed (reservation_format.dart:166-168), and the banner is positive because the ride is not cancelled (:292). canEdit and canCancel are still true, so Edit, Cancel and Things to know render (:374 onward). Home's chrono does call isNoDriverFound (home_reservation_chrono.dart:93-94, 160, 215) and shows the red no-driver state. ReservationController.isNoDriverFound (reservation_controller.dart:306-317) marks such a ride from pickup+5min onward, and it stays in upcoming(), so History > Upcoming still lists it. Nothing in DECISIONS.md, ARCHITECTURE.md or QA_HOOKS.md mentions no-driver handling on this page.",
+     "repro": "Static trace only, no build or test run. Grepped for isNoDriverFound across the presentation files and read reservation_controller.dart:295-330 and reservation_format.dart:153-190.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "ReservationController.isNoDriverFound (reservation_controller.dart:306-317) is true when the status is scheduled or driverAssignmentPending, there is no driver, and now >= pickup+5min. Home chrono checks this (home_reservation_chrono.dart:160,215). UpcomingReservationPage never calls it: grep finds no isNoDriverFound or noDriver in upcoming_reservation.dart. The banner uses statusTitle and statusBody, which map both statuses to resStatusConfirmed plus the assignment disclaimer (reservation_format.dart:166-168,190-192), with positive=true. History > Upcoming opens the page with no no-driver guard (ride_history.dart:276-287), and so does notification_navigation.dart:133. di.dart composes LocalReservationRepository with mockDispatch null outside mock-transport builds, and the controller comment there says the ride 'stays in driverAssignmentPending forever'. Home's own tap path diverts to the no-driver sheet, but History and notifications do not.",
+     "repro": "Read-only, no flutter. Hand trace: ride at 10:00 with no dispatch. startLiveIfDue moves it to driverAssignmentPending at T-2. At 10:06 isNoDriverFound is true, so Home shows the red badge. Opening it from History > Upcoming runs build -> statusTitle(driverAssignmentPending) = 'Reservation confirmed', with positive banner and Edit/Cancel visible.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
   },
   {
    "file": "lib/features/ride_booking/application/ride_restore_coordinator.dart",
@@ -1326,6 +1440,82 @@
     }
    ],
    "source": "rider3"
+  },
+  {
+   "id": "rider-j8-13",
+   "file": "lib/core/maps/map_camera_motion.dart",
+   "line": 86,
+   "title": "A web JS flight stopped by a tap leaves MapView.pose at the flight's starting pose, so the next stepped glide starts from the wrong place",
+   "original_title": "A web JS flight stopped by a tap leaves MapView.pose at the flight's starting pose, so the next stepped glide starts from the wrong place",
+   "category": "state-corruption",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.3,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "While a JS flight runs, view.easing is true, so CustomGoogleMap._onMove ignores every camera report and view.pose stays at the pose from before the flight. On the web, Dart only learns where the camera is when the flight lands (_jsGlide sets pose = goal). If the flight is cancelled, interrupt() calls RiderMapBridge.cancelFlight and clears easing. _jsGlide's finally block skips its work because the generation changed. view.pose is never refreshed. A tap without a drag (pointerdown on .gm-style sets touching=true and interrupts) produces no further camera report. It also does not set movedByHandAt, so follow updates are not held. The next follow glide or 450 ms fitBounds ease runs on the Dart loop from view.pose, which is the pre-flight origin.",
+   "failure_scenario": "On the web Home map, the rider taps recenter and taps the map (for example a marker) halfway through the 1 s flight. The camera stops mid-way, but pose still holds the pre-recenter view. The next follow update (a GPS fix) starts a Dart glide whose first frame jumps the camera back toward the old view before gliding to the target.",
+   "evidence": "map_camera_motion.dart:86-89 `if (_jsFlight) { _jsFlight = false; final id = mapId; if (id != null) RiderMapBridge.cancelFlight(id); }` with no pose refresh; :364-375 `if (view.generation == generation) { if (arrived && view._goal != null) { view.pose = view._goal; ...` (skipped after interrupt). custom_google_map.dart:202 ignores reports while `view.easing`.",
+   "suggested_fix": "When a JS flight is cancelled, read the live camera into view.pose, for example by having cancelFlight return the current pose or by calling controller.getVisibleRegion/zoom, or mark pose unknown so the next report is accepted.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "interrupt() (map_camera_motion.dart:80-94) cancels the JS flight and clears easing, but it does not touch pose. _jsGlide's finally (:364-375) is skipped because the generation changed, and arrived is false anyway, since JS endFlight(false) runs on cancel (web/rider_map_camera.js:137-145). During the flight, CustomGoogleMap._onMove dropped every echo because easing was true (lib/shared/widgets/custom_google_map.dart:202). The only things that write pose are _onMove, _send and _jsGlide (grep). A tap without a drag sets touching through the map_touch_web pointerdown (lib/core/web/map_touch_web.dart:40). It does not call release(): the gesture layer only releases on a move of 6 px or more, a dblclick or a native zoom control (rider_map_camera.js:218-235). So movedByHandAt stays null. The next follow update through animateCamera(follow:true) passes _mayMove, and easeCameraTo steps _glide from view.pose, which is the pre-flight origin. Its first _approach frame (about a 5% share) lands next to the old view. One thing could save it: a trailing bounds_changed from the flight's last rAF frame arriving after pointerdown. That frame normally renders and dispatches within its own frame, before the input event, so nothing reliably refreshes pose.",
+     "repro": "Static trace only (read-only run, no flutter/dart executed). Traced easeCameraTo -> RiderMapBridge.flight -> _jsGlide, interrupt -> cancelFlight -> JS endFlight(false), all pose writers (grep '\\.pose = '), the touch watcher in map_touch_web.dart and the release() conditions in rider_map_camera.js. No document records this as intentional.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "On the web, a pointerdown on .gm-style goes through map_touch_web.dart to _fingerDown, which sets touching=true (custom_google_map.dart:173). That calls interrupt() (map_camera_motion.dart:80-90): generation goes up, easing becomes false and the JS flight is cancelled (rider_map_camera.js:145, endFlight(false)). The pose is not refreshed. After that, _jsGlide's finally block is skipped because the generation no longer matches (:364), so view.pose is not set to the goal. While the flight ran, every report was dropped because easing was true (custom_google_map.dart:202). So view.pose still holds the pose from before the flight. A tap without a drag never calls release() in the JS layer: pointerdown only stores pointerOrigin (rider_map_camera.js:222), and single-finger touchstart does not call releaseTouch. So movedByHandAt stays null and heldByRider is false once the finger lifts. onCameraIdle carries no pose. The next follow easeCameraTo calls interrupt() and then starts from view.pose (map_camera_motion.dart:324-325). Its first _approach frame is computed from the stale origin and sent with moveCamera, so the camera jumps back toward the old view. The only thing that could rescue it is timing: a trailing bounds_changed after the cancel. The web plugin reads the live map pose for each CameraMoveEvent (google_maps_controller.dart:279-288), so such an event would fix pose. But nothing guarantees one arrives.",
+     "repro": "Read-only, no run. Traced pointerdown, then map_touch_web onDown, _fingerDown, the touching setter, interrupt() and cancelFlight. Then traced _jsGlide's finally block (generation mismatch, so it is skipped) and _onMove's easing filter. Checked google_maps_flutter_web 0.5.14+2: onBoundsChanged gives CameraMoveEvent(_gmViewportToCameraPosition(map)) and onIdle gives no pose. Then followed the next animateCamera(follow:true) path: _mayMove, easeCameraTo, interrupt, from = view.pose, _glide frame 0 and _send.",
+     "evidence": "map_camera_motion.dart:86-90 has no pose refresh; :364 `if (view.generation == generation)` skips the landing assignment; custom_google_map.dart:202 drops reports while easing; rider_map_camera.js:218-223 pointerdown never calls release() for a plain tap."
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-15",
+   "file": "lib/core/maps/map_camera_motion.dart",
+   "line": 318,
+   "title": "A recenter that joins a running follow glide is stepped on the Dart timer on the web and keeps the old glide's 240-frame cap, which can cut the flight short",
+   "original_title": "A recenter that joins a running follow glide is stepped on the Dart timer on the web and keeps the old glide's 240-frame cap, which can cut the flight short",
+   "category": "other",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.3,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "When easeCameraTo gets a flight-length goal (>= 600 ms, for example animateCamera(follow:false) from a recenter) while a damped follow glide is running, it converts that glide in place: it sets _flight and resets _flownMicros to 0. It never hands the flight to RiderMapBridge.flight, although the comment at lines 336-338 says web flights run on the browser frame clock so they do not stutter on a Dart timer in Safari. The loop variable `frame` in _glide also keeps counting from the start of the old glide, and the flight branch ends with `last = after >= 1 || frame >= _maxEaseFrames`. If the follow glide had already run about 180 frames (it was retargeted repeatedly without settling), the new 1 s flight is cut off after the remaining frames and snaps to its goal.",
+   "failure_scenario": "On web Safari, the Home map is gliding after a stream of GPS follow fixes when the rider taps recenter. The 1 s locate flight runs on the Dart 16 ms timer (the stutter the JS path exists to avoid). If the follow glide was already near frame 240, the flight lands with a jump after a fraction of a second.",
+   "evidence": "map_camera_motion.dart:318-321 `if (view._flight == null && duration >= _flightThreshold) { view._flight = duration; view._flownMicros = 0; }` then `return running.future;` with no JS hand-off; :388 `for (var frame = 0; ; frame++)` and :404 `last = after >= 1 || frame >= _maxEaseFrames;`",
+   "suggested_fix": "When a flight-length goal arrives during a follow glide, interrupt and start a fresh flight (JS on the web), or reset the frame counter when converting to a flight.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "A recenter calls animateCamera(follow:false) with cameraFlightDuration of 1000 ms (google_map_provider.dart animateCamera). While a follow glide runs (easing true, _goal set, _done set, _jsFlight false because follow glides always step in Dart), easeCameraTo takes the join branch at map_camera_motion.dart:306-322. It sets _flight and _flownMicros=0 and returns without calling RiderMapBridge.flight. So the flight is stepped by _glide on the Dart 16 ms timer, the case the comment at :336-338 says the JS path exists to avoid. _glide's loop counter `frame` (:388) is not reset, and the flight branch ends with `last = after >= 1 || frame >= _maxEaseFrames` (:404). A 1 s flight needs about 62 frames. If the follow glide had already run more than about 178 frames (about 3 s of continuous retargets without settling), the flight snaps to its goal early. The comment at :316-317 makes joining intentional, but neither the missing JS hand-off nor the inherited frame cap is addressed there.",
+     "repro": "Static trace only (read-only run). Followed animateCamera -> easeCameraTo join branch -> _glide flight branch and worked the frame budget by hand: 1000 ms / 16 ms is about 62 frames, against a 240-frame cap counted from the start of the original glide.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "animateCamera(follow:false) (google_map_provider.dart:96-107) calls _mayMove, which only clears movedByHandAt and does not interrupt. So a recenter during a running follow glide takes the join branch (map_camera_motion.dart:308-322). That branch sets _flight=1000ms and _flownMicros=0 and returns, without RiderMapBridge.flight. The flight is therefore stepped on the Dart 16 ms timer on the web too. In _glide the frame counter is a loop local (:388) that is never reset. The flight branch ends at `frame >= _maxEaseFrames` (:404), and then next=goal, a snap. A follow glide that keeps being retargeted can reach high frame counts: each GPS fix moves the goal, and with the 315 ms position time constant it needs about 77+ frames to settle within 2 m. So a recenter at frame 200 gets only 40 frames, about 640 ms. flightEase(0.64) is about 0.62 progress, so it jumps the last ~38%. The comment at :316-317 makes the join intentional, but the frame cap carry-over and the missing JS hand-off are not covered by it.",
+     "repro": "Read-only, no run. Traced the recenter path: animateCamera, _mayMove(follow:false), then the easeCameraTo join branch. Worked the frame budget by hand. A 1000 ms flight needs about 62 frames of 16 ms. A carried-over frame count of 180 or more cuts it short and snaps it at frame 240.",
+     "evidence": "map_camera_motion.dart:318-322 converts the glide in place with no JS hand-off; :388 `for (var frame = 0; ; frame++)`; :404 `last = after >= 1 || frame >= _maxEaseFrames`."
+    }
+   ],
+   "source": "rider-j8"
   },
   {
    "file": "lib/core/motion/motion_engine.dart",
@@ -2181,6 +2371,196 @@
    "source": "rider2"
   },
   {
+   "id": "rider-j8-3",
+   "file": "lib/features/reservations/application/reservation_controller.dart",
+   "line": 302,
+   "title": "Reservation cancel reasons written by the app ('no_driver_found', 'rider_cancelled_live') have no translation and show as English text",
+   "original_title": "Reservation cancel reasons written by the app ('no_driver_found', 'rider_cancelled_live') have no translation and show as English text",
+   "category": "l10n",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.6,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "resolveNoDriverFound records reason 'no_driver_found', and the live-ride cancel records 'rider_cancelled_live' (reservation_live_ride.dart:81, reservation_ride_realtime.dart:148). The cancelled reservation's banner (upcoming_reservation.dart:288 -> ReservationFormat.statusBody -> reasonLabel) looks codes up in CancellationReason ids and _reasonLabels. That map translates 'system_no_driver', not 'no_driver_found'. Neither code matches, so both fall through to the snake_case prettifier and come out as the English words 'No driver found' and 'Rider cancelled live' in every locale.",
+   "failure_scenario": "App language is Swedish. The rider resolves a no-driver ride from the chrono sheet, then opens it in History > Cancelled. The banner reads 'Avbokad. No driver found' instead of 'Avbokad. Ingen förare hittades'. A live-cancelled reservation reads 'Avbokad. Rider cancelled live'.",
+   "evidence": "reservation_controller.dart:302: static const noDriverFoundReason = 'no_driver_found';\nreservation_format.dart:39-45 _reasonLabels has 'system_no_driver': L10n.current.termNoDriverFound but no 'no_driver_found'\nreservation_format.dart:60-63: if (RegExp(r'^[a-z0-9]+(_[a-z0-9]+)+$').hasMatch(value)) { final words = value.replaceAll('_', ' '); return '${words[0].toUpperCase()}${words.substring(1)}'; }",
+   "suggested_fix": "Record the canonical 'system_no_driver' code, or add 'no_driver_found' and 'rider_cancelled_live' to _reasonLabels with translated labels.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "resolveNoDriverFound cancels with 'no_driver_found' (reservation_controller.dart:302,325). Live cancels record 'rider_cancelled_live' (reservation_live_ride.dart:81, reservation_ride_realtime.dart:148). LocalReservationRepository.cancelReservation stores the reason verbatim (local_reservation_repository.dart:230). statusBody (reservation_format.dart:178-181) calls reasonLabel. Neither code is a CancellationReason id or a _reasonLabels key: the map has only 'system_no_driver' (:39-45), and grep finds both strings nowhere else in lib/. Both codes match the snake_case regex at :60-63, so they render as English 'No driver found' and 'Rider cancelled live' inside the localized 'Cancelled. %s' sentence. The canonical contract code is system_no_driver (contracts/contract.json:585, lib/core/contracts/cancel_reasons.dart:28).",
+     "repro": "Static trace only (read-only run). Traced resolveNoDriverFound and the live cancel callbacks -> ReservationController.cancel -> LocalReservationRepository.cancelReservation -> Reservation.cancellationReason -> upcoming_reservation.dart:288 statusBody -> reasonLabel, and grepped lib/ and contracts/ for both codes.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "resolveNoDriverFound (reservation_controller.dart:324-325) is called from home_reservation_chrono.dart:124 and stores reason 'no_driver_found'. The local repository keeps it as cancellationReason (local_reservation_repository.dart:230). The live cancel stores 'rider_cancelled_live' (reservation_live_ride.dart:81, reservation_ride_realtime.dart:148). reasonLabel (reservation_format.dart:50-65) finds neither code among the CancellationReason ids (pickup_incorrect ... something_else) or in _reasonLabels (only system_no_driver and the other system_ codes). Both match the snake_case regex, so they become the English 'No driver found' and 'Rider cancelled live', which statusBody (:181) and the History reason line (ride_history.dart:561) show in every locale. A translated 'termNoDriverFound' exists (app_fr.arb:335) but is only mapped to 'system_no_driver'.",
+     "repro": "Read-only, no run. Traced the code from resolveNoDriverFound through cancel, _cancelNow and store.cancelReservation to cancellationReason. Then followed it to upcoming_reservation.dart:288 (statusBody) and reasonLabel, and worked the lookups by hand: no id match, no map key, regex match, so 'No driver found'.",
+     "evidence": "reservation_controller.dart:302 `noDriverFoundReason = 'no_driver_found'`; reservation_format.dart:39-45 maps only 'system_no_driver'; :60-63 prettifier fallback."
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-4",
+   "file": "lib/features/reservations/domain/reservation.dart",
+   "line": 178,
+   "title": "ReservationPriceChange treats any change under 0.5 major units as unchanged, so EUR/TND edits under half a unit show a zero difference and a 'price unchanged' summary",
+   "original_title": "ReservationPriceChange treats any change under 0.5 major units as 'unchanged', so euro and dinar edits show a 0 difference between two different prices",
+   "category": "wrong-math",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "ReviewChangesPage builds ReservationPriceChange(previous: original.price, next: draft.price, currency: original.currency). It shows the previous and new prices, then a difference of kr(0) whenever `unchanged`. The 0.5 threshold suits whole-kronor SEK display only. EUR is formatted with cents and TND with millimes (formatMoney), so a real change of up to 0.49 EUR or 0.499 DT is shown as a zero difference. The class also holds a single currency, so when the edited pickup is priced in another currency (draft.currency = selection.currency) the two amounts are subtracted across currencies.",
+   "failure_scenario": "A Paris (EUR) reservation was booked at 12.35 €, and the edit re-quotes it at 12.70 €. Review changes shows Previous '12,35 €', New '12,70 €', Difference '0,00 €'. The rider confirms an edit that costs 0.35 € more while being told the difference is zero.",
+   "evidence": "reservation.dart:176-178:\n  double get delta => next - previous;\n  bool get unchanged => delta.abs() < 0.5;\nreview_changes.dart:110-112: value: change.unchanged ? ReservationFormat.kr(0, change.currency) : ...\nmoney.dart: EUR: '${money.majorString.replaceFirst('.', ',')} €' (always with cents)",
+   "suggested_fix": "Compare in minor units with Money.fromLegacyMajor(next, currency) != Money.fromLegacyMajor(previous, currency), or set the threshold at half a displayed unit per currency. Refuse, or show separately, a change across currencies.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "reservation.dart:178 sets `unchanged => delta.abs() < 0.5`. review_changes.dart:23-27 builds the change from original.price and draft.price, and review_changes.dart:110-112 shows kr(0) when unchanged. ReservationFormat.kr (reservation_format.dart:95) calls formatMajor(whole: true). In shared/formatters/money.dart:24-37 `whole` rounds only SEK; EUR and TND keep their minor digits. The EUR and TND markets exist in rider_app_config.dart:490 and :529. So a 0.35 EUR change shows as '0,00 €', and change.summary (reservation.dart:181) says resPriceUnchanged. The cross-currency half is weaker: the class uses original.currency for both amounts, but an edit that moves the pickup into another market is an edge case. The rider still sees both real prices on the cards above.",
+     "repro": "Read-only static trace (no flutter/dart run). Worked by hand: previous 12.35, next 12.70, delta 0.35 < 0.5 so unchanged; kr(0,'EUR') -> formatMoney(Money(0,'EUR'), whole:true) -> '0,00 €'.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "reservation.dart:178 `unchanged => delta.abs() < 0.5` is a whole-krona threshold, and review_changes.dart:110-111 then shows kr(0, currency) as the difference. EUR and TND fares are not whole units: mock_catalog_fares.dart sets EUR stepMinor 5 (0.05 €) and TND stepMinor 100 (0.1 DT), and money.dart:34-37 always prints EUR and TND to the minor unit. So 12.35 -> 12.70 € gives delta 0.35 < 0.5: the row shows '0,00 €' and the summary says resPriceUnchanged, while the Previous and New rows show different prices. The cross-currency part is speculative: it needs an edit whose pickup moves into another zone, and I did not trace that path.",
+     "repro": "Read only, no run. Worked by hand: 12.70 - 12.35 = 0.35 (double, about 0.35000000000000142), abs < 0.5, so unchanged is true. That leads to formatMajor(0,'EUR'), which prints '0,00 €'. The 0.05 € fare step comes from MockZoneCurrency.eur in lib/core/api/mock_catalog_fares.dart.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-6",
+   "file": "lib/features/reservations/presentation/home_reservation_chrono.dart",
+   "line": 124,
+   "title": "A failed no-driver resolve escapes as an unhandled async error: no message, and Rebook is never opened",
+   "original_title": "A failed no-driver resolve escapes as an unhandled async error: no message, and Rebook is never opened",
+   "category": "other",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "_showNoDriverFound is started with unawaited(...) (lines 106 and 162) and has try/finally but no catch. resolveNoDriverFound -> cancel -> LocalReservationRepository.cancelReservation -> _commit -> PrefsReservationStorage.write, which rethrows on a storage failure (local_reservation_repository.dart:38-41). The error then reaches the zone as uncaught. The rider sees nothing, the ride stays in the no-driver state, and the Rebook flow they chose never opens. _onTick has the same unguarded unawaited(startLiveIfDue) path. The Upcoming page's cancel, by contrast, catches and shows reservationErrorMessage.",
+   "failure_scenario": "Web storage write fails (quota, blocked storage) when the rider taps Rebook on the 'No driver found' sheet. The sheet closes, nothing happens, no toast appears, and an uncaught error is logged. The chrono stays red.",
+   "evidence": "home_reservation_chrono.dart:104-107: unawaited(_showNoDriverFound(ride));\nhome_reservation_chrono.dart:113-129: try { ... await _reservations.resolveNoDriverFound(ride.reservationId); ... if (choice == _NoDriverChoice.rebook) widget.onRebook?.call(); } finally { _noDriverSheetOpen = false; }",
+   "suggested_fix": "Catch around resolveNoDriverFound, record the error and show MoveraToast with reservationErrorMessage(error, ReservationAction.cancel), as UpcomingReservationPage._cancel does.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "home_reservation_chrono.dart:110-129 has try/finally but no catch, and it is called with unawaited at lines 106 and 162. resolveNoDriverFound calls cancel, then _cancelNow, then _store.cancelReservation (reservation_controller.dart:208-235, 324-326). That calls _commit, then PrefsReservationStorage.write, which logs and rethrows (local_reservation_repository.dart:33-41, 137-140). Nothing catches the error, so it reaches the zone handler (bootstrap.dart:102/134), which only logs it. The rider gets no toast, the ride stays no-driver, and onRebook is skipped. It is reachable only when storage fails, so it is rare.",
+     "repro": "Read-only static trace from the chrono sheet down to PrefsReservationStorage.write. No guard or catch exists in between.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "home_reservation_chrono.dart:113-129 has try/finally and no catch, and it is called through unawaited at :106 and :162. resolveNoDriverFound leads to cancel, then _cancelNow (reservation_controller.dart:228), then _store.cancelReservation, then _commit (local_reservation_repository.dart:137-140). There PrefsReservationStorage.write rethrows (:38-41) before _items changes, so the ride stays no-driver and onRebook at :126 is skipped. The error reaches PlatformDispatcher.onError or runZonedGuarded in bootstrap.dart:102/134, which only logs it, so the rider sees no toast. This needs a prefs write failure, which is rare, hence low.",
+     "repro": "Read only, no run. Traced the call chain by hand: an exception from setString is rethrown, propagates through the awaited futures to the unawaited future, and becomes an uncaught zone error. No catch exists anywhere on that path.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-10",
+   "file": "lib/features/reservations/presentation/home_reservation_chrono.dart",
+   "line": 199,
+   "title": "An unresolved 'No driver found' ride stays the chrono's next ride and stops a later ride's live screen from auto-opening",
+   "original_title": "An unresolved 'No driver found' ride stays the chrono's next ride and stops a later ride's live screen from auto-opening",
+   "category": "ui-truth",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.3,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "_nextRide always returns the earliest upcoming reservation. A no-driver-found ride is still `upcoming` (driverAssignmentPending) until the rider resolves it. If they swipe the sheet away, _promptedNoDriverId stops it reappearing, but the ride stays first. _openLiveIfNeeded and _promptNoDriverIfNeeded only look at _nextRide(), so a later reservation that gets a driver and goes en route is never auto-opened, and tapping the chrono opens the stale no-driver sheet again.",
+   "failure_scenario": "Demo build: ride A (09:00) timed out without a driver and the rider dismissed the sheet. Ride B (11:00) gets a driver, and at 10:58 its driver goes en route. Home keeps showing A's red badge and never opens B's live ride. The rider only finds B through History > Upcoming.",
+   "evidence": "home_reservation_chrono.dart:199-204: final upcoming = [..._reservations.upcoming()]..sort(...); return upcoming.first;\nhome_reservation_chrono.dart:132-136: final ride = _nextRide(); if (ride == null || !ride.revealsDriver) return;",
+   "suggested_fix": "For live auto-open, pick the first ride that reveals a driver. For the chrono, skip rides already prompted as no-driver when a later actionable ride exists.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_nextRide (home_reservation_chrono.dart:199-204) returns the earliest isUpcoming ride. A no-driver ride is still scheduled or driverAssignmentPending, both of which count as upcoming (reservation_status.dart:15-21). Nothing cancels it automatically: startLiveIfDue (reservation_controller.dart:328-395) never cancels, and isNoDriverFound is only a predicate. If the rider dismisses the sheet, choice is null and the code returns without resolving (line 119). _openLiveIfNeeded (lines 132-136) checks only _nextRide().revealsDriver, so a later ride B that goes en route is never auto-opened. The only other caller of ReservationLiveRide.open is upcoming_reservation.dart:102, which is reached manually. Tapping the chrono calls _openRide(A) and opens the no-driver sheet again (lines 156-160).",
+     "repro": "Read-only static trace of _nextRide, _openLiveIfNeeded, _promptNoDriverIfNeeded and isUpcoming, plus a grep for other ReservationLiveRide.open callers.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_nextRide (home_reservation_chrono.dart:199-204) always returns the earliest upcoming ride. A no-driver ride keeps the scheduled or driverAssignmentPending status (isNoDriverFound, reservation_controller.dart:306-316, is derived and nothing changes the status), so it stays in upcoming() (:141-142) until resolveNoDriverFound runs. Dismissing the sheet (choice == null at :119) only sets _promptedNoDriverId. _openLiveIfNeeded (:132-136) checks only _nextRide().revealsDriver, so a later ride that reveals its driver is never auto-opened, and tapping the chrono reopens the no-driver sheet (:158-163). Reachable in demo or mock dispatch when ride A gets no driver but ride B does.",
+     "repro": "Read only, no run. Traced it by hand with A at 09:00 (no driver, dismissed) and B at 11:00 (driver en route at 10:58): _nextRide() returns A, A.revealsDriver is false, so the function returns early and B is never opened.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-7",
+   "file": "lib/features/reservations/presentation/home_reservation_chrono.dart",
+   "line": 255,
+   "title": "Chrono screen-reader label reads 'Reservation in Now' for a due or live ride",
+   "original_title": "Chrono screen-reader label reads 'Reservation in Now' for a due or live ride",
+   "category": "l10n",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "remainingCompact returns L10n.now ('Now' / 'Nu' / 'Maintenant') when less than 60 s remain, and also for every past pickup (driver arrived, in progress). That value is interpolated into reservationIn ('Reservation in {time}'), which gives broken sentences in all three languages.",
+   "failure_scenario": "During a scheduled trip in progress, VoiceOver on the Home chrono announces 'Reservation in Now' (sv: 'Bokning om Nu', fr: 'Réservation dans Maintenant').",
+   "evidence": "home_reservation_chrono.dart:253-255: label: noDriver ? context.l10n.chronoNoDriverLabel : context.l10n.reservationIn(compact),\nreservation_format.dart:100: if (left.inSeconds < 60) return L10n.current.now;\napp_en.arb:1676 \"reservationIn\": \"Reservation in {time}\"; app_sv.arb:799 \"Bokning om {time}\"; app_fr.arb:799 \"Réservation dans {time}\"",
+   "suggested_fix": "When the remaining time is under a minute or past, use a separate label (for example 'Reservation now' or a status-based label) instead of interpolating 'Now'.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "home_reservation_chrono.dart:253-255 uses reservationIn(compact) whenever the ride is not no-driver. remainingCompact (reservation_format.dart:98-100) returns L10n.now for anything under 60 s, past pickups included. The chrono keeps showing driverArrived and inProgress rides, because isUpcoming includes them (reservation_status.dart:15-21). The ARB strings are app_en.arb:1676/1272, app_sv.arb:799/671 and app_fr.arb:799/671, which give 'Reservation in Now', 'Bokning om Nu' and 'Réservation dans Maintenant'.",
+     "repro": "Read-only static trace of the Semantics label, remainingCompact and the ARB entries, plus the isUpcoming check that keeps in-progress rides on the chrono.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "For a ride that is not in the no-driver state, the Semantics label at home_reservation_chrono.dart:253-255 is reservationIn(compact). remainingCompact (reservation_format.dart:99-100) returns L10n.now whenever left.inSeconds < 60, which includes every past pickup (driver arrived, in progress). With the arb strings (en:1272/1676, sv:671/799, fr:671/799) this produces 'Reservation in Now', 'Bokning om Nu' and 'Réservation dans Maintenant'. This is a minor accessibility wording issue.",
+     "repro": "Read only, no run. Substituted the arb values by hand: 'Reservation in {time}' with time = 'Now' gives 'Reservation in Now'.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
    "file": "lib/features/reservations/presentation/reservation_format.dart",
    "line": 143,
    "title": "cardDate 'Tomorrow' label breaks on the spring-forward day because today.add(Duration(days:1)) is not the next local midnight",
@@ -2214,6 +2594,120 @@
     }
    ],
    "source": "rider3"
+  },
+  {
+   "id": "rider-j8-2",
+   "file": "lib/features/reservations/presentation/upcoming_reservation.dart",
+   "line": 235,
+   "title": "Completed reservations opened from History are headed 'Upcoming ride', and both completed and cancelled ones say 'Your ride is reserved for ...'",
+   "original_title": "Completed and cancelled reservations opened from History are headed 'Upcoming ride' / 'Your ride is reserved for ...'",
+   "category": "ui-truth",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.6,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "History's Completed and Cancelled tabs open every non-ondemand reservation in UpcomingReservationPage (ride_history.dart:469-480). The headline only checks isCancelled, so a completed ride gets resUpcomingRide ('Upcoming ride'). The subtitle is always resReservedFor ('Your ride is reserved for {date} at {time}'), including on cancelled and completed rides. When admin turned showDriverOnAccept off, a completed ride also falls into the `else if (ride.driverAssigned)` branch, because status.hasDriver includes completed. That branch shows 'Driver details appear when your driver is on the way.' on a finished trip.",
+   "failure_scenario": "History > Completed > tap a finished scheduled ride. The header reads 'Upcoming ride' and 'Your ride is reserved for Mon, 5 Oct at 10:00' above a 'Completed' status banner. A cancelled ride reads 'Cancelled reservation' and then 'Your ride is reserved for ...'.",
+   "evidence": "upcoming_reservation.dart:234-246:\n  ride.status.isCancelled ? context.l10n.resCancelledReservation : context.l10n.resUpcomingRide,\n  ...\n  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),\nupcoming_reservation.dart:321-324: } else if (ride.driverAssigned) ... Text(context.l10n.resDriverOnTheWay\nreservation_status.dart:27-32 hasDriver includes completed.",
+   "suggested_fix": "Choose the title and subtitle by status: completed and cancelled get past-tense copy with no 'reserved for'. Limit the resDriverOnTheWay hint to status.isUpcoming.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "ride_history.dart:469-480 opens every non-'ondemand-' reservation, including completed and cancelled ones, in UpcomingReservationPage. upcoming_reservation.dart:234-236 checks only isCancelled, so a completed ride gets resUpcomingRide. :245 always shows reservedHeadline (resReservedFor, reservation_format.dart:84-86), whatever the status. The resDriverOnTheWay branch at :321 runs when showDriver is false and ride.driverAssigned is true. driverAssigned is status.hasDriver && driver != null (reservation.dart:296), and hasDriver includes completed (reservation_status.dart:27-32). So a completed ride with a driver and showDriver off shows the on-the-way hint. None of the three documents describes this as intended.",
+     "repro": "Static trace only, no build or test run (read-only). Read the History tap handler (_openHistoryRide), upcoming_reservation.dart:234-330, ReservationFormat.reservedHeadline, Reservation.driverAssigned and ReservationStatus.hasDriver.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "ride_history.dart:469-480 (lib/features/history/presentation) sends every completed or cancelled non-ondemand reservation to UpcomingReservationPage. In upcoming_reservation.dart:234-236 the headline only checks isCancelled, so a completed ride gets resUpcomingRide ('Upcoming ride'). Line 245 always uses reservedHeadline, which returns resReservedFor ('Your ride is reserved for {date} at {time}', reservation_format.dart:84-86). hasDriver includes completed (reservation_status.dart:27-32), so driverAssigned is true for a completed ride that has a driver (reservation.dart:296). When showDriverOnAccept is false, showsDriverOf returns false (scheduled_ride_rules.dart:121-125, because revealsDriver needs isDriverOnTheWay), so the code falls into the else-if at line 321 and shows resDriverOnTheWay. Nothing in DECISIONS.md covers this.",
+     "repro": "Read-only run, no flutter. Traced by hand: History completed tab, _openHistoryRide, then UpcomingReservationPage.build. For status=completed: isCancelled=false gives 'Upcoming ride', and the subtitle is always resReservedFor (app_en.arb:1249). The status banner shows resStatusCompleted, which contradicts the header.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-9",
+   "file": "lib/features/reservations/presentation/upcoming_reservation.dart",
+   "line": 374,
+   "title": "Editing a reservation keeps its dispatch status: a searching or no-driver ride moved to a later day stays 'searching'",
+   "original_title": "Editing a reservation keeps its dispatch status: a searching or no-driver ride moved to a later day stays 'searching'",
+   "category": "state-corruption",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.35,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "canEdit covers driverAssignmentPending (and the no-driver-found state), so the Upcoming page offers Edit. The edit goes through ScheduledRideBooking.confirm -> ReservationController.update with a patch that changes the time and route but not status. The ride keeps driverAssignmentPending. startLiveIfDue only moves `scheduled` to pending at T-2 and never back. In builds without dispatch, the rescheduled ride therefore shows the 'searching' dots badge on Home (HomeReservationChrono.searching) for the whole time until the new pickup, though no search is running. In mock builds the dispatch immediately assigns a driver to a ride that is now days away, because acceptAfter has long passed.",
+   "failure_scenario": "A ride for 10:00 has reached 'No driver found' (status driverAssignmentPending). The rider opens it and edits the time to tomorrow 10:00. Home now shows the orange 'searching' badge for 24 hours, although the ride is a normal future booking.",
+   "evidence": "reservation_status.dart:34: bool get canEdit => isUpcoming && this != inProgress;\nscheduled_ride_booking.dart:61-77: reservations.update(editingReservationId, ReservationPatch(scheduledPickupAt: when, ... note: note)) // no status\nreservation_controller.dart:375-381: only `scheduled` moves to pending; nothing moves pending back to scheduled.\nhome_reservation_chrono.dart:231-236: ride.isSearchingDriver ? (searching badge)",
+   "suggested_fix": "When an edit moves the pickup out of the assignment window and no driver is assigned, include status: ReservationStatus.scheduled in the patch (the repository's updateReservation or the booking patch).",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "_editReservation (upcoming_reservation.dart:112-123) is gated only by canEdit, which includes driverAssignmentPending. ScheduledRideBooking's edit path (scheduled_ride_booking.dart:61-77) builds a ReservationPatch with no status. LocalReservationRepository.updateReservation (local_reservation_repository.dart:189-216) passes status: patch.status, which is null, to copyWith, so the old status is kept. startLiveIfDue (reservation_controller.dart:375-381) only moves scheduled to pending and never moves a pending ride back. The ride therefore stays driverAssignmentPending with a pickup far away, and the chrono's isSearchingDriver branch (home_reservation_chrono.dart:231-235) shows the searching badge. It is an edge path: the rider has to edit a ride that is already pending or past no-driver-found.",
+     "repro": "Static trace only, no build or test run. Followed the edit chain from the Upcoming page through ScheduleRide, ScheduledRideBooking.confirm and ReservationController.update into LocalReservationRepository.updateReservation.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "canEdit = isUpcoming && != inProgress (reservation_status.dart:34) covers driverAssignmentPending, and _editReservation (upcoming_reservation.dart:112-118) only checks canEdit. ScheduledRideBooking.confirm, when editing (lib/features/ride_selection/application/scheduled_ride_booking.dart:61-77), builds a ReservationPatch with no status. LocalReservationRepository.updateReservation (local_reservation_repository.dart:196-213) passes status: patch.status (null) to copyWith, which keeps driverAssignmentPending. startLiveIfDue (reservation_controller.dart:375-381) only moves scheduled to pending. Home chrono then picks the searching badge (home_reservation_chrono.dart:231-236) once noDriver is false, because the new pickup is in the future. The mock-dispatch immediate-assignment sub-claim was not verified, but the main no-dispatch path holds.",
+     "repro": "Read-only, no flutter. Worked the values by hand: the ride is pending at 10:06 and gets edited to tomorrow 10:00. isNoDriverFound(now=10:07): now is before tomorrow 10:05, so false. driverAssigned is false (no driver) and isSearchingDriver is true, so the badge is 'reservation-chrono-badge-searching' for about 24h.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-8",
+   "file": "lib/features/reservations/presentation/upcoming_reservation.dart",
+   "line": 506,
+   "title": "Driver card accessibility label hard-codes the English word 'plate'",
+   "original_title": "Driver card accessibility label hard-codes the English word 'plate'",
+   "category": "l10n",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.55,
+   "reported_by": [
+    "area:reservation-domain-deep"
+   ],
+   "merged_from": [],
+   "description": "ReservationDriverCard's Semantics label joins the translated resYourDriverName with the literal 'plate ${driver.plate}'. This is a different occurrence from the known ride_restore_coordinator.dart:620 one.",
+   "failure_scenario": "App in Swedish: the screen reader announces 'Din förare Anna, Svart Volvo XC40, plate ABC 123'.",
+   "evidence": "upcoming_reservation.dart:503-507:\n  label: [\n    context.l10n.resYourDriverName(driver.displayFirstName),\n    if (car != null) car,\n    if (driver.plate != null) 'plate ${driver.plate}',\n  ].join(', '),",
+   "suggested_fix": "Add an ARB key such as resPlateLabel('{plate}') and use it here.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "upcoming_reservation.dart:503-507 builds the Semantics label with the literal 'plate ${driver.plate}' next to the localised resYourDriverName. A screen reader in sv or fr announces the English word 'plate'.",
+     "repro": "Static read of ReservationDriverCard.build in upcoming_reservation.dart; no build run.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "upcoming_reservation.dart:503-507 builds the Semantics label with the literal 'plate ${driver.plate}' next to the translated resYourDriverName. Any non-English locale therefore hears the English word 'plate'. The card is shown whenever showDriver is true (line 318-320).",
+     "repro": "Read-only, no flutter. Read ReservationDriverCard.build. The string literal is not routed through l10n.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
   },
   {
    "file": "lib/features/ride_booking/application/ride_restore_coordinator.dart",
@@ -2610,6 +3104,44 @@
    "source": "rider3"
   },
   {
+   "id": "rider-j8-11",
+   "file": "lib/shared/design_system/movera_confirm_sheet.dart",
+   "line": 13,
+   "title": "Confirm sheet's Cancel button stays English in sv/fr: default cancelLabel 'Cancel' is never overridden by the three callers",
+   "original_title": "The confirm sheet's Cancel button is English in every locale: the default cancelLabel is 'Cancel' and no caller overrides it",
+   "category": "l10n",
+   "severity": "low",
+   "claimed_severity": "medium",
+   "confidence": 0.85,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "confirmMoveraAction defaults cancelLabel to the literal 'Cancel'. All three production callers pass title, message and confirmLabel from context.l10n but never pass cancelLabel: add_place.dart:104 (replace Home/Work), saved_places.dart:73 (remove place) and emergency_contacts_page.dart:51 (delete contact). The ARB files already have the key (`cancel`: 'Avbryt' in sv, 'Annuler' in fr), so the sheet mixes a translated title and confirm button with an English Cancel.",
+   "failure_scenario": "With the app in Swedish, a rider long-presses a saved place and taps Remove. The sheet reads 'Ta bort …?' with a 'Ta bort' button and an English 'Cancel' button. The same happens when deleting an emergency contact or replacing Home/Work.",
+   "evidence": "movera_confirm_sheet.dart:13 `String cancelLabel = 'Cancel',`; :65 `cancelLabel,` rendered as the TextButton text. saved_places.dart:73-78 `confirmMoveraAction(context, title: context.l10n.spRemoveQ(place.title), message: place.subtitle, confirmLabel: context.l10n.remove,)` with no cancelLabel. The same applies at add_place.dart:104-109 and emergency_contacts_page.dart:51-56. app_sv.arb:614 `\"cancel\": \"Avbryt\"`.",
+   "suggested_fix": "Default cancelLabel to null and use `cancelLabel ?? sheetContext.l10n.cancel`, or pass context.l10n.cancel at every call site.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "movera_confirm_sheet.dart:13 defaults cancelLabel to the literal 'Cancel', and :65 renders it. All three callers omit cancelLabel: add_place.dart:104-109, saved_places.dart:73-78 and emergency_contacts_page.dart:51-56. app_sv.arb:614 ('Avbryt') and app_fr.arb:614 ('Annuler') already have a cancel key, so in those locales the sheet shows a translated title and confirm button next to an English Cancel. It is a real localisation slip but cosmetic, so low rather than the claimed medium.",
+     "repro": "Static read only: grepped for every confirmMoveraAction( call site and read each one, and grepped the ARB files for the cancel key.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "medium",
+     "reason": "movera_confirm_sheet.dart:13 defaults cancelLabel to 'Cancel' and :65 renders it. All three callers omit cancelLabel while localizing the other strings: add_place.dart:104-109, saved_places.dart:73-78 and emergency_contacts_page.dart:51-56. The ARB key exists (app_sv.arb:614 'Avbryt', app_fr.arb:614 'Annuler') but this sheet does not use it.",
+     "repro": "Read-only, no flutter. Grepped every confirmMoveraAction call site in lib (3 found), and none passes cancelLabel. In a Swedish locale the sheet therefore renders 'Ta bort' next to 'Cancel'.",
+     "evidence": ""
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
    "file": "lib/shared/widgets/horizontal_swipe.dart",
    "line": 22,
    "title": "HorizontalSwipe keeps the drag origin in build-local variables, so a rebuild mid-drag resets start to 0: a leftward drag is swallowed or read as a right swipe",
@@ -2645,6 +3177,82 @@
     }
    ],
    "source": "rider1"
+  },
+  {
+   "id": "rider-j8-14",
+   "file": "lib/shared/widgets/navigation_transition.dart",
+   "line": 28,
+   "title": "Transition builders allocate an undisposed CurvedAnimation on every transition frame, leaking status listeners on the route controller for the route's lifetime and losing curve-direction continuity on mid-animation reversal",
+   "original_title": "Transition builders create a new CurvedAnimation on every frame and never dispose it, so status listeners pile up on long-lived routes",
+   "category": "leak",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.45,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "Each transitionsBuilder (TopToBottomTransition:28, RideStageTransition:61, SwitchTransition:99, _sheetCover:169, _sideCover:193) constructs a CurvedAnimation. In this Flutter SDK the CurvedAnimation constructor always calls parent.addStatusListener(_updateCurveDirection), and only dispose() removes it. _ModalScopeState rebuilds buildTransitions through a ListenableBuilder on Listenable.merge(animation, secondaryAnimation) (flutter routes.dart:1101-1102, 1204-1208), so the builder runs on every tick of the route's own animation and of every route pushed or popped above it. Each tick leaves one more status listener on the route's AnimationController for the route's lifetime. Flutter's own CurvedAnimation docs (animations.dart:410-411) say not to recreate it on every build because it leaks. A fresh CurvedAnimation per frame also drops the curve-direction memory, so a pop that starts mid-push jumps to the reverse curve.",
+   "failure_scenario": "SelectRide or FindingDrivers (RideStageTransition) stays in the stack while many pages and sheets are pushed and popped above it. Each transition frame (about 20 per 360 ms push) adds another dead status listener to that route's controller. Memory grows with every navigation over the route, and every later status change iterates the whole list.",
+   "evidence": "navigation_transition.dart:28 `final curved = CurvedAnimation(parent: animation, curve: MoveraCurves.open, reverseCurve: MoveraCurves.close);` (and :61, :99, :169, :193). /opt/flutter/packages/flutter/lib/src/animation/animations.dart:389-392 `CurvedAnimation(...) { ... parent.addStatusListener(_updateCurveDirection); }`",
+   "suggested_fix": "Use `CurveTween(curve: ...)` chained on the animation, for example `animation.drive(CurveTween(curve: MoveraCurves.open))`, or move the curves into a StatefulWidget that owns and disposes its CurvedAnimation.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "navigation_transition.dart:28,61,99,169,193 each build a new CurvedAnimation inside transitionsBuilder, and nothing disposes it. The Flutter SDK constructor at animations.dart:389-392 calls parent.addStatusListener(_updateCurveDirection), and only dispose() removes that listener. The parent is route.animation, which is _controller!.view (routes.dart:247-250), meaning the AnimationController itself. _ModalScopeState wraps _buildFlexibleTransitions in a ListenableBuilder on Listenable.merge(animation, secondaryAnimation) (routes.dart:1101-1102, 1204-1208). So every tick of the route's own animation, and every tick of a route pushed or popped above it, adds one more status listener to that controller. The value listeners used by FadeTransition and SlideTransition are removed correctly in didUpdateWidget, so only the status listeners pile up. The direction-memory part is also real: a fresh CurvedAnimation starts with _curveDirection null and takes parent.status (animations.dart:430), so a route that reverses mid-push switches to reverseCurve at once (SwitchTransition, _sideCover, _sheetCover and TopToBottom all set reverseCurve), which makes a visible jump. No guard prevents either effect. Impact is small: the listeners are tiny, they are freed when the route's controller is disposed, and they only grow during animation frames, never while idle.",
+     "repro": "Static trace only, no flutter/dart run (read-only). Read the app file, then /opt/flutter/packages/flutter/lib/src/animation/animations.dart:389-435 and /opt/flutter/packages/flutter/lib/src/widgets/routes.dart:247-250, 328, 1101-1102, 1204-1235. Nothing in DECISIONS.md or ARCHITECTURE.md mentions this pattern.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "navigation_transition.dart:28, 61, 99, 169 and 193 each build a new CurvedAnimation inside transitionsBuilder, and nothing disposes it. In this SDK the constructor calls parent.addStatusListener(_updateCurveDirection) (animations.dart:389-392), and only dispose() removes that listener. _ModalScopeState wraps _buildFlexibleTransitions in a ListenableBuilder on Listenable.merge(animation, secondaryAnimation) (routes.dart:1101-1102, 1204-1208), so the builder runs again on every tick of the route's own animation and of its secondaryAnimation. No guard exists. The extra listeners live until the route's controller is disposed with the route, so the leak is bounded by how long the route stays in the stack. The cost per tick is small, which is why it rates low. The direction claim also holds: each new instance reads parent.status, so once a pop reverses a push mid-flight, every new CurvedAnimation picks reverseCurve (the reversal case animations.dart:404-407 avoids) and the curve jumps. RideStageTransition has no reverseCurve and a zero reverse duration, so this part does not apply to it. The leak still does.",
+     "repro": "Read-only run: no flutter or dart commands. I traced routes.dart:1098-1250, where the ListenableBuilder over the merged animations calls buildTransitions -> transitionsBuilder on every animation tick, and the CurvedAnimation constructor and its doc warning at animations.dart:389-416. Worked by hand for a 360 ms push at 60 fps: about 21 builder calls, so about 21 status listeners added and never removed, plus about the same again for each push or pop above the route through secondaryAnimation.",
+     "evidence": "navigation_transition.dart:28 `final curved = CurvedAnimation(parent: animation, curve: MoveraCurves.open, reverseCurve: MoveraCurves.close);` with no dispose; animations.dart:391 `parent.addStatusListener(_updateCurveDirection);`"
+    }
+   ],
+   "source": "rider-j8"
+  },
+  {
+   "id": "rider-j8-16",
+   "file": "lib/shared/widgets/realtime_connection_banner.dart",
+   "line": 34,
+   "title": "Connection banner and MoveraEmptyState are read twice by screen readers: an explicit Semantics label plus the unexcluded child Texts (empty state is at lib/shared/design_system/movera_empty_state.dart)",
+   "original_title": "Screen readers announce the connection banner twice: an explicit Semantics label is set and the child Texts are still read",
+   "category": "a11y",
+   "severity": "low",
+   "claimed_severity": "low",
+   "confidence": 0.5,
+   "reported_by": [
+    "area:shared-design-system-deep"
+   ],
+   "merged_from": [],
+   "description": "The banner wraps its content in Semantics(liveRegion: true, label: '<title>. <body>'), but the title and body Text widgets below it are not excluded. Neither is a semantics boundary, so their labels merge into the same node and the live-region announcement reads the title and body twice. MoveraEmptyState (movera_empty_state.dart:29-31, Semantics(container: true, label: '$title. $message') above the same two Texts) has the same duplication on every empty and loading screen.",
+   "failure_scenario": "TalkBack or VoiceOver user on the trip screen: the connection drops and the live region announces 'Reconnecting. <body>' and then 'Reconnecting <body>' again. History's loading and empty states are read twice in the same way.",
+   "evidence": "realtime_connection_banner.dart:34-38 `Semantics(key: ..., liveRegion: true, label: spec.semantics, child: DecoratedBox(... Text(spec.title ...), Text(spec.subtitle ...)` where spec.semantics = '${L10n.current.rtReconnecting}. ${L10n.current.rtReconnectingBody}'. movera_empty_state.dart:29-31 `Semantics(container: true, label: '$title. $message', child: ... Text(title) ... Text(message)`",
+   "suggested_fix": "Wrap the visual content in ExcludeSemantics, or drop the explicit label and keep only the Texts.",
+   "verdicts": [
+    {
+     "lens": "tracer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "realtime_connection_banner.dart:34-38 sets Semantics(liveRegion: true, label: spec.semantics) with no container and no excludeSemantics. Its descendants (DecoratedBox, Padding, Row, Column, two Text widgets) contain no semantics boundary and no ExcludeSemantics. The Texts' labels therefore merge into the same semantics node as the explicit label 'title. body', and the node reads that label followed by title and body again. The banner is used on ride-critical screens: waiting_for_driver.dart:1518, finding_drivers.dart:903 and ride_completed.dart:331. MoveraEmptyState is at lib/shared/design_system/movera_empty_state.dart:29-31, not under widgets/ as the finding says. Its Semantics(container: true, label: '$title. $message') sits above Text(title) and Text(message) with no exclusion. Its SingleChildScrollView may put the Texts in a child scroll node instead of merging them, but the screen reader still reads the title and message twice. The decision documents do not record any accessibility choice that would make this intentional.",
+     "repro": "Static trace only, no flutter/dart run (read-only). Read the banner build tree, its three callers, movera_empty_state.dart:29-70, and grepped DECISIONS.md, ARCHITECTURE.md and QA_HOOKS.md for semantics decisions (none found). Fix: add excludeSemantics: true to both Semantics widgets.",
+     "evidence": ""
+    },
+    {
+     "lens": "reproducer",
+     "verdict": "confirmed",
+     "severity": "low",
+     "reason": "realtime_connection_banner.dart:34-38 is a Semantics with liveRegion: true and an explicit label, but container is false and there is no excludeSemantics or ExcludeSemantics. The Text widgets at :64 and :73 sit under it with no semantics boundary between them (DecoratedBox, Padding, Row, Column and Expanded create none). Their labels therefore merge into the same node as the explicit label, giving \"Reconnecting. <body>\\nReconnecting\\n<body>\", so the live region announces the text twice. Nothing under lib/shared excludes this subtree; the only ExcludeSemantics there is in movera_icon_button.dart:63. MoveraEmptyState is actually at lib/shared/design_system/movera_empty_state.dart:29-31, not the path the finding gives. It also duplicates, but differently: SingleChildScrollView adds its own scroll semantics node, so the Texts become a child node under the container's label rather than being joined into one label. The screen reader still reads the title and message twice when moving through the screen.",
+     "repro": "Read-only run: no flutter or dart commands. I read realtime_connection_banner.dart:20-100 and movera_empty_state.dart:1-80 and applied the semantics merge rules by hand: a non-container Semantics config merges with any child config that is not a boundary, and their labels are joined with newlines. I did not run a widget test. A semantics-tree dump from tester.getSemantics(find.byKey(ValueKey('realtime-reconnecting'))) would confirm the label text.",
+     "evidence": "Semantics(key: ValueKey('realtime-${state.name}'), liveRegion: true, label: spec.semantics, child: DecoratedBox(... Text(spec.title) ... Text(spec.subtitle)))"
+    }
+   ],
+   "source": "rider-j8"
   },
   {
    "file": "lib/shared/widgets/responsive_size.dart",
@@ -3465,5 +4073,47 @@
    ],
    "source": "rider4"
   }
+ ],
+ "runs_done": [
+  "driver1",
+  "driver2",
+  "driver3",
+  "driver4",
+  "rider1",
+  "rider2",
+  "rider3",
+  "rider4",
+  "driver-j2",
+  "rider-j8"
+ ],
+ "runs_pending": [
+  "driver-w2a",
+  "driver-w2b",
+  "rider-w2a",
+  "rider-w2b",
+  "rider-w2c",
+  "driver-w3a",
+  "driver-w3b",
+  "rider-w3a",
+  "rider-w3b",
+  "driver-w4a",
+  "rider-w4a",
+  "driver-w4b",
+  "rider-w4b",
+  "driver-w4c",
+  "rider-w4c",
+  "driver-j1",
+  "driver-j3",
+  "driver-j4",
+  "driver-j5",
+  "driver-j6",
+  "driver-j7",
+  "rider-j1",
+  "rider-j2",
+  "rider-j3",
+  "rider-j4",
+  "rider-j5",
+  "rider-j6",
+  "rider-j7"
  ]
 }
