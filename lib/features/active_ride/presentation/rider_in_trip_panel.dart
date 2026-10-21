@@ -82,13 +82,19 @@ class RiderInTripPanel extends StatelessWidget {
                             color: MoveraTokens.accent,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
-                            style: waitingText(
-                              11,
-                              weight: FontWeight.w700,
-                              color: MoveraTokens.accent,
-                            ).copyWith(letterSpacing: 0.7),
+                          // rider-u39: the label ellipsizes rather than
+                          // overflow the pill (Swedish, large text).
+                          Flexible(
+                            child: Text(
+                              approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: waitingText(
+                                11,
+                                weight: FontWeight.w700,
+                                color: MoveraTokens.accent,
+                              ).copyWith(letterSpacing: 0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -165,9 +171,11 @@ class RiderInTripPanel extends StatelessWidget {
                       color: MoveraTokens.ink,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      context.l10n.tripSafety,
-                      style: waitingText(14, weight: FontWeight.w700),
+                    Flexible(
+                      child: Text(
+                        context.l10n.tripSafety,
+                        style: waitingText(14, weight: FontWeight.w700),
+                      ),
                     ),
                   ],
                 ),
