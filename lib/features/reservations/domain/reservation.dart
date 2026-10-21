@@ -147,6 +147,7 @@ class ReservationDraft {
     this.note,
     this.parentReservationId,
     this.timeZone,
+    this.stops = const <ReservationPlace>[],
   });
 
   /// The pickup instant. With a [timeZone] it is the instant of the
@@ -168,6 +169,10 @@ class ReservationDraft {
   /// The pickup zone's IANA time zone (Q9), or null for a ride booked in
   /// device-local time.
   final String? timeZone;
+
+  /// rider-r4-28: the stops between pickup and destination, in order, that
+  /// [price] was quoted for (contract §2, request `stops: Place[]`).
+  final List<ReservationPlace> stops;
 
   /// The pickup as the rider picked it: the zone's wall-clock time.
   DateTime get pickupWallTime => zoneWallTime(scheduledPickupAt, timeZone);
@@ -221,6 +226,7 @@ class ReservationPatch {
     this.clearDriver = false,
     this.previousDriver,
     this.timeZone,
+    this.stops,
   });
 
   final DateTime? scheduledPickupAt;
@@ -246,6 +252,10 @@ class ReservationPatch {
 
   /// The pickup zone of a new [scheduledPickupAt] (rider-63).
   final String? timeZone;
+
+  /// The route's stops, when the route changes; empty removes them. Null:
+  /// unchanged.
+  final List<ReservationPlace>? stops;
 }
 
 class Reservation {
@@ -277,6 +287,7 @@ class Reservation {
     this.chargedFare,
     this.paymentFailed = false,
     this.timeZone,
+    this.stops = const <ReservationPlace>[],
   });
 
   final String reservationId;
@@ -324,6 +335,11 @@ class Reservation {
   /// [estimatedDropoffAt] are instants; screens show them as this zone's
   /// wall-clock time. Null: an older ride booked in device-local time.
   final String? timeZone;
+
+  /// rider-r4-28: the booked stops, in order (contract `stops: Place[]`).
+  /// Empty for a ride without stops, and for one saved before rides kept
+  /// them.
+  final List<ReservationPlace> stops;
 
   /// The pickup time as the rider booked it, in the pickup zone.
   DateTime get pickupWallTime => zoneWallTime(scheduledPickupAt, timeZone);
@@ -376,6 +392,7 @@ class Reservation {
     Money? chargedFare,
     bool? paymentFailed,
     String? timeZone,
+    List<ReservationPlace>? stops,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -405,6 +422,7 @@ class Reservation {
       chargedFare: chargedFare ?? this.chargedFare,
       paymentFailed: paymentFailed ?? this.paymentFailed,
       timeZone: timeZone ?? this.timeZone,
+      stops: stops ?? this.stops,
     );
   }
 
@@ -439,6 +457,7 @@ class Reservation {
     if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
     if (paymentFailed) 'paymentFailed': true,
     if (timeZone != null) 'timeZone': timeZone,
+    if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -501,6 +520,12 @@ class Reservation {
         chargedFare: Money.fromWire(map['chargedFare']),
         paymentFailed: map['paymentFailed'] == true,
         timeZone: map['timeZone'] as String?,
+        stops: [
+          if (map['stops'] case final List stops)
+            ...stops
+                .map(ReservationPlace.tryParse)
+                .whereType<ReservationPlace>(),
+        ],
       );
     } catch (_) {
       return null;

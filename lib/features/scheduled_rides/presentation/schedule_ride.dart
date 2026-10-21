@@ -48,11 +48,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
   static const Color _scheduleLine = Color(0xFFE4E7E8);
   static const Color _scheduleAccent = Color(0xFF356879);
 
-  /// U5 stopgap (same kill-switch as Home's `_stopsSupported`): stops typed
-  /// here reached `ScheduledRideSession.stops` → `SelectRide(stops:)` and were
-  /// then silently dropped — `ReservationDraft` has no stops, and there is no
-  /// multi-stop fare or routing. Hidden until multi-stop quoting, routing and
-  /// booking exist end to end (blocked on backend).
+  /// Same switch as Home's `_stopsSupported`: stops typed here go through
+  /// `ScheduledRideSession.stops` → `SelectRide(stops:)`, which quotes them
+  /// and books them on the reservation (rider-r4-28).
   static const bool _stopsSupported = true;
 
   // rider-87: the "Current location" stand-in, in the app language. The
@@ -102,6 +100,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
       _session.captureRideType(editing.categoryId);
       _session.capturePayment(editing.paymentMethod);
       if (editing.hasPreferences) _session.captureNote(editing.note!.trim());
+      // rider-r4-28: the booked stops, so a changed ride keeps them.
+      for (final stop in editing.stops.take(3)) {
+        _stopControllers.add(
+          TextEditingController(text: stop.label)
+            ..addListener(_syncRouteToSession),
+        );
+      }
     }
     setWebOverlayOpen(true);
     _pickupController.addListener(_syncRouteToSession);

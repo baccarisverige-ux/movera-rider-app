@@ -55,6 +55,7 @@ class ScheduledRideBooking {
     String? editingReservationId,
     double? price,
     String? timeZone,
+    List<ReservationPlace> stops = const <ReservationPlace>[],
   }) {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled booking cannot enter Finding Driver');
@@ -97,6 +98,8 @@ class ScheduledRideBooking {
           paymentMethod: payment.name,
           note: note,
           timeZone: zone,
+          // rider-r4-28: the stops [quoted] priced.
+          stops: stops,
         ),
       );
     }
@@ -116,6 +119,7 @@ class ScheduledRideBooking {
         note: note,
         parentReservationId: parentReservationId,
         timeZone: zone,
+        stops: stops,
       ),
     );
   }

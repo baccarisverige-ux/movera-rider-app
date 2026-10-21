@@ -10,6 +10,7 @@ import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.d
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -84,6 +85,16 @@ abstract final class ReservationLiveRide {
       destinationAddress: ride.destination.label,
       pickupPosition: _point(ride.pickup),
       destinationPosition: _point(ride.destination),
+      // rider-r4-28: the booked stops reach the live ride.
+      stops: [
+        for (final stop in ride.stops)
+          if (stop.lat != null && stop.lng != null)
+            RouteStop(
+              address: stop.label,
+              latitude: stop.lat!,
+              longitude: stop.lng!,
+            ),
+      ],
       rideType: ride.categoryName,
       price: ride.price,
       currency: ride.currency,

@@ -18,6 +18,7 @@ class ScheduledRideCheckout {
     String? parentReservationId,
     double? price,
     String? timeZone,
+    List<ReservationPlace> stops = const <ReservationPlace>[],
   }) {
     final picked = selection.scheduledFor;
     if (picked == null) {
@@ -49,6 +50,7 @@ class ScheduledRideCheckout {
       note: note,
       parentReservationId: parentReservationId,
       timeZone: zone,
+      stops: stops,
     );
   }
 
@@ -64,6 +66,7 @@ class ScheduledRideCheckout {
     String? editingReservationId,
     Reservation? original,
     String? timeZone,
+    List<ReservationPlace> stops = const <ReservationPlace>[],
   }) async {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled checkout cannot enter Finding Driver');
@@ -83,6 +86,7 @@ class ScheduledRideCheckout {
       note: note,
       parentReservationId: parentReservationId,
       timeZone: timeZone,
+      stops: stops,
     );
 
     if (editingReservationId != null && original != null) {
@@ -105,6 +109,7 @@ class ScheduledRideCheckout {
         editingReservationId: editingReservationId,
         price: draft.price,
         timeZone: timeZone,
+        stops: stops,
       );
     }
 
@@ -117,6 +122,7 @@ class ScheduledRideCheckout {
       parentReservationId: parentReservationId,
       price: draft.price,
       timeZone: timeZone,
+      stops: stops,
     );
     if (context.mounted) {
       await showReservationBookedPopup(context);
