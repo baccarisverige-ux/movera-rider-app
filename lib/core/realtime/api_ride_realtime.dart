@@ -225,7 +225,10 @@ class ApiRideRealtime implements RideRealtime {
       if (poll.version == version && poll.updatedAt == updatedAt &&
           poll.lastStatus == status &&
           poll.lastLat == location.lat &&
-          poll.lastLng == location.lng) {
+          poll.lastLng == location.lng &&
+          // rider-u24: a stationary driver still sends fresh fixes; a newer
+          // fix time with the same coordinates is news, not a repeat.
+          poll.lastLocationAt == location.at) {
         connection.markConnected();
         return;
       }
@@ -238,6 +241,7 @@ class ApiRideRealtime implements RideRealtime {
       poll.lastRatingStatus = ride['ratingStatus'];
       poll.lastLat = location.lat;
       poll.lastLng = location.lng;
+      poll.lastLocationAt = location.at;
       _shown[poll.id] = (
         status: status,
         // A matched projection without a driver keeps the one shown.
@@ -500,4 +504,5 @@ class _RidePoll {
   Object? lastRatingStatus;
   double? lastLat;
   double? lastLng;
+  DateTime? lastLocationAt;
 }
