@@ -631,7 +631,12 @@ class RideRestoreCoordinator {
     }
     snapshot = await _dropIfCancelQueued(snapshot);
     if (!atRoot) return null;
-    if (AppScope.instance.ride.suppressRestore) {
+    // rider-67: the flag belongs to the ride that ended on this device. A
+    // snapshot of another ride (one a push tap just adopted from the
+    // server) is not that ride and is opened.
+    final session = AppScope.instance.ride;
+    if (session.suppressRestore &&
+        snapshot?.rideId?.trim() == session.rideId?.trim()) {
       unawaited(RideSnapshotStore.clear());
       return null;
     }

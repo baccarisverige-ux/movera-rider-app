@@ -212,4 +212,27 @@ void main() {
     expect(restore.showing, RestoredSurface.finding);
     expect((await RideSnapshotStore.read())?.rideId, 'ride_late');
   });
+
+  test('rider-67: a leftover suppressRestore from an earlier ride does not '
+      'delete the trip a push tap just adopted', () async {
+    // Ride A was closed on this device earlier.
+    AppScope.instance.ride
+      ..restoreFromBackend(RideStatus.ratingPending, id: 'ride_a')
+      ..localTransition(RideStatus.closed);
+    expect(AppScope.instance.ride.suppressRestore, isTrue);
+    final replaced = <Widget>[];
+    final restore = RideRestoreCoordinator(
+      resync: (_) async {},
+      authRequired: () => false,
+      serverActiveTrip: () => serverTrip('ride_b'),
+    )
+      ..debugAtRoot = (() => true)
+      ..onReplaceRoot = replaced.add;
+    expect(
+      (await restore.adoptServerActiveTrip(expectedRideId: 'ride_b'))?.rideId,
+      'ride_b',
+    );
+    expect(await restore.resumeIfNeeded(), isA<FindingDrivers>());
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_b');
+  });
 }
