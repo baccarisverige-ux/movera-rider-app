@@ -86,6 +86,15 @@ Future<RideCheckController> _launch(_Client client) async {
 Future<void> _settle() =>
     Future<void>.delayed(const Duration(milliseconds: 50));
 
+/// Waits for [done] instead of a fixed delay, so a loaded machine does not
+/// fail the test before the alert has finished.
+Future<void> _until(bool Function() done) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!done() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -104,7 +113,7 @@ void main() {
       RideCheckOpenResult.shown,
     );
     await answer(first);
-    await _settle();
+    await _until(() => first.session!.alertState == RideCheckAlertState.failed);
     expect(first.session!.alertState, RideCheckAlertState.failed);
 
     // The app is reloaded while the card is up and the alert has failed.
@@ -122,7 +131,9 @@ void main() {
       ..down = false
       ..answers.clear();
     second.done();
-    await _settle();
+    await _until(
+      () => client.answers.isNotEmpty && client.answers.last['final'] == true,
+    );
     expect(client.answers.last['final'], isTrue);
     expect(client.answers.last['alert'], isTrue);
     expect(safetyMockForProcess().rideCheckAlerts, isNotEmpty);
