@@ -5,6 +5,7 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -139,9 +140,15 @@ enum PendingCancelResult {
   /// rider's cancel did not happen and the ride goes on.
   refused,
 
-  /// The ride is gone or already over (404/410, or a refusal for a ride
-  /// that has ended): nothing is left to cancel.
+  /// The server no longer knows the ride (404/410): nothing is left to
+  /// cancel.
   gone,
+
+  /// rider-r4-24: the server had already closed the trip some other way
+  /// (no driver found, cancelled by the driver or by Movera, completed).
+  /// Nothing was cancelled by the rider; [PendingCancelOutcome.endedAs] is
+  /// how the server closed it, and the ride is filed that way.
+  ended,
 
   /// R-O2: re-read before replaying, the trip had moved on so the command
   /// no longer applies (a queued cancel for a rider now on board, an
@@ -159,11 +166,16 @@ class PendingCancelOutcome {
     this.reasonId,
     this.charged,
     this.fee,
+    this.endedAs,
   });
 
   final String rideId;
   final PendingCancelCommand command;
   final PendingCancelResult result;
+
+  /// For [PendingCancelResult.ended]: the trip's terminal status as the
+  /// server read it. Null when unknown.
+  final RideStatus? endedAs;
 
   /// rider-u32: what the queued entry carried and what the server answered
   /// when it was [PendingCancelResult.sent], so the screen that later sees
