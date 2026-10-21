@@ -27,6 +27,9 @@ const _origin = LatLng(59.3293, 18.0686);
 
 /// 259 kr at the original pickup, 301 kr anywhere else.
 class _PinQuotes implements QuoteRepository {
+  _PinQuotes({this.originMinor = 25900});
+
+  final int originMinor;
   int calls = 0;
 
   @override
@@ -47,7 +50,7 @@ class _PinQuotes implements QuoteRepository {
     return RideQuote(
       id: 'q-$rideType-$calls',
       rideType: rideType,
-      totalMinor: atOrigin ? 25900 : 30100,
+      totalMinor: atOrigin ? originMinor : 30100,
       currency: 'SEK',
       expiresAt: DateTime.now().add(const Duration(minutes: 5)),
       signedPayload: 'signature',
@@ -141,4 +144,81 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 10));
   });
+
+  /// Book for later on Select Ride, quoted by [quotes]; [pickupAt] null
+  /// opens the date picker on Book.
+  Future<RideSelectionController> pumpScheduled(
+    WidgetTester tester,
+    _PinQuotes quotes, {
+    DateTime? pickupAt,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final selection = RideSelectionController(
+      catalog: RideCatalogController(
+        api: ApiClient(
+          client: MockClient(
+            (_) async => http.Response(jsonEncode({'code': 'X'}), 500),
+          ),
+        ),
+        cache: MemoryRideCatalogCache(),
+      ),
+      quotes: quotes,
+      flags: FeatureFlags(),
+    );
+    addTearDown(selection.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SelectRide(
+          pickupAddress: 'Klockarvägen 37',
+          destinationAddress: 'Arlanda Airport',
+          pickupPosition: _origin,
+          destinationPosition: const LatLng(59.6519, 17.9186),
+          selection: selection,
+          reservations: ReservationController(
+            store: LocalReservationRepository(
+              storage: MemoryReservationStorage(),
+            ),
+          ),
+          bookingMode: BookingMode.scheduled,
+          initialScheduledFor: pickupAt,
+        ),
+      ),
+    );
+    await settleFor(tester);
+    return selection;
+  }
+
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
+  }
+
+  testWidgets('rider-r4-30: Set pickup after a long date picker shows a live '
+      'quote, never the list price', (tester) async {
+    final selection = await pumpScheduled(
+      tester,
+      _PinQuotes(originMinor: 24500),
+    );
+    await tester.tap(find.text('Schedule Movera'));
+    await settleFor(tester, 20);
+    expect(find.byKey(const Key('schedule-continue')), findsOneWidget);
+    // Minutes in the date picker: the quote runs out.
+    selection.quoteExpiresAt['economy'] = DateTime.now().subtract(
+      const Duration(seconds: 1),
+    );
+    await tester.tap(find.byKey(const Key('schedule-continue')));
+    await settleFor(tester, 30);
+    expect(find.byType(SetPickupPage), findsOneWidget);
+    expect(find.text('259 kr'), findsNothing);
+    expect(find.text('245 kr'), findsWidgets);
+    await unmount(tester);
+  });
+}
+
+Future<void> settleFor(WidgetTester tester, [int steps = 10]) async {
+  for (var i = 0; i < steps; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }

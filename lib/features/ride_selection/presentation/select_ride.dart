@@ -1200,6 +1200,21 @@ class _SelectRideState extends State<SelectRide>
           // schedule" instead of a search.
           final ride = _selectedRideOrNull;
           if (ride == null) return;
+          // rider-r4-30: the date picker can outlast the quote; Set pickup
+          // shows a live quote, never the list price it falls back to.
+          if (_bookableQuote(ride.id) == null) {
+            final fresh = await _quoteAfterPickup(ride);
+            if (!mounted) return;
+            if (fresh == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.l10n.priceUnavailableRefreshing),
+                ),
+              );
+              unawaited(_loadQuotes());
+              return;
+            }
+          }
           _pinQuote = null;
           _pinQuoteAdopted = false;
           spot = await _openSetPickup(
