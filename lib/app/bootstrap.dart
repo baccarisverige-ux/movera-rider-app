@@ -49,6 +49,26 @@ Future<void> _registerExistingPushSession() async {
   }
 }
 
+/// Push work that must not hold the first frame. rider-5: re-registering a
+/// restored session's push (Firebase init, getToken, POST /push/devices)
+/// was awaited before runApp, so a slow network kept the boot screen up for
+/// as long as the API timeout. It now runs after the coordinator once a
+/// real frame is painted, and nothing waits for it.
+@visibleForTesting
+void startPushAfterFirstFrame({
+  required Future<void> Function() startCoordinator,
+  required Future<void> Function() registerExisting,
+}) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // The HTML boot screen covers the blank page while the bundle loads.
+    // Clear it once there is a real frame behind it, and before anything
+    // slower runs, so the rider is not kept waiting on push registration.
+    dismissWebSplash();
+    unawaited(startCoordinator());
+    unawaited(registerExisting());
+  });
+}
+
 void _openNotificationsFromPush() {
   unawaited(() async {
     // Nothing opens over Sign in, and a second open does not stack a copy.
@@ -133,7 +153,6 @@ Future<void> bootstrap() async {
   unawaited(AppScope.instance.catalog.load());
   // Scheduled-ride rules (cancel window, fee); defaults until they land.
   unawaited(AppScope.instance.reservations.refreshRules());
-  await _registerExistingPushSession();
   unawaited(FindingDriverController.flushPendingCancels());
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
@@ -145,13 +164,10 @@ Future<void> bootstrap() async {
         openRide: openRideFromNotification,
         openNotifications: _openNotificationsFromPush,
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // The HTML boot screen covers the blank page while the bundle loads.
-        // Clear it once there is a real frame behind it, and before anything
-        // slower runs, so the rider is not kept waiting on push registration.
-        dismissWebSplash();
-        unawaited(_pushCoordinator!.start());
-      });
+      startPushAfterFirstFrame(
+        startCoordinator: _pushCoordinator!.start,
+        registerExisting: _registerExistingPushSession,
+      );
     },
     (error, stack) {
       AppScope.instance.crashes.record(error, stack);
