@@ -6,9 +6,10 @@
 // demo build sets none, so on the demo this file is served but never runs.
 //
 // It deliberately loads no Firebase SDK and holds no project config: the page
-// owns the FCM subscription, and this worker only shows background
-// notifications and opens the app when one is tapped. Ride state stays
-// authoritative from the backend and is reconciled when the app opens.
+// owns the FCM subscription, and this worker hands a push to a visible tab
+// (FirebaseMessaging.onMessage), shows a notification otherwise, and opens
+// the app when one is tapped. Ride state stays authoritative from the
+// backend and is reconciled when the app opens.
 
 self.addEventListener('install', function() {
   self.skipWaiting();
@@ -29,17 +30,28 @@ function moveraReadPush(event) {
 
 self.addEventListener('push', function(event) {
   var payload = moveraReadPush(event);
-  // Only FCM-shaped payloads with a visible notification are handled.
-  if (!payload || typeof payload !== 'object' || !payload.notification) return;
+  if (!payload || typeof payload !== 'object') return;
   var notification = payload.notification;
   var data = payload.data && typeof payload.data === 'object' ? payload.data : {};
   event.waitUntil(
     self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(clients) {
-      // A visible Movera tab receives the message through onMessage instead.
       var visible = clients.some(function(client) {
         return client.visibilityState === 'visible';
       });
-      if (visible) return undefined;
+      if (visible) {
+        // rider-u243: a visible Movera tab shows the update in the app. The
+        // browser hands pushes only to this worker, and the page's
+        // FirebaseMessaging.onMessage fires only for a payload posted to it
+        // in the Firebase SDK's own format (what its messaging worker does).
+        payload.isFirebaseMessaging = true;
+        payload.messageType = 'push-received';
+        clients.forEach(function(client) {
+          client.postMessage(payload);
+        });
+        return undefined;
+      }
+      // Only FCM-shaped payloads with a visible notification are shown.
+      if (!notification || typeof notification !== 'object') return undefined;
       return self.registration.showNotification(String(notification.title || 'Movera'), {
         body: notification.body ? String(notification.body) : '',
         icon: 'icons/Icon-192.png',
