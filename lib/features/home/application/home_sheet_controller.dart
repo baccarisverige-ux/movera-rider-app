@@ -38,10 +38,10 @@ class HomeSheetController {
     required bool accessibleNavigation,
     required bool Function() isMounted,
   }) {
-    if (accessibleNavigation || !isAtMiddle || _idleTimer?.isActive == true) {
-      cancelIdleTimer();
-      return;
-    }
+    // Restart, never toggle: the sheet listener calls this on every metrics
+    // tick at the middle stop, so an armed timer must survive a repeat call.
+    cancelIdleTimer();
+    if (accessibleNavigation || !isAtMiddle) return;
     _idleTimer = Timer(const Duration(seconds: 3), () {
       _idleTimer = null;
       if (!isMounted() || !isAtMiddle) return;
