@@ -283,6 +283,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
+    _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
     _locationCtl.dispose();
@@ -327,6 +328,34 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void>? _detectInFlight;
+
+  /// rider-u119: a first fix that failed for a transient reason (the
+  /// 16 s timeout of a cold GPS, a platform error) is tried again with
+  /// backoff while Home has no fix, instead of waiting for an app resume.
+  Timer? _detectRetryTimer;
+  int _detectRetries = 0;
+
+  void _scheduleDetectRetry() {
+    _detectRetryTimer?.cancel();
+    // 2, 4, 8, 16, then 30 s: the live stream's resubscribe backoff.
+    final delay = Duration(
+      seconds: math.min(30, 2 << _detectRetries.clamp(0, 4)),
+    );
+    _detectRetries += 1;
+    _detectRetryTimer = Timer(delay, () {
+      _detectRetryTimer = null;
+      if (!mounted || _currentLatLng != null) return;
+      // Parked under a ride screen or in the background: keep waiting (the
+      // booking flow and an app resume ask for their own fix).
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (_mapParked.value ||
+          (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+        _scheduleDetectRetry();
+        return;
+      }
+      unawaited(_detectCurrentAddress());
+    });
+  }
 
   /// Detects the rider's location once; a second call while one is running
   /// joins it, so the booking flow can wait for the fix Home already asked
@@ -377,8 +406,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (isPlaceholderPickupLabel(_pickupAddress)) {
           setState(() => _pickupAddress = locationOffPickupLabel);
         }
+        if (detected.failure == HomeLocationFailure.unavailable &&
+            _currentLatLng == null) {
+          _scheduleDetectRetry();
+        }
         return;
       }
+      _detectRetryTimer?.cancel();
+      _detectRetryTimer = null;
+      _detectRetries = 0;
       setState(() {
         _pickupAddress = detected.address;
         _pickupLabelAt = target;

@@ -1,0 +1,146 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Location allowed. The first [failFirst] one-shot fixes fail (a cold GPS
+/// that times out); later ones answer at [lat]/[lng]. The live stream is
+/// driven by hand.
+class _SlowGeolocator extends GeolocatorPlatform {
+  int failFirst = 1;
+  double lat = 59.3293;
+  double lng = 18.0686;
+  int currentPositionCalls = 0;
+  final StreamController<Position> live = StreamController.broadcast();
+
+  Position get position => Position(
+    latitude: lat,
+    longitude: lng,
+    timestamp: DateTime(2026, 10, 1, 12),
+    accuracy: 4,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
+
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+
+  @override
+  Future<LocationPermission> requestPermission() async =>
+      LocationPermission.whileInUse;
+
+  @override
+  Future<Position?> getLastKnownPosition({
+    bool forceLocationManager = false,
+  }) async => null;
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async {
+    currentPositionCalls += 1;
+    if (currentPositionCalls <= failFirst) {
+      throw TimeoutException('cold fix');
+    }
+    return position;
+  }
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      live.stream;
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  late GeolocatorPlatform original;
+  late _SlowGeolocator gps;
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    FindingDriverController.active = null;
+    AppScope.instance.ride
+      ..rideId = null
+      ..status = RideStatus.idle
+      ..suppressRestore = false
+      ..authoritativeVersion = null
+      ..authoritativeUpdatedAt = null;
+    original = GeolocatorPlatform.instance;
+    gps = _SlowGeolocator();
+    GeolocatorPlatform.instance = gps;
+  });
+  tearDown(() {
+    GeolocatorPlatform.instance = original;
+    gps.live.close();
+  });
+
+  Future<void> frames(WidgetTester tester, int count, {int ms = 100}) async {
+    for (var i = 0; i < count; i++) {
+      await tester.pump(Duration(milliseconds: ms));
+    }
+  }
+
+  Future<void> pumpHome(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) =>
+            MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
+      ),
+    );
+    await frames(tester, 8);
+  }
+
+  /// Live tracking starts once the puck icons decode, on a real clock.
+  Future<bool> liveTrackingStarted(WidgetTester tester) async {
+    for (var i = 0; i < 5 && !gps.live.hasListener; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await frames(tester, 2);
+    }
+    return gps.live.hasListener;
+  }
+
+  Future<void> tearDownHome(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 40));
+    debugDefaultTargetPlatformOverride = null;
+  }
+
+  testWidgets('rider-u119: a first fix that times out is tried again and '
+      'live tracking starts while the rider stays on Home', (tester) async {
+    await pumpHome(tester);
+    expect(gps.currentPositionCalls, 1);
+    expect(gps.live.hasListener, isFalse);
+    // The rider stays on Home; nothing is backgrounded or booked.
+    await frames(tester, 40);
+    expect(gps.currentPositionCalls, greaterThan(1));
+    expect(await liveTrackingStarted(tester), isTrue);
+    await tearDownHome(tester);
+  });
+}
