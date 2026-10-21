@@ -447,7 +447,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // dismissed yet, and dismissing it would then jump straight to "Trip
     // complete" with the in-trip phase never shown. Close it the moment the
     // trip actually starts so the rider sees that phase instead of skipping it.
-    if (_arrivedSheetShowing && DriverEta.isInTrip(status)) {
+    //
+    // rider-u47: a no-show or other end before the trip (the very moment the
+    // arrived sheet is up) closes it too, so the rider sees the ride ended
+    // instead of "Your driver has arrived" over a trip that is over.
+    if (_arrivedSheetShowing &&
+        (DriverEta.isInTrip(status) || status.isTerminal)) {
       _arrivedSheetShowing = false;
       // NAV-9: close the arrived sheet itself, not whatever route is on top
       // (a notification or Safety page pushed above it stays open).
