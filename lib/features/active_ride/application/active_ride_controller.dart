@@ -10,6 +10,7 @@ import 'package:movera_rider/features/active_ride/data/active_ride_repository.da
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
@@ -148,7 +149,12 @@ class ActiveRideController {
             )
           : null;
       _endedEarly = endedEarly;
-      await _commitCancelled(id, reasonId: reasonId, endedEarly: endedEarly);
+      await _commitCancelled(
+        id,
+        reasonId: reasonId,
+        endedEarly: endedEarly,
+        cancellationFee: result.fee,
+      );
     }
     return result.outcome;
   }
@@ -156,8 +162,41 @@ class ActiveRideController {
   /// Commits a cancel the server has already applied — for example when a
   /// queued outbox request lands and realtime then reports the ride as
   /// `cancelledByRider` while Waiting is still showing it.
-  Future<void> completeServerConfirmedCancel() async {
-    await _commitCancelled(AppScope.instance.ride.rideId);
+  ///
+  /// rider-u51: once the rider is on board the only rider command that
+  /// reaches `cancelled_by_rider` is `end_early` (contract v0.3.0), so a
+  /// server cancel of a trip whose stored stage is on board is an ended
+  /// trip: [endedEarly] is set for the summary and History reads "Ended
+  /// early". [drivenMeters] is the distance the app tracked on board.
+  ///
+  /// rider-u32: when it was this device's queued command that the outbox
+  /// delivered, the reason the rider gave and what the server answered
+  /// (the fare after an end-early, a cancel's fee) go on the receipt and
+  /// the History record; the projection alone does not say.
+  Future<void> completeServerConfirmedCancel({int? drivenMeters}) async {
+    final id = _clean(AppScope.instance.ride.rideId);
+    final delivered = id == null ? null : PendingCancelStore.takeDelivered(id);
+    final snapshot = await _store.historyCandidate();
+    final onboard = id != null &&
+        snapshot != null &&
+        _clean(snapshot.rideId) == id &&
+        tripRiderOnboardStatuses.contains(snapshot.status.tripStatus);
+    final endedEarly =
+        id != null &&
+            (onboard || delivered?.command == PendingCancelCommand.endEarly)
+        ? EndedEarlyTrip(
+            rideId: id,
+            charged: delivered?.charged,
+            drivenMeters: drivenMeters,
+          )
+        : null;
+    _endedEarly = endedEarly;
+    await _commitCancelled(
+      id,
+      reasonId: delivered?.reasonId,
+      endedEarly: endedEarly,
+      cancellationFee: endedEarly == null ? delivered?.fee : null,
+    );
   }
 
   /// D-014: "Go home" from the screen shown when Waiting lost its rideId.
@@ -198,7 +237,12 @@ class ActiveRideController {
   }
 
   Future<
-    ({RideCancelOutcome outcome, PendingCancelCommand command, Money? charged})
+    ({
+      RideCancelOutcome outcome,
+      PendingCancelCommand command,
+      Money? charged,
+      Money? fee,
+    })
   >
   _requestServerCancel(String id, {String? reasonId}) async {
     // Contract v0.3.0: once the rider is on board the command is
@@ -233,6 +277,7 @@ class ActiveRideController {
           outcome: RideCancelOutcome.confirmed,
           command: entry.command,
           charged: _chargedFare(response),
+          fee: _cancellationFee(response),
         );
       } catch (error) {
         AppLog.warning(
@@ -247,10 +292,12 @@ class ActiveRideController {
           // after a lost answer, or a server that refuses a second
           // cancel): that is what the rider asked for, quietly.
           if (alreadyCancelledByRider(apiError)) {
+            final projection = {'projection': apiError.projection};
             return (
               outcome: RideCancelOutcome.confirmed,
               command: entry.command,
-              charged: _chargedFare({'projection': apiError.projection}),
+              charged: _chargedFare(projection),
+              fee: _cancellationFee(projection),
             );
           }
           // 404: the server has no such ride, so there is nothing left to
@@ -266,6 +313,7 @@ class ActiveRideController {
                 : RideCancelOutcome.rejected,
             command: entry.command,
             charged: null,
+            fee: null,
           );
         }
       }
@@ -274,6 +322,7 @@ class ActiveRideController {
       outcome: RideCancelOutcome.pendingRetry,
       command: entry.command,
       charged: null,
+      fee: null,
     );
   }
 
@@ -284,10 +333,21 @@ class ActiveRideController {
     return ride is Map ? Money.fromWire(ride['fare']) : null;
   }
 
+  /// rider-u33: the fee the server charged for a cancel (contract §6
+  /// `cancellation.fee`) in a command response (`projection`, or the
+  /// pre-v0.3 `ride` alias). Null when free or absent.
+  static Money? _cancellationFee(Map<String, dynamic> response) {
+    final ride = response['projection'] ?? response['ride'];
+    return ride is Map
+        ? RideProjection.cancellationFee(Map<String, dynamic>.from(ride))
+        : null;
+  }
+
   Future<void> _commitCancelled(
     String? id, {
     String? reasonId,
     EndedEarlyTrip? endedEarly,
+    Money? cancellationFee,
   }) async {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
@@ -311,6 +371,7 @@ class ActiveRideController {
       expectedRideId: id,
       cancellationReason: reasonId,
       endedEarly: endedEarly,
+      cancellationFee: cancellationFee,
     );
     await _store.clear();
   }
@@ -355,9 +416,26 @@ class ActiveRideController {
         status == RideStatus.cancelledByAdmin ||
         status == RideStatus.endedByDriver ||
         status == RideStatus.noShow ||
-        status == RideStatus.tripFailed) {
+        status == RideStatus.tripFailed ||
+        // rider-u34: the trip was driven and completed; only its payment
+        // failed. History keeps it as a completed trip that says so.
+        status == RideStatus.paymentFailed) {
       await _archive(snapshot, status, expectedRideId: id);
     }
+    await _store.clear();
+  }
+
+  /// rider-u52: the server reports the trip `closed` (completed, paid and
+  /// rated) to a screen that never saw it complete, for example a resync
+  /// after a long disconnect in trip. Not an external terminal: the trip
+  /// happened, so History keeps it as completed, and the snapshot clears.
+  Future<void> markClosedByServer() async {
+    final snapshot = await _store.historyCandidate();
+    final ride = AppScope.instance.ride;
+    final id = ride.rideId;
+    ride.backendReconcile(RideStatus.closed, id: id);
+    _stopSafetyRecording();
+    await _archive(snapshot, RideStatus.closed, expectedRideId: id);
     await _store.clear();
   }
 
@@ -406,6 +484,7 @@ class ActiveRideController {
     String? expectedRideId,
     String? cancellationReason,
     EndedEarlyTrip? endedEarly,
+    Money? cancellationFee,
   }) async {
     if (snapshot == null) return;
     final snapshotId = snapshot.rideId?.trim();
@@ -425,6 +504,7 @@ class ActiveRideController {
         cancellationReason: cancellationReason,
         endedEarly: endedEarly != null,
         charged: endedEarly?.charged,
+        cancellationFee: cancellationFee,
       );
     } catch (error) {
       AppLog.warning(

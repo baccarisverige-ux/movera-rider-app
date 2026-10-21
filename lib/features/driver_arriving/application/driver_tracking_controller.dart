@@ -102,6 +102,10 @@ class DriverTrackingController {
         (initialStatus.isMatched || initialStatus.isCompletedSurface)) {
       status = initialStatus;
     }
+    // rider-u45: a restored wait has a clock from the start; the server's
+    // own stamp replaces it when a projection carries one. Without this
+    // the screen fell back to "now" on every rebuild.
+    if (status == RideStatus.driverWaiting) waitingSince ??= DateTime.now();
     this.onChange = onChange;
     // A fresh subscription is a fresh feed; only its own errors degrade it.
     connectionDegraded = false;
@@ -142,6 +146,17 @@ class DriverTrackingController {
             waitingSince = event.waitingArrivedAt;
           } else if (event.status == RideStatus.driverWaiting) {
             waitingSince ??= DateTime.now();
+          }
+        } else if (_carriesCurrentClocks(event, eventVersion)) {
+          // rider-u45: the projection's `acceptedAt` and `waiting.arrivedAt`
+          // are server facts about this trip whatever the ordering verdict
+          // on its status. After a reload the first projection repeats the
+          // version the restore seeded and is rejected as a duplicate;
+          // dropping its stamps restarted the waiting clock and the
+          // free-cancel preview on the device clock.
+          acceptedAt = event.acceptedAt ?? acceptedAt;
+          if (event.waitingArrivedAt != null) {
+            waitingSince = event.waitingArrivedAt;
           }
         }
         if (event.driver != null) driver = event.driver;
@@ -201,6 +216,18 @@ class DriverTrackingController {
       eta = refreshed;
       this.onChange?.call();
     });
+  }
+
+  /// Whether a rejected [event] is still current enough for its clock
+  /// stamps to apply: not older than the last accepted version, and not a
+  /// return to dispatch (which starts new clocks when it is accepted).
+  bool _carriesCurrentClocks(RideRealtimeEvent event, int eventVersion) {
+    if (event.status.isSearching ||
+        event.status == RideStatus.cancelledByDriver) {
+      return false;
+    }
+    final last = _lastVersion;
+    return last == null || eventVersion >= last;
   }
 
   /// Set when the realtime stream itself errors or closes (see M-05). Waiting

@@ -141,11 +141,14 @@ class WaitingForDriver extends StatefulWidget {
     this.driver,
     this.realtime,
     this.rideId,
+    this.categoryId,
     this.persistRideSnapshot = true,
     this.onTerminal,
     this.onDriverCancelled,
     this.onCompleted,
     this.onCancel,
+    this.cancelFeeNote,
+    this.controller,
   });
 
   final String pickupAddress;
@@ -173,6 +176,11 @@ class WaitingForDriver extends StatefulWidget {
   /// exact presentation without touching the on-demand ride session.
   final RideRealtime? realtime;
   final String? rideId;
+
+  /// rider-u44: the trip's own category id, for its waiting terms and the
+  /// cancel-fee preview (a reservation's). Null: the Book Now session's
+  /// booked category of [rideId], else the stored snapshot's.
+  final String? categoryId;
   final bool persistRideSnapshot;
   final Future<void> Function(BuildContext context, RideStatus status)?
   onTerminal;
@@ -181,12 +189,22 @@ class WaitingForDriver extends StatefulWidget {
   onCompleted;
   final Future<void> Function(BuildContext context, String? reasonId)? onCancel;
 
+  /// rider-u53: the fee line of the cancel sheet when the trip's cancel
+  /// terms are not the live Book Now rule (a reservation's late-cancel
+  /// terms). Null: the live rule of the trip's category is previewed.
+  final Future<String?> Function()? cancelFeeNote;
+
+  /// Test seam: the controller the cancel and end-early requests go
+  /// through (its API client). Production uses the shared one.
+  final ActiveRideController? controller;
+
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
 class _WaitingForDriverState extends State<WaitingForDriver> {
-  final ActiveRideController _ride = ActiveRideController();
+  late final ActiveRideController _ride =
+      widget.controller ?? ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     realtime: widget.realtime,
     pickupLat: widget.pickupPosition.latitude,
@@ -209,6 +227,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
+
+  /// rider-29: the cancel or end-early request is out. Back must not pop
+  /// this screen meanwhile: the answer would be dropped on `!mounted`, a
+  /// confirmed cancel would never go Home and a refused one would leave
+  /// the ride with no screen.
+  bool _cancelInFlight = false;
   StreamSubscription<({String rideId, bool stale})>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
@@ -289,11 +313,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// wait, then the fee per minute), once the zone's config is read.
   RiderCategoryWaiting? _waitingTerms;
 
+  /// rider-u44: the category of this ride only. The on-demand session's
+  /// booked category and the stored snapshot describe whatever Book Now
+  /// ride ran last, so they count only when they are this ride.
+  Future<String?> _tripCategoryId() async {
+    final own = widget.categoryId;
+    if (own != null && own.trim().isNotEmpty) return own;
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return null;
+    final session = AppScope.instance.ride;
+    if (session.rideId?.trim() == rideId && session.bookedCategoryId != null) {
+      return session.bookedCategoryId;
+    }
+    final stored = await RouteChangeController.storedRide();
+    return stored?.rideId?.trim() == rideId ? stored?.categoryId : null;
+  }
+
   Future<void> _loadWaitingTerms() async {
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return;
       final config = await AppScope.instance.riderConfig.forTrip(
         currency: widget.currency,
@@ -319,11 +357,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return null;
     }
     return WaitingFeeCounter(
-      since: _tracking.waitingSince ?? DateTime.now(),
+      // rider-u45: the server's stamp, else one start kept for the whole
+      // wait (never "now" again on each rebuild).
+      since:
+          _tracking.waitingSince ?? (_waitingSinceFallback ??= DateTime.now()),
       freeWaitMin: terms.freeWaitMin,
       perMin: terms.perMin,
     );
   }
+
+  DateTime? _waitingSinceFallback;
 
   /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
   /// the server once it was sent. The ride goes on; say so.
@@ -512,9 +555,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _queueStageNavigation(RideStatus status) {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     _pendingStageStatus = status;
+    // rider-u50: while a cancel or end-early is out the status waits here;
+    // a cancel the server refuses replays it (_replayLiveStatus), where it
+    // used to be dropped and Waiting stayed on a ride that was over.
+    if (_leaving) return;
     _drainStageNavigation();
+  }
+
+  /// rider-u50: the cancel did not go through, so the ride goes on from
+  /// whatever the live feed reported meanwhile (a completion, a no-show).
+  void _replayLiveStatus() {
+    if (!mounted || _leaving) return;
+    _onLiveTick();
   }
 
   void _drainStageNavigation() {
@@ -539,7 +593,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _maybeOpenCompleted() {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     final status = _tracking.status;
     if (!status.isCompletedSurface) return;
     _queueStageNavigation(status);
@@ -564,14 +618,41 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setState(() {});
     _tracking.dispose();
 
+    // rider-u52: `closed` is a finished trip once it is paid and rated (a
+    // resync after a long disconnect in trip can jump straight there). It
+    // is not an external terminal and gets no error sheet: file it as
+    // completed and go Home.
+    if (status == RideStatus.closed) {
+      final customTerminal = widget.onTerminal;
+      if (customTerminal == null) await _ride.markClosedByServer();
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      if (customTerminal != null) {
+        await customTerminal(context, status);
+      } else {
+        RideNavigator.home(context, status: status);
+      }
+      return;
+    }
+
     // A queued outbox cancel (D-013/D-020) can land after the rider was told
     // the ride is still active. The server then reports cancelledByRider:
     // commit it locally instead of treating it as an external terminal.
     if (status == RideStatus.cancelledByRider && widget.onTerminal == null) {
-      await _ride.completeServerConfirmedCancel();
+      await _ride.completeServerConfirmedCancel(
+        drivenMeters: _tracking.drivenMeters > 0 ? _tracking.drivenMeters : null,
+      );
       if (!mounted) return;
       await _parkMapForStageChange();
       if (!mounted) return;
+      // rider-u51: a queued on-board End trip the outbox delivered is a
+      // finished trip with a receipt (UI-01), like the direct path.
+      final endedEarly = _ride.endedEarly;
+      if (endedEarly != null) {
+        _openEndedEarlySummary(endedEarly);
+        return;
+      }
       RideNavigator.home(context);
       return;
     }
@@ -774,10 +855,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // once it ends); the receipt that follows shows it.
       return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
     }
+    final ownNote = widget.cancelFeeNote;
+    if (ownNote != null) {
+      try {
+        return await ownNote();
+      } catch (_) {
+        return null;
+      }
+    }
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return null;
       // Q7: the fee rules of the trip's own zone, in its currency.
       final zone = RiderZones.byCurrency(widget.currency) ??
@@ -824,6 +911,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
     if (!outcome.cancelled) return;
     _leaving = true;
+    _cancelInFlight = true;
     setState(() {});
 
     try {
@@ -833,6 +921,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         // taken over the ride; if it throws, live updates must still work.
         await customCancel(context, outcome.reasonId);
         if (!mounted) return;
+        _cancelInFlight = false;
         _tracking.dispose();
         await _parkMapForStageChange();
         return;
@@ -850,12 +939,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             : null,
       );
       if (!mounted) return;
+      _cancelInFlight = false;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
           _cancelling = false;
           _leaving = false;
         });
         _showCancelProblem(result);
+        _replayLiveStatus();
         return;
       }
       _tracking.dispose();
@@ -879,6 +970,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       if (!mounted) return;
       setState(() {
+        _cancelInFlight = false;
         _cancelling = false;
         _leaving = false;
       });
@@ -892,6 +984,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      _replayLiveStatus();
     }
   }
 
@@ -1451,7 +1544,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final media = MediaQuery.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
-      canPop: _leaving,
+      canPop: _leaving && !_cancelInFlight,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         // RC5: an open Ride check card has to be answered first.

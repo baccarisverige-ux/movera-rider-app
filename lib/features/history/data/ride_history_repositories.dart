@@ -62,6 +62,8 @@ class ApiRideHistoryRepository
       endedAt:
           WireTime.tryParse(trip['endedAt']) ??
           WireTime.tryParse(trip['updatedAt']),
+      // rider-u33: the fee the server charged for a cancel.
+      cancellationFee: RideProjection.cancellationFee(trip),
     );
   }
 }

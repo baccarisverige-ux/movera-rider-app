@@ -30,6 +30,7 @@ import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart'
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -1468,6 +1469,8 @@ class FindingDriverController {
       final current = await _rereadForReplay(client, cancel);
       if (current == null) continue; // Still unreachable: kept for later.
       PendingCancelResult? result = current.result;
+      // rider-u32: what the server answered a delivered command with.
+      Map<String, dynamic>? answered = current.projection;
       if (result == null) {
         final version = current.version;
         if (version != null && version != cancel.expectedVersion) {
@@ -1483,6 +1486,7 @@ class FindingDriverController {
             idempotencyKey: cancel.idempotencyKey,
           );
           AppScope.instance.ride.observeProjection(response);
+          answered = tripProjectionOf(response);
           result = PendingCancelResult.sent;
         } catch (error) {
           if (!isPermanentCancelFailure(error)) {
@@ -1493,14 +1497,26 @@ class FindingDriverController {
             continue;
           }
           result = await _refusalResult(client, cancel, error);
+          answered = (error as ApiError).projection;
         }
       }
       await PendingCancelStore.remove(cancel.rideId);
       results[cancel.rideId] = result;
+      final sent = result == PendingCancelResult.sent;
       PendingCancelStore.report(PendingCancelOutcome(
         rideId: cancel.rideId,
         command: cancel.command,
         result: result,
+        reasonId: cancel.reasonId,
+        charged:
+            sent &&
+                answered != null &&
+                cancel.command == PendingCancelCommand.endEarly
+            ? Money.fromWire(answered['fare'])
+            : null,
+        fee: sent && answered != null
+            ? RideProjection.cancellationFee(answered)
+            : null,
       ));
     }
     return results;
@@ -1512,7 +1528,13 @@ class FindingDriverController {
   /// cancelled by the rider (R-O3: that is what they asked for), over, or
   /// at a stage where the command no longer applies (dropped as stale and
   /// the rider is told). Otherwise [version] is the version to send.
-  static Future<({PendingCancelResult? result, int? version})?>
+  static Future<
+    ({
+      PendingCancelResult? result,
+      int? version,
+      Map<String, dynamic>? projection,
+    })?
+  >
   _rereadForReplay(ApiClient client, PendingCancel cancel) async {
     Map<String, dynamic>? projection;
     try {
@@ -1525,7 +1547,11 @@ class FindingDriverController {
           'ride.cancel.flush_dropped_permanent',
           extra: {'rideId': cancel.rideId, 'error': error.toString()},
         );
-        return (result: PendingCancelResult.gone, version: null);
+        return (
+          result: PendingCancelResult.gone,
+          version: null,
+          projection: null,
+        );
       }
       AppLog.warning(
         'ride.cancel.flush_reread_failed',
@@ -1545,12 +1571,22 @@ class FindingDriverController {
     final version = rawVersion is num ? rawVersion.toInt() : null;
     // A projection without a readable status says nothing about the stage:
     // the command is replayed as it was queued.
-    if (status == null) return (result: null, version: null);
+    if (status == null) {
+      return (result: null, version: null, projection: projection);
+    }
     if (status == TripStatus.cancelledByRider) {
-      return (result: PendingCancelResult.sent, version: version);
+      return (
+        result: PendingCancelResult.sent,
+        version: version,
+        projection: projection,
+      );
     }
     if (status.isTerminal) {
-      return (result: PendingCancelResult.gone, version: version);
+      return (
+        result: PendingCancelResult.gone,
+        version: version,
+        projection: projection,
+      );
     }
     final command = switch (cancel.command) {
       PendingCancelCommand.cancel => 'cancel',
@@ -1572,9 +1608,13 @@ class FindingDriverController {
           'status': status.wireName,
         },
       );
-      return (result: PendingCancelResult.stale, version: version);
+      return (
+        result: PendingCancelResult.stale,
+        version: version,
+        projection: projection,
+      );
     }
-    return (result: null, version: version);
+    return (result: null, version: version, projection: projection);
   }
 
   /// A permanent refusal: 404/410 means the ride is gone. For 409/422 the
