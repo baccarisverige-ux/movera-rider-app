@@ -115,14 +115,27 @@ class _RideCompletedState extends State<RideCompleted> {
           _completionRank(session.status) > _completionRank(_status)) {
         _status = session.status;
       }
+      // rider-u179: a decline reconciled during the handoff.
+      if (session.rideId?.trim() == rideId &&
+          session.status == RideStatus.paymentFailed) {
+        _status = RideStatus.paymentFailed;
+        unawaited(_controller.markCompletedPaymentFailed(rideId));
+      }
     }
 
     final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
     _completionSub = realtime.subscribe(rideId).listen((event) {
       final status = event.status;
-      if (!mounted ||
-          _leaving ||
-          !status.isCompletedSurface ||
+      // rider-u179: a declined card arrives as paymentFailed, which is not
+      // a completion surface. It used to be dropped here, leaving the
+      // rider on "Payment processing" and the trip filed as completed.
+      // It is final for this screen.
+      if (!mounted || _leaving || _status == RideStatus.paymentFailed) return;
+      if (status == RideStatus.paymentFailed) {
+        _onPaymentFailed(event, rideId);
+        return;
+      }
+      if (!status.isCompletedSurface ||
           _completionRank(status) <= _completionRank(_status)) {
         return;
       }
@@ -141,6 +154,19 @@ class _RideCompletedState extends State<RideCompleted> {
       _maybeChargeWallet();
     });
     _maybeChargeWallet();
+  }
+
+  void _onPaymentFailed(RideRealtimeEvent event, String rideId) {
+    if (widget.persistOnDemandState) {
+      AppScope.instance.ride.backendReconcile(
+        RideStatus.paymentFailed,
+        id: event.tripId,
+        version: event.version ?? event.sequence,
+        updatedAt: event.serverTime ?? event.occurredAt,
+      );
+      unawaited(_controller.markCompletedPaymentFailed(rideId));
+    }
+    setState(() => _status = RideStatus.paymentFailed);
   }
 
   /// D-022: a wallet-paid on-demand ride is deducted from the local wallet
@@ -694,6 +720,14 @@ class _CompletionSpec {
 
   factory _CompletionSpec.fromStatus(RideStatus status) {
     switch (status) {
+      case RideStatus.paymentFailed:
+        return _CompletionSpec(
+          title: L10n.current.termPaymentTitle,
+          message: L10n.current.termPaymentNote,
+          statusLabel: L10n.current.paymentNotCompleted,
+          icon: Icons.credit_card_off_outlined,
+          statusIcon: Icons.error_outline_rounded,
+        );
       case RideStatus.paymentProcessing:
         return _CompletionSpec(
           title: L10n.current.tripComplete,

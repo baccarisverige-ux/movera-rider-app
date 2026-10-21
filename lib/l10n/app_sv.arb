@@ -492,6 +492,7 @@
   "paymentProcessing": "Betalningen behandlas",
   "completeConfirmedBody": "Din resa är slut och betalningen har bekräftats.",
   "paymentConfirmed": "Betalningen är bekräftad",
+  "paymentNotCompleted": "Betalningen slutfördes inte",
   "completeRateBody": "Din resa och betalning är klara. Nu kan du betygsätta din förare.",
   "readyForFeedback": "Redo för omdöme",
   "completeDefaultBody": "Din resa är slut. Betalningsstatus uppdateras när den bekräftas.",

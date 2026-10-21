@@ -492,6 +492,7 @@
   "paymentProcessing": "Paiement en cours",
   "completeConfirmedBody": "Votre course est terminée et le paiement a été confirmé.",
   "paymentConfirmed": "Paiement confirmé",
+  "paymentNotCompleted": "Paiement non effectué",
   "completeRateBody": "Votre course et votre paiement sont terminés. Vous pouvez maintenant noter votre chauffeur.",
   "readyForFeedback": "Prêt pour votre avis",
   "completeDefaultBody": "Votre course est terminée. Le statut du paiement sera mis à jour dès sa confirmation.",

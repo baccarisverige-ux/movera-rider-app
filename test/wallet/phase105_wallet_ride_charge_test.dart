@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
@@ -251,8 +252,29 @@ void main() {
       _completed('pf-1', paymentMethod: 'Apple Pay'),
       session: RideStatus.paymentFailed,
     );
+    // rider-u179: the screen starts from the decline, not "Trip complete".
+    expect(find.text('Payment could not be completed'), findsOneWidget);
     await _tapDone(tester);
     expect(_submitError, findsNothing);
     expect(await tester.runAsync(RideSnapshotStore.readForArchive), isNull);
+  });
+
+  testWidgets('rider-u179: a declined card shows on the summary and History '
+      'files the trip as payment failed', (tester) async {
+    final realtime = await _openCompletion(
+      tester,
+      _completed('pf-2', paymentMethod: 'Apple Pay'),
+    );
+    realtime.emit(RideStatus.paymentProcessing);
+    realtime.emit(RideStatus.paymentFailed);
+    await _settle(tester);
+    expect(find.text('Payment could not be completed'), findsOneWidget);
+    expect(find.text('Payment processing'), findsNothing);
+    expect(AppScope.instance.ride.status, RideStatus.paymentFailed);
+
+    await _tapDone(tester);
+    expect(_submitError, findsNothing);
+    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!.single;
+    expect(record.paymentFailed, isTrue);
   });
 }

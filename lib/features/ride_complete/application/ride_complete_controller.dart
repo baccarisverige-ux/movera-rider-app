@@ -50,6 +50,8 @@ class RideCompleteController {
     tipCurrency: _tripCurrency(rideId),
     idempotencyKey: idempotencyKey,
   );
+  Future<void> markCompletedPaymentFailed(String rideId) =>
+      _ride.markCompletedPaymentFailed(rideId);
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
       _ride.persistCompletedStatus(status, rideId: rideId);
   // rider-u166: [rideId] is the ride the completion screen shows; another

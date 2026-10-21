@@ -525,6 +525,24 @@ class ActiveRideController {
     unawaited(_store.clear());
   }
 
+  /// rider-u179: the card was declined after the trip completed (the
+  /// server reports `completed` with payment `failed`). The session holds
+  /// paymentFailed, History files the trip with "Payment failed" rather
+  /// than as an ordinary completed ride, and the completion snapshot is
+  /// dropped: it no longer describes a ride to restore, and leaving later
+  /// never re-files it as completed nor debits the wallet for it.
+  Future<void> markCompletedPaymentFailed(String rideId) async {
+    final id = rideId.trim();
+    final ride = AppScope.instance.ride;
+    if (_clean(ride.rideId) == id && ride.status != RideStatus.paymentFailed) {
+      ride.backendReconcile(RideStatus.paymentFailed, id: id);
+    }
+    final snapshot = await _store.historyCandidate();
+    if (snapshot == null || _clean(snapshot.rideId) != id) return;
+    await _archive(snapshot, RideStatus.paymentFailed, expectedRideId: id);
+    await _store.clear();
+  }
+
   /// Finish History archival before clearing the restorable completion record.
   ///
   /// rider-72: leaving never fails once the ride is this one. A session

@@ -975,6 +975,7 @@
   "paymentProcessing": "Payment processing",
   "completeConfirmedBody": "Your ride has ended and the payment has been confirmed.",
   "paymentConfirmed": "Payment confirmed",
+  "paymentNotCompleted": "Payment not completed",
   "completeRateBody": "Your ride and payment are complete. You can now rate your driver.",
   "readyForFeedback": "Ready for feedback",
   "completeDefaultBody": "Your ride has ended. Payment status will update when it is confirmed.",

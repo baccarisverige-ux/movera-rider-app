@@ -498,6 +498,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentProcessing': l.paymentProcessing,
   'completeConfirmedBody': l.completeConfirmedBody,
   'paymentConfirmed': l.paymentConfirmed,
+  'paymentNotCompleted': l.paymentNotCompleted,
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
@@ -2468,6 +2469,8 @@ class _Exhaustive implements AppLocalizations {
   String get completeConfirmedBody => '';
   @override
   String get paymentConfirmed => '';
+  @override
+  String get paymentNotCompleted => '';
   @override
   String get completeRateBody => '';
   @override
