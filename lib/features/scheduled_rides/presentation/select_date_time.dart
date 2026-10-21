@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +14,8 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
-  final VoidCallback onConfirm;
+  /// The next step. Continue stays locked until it completes (rider-88).
+  final FutureOr<void> Function() onConfirm;
   final VoidCallback? onBack;
   final Widget body;
   final ScheduledRideSession? session;
@@ -20,7 +23,8 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final DateTime Function()? now;
 
   /// Trip length for the "Estimated arrival / pickup" row. Unknown (null)
-  /// hides the row rather than showing a made-up time.
+  /// hides the row rather than showing a made-up time, and Arrive by is
+  /// not offered: without it there is no pickup to book (rider-89).
   final int? tripMinutes;
 
   /// Q9: the pickup zone's IANA time zone; every time on this screen is
@@ -108,12 +112,50 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     super.dispose();
   }
 
-  void _goNext() {
+  /// rider-89: in Arrive by the chosen time is the arrival, and the pickup
+  /// booked is that minus the trip estimate, on the slot at or before it so
+  /// the rider is not late. Otherwise the chosen time is the pickup.
+  DateTime _pickupFor(DateTime chosen) {
+    final trip = widget.tripMinutes;
+    if (_pickupMode || trip == null) return chosen;
+    final pickup = DateTime(
+      chosen.year,
+      chosen.month,
+      chosen.day,
+      chosen.hour,
+      chosen.minute - trip,
+    );
+    return DateTime(
+      pickup.year,
+      pickup.month,
+      pickup.day,
+      pickup.hour,
+      pickup.minute - pickup.minute % StockholmSchedule.slotMinutes,
+    );
+  }
+
+  DateTime get _pickupAt => _pickupFor(_selectedDateTime);
+
+  /// [chosen] on the slot grid, raised to the first time whose pickup is
+  /// legal.
+  DateTime _clampChosen(DateTime chosen, DateTime? now) {
+    final trip = widget.tripMinutes;
+    if (_pickupMode || trip == null) return _schedule.clampPickup(chosen, now);
+    if (_schedule.isLegalPickup(_pickupFor(chosen), now)) {
+      return StockholmSchedule.roundToFive(chosen);
+    }
+    final first = _schedule.minimumPickup(now);
+    return StockholmSchedule.roundToFive(
+      DateTime(first.year, first.month, first.day, first.hour, first.minute + trip),
+    );
+  }
+
+  Future<void> _goNext() async {
     if (_continuing) return;
 
     final now = widget.now?.call();
-    if (!_schedule.isLegalPickup(_selectedDateTime, now)) {
-      final corrected = _schedule.clampPickup(_selectedDateTime, now);
+    if (!_schedule.isLegalPickup(_pickupAt, now)) {
+      final corrected = _clampChosen(_selectedDateTime, now);
       setState(() {
         _selectedDateTime = corrected;
         _pickupCorrectionMessage =
@@ -128,19 +170,22 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     _commitSchedule();
 
     if (widget.popOnConfirm) {
-      Navigator.pop(context, _selectedDateTime);
+      Navigator.pop(context, _pickupAt);
       return;
     }
 
     setState(() {});
-    widget.onConfirm();
+    try {
+      await widget.onConfirm();
+    } finally {
+      // rider-88: the rider can come back from the next step (or it can
+      // stop early with a toast) to this same State; Continue works again.
+      if (mounted) setState(() => _continuing = false);
+    }
   }
 
   void _applyPickedDateTime(DateTime candidate) {
-    final corrected = _schedule.clampPickup(
-      candidate,
-      widget.now?.call(),
-    );
+    final corrected = _clampChosen(candidate, widget.now?.call());
     setState(() {
       _selectedDateTime = corrected;
       _pickupCorrectionMessage = corrected == candidate
@@ -152,9 +197,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   void _commitSchedule() {
     widget.session?.captureSchedule(
-      _selectedDateTime,
+      _pickupAt,
       timezone: widget.timeZone,
     );
+  }
+
+  void _setPickupMode(bool pickupMode) {
+    _pickupMode = pickupMode;
+    // The same time now means the other thing; re-check its pickup.
+    _applyPickedDateTime(_selectedDateTime);
   }
 
   TextStyle _style(
@@ -339,7 +390,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     ),
                     const Spacer(),
                     Text(
-                      '24-hour',
+                      context.l10n.time24Hour,
                       style: _style(
                         10.5,
                         weight: FontWeight.w500,
@@ -485,7 +536,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         ? null
         : _pickupMode
         ? _selectedDateTime.add(Duration(minutes: trip))
-        : _selectedDateTime.subtract(Duration(minutes: trip));
+        : _pickupAt;
 
     return PointerInterceptor(
       child: Material(
@@ -595,12 +646,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           _modeOption(
             label: context.l10n.pickupAtMode,
             selected: _pickupMode,
-            onTap: () => setState(() => _pickupMode = true),
+            onTap: () => _setPickupMode(true),
           ),
           _modeOption(
             label: context.l10n.arriveByMode,
             selected: !_pickupMode,
-            onTap: () => setState(() => _pickupMode = false),
+            // No trip estimate, no pickup to book from an arrival time.
+            onTap: widget.tripMinutes == null
+                ? null
+                : () => _setPickupMode(false),
           ),
         ],
       ),
@@ -610,7 +664,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Widget _modeOption({
     required String label,
     required bool selected,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     return Expanded(
       child: Material(
@@ -751,7 +805,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _continueButton() {
     final legal = _schedule.isLegalPickup(
-      _selectedDateTime,
+      _pickupAt,
       widget.now?.call(),
     );
     final enabled = legal && !_continuing;

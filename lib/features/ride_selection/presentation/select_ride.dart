@@ -1145,6 +1145,8 @@ class _SelectRideState extends State<SelectRide>
           final when = await ScheduleDateTimeSelector.choose(
             context,
             initial: _selection.scheduledFor,
+            // rider-89: Arrive by needs the trip estimate here too.
+            tripMinutes: _tripMinutes(),
             timeZone: _pickupSchedule.timeZone,
           );
           if (when == null || !mounted) return;

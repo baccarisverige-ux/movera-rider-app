@@ -254,6 +254,7 @@ class Reservation {
     this.cancellationFee,
     this.endedEarly = false,
     this.chargedFare,
+    this.paymentFailed = false,
   });
 
   final String reservationId;
@@ -292,6 +293,10 @@ class Reservation {
   /// What the server said the rider pays, when known (an ended-early
   /// trip's final `fare`). Null: only [price], the booked price, is known.
   final Money? chargedFare;
+
+  /// rider-37: the trip was completed but its payment failed (contract
+  /// `paymentStatus: failed`). History lists it as completed and says so.
+  final bool paymentFailed;
 
   bool get driverAssigned => status.hasDriver && driver != null;
 
@@ -333,6 +338,7 @@ class Reservation {
     Money? cancellationFee,
     bool? endedEarly,
     Money? chargedFare,
+    bool? paymentFailed,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -360,6 +366,7 @@ class Reservation {
       cancellationFee: cancellationFee ?? this.cancellationFee,
       endedEarly: endedEarly ?? this.endedEarly,
       chargedFare: chargedFare ?? this.chargedFare,
+      paymentFailed: paymentFailed ?? this.paymentFailed,
     );
   }
 
@@ -390,6 +397,7 @@ class Reservation {
     if (cancellationFee != null) 'cancellationFee': cancellationFee!.toJson(),
     if (endedEarly) 'endedEarly': true,
     if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
+    if (paymentFailed) 'paymentFailed': true,
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -448,6 +456,7 @@ class Reservation {
         cancellationFee: Money.fromWire(map['cancellationFee']),
         endedEarly: map['endedEarly'] == true,
         chargedFare: Money.fromWire(map['chargedFare']),
+        paymentFailed: map['paymentFailed'] == true,
       );
     } catch (_) {
       return null;
