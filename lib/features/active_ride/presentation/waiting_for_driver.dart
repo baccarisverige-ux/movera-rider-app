@@ -141,6 +141,7 @@ class WaitingForDriver extends StatefulWidget {
     this.driver,
     this.realtime,
     this.rideId,
+    this.categoryId,
     this.persistRideSnapshot = true,
     this.onTerminal,
     this.onDriverCancelled,
@@ -173,6 +174,11 @@ class WaitingForDriver extends StatefulWidget {
   /// exact presentation without touching the on-demand ride session.
   final RideRealtime? realtime;
   final String? rideId;
+
+  /// rider-u44: the trip's own category id, for its waiting terms and the
+  /// cancel-fee preview (a reservation's). Null: the Book Now session's
+  /// booked category of [rideId], else the stored snapshot's.
+  final String? categoryId;
   final bool persistRideSnapshot;
   final Future<void> Function(BuildContext context, RideStatus status)?
   onTerminal;
@@ -289,11 +295,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// wait, then the fee per minute), once the zone's config is read.
   RiderCategoryWaiting? _waitingTerms;
 
+  /// rider-u44: the category of this ride only. The on-demand session's
+  /// booked category and the stored snapshot describe whatever Book Now
+  /// ride ran last, so they count only when they are this ride.
+  Future<String?> _tripCategoryId() async {
+    final own = widget.categoryId;
+    if (own != null && own.trim().isNotEmpty) return own;
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return null;
+    final session = AppScope.instance.ride;
+    if (session.rideId?.trim() == rideId && session.bookedCategoryId != null) {
+      return session.bookedCategoryId;
+    }
+    final stored = await RouteChangeController.storedRide();
+    return stored?.rideId?.trim() == rideId ? stored?.categoryId : null;
+  }
+
   Future<void> _loadWaitingTerms() async {
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return;
       final config = await AppScope.instance.riderConfig.forTrip(
         currency: widget.currency,
@@ -807,9 +827,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
     }
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return null;
       // Q7: the fee rules of the trip's own zone, in its currency.
       final zone = RiderZones.byCurrency(widget.currency) ??

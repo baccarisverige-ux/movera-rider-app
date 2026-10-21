@@ -211,6 +211,11 @@ class RideSession {
     authoritativeVersion = null;
     authoritativeUpdatedAt = null;
     _projectionVersions.clear();
+    // rider-u44: the booked category, payment method and offer ceiling
+    // belong to the ride that is gone (and to the rider who booked it).
+    bookedCategoryId = null;
+    bookedPaymentMethodId = null;
+    bookedMaxOfferMinor = null;
     tripStatus = TripStatus.draft;
     paymentStatus = PaymentStatus.notStarted;
     ratingStatus = RatingStatus.notRequested;

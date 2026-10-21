@@ -83,6 +83,9 @@ abstract final class ReservationLiveRide {
       notes: notesOf(ride),
       driver: ride.driver == null ? null : driverOf(ride.driver!),
       rideId: ride.reservationId,
+      // rider-u44: the reservation's own category for its waiting terms,
+      // never the Book Now session's last booked one.
+      categoryId: ride.categoryId,
       realtime: realtime,
       persistRideSnapshot: false,
       onCancel: (context, reasonId) async {
