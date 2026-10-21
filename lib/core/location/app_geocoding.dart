@@ -5,6 +5,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/web_reverse_geocode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// A street-name lookup outside the Movera backend (the web demo's
 /// OpenStreetMap fallback).
@@ -66,8 +67,10 @@ class AppGeocoding implements GeocodingRepository {
 
   @override
   Future<String?> reverse(GeoPoint point) async {
-    final key =
-        '${point.latitude.toStringAsFixed(5)}:${point.longitude.toStringAsFixed(5)}';
+    // rider-r4-44: street names come back in the app language, so an
+    // address looked up before a language switch is not reused after it.
+    final key = '${L10n.code}:${point.latitude.toStringAsFixed(5)}:'
+        '${point.longitude.toStringAsFixed(5)}';
     final cached = _reverseCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
 

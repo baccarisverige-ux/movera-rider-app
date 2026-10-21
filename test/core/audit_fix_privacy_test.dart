@@ -11,6 +11,7 @@ import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 import 'package:movera_rider/core/observability/observability.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class _Tokens implements TokenStore {
   @override
@@ -93,6 +94,24 @@ void main() {
         AppGeocoding.placeholderReverseLabel,
       );
       expect(await geocoding.reverse(point), 'Sveavägen 1');
+    });
+
+    // rider-r4-44: the cache key ignored the app language.
+    test('a language switch looks the street up again', () async {
+      var publicCalls = 0;
+      final geocoding = AppGeocoding(
+        api: placeholderApi(),
+        isWeb: true,
+        allowPublicReverseFallback: true,
+        publicReverse: (point, {timeout = Duration.zero}) async =>
+            'Rue ${++publicCalls}',
+      );
+      addTearDown(() => L10n.use('en'));
+      const point = GeoPoint(48.86, 2.35);
+      L10n.use('en');
+      await geocoding.reverse(point);
+      L10n.use('fr');
+      expect(await geocoding.reverse(point), 'Rue 2');
     });
 
     test('the app enables it only for mock-transport flavours', () {
