@@ -1294,6 +1294,8 @@ class _SelectRideState extends State<SelectRide>
                   lng: stop.longitude,
                 ),
             ],
+            // rider-r4-35: the quote ran out on Review changes.
+            requote: (reviewed) => _requoteReviewed(booked, reviewed),
           );
         } catch (error, stack) {
           final action = widget.editingReservationId == null
@@ -1320,6 +1322,24 @@ class _SelectRideState extends State<SelectRide>
     } finally {
       _releaseBookingLock();
     }
+  }
+
+  /// rider-r4-35: prices [ride] again after Review changes outlasted its
+  /// quote; a different price is agreed to first. Null: nothing to save.
+  Future<double?> _requoteReviewed(_RideOption ride, double reviewed) async {
+    final bookable = await _quoteAfterPickup(ride);
+    if (!mounted) return null;
+    if (bookable == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
+      );
+      return null;
+    }
+    if (_selection.moneyOf(reviewed).amountMinor != bookable.quote.totalMinor &&
+        !await _acceptNewPrice(reviewed, bookable.price)) {
+      return null;
+    }
+    return mounted ? bookable.price : null;
   }
 
   String? _driverNote(String? extra) {

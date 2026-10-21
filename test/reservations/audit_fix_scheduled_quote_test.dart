@@ -1,4 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
@@ -104,5 +107,57 @@ void main() {
       reservationErrorMessage(error, ReservationAction.edit),
       contains("weren't saved"),
     );
+  });
+
+  testWidgets('rider-r4-35: a quote that runs out on Review changes is '
+      'priced again, not refused', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = reservations();
+    final selection = scheduled();
+    adoptScheduledQuote(selection, 'economy', kr: 312);
+    final booked = await tester.runAsync(() => book(c, selection));
+    double? reviewed;
+    Reservation? saved;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              saved = await ScheduledRideCheckout.run(
+                context,
+                reservations: c,
+                selection: selection,
+                pickup: const ReservationPlace(label: 'A', lat: 59.3, lng: 18.0),
+                destination: const ReservationPlace(label: 'B'),
+                pickupPosition: const LatLng(59.3, 18.0),
+                editingReservationId: booked!.reservationId,
+                original: booked,
+                requote: (price) async {
+                  reviewed = price;
+                  adoptScheduledQuote(selection, 'economy', kr: 318);
+                  return 318;
+                },
+              );
+            },
+            child: const Text('edit'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('edit'));
+    await tester.pumpAndSettle();
+    // Two minutes reading the changes: the quote is spent.
+    selection.quoteExpiresAt['economy'] = DateTime.now().subtract(
+      const Duration(seconds: 1),
+    );
+    await tester.tap(find.text('Confirm changes'));
+    await tester.pumpAndSettle();
+
+    expect(reviewed, 312);
+    expect(saved?.price, 318);
+    expect(c.byId(booked!.reservationId)!.price, 318);
   });
 }
