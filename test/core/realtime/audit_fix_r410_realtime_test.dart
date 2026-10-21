@@ -152,6 +152,7 @@ void main() {
 
   group('demo driver (MockRideRealtime) uses the trip\'s own pickup', () {
     const paris = (lat: 48.8809, lng: 2.3553);
+    const arlanda = (lat: 59.6519, lng: 17.9186);
     const sara = MatchedDriver(id: 'd-sara', firstName: 'Sara');
     late InProcessMockClient server;
     late MockRideRealtime mock;
@@ -231,6 +232,16 @@ void main() {
         events.map((e) => e.status),
         isNot(contains(RideStatus.driverArriving)),
       );
+      mock.dispose();
+    });
+
+    testWidgets('rider-u28: the next ride\'s driver spawns at its own pickup',
+        (tester) async {
+      seed('r-paris', 'searching', paris);
+      seed('r-arlanda', 'searching', arlanda);
+      await assign(tester, 'r-paris');
+      final second = await assign(tester, 'r-arlanda');
+      expect(metresFrom(arlanda, second), lessThan(2000));
       mock.dispose();
     });
   });

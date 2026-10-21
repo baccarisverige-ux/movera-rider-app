@@ -187,6 +187,10 @@ class MockRideRealtime implements RideRealtime {
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
+    // rider-u28: a new ride has its own pickup. Kept, the next ride's
+    // driver spawned next to the previous ride's pickup and drove across.
+    _pickupLat = null;
+    _pickupLng = null;
     _progress = 0;
     _tripStartLat = null;
     _tripStartLng = null;
