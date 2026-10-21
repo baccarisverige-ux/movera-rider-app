@@ -1240,6 +1240,9 @@ class _SelectRideState extends State<SelectRide>
         }
         if (!mounted) return;
         if (_walletCannotPay(bookable.price)) return;
+        // rider-r4-28: the stops the price was quoted for are booked too.
+        final stops = await _routeStops();
+        if (!mounted) return;
         final Reservation? created;
         try {
           created = await ScheduledRideCheckout.run(
@@ -1265,6 +1268,14 @@ class _SelectRideState extends State<SelectRide>
                 : _reservations.byId(widget.editingReservationId!),
             // rider-63: the zone the time was picked in.
             timeZone: _pickupSchedule.timeZone,
+            stops: [
+              for (final stop in stops)
+                ReservationPlace(
+                  label: stop.address,
+                  lat: stop.latitude,
+                  lng: stop.longitude,
+                ),
+            ],
           );
         } catch (error, stack) {
           final action = widget.editingReservationId == null

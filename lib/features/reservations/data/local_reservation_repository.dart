@@ -180,6 +180,7 @@ class LocalReservationRepository implements ReservationRepository {
         policyVersion: policy.version,
         parentReservationId: draft.parentReservationId,
         timeZone: draft.timeZone,
+        stops: List.unmodifiable(draft.stops),
       );
       await _commit([created, ..._items]);
       return created;
@@ -216,6 +217,7 @@ class LocalReservationRepository implements ReservationRepository {
         clearDriver: patch.clearDriver,
         previousDriver: patch.previousDriver,
         timeZone: patch.timeZone,
+        stops: patch.stops == null ? null : List.unmodifiable(patch.stops!),
       );
       await _commit(_replacing(reservationId, next));
       return next;
