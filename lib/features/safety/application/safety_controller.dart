@@ -69,8 +69,22 @@ class SafetyController extends ChangeNotifier {
   /// FLOW-6: the ride is over, so a recording the rider started in the
   /// Safety Kit stops and is saved. Looks only at a controller that already
   /// exists: no recording can run without one.
-  static Future<void> stopRecordingForRideEnd() async {
-    await _shared?.audio.stopIfRecording(reason: 'ride_ended');
+  ///
+  /// rider-u35: with [keepRideCheck] (the trip completed, and its summary
+  /// still shows an open Ride check card with its own Stop control) a
+  /// card recording for that ride keeps running; the card stops it.
+  static Future<void> stopRecordingForRideEnd({
+    bool keepRideCheck = false,
+  }) async {
+    final audio = _shared?.audio;
+    final active = audio?.active;
+    if (active == null) return;
+    if (keepRideCheck &&
+        active.deviceOnly &&
+        RideCheckController.existing?.sessionFor(active.rideId) != null) {
+      return;
+    }
+    await audio!.stopIfRecording(reason: 'ride_ended');
   }
 
   @visibleForTesting

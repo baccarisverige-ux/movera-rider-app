@@ -468,7 +468,7 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
     AppScope.instance.ride.backendReconcile(status, id: id);
-    _stopSafetyRecording();
+    _stopSafetyRecording(keepRideCheck: true);
     if (snapshot == null) return;
 
     // Keep a restorable completion snapshot until the rider explicitly leaves
@@ -639,7 +639,11 @@ class ActiveRideController {
   /// FLOW-6: a Safety Kit recording belongs to the ride; once the ride is
   /// over the rider can no longer reach Stop audio, so it stops and is
   /// saved here. Best effort, never blocks the ride flow.
-  void _stopSafetyRecording() {
-    unawaited(SafetyController.stopRecordingForRideEnd());
+  /// rider-u35: [keepRideCheck] on completion, whose summary still shows
+  /// an open Ride check card and its Stop control.
+  void _stopSafetyRecording({bool keepRideCheck = false}) {
+    unawaited(
+      SafetyController.stopRecordingForRideEnd(keepRideCheck: keepRideCheck),
+    );
   }
 }
