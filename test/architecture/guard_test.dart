@@ -185,17 +185,29 @@ void main() {
       expect(banned.hasMatch(src), isFalse, reason: file.path);
     }
 
+    // rider-98: both quote styles, `part` and conditional URIs, and
+    // relative URIs resolved to `package:` form, so
+    // `import '../../features/x.dart';` from lib/core is caught too.
     final directive = RegExp(
-      r"^\s*(?:import|export)\s+'([^']+)'",
+      r'^\s*(?:import|export|part)\b[^;]*;',
       multiLine: true,
     );
-    List<String> importsOf(String src) =>
-        [for (final m in directive.allMatches(src)) m.group(1)!];
+    final quoted = RegExp(r"""(['"])(.+?)\1""");
     String norm(String path) => path.replaceAll(r'\', '/');
+    List<String> importsOf(File file) {
+      final self = Uri.parse(
+        'package:movera_rider/${norm(file.path).replaceFirst('lib/', '')}',
+      );
+      return [
+        for (final d in directive.allMatches(file.readAsStringSync()))
+          for (final m in quoted.allMatches(d.group(0)!))
+            self.resolve(m.group(2)!).toString(),
+      ];
+    }
 
     // core is feature-agnostic and never reaches back into the DI container.
     for (final file in dartUnder('lib/core')) {
-      for (final uri in importsOf(file.readAsStringSync())) {
+      for (final uri in importsOf(file)) {
         expect(
           uri.startsWith('package:movera_rider/features/') ||
               uri == 'package:movera_rider/app/di.dart',
@@ -206,7 +218,7 @@ void main() {
     }
 
     // DI knows concrete services, not screens.
-    for (final uri in importsOf(File('lib/app/di.dart').readAsStringSync())) {
+    for (final uri in importsOf(File('lib/app/di.dart'))) {
       expect(
         uri.contains('/presentation/'),
         isFalse,
@@ -226,7 +238,7 @@ void main() {
     for (final file in dartUnder('lib/features')) {
       final path = norm(file.path);
       if (!path.contains('/application/')) continue;
-      final hits = importsOf(file.readAsStringSync())
+      final hits = importsOf(file)
           .where((uri) => uri.contains('/presentation/'));
       if (hits.isNotEmpty) offenders.add(path);
     }
