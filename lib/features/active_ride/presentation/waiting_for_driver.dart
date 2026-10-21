@@ -896,10 +896,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_leaving) return;
     final feeNote = await _cancelFeeNote();
     if (!mounted || _leaving) return;
+    final inTripAtOpen = _isInTrip;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
-      phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
+      phase: inTripAtOpen ? CancelPhase.inTrip : CancelPhase.matched,
       feeNote: feeNote,
       offerDestinationChange: _routeEditable,
     );
@@ -910,6 +911,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     if (!outcome.cancelled) return;
+    if (inTripAtOpen != _isInTrip) {
+      // rider-u54: the trip started (or ended) while the sheet was open.
+      // What the rider confirmed ("Cancel ride?", free) is not what the
+      // command would now do (end-early, charged for the distance): ask
+      // again for the stage they are in, and send nothing on this answer.
+      if (_tracking.status.isTerminal) return;
+      return _confirmCancel();
+    }
     _leaving = true;
     _cancelInFlight = true;
     setState(() {});
