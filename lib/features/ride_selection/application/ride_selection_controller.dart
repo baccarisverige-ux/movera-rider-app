@@ -312,8 +312,8 @@ class RideSelectionController {
     }
   }
 
-  /// A method that was asked for (the saved default) before it was
-  /// offered: the wallet row appears only once the balance has loaded, so
+  /// A method that was asked for (the saved default, or the reservation's
+  /// method) before it was offered: the wallet row appears only once the balance has loaded, so
   /// it is chosen when it does (rider-75). A choice the rider makes
   /// meanwhile wins.
   bool Function(RidePaymentItem item)? _wanted;
@@ -593,14 +593,22 @@ class RideSelectionController {
     // (removed, owner Q7): both are Cash now.
     final legacy = needle.toLowerCase();
     if (legacy == 'cash' || legacy == 'swish' || legacy == 'pay in car') {
+      _wanted = null;
       selectPaymentByBrand('cash');
       return;
     }
+    bool named(RidePaymentItem item) =>
+        item.name.toLowerCase() == needle.toLowerCase();
     final list = payments();
-    final i = list.indexWhere(
-      (item) => item.name.toLowerCase() == needle.toLowerCase(),
-    );
-    if (i >= 0) selectedPayment = i;
+    final i = list.indexWhere(named);
+    if (i >= 0) {
+      selectedPayment = i;
+      _wanted = null;
+    } else {
+      // A reservation or return ride paid with Movera Wallet: the wallet
+      // row is offered once the balance has loaded (rider-u186).
+      _wanted = named;
+    }
   }
 
   void selectPaymentByBrand(String? brand) {
