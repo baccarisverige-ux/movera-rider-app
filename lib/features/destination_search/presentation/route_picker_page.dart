@@ -70,7 +70,7 @@ class RoutePickerPage extends StatefulWidget {
     this.openWithNewStop = false,
     this.finishLabel,
     required this.recent,
-    required this.onSetFavourite,
+    this.onSetFavourite,
     required this.onPickOnMap,
     required this.onFinish,
   });
@@ -111,7 +111,10 @@ class RoutePickerPage extends StatefulWidget {
   final String? finishLabel;
 
   /// Opens the "Set your address" popup; returns the saved address.
-  final Future<String?> Function(String target) onSetFavourite;
+  ///
+  /// rider-u40: null where no address can be set (Change route in a
+  /// live ride): an unset Home or Work row is then not offered at all.
+  final Future<String?> Function(String target)? onSetFavourite;
 
   /// Opens "Choose on map" for the pickup or the destination.
   final Future<RoutePickerMapPick?> Function({
@@ -502,7 +505,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   Future<void> _setFavourite(String target) async {
-    final saved = await widget.onSetFavourite(target);
+    final saved = await widget.onSetFavourite?.call(target);
     if (!mounted || saved == null || saved.trim().isEmpty) return;
     setState(() {
       if (target == 'home') _home = saved;
@@ -883,6 +886,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       ('work', context.l10n.placeWork, _work),
     ]) {
       final set = value != null && value.trim().isNotEmpty;
+      if (!set && widget.onSetFavourite == null) continue;
       rows.add(
         _row(
           // Same Solar linear icons as the Home sheet chips.

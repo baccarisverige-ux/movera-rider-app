@@ -71,7 +71,7 @@ Future<RideSnapshot?> openRouteChange(
           workAddress: places.workAddress,
           savedPlaces: places.savedPlaces,
           recent: places.recentAddresses,
-          onSetFavourite: (_) async => null,
+          // rider-u40: no "Set your Home/Work" rows that do nothing here.
           onPickOnMap: ({required pickup, required address}) async {
             final start = pickup
                 ? LatLng(ride.pickupLat, ride.pickupLng)

@@ -3,12 +3,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 5 R5.2 parts a+b, on screen: no success text the app did not get.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  final ride = RideSnapshot(
+    status: RideStatus.driverAssigned,
+    savedAt: DateTime(2026, 10, 21),
+    pickupAddress: 'Sergels torg 1',
+    destinationAddress: 'Odenplan 2',
+    pickupLat: 59.3326,
+    pickupLng: 18.0649,
+    destinationLat: 59.3426,
+    destinationLng: 18.0498,
+    rideType: 'Movera',
+    price: 200,
+    paymentMethod: 'Apple Pay',
+    rideId: 'r52-ride',
+  );
 
   /// Pumps a page with one button that runs [open], and taps it.
   Future<void> openFrom(
@@ -56,5 +75,18 @@ void main() {
         ));
     expect(find.textContaining('49 kr'), findsNothing);
     expect(find.textContaining('charged to'), findsNothing);
+  });
+
+  testWidgets('rider-u40: Change route offers no "Set your Home/Work" rows '
+      'that cannot do anything', (tester) async {
+    // No Home or Work saved on this device.
+    await openFrom(tester, (context) => openRouteChange(
+          context,
+          ride: ride,
+          entry: RouteChangeEntry.destination,
+          pickupLocked: true,
+        ));
+    expect(find.text('Set Home'), findsNothing);
+    expect(find.text('Set Work'), findsNothing);
   });
 }
