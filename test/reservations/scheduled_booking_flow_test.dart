@@ -520,9 +520,9 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.idle);
   });
 
-  test(
+  testWidgets(
     'edit hydrates the saved payment instead of defaulting to Cash',
-    () async {
+    (tester) async {
       final c = reservations();
       final create = scheduledSelection();
       create.selectPaymentNamed('Card');
@@ -535,23 +535,27 @@ void main() {
       expect(first.paymentMethod, 'Card');
       expect(first.reservationId, 'rsv_1');
 
-      final edit = scheduledSelection(
-        rideId: 'comfort',
-        when: DateTime(2026, 9, 24, 9, 30),
-      );
-      expect(edit.payments()[edit.selectedPayment].name, isNot('Card'));
-      edit.selectPaymentNamed(first.paymentMethod);
-      final updated = await ScheduledRideBooking.confirm(
+      // rider-u238: SelectRide itself must hydrate the saved method when it
+      // edits the reservation; the test no longer does it.
+      final edit = await pumpSelectRide(
+        tester,
         reservations: c,
-        selection: edit,
-        pickup: const ReservationPlace(label: 'T-Centralen'),
-        destination: const ReservationPlace(label: 'Bromma'),
         editingReservationId: first.reservationId,
+        scheduledFor: StockholmSchedule.clampPickup(
+          StockholmSchedule.stockholmNow().add(const Duration(days: 1)),
+        ),
       );
+      expect(edit.payments()[edit.selectedPayment].name, 'Card');
+
+      await tester.tap(find.text('Schedule Movera'));
+      await settle(tester, 30);
+      await tester.tap(find.text('Confirm and schedule'));
+      await settle(tester, 30);
       expect(c.all, hasLength(1));
-      expect(updated.reservationId, 'rsv_1');
-      expect(updated.paymentMethod, 'Card');
-      expect(updated.categoryId, 'comfort');
+      expect(c.all.single.reservationId, 'rsv_1');
+      expect(c.all.single.paymentMethod, 'Card');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 10));
     },
   );
 
