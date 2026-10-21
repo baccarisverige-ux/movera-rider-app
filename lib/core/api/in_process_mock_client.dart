@@ -17,7 +17,9 @@ import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
@@ -33,6 +35,7 @@ class InProcessMockClient extends http.BaseClient {
     this.latency = Duration.zero,
     this.searchExpiresAfter = const Duration(minutes: 3),
     this.persistSafety = false,
+    this.persistRides = false,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
@@ -67,6 +70,22 @@ class InProcessMockClient extends http.BaseClient {
   /// FLOW-9: keep the Safety mock's state across launches (the app's own
   /// demo transport). Off for tests that build a mock of their own.
   final bool persistSafety;
+
+  /// rider-u10: keep the trips across launches (the app's own demo
+  /// transport). A reload restores the ride screen from the snapshot; with
+  /// the trips in memory only, every command on the restored ride (rating
+  /// and tip, offer raise, route change) then answered 404. Off for tests
+  /// that build a mock of their own.
+  final bool persistRides;
+
+  /// Where [persistRides] keeps them; a `movera_` key, so a sign-out wipe
+  /// removes it.
+  static const ridesStorageKey = 'movera_mock_rides_v1';
+
+  /// The newest trips kept; older ones are not saved.
+  static const persistedRidesLimit = 20;
+  bool _ridesRestored = false;
+  String? _savedRides;
 
   /// ARCH-3: like a real backend, the mock ends a search nobody accepted.
   /// A ride still searching this long after it was created reads back as
@@ -264,6 +283,74 @@ class InProcessMockClient extends http.BaseClient {
     if (latency > Duration.zero) {
       await Future<void>.delayed(latency);
     }
+    if (persistRides) {
+      await _restoreRidesOnce();
+      final response = await _handle(request);
+      await _persistRides();
+      return response;
+    }
+    return _handle(request);
+  }
+
+  /// Loads the trips an earlier launch saved, once per mock instance.
+  Future<void> _restoreRidesOnce() async {
+    if (_ridesRestored) return;
+    _ridesRestored = true;
+    try {
+      final raw = (await PreferencesStore.load()).getString(ridesStorageKey);
+      if (raw == null) return;
+      final saved = jsonDecode(raw);
+      if (saved is! Map) return;
+      final trips = saved['rides'];
+      if (trips is Map) {
+        for (final entry in trips.entries) {
+          if (entry.value is Map) {
+            rides.putIfAbsent(
+              '${entry.key}',
+              () => Map<String, dynamic>.from(entry.value as Map),
+            );
+          }
+        }
+      }
+      final accepted = saved['acceptedAt'];
+      if (accepted is Map) {
+        for (final entry in accepted.entries) {
+          final at = WireTime.tryParse(entry.value);
+          if (at != null) _acceptedAt.putIfAbsent('${entry.key}', () => at);
+        }
+      }
+      final endedEarly = saved['endedEarly'];
+      if (endedEarly is List) _endedEarly.addAll(endedEarly.whereType<String>());
+      _savedRides = raw;
+    } catch (error) {
+      AppLog.warning('mock.rides_restore_failed', extra: {'error': '$error'});
+    }
+  }
+
+  /// Saves the newest trips when a request changed them.
+  Future<void> _persistRides() async {
+    try {
+      final keep = rides.keys.toList();
+      final recent = keep.length > persistedRidesLimit
+          ? keep.sublist(keep.length - persistedRidesLimit)
+          : keep;
+      final encoded = jsonEncode({
+        'rides': {for (final id in recent) id: rides[id]},
+        'acceptedAt': {
+          for (final id in recent)
+            if (_acceptedAt[id] case final at?) id: WireTime.format(at),
+        },
+        'endedEarly': [for (final id in recent) if (_endedEarly.contains(id)) id],
+      });
+      if (encoded == _savedRides) return;
+      _savedRides = encoded;
+      await (await PreferencesStore.load()).setString(ridesStorageKey, encoded);
+    } catch (error) {
+      AppLog.warning('mock.rides_persist_failed', extra: {'error': '$error'});
+    }
+  }
+
+  Future<http.StreamedResponse> _handle(http.BaseRequest request) async {
     final requestId = request.headers['X-Request-Id'] ?? newRequestId();
     final key = request.headers['Idempotency-Key'];
     final path = request.url.path;

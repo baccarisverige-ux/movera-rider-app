@@ -5,6 +5,8 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 4 R4.10: what the rider sends and reads on the contract wire.
 void main() {
@@ -88,5 +90,41 @@ void main() {
       await BookingCoordinator(api: api).cancel(rideId: 'r2', key: 'k2');
       expect(server.rides['r2']!['status'], 'cancelled_by_rider');
     });
+  });
+
+  test('rider-u10: after a reload the demo server still knows the ride',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    // The app's own demo transport, before and after the page reload.
+    final before = ApiClient();
+    expect(before.usesMockTransport, isTrue);
+    final quote = (await before.post('/api/v1/quotes', body: {
+      'rideType': 'economy',
+      'pickupLat': 59.3293,
+      'pickupLng': 18.0686,
+      'destinationLat': 59.3326,
+      'destinationLng': 18.0649,
+    }))['quote'] as Map;
+    final ride = (await before.post('/api/v1/rides', body: {
+      'categoryId': 'economy',
+      'fare': {'amountMinor': quote['totalMinor'], 'currency': 'SEK'},
+      'paymentMethodId': 'cash',
+      'pickupLat': 59.3293,
+      'pickupLng': 18.0686,
+      'destinationLat': 59.3326,
+      'destinationLng': 18.0649,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+    }))['ride'] as Map;
+    final id = ride['id'] as String;
+    await before.post('/api/v1/rides/$id/status', body: {'status': 'completed'});
+
+    final after = ApiClient();
+    await RideFeedbackRepository(api: after)
+        .submit(rideId: id, rating: 5, idempotencyKey: 'fb-reload');
+    final read = (await after.get('/api/v1/rides/$id'))['ride'] as Map;
+    expect(read['ratingStatus'], 'submitted');
   });
 }
