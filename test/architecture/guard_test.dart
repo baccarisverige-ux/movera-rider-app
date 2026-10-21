@@ -253,6 +253,24 @@ void main() {
       reason: 'exemption no longer needed; remove it from the list',
     );
 
+    // rider-101: the mock never conjures a driver outside the API boundary.
+    // Mock driver identities (MockDriverPool) are reached only by lib/core
+    // (the in-process API and realtime stand-ins) and a feature's own
+    // mock data source; no screen, controller or real repository.
+    for (final file in dartUnder('lib')) {
+      final path = norm(file.path);
+      final reachesPool = importsOf(file).any(
+        (uri) => uri == 'package:movera_rider/core/realtime/mock_driver_pool.dart',
+      );
+      expect(
+        !reachesPool ||
+            path.startsWith('lib/core/') ||
+            RegExp(r'^lib/features/[^/]+/data/mock_[^/]+\.dart$').hasMatch(path),
+        isTrue,
+        reason: '$path reaches MockDriverPool outside the API boundary',
+      );
+    }
+
     // An ignored error either logs or says why it is safe to ignore.
     final emptyCatch = RegExp(r'catch\s*\([^)]*\)\s*\{\s*\}');
     for (final file in dartUnder('lib')) {
