@@ -1385,8 +1385,9 @@ class FindingDriverController {
 
   /// Sends the rider's optional reason for a cancel that is already
   /// committed. Best effort: it updates the History record, rides along
-  /// with a cancel still queued in the outbox, or is posted to the cancel
-  /// endpoint again (idempotent for a cancelled ride). It never changes the
+  /// with a cancel still queued in the outbox, or is posted to
+  /// `POST /trips/{id}/cancel-reason` (contract v0.4.4, owner decision 6).
+  /// A failed post is only logged, never queued. It never changes the
   /// ride's state.
   Future<void> sendCancelReason(String reasonId) async {
     if (!_cancelled) return;
@@ -1416,15 +1417,11 @@ class FindingDriverController {
     if (await PendingCancelStore.attachReason(id, reasonId)) return;
     final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
     try {
-      // A second cancel of a cancelled trip: quietly accepted (R-O3). It
-      // still names the version the cancel left the trip at (R-O2).
-      final version = ride.projectionVersionOf(id);
+      // Not a second /cancel (409 invalid_transition on a cancelled trip):
+      // its own command, which takes no expectedVersion.
       await api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {
-          ...CancelReasonCodes.riderCancelBody(reasonId),
-          'expectedVersion': ?version,
-        },
+        '/api/v1/trips/$id/cancel-reason',
+        body: CancelReasonCodes.riderReasonBody(reasonId),
         idempotencyKey: _reasonMutation.keyFor(intent),
       );
       _reasonMutation.succeeded(intent);

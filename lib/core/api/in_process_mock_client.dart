@@ -756,6 +756,37 @@ class InProcessMockClient extends http.BaseClient {
           'requestId': requestId,
         };
       }
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'trips' &&
+        parts.last == 'cancel-reason' &&
+        method == 'POST') {
+      // Contract v0.4.4 §3 "After-cancel reason" (owner decision 6). Not a
+      // transition: only cancellation.reasonCode / note change, no version,
+      // sequence, updatedAt or fee change, and no realtime event.
+      final ride = rides[parts[4]];
+      final reasonCode = body['reasonCode'];
+      final note = body['note'];
+      final cancellation = ride?['cancellation'];
+      if (ride == null) {
+        status = 404;
+        payload = _error('not_found', requestId);
+      } else if (!CancelReasonCodes.isRiderCode(reasonCode) ||
+          (note != null && (note is! String || note.length > 1000))) {
+        status = 400;
+        payload = _invalidReason(reasonCode, TripActor.rider, requestId);
+      } else if (_statusOf(ride) != TripStatus.cancelledByRider ||
+          cancellation is! Map ||
+          cancellation['reasonCode'] != CancelReasonCodes.unspecified) {
+        status = 409;
+        payload = _invalidTransition(ride, 'cancel_reason', requestId);
+      } else {
+        cancellation['reasonCode'] = reasonCode;
+        if (note is String) cancellation['note'] = note;
+        // The pre-v0.3 field the app's History and older tests read.
+        ride['cancellationReason'] = reasonCode;
+        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
@@ -786,20 +817,14 @@ class InProcessMockClient extends http.BaseClient {
           message: 'reasonCode is required.',
         );
       } else if (_statusOf(ride) == TripStatus.cancelledByRider) {
-        // R-O3 (owner decision): cancelling a trip that is already
-        // cancelled is quietly OK: 200 with the projection, no error, no
-        // second fee, whatever version the caller last saw. It is checked
-        // before the version, so a repeat after a lost response is not
-        // refused as stale. Cancel-first: the rider's optional reason
-        // arrives after the cancel.
-        final reason = reasonCode ?? body['reason'];
-        if (reason is String && ride['cancellationReason'] == null) {
-          ride['cancellationReason'] = reason;
-          if (reasonCode is String) {
-            (ride['cancellation'] as Map?)?['reasonCode'] = reasonCode;
-          }
-        }
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+        // Contract v0.4.4 (owner decision 6): a second cancel of a
+        // cancelled trip is 409 invalid_transition with the projection, as
+        // the table says; it never changes the reason (that is
+        // POST /trips/{id}/cancel-reason below). It is checked before the
+        // version, so a stale repeat still gets the projection, which the
+        // app reads as "already cancelled" (R-O3, client side).
+        status = 409;
+        payload = _invalidTransition(ride, command, requestId);
       } else if (_versionMismatch(ride, body, requestId) case final stale?) {
         status = 409;
         payload = stale;
@@ -818,8 +843,8 @@ class InProcessMockClient extends http.BaseClient {
           payload = _invalidTransition(ride, command, requestId);
         } else {
           // A cancel-first names the unspecified code only (rider-u19): the
-          // rider picked no reason yet, and the one they pick afterwards is
-          // stored then (R-O3 above).
+          // rider picked no reason yet, and the one they pick afterwards
+          // comes with POST /trips/{id}/cancel-reason (v0.4.4).
           final reason = body['reason'] ??
               (reasonCode == CancelReasonCodes.unspecified ? null : reasonCode);
           if (reason is String) ride['cancellationReason'] = reason;
