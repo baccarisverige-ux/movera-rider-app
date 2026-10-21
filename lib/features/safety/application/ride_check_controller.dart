@@ -188,6 +188,11 @@ class RideCheckController extends ChangeNotifier {
   RideCheckSession? _session;
   String? _visibleRideId;
   final Set<String> _shown = {};
+
+  /// rider-u192: triggers detected while another card was up. The monitor
+  /// counts them as fired, so they wait here and open when that card
+  /// closes instead of being lost.
+  final List<({String rideId, RideCheckDetection hit})> _waiting = [];
   Future<void>? _queue;
   bool _disposed = false;
 
@@ -218,6 +223,7 @@ class RideCheckController extends ChangeNotifier {
   void attachTrip(RideCheckTripContext trip, RideCheckPlan plan) {
     final sameRide = _trip?.rideId == trip.rideId;
     _trip = trip;
+    if (!sameRide) _waiting.removeWhere((w) => w.rideId != trip.rideId);
     if (!sameRide || _monitor == null) {
       _monitor = RideCheckMonitor(
         settings: _service.policy().triggers,
@@ -270,9 +276,7 @@ class RideCheckController extends ChangeNotifier {
     if (!policy.enabled) return;
     monitor.settings = policy.triggers;
     final hit = monitor.addSample(sample);
-    if (hit != null) {
-      unawaited(open(hit.trigger, reason: hit.reason, rideId: rideId));
-    }
+    if (hit != null) unawaited(_openDetected(rideId, hit));
   }
 
   /// No new position for a while: checks the long stop against the clock,
@@ -286,9 +290,7 @@ class RideCheckController extends ChangeNotifier {
     if (!policy.enabled) return;
     monitor.settings = policy.triggers;
     final hit = monitor.checkStill(_clock());
-    if (hit != null) {
-      unawaited(open(hit.trigger, reason: hit.reason, rideId: rideId));
-    }
+    if (hit != null) unawaited(_openDetected(rideId, hit));
   }
 
   /// The trip ended at [end] (the car's last position).
@@ -303,7 +305,27 @@ class RideCheckController extends ChangeNotifier {
     monitor.settings = policy.triggers;
     final hit = monitor.tripEnded(end);
     if (hit == null) return RideCheckOpenResult.noTrigger;
-    return open(hit.trigger, reason: hit.reason, rideId: rideId);
+    return _openDetected(rideId, hit);
+  }
+
+  /// Opens a trigger the monitor detected. When another card is up it waits
+  /// for that card to close (rider-u192).
+  Future<RideCheckOpenResult> _openDetected(
+    String rideId,
+    RideCheckDetection hit,
+  ) async {
+    final result = await open(hit.trigger, reason: hit.reason, rideId: rideId);
+    if (result == RideCheckOpenResult.busy) {
+      _waiting.add((rideId: rideId, hit: hit));
+    }
+    return result;
+  }
+
+  void _openWaiting(String rideId) {
+    final index = _waiting.indexWhere((w) => w.rideId == rideId);
+    if (index < 0) return;
+    final next = _waiting.removeAt(index);
+    unawaited(_openDetected(next.rideId, next.hit));
   }
 
   // ---- Demo ---------------------------------------------------------------
@@ -717,6 +739,7 @@ class RideCheckController extends ChangeNotifier {
         _changed();
       }
     });
+    _openWaiting(closing.rideId);
   }
 
   /// Writes run one after another, so an update never overtakes the alert
