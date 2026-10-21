@@ -564,6 +564,24 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setState(() {});
     _tracking.dispose();
 
+    // rider-u52: `closed` is a finished trip once it is paid and rated (a
+    // resync after a long disconnect in trip can jump straight there). It
+    // is not an external terminal and gets no error sheet: file it as
+    // completed and go Home.
+    if (status == RideStatus.closed) {
+      final customTerminal = widget.onTerminal;
+      if (customTerminal == null) await _ride.markClosedByServer();
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      if (customTerminal != null) {
+        await customTerminal(context, status);
+      } else {
+        RideNavigator.home(context, status: status);
+      }
+      return;
+    }
+
     // A queued outbox cancel (D-013/D-020) can land after the rider was told
     // the ride is still active. The server then reports cancelledByRider:
     // commit it locally instead of treating it as an external terminal.

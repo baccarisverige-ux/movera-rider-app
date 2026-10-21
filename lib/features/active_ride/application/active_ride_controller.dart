@@ -364,6 +364,20 @@ class ActiveRideController {
     await _store.clear();
   }
 
+  /// rider-u52: the server reports the trip `closed` (completed, paid and
+  /// rated) to a screen that never saw it complete, for example a resync
+  /// after a long disconnect in trip. Not an external terminal: the trip
+  /// happened, so History keeps it as completed, and the snapshot clears.
+  Future<void> markClosedByServer() async {
+    final snapshot = await _store.historyCandidate();
+    final ride = AppScope.instance.ride;
+    final id = ride.rideId;
+    ride.backendReconcile(RideStatus.closed, id: id);
+    _stopSafetyRecording();
+    await _archive(snapshot, RideStatus.closed, expectedRideId: id);
+    await _store.clear();
+  }
+
   Future<void> markCompleted(RideStatus status) async {
     if (!status.isCompletedSurface) {
       throw ArgumentError.value(status, 'status', 'Expected a completed status.');
