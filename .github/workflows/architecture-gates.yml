@@ -28,3 +28,5 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # The arrive-by DST case only exists in a zone with daylight saving.
+      - run: TZ=Europe/Stockholm flutter test test/scheduled_rides/audit_fix_arrive_by_dst_test.dart
