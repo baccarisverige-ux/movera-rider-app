@@ -1,5 +1,5 @@
 {
- "version": "0.4.1",
+ "version": "0.4.2",
  "note": "Each step applies a command as an actor. 'expect' is the trip status after it, or 'invalid_transition' when the command is not allowed from the current status (status stays the same). kind = live or scheduled. Optional 'rating' maps a rater (rider | driver) to 'allowed' or 'invalid_transition' for a rating sent after the last step (contract.json#ratingAllowed: the trip's status plus the command that ended it).",
  "scenarios": [
   {
