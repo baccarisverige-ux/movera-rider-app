@@ -257,6 +257,31 @@ class SafetyController extends ChangeNotifier {
     } finally {
       notifyListeners();
     }
+    if (!contact.shareTrips) await _unselectForTripShare(contact.id);
+  }
+
+  /// rider-u204: "Share trips" switched off in the contact editor also
+  /// takes the contact out of the Trip share selection, so the two agree.
+  Future<void> _unselectForTripShare(String id) async {
+    final selected = preferences.tripShareContactIds;
+    if (!selected.contains(id)) return;
+    try {
+      await _session.patchPreferences(
+        preferences.copyWith(
+          tripShareContactIds: [
+            for (final item in selected)
+              if (item != id) item,
+          ],
+        ),
+      );
+    } catch (err) {
+      // Not sent the trip either way: startShare reads the contact.
+      AppLog.warning(
+        'safety.share.unselect_failed',
+        extra: {'error': '$err'},
+      );
+    }
+    notifyListeners();
   }
 
   Future<void> removeContact(String id) async {
@@ -305,12 +330,24 @@ class SafetyController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// rider-u204: the trip goes to the trusted contacts that exist now, are
+  /// enabled, and are ticked on Trip share or marked "Share trips" (what
+  /// the Trip share page shows as ticked), never to a stored id of a
+  /// contact that was deleted or disabled.
+  List<String> get tripShareRecipients {
+    final selected = preferences.tripShareContactIds;
+    return [
+      for (final contact in contacts)
+        if (contact.isEnabled &&
+            (contact.shareTrips || selected.contains(contact.id)))
+          contact.id,
+    ];
+  }
+
   Future<TripShare> startShare(String rideId) async {
     final share = await _session.startShare(
       rideId,
-      contactIds: preferences.tripShareContactIds.isEmpty
-          ? null
-          : preferences.tripShareContactIds,
+      contactIds: tripShareRecipients,
     );
     record(SafetyKind.shareTrip, rideId: rideId);
     notifyListeners();
