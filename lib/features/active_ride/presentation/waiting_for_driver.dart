@@ -227,6 +227,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
+
+  /// rider-29: the cancel or end-early request is out. Back must not pop
+  /// this screen meanwhile: the answer would be dropped on `!mounted`, a
+  /// confirmed cancel would never go Home and a refused one would leave
+  /// the ride with no screen.
+  bool _cancelInFlight = false;
   StreamSubscription<({String rideId, bool stale})>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
@@ -905,6 +911,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
     if (!outcome.cancelled) return;
     _leaving = true;
+    _cancelInFlight = true;
     setState(() {});
 
     try {
@@ -914,6 +921,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         // taken over the ride; if it throws, live updates must still work.
         await customCancel(context, outcome.reasonId);
         if (!mounted) return;
+        _cancelInFlight = false;
         _tracking.dispose();
         await _parkMapForStageChange();
         return;
@@ -931,6 +939,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             : null,
       );
       if (!mounted) return;
+      _cancelInFlight = false;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
           _cancelling = false;
@@ -961,6 +970,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       if (!mounted) return;
       setState(() {
+        _cancelInFlight = false;
         _cancelling = false;
         _leaving = false;
       });
@@ -1534,7 +1544,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final media = MediaQuery.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
-      canPop: _leaving,
+      canPop: _leaving && !_cancelInFlight,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         // RC5: an open Ride check card has to be answered first.
