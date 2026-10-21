@@ -319,11 +319,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return null;
     }
     return WaitingFeeCounter(
-      since: _tracking.waitingSince ?? DateTime.now(),
+      // rider-u45: the server's stamp, else one start kept for the whole
+      // wait (never "now" again on each rebuild).
+      since:
+          _tracking.waitingSince ?? (_waitingSinceFallback ??= DateTime.now()),
       freeWaitMin: terms.freeWaitMin,
       perMin: terms.perMin,
     );
   }
+
+  DateTime? _waitingSinceFallback;
 
   /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
   /// the server once it was sent. The ride goes on; say so.
