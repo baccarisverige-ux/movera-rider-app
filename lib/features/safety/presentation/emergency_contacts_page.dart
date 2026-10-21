@@ -293,9 +293,9 @@ class _ContactEditorState extends State<_ContactEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final inset = MediaQuery.of(context).viewInsets.bottom;
+    // rider-u210: MoveraSheet already lifts the sheet above the keyboard.
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
