@@ -2049,10 +2049,15 @@ class InProcessMockClient extends http.BaseClient {
     return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  /// New price for a changed route: the booked price, plus 25 kr per stop
-  /// and 12 kr per extra kilometre beyond what was booked, in the trip's
+  /// New price for a changed route (contract §3 "Route-change pricing"):
+  /// the booked price, plus 25 kr per stop that was not booked and 12 kr per
+  /// kilometre beyond the booked route through its stops, in the trip's
   /// currency ([MockZoneRates]: 2.40 € and 1.15 € in Paris). Shorter routes
   /// get the difference back. Minor units, on the zone's price step.
+  ///
+  /// rider-9 / owner decision 5: a booked stop is counted once. The booked
+  /// kilometres already go through it and the booking charged it no stop
+  /// fee, so keeping it costs nothing more.
   Map<String, dynamic> _routeChangePricing(
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
@@ -2077,21 +2082,19 @@ class InProcessMockClient extends http.BaseClient {
               'lng': raw['lng'],
             },
     ];
-    double routeKm = 0;
-    if (pLat != null && pLng != null) {
-      var lat = pLat;
-      var lng = pLng;
-      for (final stop in stops) {
-        routeKm += _km(lat, lng, stop['lat'] as num, stop['lng'] as num);
-        lat = stop['lat'] as num;
-        lng = stop['lng'] as num;
-      }
-      routeKm += _km(lat, lng, dLat, dLng);
-    }
+    final routeKm =
+        _routedKm({
+          'pickupLat': pLat,
+          'pickupLng': pLng,
+          'stops': stops,
+          'destinationLat': dLat,
+          'destinationLng': dLng,
+        }) ??
+        0;
     final bookedKm = (ride['bookedKm'] as num?)?.toDouble() ?? routeKm;
     final newMinor = rates.roundToStep(
       (bookedMinor +
-              stops.length * rates.convertKronor(25) +
+              _unbookedStops(ride, stops) * rates.convertKronor(25) +
               (routeKm - bookedKm) * rates.perKmMinor)
           .clamp(bookedMinor * 0.5, double.infinity),
     );
@@ -2109,8 +2112,48 @@ class InProcessMockClient extends http.BaseClient {
   static const _catalogTripMeters = MockCategoryRates.includedMeters;
 
 
+  /// A stop this close to a booked stop is that booked stop (contract §3).
+  static const _sameStopMeters = 50;
+
+  /// How many of the new route's [stops] were not booked: each booked stop
+  /// (`bookedStops`, else the trip's `stops`) matches one new stop within
+  /// [_sameStopMeters], once.
+  static int _unbookedStops(
+    Map<String, dynamic> ride,
+    List<Map<String, dynamic>> stops,
+  ) {
+    final bookedRaw = ride['bookedStops'] ?? ride['stops'];
+    final booked = [
+      if (bookedRaw is List)
+        for (final raw in bookedRaw)
+          if (raw is Map && raw['lat'] is num && raw['lng'] is num) raw,
+    ];
+    var unbooked = 0;
+    for (final stop in stops) {
+      final match = booked.indexWhere(
+        (b) =>
+            _km(b['lat'] as num, b['lng'] as num, stop['lat'] as num,
+                    stop['lng'] as num) *
+                1000 <=
+            _sameStopMeters,
+      );
+      if (match < 0) {
+        unbooked++;
+      } else {
+        booked.removeAt(match);
+      }
+    }
+    return unbooked;
+  }
+
   /// Pickup → stops → destination in metres, or null without the points.
   int? _routedMeters(Map<String, dynamic> body) {
+    final km = _routedKm(body);
+    return km == null ? null : math.max(1, (km * 1000).round());
+  }
+
+  /// Pickup → stops → destination in kilometres, or null without the points.
+  static double? _routedKm(Map<String, dynamic> body) {
     final points = <List<num>>[];
     void add(Object? lat, Object? lng) {
       if (lat is num && lng is num) points.add([lat, lng]);
@@ -2130,7 +2173,7 @@ class InProcessMockClient extends http.BaseClient {
     for (var i = 1; i < points.length; i++) {
       km += _km(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1]);
     }
-    return math.max(1, (km * 1000).round());
+    return km;
   }
 
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
@@ -2292,6 +2335,16 @@ class InProcessMockClient extends http.BaseClient {
     }
     final id = 'ride_$requestId';
     final code = _bookingCurrency(body);
+    final bookedStops = <Map<String, dynamic>>[
+      if (body['stops'] is List)
+        for (final raw in body['stops'] as List)
+          if (raw is Map && raw['lat'] is num && raw['lng'] is num)
+            {
+              'address': raw['address']?.toString() ?? '',
+              'lat': raw['lat'],
+              'lng': raw['lng'],
+            },
+    ];
     return {
       'id': id,
       'tripId': id,
@@ -2326,28 +2379,11 @@ class InProcessMockClient extends http.BaseClient {
         // ARCH-20 / contract C-4: the server owns the offer ceiling.
         'maxOfferMinor': _maxOfferMinorFor(minor, code),
       },
-      'bookedKm':
-          body['pickupLat'] is num &&
-              body['pickupLng'] is num &&
-              body['destinationLat'] is num &&
-              body['destinationLng'] is num
-          ? _km(
-              body['pickupLat'] as num,
-              body['pickupLng'] as num,
-              body['destinationLat'] as num,
-              body['destinationLng'] as num,
-            )
-          : null,
-      'stops': <Map<String, dynamic>>[
-        if (body['stops'] is List)
-          for (final raw in body['stops'] as List)
-            if (raw is Map && raw['lat'] is num && raw['lng'] is num)
-              {
-                'address': raw['address']?.toString() ?? '',
-                'lat': raw['lat'],
-                'lng': raw['lng'],
-              },
-      ],
+      // rider-9 / owner decision 5: the booked route goes through the
+      // booked stops, as the booking quote priced it.
+      'bookedKm': _routedKm(body),
+      'stops': bookedStops,
+      'bookedStops': [...bookedStops],
       'quoteId': body['quoteId'],
       'quoteSignedPayload': body['quoteSignedPayload'],
       'quoteExpiresAt': body['quoteExpiresAt'],
