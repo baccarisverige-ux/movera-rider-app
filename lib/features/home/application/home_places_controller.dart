@@ -3,6 +3,8 @@ import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart'
     show isPlaceholderPickupLabel, isRawCoordinateLabel;
 import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show pickupLocationFallbackLabel;
 
 class SavedPlaceData {
   const SavedPlaceData({
@@ -103,7 +105,12 @@ class HomePlacesController {
   /// coordinates are not places; they never become Recents.
   void remember(String address) {
     final clean = address.trim();
-    if (isPlaceholderPickupLabel(clean) || isRawCoordinateLabel(clean)) return;
+    // rider-r5-34: nor the label of a pickup whose street was not found.
+    if (isPlaceholderPickupLabel(clean) ||
+        isRawCoordinateLabel(clean) ||
+        clean == pickupLocationFallbackLabel) {
+      return;
+    }
     recentAddresses.removeWhere(
       (saved) => saved.toLowerCase() == clean.toLowerCase(),
     );

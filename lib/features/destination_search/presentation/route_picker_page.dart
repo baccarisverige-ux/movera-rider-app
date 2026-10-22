@@ -989,7 +989,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     final seenRecent = <String>{};
     for (final address in widget.recent) {
       final short = compactAddress(address);
-      if (short.isEmpty || short == pickupLocationFallbackLabel) continue;
+      // rider-r5-34: the stored label is English; the short one is not.
+      if (short.isEmpty || _isFallbackLabel(address)) continue;
       if (!seenRecent.add(short.toLowerCase())) continue;
       recent.add(address);
       if (recent.length == 3) break;
@@ -1029,8 +1030,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return rows;
   }
 
+  static bool _isFallbackLabel(String address) =>
+      address.trim() == pickupLocationFallbackLabel;
+
   List<String> _recentMatches() => widget.recent
-      .where((r) => matchRange(r, _query) != null)
+      .where((r) => !_isFallbackLabel(r) && matchRange(r, _query) != null)
       .take(2)
       .toList();
 

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,5 +48,39 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Odengatan'), findsWidgets);
     expect(find.textContaining('Kungsgatan'), findsNothing);
+  });
+
+  testWidgets('rider-r5-34: the pickup fallback label is no Recent, in '
+      'French either, nor a match for typing', (tester) async {
+    L10n.use('fr');
+    addTearDown(() => L10n.use('en'));
+    final places = HomePlacesController()..remember('Pickup location');
+    expect(places.recentAddresses, isEmpty);
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RoutePickerPage(
+          pickupAddress: 'Sveavägen 1, Stockholm',
+          destinationAddress: '',
+          stops: const [],
+          stopsSupported: true,
+          initialField: 'destination',
+          capture: EarlyInputCapture(),
+          here: const GeoPoint(59.33, 18.06),
+          homeAddress: null,
+          workAddress: null,
+          recent: const ['Pickup location'],
+          onPickOnMap: ({required pickup, required address}) async => null,
+          onFinish: (_) async => null,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining(L10n.current.pickupLocation), findsNothing);
+    await tester.enterText(find.byType(EditableText).last, 'Lieu');
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining(L10n.current.pickupLocation), findsNothing);
   });
 }
