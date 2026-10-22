@@ -35,7 +35,7 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
       case 'invalid_otp_session':
         return L10n.current.codeExpired;
       case 'invalid_phone':
-        return L10n.current.invalidSwedishMobile;
+        return L10n.current.invalidMobileNumber;
     }
   }
   return switch (action) {
