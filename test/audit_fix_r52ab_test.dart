@@ -61,6 +61,42 @@ class _LosesNextPatch extends http.BaseClient {
 
 /// Wave 5 R5.2 parts a+b: messages that claim success they did not get.
 void main() {
+  /// A search for [id] (as currency_by_zone_test), started on [api].
+  FindingDriverController searching(ApiClient api, String id) {
+    final realtime = MockRideRealtime(
+      assignAfter: const Duration(days: 1),
+      api: api,
+    );
+    addTearDown(realtime.dispose);
+    final finding = FindingDriverController(
+      realtime: realtime,
+      ride: RideSession()..rideId = id,
+      store: FindingDriverRepository(),
+      priceBumpAfter: Duration.zero,
+      api: api,
+    );
+    addTearDown(finding.dispose);
+    finding.start(
+      snapshot: RideSnapshot(
+        status: RideStatus.findingDriver,
+        savedAt: DateTime.now(),
+        pickupAddress: 'Sergels torg 1',
+        destinationAddress: 'Odenplan 2',
+        pickupLat: 59.3326,
+        pickupLng: 18.0649,
+        destinationLat: 59.3426,
+        destinationLng: 18.0498,
+        rideType: 'Movera',
+        price: 200,
+        paymentMethod: 'Apple Pay',
+        rideId: id,
+      ),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    return finding;
+  }
+
   testWidgets(
       'rider-u24: a stationary driver\'s newer fix is delivered, not dropped',
       (tester) async {
@@ -181,37 +217,7 @@ void main() {
     };
     final backend = _LosesNextPatch(server);
     final api = ApiClient(client: backend);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
-    addTearDown(realtime.dispose);
-    final finding = FindingDriverController(
-      realtime: realtime,
-      ride: RideSession()..rideId = 'r52-raise',
-      store: FindingDriverRepository(),
-      priceBumpAfter: Duration.zero,
-      api: api,
-    );
-    addTearDown(finding.dispose);
-    finding.start(
-      snapshot: RideSnapshot(
-        status: RideStatus.findingDriver,
-        savedAt: DateTime.now(),
-        pickupAddress: 'Sergels torg 1',
-        destinationAddress: 'Odenplan 2',
-        pickupLat: 59.3326,
-        pickupLng: 18.0649,
-        destinationLat: 59.3426,
-        destinationLng: 18.0498,
-        rideType: 'Movera',
-        price: 200,
-        paymentMethod: 'Apple Pay',
-        rideId: 'r52-raise',
-      ),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    final finding = searching(api, 'r52-raise');
 
     final raised = await finding.confirmPriceIncreaseBy(const Money(2000));
 
@@ -219,5 +225,31 @@ void main() {
     expect(raised, isTrue);
     expect(finding.currentPrice, 220, reason: 'the fare the server applied');
     expect(backend.patches, 2);
+  });
+
+  test('rider-u99: a cancel refused because the search already ended is '
+      'not "a driver accepted"', () async {
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient(
+      client: MockClient((request) async => request.url.path.endsWith('/cancel')
+          ? http.Response(
+              jsonEncode({
+                'code': 'conflict',
+                'message': 'The ride moved on first',
+                'projection': {
+                  'tripId': 'r52-cancel',
+                  'status': 'expired',
+                  'version': 5,
+                },
+              }),
+              409,
+            )
+          : http.Response(jsonEncode({'code': 'not_found'}), 404)),
+      env: AppEnv.current,
+    );
+    final finding = searching(api, 'r52-cancel');
+
+    // Finding shows driverAlreadyAccepted only for driverAccepted.
+    expect(await finding.cancelSearch(), SearchCancelResult.rejected);
   });
 }

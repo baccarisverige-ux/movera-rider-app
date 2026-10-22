@@ -1238,7 +1238,14 @@ class FindingDriverController {
           final status = error.statusCode;
           if (status == 404) return SearchCancelResult.confirmed;
           if (error.isVersionMismatch) return SearchCancelResult.stale;
-          return status == 409
+          // rider-u99: a 409 means the ride moved on first. Only a matched
+          // trip is "a driver already accepted"; one that ended (expired,
+          // no driver, an admin or system cancel) can no longer be
+          // cancelled, and realtime brings its outcome.
+          final projection = error.projection;
+          final now =
+              projection == null ? null : RideStatusWire.fromProjection(projection);
+          return status == 409 && (now == null || now.isMatched)
               ? SearchCancelResult.driverAccepted
               : SearchCancelResult.rejected;
         }
