@@ -24,6 +24,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../responsive/responsive_harness.dart';
@@ -289,6 +290,41 @@ void main() {
         await tester.pump();
         expect(find.textContaining(L10n.current.moveraWallet), findsOneWidget);
         expect(find.textContaining('Movera Wallet'), findsNothing);
+      });
+
+      testWidgets('rider-j8-11: confirm sheet Cancel is translated', (
+        tester,
+      ) async {
+        late BuildContext context;
+        await pumpIn(
+          tester,
+          code,
+          Scaffold(
+            body: Builder(
+              builder: (c) {
+                context = c;
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        );
+        final answer = confirmMoveraAction(
+          context,
+          title: L10n.current.spRemoveQ('Hem'),
+          message: '',
+          confirmLabel: L10n.current.remove,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('movera-confirm-cancel')),
+            matching: find.text(L10n.current.cancel),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('movera-confirm-cancel')));
+        await tester.pumpAndSettle();
+        expect(await answer, isFalse);
       });
     });
   }
