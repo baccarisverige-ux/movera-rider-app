@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
 
@@ -21,6 +24,24 @@ class ProfileController extends ChangeNotifier {
   Future<void> hydrate() async {
     await _store.hydrate();
     notifyListeners();
+  }
+
+  /// [hydrate] at sign-in, then (rider-r5-42) a language the rider picked
+  /// on this device before signing in, which could not be saved without
+  /// a session, goes to the server profile: the server speaks to the rider
+  /// in the language the app speaks.
+  Future<void> hydrateWithLanguage(AppLanguageController language) async {
+    await hydrate();
+    final store = _store;
+    if (store is SyncedProfileRepository && !store.serverKnown) return;
+    if (language.choice == null) return;
+    final code = language.code;
+    if (profile.language == code) return;
+    try {
+      await update(profile.copyWith(language: code));
+    } catch (error) {
+      AppLog.warning('language.profile_save_failed', extra: {'error': '$error'});
+    }
   }
 
   /// rider-u148: the device copy now, the server copy when it arrives, so a
