@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
@@ -47,6 +49,16 @@ void _resetScope() {
   rt.lastStatus = RideStatus.idle;
   RideRestoreCoordinator.instance.showing = RestoredSurface.home;
   RideRestoreCoordinator.instance.onReplaceRoot = null;
+}
+
+/// Waits for [done] instead of a fixed delay, so a loaded machine does not
+/// check before the mock got there (10 ms poll, 5 s deadline). The "never
+/// happens" checks keep a fixed wait: slowness can only weaken them.
+Future<void> _until(FutureOr<bool> Function() done) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!await done() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 void main() {
@@ -133,7 +145,14 @@ void main() {
       rt.holdAssignment();
 
       rt.assignNow();
-      await Future<void>.delayed(const Duration(milliseconds: 40));
+      // The match lands and its snapshot is saved (both async).
+      await _until(
+        () async =>
+            matches == 1 &&
+            ride.status == RideStatus.driverAssigned &&
+            (await RideSnapshotStore.read())?.status ==
+                RideStatus.driverAssigned,
+      );
       expect(matches, 1);
       expect(ride.status, RideStatus.driverAssigned);
 
