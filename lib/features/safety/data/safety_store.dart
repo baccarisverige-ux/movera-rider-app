@@ -336,6 +336,9 @@ class SafetyStore {
     }
   }
 
+  /// The share kept for [rideId], if any.
+  TripShare? shareFor(String rideId) => _cache.shares[rideId];
+
   Future<void> stopShare(String rideId) async {
     await _ensure();
     final previous = _cache.shares[rideId];

@@ -666,9 +666,13 @@ class ActiveRideController {
   /// saved here. Best effort, never blocks the ride flow.
   /// rider-u35: [keepRideCheck] on completion, whose summary still shows
   /// an open Ride check card and its Stop control.
+  /// rider-u205: the ride's live trip share stops here too.
   void _stopSafetyRecording({bool keepRideCheck = false}) {
     unawaited(
       SafetyController.stopRecordingForRideEnd(keepRideCheck: keepRideCheck),
+    );
+    unawaited(
+      SafetyController.stopShareForRideEnd(AppScope.instance.ride.rideId),
     );
   }
 }

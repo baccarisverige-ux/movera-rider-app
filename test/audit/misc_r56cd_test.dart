@@ -9,11 +9,13 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
@@ -97,6 +99,14 @@ class _Recorder implements SafetyRecorder {
     remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
   );
   return (store: store, local: local);
+}
+
+/// Lets queued async work run until [done] holds (no real-time wait).
+Future<void> _until(bool Function() done) async {
+  for (var i = 0; i < 200 && !done(); i++) {
+    await pumpEventQueue();
+  }
+  expect(done(), isTrue);
 }
 
 /// A fresh Safety Kit on the in-process stand-in server.
@@ -263,5 +273,25 @@ void main() {
     );
     expect(recorder.live, isFalse);
     expect(safety.audio.isRecording, isFalse);
+  });
+
+  test('rider-u205: a trip share stops when the ride ends', () async {
+    final safety = await _safety();
+    SafetyController.sharedForTest = safety;
+    addTearDown(() => SafetyController.sharedForTest = null);
+    await safety.startShare('ride_share');
+    final server = safetyMockForProcess().shares['ride_share']!;
+    expect(server['isActive'], isTrue);
+
+    AppScope.instance.ride
+      ..rideId = 'ride_share'
+      ..status = RideStatus.tripCompleted;
+    addTearDown(
+      () => AppScope.instance.ride
+        ..rideId = null
+        ..status = RideStatus.idle,
+    );
+    ActiveRideController().markClosed();
+    await _until(() => server['isActive'] == false);
   });
 }

@@ -87,6 +87,23 @@ class SafetyController extends ChangeNotifier {
     await audio!.stopIfRecording(reason: 'ride_ended');
   }
 
+  /// rider-u205: the ride is over, so its live trip share stops (best
+  /// effort); it used to stay active for its whole 6-hour expiry. Looks
+  /// only at a controller that already exists: no share starts without one.
+  static Future<void> stopShareForRideEnd(String? rideId) async {
+    final controller = _shared;
+    if (controller == null || rideId == null || rideId.isEmpty) return;
+    if (controller._session.shareFor(rideId)?.isActive != true) return;
+    try {
+      await controller.stopShare(rideId);
+    } catch (error) {
+      AppLog.warning(
+        'safety.share.stop_failed',
+        extra: {'rideId': rideId, 'error': '$error'},
+      );
+    }
+  }
+
   /// rider-u201: the session expired and Sign in replaced the trip screen,
   /// so no Stop control is left on screen. A running recording (the Safety
   /// Kit's or a Ride check card's) stops and is saved for the rider.
