@@ -1698,8 +1698,28 @@ class _SelectRideState extends State<SelectRide>
         }
 
         // Book the price Set pickup showed, not the one from before it.
-        final bookable = await _quoteAfterPickup(selected);
+        var bookable = await _quoteAfterPickup(selected);
         if (!mounted) return;
+        var shown = spot.fareTotalKr;
+        while (bookable != null &&
+            shown != null &&
+            _selection.moneyOf(shown).amountMinor !=
+                bookable.quote.totalMinor) {
+          if (!await _acceptNewPrice(shown, bookable.price)) {
+            if (!mounted) return;
+            setState(() {});
+            // rider-79: the other categories are priced from the confirmed
+            // pickup too.
+            unawaited(_loadQuotes());
+            return;
+          }
+          if (!mounted) return;
+          // rider-u190: the dialog has no time limit. A quote that ran out
+          // while it was open is priced again; a new price is asked again.
+          shown = bookable.price;
+          bookable = await _quoteAfterPickup(selected);
+          if (!mounted) return;
+        }
         if (bookable == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1711,18 +1731,6 @@ class _SelectRideState extends State<SelectRide>
         }
         final quote = bookable.quote;
         final authoritativePrice = bookable.price;
-        final shown = spot.fareTotalKr;
-        if (shown != null &&
-            _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
-            !await _acceptNewPrice(shown, authoritativePrice)) {
-          if (!mounted) return;
-          setState(() {});
-          // rider-79: the other categories are priced from the confirmed
-          // pickup too.
-          unawaited(_loadQuotes());
-          return;
-        }
-        if (!mounted) return;
         if (_walletCannotPay(authoritativePrice)) return;
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);

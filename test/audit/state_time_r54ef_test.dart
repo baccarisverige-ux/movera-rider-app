@@ -365,6 +365,35 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('rider-u190: a quote that ran out while Price updated was open '
+      'is priced again before booking', (tester) async {
+    addTearDown(ServerClock.reset);
+    final quotes = _Quotes(slowPin: true);
+    final selection = _selection(quotes);
+    final booking = _Booking();
+    await _pumpSelectRide(tester, selection, booking);
+    await _openSetPickupAndMovePin(tester);
+    // Confirmed before the pin's price came in: Set pickup showed the old.
+    await _confirmPickup(tester);
+    quotes.pin!.complete();
+    await _settle(tester);
+    expect(
+      find.byKey(const ValueKey('select-ride-price-updated')),
+      findsOneWidget,
+    );
+    // The rider leaves the dialog open for three minutes.
+    final later = DateTime.now().toUtc().add(const Duration(minutes: 3));
+    ServerClock.observeDateHeader(
+      HttpDate.format(later),
+      receivedAt: DateTime.now(),
+    );
+    await tester.tap(find.byKey(const ValueKey('select-ride-price-accept')));
+    await _settle(tester, 20);
+    final booked = booking.booked.single;
+    expect(booked.expires!.isAfter(ServerClock.now()), isTrue);
+    await _close(tester);
+  });
+
   testWidgets('rider-u155: Last changed is the rider\'s local day', (
     tester,
   ) async {
