@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,6 +20,7 @@ import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -212,6 +214,26 @@ void main() {
         await pumpIn(tester, code, TripSharePage(controller: safety));
         expect(find.text(L10n.current.relationshipFamily), findsOneWidget);
         expect(find.text('Family'), findsNothing);
+      });
+
+      testWidgets('rider-90: Schedule header is translated', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          L10n.use(code);
+          await pumpMoveraScreen(
+            tester,
+            const ScheduleRide(),
+            useAppNavigatorKey: true,
+            locale: Locale(code),
+          );
+          await tester.pump();
+          expect(find.text(L10n.current.scheduleHeaderCaps), findsOneWidget);
+          expect(find.text('SCHEDULE'), findsNothing);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump(const Duration(seconds: 2));
+          debugDefaultTargetPlatformOverride = null;
+        }
       });
     });
   }

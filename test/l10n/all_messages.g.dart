@@ -1284,6 +1284,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resNoChangeCharge': l.resNoChangeCharge,
   'resNotFound': l.resNotFound,
   'resScheduleCaps': l.resScheduleCaps,
+  'scheduleHeaderCaps': l.scheduleHeaderCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
   'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
@@ -4116,6 +4117,8 @@ class _Exhaustive implements AppLocalizations {
   String get resNotFound => '';
   @override
   String get resScheduleCaps => '';
+  @override
+  String get scheduleHeaderCaps => '';
   @override
   String get resCancelledReservation => '';
   @override

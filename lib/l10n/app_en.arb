@@ -2567,6 +2567,7 @@
   "resNoChangeCharge": "No additional change charge",
   "resNotFound": "Reservation not found",
   "resScheduleCaps": "SCHEDULE",
+  "scheduleHeaderCaps": "SCHEDULE",
   "resCancelledReservation": "Cancelled reservation",
   "resUpcomingRide": "Upcoming ride",
   "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",

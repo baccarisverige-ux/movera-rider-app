@@ -1278,6 +1278,7 @@
   "resNoChangeCharge": "Ingen extra ändringsavgift",
   "resNotFound": "Bokningen hittades inte",
   "resScheduleCaps": "FÖRBOKAD",
+  "scheduleHeaderCaps": "FÖRBOKA",
   "resCancelledReservation": "Avbokad bokning",
   "resUpcomingRide": "Kommande resa",
   "resSeatsPayment": "{count, plural, =1{1 plats} other{{count} platser}}  ·  {payment}",

@@ -1278,6 +1278,7 @@
   "resNoChangeCharge": "Aucun frais de modification supplémentaire",
   "resNotFound": "Réservation introuvable",
   "resScheduleCaps": "PLANIFIÉ",
+  "scheduleHeaderCaps": "PLANIFIER",
   "resCancelledReservation": "Réservation annulée",
   "resUpcomingRide": "Trajet à venir",
   "resSeatsPayment": "{count, plural, =1{1 place} other{{count} places}}  ·  {payment}",
