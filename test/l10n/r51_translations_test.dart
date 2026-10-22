@@ -11,6 +11,8 @@ import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
+import 'package:movera_rider/features/messages/domain/messages.dart';
+import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -87,6 +89,25 @@ void main() {
     await tester.tap(find.textContaining('Arlanda Airport').first);
     await tester.pumpAndSettle();
   }
+
+  // The 12-hour clock only shows in English; fr and sv are 24-hour.
+  testWidgets('rider-48: chat times use the 24-hour clock', (tester) async {
+    await pumpIn(
+      tester,
+      'en',
+      Scaffold(
+        body: RiderMessageBubble(
+          message: ChatMessage(
+            text: 'On my way',
+            fromRider: true,
+            sentAt: DateTime(2026, 10, 12, 15, 5),
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('15:05'), findsOneWidget);
+    expect(find.textContaining('PM'), findsNothing);
+  });
 
   for (final code in ['fr', 'sv']) {
     group(code, () {
