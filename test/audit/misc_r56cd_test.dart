@@ -24,6 +24,7 @@ import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
+import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -293,5 +294,11 @@ void main() {
     );
     ActiveRideController().markClosed();
     await _until(() => server['isActive'] == false);
+  });
+
+  test('rider-83: a trunk zero after +46 is dropped', () {
+    expect(SwedishPhone.toE164('+46 070 123 45 67'), '+46701234567');
+    expect(SwedishPhone.toE164('070-123 45 67'), '+46701234567');
+    expect(SwedishPhone.toE164('+46 00 123 45 67'), isNull);
   });
 }

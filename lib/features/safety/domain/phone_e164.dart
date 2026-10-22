@@ -12,9 +12,12 @@ class SwedishPhone {
       value = '+$value';
     }
     if (!value.startsWith('+46')) return null;
-    final rest = value.substring(3);
+    var rest = value.substring(3);
+    // rider-83: "+46 070 ..." keeps the domestic trunk zero; it is not part
+    // of the E.164 number, and the national number never starts with 0.
+    if (rest.startsWith('0')) rest = rest.substring(1);
     if (rest.length < 7 || rest.length > 10) return null;
-    if (!_digits.hasMatch(rest)) return null;
+    if (!_digits.hasMatch(rest) || rest.startsWith('0')) return null;
     return '+46$rest';
   }
 
