@@ -1,12 +1,20 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
@@ -24,6 +32,36 @@ import 'package:movera_rider/features/ride_selection/application/ride_catalog_co
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Quotes [totalMinor] for each ride type, at once (as
+/// phase139_select_ride_characterization_test); null never answers.
+class _Quotes implements QuoteRepository {
+  _Quotes(this.totalMinor);
+  final int? Function(String rideType) totalMinor;
+
+  @override
+  Future<RideQuote> quote({
+    required String rideType,
+    required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) {
+    final total = totalMinor(rideType);
+    if (total == null) return Completer<RideQuote>().future;
+    return Future<RideQuote>.value(RideQuote(
+      id: 'q-$rideType',
+      rideType: rideType,
+      totalMinor: total,
+      currency: 'SEK',
+      expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      signedPayload: 'sig',
+    ));
+  }
+}
 
 /// Wave 5 R5.2 parts c+d: messages that claim success they did not get.
 void main() {
@@ -103,6 +141,35 @@ void main() {
     for (var i = 0; i < max && finder.evaluate().isEmpty; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+  }
+
+  /// Select Ride from [pickup] on [quotes], tall enough that every ride is
+  /// on screen.
+  Future<RideSelectionController> openSelectRide(
+    WidgetTester tester,
+    QuoteRepository quotes, {
+    LatLng pickup = const LatLng(59.3293, 18.0686),
+    LatLng destination = const LatLng(59.3429, 18.0496),
+  }) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final selection = RideSelectionController(quotes: quotes);
+    addTearDown(selection.dispose);
+    await tester.pumpWidget(MaterialApp(
+      home: SelectRide(
+        pickupAddress: 'Pickup',
+        destinationAddress: 'Destination',
+        pickupPosition: pickup,
+        destinationPosition: destination,
+        pickupAlreadyConfirmed: true,
+        selection: selection,
+      ),
+    ));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    return selection;
   }
 
   /// A Security controller over an API answering GET with [security];
@@ -320,5 +387,32 @@ void main() {
 
     expect(cancellation(), isNot(free));
     expect(find.text(cancellation()), findsOneWidget);
+  });
+
+  testWidgets('rider-r3-7: "Cheaper" orders by the fare each row shows',
+      (tester) async {
+    // Priority lists dearer than Movera but is quoted cheapest.
+    final selection = await openSelectRide(
+      tester,
+      _Quotes((type) => type == 'priority' ? 10000 : 30000),
+    );
+    await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.ensureVisible(find.text('Cheaper'));
+    await tester.pump();
+    await tester.tap(find.text('Cheaper'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final list = find.byKey(const ValueKey('select-ride-list'));
+    double top(String id) => tester.getTopLeft(find
+            .descendant(
+              of: list,
+              matching: find.text(selection.rideByIdOrNull(id)!.name),
+            )
+            .first)
+        .dy;
+    expect(top('priority'), lessThan(top('economy')));
   });
 }
