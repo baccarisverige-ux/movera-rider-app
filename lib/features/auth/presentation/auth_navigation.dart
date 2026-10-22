@@ -73,15 +73,26 @@ bool showMoveraRoot(
 /// from Contacts) are the same number, not one to put a second +46 in
 /// front of. Without a trunk 0 a Swedish number has at most nine digits,
 /// so a longer one is refused instead of sent somewhere else.
+///
+/// rider-r3-11: the code goes out by SMS, so only a Swedish mobile number
+/// (+46 7 and eight more digits) is accepted here; a number with a digit
+/// missing or a landline is refused before a code is "sent" to it. Safety
+/// contacts keep the broader [SwedishPhone.toE164].
 String? swedishNumberFromField(String typed) {
   final digits = typed.replaceAll(RegExp(r'\s+'), '').trim();
   if (digits.isEmpty) return null;
+  final String? number;
   if (digits.startsWith('+') || digits.startsWith('0')) {
-    return SwedishPhone.toE164(digits);
+    number = SwedishPhone.toE164(digits);
+  } else if (digits.startsWith('46') && digits.length >= 11) {
+    number = SwedishPhone.toE164('+$digits');
+  } else if (digits.length > 9) {
+    return null;
+  } else {
+    number = SwedishPhone.toE164('+46$digits');
   }
-  if (digits.startsWith('46') && digits.length >= 11) {
-    return SwedishPhone.toE164('+$digits');
-  }
-  if (digits.length > 9) return null;
-  return SwedishPhone.toE164('+46$digits');
+  if (number == null || !_swedishMobile.hasMatch(number)) return null;
+  return number;
 }
+
+final RegExp _swedishMobile = RegExp(r'^\+467\d{8}$');

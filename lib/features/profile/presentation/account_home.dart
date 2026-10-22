@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
@@ -70,8 +71,12 @@ class _AccountHomePageState extends State<AccountHomePage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _open(Widget page) {
-    return Navigator.push(context, RightToLeftTransition(page));
+  /// rider-u125: [name] lets pushPageOnce see the page is already open.
+  Future<void> _open(Widget page, {String? name}) {
+    return Navigator.push(
+      context,
+      RightToLeftTransition(page, settings: RouteSettings(name: name)),
+    );
   }
 
   @override
@@ -212,7 +217,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 mark: const AccountIcon.asset(AppAssets.solarShieldStar),
                 title: context.l10n.accountSafety,
                 body: context.l10n.accountSafetyBody,
-                onTap: () => _open(const SafetyHub()),
+                onTap: () => _open(const SafetyHub(), name: AppRoutes.safety),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarHeadphones),

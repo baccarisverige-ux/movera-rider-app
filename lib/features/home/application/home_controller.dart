@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color, Offset;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -225,6 +226,12 @@ class HomeLocationController extends ChangeNotifier {
   final StaleGuard _detectGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
   Timer? _resubscribeTimer;
+
+  /// rider-20: the scheduled frame of the running puck glide.
+  int? _glideFrameId;
+
+  /// rider-u120: after [dispose], nothing starts GPS, compass or pulse.
+  bool _disposed = false;
   int _resubscribeAttempts = 0;
   bool Function()? _trackingMounted;
   void Function(LatLng latLng, double heading)? _trackingOnFix;
@@ -394,7 +401,10 @@ class HomeLocationController extends ChangeNotifier {
     onGoodFix?.call(point);
   }
 
-  Future<DetectedLocation> detectCurrent() async {
+  /// rider-43: [askPermission] false never shows the system prompt (an app
+  /// resume, a second try right after the rider answered it); a denied
+  /// permission then reads as denied.
+  Future<DetectedLocation> detectCurrent({bool askPermission = true}) async {
     _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
@@ -407,7 +417,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       var permission = await location.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied && askPermission) {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
@@ -491,6 +501,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(LatLng latLng, double heading) onFix,
   }) {
+    if (_disposed) return;
     _positionSub?.cancel();
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
@@ -551,11 +562,42 @@ class HomeLocationController extends ChangeNotifier {
     });
   }
 
+  /// rider-20: steps the puck along [MotionEngine]'s glide to the latest
+  /// fix on painted frames (no timer), so it moves instead of jumping.
+  void _glideTo(
+    DateTime glideStart,
+    void Function(LatLng latLng, double heading) onFix,
+  ) {
+    _cancelGlide();
+    Duration? first;
+    void step(Duration frame) {
+      _glideFrameId = null;
+      final isMounted = _trackingMounted;
+      if (isMounted == null || !isMounted() || _livePaused) return;
+      first ??= frame;
+      final next = motion.poseAt(glideStart.add(frame - first!));
+      if (next == null) return;
+      onFix(LatLng(next.position.latitude, next.position.longitude), heading);
+      if (next.progress < 1) {
+        _glideFrameId = SchedulerBinding.instance.scheduleFrameCallback(step);
+      }
+    }
+
+    _glideFrameId = SchedulerBinding.instance.scheduleFrameCallback(step);
+  }
+
+  void _cancelGlide() {
+    final id = _glideFrameId;
+    _glideFrameId = null;
+    if (id != null) SchedulerBinding.instance.cancelFrameCallbackWithId(id);
+  }
+
   void _deliverFix(
     Position position,
     void Function(LatLng latLng, double heading) onFix,
   ) {
     _setState(HomeLocationState.live);
+    final glideStart = DateTime.now();
     final pose = motion.ingest(
       LocationPoint(
         point: GeoPoint(position.latitude, position.longitude),
@@ -564,7 +606,9 @@ class HomeLocationController extends ChangeNotifier {
         speedMps: position.speed,
         heading: position.heading,
       ),
+      now: glideStart,
     );
+    if (pose != null && pose.progress < 1) _glideTo(glideStart, onFix);
     final latLng = pose == null
         ? LatLng(position.latitude, position.longitude)
         : LatLng(pose.position.latitude, pose.position.longitude);
@@ -584,6 +628,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
   }) async {
+    if (_disposed) return false;
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();
@@ -677,6 +722,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function() onTick,
   }) {
+    if (_disposed) return;
     _pulseTimer?.cancel();
     _pulseTimer = null;
     pulseExpanded = false;
@@ -695,6 +741,7 @@ class HomeLocationController extends ChangeNotifier {
     required void Function(double heading) onHeading,
     required void Function() onPulse,
   }) async {
+    if (_disposed) return;
     startTracking(isMounted: isMounted, onFix: onFix);
     startPulse(isMounted: isMounted, onTick: onPulse);
     await startHeading(isMounted: isMounted, onHeading: onHeading);
@@ -758,7 +805,9 @@ class HomeLocationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _positionSub?.cancel();
+    _cancelGlide();
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _trackingMounted = null;

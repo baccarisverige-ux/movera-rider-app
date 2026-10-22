@@ -124,6 +124,15 @@ class SavedCardsController extends ChangeNotifier {
 
   bool get hasCards => _cards.isNotEmpty;
 
+  /// rider-u131: the cards a ride can still be paid with. Expiry is checked
+  /// when a card is added, but a card saved in August that expires in
+  /// September stayed bookable (and the default) in October.
+  List<SavedCard> usable({DateTime? now}) => List.unmodifiable(
+    _cards.where(
+      (card) => CardInput.expiryInFuture(card.expMonth, card.expYear, now: now),
+    ),
+  );
+
   SavedCard? byId(String id) {
     for (final card in _cards) {
       if (card.id == id) return card;

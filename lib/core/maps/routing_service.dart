@@ -1,9 +1,20 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 
 final Expando<ApiClient> _routeApis = Expando<ApiClient>('movera-route-api');
 final Expando<Map<String, List<GeoPoint>>> _roadCaches =
     Expando<Map<String, List<GeoPoint>>>('movera-road-cache');
+
+/// rider-u20: the most road lines one [RoutingService] keeps. A live ride
+/// asks for a new one every 10 s (the driver's position is in the key), so
+/// the least recently used go first instead of the cache growing all day.
+const int roadCacheLimit = 32;
+
+/// How many road lines [routing] keeps now.
+@visibleForTesting
+int roadCacheLengthOf(RoutingService routing) =>
+    _roadCaches[routing]?.length ?? 0;
 
 /// The one place a drawn route comes from. Screens must not invent routes.
 ///
@@ -40,8 +51,11 @@ extension RoadRoutingService on RoutingService {
   }) async {
     final cache = _roadCaches[this] ??= <String, List<GeoPoint>>{};
     final key = _roadCacheKey(from, to);
-    final cached = cache[key];
-    if (cached != null && cached.length >= 2) return cached;
+    final cached = cache.remove(key);
+    if (cached != null && cached.length >= 2) {
+      cache[key] = cached; // Most recently used last.
+      return cached;
+    }
 
     final api = _routeApis[this];
     if (api == null) return line(from: from, to: to);
@@ -75,6 +89,9 @@ extension RoadRoutingService on RoutingService {
       }
       if (points.length < 2) return line(from: from, to: to);
       cache[key] = points;
+      while (cache.length > roadCacheLimit) {
+        cache.remove(cache.keys.first);
+      }
       return points;
     } catch (_) {
       return line(from: from, to: to);

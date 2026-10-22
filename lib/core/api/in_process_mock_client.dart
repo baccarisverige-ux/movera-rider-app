@@ -50,6 +50,12 @@ class InProcessMockClient extends http.BaseClient {
   /// window). Server-side only; not part of the projection.
   final Map<String, DateTime> _acceptedAt = {};
 
+  /// rider-u13: the pickup each trip had when its driver accepted, which
+  /// every later Q40 move is measured from (not the pickup as it stands
+  /// after earlier moves). Set on the first move after accept; cleared when
+  /// the trip is back in dispatch. Server-side only; not in the projection.
+  final Map<String, ({double lat, double lng})> _acceptedPickup = {};
+
   /// R-O1: the distance each trip has been driven with the rider on board,
   /// summed from the driver's GPS fixes (`POST …/status` with `lat`/`lng`)
   /// since the first fix after boarding. Server-side only; not part of the
@@ -1048,9 +1054,8 @@ class InProcessMockClient extends http.BaseClient {
               : method.toLowerCase() == 'cash' ||
                     method.toLowerCase().contains('pay in car');
           final difference = pricing['differenceMinor'] as int;
-          // Half a major unit or more (50 öre, 50 cents, 500 millimes).
-          if (!cash &&
-              difference.abs() * 2 >= Money.minorPerMajor(rideCurrency)) {
+          // rider-u43: any difference (cents and millimes count).
+          if (!cash && difference != 0) {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
               'at': ride['updatedAt'],
               'method': method,
@@ -1543,12 +1548,14 @@ class InProcessMockClient extends http.BaseClient {
     if (to == TripStatus.accepted) {
       final at = _clock();
       _acceptedAt[tripId] = at;
+      _acceptedPickup.remove(tripId);
       // Contract v0.4.0 `TripProjection.acceptedAt` (Q12): the rider's
       // free-cancel clock counts from it.
       ride['acceptedAt'] = WireTime.format(at);
     } else if (to == TripStatus.searching || to == TripStatus.requested) {
       // Back in dispatch: the next accept starts a new free window.
       _acceptedAt.remove(tripId);
+      _acceptedPickup.remove(tripId);
       ride['acceptedAt'] = null;
       ride.remove('waiting');
     }
@@ -1970,22 +1977,27 @@ class InProcessMockClient extends http.BaseClient {
     return null;
   }
 
-  /// How far (metres) [body] moves the trip's pickup, when both ends are
-  /// known.
-  static double? _pickupMoveMeters(
+  /// How far (metres) [body] moves the trip's pickup from the pickup the
+  /// driver accepted (rider-u13), when both ends are known. Only called
+  /// while the trip is accepted or the driver is on the way.
+  double? _pickupMoveMeters(
     Map<String, dynamic> ride,
     Map<String, dynamic> body,
   ) {
-    final fromLat = ride['pickupLat'];
-    final fromLng = ride['pickupLng'];
     final toLat = body['pickupLat'];
     final toLng = body['pickupLng'];
-    if (fromLat is! num || fromLng is! num || toLat is! num || toLng is! num) {
-      return null;
+    final id = (ride['tripId'] ?? ride['id']).toString();
+    var from = _acceptedPickup[id];
+    if (from == null) {
+      final lat = ride['pickupLat'];
+      final lng = ride['pickupLng'];
+      if (lat is! num || lng is! num) return null;
+      from = _acceptedPickup[id] = (lat: lat.toDouble(), lng: lng.toDouble());
     }
+    if (toLat is! num || toLng is! num) return null;
     return GeoDistance.metersBetween(
-      fromLat.toDouble(),
-      fromLng.toDouble(),
+      from.lat,
+      from.lng,
       toLat.toDouble(),
       toLng.toDouble(),
     );
@@ -2013,11 +2025,13 @@ class InProcessMockClient extends http.BaseClient {
       return 'pickup_locked';
     }
     // Q40: once a driver has accepted, the pickup moves only a short way.
-    final moved = pickupChanged ? _pickupMoveMeters(ride, body) : null;
+    final moved = pickupChanged &&
+            (current == TripStatus.accepted ||
+                current == TripStatus.driverToPickup)
+        ? _pickupMoveMeters(ride, body)
+        : null;
     if (moved != null &&
-        moved > _configFor(_currencyOf(ride)).maxPickupMoveMeters &&
-        (current == TripStatus.accepted ||
-            current == TripStatus.driverToPickup)) {
+        moved > _configFor(_currencyOf(ride)).maxPickupMoveMeters) {
       return 'pickup_too_far';
     }
     if (body['destinationLat'] is! num || body['destinationLng'] is! num) {

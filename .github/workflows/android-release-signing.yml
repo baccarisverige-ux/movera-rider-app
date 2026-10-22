@@ -46,10 +46,14 @@ jobs:
           flutter pub get
           # D-027: sign the production composition (PinComposition and the
           # transport guards are only enforced there), not the demo app.
+          # rider-u18: telemetry reports the pubspec version, not 'dev'.
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          test -n "$app_version"
           flutter build apk --release \
             -t lib/main_production.dart \
             --dart-define=MOVERA_FLAVOR=production \
-            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example \
+            --dart-define=MOVERA_APP_VERSION="$app_version"
           apk=build/app/outputs/flutter-apk/app-release.apk
           test -f "$apk"
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"

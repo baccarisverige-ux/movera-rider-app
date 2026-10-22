@@ -2536,18 +2536,30 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
             ? RouteTimeMarker.anchor
             : const Offset(0.5, 0.5),
       ),
-      if (driverPosition != null)
-        Marker(
-          markerId: const MarkerId('driver'),
-          position: driverPosition,
-          rotation: _currentDriverHeading(),
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
-          icon:
-              _driverCar ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-        ),
+      if (driverPosition != null) _driverMarker(driverPosition),
     };
+  }
+
+  /// rider-u61: on the web the car bitmap comes turned (the plugin ignores
+  /// rotation there).
+  Marker _driverMarker(LatLng position) {
+    final look = MoveraVehicleMarker.look(
+      _driverCar,
+      _currentDriverHeading(),
+      onReady: () {
+        if (mounted) setState(() {});
+      },
+    );
+    return Marker(
+      markerId: const MarkerId('driver'),
+      position: position,
+      rotation: look.rotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon:
+          look.icon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+    );
   }
 
   Future<void> _prepareMapVisuals() async {

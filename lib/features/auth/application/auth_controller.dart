@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
@@ -32,7 +34,7 @@ class AuthController {
     final result = await _auth.verifyOtp(challenge: challenge, code: code);
     lastChallenge = null;
     await _enterSession(phone: challenge.phone);
-    await _registerPushBestEffort();
+    unawaited(_registerPushBestEffort());
     return result;
   }
 
@@ -42,7 +44,7 @@ class AuthController {
     final result = await _auth.signIn(provider: provider);
     if (result is ProviderSignedIn) {
       await _enterSession(provider: provider);
-      await _registerPushBestEffort();
+      unawaited(_registerPushBestEffort());
     }
     return result;
   }
@@ -70,7 +72,9 @@ class AuthController {
 
   /// Registers push only for a rider who already accepted the in-app
   /// explanation (UI-17); a first sign-in sees the explanation on Home
-  /// instead of a cold OS prompt.
+  /// instead of a cold OS prompt. rider-u67: sign-in does not wait for it
+  /// (Firebase, getToken and the device POST can take 15 s or more on a
+  /// poor connection); it runs on while the app opens.
   Future<void> _registerPushBestEffort() async {
     try {
       await (_pushPermission ?? AppScope.instance.pushPermission)

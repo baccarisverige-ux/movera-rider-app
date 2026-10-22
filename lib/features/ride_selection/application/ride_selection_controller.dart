@@ -235,12 +235,13 @@ class RideSelectionController {
 
   /// Whether the rider has a saved card. Without one, the generic "Card"
   /// method opens Add card first.
-  bool get hasSavedCard => _savedCards.hasCards;
+  bool get hasSavedCard => _savedCards.usable().isNotEmpty;
 
   /// The saved cards as payment items (`card:<id>`, "Visa •••• 4242",
   /// "Expires 08/28").
   List<RidePaymentItem> savedCardItems() => [
-    for (final card in _savedCards.list())
+    // rider-u131: an expired card is not offered (nor kept as default).
+    for (final card in _savedCards.usable())
       RidePaymentItem(
         brand: card.methodBrand,
         name: card.displayName,
@@ -249,7 +250,11 @@ class RideSelectionController {
   ];
 
   /// The saved card behind a `card:<id>` brand, or null.
-  SavedCard? savedCardFor(String brand) => _savedCards.byMethodBrand(brand);
+  SavedCard? savedCardFor(String brand) {
+    final card = _savedCards.byMethodBrand(brand);
+    if (card == null) return null;
+    return _savedCards.usable().contains(card) ? card : null;
+  }
 
   /// Loads the saved cards once and keeps the chosen method afterwards.
   Future<void> loadSavedCards() async {

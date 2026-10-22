@@ -258,7 +258,9 @@ void showRouteUpdated(
   final parts = <String>[
     driverAssigned ? context.l10n.routeUpdatedDriverTold : context.l10n.routeUpdated,
   ];
-  if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
+  // rider-u43: any change in minor units is told, not only half a unit.
+  if (!isCashPayment(paymentMethod) &&
+      Money.fromLegacyMajor(differenceKr, currency).amountMinor != 0) {
     // [differenceKr] is in whole units of [currency].
     final kr = formatMajor(differenceKr.abs(), currency);
     // rider-u231: the method's name in the app language.

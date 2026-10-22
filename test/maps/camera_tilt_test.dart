@@ -52,6 +52,10 @@ List<double> _target(Map<String, Object?> pose) => [
 
 const _stockholm = LatLng(59.33, 18.06);
 
+/// The glide measures each frame with [MapView.now]; a still clock makes
+/// every pumped frame exactly one frame, however loaded the machine is.
+void _stillClock() => MapView.now = () => DateTime(2026);
+
 /// Pumps 16 ms frames until [done] or [limit] frames.
 Future<void> _frames(
   WidgetTester tester, {
@@ -254,6 +258,7 @@ void main() {
     testWidgets('every frame carries the tilt of its own zoom (live tilt)', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       final view = mapViewOf(fake)
         ..pose = const CameraPosition(target: _stockholm, zoom: 11.7);
@@ -331,6 +336,7 @@ void main() {
     testWidgets('a recenter flight lands in about 1 s, smoothly', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       final view = mapViewOf(fake)
         ..pose = const CameraPosition(target: _stockholm, zoom: 11.7);
@@ -408,6 +414,7 @@ void main() {
     testWidgets('a recenter that zooms in pans at an even speed on screen', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       mapViewOf(fake).pose =
           const CameraPosition(target: _stockholm, zoom: 11.7);

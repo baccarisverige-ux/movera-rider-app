@@ -90,10 +90,29 @@ String foldForSearch(String value) {
 
 /// Where [query] matches inside [text] (folded), for highlighting the typed
 /// letters, or null when it does not.
-(int, int)? matchRange(String text, String query) {
-  final q = foldForSearch(query.trim());
+///
+/// rider-u84: the range is in [text]'s own offsets. Lower-casing can change
+/// a string's length ('İ' becomes two code units on the web), so [text] is
+/// folded one code unit at a time, remembering where each folded unit came
+/// from; offsets into the folded text used to land past the original.
+/// [fold] is the folding used (tests stand in for the web's lower-casing).
+(int, int)? matchRange(
+  String text,
+  String query, {
+  String Function(String) fold = foldForSearch,
+}) {
+  final q = fold(query.trim());
   if (q.isEmpty) return null;
-  final i = foldForSearch(text).indexOf(q);
+  final folded = StringBuffer();
+  final origin = <int>[];
+  for (var at = 0; at < text.length; at++) {
+    final part = fold(text[at]);
+    folded.write(part);
+    for (var k = 0; k < part.length; k++) {
+      origin.add(at);
+    }
+  }
+  final i = folded.toString().indexOf(q);
   if (i < 0) return null;
-  return (i, i + q.length);
+  return (origin[i], origin[i + q.length - 1] + 1);
 }

@@ -61,7 +61,7 @@ class MapView {
   /// camera. A recenter takes the map back at once.
   static const Duration followHold = Duration(seconds: 12);
 
-  /// Clock for [followHold] (tests replace it).
+  /// Clock for [followHold] and the glide's frame times (tests replace it).
   static DateTime Function() now = DateTime.now;
 
   /// Whether a follow update must leave the map alone.
@@ -319,7 +319,15 @@ Future<void> easeCameraTo(
   final view = mapViewOf(controller);
   if (view.touching) return Future<void>.value();
   final running = view._done;
-  if (view.easing && view._goal != null && running != null) {
+  // rider-j8-15: a flight (a recenter) during a follow glide starts afresh
+  // below, so it runs on the browser's frame clock on the web and gets its
+  // own frame budget instead of the follow glide's remaining frames.
+  final startsFlight =
+      view._flight == null && duration >= _flightThreshold;
+  if (view.easing &&
+      view._goal != null &&
+      running != null &&
+      !startsFlight) {
     view._goal = to;
     view._goalDuration = duration;
     final id = view.mapId;
@@ -329,10 +337,6 @@ Future<void> easeCameraTo(
     }
     // A newer goal joins a running flight on its clock (a fresh fix after a
     // recenter, a follow update), so the flight still lands on time.
-    if (view._flight == null && duration >= _flightThreshold) {
-      view._flight = duration;
-      view._flownMicros = 0;
-    }
     return running.future;
   }
   view.interrupt();
@@ -434,13 +438,13 @@ Future<void> _glide(
       }
       await _send(controller, view, next);
       if (last || view.generation != generation) return;
-      final started = DateTime.now();
+      final started = MapView.now();
       await Future<void>.delayed(cameraEaseFrame);
       // Real time, but never less than one frame, so a glide also ends
       // where the clock barely moves (tests, fast frames).
       dt = math.max(
         cameraEaseFrame.inMicroseconds,
-        DateTime.now().difference(started).inMicroseconds,
+        MapView.now().difference(started).inMicroseconds,
       );
     }
   } catch (_) {
