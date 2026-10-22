@@ -9,6 +9,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
@@ -54,6 +55,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
 
   @override
   void dispose() {
+    _freeEndsTimer?.cancel();
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _reservations.removeListener(_refresh);
     super.dispose();
@@ -62,6 +64,26 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   void _refresh() {
     if (mounted) setState(() {});
     _handoffIfLive();
+  }
+
+  Timer? _freeEndsTimer;
+  DateTime? _freeEndsAt;
+
+  /// rider-u172: rebuilds once free cancellation ends, so 'Things to know'
+  /// stops saying 'free until …' while the page stays open. Returns
+  /// [terms].
+  ReservationCancelTerms _rebuildWhenFreeEnds(ReservationCancelTerms terms) {
+    if (!terms.freeForNow || _freeEndsAt == terms.freeUntil) return terms;
+    _freeEndsTimer?.cancel();
+    _freeEndsAt = terms.freeUntil;
+    _freeEndsTimer = Timer(
+      terms.freeUntil.difference(terms.at) + const Duration(seconds: 1),
+      () {
+        _freeEndsAt = null;
+        if (mounted) setState(() {});
+      },
+    );
+    return terms;
   }
 
   bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
@@ -461,7 +483,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   _KnowCard(
                     waiting: policy.waitingSummary,
                     cancellation: ReservationFormat.cancellationSummary(
-                      _reservations.cancelTermsFor(ride),
+                      _rebuildWhenFreeEnds(_reservations.cancelTermsFor(ride)),
                     ),
                     pricing: policy.pricingSummary,
                   ),

@@ -18,6 +18,7 @@ import 'package:movera_rider/features/reservations/data/local_reservation_reposi
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
@@ -291,5 +292,33 @@ void main() {
     expect(find.text('Upcoming ride'), findsNothing);
     expect(find.textContaining('Your ride is reserved for'), findsNothing);
     expect(find.text('Completed ride'), findsOneWidget);
+  });
+
+  testWidgets('rider-u172: "Things to know" stops saying "free until" once '
+      'the free window closes', (tester) async {
+    clock = DateTime(2026, 10, 22, 8);
+    final controller = reservations();
+    final ride = await book(controller, DateTime(2026, 10, 22, 10));
+    String cancellation() => ReservationFormat.cancellationSummary(
+          controller.cancelTermsFor(controller.byId(ride.reservationId)!),
+        );
+    clock = DateTime(2026, 10, 22, 8, 50);
+    await pumpPage(
+      tester,
+      UpcomingReservationPage(
+        reservationId: ride.reservationId,
+        controller: controller,
+      ),
+    );
+    await tester.scrollUntilVisible(find.text('View scheduled ride terms'), 300);
+    final free = cancellation();
+    expect(find.text(free), findsOneWidget);
+
+    // The rider keeps the page open past the free window.
+    clock = DateTime(2026, 10, 22, 9, 5);
+    await tester.pump(const Duration(minutes: 15));
+
+    expect(cancellation(), isNot(free));
+    expect(find.text(cancellation()), findsOneWidget);
   });
 }
