@@ -5,6 +5,11 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,7 +21,27 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  tearDown(() => L10n.use('en'));
+  tearDown(() {
+    L10n.use('en');
+    LastCompletedRide.clear();
+  });
+
+  RideSnapshot completed({MatchedDriver? driver, String payment = 'Cash'}) =>
+      RideSnapshot(
+        status: RideStatus.tripCompleted,
+        rideId: 'r51cd_done',
+        pickupAddress: 'Sveavägen 1',
+        destinationAddress: 'Hornsgatan 2',
+        pickupLat: 59.34,
+        pickupLng: 18.05,
+        destinationLat: 59.31,
+        destinationLng: 18.04,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: payment,
+        savedAt: DateTime(2026, 9, 18, 7, 5),
+        driver: driver,
+      );
 
   Future<void> pumpIn(
     WidgetTester tester,
@@ -89,6 +114,33 @@ void main() {
           findsOneWidget,
         );
         semantics.dispose();
+      });
+
+      test('rider-70: completed driver fallbacks are translated', () {
+        L10n.use(code);
+        LastCompletedRide.remember(
+          completed(
+            driver: const MatchedDriver(id: 'drv_70', firstName: 'Elin'),
+          ),
+        );
+        final bare = const DriverRepository().current()!;
+        expect(bare.vehicle, L10n.current.driverVehicleUnavailable);
+        expect(bare.tagline, L10n.current.driverTaglineDefault);
+
+        LastCompletedRide.remember(
+          completed(
+            driver: const MatchedDriver(
+              id: 'drv_70',
+              firstName: 'Elin',
+              tripCount: 12,
+            ),
+          ),
+        );
+        expect(
+          const DriverRepository().current()!.tagline,
+          L10n.current.driverTripsCompleted(12),
+        );
+        expect(L10n.current.driverTripsCompleted(12), contains('12'));
       });
     });
   }
