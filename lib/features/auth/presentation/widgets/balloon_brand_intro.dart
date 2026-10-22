@@ -7,9 +7,9 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart'
 import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// The first screen's hero: the wordmark and the tagline. While the intro
-/// story runs, the wordmark's pin stays hidden until the balloon from the
-/// scene has flown in and become it ([BalloonFlight]).
+/// The first screen's hero: the wordmark and the tagline. The wordmark is
+/// complete from the first frame; during the intro story the balloon from
+/// the scene flies in and settles onto its pin ([BalloonFlight]).
 class BalloonBrandIntro extends StatelessWidget {
   const BalloonBrandIntro({
     super.key,
@@ -17,6 +17,7 @@ class BalloonBrandIntro extends StatelessWidget {
     this.wordmarkKey,
   });
 
+  /// The intro story; the flight itself is drawn by [BalloonFlight].
   final Animation<double> progress;
 
   /// Put on the wordmark so [BalloonFlight] can aim at its pin.
@@ -27,7 +28,6 @@ class BalloonBrandIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reducedMotion = MediaQuery.of(context).disableAnimations;
     return Semantics(
       // rider-31: the slogan in the app language, as Rider name shows it.
       label: 'Movera. ${context.l10n.brandTaglineSentence}',
@@ -37,38 +37,31 @@ class BalloonBrandIntro extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 350),
-              child: AnimatedBuilder(
-                animation: progress,
-                builder: (context, _) {
-                  final time = reducedMotion ? 1.0 : progress.value;
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 34),
-                      MoveraWordmark(
-                        key: wordmarkKey,
-                        size: wordmarkSize,
-                        pinOpacity: BalloonFlight.landed(time) ? 1 : 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 34),
+                  // Owner round 3: the wordmark always reads "Movera", pin
+                  // included; the balloon lands onto that pin and ends up
+                  // identical to it.
+                  MoveraWordmark(key: wordmarkKey, size: wordmarkSize),
+                  const SizedBox(height: 14),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.l10n.brandTaglineSentence,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: GoogleFonts.urbanist(
+                        // 0.41 of the wordmark, as in the approved mock-up.
+                        fontSize: 19,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: AuthColors.ink,
                       ),
-                      const SizedBox(height: 14),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          context.l10n.brandTaglineSentence,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          style: GoogleFonts.urbanist(
-                            // 0.41 of the wordmark, as in the approved mock-up.
-                            fontSize: 19,
-                            height: 1.2,
-                            fontWeight: FontWeight.w600,
-                            color: AuthColors.ink,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -79,7 +72,8 @@ class BalloonBrandIntro extends StatelessWidget {
 }
 
 /// One continuous flight: the balloon leaves the person's hand in the scene,
-/// rises in a single curve to the hero wordmark and darkens into its pin.
+/// rises in a single curve to the hero wordmark and settles onto its pin,
+/// darkening into the same black on the way.
 ///
 /// Painted on a layer over the whole page, so there is no hand-over between
 /// two painters half-way (the old intro drew the first half in the scene and
@@ -129,7 +123,8 @@ class BalloonFlight extends StatelessWidget {
           final time = reducedMotion ? 1.0 : progress.value;
           if (!released(time) || landed(time)) return const SizedBox.shrink();
           final overlay = context.findRenderObject() as RenderBox?;
-          final scene = sceneKey.currentContext?.findRenderObject() as RenderBox?;
+          final scene =
+              sceneKey.currentContext?.findRenderObject() as RenderBox?;
           final wordmark =
               wordmarkKey.currentContext?.findRenderObject() as RenderBox?;
           if (overlay == null ||

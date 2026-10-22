@@ -16,10 +16,10 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   Widget app(Widget child) => MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: child,
-      );
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: child,
+  );
 
   testWidgets('the white card is square and runs edge to edge', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -41,7 +41,9 @@ void main() {
     expect(card.left, 0);
     expect(card.right, 390);
     expect(card.bottom, 844);
-    final box = tester.widget<Container>(find.byKey(const ValueKey('auth-card')));
+    final box = tester.widget<Container>(
+      find.byKey(const ValueKey('auth-card')),
+    );
     final decoration = box.decoration! as BoxDecoration;
     expect(decoration.color, Colors.white);
     expect(decoration.borderRadius, isNull, reason: 'no rounded corners');
@@ -49,7 +51,9 @@ void main() {
     // Raised over the scene: the shadow is cast upward.
     expect(decoration.boxShadow!.first.offset.dy, lessThan(0));
     // The step bar's current step is ink, not green.
-    final bars = tester.widgetList<AnimatedContainer>(find.byType(AnimatedContainer));
+    final bars = tester.widgetList<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    );
     final current = bars.firstWhere(
       (b) => (b.decoration! as BoxDecoration).color == AuthColors.ink,
     );
@@ -71,12 +75,19 @@ void main() {
         ),
       ),
     );
-    final boxes = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).toList();
-    final on = boxes.map((b) => b.decoration as BoxDecoration).firstWhere(
-          (d) => d.gradient != null,
-        );
-    expect((on.gradient! as LinearGradient).colors.last, const Color(0xFF050506));
-    final off = boxes.map((b) => b.decoration as BoxDecoration).firstWhere(
+    final boxes = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .toList();
+    final on = boxes
+        .map((b) => b.decoration as BoxDecoration)
+        .firstWhere((d) => d.gradient != null);
+    expect(
+      (on.gradient! as LinearGradient).colors.last,
+      const Color(0xFF050506),
+    );
+    final off = boxes
+        .map((b) => b.decoration as BoxDecoration)
+        .firstWhere(
           (d) => d.gradient == null && d.color == AuthColors.disabled,
         );
     expect(off.color, const Color(0xFFF0F0F1));
@@ -99,9 +110,11 @@ void main() {
         ),
       ),
     );
-    BoxDecoration shell() => tester
-        .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-        .decoration! as BoxDecoration;
+    BoxDecoration shell() =>
+        tester
+                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                .decoration!
+            as BoxDecoration;
     expect(shell().borderRadius, isNull);
     expect(shell().color, isNull);
     expect(shell().border!.bottom.color, AuthColors.underline);
@@ -134,7 +147,9 @@ void main() {
     expect(find.text('+46'), findsOneWidget);
     expect(find.text('🇸🇪'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    final flag = tester.getRect(find.byKey(const ValueKey('auth-phone-country')));
+    final flag = tester.getRect(
+      find.byKey(const ValueKey('auth-phone-country')),
+    );
     final dial = tester.getRect(find.byKey(const ValueKey('auth-phone-dial')));
     final number = tester.getRect(find.byType(TextField));
     expect(flag.right, lessThan(dial.left));
@@ -171,8 +186,13 @@ void main() {
     );
     final flight = find.byType(BalloonFlight);
     CustomPaint? painted() {
-      final paints = find.descendant(of: flight, matching: find.byType(CustomPaint));
-      return paints.evaluate().isEmpty ? null : tester.widget<CustomPaint>(paints);
+      final paints = find.descendant(
+        of: flight,
+        matching: find.byType(CustomPaint),
+      );
+      return paints.evaluate().isEmpty
+          ? null
+          : tester.widget<CustomPaint>(paints);
     }
 
     double pinOpacity() => tester
@@ -184,17 +204,18 @@ void main() {
         )
         .opacity;
 
-    // In the hand: the scene draws it, the hero's pin is still hidden.
+    // In the hand: the scene draws it; the wordmark already reads "Movera"
+    // with its pin (owner: never an empty "o").
     story.value = 0.2;
     await tester.pump();
     expect(painted(), isNull);
-    expect(pinOpacity(), 0);
+    expect(pinOpacity(), 1);
 
     // Released: the flight layer draws it, from the hand's position.
     story.value = 0.5;
     await tester.pump();
     expect(painted(), isNotNull);
-    expect(pinOpacity(), 0);
+    expect(pinOpacity(), 1);
     expect(BalloonFlight.travel(0.5), inExclusiveRange(0, 1));
     expect(BalloonFlight.morph(0.5), 0, reason: 'still a balloon');
 
@@ -203,9 +224,9 @@ void main() {
     await tester.pump();
     expect(painted(), isNotNull);
     expect(BalloonFlight.morph(0.8), inExclusiveRange(0, 1));
-    expect(pinOpacity(), 0);
+    expect(pinOpacity(), 1);
 
-    // Landed: the flight stops and the wordmark's own pin shows.
+    // Landed: the flight stops; the balloon has become the pin that was there.
     story.value = BalloonFlight.landAt;
     await tester.pump();
     expect(painted(), isNull);
@@ -240,7 +261,10 @@ void main() {
       ),
     );
     final opacity = tester.widget<Opacity>(
-      find.descendant(of: find.byKey(wordmarkKey), matching: find.byType(Opacity)),
+      find.descendant(
+        of: find.byKey(wordmarkKey),
+        matching: find.byType(Opacity),
+      ),
     );
     expect(opacity.opacity, 1);
     expect(find.byType(MoveraWordmark), findsOneWidget);
