@@ -11,6 +11,7 @@ import 'package:movera_rider/features/active_ride/presentation/ride_terminal_sta
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -22,6 +23,7 @@ import 'package:movera_rider/features/active_ride/application/route_change_contr
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 5 R5.2 parts a+b, on screen: no success text the app did not get.
@@ -128,6 +130,33 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
+
+  /// Where to? with [recent] and [savedPlaces], as Home opens it.
+  Future<void> openPicker(
+    WidgetTester tester, {
+    List<String> recent = const [],
+    List<SavedPlaceData> savedPlaces = const [],
+  }) =>
+      openFrom(tester, (context) => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => RoutePickerPage(
+                pickupAddress: 'Sveavägen 1, Stockholm',
+                destinationAddress: '',
+                stops: const [],
+                stopsSupported: true,
+                initialField: 'destination',
+                capture: EarlyInputCapture(),
+                here: const GeoPoint(59.33, 18.06),
+                homeAddress: null,
+                workAddress: null,
+                savedPlaces: savedPlaces,
+                recent: recent,
+                onPickOnMap: ({required pickup, required address}) async =>
+                    null,
+                onFinish: (_) async => null,
+              ),
+            ),
+          ));
 
   testWidgets(
       'rider-u36: the sheet shows the server\'s difference, not the device\'s',
@@ -293,6 +322,19 @@ void main() {
 
     expect(cars(), hasLength(1));
     expect(cars().single.position, const LatLng(59.3340, 18.0600));
+  });
+
+  testWidgets('rider-u91: a place the rider named shows that name in '
+      'Where to?', (tester) async {
+    await openPicker(tester, savedPlaces: const [
+      SavedPlaceData(
+        title: 'Mamma',
+        type: 'mamma',
+        address: 'Götgatan 1, Stockholm',
+      ),
+    ]);
+    expect(find.text('Mamma'), findsOneWidget);
+    expect(find.text('Other'), findsNothing);
   });
 
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '

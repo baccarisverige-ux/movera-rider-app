@@ -873,6 +873,17 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     );
   }
 
+  /// rider-u91: a place the rider named ('Mamma', type 'mamma') shows that
+  /// name; a known type keeps its translated label, and a place with no
+  /// name of its own reads 'Other'.
+  String _savedPlaceTitle(SavedPlaceData place) {
+    final label = placeLabelFor(place.type);
+    if (label != L10n.current.placeOther) return label;
+    final title = place.title.trim();
+    // A saved place with no title reads back its raw type key as title.
+    return title.isEmpty || title == place.type.trim() ? label : title;
+  }
+
   (String, String) _split(String address) {
     final i = address.indexOf(',');
     if (i < 0) return (address, '');
@@ -934,7 +945,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             size: 24,
             color: _ink,
           ),
-          title: Text(placeLabelFor(place.type), style: _t(16)),
+          title: Text(_savedPlaceTitle(place), style: _t(16)),
           subtitle: compactAddress(address),
           onTap: () => _choose(address),
         ),
