@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -624,8 +625,10 @@ class _MainStep extends StatelessWidget {
             _Note(session.callError!),
           ],
         ],
-        const SizedBox(height: 10),
-        _RecordAudio(session: session, controller: controller),
+        if (_showsRecording(session, controller)) ...[
+          const SizedBox(height: 10),
+          _RecordAudio(session: session, controller: controller),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(2, 14, 2, 2),
           child: Text(
@@ -751,8 +754,10 @@ class _FollowUpStep extends StatelessWidget {
           const SizedBox(height: 10),
           _NoteField(initial: session.note, onChanged: controller.setNote),
         ],
-        const SizedBox(height: 14),
-        _RecordAudio(session: session, controller: controller),
+        if (_showsRecording(session, controller)) ...[
+          const SizedBox(height: 14),
+          _RecordAudio(session: session, controller: controller),
+        ],
         const SizedBox(height: 14),
         _BigButton(
           key: const ValueKey<String>('ride-check-done'),
@@ -967,6 +972,17 @@ class _AlertBanner extends StatelessWidget {
     return GestureDetector(onTap: controller.retryAlert, child: banner);
   }
 }
+
+/// Owner decision 10: "Record audio" is hidden for now. A recording that
+/// is already running (taken over from the Safety Kit) keeps its Stop, and
+/// the note about one that just ended stays, so neither is left dangling.
+bool _showsRecording(
+  RideCheckSession session,
+  RideCheckController controller,
+) =>
+    SafetyAudioOption.enabled ||
+    controller.recording ||
+    session.recordingNote != null;
 
 class _RecordAudio extends StatefulWidget {
   const _RecordAudio({required this.session, required this.controller});

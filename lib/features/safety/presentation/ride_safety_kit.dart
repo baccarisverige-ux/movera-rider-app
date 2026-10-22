@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
@@ -267,6 +268,9 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
+    // Owner decision 10: "Record audio" is hidden for now. A recording that
+    // is already running still shows its Stop, so it is never left on.
+    final showsAudio = SafetyAudioOption.enabled || recording;
     return PointerInterceptor(
       // rider-u216: at large text the sheet scrolls instead of clipping
       // its last rows (Safety preferences).
@@ -306,16 +310,18 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                       onTap: _call112,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Tool(
-                      icon: recording
-                          ? Icons.stop_circle_outlined
-                          : Icons.mic_outlined,
-                      label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
-                      onTap: _toggleAudio,
+                  if (showsAudio) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _Tool(
+                        icon: recording
+                            ? Icons.stop_circle_outlined
+                            : Icons.mic_outlined,
+                        label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
+                        onTap: _toggleAudio,
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(width: 10),
                   Expanded(
                     child: _Tool(

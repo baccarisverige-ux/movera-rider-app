@@ -30,6 +30,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,6 +136,13 @@ Future<void> _setUpSafety({
   );
 }
 
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -230,6 +238,7 @@ void main() {
   testWidgets(
     'RC3 the dark-glass card opens at the top with the rider rows and Solar icons only',
     (tester) async {
+      _withAudioOption();
       await _setUpSafety();
       await pumpTrip(tester);
       await openCard(
@@ -467,6 +476,7 @@ void main() {
   testWidgets('every Ride check button can be pressed by a screen reader', (
     tester,
   ) async {
+    _withAudioOption();
     final semantics = tester.ensureSemantics();
     await _setUpSafety();
     await pumpTrip(tester);
@@ -617,6 +627,7 @@ void main() {
   testWidgets(
     'RC5 Record audio stays on this phone and is never sent to Movera',
     (tester) async {
+      _withAudioOption();
       await _setUpSafety();
       await pumpTrip(tester);
       await openCard(tester, RideCheckTrigger.longStop);
@@ -663,6 +674,7 @@ void main() {
   testWidgets('Record audio says so where the phone cannot record', (
     tester,
   ) async {
+    _withAudioOption();
     await _setUpSafety(recorderSupported: false);
     await pumpTrip(tester);
     await openCard(tester, RideCheckTrigger.longStop);

@@ -25,6 +25,7 @@ import 'package:movera_rider/features/safety/presentation/pin_verification_page.
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 SafetyController buildController({SafetyStore? store}) {
@@ -64,6 +65,13 @@ class TestSafetyRecorder implements SafetyRecorder {
   Future<void> cancel() async {}
   @override
   Future<void> delete(String path) async { deletedPaths.add(path); }
+}
+
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
 }
 
 void main() {
@@ -457,6 +465,7 @@ void main() {
   testWidgets('Safety Kit reports denied microphone access honestly', (
     tester,
   ) async {
+    _withAudioOption();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
       remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
