@@ -9,6 +9,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,8 +45,8 @@ void main() {
       ..suppressRestore = false;
   });
 
-  testWidgets('rider-r5-36: stops picked with a point reach Select Ride '
-      'with it', (tester) async {
+  testWidgets('rider-r5-36/37: picked points reach Select Ride and come '
+      'back to Where to?', (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -73,6 +74,20 @@ void main() {
     );
     final select = tester.widget<SelectRide>(find.byType(SelectRide));
     expect(select.stopPoints, [_pin]);
+
+    // rider-r5-37: back on Home, Where to? opens on the same points.
+    moveraNavigatorKey.currentState!.pop();
+    await _frames(tester, 15);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(WhereToCard),
+        matching: find.byIcon(Icons.search_rounded),
+      ),
+    );
+    await _frames(tester, 20);
+    final again = tester.widget<RoutePickerPage>(find.byType(RoutePickerPage));
+    expect(again.destinationPoint?.latitude, _gate.latitude);
+    expect(again.stopPoints.single?.latitude, _pin.latitude);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));

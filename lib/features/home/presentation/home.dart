@@ -121,6 +121,24 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String? get _homeAddress => _places.homeAddress;
   String? get _workAddress => _places.workAddress;
   List<String> get _routeStops => _places.routeStops;
+
+  /// rider-r5-37: the confirmed points of the last route's destination and
+  /// stops, with the labels they belong to. Where to? opens with them while
+  /// those labels are still the route, so they are not located again.
+  ({String address, GeoPoint point})? _destinationFix;
+  ({List<String> stops, List<GeoPoint?> points})? _stopFixes;
+
+  GeoPoint? get _routeDestinationPoint {
+    final fix = _destinationFix;
+    return fix != null && fix.address == _destinationAddress ? fix.point : null;
+  }
+
+  List<GeoPoint?> get _routeStopPoints {
+    final fixes = _stopFixes;
+    return fixes != null && listEquals(fixes.stops, _routeStops)
+        ? fixes.points
+        : const <GeoPoint?>[];
+  }
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
   set _currentLatLng(LatLng? value) => _places.currentLatLng = value;
@@ -1071,7 +1089,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           RoutePickerPage(
             pickupAddress: _placeOrNull(_pickupAddress),
             destinationAddress: _destinationAddress ?? '',
+            destinationPoint: _routeDestinationPoint,
             stops: _stopsSupported ? _routeStops : const <String>[],
+            stopPoints: _stopsSupported ? _routeStopPoints : const [],
             stopsSupported: _stopsSupported,
             initialField: initialField,
             capture: routeCapture,
@@ -1168,6 +1188,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           ? _destinationAddress
           : destination;
       _routeStops = stops;
+      _stopFixes = (stops: List.of(stops), points: List.of(stopPoints));
+      if (destination.isNotEmpty && exactDestinationPosition != null) {
+        _destinationFix = (
+          address: destination,
+          point: GeoPoint(
+            exactDestinationPosition.latitude,
+            exactDestinationPosition.longitude,
+          ),
+        );
+      }
       if (pickup.isNotEmpty) _rememberAddress(pickup);
       if (destination.isNotEmpty) _rememberAddress(destination);
       for (final stop in stops) {
