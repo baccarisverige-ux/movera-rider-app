@@ -48,6 +48,7 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -599,5 +600,27 @@ void main() {
 
     expect(row.priceLabel, contains('50'));
     expect(row.priceLabel, isNot(contains('450')));
+  });
+
+  testWidgets('rider-r3-2: a ride history that could not load says so and '
+      'retries', (tester) async {
+    var loads = 0;
+    await pumpPage(
+      tester,
+      SelectSupportRide(
+        loadRides: () async {
+          if (loads++ == 0) throw http.ClientException('offline');
+          return const <SupportRide>[];
+        },
+      ),
+    );
+    expect(find.text('No rides yet'), findsNothing);
+    expect(find.text('Couldn’t load rides'), findsOneWidget);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('No rides yet'), findsOneWidget);
   });
 }

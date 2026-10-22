@@ -1423,9 +1423,10 @@ class _SupportRides extends StatefulWidget {
 }
 
 class _SupportRidesState extends State<_SupportRides> {
-  late final Future<List<SupportRide>> _rides = widget.load().timeout(
-    const Duration(seconds: 8),
-  );
+  late Future<List<SupportRide>> _rides = _load();
+
+  Future<List<SupportRide>> _load() =>
+      widget.load().timeout(const Duration(seconds: 8));
 
   @override
   Widget build(BuildContext context) {
@@ -1436,6 +1437,29 @@ class _SupportRidesState extends State<_SupportRides> {
           return const Padding(
             padding: EdgeInsets.all(24),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        // rider-r3-2: a history that could not be read is not "no rides".
+        if (snapshot.hasError) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _EmptyCard(
+                icon: Icons.cloud_off_outlined,
+                title: context.l10n.historyLoadFailed,
+                subtitle: context.l10n.historyLoadFailedBody,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() {
+                    _rides = _load();
+                  }),
+                  child: Text(context.l10n.retry),
+                ),
+              ),
+            ],
           );
         }
         return widget.builder(context, snapshot.data ?? const []);
