@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
-/// The one Movera wordmark: "Mov" in ink, the map pin as the "o", "era" in
-/// green. Every sign-in screen draws this same widget, only at another
+/// The one Movera wordmark: "Mov" in ink, the map pin as the "o" (ink
+/// running into green from head to tip), "era" in green. Every sign-in screen draws this same widget, only at another
 /// [size], so the mark is identical everywhere (owner round 3).
 ///
 /// Proportions follow the approved mock-up and are relative to the font
@@ -20,21 +20,21 @@ class MoveraWordmark extends StatelessWidget {
   final double pinOpacity;
 
   static TextStyle textStyle(double size) => GoogleFonts.urbanist(
-        fontSize: size,
-        height: 1,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.01 * size,
-        color: AuthColors.ink,
-      );
+    fontSize: size,
+    height: 1,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.01 * size,
+    color: AuthColors.ink,
+  );
 
   /// Where each part lands for [size]; the brand intro aims the balloon at
   /// [MoveraWordmarkLayout.pinRect].
   static MoveraWordmarkLayout layout(double size) {
     final style = textStyle(size);
     TextPainter measure(String text) => TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-        )..layout();
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
     final m = measure('M');
     final vera = measure('vera');
     final baseline = m.computeDistanceToActualBaseline(TextBaseline.alphabetic);
@@ -68,7 +68,11 @@ class MoveraWordmark extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned(left: l.mLeft, top: 0, child: Text('M', style: style)),
+            Positioned(
+              left: l.mLeft,
+              top: 0,
+              child: Text('M', style: style),
+            ),
             Positioned(
               left: l.pinRect.left,
               top: l.pinRect.top,
@@ -164,11 +168,30 @@ abstract final class MoveraPin {
     return path;
   }
 
+  /// The pin's colours: ink at the top running into green at the tip, one
+  /// continuous gradient (owner round 3).
+  static const topColor = AuthColors.ink;
+  static const bottomColor = AuthColors.green;
+
+  /// The fill of the pin on [designSize]: [top] at the head running into
+  /// [bottom] at the tip, blended across the middle.
+  static Paint fill({Color top = topColor, Color bottom = bottomColor}) =>
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, bottom],
+          stops: const [0.3, 0.8],
+        ).createShader(Offset.zero & designSize);
+
   /// Draws the finished pin scaled into [size].
-  static void paint(Canvas canvas, Size size, {Color color = AuthColors.ink}) {
+  static void paint(Canvas canvas, Size size) {
     canvas.save();
-    canvas.scale(size.width / designSize.width, size.height / designSize.height);
-    canvas.drawPath(withHole(), Paint()..color = color);
+    canvas.scale(
+      size.width / designSize.width,
+      size.height / designSize.height,
+    );
+    canvas.drawPath(withHole(), fill());
     canvas.restore();
   }
 }
