@@ -23,6 +23,7 @@ abstract final class ReservationFormat {
   static String? historyStatus(Reservation ride) {
     switch (ride.status) {
       case ReservationStatus.completed:
+        if (ride.paymentFailed) return L10n.current.resPaymentFailed;
         return L10n.current.resCompleted;
       case ReservationStatus.cancelled:
         if (ride.endedEarly) return L10n.current.endedEarly;
@@ -42,11 +43,29 @@ abstract final class ReservationFormat {
     'system_payment_failed': L10n.current.reasonPayment,
     'system_zone_closed': L10n.current.reasonZoneClosed,
     'system_error': L10n.current.reasonError,
+    // rider-u112: the codes History writes for a ride the server ended,
+    // and the English labels older builds stored for the same causes.
+    'system_expired': L10n.current.reasonRequestExpired,
+    'system_cancelled': L10n.current.reasonCancelledBySystem,
+    'system_trip_failed': L10n.current.reasonRideFailed,
+    'driver_ended': L10n.current.reasonDriverEnded,
+    // rider-j8-3: the codes reservations record themselves
+    // (ReservationController.noDriverFoundReason, the live-ride cancel).
+    'no_driver_found': L10n.current.termNoDriverFound,
+    'rider_cancelled_live': L10n.current.reasonRiderCancelledLive,
+    'No driver found': L10n.current.termNoDriverFound,
+    'Request expired': L10n.current.reasonRequestExpired,
+    'Cancelled by Movera': L10n.current.cancelledByMovera,
+    'Cancelled by the system': L10n.current.reasonCancelledBySystem,
+    'No-show': L10n.current.reasonNoShow,
+    'Ride failed': L10n.current.reasonRideFailed,
+    'Driver ended the ride': L10n.current.reasonDriverEnded,
   };
 
   /// UI-07: a cancel reason as riders read it. Reason codes
-  /// (`plans_changed`) map to their labels; older records already hold a
-  /// label ("No driver found") and are shown as they are.
+  /// (`plans_changed`) map to their labels; the English labels older
+  /// records hold ("No driver found") are translated too, and any other
+  /// label is shown as it is.
   static String reasonLabel(String raw) {
     final value = raw.trim();
     for (final phase in CancelPhase.values) {
@@ -83,6 +102,12 @@ abstract final class ReservationFormat {
 
   static String reservedHeadline(DateTime when) {
     return L10n.current.resReservedFor(weekdayDate(when), time(when));
+  }
+
+  /// rider-j8-2: a completed or cancelled reservation is no longer
+  /// "reserved for" anything.
+  static String pastHeadline(DateTime when) {
+    return L10n.current.resWasScheduledFor(weekdayDate(when), time(when));
   }
 
   static String scheduledReady(DateTime when) {
@@ -135,12 +160,14 @@ abstract final class ReservationFormat {
 
   static String shortPlace(String raw) => shortenPlace(raw);
 
-  static String cardDate(DateTime when) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  static String cardDate(DateTime when, {DateTime? now}) {
+    final clock = now ?? DateTime.now();
+    final today = DateTime(clock.year, clock.month, clock.day);
     final day = DateTime(when.year, when.month, when.day);
     if (day == today) return L10n.current.todayDate(_dayMonth(when));
-    if (day == today.add(const Duration(days: 1))) {
+    // rider-64: the next calendar day. today + 24 h is 01:00 of it on the
+    // spring-forward day.
+    if (day == DateTime(clock.year, clock.month, clock.day + 1)) {
       return L10n.current.tomorrowDate(_dayMonth(when));
     }
     return weekdayDate(when);
@@ -169,9 +196,12 @@ abstract final class ReservationFormat {
     }
   }
 
+  /// [showDriver] false (admin's showDriverOnAccept off, driver not yet on
+  /// the way) keeps the driver's name out of the body (rider-u163).
   static String statusBody(
     Reservation ride, {
     required String assignmentDisclaimer,
+    bool showDriver = true,
   }) {
     switch (ride.status) {
       case ReservationStatus.cancelled:
@@ -186,7 +216,7 @@ abstract final class ReservationFormat {
       case ReservationStatus.driverArrived:
       case ReservationStatus.inProgress:
         final driver = ride.driver;
-        if (driver == null) {
+        if (driver == null || !showDriver) {
           return L10n.current.resBodyDriverAssigned;
         }
         return L10n.current.resBodyNameAssigned(driver.firstName);
@@ -201,8 +231,11 @@ abstract final class ReservationFormat {
     return L10n.current.driverPending;
   }
 
-  static String historyWhen(Reservation ride) {
-    return '${cardDate(ride.scheduledPickupAt)} · ${time(ride.scheduledPickupAt)}';
+  static String historyWhen(Reservation ride, {DateTime? now}) {
+    // Owner decision 9: "Today" is the pickup zone's today.
+    final zoneNow = zoneWallTime(now ?? DateTime.now(), ride.timeZone);
+    return '${cardDate(ride.pickupWallTime, now: zoneNow)} · '
+        '${time(ride.pickupWallTime)}';
   }
 
   /// "50 kr", "5 €": the app's one money format (UI-10).
@@ -227,19 +260,26 @@ abstract final class ReservationFormat {
     return sameDay ? time(when) : '${weekdayDate(when)}, ${time(when)}';
   }
 
+  /// [terms]' free-cancel end on the pickup zone's clock (owner decision
+  /// 9), with the day when it is not that zone's today.
+  static String _freeUntil(ReservationCancelTerms terms) => moment(
+    zoneWallTime(terms.freeUntil, terms.timeZone),
+    now: zoneWallTime(terms.at, terms.timeZone),
+  );
+
   /// Cancel sheet headline for [terms].
   static String cancelTermsTitle(ReservationCancelTerms terms) {
     final fee = terms.fee;
     if (fee != null) return L10n.current.cancelFee(money(fee));
     if (terms.freeForNow) {
-      return L10n.current.freeToCancelUntil(moment(terms.freeUntil, now: terms.at));
+      return L10n.current.freeToCancelUntil(_freeUntil(terms));
     }
     return L10n.current.freeCancellation;
   }
 
   /// Cancel sheet detail for [terms].
   static String cancelTermsBody(ReservationCancelTerms terms) {
-    final until = moment(terms.freeUntil, now: terms.at);
+    final until = _freeUntil(terms);
     final before = window(terms.window);
     final fee = terms.fee;
     if (fee != null) {
@@ -255,7 +295,7 @@ abstract final class ReservationFormat {
   static String cancellationSummary(ReservationCancelTerms terms) {
     if (!terms.lateFee.isPositive) return L10n.current.freeAnyTime;
     final before = window(terms.window);
-    final until = moment(terms.freeUntil, now: terms.at);
+    final until = _freeUntil(terms);
     if (terms.fee != null) {
       return L10n.current.freeEndedCostsNow(until, before, money(terms.fee!));
     }
@@ -273,6 +313,15 @@ abstract final class ReservationFormat {
     return L10n.current.cancelRuleText(window(rules.freeCancelWindow), money(rules.lateCancelFee));
   }
 
+  /// The cancel rule [terms] apply (rider-u169): the ride's own window
+  /// and late fee, which may be its ride type's rule.
+  static String cancelRuleOf(ReservationCancelTerms terms) {
+    if (!terms.lateFee.isPositive) {
+      return L10n.current.scheduledCancelFree;
+    }
+    return L10n.current.cancelRuleText(window(terms.window), money(terms.lateFee));
+  }
+
   static String get driverChangedTitle => L10n.current.driverChangedTitle;
 
   static String driverChangedBody(
@@ -284,7 +333,12 @@ abstract final class ReservationFormat {
 
   static String get driverLeftTitle => L10n.current.driverLeftTitle;
 
-  static String driverLeftBody(ReservationDriver previous) {
+  /// [showName] false: the leaving driver was never shown (rider-u163).
+  static String driverLeftBody(
+    ReservationDriver previous, {
+    bool showName = true,
+  }) {
+    if (!showName) return L10n.current.driverLeftBodyUnnamed;
     return L10n.current.driverLeftBody(previous.displayFirstName);
   }
 }

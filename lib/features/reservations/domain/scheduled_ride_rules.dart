@@ -88,7 +88,19 @@ class ScheduledRideRules {
     DateTime now, {
     FeeRule? categoryRule,
   }) {
-    final rule = categoryRule ?? feeRule;
+    final fare = Money.fromLegacyMajor(ride.price, ride.currency);
+    // rider-r4-14: the single rule's fee is in its own currency; it never
+    // prices a ride in another one (no "50 kr" stamped as 50,00 €). Without
+    // a rule of the ride's zone the window stays and the cancel is free.
+    final rule =
+        categoryRule ??
+        (lateCancelFee.currency == fare.currency
+            ? feeRule
+            : FeeRule(
+                freeMin: freeCancelMinutesBeforePickup,
+                type: FeeType.fixed,
+                value: 0,
+              ));
     final window = Duration(minutes: rule.freeMin);
     final freeUntil = ride.scheduledPickupAt.subtract(window);
     final missedByMovera =
@@ -96,17 +108,19 @@ class ScheduledRideRules {
     // Contract v0.3.0: the shared FeeRule calculator decides (reservation:
     // free while minutesBeforePickup >= freeMin), replayed against
     // fixtures/cancel_fees.json.
-    final fare = Money.fromLegacyMajor(ride.price, ride.currency);
     final fee = CancelFeeCalculator.reservation(
       rule,
       fare,
       ride.scheduledPickupAt.difference(now).inMinutes,
     );
     // The fee a cancel inside the window costs (a percent rule depends on
-    // the fare, so it is worked out for this ride).
-    final lateFee = categoryRule == null
-        ? lateCancelFee
-        : CancelFeeCalculator.reservation(rule, fare, rule.freeMin - 1);
+    // the fare, so it is worked out for this ride), from the same rule as
+    // [fee] so the two lines always agree.
+    final lateFee = CancelFeeCalculator.reservation(
+      rule,
+      fare,
+      rule.freeMin - 1,
+    );
     final charged = fee.isPositive && !missedByMovera;
     return ReservationCancelTerms(
       at: now,
@@ -114,6 +128,7 @@ class ScheduledRideRules {
       window: window,
       lateFee: lateFee,
       fee: charged ? fee : null,
+      timeZone: ride.timeZone,
     );
   }
 
@@ -147,6 +162,7 @@ class ReservationCancelTerms {
     required this.window,
     required this.lateFee,
     this.fee,
+    this.timeZone,
   });
 
   /// When these terms were worked out.
@@ -163,6 +179,10 @@ class ReservationCancelTerms {
 
   /// The fee for cancelling at [at], or null when it is free.
   final Money? fee;
+
+  /// Owner decision 9: the ride's pickup zone, whose clock [freeUntil] is
+  /// shown in. Null: the device's.
+  final String? timeZone;
 
   bool get isFree => fee == null;
 

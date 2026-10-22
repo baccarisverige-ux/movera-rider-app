@@ -12,12 +12,15 @@ Previous landmark SHA `a82b70b` / “108 tests” is **historical**, not current
 Mocks remain intentional (in-process API, mock realtime, mock payments).
 **Cancel-first:** on Finding, tapping Cancel request runs `FindingDriverController.cancelSearch`
 at once: the cancel goes into the pending-cancel outbox (one idempotency key), the server is
-asked, and on its OK — or when it cannot be reached, leaving the outbox entry to retry — the ride
-is committed as `cancelledByRider`, archived to History and `RideSnapshotStore.clear`ed. Only then
-does the optional why-sheet open (Skip / Send, no Keep ride); its reason is sent as feedback, so a
-reload while it is open lands on Home. A 409 (driver already accepted) commits nothing and the
+asked, and on its OK the ride is committed as `cancelledByRider`, archived to History and
+`RideSnapshotStore.clear`ed. Only then does the optional why-sheet open (Skip / Send, no Keep
+ride); its reason is sent as feedback, so a reload while it is open lands on Home. When the server
+cannot be reached nothing is committed (RC-03): the outbox entry stays to retry, the search keeps
+listening and shows "Cancelling…", and the server's answer either commits the cancel then or
+brings the driver who accepted first. A 409 (driver already accepted) commits nothing and the
 rider moves on to Waiting with a short notice. Waiting/in-trip stay server-first after the sheet (D-013).
-QA `window.movera*` hooks are gated (`kDebugMode` or `--dart-define=MOVERA_QA=true`).
+QA `window.movera*` hooks are gated (`kDebugMode` or `--dart-define=MOVERA_QA=true`),
+except the navigation-only `moveraOpenSafety` bridge, which every web build has (see QA_HOOKS.md).
 See `docs/API_V1_MOCK.md`, `docs/UAT_CHECKLIST.md`, `docs/QA_HOOKS.md`.
 
 ## Canonical frontend state (existing names)
@@ -87,4 +90,4 @@ architecture guard test enforces this.
 
 ## Live
 
-https://baccarisverige-ux.github.io/-movera-rider/
+https://baccarisverige-ux.github.io/movera-rider-app/

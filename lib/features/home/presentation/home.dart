@@ -36,8 +36,7 @@ import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.da
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
-import 'package:movera_rider/core/web/web_search_interrupted.dart';
-import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
+import 'package:movera_rider/features/ride_booking/application/home_search_interrupted.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
@@ -49,7 +48,7 @@ import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.da
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
-import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
+import 'package:movera_rider/features/home/presentation/widgets/liquid_glass_nav.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
@@ -122,9 +121,33 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   String? get _homeAddress => _places.homeAddress;
   String? get _workAddress => _places.workAddress;
   List<String> get _routeStops => _places.routeStops;
+
+  /// rider-r5-37: the confirmed points of the last route's destination and
+  /// stops, with the labels they belong to. Where to? opens with them while
+  /// those labels are still the route, so they are not located again.
+  ({String address, GeoPoint point})? _destinationFix;
+  ({List<String> stops, List<GeoPoint?> points})? _stopFixes;
+
+  GeoPoint? get _routeDestinationPoint {
+    final fix = _destinationFix;
+    return fix != null && fix.address == _destinationAddress ? fix.point : null;
+  }
+
+  List<GeoPoint?> get _routeStopPoints {
+    final fixes = _stopFixes;
+    return fixes != null && listEquals(fixes.stops, _routeStops)
+        ? fixes.points
+        : const <GeoPoint?>[];
+  }
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
   set _currentLatLng(LatLng? value) => _places.currentLatLng = value;
+
+  /// rider-u114: the GPS point a pickup may start from. Null while only
+  /// approximate location is allowed: that fix centres the map and draws
+  /// the puck, but the rider sets the pickup pin themselves.
+  LatLng? get _gpsPickup =>
+      _locationCtl.preciseLocationOff ? null : _currentLatLng;
   LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
   set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
   List<String> get _recentAddresses => _places.recentAddresses;
@@ -184,12 +207,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// with no explanation reads as though the ride was never requested, so say
   /// what happened.
   void _announceInterruptedSearch() {
-    // Two sources: builds that keep the snapshot have the restore coordinator
-    // set the shared notice; the web build's snapshot is gone before Flutter
-    // starts, so it leaves a note in the session instead.
-    final interrupted =
-        SearchInterruptedNotice.shared.take() | takeWebSearchInterrupted();
-    if (!interrupted) return;
+    // rider-u117: a ride that is still stored (and about to be resumed) was
+    // not interrupted; see takeHomeSearchInterrupted.
+    final interrupted = takeHomeSearchInterrupted();
+    if (interrupted is bool) {
+      if (interrupted) _showSearchInterrupted();
+      return;
+    }
+    unawaited(
+      interrupted.then((value) {
+        if (!value || !mounted) return;
+        _showSearchInterrupted();
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }),
+    );
+  }
+
+  void _showSearchInterrupted() {
     // Let the first frame settle so the messenger has a Scaffold to put this
     // in, and leave it up long enough to actually be read.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -253,6 +287,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // it resumes when the map is unparked.
     if (_mapParked.value) return;
     _locationCtl.resumeLiveUpdates();
+    // rider-u118: no first fix was ever bound (it failed or is still
+    // pending): run the whole first-fix path (puck, label, stream, camera).
+    // Restarting only the stream tracked GPS but never drew the puck.
+    if (_currentLatLng == null) {
+      // rider-43: a resume never prompts again; a rider who allowed
+      // location in Settings meanwhile still gets the fix.
+      unawaited(_detectCurrentAddress(askPermission: false));
+      return;
+    }
+    // rider-u114: precise location may have been turned on or off in
+    // Settings meanwhile.
+    unawaited(_recheckPrecision());
     if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
         isMounted: () => mounted,
@@ -263,8 +309,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _refreshPickupLabelIfMoved(latLng);
         },
       );
-    } else if (_currentLatLng == null) {
-      _detectCurrentAddress();
     }
   }
 
@@ -273,6 +317,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
+    _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
     _locationCtl.dispose();
@@ -318,11 +363,71 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   Future<void>? _detectInFlight;
 
+  /// rider-u119: a first fix that failed for a transient reason (the
+  /// 16 s timeout of a cold GPS, a platform error) is tried again with
+  /// backoff while Home has no fix, instead of waiting for an app resume.
+  Timer? _detectRetryTimer;
+  int _detectRetries = 0;
+
+  void _scheduleDetectRetry() {
+    _detectRetryTimer?.cancel();
+    // 2, 4, 8, 16, then 30 s: the live stream's resubscribe backoff.
+    final delay = Duration(
+      seconds: math.min(30, 2 << _detectRetries.clamp(0, 4)),
+    );
+    _detectRetries += 1;
+    _detectRetryTimer = Timer(delay, () {
+      _detectRetryTimer = null;
+      if (!mounted || _currentLatLng != null) return;
+      // Parked under a ride screen or in the background: keep waiting (the
+      // booking flow and an app resume ask for their own fix).
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (_mapParked.value ||
+          (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+        _scheduleDetectRetry();
+        return;
+      }
+      unawaited(_detectCurrentAddress());
+    });
+  }
+
+  /// rider-u114: reads the accuracy grant again; when it changed, the
+  /// pickup label follows (the 'set pickup' state, or the current location
+  /// again). Never over a pickup the rider chose or during a flow.
+  Future<void> _recheckPrecision() async {
+    final changed = await _locationCtl.recheckPrecision();
+    if (changed) _applyPrecisionChange();
+  }
+
+  void _applyPrecisionChange() {
+    if (!mounted ||
+        _routeFlowOpen ||
+        _mapParkingGuard.isParked ||
+        _tripPickupLatLng != null) {
+      return;
+    }
+    _resetPickupLabel();
+  }
+
+  /// rider-u114: the notice's "Turn on" button.
+  Future<void> _turnOnPreciseLocation() async {
+    final wasOff = _locationCtl.preciseLocationOff;
+    await _locationCtl.requestPreciseLocation();
+    if (!mounted) return;
+    if (_currentLatLng == null) {
+      await _detectCurrentAddress(askPermission: false);
+    } else if (wasOff != _locationCtl.preciseLocationOff) {
+      _applyPrecisionChange();
+    }
+  }
+
   /// Detects the rider's location once; a second call while one is running
   /// joins it, so the booking flow can wait for the fix Home already asked
   /// for instead of asking again.
-  Future<void> _detectCurrentAddress() {
-    return _detectInFlight ??= _runDetectCurrentAddress().whenComplete(() {
+  Future<void> _detectCurrentAddress({bool askPermission = true}) {
+    return _detectInFlight ??= _runDetectCurrentAddress(
+      askPermission: askPermission,
+    ).whenComplete(() {
       _detectInFlight = null;
     });
   }
@@ -330,8 +435,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// Waits briefly for a location fix when none has landed yet (first fix
   /// still coming, permission prompt open). Null when there is still none.
   Future<LatLng?> _awaitCurrentFix() async {
-    final known = _tripPickupLatLng ?? _currentLatLng;
+    final known = _tripPickupLatLng ?? _gpsPickup;
     if (known != null) return known;
+    // rider-u114: an approximate fix is no pickup; waiting brings no better.
+    if (_locationCtl.preciseLocationOff) return null;
     final hint = Timer(const Duration(milliseconds: 700), () {
       if (mounted) MoveraToast.show(context, context.l10n.homeFindingLocation);
     });
@@ -343,9 +450,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       for (var attempt = 0; attempt < 2; attempt++) {
         final left = deadline.difference(DateTime.now());
         if (left <= Duration.zero) break;
-        await _detectCurrentAddress().timeout(left, onTimeout: () {});
+        // rider-43: only the first try may show the permission prompt; the
+        // second never asks again right after a "Deny".
+        await _detectCurrentAddress(
+          askPermission: attempt == 0,
+        ).timeout(left, onTimeout: () {});
         if (!mounted) return null;
-        final fix = _tripPickupLatLng ?? _currentLatLng;
+        final fix = _tripPickupLatLng ?? _gpsPickup;
         if (fix != null) return fix;
       }
     } catch (_) {
@@ -353,13 +464,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } finally {
       hint.cancel();
     }
-    return _tripPickupLatLng ?? _currentLatLng;
+    return _tripPickupLatLng ?? _gpsPickup;
   }
 
-  Future<void> _runDetectCurrentAddress() async {
+  Future<void> _runDetectCurrentAddress({bool askPermission = true}) async {
     if (mounted) setState(() {});
     try {
-      final detected = await _locationCtl.detectCurrent();
+      final detected = await _locationCtl.detectCurrent(
+        askPermission: askPermission,
+      );
       if (!mounted) return;
       final target = detected.target;
       if (detected.denied || target == null) {
@@ -367,8 +480,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (isPlaceholderPickupLabel(_pickupAddress)) {
           setState(() => _pickupAddress = locationOffPickupLabel);
         }
+        if (detected.failure == HomeLocationFailure.unavailable &&
+            _currentLatLng == null) {
+          _scheduleDetectRetry();
+        }
         return;
       }
+      _detectRetryTimer?.cancel();
+      _detectRetryTimer = null;
+      _detectRetries = 0;
       setState(() {
         _pickupAddress = detected.address;
         _pickupLabelAt = target;
@@ -377,6 +497,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
+      // rider-u120: Home may have been replaced while the icons were drawn.
+      if (!mounted) return;
       await _locationCtl.bindLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
@@ -392,7 +514,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         },
         onPulse: _updateLocationVisuals,
       );
-      await AppScope.instance.maps.animateCamera(
+      // rider-44: a late fix must not glide the map of the screen on top
+      // (pickup, Set pickup, Select ride). Home's own map re-centres on
+      // [_currentLatLng] when it is created again.
+      final maps = AppScope.instance.maps;
+      if (!mounted ||
+          _mapParked.value ||
+          maps.activeOwner != MapOwners.home) {
+        return;
+      }
+      await maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
         zoom: homeOpeningZoom,
         follow: true,
@@ -465,6 +596,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     String target,
     String address, {
     String? customType,
+    String? placeId,
   }) async {
     final resolved = await _normaliseAddress(address);
     if (resolved.isEmpty || !mounted) return;
@@ -472,7 +604,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     LatLng? resolvedPickupPosition;
     if (target == 'pickup') {
       if (resolved.toLowerCase() == 'current location') {
-        resolvedPickupPosition = _currentLatLng;
+        resolvedPickupPosition = _gpsPickup;
       } else {
         final geocodedPickup = await _locationCtl.geocodeLatLng(resolved);
         if (geocodedPickup != null) {
@@ -488,6 +620,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         address: resolved,
         pickupPosition: resolvedPickupPosition,
         customType: customType,
+        placeId: placeId,
       );
       if (target == 'destination') {
         AppScope.instance.destinationMemory.remember(address: resolved);
@@ -527,9 +660,30 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return value;
   }
 
+  /// rider-46: the pickup label when it names a real place, else null. With
+  /// location off it is the placeholder 'Location off, set pickup', which
+  /// must never be saved as Home, Work or a Recent.
+  String? _currentAddressToSave() {
+    final value = _placeOrNull(_pickupAddress);
+    if (value == null ||
+        isPlaceholderPickupLabel(value) ||
+        isUnusablePickupLabel(value)) {
+      return null;
+    }
+    return value;
+  }
+
   /// Long-press on Home / Work / a custom place: change its address.
   Future<void> _editSavedPlace(String target, {String? customType}) =>
       _showAddressPicker(target: target, customType: customType);
+
+  /// rider-41: a custom place is edited by its id; another place of the
+  /// same kind is left alone.
+  Future<void> _editCustomPlace(_SavedPlaceData place) => _showAddressPicker(
+    target: 'custom',
+    customType: place.type,
+    placeId: place.id,
+  );
 
   Future<void> _useSavedPlaceAsDestination(
     String? savedAddress, {
@@ -547,6 +701,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
     setState(() {
       _destinationAddress = destination;
+      // rider-u121: a saved place is a new route; stops left by an earlier
+      // Where to flow the rider backed out of are not carried into it.
+      _routeStops = const <String>[];
       _rememberAddress(destination);
     });
     await _persistAddressData();
@@ -581,6 +738,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             MoveraToast.show(context, context.l10n.homeChooseValidDestination);
           }
           return null;
+        case GeocodeFailed():
+          // rider-45: offline or the lookup failed; say so, never abort
+          // silently.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
@@ -592,7 +756,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             pickupPosition: confirmedPickupPosition,
             pickupIsFallback: pickupResult.isFallback,
             destinationPosition: confirmedDestinationPosition,
-            stops: List<String>.from(_routeStops),
+            stops: const <String>[],
             bookingMode: BookingMode.now,
             onScheduled: (context, id) => RideScheduledPage.open(
               context,
@@ -652,7 +816,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   LatLng? _pickupLabelAt;
 
   void _resetPickupLabel() {
-    final here = _currentLatLng;
+    final here = _gpsPickup;
     final generation = ++_pickupLabelGeneration;
     _pickupLabelAt = here;
     setState(() {
@@ -743,8 +907,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
       if (geocoded != null) chosen = geocoded;
     }
-    final gps = _currentLatLng;
-    final initialPosition = chosen ?? gps ?? _initialPosition.target;
+    final gps = _gpsPickup;
+    // rider-u114: an approximate fix still opens the picker near the rider,
+    // as a fallback point the rider has to move.
+    final initialPosition =
+        chosen ?? gps ?? _currentLatLng ?? _initialPosition.target;
     // D-002: with no fix and no chosen pickup the picker opens on a default
     // map point; it must not be confirmable as if it were the rider's spot.
     final positionIsFallback = chosen == null && gps == null;
@@ -763,7 +930,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
-        refreshCurrentLocation: chosen == null,
+        // rider-u114: never re-seeded from an approximate fix.
+        refreshCurrentLocation: chosen == null && !_locationCtl.preciseLocationOff,
       );
       if (result == null) return null;
       return PickupMapResult(
@@ -798,6 +966,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         case GeocodeStale():
           // RIDE-18: superseded — never swap the typed pickup for GPS.
           return null;
+        case GeocodeFailed():
+          // rider-45: the lookup failed; the typed pickup is not swapped for
+          // GPS either.
+          if (mounted) {
+            MoveraToast.show(context, context.l10n.routeCouldNotReach);
+          }
+          return null;
         case GeocodeNotFound():
           break;
       }
@@ -817,7 +992,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // location) before it can be confirmed.
     return PickupMapResult(
       address: locationOffPickupLabel,
-      position: _initialPosition.target,
+      position: _currentLatLng ?? _initialPosition.target,
       isFallback: true,
     );
   }
@@ -842,6 +1017,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (geocoded == null) {
         if (mounted && outcome is GeocodeNotFound) {
           MoveraToast.show(context, context.l10n.homeChooseValidDestination);
+        } else if (mounted && outcome is GeocodeFailed) {
+          MoveraToast.show(context, context.l10n.routeCouldNotReach);
         }
         return null;
       }
@@ -855,15 +1032,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (scheduled) {
       if (!mounted) return null;
       // Q9: times are the pickup zone's local time, in the time zone its
-      // config names.
-      final timeZone = await AppScope.instance.riderConfig.timeZoneAt(
+      // config names; rider-r4-10: up to the zone's reservation horizon,
+      // as on the schedule screen.
+      final window = await AppScope.instance.riderConfig.bookingWindowAt(
         pickup.position.latitude,
         pickup.position.longitude,
       );
       if (!mounted) return null;
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
-        timeZone: timeZone,
+        timeZone: window.timeZone,
+        horizonDays: window.horizonDays,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,
@@ -881,6 +1060,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       'destinationLat': destinationPoint.latitude,
       'destinationLng': destinationPoint.longitude,
       'stops': selection.stops,
+      // rider-r5-36: the points the rider picked, so no stop is located
+      // again from its label.
+      'stopPoints': [
+        for (var i = 0; i < selection.stops.length; i++)
+          i < selection.stopPoints.length ? selection.stopPoints[i] : null,
+      ],
       if (scheduledAt != null) 'scheduledAt': scheduledAt.toIso8601String(),
     };
   }
@@ -895,7 +1080,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // entry points that open the picker directly.
     final routeCapture = capture ?? (EarlyInputCapture()..start());
     final ownsCapture = capture == null;
-    final gps = _currentLatLng;
+    final gps = _gpsPickup;
     final here = gps == null ? null : GeoPoint(gps.latitude, gps.longitude);
     Map<String, dynamic>? draft;
     try {
@@ -904,7 +1089,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           RoutePickerPage(
             pickupAddress: _placeOrNull(_pickupAddress),
             destinationAddress: _destinationAddress ?? '',
+            destinationPoint: _routeDestinationPoint,
             stops: _stopsSupported ? _routeStops : const <String>[],
+            stopPoints: _stopsSupported ? _routeStopPoints : const [],
             stopsSupported: _stopsSupported,
             initialField: initialField,
             capture: routeCapture,
@@ -948,6 +1135,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
         .whereType<String>()
         .toList();
+    final rawStopPoints = (draft['stopPoints'] as List<dynamic>? ?? const [])
+        .map((point) => point is GeoPoint ? point : null)
+        .toList();
     final routePreparationWatch = Stopwatch()..start();
     final normaliseBatch = _locationCtl.beginNormalisationBatch();
     final normalizedRoute = await Future.wait<String>([
@@ -964,17 +1154,21 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     );
     var pickup = normalizedRoute[0];
     final destination = normalizedRoute[1];
-    final stops = normalizedRoute
-        .skip(2)
-        .where((address) => address.isNotEmpty)
-        .toList();
+    final stops = <String>[];
+    final stopPoints = <GeoPoint?>[];
+    final normalizedStops = normalizedRoute.skip(2).toList();
+    for (var i = 0; i < normalizedStops.length; i++) {
+      if (normalizedStops[i].isEmpty) continue;
+      stops.add(normalizedStops[i]);
+      stopPoints.add(i < rawStopPoints.length ? rawStopPoints[i] : null);
+    }
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
     final pickupIsFallback = draft['pickupIsFallback'] == true;
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
-        : (_tripPickupLatLng ?? _currentLatLng);
+        : (_tripPickupLatLng ?? _gpsPickup);
     if (exactPickupPosition != null) {
       pickup = await _bookingPickup(pickup, exactPickupPosition);
       if (!mounted) return;
@@ -994,6 +1188,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           ? _destinationAddress
           : destination;
       _routeStops = stops;
+      _stopFixes = (stops: List.of(stops), points: List.of(stopPoints));
+      if (destination.isNotEmpty && exactDestinationPosition != null) {
+        _destinationFix = (
+          address: destination,
+          point: GeoPoint(
+            exactDestinationPosition.latitude,
+            exactDestinationPosition.longitude,
+          ),
+        );
+      }
       if (pickup.isNotEmpty) _rememberAddress(pickup);
       if (destination.isNotEmpty) _rememberAddress(destination);
       for (final stop in stops) {
@@ -1031,6 +1235,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               pickupIsFallback: pickupIsFallback,
               destinationPosition: destinationPosition,
               stops: List<String>.from(stops),
+              stopPoints: List<GeoPoint?>.from(stopPoints),
               bookingMode: scheduledAt == null
                   ? BookingMode.now
                   : BookingMode.scheduled,
@@ -1055,6 +1260,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _showAddressPicker({
     required String target,
     String? customType,
+    String? placeId,
   }) async {
     final initialAddress = _existingAddressFor(target);
     final controller = TextEditingController(
@@ -1095,252 +1301,249 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       )
                       .take(6)
                       .toList();
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                  // rider-u123: MoveraSheet already lifts the sheet over the
+                  // keyboard; padding by the inset again here doubled it.
+                  return Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.78,
                     ),
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.78,
+                    padding: EdgeInsets.fromLTRB(
+                      ResSize.w * 18,
+                      ResSize.h * 11,
+                      ResSize.w * 18,
+                      ResSize.h * 20,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30),
+                        topRight: Radius.circular(30),
                       ),
-                      padding: EdgeInsets.fromLTRB(
-                        ResSize.w * 18,
-                        ResSize.h * 11,
-                        ResSize.w * 18,
-                        ResSize.h * 20,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: ResSize.w * 42,
+                          height: ResSize.h * 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCED4D8),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: ResSize.w * 42,
-                            height: ResSize.h * 4,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFCED4D8),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          16.height,
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextWidget(
-                                  text: _targetTitle(target, customType),
-                                  color: _premiumInk,
-                                  fontSize: 18,
-                                  fontWeight: fwBold,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => Navigator.pop(sheetContext),
-                                icon: const Icon(Icons.close_rounded),
-                                color: _premiumInk,
-                                tooltip: context.l10n.close,
-                              ),
-                            ],
-                          ),
-                          10.height,
-                          TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            autofocus: true,
-                            textInputAction: TextInputAction.search,
-                            onChanged: (value) {
-                              AppScope.instance.destinationSearch.type(value, (
-                                text,
-                              ) {
-                                if (!context.mounted) return;
-                                setModalState(() => query = text);
-                              });
-                            },
-                            onSubmitted: (value) {
-                              if (value.trim().isNotEmpty) {
-                                Navigator.pop(sheetContext, value.trim());
-                              }
-                            },
-                            style: TextStyle(
-                              color: _premiumInk,
-                              fontSize: ResSize.setSp(15),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: context.l10n.searchOrEnterAddress,
-                              hintStyle: TextStyle(
-                                color: _premiumMuted.withValues(alpha: 0.72),
-                                fontSize: ResSize.setSp(14),
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search_rounded,
-                                color: _premiumInk.withValues(alpha: 0.72),
-                              ),
-                              suffixIcon: query.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        controller.clear();
-                                        setModalState(() => query = '');
-                                      },
-                                      tooltip: context.l10n.clear,
-                                      icon: const Icon(Icons.close_rounded),
-                                    ),
-                              filled: true,
-                              fillColor: const Color(0xFFF5F7F7),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: ResSize.w * 15,
-                                vertical: ResSize.h * 15,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          12.height,
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              // Save the real street address, never the
-                              // words "Current location".
-                              onTap: _placeOrNull(_pickupAddress) == null
-                                  ? null
-                                  : () => Navigator.pop(
-                                      sheetContext,
-                                      _placeOrNull(_pickupAddress),
-                                    ),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: ResSize.w * 13,
-                                  vertical: ResSize.h * 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _premiumAccentSoft.withValues(
-                                    alpha: 0.62,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.my_location_rounded,
-                                      color: _premiumAccent,
-                                      size: ResSize.h * 20,
-                                    ),
-                                    11.width,
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          TextWidget(
-                                            text: context.l10n.useCurrentLocation,
-                                            color: _premiumInk,
-                                            fontSize: 12.5,
-                                            fontWeight: fwSemiBold,
-                                          ),
-                                          2.height,
-                                          TextWidget(
-                                            text:
-                                                _placeOrNull(_pickupAddress) ==
-                                                    null
-                                                ? context.l10n.findingYourAddress
-                                                : _shortAddress(
-                                                    _pickupAddress,
-                                                    maxLength: 38,
-                                                  ),
-                                            color: _premiumMuted,
-                                            fontSize: 9,
-                                            fontWeight: fwNormal,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (filteredRecent.isNotEmpty) ...[
-                            16.height,
-                            Align(
-                              alignment: Alignment.centerLeft,
+                        16.height,
+                        Row(
+                          children: [
+                            Expanded(
                               child: TextWidget(
-                                text: context.l10n.recentAddresses,
-                                color: _premiumMuted,
-                                fontSize: 10.5,
-                                fontWeight: fwSemiBold,
+                                text: _targetTitle(target, customType),
+                                color: _premiumInk,
+                                fontSize: 18,
+                                fontWeight: fwBold,
                               ),
                             ),
-                            6.height,
-                            Flexible(
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: filteredRecent.length,
-                                separatorBuilder: (_, __) => const Divider(
-                                  color: Color(0xFFE7EBEE),
-                                  height: 1,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final address = filteredRecent[index];
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: ResSize.w * 4,
-                                    ),
-                                    leading: Icon(
-                                      Icons.history_rounded,
-                                      color: _premiumMuted,
-                                      size: ResSize.h * 20,
-                                    ),
-                                    title: TextWidget(
-                                      text: address,
-                                      color: _premiumInk,
-                                      fontSize: 11,
-                                      fontWeight: fwMedium,
-                                    ),
-                                    onTap: () =>
-                                        Navigator.pop(sheetContext, address),
-                                  );
-                                },
-                              ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(sheetContext),
+                              icon: const Icon(Icons.close_rounded),
+                              color: _premiumInk,
+                              tooltip: context.l10n.close,
                             ),
                           ],
-                          if (query.trim().isNotEmpty) ...[
-                            14.height,
-                            Material(
-                              color: _premiumAccent,
-                              borderRadius: BorderRadius.circular(17),
-                              child: InkWell(
-                                onTap: () => Navigator.pop(
-                                  sheetContext,
-                                  controller.text.trim(),
+                        ),
+                        10.height,
+                        TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) {
+                            AppScope.instance.destinationSearch.type(value, (
+                              text,
+                            ) {
+                              if (!context.mounted) return;
+                              setModalState(() => query = text);
+                            });
+                          },
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              Navigator.pop(sheetContext, value.trim());
+                            }
+                          },
+                          style: TextStyle(
+                            color: _premiumInk,
+                            fontSize: ResSize.setSp(15),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.searchOrEnterAddress,
+                            hintStyle: TextStyle(
+                              color: _premiumMuted.withValues(alpha: 0.72),
+                              fontSize: ResSize.setSp(14),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: _premiumInk.withValues(alpha: 0.72),
+                            ),
+                            suffixIcon: query.isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      controller.clear();
+                                      setModalState(() => query = '');
+                                    },
+                                    tooltip: context.l10n.clear,
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F7F7),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: ResSize.w * 15,
+                              vertical: ResSize.h * 15,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        12.height,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            // Save the real street address, never the
+                            // words "Current location".
+                            onTap: _currentAddressToSave() == null
+                                ? null
+                                : () => Navigator.pop(
+                                    sheetContext,
+                                    _currentAddressToSave(),
+                                  ),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ResSize.w * 13,
+                                vertical: ResSize.h * 11,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _premiumAccentSoft.withValues(
+                                  alpha: 0.62,
                                 ),
-                                borderRadius: BorderRadius.circular(17),
-                                child: SizedBox(
-                                  height: ResSize.h * 46,
-                                  width: double.infinity,
-                                  child: Center(
-                                    child: TextWidget(
-                                      text: context.l10n.useThisAddress,
-                                      color: Colors.white,
-                                      fontSize: 12.5,
-                                      fontWeight: fwSemiBold,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.my_location_rounded,
+                                    color: _premiumAccent,
+                                    size: ResSize.h * 20,
+                                  ),
+                                  11.width,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        TextWidget(
+                                          text: context.l10n.useCurrentLocation,
+                                          color: _premiumInk,
+                                          fontSize: 12.5,
+                                          fontWeight: fwSemiBold,
+                                        ),
+                                        2.height,
+                                        TextWidget(
+                                          text:
+                                              _placeOrNull(_pickupAddress) ==
+                                                  null
+                                              ? context.l10n.findingYourAddress
+                                              : _shortAddress(
+                                                  _pickupAddress,
+                                                  maxLength: 38,
+                                                ),
+                                          color: _premiumMuted,
+                                          fontSize: 9,
+                                          fontWeight: fwNormal,
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (filteredRecent.isNotEmpty) ...[
+                          16.height,
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextWidget(
+                              text: context.l10n.recentAddresses,
+                              color: _premiumMuted,
+                              fontSize: 10.5,
+                              fontWeight: fwSemiBold,
+                            ),
+                          ),
+                          6.height,
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: filteredRecent.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                color: Color(0xFFE7EBEE),
+                                height: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final address = filteredRecent[index];
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: ResSize.w * 4,
+                                  ),
+                                  leading: Icon(
+                                    Icons.history_rounded,
+                                    color: _premiumMuted,
+                                    size: ResSize.h * 20,
+                                  ),
+                                  title: TextWidget(
+                                    text: address,
+                                    color: _premiumInk,
+                                    fontSize: 11,
+                                    fontWeight: fwMedium,
+                                  ),
+                                  onTap: () =>
+                                      Navigator.pop(sheetContext, address),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                        if (query.trim().isNotEmpty) ...[
+                          14.height,
+                          Material(
+                            color: _premiumAccent,
+                            borderRadius: BorderRadius.circular(17),
+                            child: InkWell(
+                              onTap: () => Navigator.pop(
+                                sheetContext,
+                                controller.text.trim(),
+                              ),
+                              borderRadius: BorderRadius.circular(17),
+                              child: SizedBox(
+                                height: ResSize.h * 46,
+                                width: double.infinity,
+                                child: Center(
+                                  child: TextWidget(
+                                    text: context.l10n.useThisAddress,
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                    fontWeight: fwSemiBold,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   );
                 },
@@ -1353,7 +1556,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       capture.stop();
     }
     if (selected == null || selected.trim().isEmpty || !mounted) return;
-    await _saveAddressFor(target, selected, customType: customType);
+    await _saveAddressFor(
+      target,
+      selected,
+      customType: customType,
+      placeId: placeId,
+    );
   }
 
   Future<void> _openAddPlacePicker() async {
@@ -1558,11 +1766,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     image.dispose();
     if (data == null) return null;
     // The size given up front: the web plugin otherwise loads every new
-    // marker bitmap into an extra image just to measure it.
+    // marker bitmap into an extra image just to measure it. Logical size:
+    // the bitmap holds pixelRatio pixels per logical pixel (uat-r2).
     return BitmapDescriptor.bytes(
       data.buffer.asUint8List(),
-      width: src.width.toDouble(),
-      height: src.height.toDouble(),
+      width: src.width / MoveraRiderPuckMarker.pixelRatio,
+      height: src.height / MoveraRiderPuckMarker.pixelRatio,
     );
   }
 
@@ -1665,7 +1874,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } else {
       await flight;
     }
-    if (mounted) setState(() => _showRecenterButton = false);
+    if (!mounted) return;
+    // rider-47: the glide may have been cut short by a finger on the map,
+    // or refused because the rider holds it. Hide the button only when the
+    // camera is where a recentre puts it; else the rider has no way back.
+    final user = _currentLatLng;
+    final target = _locationCtl.lastMapTarget;
+    final offRider = user != null &&
+        AppScope.instance.camera.showRecenter(
+          zoom: _locationCtl.lastMapZoom,
+          metersFromUser: AppScope.instance.location.distanceBetween(
+            target.latitude,
+            target.longitude,
+            user.latitude,
+            user.longitude,
+          ),
+        );
+    setState(() => _showRecenterButton = offRider);
   }
 
   /// A fresh fix closer than this to the known position does not steer a
@@ -1825,9 +2050,22 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// Book for later: the same Where to as Book now, then the date and time,
   /// then the categories in scheduled mode (Set pickup comes after Schedule).
-  Future<void> _openSchedule() => _runRouteFlow(
-    () => _showRouteAddressPicker(initialField: 'destination', scheduled: true),
-  );
+  Future<void> _openSchedule() async {
+    // rider-u124: switched off in this build: say so before the rider
+    // picks a destination, a date, a category and a pickup for nothing.
+    if (!AppScope.instance.bookLaterAvailable) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(context.l10n.resErrUnavailable)),
+        );
+      return;
+    }
+    await _runRouteFlow(
+      () =>
+          _showRouteAddressPicker(initialField: 'destination', scheduled: true),
+    );
+  }
 
   void _openPayment() => _openTab(HomeTabs.payment);
 
@@ -1973,7 +2211,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress),
+                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress, onPrecise: _turnOnPreciseLocation),
                       if (_destinationSheetOpen)
                         Positioned.fill(
                           // UI-13: a plain 5% white wash. The 1.4 sigma
@@ -2068,6 +2306,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             reveal: reveal,
                             onUseSavedPlace: _useSavedPlaceAsDestination,
                             onEditSavedPlace: _editSavedPlace,
+                            onEditCustomPlace: _editCustomPlace,
                             onAddPlace: _openAddPlacePicker,
                           ),
                         ],
@@ -2290,46 +2529,33 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                         ),
                         SizedBox(height: ResSize.h * (9 * sheetProgress)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarHome,
-                                label: context.l10n.navHome,
-                                active: true,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: () => _animateHomeSheetTo(
-                                  SheetOffset.absolute(_sheetMinPixels),
-                                ),
+                        LiquidGlassNavRow(
+                          selectedIndex: HomeTabs.home,
+                          floatingFraction: 1 - sheetProgress,
+                          hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
+                          itemHeight: ResSize.h * 52,
+                          entries: [
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarHome,
+                              label: context.l10n.navHome,
+                              onTap: () => _animateHomeSheetTo(
+                                SheetOffset.absolute(_sheetMinPixels),
                               ),
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarWallet,
-                                label: context.l10n.navPayment,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openPayment,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarWallet,
+                              label: context.l10n.navPayment,
+                              onTap: _openPayment,
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarCalendar,
-                                label: context.l10n.navScheduleRide,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openSchedule,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarCalendar,
+                              label: context.l10n.navScheduleRide,
+                              onTap: () => unawaited(_openSchedule()),
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarUser,
-                                label: context.l10n.navAccount,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openAccount,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarUser,
+                              label: context.l10n.navAccount,
+                              onTap: _openAccount,
                             ),
                           ],
                         ),

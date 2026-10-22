@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -34,6 +36,34 @@ class _TripSharePageState extends State<TripSharePage> {
 
   void _onChange() {
     if (mounted) setState(() {});
+  }
+
+  /// rider-85: the selection list and the contact's "Share trips" are
+  /// saved together. A failure is shown to the rider, and when only the
+  /// second save fails the first is undone, so the two stay in step.
+  Future<void> _setShared(EmergencyContact contact, bool value) async {
+    final previous = [..._ctl.preferences.tripShareContactIds];
+    final selected = [
+      for (final id in previous)
+        if (id != contact.id) id,
+      if (value) contact.id,
+    ];
+    await _ctl.setTripShare(contactIds: selected);
+    if (_ctl.error != null) {
+      _showFailure();
+      return;
+    }
+    try {
+      await _ctl.editContact(contact.copyWith(shareTrips: value));
+    } catch (_) {
+      await _ctl.setTripShare(contactIds: previous);
+      _showFailure();
+    }
+  }
+
+  void _showFailure() {
+    if (!mounted) return;
+    MoveraToast.show(context, context.l10n.safetyShareUpdateFailed);
   }
 
   @override
@@ -76,7 +106,11 @@ class _TripSharePageState extends State<TripSharePage> {
                         context,
                         SafetyUi.accent,
                       ),
-                      onChanged: (value) => _ctl.setTripShare(enabled: value),
+                      onChanged: (value) => runSafetyChange(
+                        context,
+                        _ctl,
+                        () => _ctl.setTripShare(enabled: value),
+                      ),
                     ),
                   ],
                 ),
@@ -101,10 +135,14 @@ class _TripSharePageState extends State<TripSharePage> {
                     SafetyUi.accent,
                   ),
                   onChanged: prefs.tripShareEnabled
-                      ? (value) => _ctl.setTripShare(
-                          mode: value
-                              ? TripShareMode.auto
-                              : TripShareMode.manual,
+                      ? (value) => runSafetyChange(
+                          context,
+                          _ctl,
+                          () => _ctl.setTripShare(
+                            mode: value
+                                ? TripShareMode.auto
+                                : TripShareMode.manual,
+                          ),
                         )
                       : null,
                 ),
@@ -157,36 +195,19 @@ class _TripSharePageState extends State<TripSharePage> {
                                 shareable[i].name,
                                 style: SafetyUi.text(15.5),
                               ),
+                              // rider-u218: as on Emergency contacts.
                               subtitle: Text(
-                                shareable[i].relationship,
+                                relationshipLabel(shareable[i].relationship),
                                 style: SafetyUi.text(
                                   12.5,
                                   color: SafetyUi.muted,
                                 ),
                               ),
                               onChanged: prefs.tripShareEnabled
-                                  ? (value) async {
-                                      final selected = [
-                                        ...prefs.tripShareContactIds,
-                                      ];
-                                      if (value == true) {
-                                        if (!selected.contains(
-                                          shareable[i].id,
-                                        )) {
-                                          selected.add(shareable[i].id);
-                                        }
-                                      } else {
-                                        selected.remove(shareable[i].id);
-                                      }
-                                      await _ctl.setTripShare(
-                                        contactIds: selected,
-                                      );
-                                      await _ctl.editContact(
-                                        shareable[i].copyWith(
-                                          shareTrips: value == true,
-                                        ),
-                                      );
-                                    }
+                                  ? (value) => _setShared(
+                                      shareable[i],
+                                      value == true,
+                                    )
                                   : null,
                             ),
                             if (i != shareable.length - 1)

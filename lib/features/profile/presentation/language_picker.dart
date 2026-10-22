@@ -18,7 +18,8 @@ Future<void> pickAppLanguage(
   final next = await showAccountChoice(
     context,
     title: context.l10n.language,
-    options: [for (final l in L10n.languages) l.code],
+    // rider-u153: only the languages the zone offers.
+    options: controller.available,
     selected: controller.code,
     labelOf: (code) => L10n.languageOf(code).label,
   );

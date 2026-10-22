@@ -66,19 +66,31 @@ class PushPermissionGate {
 
   /// Registers push only for a rider who accepted the explanation before.
   /// Never shows the OS prompt to anyone else.
+  ///
+  /// rider-r4-40: a rider whose OS refused is asked again here too. They
+  /// accepted the explanation, the OS answers with the current setting
+  /// (iOS never prompts twice), and a rider who has since allowed
+  /// notifications in Settings registers and is back to accepted.
   Future<void> registerIfConsented({required String logEvent}) async {
     if (!enabled) {
       // Mock transport: registering is a no-op that never prompts.
       await _register(logEvent);
       return;
     }
-    if (await consent() != PushConsent.accepted) return;
+    final current = await consent();
+    if (current != PushConsent.accepted &&
+        current != PushConsent.blockedBySystem) {
+      return;
+    }
     await _register(logEvent);
   }
 
   Future<PushOptInResult> _register(String logEvent) async {
     try {
       await _push.register();
+      if (enabled && await consent() == PushConsent.blockedBySystem) {
+        await _store(PushConsent.accepted);
+      }
       return PushOptInResult.registered;
     } on PushPermissionDeniedException {
       await _store(PushConsent.blockedBySystem);

@@ -77,6 +77,11 @@ class RideCheckMonitor {
   /// short hop that takes two extra minutes is not flagged.
   static const minimumExtraDelay = Duration(minutes: 3);
 
+  /// The trip's time budget is taken from the ETAs of its first minute.
+  /// The first sample can still carry the ETA to the pickup, so a later
+  /// one in that minute can raise it (rider-r3-3).
+  static const budgetWindow = Duration(minutes: 1);
+
   RideCheckTriggerSettings settings;
   RideCheckPlan _plan;
   RideCheckPlan get plan => _plan;
@@ -113,9 +118,18 @@ class RideCheckMonitor {
   RideCheckDetection? addSample(RideCheckSample sample) {
     final previous = _previous;
     if (previous != null && !sample.at.isAfter(previous.at)) return null;
+    // rider-r3-4: a fix faster than a car can go from the last one is a
+    // GPS jump. It is dropped whole (no stop-clock reset, no off-route
+    // hit). After two dropped in a row the kept fix is taken to be the odd
+    // one, so the next fix stands.
+    if (previous != null && _isJump(previous, sample) && _jumps < 2) {
+      _jumps++;
+      return null;
+    }
+    _jumps = 0;
     _previous = sample;
     _tripStartedAt ??= sample.at;
-    _expectedSeconds ??= sample.etaSeconds;
+    _budget(sample);
 
     double? speed;
     Duration? gap;
@@ -181,6 +195,14 @@ class RideCheckMonitor {
     return _stoppedFor(anchor, sample.at.difference(_stillSince!));
   }
 
+  /// rider-u56: the app's own live feed was down and is back at [now].
+  /// The car was not watched meanwhile, so the stop clock starts again
+  /// here instead of counting the outage as a stop.
+  void feedResumed(DateTime now) {
+    if (_stillSince == null) return;
+    if (now.isAfter(_stillSince!)) _stillSince = now;
+  }
+
   /// No new position has come in (a driver app that stays quiet while the
   /// car stands still): at [now] the car is still where it was last seen,
   /// so a stop longer than `longStopMinutes` opens Ride check even without
@@ -236,6 +258,19 @@ class RideCheckMonitor {
     );
   }
 
+  /// rider-r3-3: a missing or non-positive ETA is unknown (the straight
+  /// line stands in), never a budget of 0.
+  void _budget(RideCheckSample sample) {
+    final eta = sample.etaSeconds;
+    final started = _tripStartedAt;
+    if (eta == null || eta <= 0 || started == null) return;
+    final elapsed = sample.at.difference(started);
+    if (elapsed > budgetWindow) return;
+    final candidate = elapsed.inSeconds + eta;
+    final current = _expectedSeconds;
+    if (current == null || candidate > current) _expectedSeconds = candidate;
+  }
+
   int _straightLineSeconds() {
     var meters = 0.0;
     final stops = _plan.plannedStops;
@@ -243,6 +278,14 @@ class RideCheckMonitor {
       meters += _meters(stops[i - 1], stops[i]);
     }
     return GeoDistance.urbanSecondsForDistance(meters);
+  }
+
+  int _jumps = 0;
+
+  bool _isJump(RideCheckSample previous, RideCheckSample sample) {
+    final seconds = sample.at.difference(previous.at).inMilliseconds / 1000;
+    if (seconds < 0.5) return false;
+    return _meters(previous.point, sample.point) / seconds > plausibleSpeedMps;
   }
 
   bool _canFire(RideCheckTrigger trigger) =>

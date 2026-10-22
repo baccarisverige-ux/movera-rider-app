@@ -22,7 +22,13 @@ class RiderPromotionController extends ValueNotifier<RiderPromotion?> {
     return promotion;
   }
 
+  /// A failed lookup keeps the promotion last read (rider-r5-22); the
+  /// quoted prices stay the server's either way.
   Future<void> refresh() async {
-    value = await _repository.fetchActive();
+    try {
+      value = await _repository.fetchActive();
+    } catch (_) {
+      // Unreachable or refused: keep what the rider was already shown.
+    }
   }
 }

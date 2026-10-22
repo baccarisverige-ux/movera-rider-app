@@ -33,15 +33,31 @@ Future<void> showRideTerminalStateSheet(
 enum NoDriverChoice { tryAgain, changeRoute }
 
 /// "No driver found" after the server ended the search: request the same
-/// ride again, or go back to "Where to?" for another route.
-Future<NoDriverChoice> showNoDriverFoundSheet(BuildContext context) async {
+/// ride again, or go back to "Where to?" for another route. [message]
+/// replaces the body, e.g. to say the last try could not be confirmed.
+Future<NoDriverChoice> showNoDriverFoundSheet(
+  BuildContext context, {
+  String? message,
+}) async {
+  final retry = RideTerminalStateSpec.noDriverRetry;
   final choice = await MoveraSheet.show<NoDriverChoice>(
     context: context,
     swipeDismissible: false,
     barrierDismissible: false,
     builder: (sheetContext) => RideTerminalStateSheet(
       status: RideStatus.noDriverFound,
-      spec: RideTerminalStateSpec.noDriverRetry,
+      spec: message == null
+          ? retry
+          : RideTerminalStateSpec(
+              eyebrow: retry.eyebrow,
+              title: retry.title,
+              message: message,
+              reassurance: retry.reassurance,
+              primaryLabel: retry.primaryLabel,
+              icon: retry.icon,
+              iconBackground: retry.iconBackground,
+              iconColor: retry.iconColor,
+            ),
       onAcknowledge: () =>
           Navigator.of(sheetContext).pop(NoDriverChoice.tryAgain),
       secondaryLabel: context.l10n.changeRoute,

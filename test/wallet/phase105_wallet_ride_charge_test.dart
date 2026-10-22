@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
@@ -106,6 +107,39 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
   await tester.pump();
 }
+
+/// The completion screen of [snapshot] as Waiting leaves it: the snapshot
+/// saved and remembered, the session on [session] for that ride.
+Future<_CompletionRealtime> _openCompletion(
+  WidgetTester tester,
+  RideSnapshot snapshot, {
+  RideStatus session = RideStatus.tripCompleted,
+}) async {
+  await tester.runAsync(() => RideSnapshotStore.save(snapshot));
+  LastCompletedRide.remember(snapshot);
+  AppScope.instance.ride
+    ..rideId = snapshot.rideId
+    ..status = session;
+  final realtime = _CompletionRealtime();
+  addTearDown(realtime.dispose);
+  await _pumpCompletion(
+    tester,
+    rideId: snapshot.rideId!,
+    status: snapshot.status,
+    realtime: realtime,
+  );
+  await _settle(tester);
+  return realtime;
+}
+
+Future<void> _tapDone(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('ride-completed-done')));
+  for (var i = 0; i < 4; i++) {
+    await _settle(tester);
+  }
+}
+
+final _submitError = find.byKey(const ValueKey('completion-submit-error'));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -208,5 +242,74 @@ void main() {
       AppScope.instance.wallet.entries.where((e) => e.amountMinor == -25900),
       isNotEmpty,
     );
+  });
+
+  testWidgets('rider-72: Done still leaves when the session already holds a '
+      'terminal payment status', (tester) async {
+    // paymentFailed was reconciled while Waiting handed over to the summary.
+    await _openCompletion(
+      tester,
+      _completed('pf-1', paymentMethod: 'Apple Pay'),
+      session: RideStatus.paymentFailed,
+    );
+    // rider-u179: the screen starts from the decline, not "Trip complete".
+    expect(find.text('Payment could not be completed'), findsOneWidget);
+    await _tapDone(tester);
+    expect(_submitError, findsNothing);
+    expect(await tester.runAsync(RideSnapshotStore.readForArchive), isNull);
+  });
+
+  testWidgets('rider-u179: a declined card shows on the summary and History '
+      'files the trip as payment failed', (tester) async {
+    final realtime = await _openCompletion(
+      tester,
+      _completed('pf-2', paymentMethod: 'Apple Pay'),
+    );
+    realtime.emit(RideStatus.paymentProcessing);
+    realtime.emit(RideStatus.paymentFailed);
+    await _settle(tester);
+    expect(find.text('Payment could not be completed'), findsOneWidget);
+    expect(find.text('Payment processing'), findsNothing);
+    expect(AppScope.instance.ride.status, RideStatus.paymentFailed);
+
+    await _tapDone(tester);
+    expect(_submitError, findsNothing);
+    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!.single;
+    expect(record.paymentFailed, isTrue);
+  });
+
+  testWidgets('rider-u181: Done before payment is final still debits a '
+      'wallet ride, once', (tester) async {
+    final realtime = await _openCompletion(tester, _completed('wd-1'));
+    await _tapDone(tester);
+    expect(await _balance(tester), 241);
+    realtime.emit(RideStatus.paymentFinalized);
+    await _settle(tester);
+    expect(await _balance(tester), 241);
+  });
+
+  testWidgets('rider-u180: Back at paymentProcessing debits the wallet ride; '
+      'a later completion surface for it never debits again', (tester) async {
+    await _openCompletion(
+      tester,
+      _completed('wd-2').copyWith(status: RideStatus.paymentProcessing),
+      session: RideStatus.paymentProcessing,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_rounded));
+    for (var i = 0; i < 4; i++) {
+      await _settle(tester);
+    }
+    expect(await _balance(tester), 241);
+
+    LastCompletedRide.remember(_completed('wd-2'));
+    await tester.pumpWidget(const SizedBox());
+    await _pumpCompletion(
+      tester,
+      rideId: 'wd-2',
+      status: RideStatus.paymentFinalized,
+      realtime: _CompletionRealtime(),
+    );
+    await _settle(tester);
+    expect(await _balance(tester), 241);
   });
 }

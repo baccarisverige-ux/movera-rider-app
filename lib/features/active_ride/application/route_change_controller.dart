@@ -63,7 +63,21 @@ class RouteChangeQuote {
   final int? expectedVersion;
 
   /// Positive when the rider pays more, negative when money comes back.
-  double get differenceKr => newPriceKr - oldPriceKr;
+  ///
+  /// rider-u36: the server's `differenceMinor` (what it charges or refunds,
+  /// against the trip's fare as the server holds it) wins; the difference
+  /// to this device's price is only a fallback for a server that sends none.
+  double get differenceKr => differenceMinor != null
+      ? Money(differenceMinor!, currency).major
+      : newPriceKr - oldPriceKr;
+
+  /// rider-u43: true when the change costs or refunds anything, compared in
+  /// minor units. A "below half a unit" rule hid real cent and millime
+  /// changes (18.20 € to 18.60 €) as "Same price" in EUR and TND zones.
+  bool get changesPrice =>
+      (differenceMinor ??
+          Money.fromLegacyMajor(differenceKr, currency).amountMinor) !=
+      0;
 
   Map<String, dynamic> toRequest() => {
     'pickupAddress': pickupAddress,
@@ -150,9 +164,13 @@ class RouteChangeController {
     final pickup = pickupAddress?.trim().isNotEmpty == true
         ? pickupAddress!.trim()
         : ride.pickupAddress;
-    final pickupAt = pickup == ride.pickupAddress
-        ? GeoPoint(ride.pickupLat, ride.pickupLng)
-        : pickupPoint ?? await _locate(pickup);
+    // rider-u37: a point the rider placed (map pick, suggestion) wins, even
+    // when its label is the current address; only a bare label is looked up.
+    final pickupAt =
+        pickupPoint ??
+        (pickup == ride.pickupAddress
+            ? GeoPoint(ride.pickupLat, ride.pickupLng)
+            : await _locate(pickup));
     // Q40: once a driver has accepted, a pickup further than the limit is a
     // new ride, not a route change.
     if (maxPickupMoveMeters != null &&
@@ -169,9 +187,11 @@ class RouteChangeController {
       );
     }
     final destination = destinationAddress.trim();
-    final destinationAt = destination == ride.destinationAddress
-        ? GeoPoint(ride.destinationLat, ride.destinationLng)
-        : destinationPoint ?? await _locate(destination);
+    final destinationAt =
+        destinationPoint ??
+        (destination == ride.destinationAddress
+            ? GeoPoint(ride.destinationLat, ride.destinationLng)
+            : await _locate(destination));
     final located = <RouteStop>[];
     for (var i = 0; i < stops.length; i++) {
       final address = stops[i].trim();
@@ -263,13 +283,23 @@ class RouteChangeController {
     // R-O2: the version the price was asked for, kept out of the key so a
     // resend of the same confirmed change is the same request.
     final expectedVersion = quote.expectedVersion;
-    final response = await _send(
-      () => _api.patch(
-        '/api/v1/rides/$id',
-        body: {...body, 'expectedVersion': ?expectedVersion},
-        idempotencyKey: key,
-      ),
+    Future<Map<String, dynamic>> patch() => _api.patch(
+      '/api/v1/rides/$id',
+      body: {...body, 'expectedVersion': ?expectedVersion},
+      idempotencyKey: key,
     );
+    final response = await _send(() async {
+      try {
+        return await patch();
+      } catch (error) {
+        // rider-u38: a timeout or dropped connection says nothing about
+        // whether the server applied the change. The same request again
+        // (same key) gets the server's answer, so a change it already
+        // applied is adopted instead of being reported as failed.
+        if (error is ApiError && !error.isRetryable) rethrow;
+        return await patch();
+      }
+    });
     _session?.observeProjection(response);
     final newPrice =
         _newPrice(response, ride.currency)?.major ?? quote.newPriceKr;

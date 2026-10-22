@@ -4,10 +4,15 @@ import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 
 /// Book-later pickup rules in one zone's wall-clock time (Q9: the pickup
-/// zone's local time). Times in and out are plain wall-clock [DateTime]s
-/// of [timeZone].
+/// zone's local time). Times in and out are wall-clock times of [timeZone]
+/// as [ZoneClock.wallTime] carries them (UTC-tagged fields, so the phone's
+/// own time zone never moves them; owner decision 9). A device-local value
+/// passed in is read by its fields.
 class PickupSchedule {
-  const PickupSchedule(this.timeZone);
+  const PickupSchedule(
+    this.timeZone, {
+    this.horizonDays = RiderAppConfig.defaultBookingHorizonDays,
+  });
 
   /// The schedule of the zone a pickup at [lat], [lng] is in, in the time
   /// zone its config names ([config] when the caller has the zone's
@@ -17,7 +22,10 @@ class PickupSchedule {
     final document = config != null && config.zoneId == zone.id
         ? config
         : SeedRiderConfigRepository.seedFor(zone.id);
-    return PickupSchedule(document.timeZone);
+    return PickupSchedule(
+      document.timeZone,
+      horizonDays: document.bookingHorizonDays,
+    );
   }
 
   static const stockholm = PickupSchedule(ZoneClock.stockholm);
@@ -25,38 +33,73 @@ class PickupSchedule {
   /// IANA id, e.g. `Europe/Stockholm`, `Africa/Tunis`.
   final String timeZone;
 
+  /// rider-r4-10: how many days ahead the zone takes reservations
+  /// (`booking.bookingHorizonDays`).
+  final int horizonDays;
+
   /// Current wall-clock time in [timeZone]. [now] is any instant.
   DateTime zoneNow([DateTime? now]) =>
       ZoneClock.wallTime(timeZone, now ?? StockholmSchedule.clock());
 
   /// Earliest legal pickup: zone now + lead, rounded up to the 5-min slot.
-  DateTime minimumPickup([DateTime? now]) => StockholmSchedule.roundToFive(
-    zoneNow(now).add(const Duration(minutes: StockholmSchedule.leadMinutes)),
-  );
+  /// rider-r5-8: a slot the zone's clock skips (02:20 on spring-forward
+  /// night) moves forward by the gap (03:20), the time it is booked as.
+  DateTime minimumPickup([DateTime? now]) {
+    final slot = StockholmSchedule.roundToFive(
+      zoneNow(now).add(const Duration(minutes: StockholmSchedule.leadMinutes)),
+    );
+    return ZoneClock.wallTime(timeZone, toUtc(slot));
+  }
 
   DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
 
-  DateTime clampPickup(DateTime dt, [DateTime? now]) {
-    final min = minimumPickup(now);
-    if (dt.isBefore(min)) return min;
-    return StockholmSchedule.roundToFive(
-      DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute),
+  /// rider-r4-10: the latest pickup a zone taking reservations [days]
+  /// ahead accepts, on the slot at or before it. The horizon is elapsed
+  /// time from [now] (a DST change in between does not stretch it), read
+  /// as the zone's wall clock.
+  DateTime latestPickup(int days, [DateTime? now]) {
+    final latest = zoneNow(
+      (now ?? StockholmSchedule.clock()).add(Duration(days: days)),
+    );
+    return DateTime.utc(
+      latest.year,
+      latest.month,
+      latest.day,
+      latest.hour,
+      latest.minute - latest.minute % StockholmSchedule.slotMinutes,
     );
   }
 
+  DateTime clampPickup(DateTime dt, [DateTime? now]) {
+    final min = minimumPickup(now);
+    if (ZoneClock.wall(dt).isBefore(min)) return min;
+    final slot = StockholmSchedule.roundToFive(dt);
+    // rider-r4-12: a wall time the zone skips (02:30 on the EU
+    // spring-forward night) moves forward by the gap (03:30), the instant
+    // it is booked as, so what the rider sees is what the driver is sent
+    // for; the picker says it moved.
+    return ZoneClock.wallTime(timeZone, toUtc(slot, now));
+  }
+
   bool isLegalPickup(DateTime dt, [DateTime? now]) =>
-      !dt.isBefore(minimumPickup(now));
+      !ZoneClock.wall(dt).isBefore(minimumPickup(now));
 
   DateTime timePickerMinFor(DateTime date, [DateTime? now]) {
     final min = minimumPickup(now);
-    final day = DateTime(date.year, date.month, date.day);
-    final minDay = DateTime(min.year, min.month, min.day);
+    final day = DateTime.utc(date.year, date.month, date.day);
+    final minDay = DateTime.utc(min.year, min.month, min.day);
     if (!day.isAfter(minDay)) return min;
     return day;
   }
 
-  /// The UTC instant of the wall-clock pickup [wall] in [timeZone].
-  DateTime toUtc(DateTime wall) => ZoneClock.toUtc(wall, timeZone);
+  /// The UTC instant of the wall-clock pickup [wall] in [timeZone]; a wall
+  /// time the zone has twice is the copy still to come at [now]
+  /// (rider-r5-7).
+  DateTime toUtc(DateTime wall, [DateTime? now]) => ZoneClock.toUtc(
+    wall,
+    timeZone,
+    notBefore: now ?? StockholmSchedule.clock(),
+  );
 }
 
 /// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps); the
@@ -84,12 +127,14 @@ class StockholmSchedule {
   static DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
 
   /// Round up to the next 5-minute slot; keep an exact 5-minute wall time.
+  /// Wall-clock arithmetic on [dt]'s fields (a [ZoneClock.wallTime]).
   static DateTime roundToFive(DateTime dt) {
-    final remainder = dt.minute % slotMinutes;
-    final shifted = dt.add(
+    final wall = ZoneClock.wall(dt);
+    final remainder = wall.minute % slotMinutes;
+    final shifted = wall.add(
       Duration(minutes: remainder == 0 ? 0 : slotMinutes - remainder),
     );
-    return DateTime(
+    return DateTime.utc(
       shifted.year,
       shifted.month,
       shifted.day,

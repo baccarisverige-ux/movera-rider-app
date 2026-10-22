@@ -63,7 +63,12 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
     });
     try {
       await _controller.requestDeletion();
-      if (!mounted) return;
+      if (!mounted) {
+        // rider-u152: the session is over and the device wiped; with this
+        // page gone there is no Done to tap, so go to Sign in from here.
+        showSignInRoot();
+        return;
+      }
       setState(() {
         _sending = false;
         _sent = true;
@@ -87,6 +92,12 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
   @override
   Widget build(BuildContext context) {
     if (_sent) return _sentView();
+    // rider-u152: no way back while the request is out. It signs the
+    // rider out when it lands, and Done on the next view leads to Sign in.
+    return PopScope(canPop: !_sending, child: _mainView());
+  }
+
+  Widget _mainView() {
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),

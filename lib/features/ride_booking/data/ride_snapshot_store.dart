@@ -42,6 +42,8 @@ class RideSnapshot {
     this.paymentMethodId,
     this.maxOfferMinor,
     this.currency = Money.defaultCurrency,
+    this.arrivalAnnounced = false,
+    this.completedAt,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -110,6 +112,15 @@ class RideSnapshot {
   /// ceiling up with it. Null for older snapshots.
   final int? maxOfferMinor;
 
+  /// rider-u49: the rider was already shown "Your driver has arrived" for
+  /// this ride's current driver, so a reload does not open it again.
+  final bool arrivalAnnounced;
+  /// rider-25: when the trip completed (the first time the completion
+  /// surface was reached). Unlike [savedAt], which every later save and
+  /// backgrounding moves, it stays put; History and the receipt use it.
+  /// Null for older snapshots and before completion.
+  final DateTime? completedAt;
+
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
   /// [price] as contract Money, with [currency]'s exponent.
@@ -159,6 +170,8 @@ class RideSnapshot {
     String? paymentMethodId,
     int? maxOfferMinor,
     String? currency,
+    bool? arrivalAnnounced,
+    DateTime? completedAt,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -187,6 +200,8 @@ class RideSnapshot {
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
       currency: currency ?? this.currency,
+      arrivalAnnounced: arrivalAnnounced ?? this.arrivalAnnounced,
+      completedAt: completedAt ?? this.completedAt,
     );
   }
 
@@ -219,6 +234,9 @@ class RideSnapshot {
     if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
     if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
     if (currency != Money.defaultCurrency) 'currency': currency,
+    if (arrivalAnnounced) 'arrivalAnnounced': true,
+    if (completedAt != null)
+      'completedAt': completedAt!.toUtc().toIso8601String(),
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -298,12 +316,14 @@ class RideSnapshot {
       walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
       serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
+      arrivalAnnounced: json['arrivalAnnounced'] == true,
       categoryId: CategoryIds.tryCanonical(json['categoryId']) ??
           _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
       currency:
           Money.normalizeCurrency(json['currency']) ?? Money.defaultCurrency,
+      completedAt: _utcOrNull(json['completedAt']),
     );
   }
 }
@@ -388,19 +408,34 @@ class RideSnapshotStore {
     };
     final encoded = jsonEncode(payload);
 
-    final prefs = await PreferencesStore.load();
-    if (token != epoch) return;
+    try {
+      final prefs = await PreferencesStore.load();
+      if (token != epoch) return;
 
-    await prefs.setString(key, encoded);
+      await prefs.setString(key, encoded);
 
-    if (token != epoch) {
-      // Never perform an unconditional stale rollback. Read and compare without
-      // an await between the comparison and remove invocation, so a newer save
-      // cannot be mistaken for this write. The unique write id also makes two
-      // otherwise-identical snapshots distinguishable.
-      if (prefs.getString(key) == encoded) {
-        await prefs.remove(key);
+      if (token != epoch) {
+        // Never perform an unconditional stale rollback. Read and compare
+        // without an await between the comparison and remove invocation, so
+        // a newer save cannot be mistaken for this write. The unique write
+        // id also makes two otherwise-identical snapshots distinguishable.
+        if (prefs.getString(key) == encoded) {
+          await prefs.remove(key);
+        }
       }
+    } catch (error) {
+      // uat-r1: the reload snapshot is best effort. A refused write (iOS
+      // Safari: quota, Private Browsing on older iOS, "Block All Cookies")
+      // must not fail the booking it follows nor throw out of Finding's
+      // unawaited saves; the ride goes on server-side without it.
+      AppLog.warning(
+        'ride_snapshot.write_refused',
+        extra: {
+          'rideId': snapshot.rideId,
+          'status': snapshot.status.name,
+          'error': error.toString(),
+        },
+      );
     }
   }
 

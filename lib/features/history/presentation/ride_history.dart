@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
@@ -109,6 +110,15 @@ class _RideHistoryState extends State<RideHistory> {
   }
 
   void _openSchedule() {
+    // rider-u124: Book for later is off in this build; say so at once.
+    if (!AppScope.instance.bookLaterAvailable) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(context.l10n.resErrUnavailable)),
+        );
+      return;
+    }
     Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
   }
 
@@ -549,9 +559,10 @@ class _RideHistoryState extends State<RideHistory> {
             const SizedBox(height: 5),
             Text(
               context.l10n.paymentMethodLine(
+                // rider-38: Wallet and Card in the app language too.
                 L10n.isCashLabel(ride.paymentMethod)
                     ? context.l10n.payCash
-                    : ride.paymentMethod,
+                    : paymentLabelFor(ride.paymentMethod),
               ),
               style: _text(13.5, color: _muted),
             ),

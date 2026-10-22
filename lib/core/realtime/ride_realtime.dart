@@ -18,6 +18,11 @@ const String reassignedByAdmin = 'admin';
 const String acceptedAtKey = 'acceptedAt';
 const String waitingArrivedAtKey = 'waitingArrivedAt';
 
+/// rider-r4-13: the projection's `waiting.freeUntil` (when the waiting fee
+/// starts) and `waiting.noShowAt` (when the driver may report a no-show).
+const String waitingFreeUntilKey = 'waitingFreeUntil';
+const String waitingNoShowAtKey = 'waitingNoShowAt';
+
 class RideRealtimeEvent {
   RideRealtimeEvent({
     String? rideId,
@@ -91,6 +96,14 @@ class RideRealtimeEvent {
   /// When the driver's waiting clock started at the pickup (Q42).
   DateTime? get waitingArrivedAt =>
       WireTime.tryParse(payload[waitingArrivedAtKey]);
+
+  /// When the free wait ends and the waiting fee starts (Q41/Q42).
+  DateTime? get waitingFreeUntil =>
+      WireTime.tryParse(payload[waitingFreeUntilKey]);
+
+  /// From when the driver may report the rider as a no-show (Q41).
+  DateTime? get waitingNoShowAt =>
+      WireTime.tryParse(payload[waitingNoShowAtKey]);
 
   /// The contract event kind (`contract.json#realtime.kinds`). The server
   /// says it; for a transport that does not, it follows from the event.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/support/application/support_contact.dart';
@@ -107,5 +108,39 @@ void main() {
       ),
     );
     expect(find.text('Email support'), findsNothing);
+  });
+
+  // rider-r4-37: an ended-early trip read '0 kr · Cancelled' (and the booked
+  // 249 kr in the row) although History shows what the rider was charged.
+  testWidgets('an ended-early ride shows the charged fare, not Cancelled', (
+    tester,
+  ) async {
+    final ride = SupportController.rideFor(
+      _ride(
+        'od_3',
+        'Odenplan',
+        ReservationStatus.cancelled,
+        12,
+      ).copyWith(endedEarly: true, chargedFare: Money.fromLegacyMajor(80)),
+    );
+    expect(ride.cancelled, isFalse);
+    expect(ride.priceLabel, '80 kr · Ended early');
+    await _pump(tester, SelectSupportRide(loadRides: () async => [ride]));
+    expect(find.text('80 kr'), findsOneWidget);
+    expect(find.text('249 kr'), findsNothing);
+  });
+
+  // rider-r4-38: a completed ride whose payment failed read as a paid fare.
+  test('a payment-failed ride is marked failed in Support', () {
+    final ride = SupportController.rideFor(
+      _ride(
+        'od_4',
+        'Slussen',
+        ReservationStatus.completed,
+        13,
+      ).copyWith(paymentFailed: true),
+    );
+    expect(ride.failed, isTrue);
+    expect(ride.priceLabel, 'Failed');
   });
 }

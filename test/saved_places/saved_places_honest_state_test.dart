@@ -30,6 +30,7 @@ void main() {
   Future<void> pumpPickup(
     WidgetTester tester, {
     SavedPlacesController? places,
+    bool allowCreateShortcut = true,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -42,12 +43,30 @@ void main() {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (_, __) => MaterialApp(
-          home: RiderSearchPickupLocation(places: places),
+          home: RiderSearchPickupLocation(
+            places: places,
+            allowCreateShortcut: allowCreateShortcut,
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  // rider-r4-46: in Add place's picker (no shortcut creation) the Favorite
+  // chip and the unsaved Home/Work chips were dead buttons.
+  testWidgets('a picker that cannot create shortcuts offers no dead chips', (
+    tester,
+  ) async {
+    await pumpPickup(tester, allowCreateShortcut: false);
+    expect(find.text('Favorite'), findsNothing);
+    for (final chip in ['Home', 'Work']) {
+      final tap = tester.widget<InkWell>(
+        find.ancestor(of: find.text(chip), matching: find.byType(InkWell)).first,
+      );
+      expect(tap.onTap, isNull, reason: chip);
+    }
+  });
 
   testWidgets('pickup search shows honest empty states instead of demo trips',
       (tester) async {

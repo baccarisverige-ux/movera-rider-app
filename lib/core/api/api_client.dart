@@ -10,6 +10,7 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class ApiClient {
   /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
@@ -27,7 +28,7 @@ class ApiClient {
 
   static http.Client _defaultClient(AppEnv env) {
     return env.allowsMockTransport
-        ? InProcessMockClient(persistSafety: true)
+        ? InProcessMockClient(persistSafety: true, persistRides: true)
         : http.Client();
   }
 
@@ -40,6 +41,14 @@ class ApiClient {
   Future<_Refresh>? _refreshInFlight;
   String? _expiredAccess;
   static const _timeout = Duration(seconds: 15);
+
+  /// Sign-in calls: their 401 means wrong credentials, never an expired
+  /// session, whatever token the request happened to carry.
+  static const _signInPaths = {
+    '/api/v1/auth/otp/request',
+    '/api/v1/auth/otp/verify',
+    '/api/v1/auth/provider',
+  };
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
 
@@ -104,11 +113,15 @@ class ApiClient {
                 )
                 .timeout(_timeout)
           : await _request(method, uri, headers, body);
+
       if (!useRealOtp &&
           response.statusCode == 401 &&
-          access?.isNotEmpty == true) {
+          access?.isNotEmpty == true &&
+          !_signInPaths.contains(path)) {
         // An OTP rejection is not an expired session. Only requests that
-        // carried an access token enter the refresh/retry path.
+        // carried an access token enter the refresh/retry path. rider-6: a
+        // sign-in call can carry an earlier session's token (web keeps it in
+        // sessionStorage across a reload), so its 401 is still a wrong code.
         final refresh = await _refreshAccess(access!);
         final replacement = refresh.access;
         if (refresh.unavailable) {
@@ -131,6 +144,8 @@ class ApiClient {
           await _expireSession(replacement ?? access);
         }
       }
+      // rider-r4-32: how far this device's clock is from the server's.
+      ServerClock.observeDateHeader(response.headers['date']);
       AppLog.info(
         'api.$method',
         extra: {

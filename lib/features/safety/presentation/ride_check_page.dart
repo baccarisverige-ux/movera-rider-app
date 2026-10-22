@@ -41,13 +41,11 @@ class _RideCheckPageState extends State<RideCheckPage> {
     final policy = _ctl.rideCheckPolicy;
     final on = policy.enabled;
     final t = policy.triggers;
-    final km = t.offRouteKm == t.offRouteKm.roundToDouble()
-        ? t.offRouteKm.toStringAsFixed(0)
-        : t.offRouteKm.toStringAsFixed(1);
-    final finishKm =
-        t.finishFarFromDropoffKm == t.finishFarFromDropoffKm.roundToDouble()
-        ? t.finishFarFromDropoffKm.toStringAsFixed(0)
-        : t.finishFarFromDropoffKm.toStringAsFixed(1);
+    // rider-u209: the app language's decimal mark ("2,5" in fr and sv).
+    String kmLabel(double km) =>
+        L10n.formatDecimal(km, digits: km == km.roundToDouble() ? 0 : 1);
+    final km = kmLabel(t.offRouteKm);
+    final finishKm = kmLabel(t.finishFarFromDropoffKm);
     return SafetyScaffold(
       title: context.l10n.rideCheckTitle,
       solarBack: true,
@@ -83,7 +81,11 @@ class _RideCheckPageState extends State<RideCheckPage> {
                     context,
                     SafetyUi.accent,
                   ),
-                  onChanged: _ctl.setRideCheck,
+                  onChanged: (value) => runSafetyChange(
+                    context,
+                    _ctl,
+                    () => _ctl.setRideCheck(value),
+                  ),
                 ),
               ],
             ),

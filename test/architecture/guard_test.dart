@@ -185,17 +185,29 @@ void main() {
       expect(banned.hasMatch(src), isFalse, reason: file.path);
     }
 
+    // rider-98: both quote styles, `part` and conditional URIs, and
+    // relative URIs resolved to `package:` form, so
+    // `import '../../features/x.dart';` from lib/core is caught too.
     final directive = RegExp(
-      r"^\s*(?:import|export)\s+'([^']+)'",
+      r'^\s*(?:import|export|part)\b[^;]*;',
       multiLine: true,
     );
-    List<String> importsOf(String src) =>
-        [for (final m in directive.allMatches(src)) m.group(1)!];
+    final quoted = RegExp(r"""(['"])(.+?)\1""");
     String norm(String path) => path.replaceAll(r'\', '/');
+    List<String> importsOf(File file) {
+      final self = Uri.parse(
+        'package:movera_rider/${norm(file.path).replaceFirst('lib/', '')}',
+      );
+      return [
+        for (final d in directive.allMatches(file.readAsStringSync()))
+          for (final m in quoted.allMatches(d.group(0)!))
+            self.resolve(m.group(2)!).toString(),
+      ];
+    }
 
     // core is feature-agnostic and never reaches back into the DI container.
     for (final file in dartUnder('lib/core')) {
-      for (final uri in importsOf(file.readAsStringSync())) {
+      for (final uri in importsOf(file)) {
         expect(
           uri.startsWith('package:movera_rider/features/') ||
               uri == 'package:movera_rider/app/di.dart',
@@ -206,7 +218,7 @@ void main() {
     }
 
     // DI knows concrete services, not screens.
-    for (final uri in importsOf(File('lib/app/di.dart').readAsStringSync())) {
+    for (final uri in importsOf(File('lib/app/di.dart'))) {
       expect(
         uri.contains('/presentation/'),
         isFalse,
@@ -226,7 +238,7 @@ void main() {
     for (final file in dartUnder('lib/features')) {
       final path = norm(file.path);
       if (!path.contains('/application/')) continue;
-      final hits = importsOf(file.readAsStringSync())
+      final hits = importsOf(file)
           .where((uri) => uri.contains('/presentation/'));
       if (hits.isNotEmpty) offenders.add(path);
     }
@@ -240,6 +252,24 @@ void main() {
       isEmpty,
       reason: 'exemption no longer needed; remove it from the list',
     );
+
+    // rider-101: the mock never conjures a driver outside the API boundary.
+    // Mock driver identities (MockDriverPool) are reached only by lib/core
+    // (the in-process API and realtime stand-ins) and a feature's own
+    // mock data source; no screen, controller or real repository.
+    for (final file in dartUnder('lib')) {
+      final path = norm(file.path);
+      final reachesPool = importsOf(file).any(
+        (uri) => uri == 'package:movera_rider/core/realtime/mock_driver_pool.dart',
+      );
+      expect(
+        !reachesPool ||
+            path.startsWith('lib/core/') ||
+            RegExp(r'^lib/features/[^/]+/data/mock_[^/]+\.dart$').hasMatch(path),
+        isTrue,
+        reason: '$path reaches MockDriverPool outside the API boundary',
+      );
+    }
 
     // An ignored error either logs or says why it is safe to ignore.
     final emptyCatch = RegExp(r'catch\s*\([^)]*\)\s*\{\s*\}');
@@ -595,31 +625,6 @@ void main() {
     expect(now.indexOf('_openSetPickup('), lessThan(now.indexOf('FindingDrivers(')));
     expect(now.contains('AddCardPage.open('), isTrue);
   });
-
-  test(
-    'book now two-path e2e covers GPS on, GPS off, back, and Finding Driver',
-    () {
-      final src = File(
-        'test/ride/book_now_two_paths_e2e_test.dart',
-      ).readAsStringSync();
-      expect(src.contains('GPS available still opens Confirm pickup'), isTrue);
-      expect(
-        src.contains('GPS unavailable still opens Confirm pickup'),
-        isTrue,
-      );
-      expect(
-        src.contains('Back on Confirm pickup returns without booking'),
-        isTrue,
-      );
-      expect(src.contains('Select Movera starts Finding Driver'), isTrue);
-      expect(
-        src.contains('Select Movera submitFinding marks Finding Driver'),
-        isTrue,
-      );
-      expect(src.contains('Book later stays off Finding Driver'), isTrue);
-      expect(src.contains('Connecting you with nearby drivers'), isTrue);
-    },
-  );
 
   test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',

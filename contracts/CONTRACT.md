@@ -1,4 +1,12 @@
-# Movera shared contract v0.4.0
+# Movera shared contract v0.4.4
+
+v0.4.4: owner decision 6, after-cancel reason (§3): new rider command `POST /trips/{tripId}/cancel-reason {reasonCode, note?}` tells the reason of a cancel-first once the trip is `cancelled_by_rider` with the placeholder `something_else`. It is not a transition: no version bump, no fee change, no realtime event. A second `/cancel` stays `409 invalid_transition`.
+
+v0.4.3: owner decision 5, route-change pricing (§3): a route change is priced from the booking, with the booked route through its booked stops; only stops that were not booked pay the stop fee, and the rider's offer raises stay in the price.
+
+v0.4.2: owner decision 1, the `reservations.leaveNow` switch is removed. Leave now always opens the trip (§6.1); apps ignore a `leaveNow` field in an older document. Owner decision 2, reservations on/off is binding on the driver app for the whole zone (`reservations.on`) and for one driver (new `Driver.scheduledRides`, `GET /driver/profile`); reservations already accepted still run (§6.1).
+
+v0.4.1 (additive): `DriverAppConfig.reservations` carries the Dispatch › Reservations timings to the driver app, with the new running-late ETA watch (`reservations.lateEta`, §6.1).
 
 One contract for **Rider** (Flutter), **Driver** (Flutter) and **Admin** (React/TS), so one future backend can serve all three.
 This folder is copied byte-for-byte into each repo at `contracts/`. Each repo runs contract tests that (1) check its copy matches `contracts/CHECKSUMS` and (2) replay `fixtures/*.json` through its own code. Change the contract here first, bump `version`, then copy to all three repos.
@@ -29,7 +37,7 @@ Files:
 - **Payment methods**: `card, apple_pay, google_pay, cash, wallet` (a saved card is `card` + `paymentMethodId`). Every country offers the same four (`contract.json#zonePaymentMethods`: `cash, card, apple_pay, google_pay`, owner Q7). No `swish`, no `d17`. `wallet` is never a config payment method: it is one balance per currency (no conversion), used first. The v0.3 ids `apple` / `google` are accepted on read as `apple_pay` / `google_pay` for one release.
 - **Languages**: `en, fr, sv` (`contract.json#languages`). Admin sets the default per country for the rider, driver and admin apps; the user can change it.
 - **Headers**: `Idempotency-Key` on every mutation (16–128 chars, server 409s on a different body under the same key), `X-Request-Id`, `X-Api-Version: 0.4`.
-- **Concurrency**: every trip/offer/driver/config command sends `expectedVersion`; a stale version gets `409 version_mismatch` with the current projection.
+- **Concurrency**: every trip/offer/driver/config command sends `expectedVersion`; a stale version gets `409 version_mismatch` with the current projection. The one exception is the rider's after-cancel reason (`POST /trips/{tripId}/cancel-reason`, §3), which does not change the trip's version.
 - **Errors**: `{ code, message, requestId, retryable, projection? }`, codes in `contract.json#errors.codes`. `projection` is the current resource for `version_mismatch` / `invalid_transition` (trip, offer, driver, rider, vehicle or config draft). Validation and wrong PIN are 400 `invalid_request`; too many PIN attempts 429. Success responses are the bare resource.
 
 ## 2. Canonical entities
@@ -128,6 +136,21 @@ Both tools are the admin `assign` transition (`contract.json#adminDispatch`); th
 
 Multi-stop: `stops[]` ordered on quote, request and projection; quotes MUST include stops. Waiting at a stop is billed per `pickupWait` rules. Route changes after request create a new quote (`/trips/{id}/route-quote`) and a `PATCH` with `expectedVersion`.
 
+Route-change pricing (v0.4.3, owner decision 5). The route quote and the `PATCH` that applies it price the whole new route from the booking, never from the current fare alone:
+
+- `total` = booked fare (the fare at request) + every offer raise the rider made while searching + the distance price of (new route km − booked route km) + the stop fee for each stop of the new route that was not booked. It is never below half of (booked fare + raises) and is rounded to the zone's price step.
+- **Booked route** = pickup → booked stops, in order → dropoff: the route the booking quote priced. A booked stop is already in the booked fare, so a booked stop the new route keeps adds no kilometres and no stop fee. A stop of the new route within 50 m of a booked stop is that booked stop; each booked stop matches one new stop, once. A booked stop the new route drops gives back its kilometres (and its `stops` fare line, if the booking quote had one).
+- **Offer raises stay.** A raise the rider made to find a driver is part of the price of every new route: a route change never cancels or refunds it. The offer ceiling is worked out again from the new total.
+- `difference` = `total` − current `fare`; positive is charged, negative refunded (cash: only shown). Because `total` always starts from the booking, re-quoting the route the trip already has gives `difference` 0, successive changes do not add up, and going back to the booked route gives back what the changes cost.
+
+After-cancel reason (v0.4.4, owner decision 6). A rider who cancels before picking a reason (cancel-first) names the placeholder `something_else`, because `CancelCommand.reasonCode` is required. The reason picked afterwards is sent with `POST /trips/{tripId}/cancel-reason {reasonCode, note?}` (rider only, `CancelReasonCommand`):
+
+- Allowed only while the trip is `cancelled_by_rider` and its `cancellation.reasonCode` is still `something_else`. It sets `cancellation.reasonCode` to the given code, and `cancellation.note` when `note` is sent, and answers `200` with the TripProjection.
+- `reasonCode` must be a rider code (`contract.json#cancelReasons.rider`); any other code is `400 invalid_request`. Any other trip state, also a trip whose reason was already told, is `409 invalid_transition` with the projection. Another rider's trip is `403 forbidden` or `404 not_found`, as for every trip command.
+- It is not a lifecycle command and not in the transition table. Only `cancellation.reasonCode` and `cancellation.note` change: `status`, `version`, `sequence`, `updatedAt`, `fare`, `cancellation.fee`, `cancellation.actor` and `cancellation.at` stay as the cancel left them, and no realtime event is sent (after a terminal status the gate would block a `trip_projection` anyway). Apps read the new reason from the response and from `GET /trips/{tripId}` (admin: `GET /admin/trips/{id}`).
+- It takes no `expectedVersion` (the state rule already makes it one-shot) and needs `Idempotency-Key` like every mutation: a repeat with the same key and body returns the first answer.
+- A second `POST /trips/{tripId}/cancel` on a cancelled trip stays `409 invalid_transition` (the table) and never changes the reason.
+
 Live free cancel: the `freeMin` of a live FeeRule counts from `acceptedAt` (owner Q12).
 
 Scheduled rides: `kind = scheduled`, `scheduledAt` UTC. Free cancel until `freeCancelMinutesBeforePickup` (per zone × category, §5). Dispatch starts `searchBeforeMin` before pickup. A driver claim (`accept` from `requested`) can be released (`cancel` → `requested`).
@@ -165,6 +188,8 @@ Every admin control below has one owner page, one config path and one defined ef
 | Default languages (Settings, per country) | `rider.languages`, `driver.languages` | Default app language | Default app language | — |
 | Offer modes, timers, offer card (Dispatch › Modes) | `driver.offers` | — | Radar/Exclusive timers, card fields, auto-offline | Dispatch |
 | Exclusive reasons (Dispatch) | `driver.offers.exclusiveReasons` | — | Reason line on Exclusive | — |
+| Reservations: steps, smart gap, Leave now, running late, cancels (Dispatch › Reservations) | `driver.reservations` (§6.1) | — | Home popup / Exclusive / Radar times, Leave now (always opens the trip), late warning, ETA watch, offline backup, late-cancel pause | Reassigns a late or offline driver's ride |
+| Scheduled rides for one driver (Drivers › driver page; Dispatch › Reservations desk) | `Driver.scheduledRides` (§6.1) | — | Off: no new reservations; accepted ones still run. On: the late-cancel pause is skipped while it lasts | Offers and assigns no reservation to a driver who is off |
 | Destination mode, next trips (Dispatch) | `driver.destinationMode`, `driver.nextTrips` | — | Filters, limits | Dispatch filter |
 | Cancel reasons (Dispatch › Cancel reasons) | `rider.cancelReasons`, `driver.cancelReasons` | Rider reason list | Driver reason sheets | Validates `reasonCode` per actor |
 | Ride check thresholds (Safety) | `rider.rideCheck`, `driver.rideCheck` | Ride check prompts | Ride check prompts | Triggers |
@@ -205,6 +230,7 @@ DriverAppConfig { version, publishedAt, zoneId, currency, timeZone, country, lan
   cancelFees: { live: {...}, reservation: {...} },
   waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct, driverShareWaitPct, byCategory: { [categoryId]: CategoryWaiting } },
   destinationMode: {...}, nextTrips: {...},
+  reservations: DriverReservations,             // §6.1
   cancelReasons: { driverBeforeTrip, driverDuringTrip, driverNextTrip, scheduled, noShow },
   drivingLimits: {...}, rideCheck: {...}, texts: {...}, notices: {...}, appUpdate: {...} }
 
@@ -237,11 +263,42 @@ Per-zone settings (owner round 2; defaults in `contract.json#configDefaults`, us
 
 All Money above is in the zone's currency; an amount in another currency is invalid and falls back to the default. The top-level `waiting` terms are the headline category's (`economy`, else the first).
 
+### 6.1 `DriverAppConfig.reservations`
+
+Built by Admin from Dispatch › Reservations of the zone. Every field is optional on read: a missing or invalid field keeps the driver app's default, which is `contract.json#configDefaults.reservations` (the values below).
+
+```
+DriverReservations {
+  on: true,                     // reservations for every driver in the zone (= features.scheduledRides); off: no new ones, accepted ones still run
+  lateWarn: true,               // "Head to your 07:40 pickup" island warning when Leave now cannot start
+  offlineBackupAfterMin: 5,     // 1–60. Only an OFFLINE driver loses the ride this long after Leave now; an online driver keeps it
+  homePopupAfterMin: 10,        // untaken: Home popup this long after booking
+  exclusiveBeforeMin: 20,       // untaken: Exclusive from this long before pickup
+  radarBeforeMin: 15,           // untaken: Radar trips from this long before pickup
+  onDriverCancel: "byTime",     // byTime | list | home | exclusive
+  hideClashing: true,           // rides that do not fit the smart gap leave the driver's list once they take one
+  towardPickup: true, towardPickupBeforeMin: 60,
+  longTripKm: 50,               // a ride longer than this is a longTrip
+  driverLateCancelHours: 1,     // a driver cancel closer to pickup is a late cancel
+  lateCancelLimit: 2, lateCancelPeriodDays: 7, pauseDays: 7,   // limit late cancels in the period → no scheduled rides for pauseDays
+  assignAcceptSeconds: 30,      // time to accept a ride assigned by Movera
+  rideTypes: { normal | airport | longTrip | comfortPremium | event:
+               { onlineBeforeMin, spareMin, reminderMin: [int] } },  // defaults 30/60/60/45/45, spare 15, reminders [60, 15]
+  lateEta: { on: true, toleranceMin: 3, checkEverySeconds: 60, reassignTo: "exclusive" } }
+```
+
+- **Leave now** fires at the driver's estimated drive time to the pickup + `rideTypes[kind].spareMin` before pickup (an estimate, not live traffic). It always opens the trip, heading to the pickup; there is no switch for it (v0.4.2, owner decision 1). When the trip cannot open at that moment (the driver is offline, or another screen or an offer answer is in the way), the `lateWarn` warning shows and the trip opens as soon as it can. A `leaveNow` field in an older document is ignored.
+- **Running late (`lateEta`)**: from Leave now until the driver arrives at the pickup, the driver's ETA is checked every `checkEverySeconds` (15–600). When `now + ETA > pickup time + toleranceMin` (`toleranceMin` 0–30), the ride is reassigned early to `reassignTo`: `exclusive` (Exclusive offer to the nearest available driver), `radar` (Radar trips) or `dispatch` (back to admin dispatch). Otherwise an online driver keeps the ride.
+- **Offline driver**: only a driver who is offline at Leave now loses the ride, after `offlineBackupAfterMin`. An online driver is never removed by that timer.
+- **Reservations on/off (owner decision 2)**: a driver gets new reservations (Scheduled rides requests, the Home popup, Exclusive and Radar reservation offers, rides Movera assigns) only while the zone's `reservations.on` (and `features.scheduledRides`) is true **and** their `Driver.scheduledRides` does not turn them off. Off, for the zone or for the driver, the app lists no open requests and shows no reservation offer, and the backend offers and assigns none to that driver. Reservations the driver already accepted stay theirs and run as usual: reminders, Leave now, the ETA watch, cancel.
+- `Driver.scheduledRides { on: bool, until: Timestamp | null }` (on `GET /driver/profile`): the admin's choice for this one driver. Missing = no choice (the zone switch and the late-cancel pause decide). `on: false` = no new reservations until `until` (null = until an admin turns them on). `on: true` = on until `until`, and the late-cancel pause is skipped while it lasts. A zone that is off wins over `on: true`.
+- Admin ids map: `normal → normal`, `airport → airport`, `long → longTrip`, `premium → comfortPremium`, `event → event`; Admin `lateBackupAfterMin` is `offlineBackupAfterMin`.
+
 Cancel reasons: the rider document lists `{code, title}` in the rider's language; the driver document lists codes per group and the titles come from `texts`. Unknown keys are ignored; missing keys fall back to the app's seed. `version` only increases; apps keep the last good document.
 
 ## 7. API surface (summary; full detail in `openapi.yaml`)
 
-Rider: `POST /quotes`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (route/payment), `POST /trips/{id}/route-quote`, `POST /trips/{id}/cancel`, `POST /trips/{id}/end-early`, `GET /trips/{id}/events`, `GET /trips/{id}/pin`, `POST /trips/{id}/rating`, `GET /rider/trips?cursor`, `GET /rider/trips/active`, `GET /rider/config`, payments (`/payment-methods`, `/payments`, `/wallet`), `/rider/profile`, `/rider/places`, `/notifications`, `/trips/{id}/messages`, `/support/tickets`.
+Rider: `POST /quotes`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (route/payment), `POST /trips/{id}/route-quote`, `POST /trips/{id}/cancel`, `POST /trips/{id}/cancel-reason`, `POST /trips/{id}/end-early`, `GET /trips/{id}/events`, `GET /trips/{id}/pin`, `POST /trips/{id}/rating`, `GET /rider/trips?cursor`, `GET /rider/trips/active`, `GET /rider/config`, payments (`/payment-methods`, `/payments`, `/wallet`), `/rider/profile`, `/rider/places`, `/notifications`, `/trips/{id}/messages`, `/support/tickets`.
 
 Driver: `POST /driver/availability`, `POST /driver/location`, `GET /driver/offers`, `GET /driver/offers/stream`, `POST /offers/{id}/accept|decline`, `POST /trips/{id}/{head-to-pickup|arrive|board|start|complete|cancel|no-show}`, `POST /trips/{id}/pin/verify`, `GET /driver/reservations`, `GET /driver/config`, `GET /driver/earnings`, `/driver/profile`, `/driver/vehicles`, `/driver/documents`, `/driver/payouts`, `POST /trips/{id}/rating`.
 

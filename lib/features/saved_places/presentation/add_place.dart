@@ -46,7 +46,15 @@ class _AddPlaceState extends State<AddPlace> {
   void initState() {
     super.initState();
     _places = widget.controller ?? AppScope.instance.savedPlaces;
-    _nameController = TextEditingController(text: widget.initial?.title ?? '');
+    _nameController = TextEditingController(
+      text:
+          widget.initial?.title ??
+          switch (_slot) {
+            'home' => L10n.current.placeHome,
+            'office' => L10n.current.placeWork,
+            _ => '',
+          },
+    );
     _locationController =
         TextEditingController(text: widget.initial?.subtitle ?? '');
   }
@@ -133,6 +141,17 @@ class _AddPlaceState extends State<AddPlace> {
     }
   }
 
+  /// rider-r4-47: the Home or Work slot this screen edits, if any. Those
+  /// keep their name (the controller stores only the address there), so
+  /// the name field is not editable rather than silently ignored.
+  String? get _slot {
+    final requested = widget.kind?.trim();
+    final kind = requested?.isNotEmpty == true
+        ? requested!
+        : widget.initial?.kind.trim();
+    return kind == 'home' || kind == 'office' ? kind : null;
+  }
+
   bool get _isNewPlace =>
       widget.initial == null && (widget.kind?.trim().isEmpty ?? true);
 
@@ -211,75 +230,88 @@ class _AddPlaceState extends State<AddPlace> {
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            16.height,
-            TextField(
-              controller: _nameController,
-              style: GoogleFonts.poppins(
-                color: AppColor.title,
-                fontSize: 16,
-                fontWeight: fwNormal,
-              ),
-              decoration: InputDecoration(
-                labelText: context.l10n.spName,
-                labelStyle: GoogleFonts.poppins(
-                  color: AppColor.subtitle,
-                  fontSize: 14,
-                  fontWeight: fwNormal,
-                ),
-              ),
-            ),
-            16.height,
-            InkWell(
-              onTap: _pickLocation,
-              child: IgnorePointer(
-                child: TextField(
-                  controller: _locationController,
-                  style: GoogleFonts.poppins(
-                    color: AppColor.title,
-                    fontSize: 16,
-                    fontWeight: fwNormal,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: context.l10n.spAddLocation,
-                    labelStyle: GoogleFonts.poppins(
-                      color: AppColor.subtitle,
-                      fontSize: 12,
-                      fontWeight: fwNormal,
+      // rider-u221: a small phone with the keyboard up scrolls the form
+      // (the error line included) instead of overflowing it; the Save
+      // button still sits at the bottom when there is room.
+      body: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    16.height,
+                    TextField(
+                      controller: _nameController,
+                      enabled: _slot == null,
+                      style: GoogleFonts.poppins(
+                        color: AppColor.title,
+                        fontSize: 16,
+                        fontWeight: fwNormal,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.spName,
+                        labelStyle: GoogleFonts.poppins(
+                          color: AppColor.subtitle,
+                          fontSize: 14,
+                          fontWeight: fwNormal,
+                        ),
+                      ),
                     ),
-                  ),
+                    16.height,
+                    InkWell(
+                      onTap: _pickLocation,
+                      child: IgnorePointer(
+                        child: TextField(
+                          controller: _locationController,
+                          style: GoogleFonts.poppins(
+                            color: AppColor.title,
+                            fontSize: 16,
+                            fontWeight: fwNormal,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: context.l10n.spAddLocation,
+                            labelStyle: GoogleFonts.poppins(
+                              color: AppColor.subtitle,
+                              fontSize: 12,
+                              fontWeight: fwNormal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      12.height,
+                      Text(
+                        _error!,
+                        style: GoogleFonts.poppins(
+                          color: Colors.red.shade700,
+                          fontSize: 12,
+                          fontWeight: fwMedium,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _saving ? null : _save,
+                          child: Text(_saving ? context.l10n.saving : context.l10n.save),
+                        ),
+                      ),
+                    ),
+                    16.height,
+                  ],
                 ),
               ),
             ),
-            if (_error != null) ...[
-              12.height,
-              Text(
-                _error!,
-                style: GoogleFonts.poppins(
-                  color: Colors.red.shade700,
-                  fontSize: 12,
-                  fontWeight: fwMedium,
-                ),
-              ),
-            ],
-            const Spacer(),
-            SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  child: Text(_saving ? context.l10n.saving : context.l10n.save),
-                ),
-              ),
-            ),
-            16.height,
-          ],
+          ),
         ),
       ),
     );

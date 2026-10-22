@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -62,19 +63,24 @@ class PromotionDetailsSheet extends StatelessWidget {
   /// Clock for the "days left" line; tests pin it.
   final DateTime? now;
 
-  /// Opens the sheet. [categories] default to the ride catalog; [prices] are
-  /// the current quotes when the caller has them.
+  /// Opens the sheet. [categories] default to the live ride catalog
+  /// ([catalog], else the app's); [prices] are the current quotes when the
+  /// caller has them.
   static Future<void> open(
     BuildContext context,
     RiderPromotion promotion, {
     List<PromotionCategory>? categories,
     Map<String, PromotionPrice> prices = const {},
     String? currency,
+    RideCatalogController? catalog,
   }) async {
+    // rider-61: the categories Select Ride offers (loaded at start-up from
+    // the server, else the cache), not the built-in fallback list with the
+    // ones admin may switch on later.
     final list =
         categories ??
         [
-          for (final ride in AppScope.instance.rideCatalog.rides())
+          for (final ride in (catalog ?? AppScope.instance.catalog).current)
             PromotionCategory(id: ride.id, name: ride.name),
         ];
     // Without a trip, the zone the rider is in decides the money.
@@ -107,8 +113,10 @@ class PromotionDetailsSheet extends StatelessWidget {
     final ends = promotion.endsAt?.toLocal();
     if (ends == null) return L10n.current.noEndDate;
     if (!now.isBefore(ends)) return L10n.current.expiredOn(_date(ends));
-    final today = DateTime(now.year, now.month, now.day);
-    final last = DateTime(ends.year, ends.month, ends.day);
+    // rider-u158: calendar days. Two local midnights are 23 h apart
+    // across spring-forward, and inDays rounded that down a day.
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final last = DateTime.utc(ends.year, ends.month, ends.day);
     final days = last.difference(today).inDays;
     if (days <= 0) return L10n.current.endsToday;
     return L10n.current.validUntilDays(_date(ends), days);

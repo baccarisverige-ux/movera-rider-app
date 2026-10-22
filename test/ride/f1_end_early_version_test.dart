@@ -131,6 +131,9 @@ ApiClient _scripted(
 http.Response _json(int status, Map<String, dynamic> body) =>
     http.Response(jsonEncode(body), status);
 
+/// openapi CancelCommand requires a reasonCode (rider-u19).
+const _reason = {'reasonCode': 'plans_changed'};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -303,7 +306,7 @@ void main() {
       expect(server.rides[ended]!['ratingStatus'], 'submitted');
 
       final cancelled = await book();
-      await api.post('/api/v1/rides/$cancelled/cancel');
+      await api.post('/api/v1/rides/$cancelled/cancel', body: _reason);
       final error = await refused(
         feedback.submit(rideId: cancelled, rating: 4, idempotencyKey: 'fb-2'),
       );
@@ -389,7 +392,10 @@ void main() {
   });
 
   group('R-O3: a second cancel is quietly OK', () {
-    test('the server: 200, no second fee, nothing changes', () async {
+    // Owner decision 6 (v0.4.4): the server answers a second cancel the
+    // contract way, 409 invalid_transition with the projection; the app
+    // treats that as cancelled (tests below).
+    test('the server: 409 with the projection, nothing changes', () async {
       final id = await book();
       await simulate(id, {'status': 'accepted'});
       final first = (await api.post(
@@ -400,10 +406,12 @@ void main() {
       final fee = (first['cancellation'] as Map)['fee'];
 
       // Even with the version the rider's stale screen still had.
-      final again = (await api.post(
+      final error = await refused(api.post(
         '/api/v1/rides/$id/cancel',
         body: {'expectedVersion': 1, 'reasonCode': 'plans_changed'},
-      ))['ride'] as Map;
+      ));
+      expect(error.code, 'invalid_transition');
+      final again = error.projection!;
       expect(again['status'], 'cancelled_by_rider');
       expect(again['version'], version);
       expect((again['cancellation'] as Map)['fee'], fee);
@@ -414,7 +422,7 @@ void main() {
         () async {
       final id = await book();
       await simulate(id, {'status': 'accepted'});
-      await api.post('/api/v1/rides/$id/cancel');
+      await api.post('/api/v1/rides/$id/cancel', body: _reason);
       final ride = AppScope.instance.ride
         ..rideId = null
         ..suppressRestore = false
@@ -452,7 +460,7 @@ void main() {
 
     test('Finding: a second cancel is confirmed', () async {
       final id = await book();
-      await api.post('/api/v1/rides/$id/cancel');
+      await api.post('/api/v1/rides/$id/cancel', body: _reason);
       final feed = _Feed();
       addTearDown(feed.dispose);
       final session = RideSession()
@@ -539,7 +547,8 @@ void main() {
       );
       expect(
         authErrorMessage(phone, AuthAction.sendCode),
-        'Enter a valid Swedish mobile number.',
+        // Owner decision 7: every country is taken now.
+        'Enter a valid mobile number.',
       );
     });
 
@@ -839,7 +848,8 @@ void main() {
           'version': 12,
         })),
       );
-      expect(results['o4'], PendingCancelResult.gone);
+      // rider-r4-24: the server closed it, so `ended` (was `gone`).
+      expect(results['o4'], PendingCancelResult.ended);
       expect(seen.map((r) => r.method), ['GET']);
     });
 

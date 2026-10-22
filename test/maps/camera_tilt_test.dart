@@ -13,6 +13,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/maps/map_camera_controller.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/home/presentation/home.dart'
     show homeOpeningZoom;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -50,6 +51,10 @@ List<double> _target(Map<String, Object?> pose) => [
 ];
 
 const _stockholm = LatLng(59.33, 18.06);
+
+/// The glide measures each frame with [MapView.now]; a still clock makes
+/// every pumped frame exactly one frame, however loaded the machine is.
+void _stillClock() => MapView.now = () => DateTime(2026);
 
 /// Pumps 16 ms frames until [done] or [limit] frames.
 Future<void> _frames(
@@ -253,6 +258,7 @@ void main() {
     testWidgets('every frame carries the tilt of its own zoom (live tilt)', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       final view = mapViewOf(fake)
         ..pose = const CameraPosition(target: _stockholm, zoom: 11.7);
@@ -330,6 +336,7 @@ void main() {
     testWidgets('a recenter flight lands in about 1 s, smoothly', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       final view = mapViewOf(fake)
         ..pose = const CameraPosition(target: _stockholm, zoom: 11.7);
@@ -407,6 +414,7 @@ void main() {
     testWidgets('a recenter that zooms in pans at an even speed on screen', (
       tester,
     ) async {
+      _stillClock();
       final fake = _FakeMap();
       mapViewOf(fake).pose =
           const CameraPosition(target: _stockholm, zoom: 11.7);
@@ -659,6 +667,35 @@ void main() {
       await _frames(tester, limit: 30);
       expect(fake.calls, isEmpty);
       expect(mapViewOf(fake).tiltWithZoom, isFalse);
+    });
+
+    testWidgets('rider-j8-12: the rider\'s own move right after a web flight '
+        'lands becomes the pose; only flight echoes are dropped', (
+      tester,
+    ) async {
+      MapView.now = () => DateTime(2026);
+      RiderMapBridge.debugFlight = (_, _, _) => Future.value(true);
+      addTearDown(() => RiderMapBridge.debugFlight = null);
+      final (fake, map) = await pumpMap(tester);
+      final view = mapViewOf(fake)
+        ..mapId = 1
+        ..pose = const CameraPosition(target: _stockholm, zoom: 13);
+      const goal = CameraPosition(target: LatLng(59.34, 18.07), zoom: 15);
+      const far = CameraPosition(target: LatLng(59.4, 18.2), zoom: 15);
+      Future<void> land() async {
+        await easeCameraTo(fake, goal, duration: cameraFlightDuration);
+        expect(view.pose, goal);
+        expect(view.isLateEcho(far), isTrue, reason: 'a flight echo');
+      }
+
+      await land();
+      final (a, b) = await pinch(tester, map, 16);
+      await b.up();
+      await a.up();
+      expect(view.pose!.zoom, 16, reason: 'the pinch is the new pose');
+      await land();
+      view.movedByHandAt = MapView.now(); // A wheel zoom: no finger.
+      expect(view.isLateEcho(far), isFalse);
     });
 
     testWidgets('a pinch makes the map the rider\'s: follow updates wait', (

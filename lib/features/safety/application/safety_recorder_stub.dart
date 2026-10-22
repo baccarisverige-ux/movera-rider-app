@@ -7,7 +7,17 @@ abstract class SafetyRecorder {
   Future<void> delete(String path);
 }
 
+/// A recorder that says when the platform paused or stopped capture on
+/// its own (a phone call or the OS taking the microphone), not because the
+/// app asked it to stop.
+abstract class SafetyRecorderInterruptions {
+  Stream<void> get interruptions;
+}
+
 SafetyRecorder createSafetyRecorder() => const UnsupportedSafetyRecorder();
+
+/// No recording is ever written where audio capture is unavailable.
+Future<void> deleteAllSafetyRecordings() async {}
 
 class UnsupportedSafetyRecorder implements SafetyRecorder {
   const UnsupportedSafetyRecorder();

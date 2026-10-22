@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
+import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
-import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
@@ -28,12 +31,32 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
   late final AuthController _auth;
   final _phone = TextEditingController();
   final _phoneFocus = FocusNode();
+
+  /// Owner decision 7: the device's region at first, then the country of
+  /// the app's saved location or zone, until the rider picks one.
+  PhoneCountry _country = initialPhoneCountry();
+  bool _countryPicked = false;
+
+  Future<void> _loadDefaultCountry() async {
+    final country = await defaultPhoneCountry();
+    if (!mounted || _countryPicked) return;
+    setState(() => _country = country);
+  }
+
+  void _pickCountry(PhoneCountry country) {
+    setState(() {
+      _countryPicked = true;
+      _country = country;
+      _error = null;
+    });
+  }
   bool _busy = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadDefaultCountry());
     _auth = widget.controller ?? AppScope.instance.auth;
     _phone.addListener(() {
       if (_error != null) setState(() => _error = null);
@@ -49,9 +72,9 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
 
   Future<void> _sendCode() async {
     if (_busy) return;
-    final number = swedishNumberFromField(_phone.text);
+    final number = phoneNumberFromField(_phone.text, _country);
     if (number == null) {
-      setState(() => _error = context.l10n.invalidSwedishMobile);
+      setState(() => _error = context.l10n.invalidMobileNumber);
       return;
     }
     setState(() => _busy = true);
@@ -93,7 +116,7 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
             child: Container(
               padding: const EdgeInsets.fromLTRB(7, 6, 12, 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF6F0),
+                color: AuthColors.noteGround,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Row(
@@ -117,15 +140,15 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
                     child: Text(
                       who,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.urbanist(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F6B40),
+                        color: AuthColors.ink,
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.check_rounded, size: 15, color: Color(0xFF0F6B40)),
+                  const Icon(Icons.check_rounded, size: 15, color: AuthColors.ink),
                 ],
               ),
             ),
@@ -138,6 +161,8 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
           AuthPhoneField(
             controller: _phone,
             focusNode: _phoneFocus,
+            country: _country,
+            onCountryChanged: _pickCountry,
             hasError: _error != null,
             onSubmitted: (_) => _sendCode(),
           ),

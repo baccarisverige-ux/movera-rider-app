@@ -9,6 +9,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
@@ -54,6 +55,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
 
   @override
   void dispose() {
+    _freeEndsTimer?.cancel();
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _reservations.removeListener(_refresh);
     super.dispose();
@@ -62,6 +64,26 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   void _refresh() {
     if (mounted) setState(() {});
     _handoffIfLive();
+  }
+
+  Timer? _freeEndsTimer;
+  DateTime? _freeEndsAt;
+
+  /// rider-u172: rebuilds once free cancellation ends, so 'Things to know'
+  /// stops saying 'free until …' while the page stays open. Returns
+  /// [terms].
+  ReservationCancelTerms _rebuildWhenFreeEnds(ReservationCancelTerms terms) {
+    if (!terms.freeForNow || _freeEndsAt == terms.freeUntil) return terms;
+    _freeEndsTimer?.cancel();
+    _freeEndsAt = terms.freeUntil;
+    _freeEndsTimer = Timer(
+      terms.freeUntil.difference(terms.at) + const Duration(seconds: 1),
+      () {
+        _freeEndsAt = null;
+        if (mounted) setState(() {});
+      },
+    );
+    return terms;
   }
 
   bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
@@ -135,6 +157,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
         terms: terms,
       );
       if (!outcome.cancelled) return;
+      // rider-u170: the ride may have moved on while the sheets were open.
+      final current = _reservations.byId(ride.reservationId);
+      if (current == null || !current.status.canCancel) return;
       await _reservations.cancel(
         ride.reservationId,
         reason: outcome.reasonId,
@@ -197,6 +222,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     // The driver shows as soon as one accepts, unless admin turned that off.
     final showDriver = _reservations.showsDriverOf(ride);
     final previousDriver = ride.previousDriver;
+    final noDriverFound = _reservations.isNoDriverFound(ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -231,9 +257,12 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                // rider-j8-2: History opens past rides here too.
                 Text(
                   ride.status.isCancelled
                       ? context.l10n.resCancelledReservation
+                      : ride.status.isCompleted
+                      ? context.l10n.resCompletedRide
                       : context.l10n.resUpcomingRide,
                   style: reservationText(
                     28,
@@ -243,7 +272,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),
+                  ride.status.isUpcoming
+                      ? ReservationFormat.reservedHeadline(ride.pickupWallTime)
+                      : ReservationFormat.pastHeadline(ride.pickupWallTime),
                   style: reservationText(
                     13.5,
                     color: kReservationMuted,
@@ -283,14 +314,25 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ReservationStatusBanner(
-                  title: ReservationFormat.statusTitle(ride),
-                  body: ReservationFormat.statusBody(
-                    ride,
-                    assignmentDisclaimer: policy.assignmentDisclaimer,
+                // rider-j8-1: what Home says once the pickup passed with no
+                // driver, never "Reservation confirmed".
+                if (noDriverFound)
+                  ReservationStatusBanner(
+                    key: const Key('upcoming-no-driver-found'),
+                    title: context.l10n.termNoDriverFound,
+                    body: context.l10n.chronoNoDriverCancel,
+                    positive: false,
+                  )
+                else
+                  ReservationStatusBanner(
+                    title: ReservationFormat.statusTitle(ride),
+                    body: ReservationFormat.statusBody(
+                      ride,
+                      assignmentDisclaimer: policy.assignmentDisclaimer,
+                      showDriver: showDriver,
+                    ),
+                    positive: !ride.status.isCancelled,
                   ),
-                  positive: !ride.status.isCancelled,
-                ),
                 if (showDriver &&
                     ride.driverChanged &&
                     ride.status.isUpcoming) ...[
@@ -311,14 +353,17 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ReservationStatusBanner(
                     key: const Key('reservation-driver-left'),
                     title: ReservationFormat.driverLeftTitle,
-                    body: ReservationFormat.driverLeftBody(previousDriver),
+                    body: ReservationFormat.driverLeftBody(
+                      previousDriver,
+                      showName: _reservations.rules.showDriverOnAccept,
+                    ),
                     positive: false,
                   ),
                 ],
                 if (showDriver) ...[
                   const SizedBox(height: 14),
                   ReservationDriverCard(driver: ride.driver!),
-                ] else if (ride.driverAssigned) ...[
+                ] else if (ride.driverAssigned && ride.status.isUpcoming) ...[
                   const SizedBox(height: 14),
                   Text(
                     context.l10n.resDriverOnTheWay,
@@ -334,7 +379,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   asset: AppAssets.scheduleCalendar,
                   label: context.l10n.resScheduledFor,
                   value:
-                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                      '${ReservationFormat.longDate(ride.pickupWallTime)}, ${ReservationFormat.time(ride.pickupWallTime)}',
                 ),
                 ReservationFact(
                   asset: AppAssets.gps,
@@ -438,7 +483,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   _KnowCard(
                     waiting: policy.waitingSummary,
                     cancellation: ReservationFormat.cancellationSummary(
-                      _reservations.cancelTermsFor(ride),
+                      _rebuildWhenFreeEnds(_reservations.cancelTermsFor(ride)),
                     ),
                     pricing: policy.pricingSummary,
                   ),
@@ -447,6 +492,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     onTap: () => ScheduledRideTermsPage.open(
                       context,
                       controller: _reservations,
+                      reservationId: ride.reservationId,
                     ),
                     child: Text(
                       context.l10n.resViewTerms,
@@ -503,7 +549,8 @@ class ReservationDriverCard extends StatelessWidget {
       label: [
         context.l10n.resYourDriverName(driver.displayFirstName),
         if (car != null) car,
-        if (driver.plate != null) 'plate ${driver.plate}',
+        // rider-68: in the app language.
+        if (driver.plate != null) context.l10n.resPlateLabel(driver.plate!),
       ].join(', '),
       child: Container(
         key: const Key('reservation-driver-card'),

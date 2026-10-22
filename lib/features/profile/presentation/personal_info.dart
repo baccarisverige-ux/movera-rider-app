@@ -120,9 +120,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     title: context.l10n.name,
                     value: ride.name,
                     emptyError: context.l10n.enterYourName,
+                    // rider-u78: the server refuses a longer name.
+                    maxLength: RiderProfileData.maxNameLength,
                   );
                   if (next != null && next.isNotEmpty) {
-                    await _save(ride.copyWith(name: next));
+                    // rider-r3-9: from the profile as it is now, not as it
+                    // was at build time (a gender save may still be on its
+                    // way and has not rebuilt this page yet).
+                    await _save(_profile.profile.copyWith(name: next));
                   }
                 },
               ),
@@ -153,7 +158,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                         : context.l10n.genderMan,
                   );
                   if (next != null) {
-                    await _save(ride.copyWith(gender: next));
+                    await _save(_profile.profile.copyWith(gender: next));
                   }
                 },
               ),

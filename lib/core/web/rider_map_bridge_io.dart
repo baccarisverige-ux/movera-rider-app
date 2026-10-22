@@ -8,4 +8,6 @@ Future<bool>? flight(int mapId, double lat, double lng, double zoom,
     null;
 void retarget(int mapId, double lat, double lng, double zoom, double heading,
     double tilt) {}
-void cancelFlight(int mapId) {}
+/// No web layer: nothing was flying.
+({double lat, double lng, double zoom, double heading, double tilt})?
+    cancelFlight(int mapId) => null;

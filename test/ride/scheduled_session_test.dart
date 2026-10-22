@@ -11,7 +11,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: ['Odenplan'],
     );
-    final when = DateTime(2099, 9, 23, 10, 30);
+    final when = DateTime.utc(2099, 9, 23, 10, 30);
     session.captureSchedule(
       when,
       timezone: 'Europe/Stockholm',
@@ -37,7 +37,7 @@ void main() {
 
   test('captureSchedule clamps a past pickup to Stockholm now+30', () {
     final session = ScheduledRideSession();
-    session.captureSchedule(DateTime(2026, 9, 13, 10, 30));
+    session.captureSchedule(DateTime.utc(2026, 9, 13, 10, 30));
     expect(session.scheduledAt, isNotNull);
     expect(StockholmSchedule.isLegalPickup(session.scheduledAt!), isTrue);
     expect(session.scheduledAt, StockholmSchedule.minimumPickup());
@@ -50,7 +50,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: const [],
     );
-    session.captureSchedule(DateTime(2099, 9, 23, 10, 30));
+    session.captureSchedule(DateTime.utc(2099, 9, 23, 10, 30));
     session.capturePayment('Wallet');
     session.captureRideType('economy', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');

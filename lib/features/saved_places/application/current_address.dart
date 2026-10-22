@@ -39,7 +39,12 @@ Future<String> resolveCurrentAddress({
       permission = await loc.requestPermission();
     }
     if (permission == LocationPermission.deniedForever) {
-      throw CurrentAddressException(L10n.current.spLocationDeniedForever);
+      // rider-r4-42: the web has no app Settings; the block is the site's.
+      throw CurrentAddressException(
+        loc.isWeb
+            ? L10n.current.spWebLocationDeniedForever
+            : L10n.current.spLocationDeniedForever,
+      );
     }
     if (permission == LocationPermission.denied) {
       throw CurrentAddressException(L10n.current.spLocationDenied);
@@ -63,7 +68,9 @@ Future<String> resolveCurrentAddress({
       GeoPoint(position.latitude, position.longitude),
     ).timeout(const Duration(seconds: 10));
   } catch (_) {
-    address = null;
+    // rider-r5-38: no answer from the lookup (offline, timed out, server
+    // error) is not an answer of "no address here".
+    throw CurrentAddressException(L10n.current.apiUnreachable);
   }
   final clean = address?.trim() ?? '';
   if (clean.isEmpty || clean.toLowerCase() == 'current location') {

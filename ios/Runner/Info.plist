@@ -6,8 +6,19 @@
     <string>Movera uses the microphone only when you choose to record audio during a ride.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Movera uses your location while you use the app to set your pickup point, find nearby drivers and show your driver where to meet you.</string>
+    <key>NSLocationTemporaryUsageDescriptionDictionary</key>
+    <dict>
+        <key>PickupPrecision</key>
+        <string>Movera needs your precise location to set your pickup where you are, so your driver finds you.</string>
+    </dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>fr</string>
+		<string>sv</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Movera</string>
 	<key>CFBundleExecutable</key>
@@ -47,6 +58,7 @@
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>remote-notification</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

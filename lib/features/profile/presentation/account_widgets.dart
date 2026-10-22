@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -48,7 +49,8 @@ class AccountScaffold extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    // maybePop: a page can hold Back while it is busy.
+                    onPressed: () => Navigator.maybePop(context),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
@@ -303,6 +305,7 @@ Future<String?> showAccountTextEditor(
   required String value,
   TextInputType keyboard = TextInputType.text,
   String? emptyError,
+  int? maxLength,
 }) {
   final controller = TextEditingController(text: value);
   final error = ValueNotifier<String?>(null);
@@ -339,6 +342,10 @@ Future<String?> showAccountTextEditor(
                   TextField(
                     controller: controller,
                     keyboardType: keyboard,
+                    inputFormatters: [
+                      if (maxLength != null)
+                        LengthLimitingTextInputFormatter(maxLength),
+                    ],
                     autofocus: true,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => save(),
@@ -396,6 +403,10 @@ Future<String?> showAccountChoice(
             ),
             for (final option in options)
               ListTile(
+                // rider-u151: the current option is selected for screen
+                // readers too, not only marked with the check.
+                selected: option == selected,
+                selectedColor: kAccountAccent,
                 title: Text(
                   labelOf?.call(option) ?? option,
                   style: accountText(15.5, weight: FontWeight.w600),
@@ -417,36 +428,97 @@ class AccountLegalPage extends StatelessWidget {
 
   final String kind;
 
+  /// The sections of the Terms or the Privacy notice (owner round 3: the
+  /// full texts, written from what the app does; company details in square
+  /// brackets are filled in before launch).
+  static List<LegalSection> sections(
+    AppLocalizations l, {
+    required bool terms,
+  }) {
+    if (terms) {
+      return [
+        LegalSection(l.termsS1Title, l.termsS1Body),
+        LegalSection(l.termsS2Title, l.termsS2Body),
+        LegalSection(l.termsS3Title, l.termsS3Body),
+        LegalSection(l.termsS4Title, l.termsS4Body),
+        LegalSection(l.termsS5Title, l.termsS5Body),
+        LegalSection(l.termsS6Title, l.termsS6Body),
+        LegalSection(l.termsS7Title, l.termsS7Body),
+        LegalSection(l.termsS8Title, l.termsS8Body),
+        LegalSection(l.termsS9Title, l.termsS9Body),
+        LegalSection(l.termsS10Title, l.termsS10Body),
+        LegalSection(l.termsS11Title, l.termsS11Body),
+        LegalSection(l.termsS12Title, l.termsS12Body),
+        LegalSection(l.termsS13Title, l.termsS13Body),
+      ];
+    }
+    return [
+      LegalSection(l.privacyS1Title, l.privacyS1Body),
+      LegalSection(l.privacyS2Title, l.privacyS2Body),
+      LegalSection(l.privacyS3Title, l.privacyS3Body),
+      LegalSection(l.privacyS4Title, l.privacyS4Body),
+      LegalSection(l.privacyS5Title, l.privacyS5Body),
+      LegalSection(l.privacyS6Title, l.privacyS6Body),
+      LegalSection(l.privacyS7Title, l.privacyS7Body),
+      LegalSection(l.privacyS8Title, l.privacyS8Body),
+      LegalSection(l.privacyS9Title, l.privacyS9Body),
+      LegalSection(l.privacyS10Title, l.privacyS10Body),
+      LegalSection(l.privacyS11Title, l.privacyS11Body),
+      LegalSection(l.privacyS12Title, l.privacyS12Body),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final terms = kind == 'terms';
+    final l = context.l10n;
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           AccountHeadline(
-            terms ? context.l10n.accountTerms : context.l10n.accountPrivacyNotice,
-            body: terms
-                ? context.l10n.legalTermsBody
-                : context.l10n.legalPrivacyBody,
+            terms ? l.accountTerms : l.accountPrivacyNotice,
+            body: terms ? l.legalTermsBody : l.legalPrivacyBody,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           Text(
-            terms
-                ? context.l10n.legalTermsText
-                : context.l10n.legalPrivacyText,
-            style: accountText(15, color: kAccountMuted, height: 1.5),
+            l.legalUpdatedOn,
+            style: accountText(
+              12.5,
+              color: kAccountMuted,
+              weight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
-          // FLOW-16: these paragraphs are a summary, not the legal text.
           Text(
-            terms
-                ? context.l10n.legalTermsSummary
-                : context.l10n.legalPrivacySummary,
-            style: accountText(13, color: kAccountMuted, height: 1.5),
+            terms ? l.legalTermsIntro : l.legalPrivacyIntro,
+            style: accountText(15, color: kAccountMuted, height: 1.5),
           ),
+          for (final (i, section) in sections(l, terms: terms).indexed) ...[
+            const SizedBox(height: 22),
+            Semantics(
+              header: true,
+              child: Text(
+                '${i + 1}. ${section.title}',
+                style: accountText(16, weight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              section.body,
+              style: accountText(15, color: kAccountMuted, height: 1.5),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// One numbered part of a legal text.
+class LegalSection {
+  const LegalSection(this.title, this.body);
+
+  final String title;
+  final String body;
 }

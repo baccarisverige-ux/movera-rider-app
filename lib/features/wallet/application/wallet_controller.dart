@@ -5,6 +5,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
@@ -45,13 +46,21 @@ class WalletController {
   /// [balances] is where the balance lives (ARCH-6); without it the
   /// device-local ledger over [store] is used, as before. AppScope passes
   /// the composed one, which release builds switch off.
+  ///
+  /// [defaultPayment] is where the default payment method lives: the same
+  /// store Select Ride reads and writes (rider-u232). Without it the
+  /// device prefs in [store] are used, as before.
   WalletController({
     WalletStore? store,
     PaymentGateway? gateway,
     WalletBalanceRepository? balances,
+    this.defaultPayment,
   }) : _store = store ?? WalletStore(),
        _gateway = gateway,
        _balancesOverride = balances;
+
+  /// The rider's default payment method store, shared with Select Ride.
+  final DefaultPaymentStore? defaultPayment;
 
   final WalletStore _store;
   final PaymentGateway? _gateway;
@@ -72,6 +81,7 @@ class WalletController {
         store: _store,
         gateway: _gateway,
         balances: _balances.inCurrency(currency),
+        defaultPayment: defaultPayment,
       ),
     );
   }
@@ -84,7 +94,19 @@ class WalletController {
   String get currency => _balances.currency;
   final Set<String> _topUpKeys = {};
 
-  Future<WalletPaymentSettings> loadPayments() => _store.loadPayments();
+  /// rider-u232: the default method comes from [defaultPayment] (the
+  /// server's in release builds), the other settings from the device.
+  Future<WalletPaymentSettings> loadPayments() async {
+    final local = await _store.loadPayments();
+    final shared = await defaultPayment?.read();
+    if (shared == null || shared.trim().isEmpty) return local;
+    return WalletPaymentSettings(
+      defaultMethod: shared.trim(),
+      business: local.business,
+      extraMethods: local.extraMethods,
+      useWalletFirst: local.useWalletFirst,
+    );
+  }
 
   /// "Use wallet balance first" is a payment setting; these keep the rest
   /// of the settings as they are.
@@ -114,8 +136,18 @@ class WalletController {
     }
   }
 
-  Future<void> savePayments(WalletPaymentSettings settings) =>
-      _store.savePayments(settings);
+  /// rider-u232: the default method also goes to [defaultPayment], so
+  /// Select Ride books with it.
+  Future<void> savePayments(WalletPaymentSettings settings) async {
+    await _store.savePayments(settings);
+    await defaultPayment?.save(
+      WalletStore.storableDefault(settings.defaultMethod),
+    );
+  }
+
+  /// rider-fixrev3-5: the Personal/Business toggle saves only its flag, so
+  /// it never re-sends a default method that has not been loaded yet.
+  Future<void> saveBusiness(bool business) => _store.saveBusiness(business);
 
   Future<double> loadBalance() => _balances.loadBalance();
 
@@ -252,22 +284,27 @@ class WalletController {
   /// does not make it authoritative — the balance is still a client-side
   /// value (R-043) until a server-owned ledger replaces [WalletStore].
   ///
+  /// [fare] is what the server charged when it differs from the booked
+  /// price: an ended-early trip pays for the distance driven (rider-u178).
+  ///
   /// Returns the new balance, or null when nothing was charged (not a wallet
   /// ride, a different ride, no usable price, or already charged).
   Future<double?> chargeCompletedRide(
     RideSnapshot? snapshot, {
     required String rideId,
+    Money? fare,
   }) async {
     final id = rideId.trim();
     if (id.isEmpty || snapshot == null || snapshot.rideId?.trim() != id) {
       return null;
     }
     if (!_balances.available) return null;
+    if (fare != null && fare.currency != snapshot.currency) return null;
     // Q8: the trip is paid from the balance of its own currency.
     if (snapshot.currency != currency) {
       return forCurrency(
         snapshot.currency,
-      ).chargeCompletedRide(snapshot, rideId: id);
+      ).chargeCompletedRide(snapshot, rideId: id, fare: fare);
     }
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the
@@ -280,9 +317,9 @@ class WalletController {
         ? methodId == 'wallet'
         : isWalletPayment(snapshot.paymentMethod);
     if (paidByWallet) {
-      amount = snapshot.price;
+      amount = fare?.major ?? snapshot.price;
     } else if (snapshot.walletAmountMinor > 0) {
-      final fareMinor = snapshot.fare.amountMinor;
+      final fareMinor = (fare ?? snapshot.fare).amountMinor;
       final part = snapshot.walletAmountMinor < fareMinor
           ? snapshot.walletAmountMinor
           : fareMinor;

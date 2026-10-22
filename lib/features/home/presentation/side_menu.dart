@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
@@ -69,9 +70,17 @@ class RiderMenuPage extends StatelessWidget {
 
   static const String _art = 'assets/images/menu';
 
-  Future<void> _pushPage(BuildContext context, Widget page) async {
+  /// rider-u125: [name] lets pushPageOnce (a push tap, the Safety bridge)
+  /// see the page is already open instead of stacking a second copy.
+  Future<void> _pushPage(
+    BuildContext context,
+    Widget page, {
+    String? name,
+  }) async {
     final nav = Navigator.of(context);
-    final result = await nav.push<Object?>(RightToLeftTransition(page));
+    final result = await nav.push<Object?>(
+      RightToLeftTransition(page, settings: RouteSettings(name: name)),
+    );
     if (!nav.mounted) return;
     // FLOW-17: name, wallet balance and promotion may have changed there.
     if (context.mounted) _MenuRefresh.refresh(context);
@@ -379,7 +388,8 @@ class RiderMenuPage extends StatelessWidget {
     Money? balance,
     VoidCallback reload,
   ) {
-    final amount = balance == null ? null : formatMoney(balance, whole: true);
+    // rider-r5-14: the exact balance, never rounded up.
+    final amount = balance == null ? null : formatMoney(balance);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
       label: amount == null ? context.l10n.menuWallet : context.l10n.menuWalletWithAmount(amount),
@@ -428,7 +438,11 @@ class RiderMenuPage extends StatelessWidget {
       (
         context.l10n.menuNotifications,
         'notify',
-        () => _pushPage(context, const NotificationScreen()),
+        () => _pushPage(
+          context,
+          const NotificationScreen(),
+          name: AppRoutes.notifications,
+        ),
       ),
       (
         context.l10n.menuSavedPlaces,
@@ -513,7 +527,8 @@ class RiderMenuPage extends StatelessWidget {
         body: context.l10n.menuSafetyCheckupBody,
         picture: 'protection_enabled',
         pictureWidth: 84,
-        onTap: () => _pushPage(context, const SafetyHub()),
+        onTap: () =>
+            _pushPage(context, const SafetyHub(), name: AppRoutes.safety),
       ),
       _FeatureCard(
         title: context.l10n.menuFamily,

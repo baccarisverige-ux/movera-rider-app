@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
@@ -142,13 +143,24 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   void dispose() {
     _ctl.removeListener(_onChange);
     // FLOW-6: Stop audio lives only in this sheet, so closing the sheet
-    // stops and saves the recording instead of leaving the mic open.
-    unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    // stops and saves the recording instead of leaving the mic open. When a
+    // Ride check card closed the sheet, the card has taken the recording
+    // over with its own Stop (rider-u212/u214).
+    if (!_ctl.audio.handedOver) {
+      unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
+    }
     super.dispose();
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      // rider-u199: the OS interrupted the recording and it was saved.
+      if (!_ctl.audio.isRecording &&
+          _audioNote == context.l10n.safetyKitRecording) {
+        _audioNote = context.l10n.recordingSavedLocal;
+      }
+    });
   }
 
   TextStyle _text(
@@ -163,24 +175,34 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     );
   }
 
+  /// rider-u215: the SOS reaches Movera whether or not the phone dialer
+  /// opens, and the rider is told both results.
   Future<void> _call112() async {
+    String? dialError;
     try {
       await _ctl.emergency.callEmergencyNumber();
-      try {
-        final registered = await _ctl.sos(rideId: widget.rideId);
-        if (!mounted) return;
-        MoveraToast.show(context, registered
-            ? context.l10n.sosRegistered
-            : context.l10n.sosNeedsRide);
-      } catch (_) {
-        if (!mounted) return;
-        MoveraToast.show(context,
-            context.l10n.sosNotRegistered);
-      }
     } on EmergencyCallException catch (error) {
-      if (!mounted) return;
-      MoveraToast.show(context, error.message);
+      dialError = error.message;
     }
+    bool? registered;
+    try {
+      registered = await _ctl.sos(rideId: widget.rideId);
+    } catch (_) {
+      registered = null;
+    }
+    if (!mounted) return;
+    final l10n = context.l10n;
+    final String message;
+    if (dialError != null) {
+      message = registered == true ? l10n.sosRegisteredNoDialer : dialError;
+    } else {
+      message = switch (registered) {
+        true => l10n.sosRegistered,
+        false => l10n.sosNeedsRide,
+        null => l10n.sosNotRegistered,
+      };
+    }
+    MoveraToast.show(context, message);
   }
 
   Future<void> _toggleAudio() async {
@@ -246,105 +268,114 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
+    // Owner decision 10: "Record audio" is hidden for now. A recording that
+    // is already running still shows its Stop, so it is never left on.
+    final showsAudio = SafetyAudioOption.enabled || recording;
     return PointerInterceptor(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: _ink),
-                  tooltip: context.l10n.close,
-                ),
-                Expanded(
-                  child: Text(
-                    context.l10n.accountSafety,
-                    textAlign: TextAlign.center,
-                    style: _text(17, weight: FontWeight.w600),
+      // rider-u216: at large text the sheet scrolls instead of clipping
+      // its last rows (Safety preferences).
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, color: _ink),
+                    tooltip: context.l10n.close,
                   ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _Tool(
-                    icon: Icons.call_outlined,
-                    label: context.l10n.contact112,
-                    onTap: _call112,
+                  Expanded(
+                    child: Text(
+                      context.l10n.accountSafety,
+                      textAlign: TextAlign.center,
+                      style: _text(17, weight: FontWeight.w600),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tool(
-                    icon: recording
-                        ? Icons.stop_circle_outlined
-                        : Icons.mic_outlined,
-                    label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
-                    onTap: _toggleAudio,
+                  const SizedBox(width: 48),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.call_outlined,
+                      label: context.l10n.contact112,
+                      onTap: _call112,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tool(
-                    icon: Icons.ios_share_outlined,
-                    label: context.l10n.shareTrip,
-                    onTap: _shareTrip,
-                  ),
-                ),
-              ],
-            ),
-            if (_audioNote != null) ...[
-              const SizedBox(height: 12),
-              Text(_audioNote!, style: _text(12, color: _muted)),
-            ],
-            const SizedBox(height: 14),
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              child: InkWell(
-                onTap: _openHub,
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _line),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.shield_outlined, size: 22, color: _icon),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.safetyPreferences,
-                              style: _text(14, weight: FontWeight.w600),
-                            ),
-                            Text(
-                              context.l10n.safetyPreferencesBody,
-                              style: _text(12, color: _muted),
-                            ),
-                          ],
-                        ),
+                  if (showsAudio) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _Tool(
+                        icon: recording
+                            ? Icons.stop_circle_outlined
+                            : Icons.mic_outlined,
+                        label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
+                        onTap: _toggleAudio,
                       ),
-                      const Icon(Icons.chevron_right_rounded, color: _muted),
-                    ],
+                    ),
+                  ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.ios_share_outlined,
+                      label: context.l10n.shareTrip,
+                      onTap: _shareTrip,
+                    ),
+                  ),
+                ],
+              ),
+              if (_audioNote != null) ...[
+                const SizedBox(height: 12),
+                Text(_audioNote!, style: _text(12, color: _muted)),
+              ],
+              const SizedBox(height: 14),
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  onTap: _openHub,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _line),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, size: 22, color: _icon),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.safetyPreferences,
+                                style: _text(14, weight: FontWeight.w600),
+                              ),
+                              Text(
+                                context.l10n.safetyPreferencesBody,
+                                style: _text(12, color: _muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: _muted),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

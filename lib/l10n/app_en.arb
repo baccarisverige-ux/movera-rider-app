@@ -142,6 +142,7 @@
   "menuAboutArticle": "Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.",
   "accountSignOut": "Sign out",
   "accountSignOutBody": "Remove your data from this device",
+  "signingOut": "Signing out…",
   "planYourRide": "Plan your ride",
   "routeCouldNotReach": "Couldn't reach Movera. Check your connection and try again.",
   "tryAgain": "Try again",
@@ -313,6 +314,20 @@
   "chooseYourRide": "Choose your ride",
   "filterRecommended": "Recommended",
   "filterFaster": "Faster",
+  "rideNoteEconomy": "Affordable and convenient rides",
+  "rideNoteComfort": "Newer cars with extra legroom",
+  "rideNotePremium": "Premium cars with top-rated drivers",
+  "rideNotePriority": "More options, less waiting",
+  "rideNoteXl": "Cars for larger groups (6 people)",
+  "rideNoteElectric": "Quiet and fossil-free cars",
+  "rideNotePet": "Pet-friendly rides",
+  "rideNoteVan": "Groups and luggage",
+  "rideNoteWheelchair": "Ramp or lift, driver helps on board",
+  "rideNoteBusiness": "Quiet ride, receipt for your company",
+  "rideNoteAirport": "Fixed price, flight tracked, extra luggage",
+  "rideNoteKids": "Child seat already fitted",
+  "rideNoteWomen": "A woman behind the wheel",
+  "rideNoteDelivery": "Send a parcel across town",
   "filterCheaper": "Cheaper",
   "walletWrongCurrency": "Your wallet balance is in {wallet} and can’t pay a ride in {ride}.",
   "@walletWrongCurrency": {
@@ -435,6 +450,8 @@
     }
   },
   "walletTapToPay": "Tap to pay this ride from your balance",
+  "walletTooLowForRide": "Balance too low for this ride",
+  "walletTooLowChooseAnother": "Your wallet balance does not cover this ride. Choose another way to pay.",
   "walletFirst": "Use wallet balance first",
   "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
   "paymentMethods": "Payment methods",
@@ -452,6 +469,10 @@
   "voucherSoon": "Voucher codes open soon",
   "addCardDemoNote": "Demo: this card is stored on this device only. When the payment partner is connected, cards are saved in its secure vault and Movera never sees the full number.",
   "cardCheckNumber": "Check the card number",
+  "cardBrandsAccepted": "We accept Visa and Mastercard",
+  "@cardBrandsAccepted": {
+    "description": "Error under the card number when the card is neither Visa nor Mastercard."
+  },
   "cardUseMmYy": "Use MM/YY",
   "cardExpired": "This card has expired",
   "cardCvc3": "3 digits",
@@ -959,6 +980,7 @@
   "paymentProcessing": "Payment processing",
   "completeConfirmedBody": "Your ride has ended and the payment has been confirmed.",
   "paymentConfirmed": "Payment confirmed",
+  "paymentNotCompleted": "Payment not completed",
   "completeRateBody": "Your ride and payment are complete. You can now rate your driver.",
   "readyForFeedback": "Ready for feedback",
   "completeDefaultBody": "Your ride has ended. Payment status will update when it is confirmed.",
@@ -967,6 +989,90 @@
   "tripDetailsUnavailable": "Trip details unavailable",
   "tripDetailsUnavailableBody": "Your route, payment method and price will appear here when the ride record is available.",
   "pickupLocation": "Pickup location",
+  "droppedPinLabel": "Dropped pin · {lat}° {latSide} {lng}° {lngSide}",
+  "@droppedPinLabel": {
+    "description": "Pickup label for a map pin with no street address: the point's coordinates. No comma, so short place labels keep it whole.",
+    "placeholders": {
+      "lat": {
+        "type": "String",
+        "example": "59.32930"
+      },
+      "latSide": {
+        "type": "String",
+        "example": "N"
+      },
+      "lng": {
+        "type": "String",
+        "example": "18.06860"
+      },
+      "lngSide": {
+        "type": "String",
+        "example": "E"
+      }
+    }
+  },
+  "compassNorth": "N",
+  "@compassNorth": {
+    "description": "Abbreviation for north after a latitude."
+  },
+  "compassSouth": "S",
+  "@compassSouth": {
+    "description": "Abbreviation for south after a latitude."
+  },
+  "compassEast": "E",
+  "@compassEast": {
+    "description": "Abbreviation for east after a longitude."
+  },
+  "compassWest": "W",
+  "@compassWest": {
+    "description": "Abbreviation for west after a longitude."
+  },
+  "pickupSpotMainEntrance": "Main entrance",
+  "@pickupSpotMainEntrance": {
+    "description": "Pickup spot chip title; also part of the booked pickup label ('Street 1 – Main entrance')."
+  },
+  "pickupSpotFrontOfBuilding": "Front of the building",
+  "@pickupSpotFrontOfBuilding": {
+    "description": "Subtitle of the Main entrance pickup spot."
+  },
+  "pickupSpotSideEntrance": "Side entrance",
+  "@pickupSpotSideEntrance": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotAroundCorner": "Around the corner",
+  "@pickupSpotAroundCorner": {
+    "description": "Subtitle of the Side entrance pickup spot."
+  },
+  "pickupSpotParking": "Parking",
+  "@pickupSpotParking": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotShortWalk": "Short walk",
+  "@pickupSpotShortWalk": {
+    "description": "Subtitle of the Parking pickup spot."
+  },
+  "pickupSpotNearHome": "Near Home",
+  "@pickupSpotNearHome": {
+    "description": "Pickup spot chip title when the rider's Home is close."
+  },
+  "pickupSpotMetresFromHere": "{metres} m from here",
+  "@pickupSpotMetresFromHere": {
+    "description": "Subtitle of the Near Home pickup spot: its distance in metres.",
+    "placeholders": {
+      "metres": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "pickupSpotPreviouslyUsed": "Previously used",
+  "@pickupSpotPreviouslyUsed": {
+    "description": "Pickup spot chip title for a pickup the rider confirmed before."
+  },
+  "pickupCurrentUpper": "CURRENT",
+  "@pickupCurrentUpper": {
+    "description": "Small button on the saved place map picker that moves the pin to the current location."
+  },
   "destination": "Destination",
   "endedEarly": "Ended early",
   "totalPayment": "Total payment",
@@ -1018,6 +1124,15 @@
   },
   "howWasTrip": "How was your trip",
   "rateYourDriver": "Give rating to your driver",
+  "ratingNotRated": "Not rated",
+  "ratingStarsValue": "{count} of 5 stars",
+  "@ratingStarsValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "topUpUnconfirmed": "We couldn't confirm your top-up. If it went through, it will show in your balance — trying again won't charge you twice.",
   "topUpDeclined": "The payment was declined, so you weren't charged.",
   "topUpOffline": "No connection, so the top-up didn't go through. You weren't charged — try again when you're back online.",
@@ -1098,6 +1213,10 @@
   "profileBusiness": "Business",
   "defaultForRides": "Default for rides",
   "accountAddYourName": "Add your name",
+  "menuWelcomeNoName": "Welcome to Movera",
+  "@menuWelcomeNoName": {
+    "description": "Menu greeting for a rider who has not saved a name."
+  },
   "serverEmailUnavailable": "Server email unavailable",
   "emailNotAdded": "Email not added",
   "valueVerified": "{value} · Verified",
@@ -1161,6 +1280,10 @@
   "securityBody": "How you sign in to Movera.",
   "securityUnavailable": "Security controls unavailable",
   "securityUnavailableBody": "Movera could not verify account security with the server.",
+  "securitySessionsUpdateFailed": "Could not update active sessions.",
+  "@securitySessionsUpdateFailed": {
+    "description": "Security screen error when signing out other devices fails."
+  },
   "passkeys": "Passkeys",
   "passkeyReady": "Ready on this device",
   "noPasskey": "No passkey configured",
@@ -1187,6 +1310,7 @@
       }
     }
   },
+  "thisSessionOnly": "This session",
   "save": "Save",
   "legalTermsBody": "How Movera rides and reservations work.",
   "legalPrivacyBody": "What we keep, and how you control it.",
@@ -1242,12 +1366,44 @@
     }
   },
   "resCancelled": "Cancelled",
+  "resPaymentFailed": "Payment failed",
   "reasonNoShow": "No-show",
   "reasonPayment": "Payment problem",
   "reasonZoneClosed": "Service area closed",
   "reasonError": "Something went wrong",
+  "reasonRequestExpired": "Request expired",
+  "@reasonRequestExpired": {
+    "description": "History cancel reason: the ride request expired before a driver was found."
+  },
+  "reasonCancelledBySystem": "Cancelled by the system",
+  "@reasonCancelledBySystem": {
+    "description": "History cancel reason: the platform cancelled the ride."
+  },
+  "reasonRideFailed": "Ride failed",
+  "@reasonRideFailed": {
+    "description": "History cancel reason: the trip could not continue."
+  },
+  "reasonDriverEnded": "Driver ended the ride",
+  "@reasonDriverEnded": {
+    "description": "History cancel reason: the driver ended the ride."
+  },
+  "reasonRiderCancelledLive": "You cancelled the ride",
+  "@reasonRiderCancelledLive": {
+    "description": "Cancel reason of a reservation the rider cancelled once its live ride had started."
+  },
   "resReservedFor": "Your ride is reserved for {date} at {time}",
   "@resReservedFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resWasScheduledFor": "This ride was scheduled for {date} at {time}",
+  "@resWasScheduledFor": {
     "placeholders": {
       "date": {
         "type": "String"
@@ -1504,6 +1660,7 @@
       }
     }
   },
+  "driverLeftBodyUnnamed": "Your driver can no longer drive you. We're finding you a new driver.",
   "scheduledRides": "Scheduled rides",
   "historyHowBody": "Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.",
   "historyHow": "How history works",
@@ -1563,7 +1720,6 @@
     }
   },
   "getHelpWithRide": "Get help with this ride",
-  "invalidSwedishMobile": "Enter a valid Swedish mobile number.",
   "enterPhone": "Enter your phone number",
   "textFourDigitCode": "We'll text you a 4-digit code.",
   "byContinuing": "By continuing you agree to our ",
@@ -1592,6 +1748,10 @@
   "lastName": "Last name",
   "letsRide": "Let's ride",
   "brandTagline": " · Moving to a new era",
+  "brandTaglineSentence": "Moving to a new era.",
+  "@brandTaglineSentence": {
+    "description": "The slogan under the Movera wordmark on Sign in, as a sentence."
+  },
   "signedInWith": "Signed in with {provider}",
   "@signedInWith": {
     "placeholders": {
@@ -1622,7 +1782,6 @@
       }
     }
   },
-  "sweden": "Sweden",
   "orContinueWith": "or continue with",
   "skipDemo": "Skip for now (demo)",
   "stepOf": "Step {step} of {total}",
@@ -1660,17 +1819,26 @@
   },
   "thatAccount": "that account",
   "pickupTimeUpdated": "Pickup time updated to the next available slot.",
+  "pickupTimeWithinHorizon": "{days, plural, =1{Rides can be booked up to 1 day ahead. Pickup time updated.} other{Rides can be booked up to {days} days ahead. Pickup time updated.}}",
+  "@pickupTimeWithinHorizon": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "selectDate": "Select date",
   "selectTime": "Select time",
   "whenPickUp": "When should we\npick you up?",
   "chooseDateTime": "Choose a date and time for your scheduled ride.",
-  "cancelBeforeAssigned": "You can cancel without a fee before a driver is assigned. Final terms are shown before booking.",
+  "scheduleCancelTermsNote": "Cancelling is free until a set time before pickup, which depends on the ride type. Your reservation shows the exact terms.",
   "pickupAtMode": "Pickup at",
   "arriveByMode": "Arrive by",
   "date": "Date",
   "time": "Time",
   "estimatedArrival": "Estimated arrival",
   "estimatedPickup": "Estimated pickup",
+  "time24Hour": "24-hour",
   "continuing": "Continuing…",
   "chronoNoDriverLabel": "No driver found. Rebook or cancel",
   "reservationIn": "Reservation in {time}",
@@ -1681,6 +1849,7 @@
       }
     }
   },
+  "reservationNow": "Reservation now",
   "chronoNoDriverRebook": "We couldn't find a driver for your scheduled pickup. Rebook for a new time or cancel this reservation.",
   "chronoNoDriverCancel": "We couldn't find a driver for your scheduled pickup. Cancel this reservation and book again.",
   "rebook": "Rebook",
@@ -1757,6 +1926,14 @@
   "notification": "Notification",
   "allCaughtUp": "You're all caught up.",
   "notificationsEmptyBody": "Ride and account updates will appear here when they arrive.",
+  "notificationRideEnded": "This ride has ended.",
+  "@notificationRideEnded": {
+    "description": "Toast when a tapped notification's ride can no longer be opened."
+  },
+  "notificationUnread": "Unread",
+  "@notificationUnread": {
+    "description": "Screen-reader label of the dot on an unread notification."
+  },
   "driverTripCount": "{count, plural, =1{1 trip} other{{count} trips}}",
   "@driverTripCount": {
     "placeholders": {
@@ -1765,11 +1942,22 @@
       }
     }
   },
+  "driverTripsCompleted": "{count, plural, =1{1 trip completed} other{{count} trips completed}}",
+  "@driverTripsCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "driverTaglineDefault": "Movera driver",
+  "driverVehicleUnavailable": "Vehicle details unavailable",
   "safetyKit": "Safety Kit",
   "safetyKitRecording": "Recording. It stops and is saved on this device when you tap Stop audio or close the Safety Kit.",
   "sosRegistered": "Phone dialer opened. Movera registered your SOS.",
   "sosNeedsRide": "Phone dialer opened. In-app SOS needs an active ride.",
   "sosNotRegistered": "Phone dialer opened, but Movera could not register your SOS.",
+  "sosRegisteredNoDialer": "Could not open the phone dialer. Movera registered your SOS. Call 112 from another phone if you can.",
   "recordingSavedLocal": "Recording saved on this device. Automatic upload is unavailable.",
   "recordingFailed": "Recording could not be saved. Check microphone access and try again.",
   "tripSharingStarted": "{count, plural, =1{Trip sharing started for 1 trusted contact.} other{Trip sharing started for {count} trusted contacts.}}",
@@ -1805,6 +1993,8 @@
   "pushRideUpdatesOff": "Ride updates are off",
   "pushTurnOnInSettings": "Turn them on in Settings.",
   "pushHearDriver": "Hear when your driver is on the way.",
+  "pushWebBlockedBody": "Allow notifications for this site in your browser settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
+  "pushTurnOnInBrowser": "Turn them on in your browser settings.",
   "safetyTitle": "Safety",
   "safetyHubTagline": "Quiet protection for every ride.",
   "safetyPinTitle": "PIN verification",
@@ -1988,7 +2178,7 @@
       }
     }
   },
-  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop or in traffic.",
+  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop.",
   "@rcLongStopBody": {
     "placeholders": {
       "minutes": {
@@ -2026,7 +2216,7 @@
       }
     }
   },
-  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop or in traffic. RideCheck opens right away, during the trip.",
+  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop. RideCheck opens right away, during the trip.",
   "@rcDemoLongStopScenario": {
     "placeholders": {
       "minutes": {
@@ -2161,6 +2351,7 @@
   "supportMessagesTitle": "Support messages",
   "supportActive": "Active",
   "supportNoActiveCases": "No active cases",
+  "supportCasesNotListed": "Your cases aren't listed in the app yet",
   "supportActiveBody": "Messages you send about a ride go to the Movera team for review.",
   "supportClosed": "Closed",
   "supportNoClosedCases": "No closed cases",
@@ -2282,6 +2473,7 @@
   },
   "spLocationOff": "Location is turned off. Turn it on, or search for the address.",
   "spLocationDeniedForever": "Location access is off for Movera. Allow it in Settings, or search for the address.",
+  "spWebLocationDeniedForever": "Location is blocked for this site. Allow it in your browser settings, or search for the address.",
   "spLocationDenied": "Allow location access to use where you are, or search for the address.",
   "spNoAddressHere": "We couldn’t find an address for where you are. Search for it instead.",
   "spLocationUnavailable": "Location unavailable",
@@ -2386,8 +2578,10 @@
   "resNoChangeCharge": "No additional change charge",
   "resNotFound": "Reservation not found",
   "resScheduleCaps": "SCHEDULE",
+  "scheduleHeaderCaps": "SCHEDULE",
   "resCancelledReservation": "Cancelled reservation",
   "resUpcomingRide": "Upcoming ride",
+  "resCompletedRide": "Completed ride",
   "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",
   "@resSeatsPayment": {
     "placeholders": {
@@ -2417,6 +2611,19 @@
         "type": "String"
       }
     }
+  },
+  "resPlateLabel": "plate {plate}",
+  "@resPlateLabel": {
+    "description": "Screen-reader part of the driver card: the car's registration plate.",
+    "placeholders": {
+      "plate": {
+        "type": "String"
+      }
+    }
+  },
+  "restoringRide": "Restoring your ride",
+  "@restoringRide": {
+    "description": "Screen-reader label of the spinner shown while a live ride is restored on start."
   },
   "resYourDriverCaps": "YOUR DRIVER",
   "resWaitingTime": "Waiting time",
@@ -2499,6 +2706,9 @@
   "locServicesOffBody": "Turn on Location Services in Settings, or set your pickup on the map.",
   "locOpenSettings": "Open settings",
   "locAllow": "Allow location",
+  "locPreciseOffTitle": "Precise location is off",
+  "locPreciseOffBody": "Set your pickup on the map.",
+  "locPreciseTurnOn": "Turn on",
   "dismiss": "Dismiss",
   "notifYesterday": "Yesterday {clock}",
   "@notifYesterday": {
@@ -2507,5 +2717,77 @@
         "type": "String"
       }
     }
-  }
+  },
+  "invalidMobileNumber": "Enter a valid mobile number.",
+  "phoneCountryCode": "Country code: {country}, {dial}",
+  "@phoneCountryCode": {
+    "description": "Screen-reader label of the phone field's country button.",
+    "placeholders": {
+      "country": {"type": "String"},
+      "dial": {"type": "String"}
+    }
+  },
+  "changeCountryCode": "Change country",
+  "chooseCountry": "Choose your country",
+  "searchCountry": "Search country or code",
+  "noCountryFound": "No country matches your search.",
+  "changeLanguage": "Change language",
+  "consentPrefix": "By registering you agree to our ",
+  "consentTerms": "terms and conditions",
+  "consentPrivacy": "privacy policy",
+  "consentLabel": "I agree to the terms and conditions and the privacy policy",
+  "consentTickFirst": "Tick the box to agree before you continue.",
+  "legalUpdatedOn": "Last updated: 22 October 2026",
+  "legalTermsIntro": "These terms apply when you use the Movera app and the rides booked through it. Please read them; by creating an account you accept them.",
+  "legalPrivacyIntro": "This notice explains what Movera collects when you use the app, why, how long we keep it and the choices you have.",
+  "termsS1Title": "Who we are",
+  "termsS1Body": "Movera is a ride-hailing service for Sweden, operated by [Company legal name], organisation number [org. no.], [address], Sweden (“Movera”, “we”). You can reach us at [support email] and from Help in the app.",
+  "termsS2Title": "Your account",
+  "termsS2Body": "You must be at least 18 years old to create an account. You sign in with your mobile number and a code we send by SMS, or with Apple or Google plus your mobile number. Keep your details accurate and your device secure: what happens in your account is your responsibility until you tell us it was misused. One person, one account.",
+  "termsS3Title": "Booking a ride",
+  "termsS3Body": "When you request a ride we show the price, the pickup and the destination before you confirm. A nearby driver then accepts the ride, and you follow the car in the app. Be at the pickup point on time; the app shows how long the driver waits for free. Movera can end a ride for safety or operational reasons, and the app tells you when that happens.",
+  "termsS4Title": "Scheduled rides and reservations",
+  "termsS4Body": "You can book a ride for later. Pickup times are shown in the time zone of the pickup city. A reservation keeps the same reference when you edit it. Cancelling is free until the time shown on the reservation; after that the fee shown before booking may apply. Waiting time, fees and time windows only apply when they are shown before you book.",
+  "termsS5Title": "Prices, payment and receipts",
+  "termsS5Body": "The price you see before booking is the price you pay for that trip, unless you change the route or destination during the ride, add waiting time or stops, or a fee shown before booking applies. You pay with the payment method chosen in the app. Promotions and credits are applied as shown at booking and cannot be exchanged for cash. Tips are voluntary and go to the driver. A receipt for every ride is kept in Ride history.",
+  "termsS6Title": "Cancellations and no-shows",
+  "termsS6Body": "You can cancel a ride in the app. Cancelling after the free window shown in the app, or not being at the pickup point when the free waiting time runs out, may be charged the fee shown before booking. If a driver cancels, you pay nothing for that ride.",
+  "termsS7Title": "Behaviour in the car",
+  "termsS7Body": "Treat drivers and vehicles with respect, wear your seat belt and follow the law. No smoking, no dangerous or illegal items, no more passengers than seats. Damage you cause can be charged to you. We may pause or close an account that abuses drivers, the app or other riders.",
+  "termsS8Title": "Safety tools",
+  "termsS8Body": "The Safety Kit lets you share your trip, check the ride details and reach emergency services. These tools help you, but they are not a replacement for calling the emergency number when you are in danger. Use 112 in Sweden.",
+  "termsS9Title": "Ratings and messages",
+  "termsS9Body": "After a ride you can rate the driver and leave a comment. Messages you send to Movera through Help are read by our team and kept with the ride they concern, so we can answer and follow up.",
+  "termsS10Title": "Our role and liability",
+  "termsS10Body": "Movera arranges rides with licensed, independent drivers and transport partners who carry out the transport. We are responsible for the app and the booking; the partner is responsible for driving. Nothing in these terms limits rights you have as a consumer under Swedish or EU law. Beyond that, we are not liable for indirect losses, and our liability for a trip is limited to the price of that trip.",
+  "termsS11Title": "Ending or deleting your account",
+  "termsS11Body": "You can delete your account at any time in Account › Privacy. Deletion cannot be undone, and you are signed out on this device at once. Receipts and records that bookkeeping law requires us to keep are kept only for as long as that law says. We may close an account that breaks these terms.",
+  "termsS12Title": "Changes and governing law",
+  "termsS12Body": "We may update these terms when the service changes; the app shows the date of the current version and asks you to accept material changes. Swedish law applies. Disputes can be brought before the Swedish courts, and as a consumer you can also turn to the National Board for Consumer Disputes (ARN) or the EU online dispute resolution platform.",
+  "termsS13Title": "Contact",
+  "termsS13Body": "Questions about these terms: [support email], or Help in the app.",
+  "privacyS1Title": "Who is responsible",
+  "privacyS1Body": "[Company legal name], organisation number [org. no.], [address], Sweden, is the controller of the personal data processed in the Movera app. Contact: [support email].",
+  "privacyS2Title": "What we collect",
+  "privacyS2Body": "Your name, mobile number and, if you give it, your e-mail; the places you save; your ride requests, trips, receipts and ratings; your location while you request and take a ride; the payment method you choose (we never see your full card number, our payment provider keeps it); your app language, device type and notification settings; and the messages you send us through Help.",
+  "privacyS3Title": "Why we use it",
+  "privacyS3Body": "To run your rides and reservations, show you prices, match you with a driver and send you receipts (to perform our contract with you). To keep riders and drivers safe, prevent fraud and improve the app (our legitimate interest). To keep accounting records (a legal obligation). To send you news and offers only when you have said yes (your consent, which you can withdraw at any time).",
+  "privacyS4Title": "Location",
+  "privacyS4Body": "We use your location to set the pickup, to show you nearby cars, to follow the trip and to run the safety tools. Location is used while the app is open and while a ride is active; the app tells you when precise location is off. You can turn location off in your phone settings; some features will then not work.",
+  "privacyS5Title": "Who we share it with",
+  "privacyS5Body": "Your driver sees your first name, pickup, destination and rating. Service providers process data for us under contract: our payment provider, the SMS service that sends your code, Apple and Google when you sign in with them, our map and address provider, and our cloud hosting within the EU/EEA. We share data with authorities only when the law requires it. We never sell your data.",
+  "privacyS6Title": "How long we keep it",
+  "privacyS6Body": "Account details for as long as your account is active. Trip records and receipts for as long as Swedish bookkeeping law requires, currently seven years. Support messages for as long as needed to handle the case. Location data from a trip only for as long as needed for receipts, safety and dispute handling, then it is deleted or anonymised.",
+  "privacyS7Title": "Your rights",
+  "privacyS7Body": "You can ask to see the data we hold about you, correct it, have it deleted, receive a copy, object to processing based on our legitimate interest and withdraw a consent. Write to [support email]. You can also complain to the Swedish Authority for Privacy Protection (IMY).",
+  "privacyS8Title": "Deleting your account",
+  "privacyS8Body": "Delete your account in Account › Privacy. It cannot be undone, and you are signed out on this device at once. We keep only what the law requires, for as long as it requires.",
+  "privacyS9Title": "Children",
+  "privacyS9Body": "Movera accounts are for people aged 18 and over. We do not knowingly collect data from children; if you believe a child has created an account, contact us and we will remove it.",
+  "privacyS10Title": "Security",
+  "privacyS10Body": "Data travels encrypted between the app and our servers. Access inside Movera is limited to the people who need it for their work, and your session on this device ends when you sign out or delete your account.",
+  "privacyS11Title": "Notifications and marketing",
+  "privacyS11Body": "We send notifications about your rides and reservations. News and offers are sent only if you have turned them on, and you can change this at any time in Account › Notifications.",
+  "privacyS12Title": "Changes and contact",
+  "privacyS12Body": "We update this notice when our processing changes and show the date of the current version here. Questions: [support email], or Help in the app."
 }

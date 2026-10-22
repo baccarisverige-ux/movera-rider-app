@@ -29,7 +29,16 @@ class SafetyController extends ChangeNotifier {
         emergency = emergency ?? EmergencyCallService.shared,
         audio = audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
         rideCheck = rideCheck ??
-            RideCheckService(store: session ?? SafetyStore.shared);
+            RideCheckService(store: session ?? SafetyStore.shared) {
+    // rider-u199: an interrupted recording ends; the Kit redraws.
+    this.audio.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    audio.removeListener(notifyListeners);
+    super.dispose();
+  }
 
   factory SafetyController({
     SafetyRepository? store,
@@ -60,8 +69,46 @@ class SafetyController extends ChangeNotifier {
   /// FLOW-6: the ride is over, so a recording the rider started in the
   /// Safety Kit stops and is saved. Looks only at a controller that already
   /// exists: no recording can run without one.
-  static Future<void> stopRecordingForRideEnd() async {
-    await _shared?.audio.stopIfRecording(reason: 'ride_ended');
+  ///
+  /// rider-u35: with [keepRideCheck] (the trip completed, and its summary
+  /// still shows an open Ride check card with its own Stop control) a
+  /// card recording for that ride keeps running; the card stops it.
+  static Future<void> stopRecordingForRideEnd({
+    bool keepRideCheck = false,
+  }) async {
+    final audio = _shared?.audio;
+    final active = audio?.active;
+    if (active == null) return;
+    if (keepRideCheck &&
+        active.deviceOnly &&
+        RideCheckController.existing?.sessionFor(active.rideId) != null) {
+      return;
+    }
+    await audio!.stopIfRecording(reason: 'ride_ended');
+  }
+
+  /// rider-u205: the ride is over, so its live trip share stops (best
+  /// effort); it used to stay active for its whole 6-hour expiry. Looks
+  /// only at a controller that already exists: no share starts without one.
+  static Future<void> stopShareForRideEnd(String? rideId) async {
+    final controller = _shared;
+    if (controller == null || rideId == null || rideId.isEmpty) return;
+    if (controller._session.shareFor(rideId)?.isActive != true) return;
+    try {
+      await controller.stopShare(rideId);
+    } catch (error) {
+      AppLog.warning(
+        'safety.share.stop_failed',
+        extra: {'rideId': rideId, 'error': '$error'},
+      );
+    }
+  }
+
+  /// rider-u201: the session expired and Sign in replaced the trip screen,
+  /// so no Stop control is left on screen. A running recording (the Safety
+  /// Kit's or a Ride check card's) stops and is saved for the rider.
+  static Future<void> stopRecordingForSessionExpiry() async {
+    await _shared?.audio.stopIfRecording(reason: 'session_expired');
   }
 
   @visibleForTesting
@@ -69,6 +116,8 @@ class SafetyController extends ChangeNotifier {
       _shared = controller;
 
   static void resetShared() {
+    // rider-u202: no recording outlives the rider's data.
+    _shared?.audio.discardForWipe();
     RideCheckController.resetShared();
     _shared?.dispose();
     _shared = null;
@@ -246,6 +295,31 @@ class SafetyController extends ChangeNotifier {
     } finally {
       notifyListeners();
     }
+    if (!contact.shareTrips) await _unselectForTripShare(contact.id);
+  }
+
+  /// rider-u204: "Share trips" switched off in the contact editor also
+  /// takes the contact out of the Trip share selection, so the two agree.
+  Future<void> _unselectForTripShare(String id) async {
+    final selected = preferences.tripShareContactIds;
+    if (!selected.contains(id)) return;
+    try {
+      await _session.patchPreferences(
+        preferences.copyWith(
+          tripShareContactIds: [
+            for (final item in selected)
+              if (item != id) item,
+          ],
+        ),
+      );
+    } catch (err) {
+      // Not sent the trip either way: startShare reads the contact.
+      AppLog.warning(
+        'safety.share.unselect_failed',
+        extra: {'error': '$err'},
+      );
+    }
+    notifyListeners();
   }
 
   Future<void> removeContact(String id) async {
@@ -294,16 +368,62 @@ class SafetyController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// rider-u204: the trip goes to the trusted contacts that exist now, are
+  /// enabled, and are ticked on Trip share or marked "Share trips" (what
+  /// the Trip share page shows as ticked), never to a stored id of a
+  /// contact that was deleted or disabled.
+  List<String> get tripShareRecipients {
+    final selected = preferences.tripShareContactIds;
+    return [
+      for (final contact in contacts)
+        if (contact.isEnabled &&
+            (contact.shareTrips || selected.contains(contact.id)))
+          contact.id,
+    ];
+  }
+
   Future<TripShare> startShare(String rideId) async {
     final share = await _session.startShare(
       rideId,
-      contactIds: preferences.tripShareContactIds.isEmpty
-          ? null
-          : preferences.tripShareContactIds,
+      contactIds: tripShareRecipients,
     );
     record(SafetyKind.shareTrip, rideId: rideId);
     notifyListeners();
     return share;
+  }
+
+  /// Rides already shared automatically (one share per ride).
+  final Set<String> _autoShared = {};
+
+  /// rider-u217: with Trip share on and "Automatically share every ride"
+  /// chosen, the trip screen calls this when the trip starts. It shares the
+  /// ride once with the trip-share contacts; with no such contact, or the
+  /// mode off, it does nothing.
+  Future<TripShare?> autoShareRide(String rideId) async {
+    final id = rideId.trim();
+    if (id.isEmpty || !_autoShared.add(id)) return null;
+    try {
+      if (!hasLoaded) await load();
+      if (!preferences.tripShareEnabled ||
+          preferences.tripShareMode != TripShareMode.auto ||
+          tripShareRecipients.isEmpty) {
+        return null;
+      }
+      final share = await startShare(id);
+      AppLog.info(
+        'safety.share.auto_started',
+        extra: {'rideId': id, 'contacts': share.contactIds.length},
+      );
+      return share;
+    } catch (error) {
+      // A later trip screen for this ride may try again.
+      _autoShared.remove(id);
+      AppLog.warning(
+        'safety.share.auto_failed',
+        extra: {'rideId': id, 'error': '$error'},
+      );
+      return null;
+    }
   }
 
   Future<void> stopShare(String rideId) async {

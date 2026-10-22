@@ -3,7 +3,9 @@ import 'package:movera_rider/core/utils/request_id.dart';
 
 class MockPaymentGateway implements PaymentGateway {
   final Map<String, PaymentIntent> _intents = {};
-  final Set<String> _usedKeys = {};
+  /// The intent created for each idempotency key (rider-u242: a reused key
+  /// answers its own intent, not the newest one of any key).
+  final Map<String, PaymentIntent> _byKey = {};
   bool failNext = false;
 
   @override
@@ -18,16 +20,15 @@ class MockPaymentGateway implements PaymentGateway {
       failNext = false;
       throw StateError('payment_failed');
     }
-    if (_usedKeys.contains(idempotencyKey) && _intents.isNotEmpty) {
-      return _intents.values.last;
-    }
-    _usedKeys.add(idempotencyKey);
+    final replay = _byKey[idempotencyKey];
+    if (replay != null) return replay;
     final intent = PaymentIntent(
       id: 'pi_${newRequestId()}',
       amountMinor: amountMinor,
       currency: currency,
     );
     _intents[intent.id] = intent;
+    _byKey[idempotencyKey] = intent;
     return intent;
   }
 

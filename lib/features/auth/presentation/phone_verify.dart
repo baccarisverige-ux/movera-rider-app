@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,12 +8,12 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
-import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -25,11 +26,15 @@ class PhoneVerification extends StatefulWidget {
     this.challenge,
     this.phoneNumber,
     this.controller,
+    this.clock,
   });
 
   final OtpChallenge? challenge;
   final String? phoneNumber;
   final AuthController? controller;
+
+  /// The wall clock the resend window is measured on (tests).
+  final DateTime Function()? clock;
 
   @override
   State<PhoneVerification> createState() => _PhoneVerificationState();
@@ -74,14 +79,23 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   }
 
   /// Counts the server's retry window down once a second.
+  ///
+  /// rider-r4-11: a suspended app or a throttled web tab fires the timer
+  /// once after a long gap, so the wait left is measured, not counted per
+  /// callback: whichever of the wall clock and the timer's own tick count
+  /// has seen more time pass.
   void _startResendWindow(Duration wait) {
     _ticker?.cancel();
-    _secondsUntilResend =
-        wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
-    if (_secondsUntilResend <= 0) return;
+    final seconds = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
+    _secondsUntilResend = seconds;
+    if (seconds <= 0) return;
+    final now = widget.clock ?? DateTime.now;
+    final allowedAt = now().add(Duration(seconds: seconds));
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
-      setState(() => _secondsUntilResend--);
+      final byClock = allowedAt.difference(now()).inMilliseconds;
+      final left = min(seconds - timer.tick, (byClock / 1000).ceil());
+      setState(() => _secondsUntilResend = max(0, left));
       if (_secondsUntilResend <= 0) timer.cancel();
     });
   }
@@ -123,10 +137,8 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       setState(() => _error = context.l10n.requestNewCode);
       return;
     }
-    if (challenge.isExpired) {
-      setState(() => _error = context.l10n.codeExpired);
-      return;
-    }
+    // rider-u73: no device-clock expiry check; the server answers 410 for
+    // an expired code and authErrorMessage says so.
     if (!RidePin.isValidFormat(code)) return;
     setState(() {
       _submitting = true;
@@ -158,6 +170,17 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   Widget build(BuildContext context) {
     final phone = _phone;
     final complete = RidePin.isValidFormat(_pin.text.trim());
+    // rider-r3-10: no way back while the code is being checked. Leaving
+    // here unmounted the screen that opens the app (or the new-rider name
+    // step) once the verify signs the rider in, so a signed-in rider was
+    // left on the Sign in form.
+    return PopScope(
+      canPop: !_submitting,
+      child: _content(context, phone, complete),
+    );
+  }
+
+  Widget _content(BuildContext context, String? phone, bool complete) {
     return AuthScaffold(
       step: 2,
       onBack: () => Navigator.of(context).maybePop(),
@@ -170,7 +193,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 text: context.l10n.sentTo,
                 children: [
                   TextSpan(
-                    text: SwedishPhone.display(phone.trim()),
+                    text: displayPhoneNumber(phone.trim()),
                     style: const TextStyle(
                       color: AuthColors.ink,
                       fontWeight: FontWeight.w600,
@@ -191,14 +214,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             forceErrorState: _error != null,
             onCompleted: (_) => setState(() {}),
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            defaultPinTheme: _box(AuthColors.field, Colors.transparent),
-            focusedPinTheme: _box(
-              Colors.white,
-              AuthColors.deepGreen,
-              ring: true,
-            ),
-            submittedPinTheme: _box(AuthColors.field, Colors.transparent),
-            errorPinTheme: _box(Colors.white, AuthColors.error),
+            defaultPinTheme: _box(),
+            focusedPinTheme: _box(focused: true),
+            submittedPinTheme: _box(),
+            errorPinTheme: _box(error: true),
           ),
           if (_error != null) AuthErrorText(_error!),
           if (_info != null && _error == null)
@@ -244,22 +263,23 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     );
   }
 
-  PinTheme _box(Color fill, Color border, {bool ring = false}) {
+  /// Owner round 3: each digit on its own underline, ink while focused.
+  PinTheme _box({bool focused = false, bool error = false}) {
     return PinTheme(
       width: 68,
       height: 66,
-      textStyle: GoogleFonts.poppins(
+      textStyle: GoogleFonts.urbanist(
         fontSize: 26,
         fontWeight: FontWeight.w700,
         color: AuthColors.ink,
       ),
       decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: ring
-            ? const [BoxShadow(color: Color(0x1A12804F), spreadRadius: 4)]
-            : null,
+        border: Border(
+          bottom: BorderSide(
+            color: authUnderlineColor(focused: focused, error: error),
+            width: focused ? 2 : 1.2,
+          ),
+        ),
       ),
     );
   }
@@ -313,7 +333,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       ),
       child: Text(
         context.l10n.resendCode,
-        style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600),
+        style: GoogleFonts.urbanist(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

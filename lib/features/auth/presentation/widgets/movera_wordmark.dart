@@ -1,61 +1,126 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
-/// Logo Movera avec couleurs adaptées au thème sélectionné.
-/// Ocean Premium : bleu nuit et turquoise.
-/// Eco Chic : vert forêt et sauge.
+/// The one Movera wordmark: "Mov" in ink, the map pin as the "o" (ink
+/// running into green from head to tip, a small green dot in its hole),
+/// "era" in green. Every sign-in screen draws this same widget, only at another
+/// [size], so the mark is identical everywhere (owner round 3).
+///
+/// Proportions follow the approved mock-up and are relative to the font
+/// size, so they hold at any size:
+///  * the top of the pin sits on the x-height, level with the top of the "v";
+///  * the pin's tip ends [MoveraPin.tipBelowBaseline] under the baseline;
+///  * [MoveraPin.gap] of air on each side of the pin.
 class MoveraWordmark extends StatelessWidget {
-  const MoveraWordmark({super.key, this.size = 27});
+  const MoveraWordmark({super.key, this.size = 27, this.showDot = true});
 
   final double size;
 
+  /// The small green dot inside the pin's hole (owner round 4). The brand
+  /// intro hides it until the balloon has landed there and become it.
+  final bool showDot;
+
+  /// How long the dot pops in when it appears.
+  static const dotPop = Duration(milliseconds: 240);
+
+  static TextStyle textStyle(double size) => GoogleFonts.urbanist(
+    fontSize: size,
+    height: 1,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.01 * size,
+    color: AuthColors.ink,
+  );
+
+  /// Where each part lands for [size]; the brand intro aims the balloon at
+  /// [MoveraWordmarkLayout.pinRect].
+  static MoveraWordmarkLayout layout(double size) {
+    final style = textStyle(size);
+    TextPainter measure(String text) => TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final m = measure('M');
+    final vera = measure('vera');
+    final baseline = m.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    final pinHeight = MoveraPin.height * size;
+    final pinWidth = pinHeight * MoveraPin.aspect;
+    final gap = MoveraPin.gap * size;
+    final pinLeft = m.width + gap;
+    final pinTop = baseline - MoveraPin.xHeight * size;
+    final pinRect = Rect.fromLTWH(pinLeft, pinTop, pinWidth, pinHeight);
+    final pinScale = pinHeight / MoveraPin.designSize.height;
+    final layout = MoveraWordmarkLayout(
+      size: Size(pinLeft + pinWidth + gap + vera.width, size),
+      baseline: baseline,
+      mLeft: 0,
+      veraLeft: pinLeft + pinWidth + gap,
+      pinRect: pinRect,
+      dotRect: Rect.fromCircle(
+        center: pinRect.topLeft + MoveraPin.headCentre * pinScale,
+        radius: MoveraPin.dotRadius * pinScale,
+      ),
+    );
+    m.dispose();
+    vera.dispose();
+    return layout;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.poppins(
-      fontSize: size,
-      height: 1,
-      fontWeight: FontWeight.w800,
-      letterSpacing: -0.8,
-      color: AuthColors.ink,
-    );
-
+    final style = textStyle(size);
+    final l = layout(size);
     return Semantics(
       label: 'Movera',
       excludeSemantics: true,
-      child: Text.rich(
-        TextSpan(
-          style: style,
+      child: SizedBox(
+        width: l.size.width,
+        height: l.size.height,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            const TextSpan(text: 'M'),
-
-            // L'épingle représente le "o".
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: size * 0.03,
-                ),
-                child: Transform.translate(
-                  offset: Offset(0, size * 0.16),
-                  child: CustomPaint(
-                    size: Size(size * 0.52, size * 0.7),
-
-                    // Couleur d'accent du thème sélectionné.
-                    painter: const _PinPainter(AuthColors.green),
+            Positioned(
+              left: l.mLeft,
+              top: 0,
+              child: Text('M', style: style),
+            ),
+            Positioned(
+              left: l.pinRect.left,
+              top: l.pinRect.top,
+              child: CustomPaint(
+                size: l.pinRect.size,
+                painter: const _PinPainter(),
+              ),
+            ),
+            Positioned.fromRect(
+              rect: l.dotRect,
+              child: AnimatedScale(
+                key: const ValueKey('movera-dot'),
+                scale: showDot ? 1 : 0,
+                duration: dotPop,
+                curve: Curves.easeOutBack,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: MoveraPin.dotColor,
+                    shape: BoxShape.circle,
                   ),
                 ),
               ),
             ),
-
-            const TextSpan(text: 'v'),
-
-            // "era" prend la couleur d'accent du thème.
-            TextSpan(
-              text: 'era',
-              style: style.copyWith(
-                color: AuthColors.green,
+            Positioned(
+              left: l.veraLeft,
+              top: 0,
+              child: Text.rich(
+                TextSpan(
+                  text: 'v',
+                  style: style,
+                  children: [
+                    TextSpan(
+                      text: 'era',
+                      style: style.copyWith(color: AuthColors.green),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -65,43 +130,110 @@ class MoveraWordmark extends StatelessWidget {
   }
 }
 
-/// Épingle de localisation avec un trou rond.
-/// Elle conserve la forme originale du logo.
-class _PinPainter extends CustomPainter {
-  const _PinPainter(this.color);
+class MoveraWordmarkLayout {
+  const MoveraWordmarkLayout({
+    required this.size,
+    required this.baseline,
+    required this.mLeft,
+    required this.veraLeft,
+    required this.pinRect,
+    required this.dotRect,
+  });
 
-  final Color color;
+  final Size size;
+  final double baseline;
+  final double mLeft;
+  final double veraLeft;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final r = w / 2;
+  /// The pin's box, relative to the wordmark's top-left corner.
+  final Rect pinRect;
 
-    final pin = Path()
-      ..fillType = PathFillType.evenOdd
-      ..moveTo(r, h)
-      ..cubicTo(r * 0.55, h * 0.8, 0, h * 0.55, 0, r)
-      ..arcToPoint(
-        Offset(w, r),
-        radius: Radius.circular(r),
-      )
-      ..cubicTo(w, h * 0.55, r * 1.45, h * 0.8, r, h)
-      ..close()
-      ..addOval(
-        Rect.fromCircle(
-          center: Offset(r, r),
-          radius: r * 0.42,
-        ),
-      );
+  /// The small dot inside the pin's hole, relative to the wordmark.
+  final Rect dotRect;
+}
 
-    canvas.drawPath(
-      pin,
-      Paint()..color = color,
-    );
+/// The Movera map pin: its geometry, shared by the wordmark and the balloon
+/// that becomes it in the sign-in intro.
+abstract final class MoveraPin {
+  /// Design canvas of [outline]: 32 wide, 42 tall, head centred at (16, 16).
+  static const designSize = Size(32, 42);
+  static const headCentre = Offset(16, 16);
+  static const headRadius = 15.0;
+  static const holeRadius = 7.5;
+
+  /// The small green dot inside the hole (owner round 4, option A), on
+  /// [designSize]; the intro's balloon shrinks into it.
+  static const dotRadius = 4.6;
+  static const dotColor = AuthColors.green;
+
+  /// Urbanist ExtraBold, measured: the x-height as a share of the font size.
+  static const xHeight = 0.511;
+
+  /// How far under the baseline the tip ends, as a share of the font size.
+  static const tipBelowBaseline = 0.17;
+
+  /// Pin height as a share of the font size (x-height + tip overhang).
+  static const height = xHeight + tipBelowBaseline;
+
+  /// Width / height of the pin.
+  static const aspect = 32 / 42;
+
+  /// Air between the pin and its neighbouring letters, in font sizes.
+  static const gap = 0.02;
+
+  /// The pin outline on [designSize]. [tip] is the y of the point (42 for
+  /// the finished pin; the balloon starts rounder, with a higher tip).
+  static Path outline({double tip = 42}) => Path()
+    ..moveTo(16, tip)
+    ..cubicTo(8, 28, 1, 24, 1, 16)
+    ..arcToPoint(const Offset(31, 16), radius: const Radius.circular(15))
+    ..cubicTo(31, 24, 24, 28, 16, tip)
+    ..close();
+
+  /// The pin with its round hole cut out (even-odd, so it is a real hole on
+  /// every renderer), on [designSize].
+  static Path withHole({double tip = 42, double hole = holeRadius}) {
+    final path = outline(tip: tip)..fillType = PathFillType.evenOdd;
+    if (hole > 0) {
+      path.addOval(Rect.fromCircle(center: headCentre, radius: hole));
+    }
+    return path;
   }
 
+  /// The pin's colours: ink at the top running into green at the tip, one
+  /// continuous gradient (owner round 3).
+  static const topColor = AuthColors.ink;
+  static const bottomColor = AuthColors.green;
+
+  /// The fill of the pin on [designSize]: [top] at the head running into
+  /// [bottom] at the tip, blended across the middle.
+  static Paint fill({Color top = topColor, Color bottom = bottomColor}) =>
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, bottom],
+          stops: const [0.3, 0.8],
+        ).createShader(Offset.zero & designSize);
+
+  /// Draws the finished pin scaled into [size].
+  static void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(
+      size.width / designSize.width,
+      size.height / designSize.height,
+    );
+    canvas.drawPath(withHole(), fill());
+    canvas.restore();
+  }
+}
+
+class _PinPainter extends CustomPainter {
+  const _PinPainter();
+
   @override
-  bool shouldRepaint(_PinPainter oldDelegate) =>
-      oldDelegate.color != color;
+  void paint(Canvas canvas, Size size) => MoveraPin.paint(canvas, size);
+
+  @override
+  bool shouldRepaint(_PinPainter oldDelegate) => false;
 }

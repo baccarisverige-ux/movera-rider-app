@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
@@ -15,12 +16,15 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/booking/application/booking_attempt.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class BookingCoordinator {
   BookingCoordinator({ApiClient? api, ActiveTripRepository? activeTrips})
@@ -236,6 +240,44 @@ class BookingCoordinator {
     return rideId;
   }
 
+  /// rider-u107: a fresh, signed quote for booking the same route again
+  /// ("Try again" after no driver), so the screen can ask the rider to
+  /// accept a changed price before it books. Throws when no bookable quote
+  /// could be had.
+  Future<RideQuote> freshQuote({
+    required String rideType,
+    required String pickupAddress,
+    required String destinationAddress,
+    required double pickupLat,
+    required double pickupLng,
+    required double destinationLat,
+    required double destinationLng,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) async {
+    final quote = await ApiQuoteRepository(api: _client).quote(
+      rideType: rideType,
+      distanceMeters: _approxDistanceMeters(
+        pickupLat,
+        pickupLng,
+        destinationLat,
+        destinationLng,
+      ),
+      pickup: pickupAddress,
+      destination: destinationAddress,
+      pickupPoint: GeoPoint(pickupLat, pickupLng),
+      destinationPoint: GeoPoint(destinationLat, destinationLng),
+      stops: stops,
+    );
+    _BookingQuoteBinding(
+      id: quote.id,
+      signedPayload: quote.signedPayload ?? '',
+      expiresAt: quote.expiresAt,
+      totalMinor: quote.totalMinor,
+      currency: quote.currency,
+    ).validate();
+    return quote;
+  }
+
   Future<String> submitFinding({
     required String pickupAddress,
     required String destinationAddress,
@@ -352,6 +394,22 @@ class BookingCoordinator {
       'notes': notes.toJson(),
       'useWalletFirst': useWalletFirst,
     });
+    // rider-u80: the last attempt was sent and never answered (it may have
+    // created the ride) and this one would get a new key: a moved pin, or
+    // a retry after the reuse window. Ask the server first, so the ghost
+    // ride is adopted rather than booked a second time.
+    final uncertain = _attempt;
+    if (uncertain != null &&
+        uncertain.replay != null &&
+        !uncertain.matches(intentKey)) {
+      final adopted = await _adoptActiveTrip(
+        destinationLat,
+        destinationLng,
+        anyDestination: true,
+      );
+      if (identical(_attempt, uncertain)) _attempt = null;
+      if (adopted != null) return adopted;
+    }
     final attempt = _attemptFor(intentKey);
 
     try {
@@ -462,15 +520,22 @@ class BookingCoordinator {
 
   /// The rider's live trip on the server, when it is the booking being
   /// made (same destination): adopted as the created ride. Null otherwise.
+  ///
+  /// [anyDestination] (rider-u80): an earlier booking may exist, and the
+  /// server keeps no one-live-trip rule, so any live trip is that booking.
+  /// A lookup that fails the way a request can while offline is then
+  /// rethrown: no new key may go out until the server was asked.
   Future<String?> _adoptActiveTrip(
     double destinationLat,
-    double destinationLng,
-  ) async {
+    double destinationLng, {
+    bool anyDestination = false,
+  }) async {
     RideSnapshot? trip;
     try {
       trip = await (_activeTrips ?? AppScope.instance.activeTrips).fetchActive();
     } catch (error) {
       AppLog.warning('booking.active_trip_failed', extra: {'error': '$error'});
+      if (anyDestination && maybeCreated(error)) rethrow;
       return null;
     }
     final id = trip?.rideId?.trim();
@@ -484,7 +549,7 @@ class BookingCoordinator {
     final same = _intentPoint(trip.destinationLat, trip.destinationLng)
             ?.join(',') ==
         _intentPoint(destinationLat, destinationLng)?.join(',');
-    if (!same) return null;
+    if (!same && !anyDestination) return null;
     final collision = await _standDownIfFindingOwned(createdRideId: id);
     if (collision != null) return collision;
     final session = AppScope.instance.ride;
@@ -547,7 +612,7 @@ class BookingCoordinator {
     final cached = _autoQuoteBinding;
     if (_autoQuoteIntent == baseIntent &&
         cached != null &&
-        cached.expiresAt.isAfter(DateTime.now())) {
+        cached.expiresAt.isAfter(ServerClock.now())) {
       return cached;
     }
 
@@ -627,7 +692,7 @@ class BookingCoordinator {
         quoteSignedPayload.trim().isEmpty ||
         // A replay may carry a quote that expired meanwhile: the server
         // either returns the ride it already created or refuses it.
-        (!isReplay && !quoteExpiresAt.isAfter(DateTime.now())) ||
+        (!isReplay && !quoteExpiresAt.isAfter(ServerClock.now())) ||
         quoteTotalMinor <= 0 ||
         // ARCH-11: the shown price must be the quote, compared in minor
         // units of the quote's currency.
@@ -774,12 +839,46 @@ class BookingCoordinator {
     // A visible Finding surface already owns another ride. The race-losing
     // backend ride must be explicitly stood down; never leave two live rides.
     final cancelIntent = createdRideId;
-    await _client.post(
-      '/api/v1/rides/$createdRideId/cancel',
-      body: _expectedVersionBody(createdRideId),
-      idempotencyKey: _duplicateCancelMutation.keyFor(cancelIntent),
-    );
-    _duplicateCancelMutation.succeeded(cancelIntent);
+    final key = _duplicateCancelMutation.keyFor(cancelIntent);
+    // rider-u81: queued first, with the same key, so a stand-down the
+    // network loses is retried by the outbox flush (launch, reconnect)
+    // instead of leaving a second live ride. Its failure is not this
+    // booking's: the rider's ride is the owner's, which is fine.
+    try {
+      await PendingCancelStore.enqueue(
+        rideId: createdRideId,
+        idempotencyKey: key,
+        expectedVersion: AppScope.instance.ride.projectionVersionOf(
+          createdRideId,
+        ),
+      );
+    } catch (error) {
+      // rider-r5-32: storage that cannot hold the outbox (a full web
+      // localStorage) must not stop the cancel itself, as in Finding.
+      AppLog.warning(
+        'booking.duplicate_stand_down_queue_failed',
+        extra: {'rideId': createdRideId, 'error': error.toString()},
+      );
+    }
+    try {
+      await _client.post(
+        '/api/v1/rides/$createdRideId/cancel',
+        body: _cancelBody(createdRideId),
+        idempotencyKey: key,
+      );
+      _duplicateCancelMutation.succeeded(cancelIntent);
+      await PendingCancelStore.remove(createdRideId);
+    } catch (error) {
+      if (isPermanentCancelFailure(error)) {
+        // Gone or already over on the server: nothing left to stand down.
+        _duplicateCancelMutation.succeeded(cancelIntent);
+        await PendingCancelStore.remove(createdRideId);
+      }
+      AppLog.warning(
+        'booking.duplicate_stand_down_failed',
+        extra: {'rideId': createdRideId, 'error': error.toString()},
+      );
+    }
 
     // Restore the visible owner's identity after the duplicate create response
     // may have temporarily projected the new id into the process-wide session.
@@ -806,15 +905,19 @@ class BookingCoordinator {
   Future<void> cancel({required String rideId, required String key}) {
     return _client.post(
       '/api/v1/rides/$rideId/cancel',
-      body: _expectedVersionBody(rideId),
+      body: _cancelBody(rideId),
       idempotencyKey: key,
     );
   }
 
-  /// R-O2: the trip version the create response carried, when known.
-  static Map<String, dynamic> _expectedVersionBody(String rideId) {
+  /// R-O2: the trip version the create response carried, when known, and
+  /// the contract `reasonCode` every rider cancel names (rider-u19).
+  static Map<String, dynamic> _cancelBody(String rideId) {
     final version = AppScope.instance.ride.projectionVersionOf(rideId);
-    return {'expectedVersion': ?version};
+    return {
+      ...CancelReasonCodes.riderCancelBody(null),
+      'expectedVersion': ?version,
+    };
   }
 }
 
@@ -841,7 +944,7 @@ class _BookingQuoteBinding {
   void validate({double? requestedPrice}) {
     if (id.trim().isEmpty ||
         signedPayload.trim().isEmpty ||
-        !expiresAt.isAfter(DateTime.now()) ||
+        !expiresAt.isAfter(ServerClock.now()) ||
         totalMinor <= 0) {
       throw StateError('A fresh authoritative quote is required for booking');
     }

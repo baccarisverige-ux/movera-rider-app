@@ -78,14 +78,23 @@ class SafetyStore {
     if (!_loaded) await load();
   }
 
-  Future<T> _write<T>(Future<T> Function() remote, T optimistic, void Function(T value) apply) async {
+  /// rider-r3-1: [keep] runs before the optimistic change and returns how
+  /// to undo it. A failed write undoes only its own slice of the cache, so
+  /// answers, events, recordings and contacts saved by other writes while
+  /// it was in flight stay.
+  Future<T> _write<T>(
+    Future<T> Function() remote,
+    T optimistic,
+    void Function(T value) apply, {
+    required void Function() Function() keep,
+  }) async {
     await _ensure();
-    final previous = SafetyCache.fromJson(_cache.toJson());
+    final undo = keep();
     apply(optimistic);
     await _local.save(_cache);
     if (failNextWrite) {
       failNextWrite = false;
-      _cache = previous;
+      undo();
       await _local.save(_cache);
       throw const SafetyException('SERVER_ERROR', 'Simulated write failure');
     }
@@ -95,10 +104,32 @@ class SafetyStore {
       await _local.save(_cache);
       return confirmed;
     } catch (error) {
-      _cache = previous;
+      undo();
       await _local.save(_cache);
       rethrow;
     }
+  }
+
+  void Function() _keepPreferences() {
+    final previous = _cache.preferences;
+    return () => _cache.preferences = previous;
+  }
+
+  void Function() _keepContacts() {
+    final previous = [..._cache.contacts];
+    return () => _cache.contacts = previous;
+  }
+
+  void Function() _keepEvent(String eventId) {
+    final previous = _cache.events.where((e) => e.eventId == eventId);
+    final before = previous.isEmpty ? null : previous.last;
+    return () => _cache.events = [
+          for (final event in _cache.events)
+            if (event.eventId != eventId) event
+            else if (before != null) before,
+          if (before != null && !_cache.events.any((e) => e.eventId == eventId))
+            before,
+        ];
   }
 
   Future<SafetyPreferences> patchPreferences(SafetyPreferences next) {
@@ -106,6 +137,7 @@ class SafetyStore {
       () => _remote.patchPreferences(next),
       next.copyWith(updatedAt: DateTime.now().toUtc()),
       (value) => _cache.preferences = value,
+      keep: _keepPreferences,
     );
   }
 
@@ -183,6 +215,7 @@ class SafetyStore {
           _cache.contacts = next;
         }
       },
+      keep: _keepContacts,
     );
   }
 
@@ -217,6 +250,7 @@ class SafetyStore {
             if (item.id == value.id) value else item,
         ];
       },
+      keep: _keepContacts,
     );
   }
 
@@ -247,6 +281,7 @@ class SafetyStore {
       () => _remote.setPrimary(id),
       optimistic,
       (value) => _cache.contacts = value,
+      keep: _keepContacts,
     );
   }
 
@@ -272,6 +307,12 @@ class SafetyStore {
       () => _remote.startShare(rideId, contactIds: ids),
       optimistic,
       (value) => _cache.shares[rideId] = value,
+      keep: () {
+        final previous = _cache.shares[rideId];
+        return () => previous == null
+            ? _cache.shares.remove(rideId)
+            : _cache.shares[rideId] = previous;
+      },
     );
   }
 
@@ -294,6 +335,9 @@ class SafetyStore {
       return _cache.shares[rideId];
     }
   }
+
+  /// The share kept for [rideId], if any.
+  TripShare? shareFor(String rideId) => _cache.shares[rideId];
 
   Future<void> stopShare(String rideId) async {
     await _ensure();
@@ -322,6 +366,15 @@ class SafetyStore {
         _cache.rideCheck = value;
         _cache.preferences = _cache.preferences.copyWith(rideCheckEnabled: value.enabled);
       },
+      keep: () {
+        final policy = _cache.rideCheck;
+        final enabled = _cache.preferences.rideCheckEnabled;
+        return () {
+          _cache.rideCheck = policy;
+          _cache.preferences =
+              _cache.preferences.copyWith(rideCheckEnabled: enabled);
+        };
+      },
     );
   }
 
@@ -340,8 +393,20 @@ class SafetyStore {
       () => _remote.postSafetyEvent(event),
       event,
       (value) {
-        _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), value];
+        // rider-u197: a card closed while its open was being sent stays
+        // closed, with the answers saved on this device.
+        final local = _cache.events
+            .where((e) => e.eventId == value.eventId)
+            .lastOrNull;
+        final kept = local?.status == RideCheckStatus.resolved
+            ? value.copyWith(
+                status: RideCheckStatus.resolved,
+                payload: {...value.payload, ...local!.payload},
+              )
+            : value;
+        _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), kept];
       },
+      keep: () => _keepEvent(event.eventId),
     );
   }
 
@@ -389,6 +454,7 @@ class SafetyStore {
               item,
         ];
       },
+      keep: () => _keepEvent(eventId),
     );
   }
 
@@ -412,10 +478,39 @@ class SafetyStore {
   Future<RideCheckReceipt> submitRideCheckAnswers(
     RideCheckSubmission submission,
   ) async {
+    await keepRideCheckAnswers(submission);
+    final receipt = await _remote.postRideCheckAnswers(submission);
+    final alertId = receipt.alertId;
+    if (alertId != null) {
+      // The event as it is now: a close saved while this was sent stays
+      // resolved with its own answers.
+      final now = _cache.events
+          .where((event) => event.eventId == submission.checkId)
+          .lastOrNull;
+      if (now != null) {
+        _cache.events = [
+          for (final event in _cache.events)
+            if (event.eventId != now.eventId) event,
+          now.copyWith(payload: {...now.payload, 'alertId': alertId}),
+        ];
+        await _local.save(_cache);
+      }
+    }
+    return receipt;
+  }
+
+  /// [submission]'s answers on the trip's Ride check event on this device
+  /// only (rider-u197: a close is saved at once, not after the sends queued
+  /// before it).
+  Future<void> keepRideCheckAnswers(RideCheckSubmission submission) async {
     await _ensure();
     RideCheckEvent? current;
     for (final event in _cache.events) {
       if (event.eventId == submission.checkId) current = event;
+    }
+    // A closed card's answers are final; an earlier send never reopens it.
+    if (!submission.isFinal && current?.status == RideCheckStatus.resolved) {
+      return;
     }
     final base = current ??
         RideCheckEvent(
@@ -438,6 +533,11 @@ class SafetyStore {
             'answers': [for (final a in submission.answers) a.toJson()],
             'answeredAt': DateTime.now().toUtc().toIso8601String(),
             if (alertId != null) 'alertId': alertId,
+            // rider-u195: an alert was asked for. Kept on the device before
+            // it is sent, so after a reload a failed alert is known as
+            // failed (no alertId) rather than as no alert.
+            if (submission.alert || base.payload['alertRequested'] == true)
+              'alertRequested': true,
           },
         );
     void keep(RideCheckEvent next) {
@@ -453,12 +553,6 @@ class SafetyStore {
       submission.alertId ?? (existingAlert is String ? existingAlert : null),
     ));
     await _local.save(_cache);
-    final receipt = await _remote.postRideCheckAnswers(submission);
-    if (receipt.alertId != null) {
-      keep(withAnswers(receipt.alertId));
-      await _local.save(_cache);
-    }
-    return receipt;
   }
 
   /// RC5: a Ride check recording is kept on this device only. No server
@@ -491,51 +585,83 @@ class SafetyStore {
     return next;
   }
 
-  Future<AudioRecording> initAudio(String rideId) {
+  /// rider-u207: the take is registered on this phone first, so the
+  /// microphone starts offline too; the server is told best effort. Its
+  /// confirmed recording (with the server's id) replaces the local entry,
+  /// which used to stay behind with endedAt null.
+  Future<AudioRecording> initAudio(String rideId) async {
+    await _ensure();
     final rec = AudioRecording(
       id: 'aud_${newRequestId()}',
       rideId: rideId,
       createdAt: DateTime.now().toUtc(),
       uploadStatus: AudioUploadStatus.localOnly,
     );
-    return _write(
-      () => _remote.initAudio(rideId: rideId),
-      rec,
-      (value) {
-        _cache.recordings = [..._cache.recordings.where((r) => r.id != value.id), value];
-      },
-    );
+    _cache.recordings = [..._cache.recordings, rec];
+    await _local.save(_cache);
+    try {
+      final confirmed = await _remote.initAudio(rideId: rideId);
+      _putRecording(rec.id, confirmed);
+      await _local.save(_cache);
+      return confirmed;
+    } catch (error) {
+      AppLog.warning(
+        'safety.audio.init_unconfirmed',
+        extra: {'error': '$error'},
+      );
+      return rec;
+    }
   }
 
-  Future<AudioRecording> completeAudio(AudioRecording recording) {
-    final next = recording.copyWith(
-      endedAt: DateTime.now().toUtc(),
+  /// Saves the finished take on this phone first, then tells the server.
+  /// rider-u200: a failed server confirm used to undo the local save and
+  /// throw SAVE_FAILED, leaving the captured file with no record of its
+  /// path; the take is now kept here either way.
+  Future<AudioRecording> completeAudio(AudioRecording recording) async {
+    await _ensure();
+    final local = recording.copyWith(
+      endedAt: recording.endedAt ?? DateTime.now().toUtc(),
       uploadStatus: AudioUploadStatus.localOnly,
     );
-    return _write(
-      () => _remote.completeAudio(
+    _putRecording(recording.id, local);
+    await _local.save(_cache);
+    try {
+      final confirmed = await _remote.completeAudio(
         rideId: recording.rideId ?? '',
         recordingId: recording.id,
         durationMs: recording.durationMs,
-      ),
-      next,
-      (value) {
-        // Completion confirms metadata, not the private file on this device.
-        final local = value.copyWith(
-          localPath: recording.localPath,
-          durationMs: recording.durationMs,
-          endedAt: recording.endedAt,
-        );
-        _cache.recordings = [
-          for (final item in _cache.recordings)
-            if (item.id == value.id) local else item,
-        ];
-      },
-    ).then((value) => value.copyWith(
-          localPath: recording.localPath,
-          durationMs: recording.durationMs,
-          endedAt: recording.endedAt,
-        ));
+      );
+      // Completion confirms metadata, not the private file on this device.
+      final next = confirmed.copyWith(
+        localPath: recording.localPath,
+        durationMs: recording.durationMs,
+        endedAt: local.endedAt,
+      );
+      _putRecording(recording.id, next);
+      await _local.save(_cache);
+      return next;
+    } catch (error) {
+      AppLog.warning(
+        'safety.audio.complete_unconfirmed',
+        extra: {'error': '$error'},
+      );
+      return local;
+    }
+  }
+
+  /// Replaces the recording kept as [id] with [next] (its id may differ).
+  void _putRecording(String id, AudioRecording next) {
+    final kept = [
+      for (final item in _cache.recordings)
+        if (item.id != next.id || item.id == id) item,
+    ];
+    final at = kept.indexWhere((item) => item.id == id);
+    if (at < 0) {
+      kept.add(next);
+    } else {
+      kept[at] = next;
+    }
+    _cache.recordings = kept;
   }
 
   Future<void> deleteAudio(AudioRecording recording) async {

@@ -186,8 +186,8 @@ void main() {
       expect(rec.keys[1], rec.keys[0]);
     });
 
-    test('a retry after a timeout, from a new sheet, reuses the key and the '
-        'difference is charged once', () async {
+    test('a resend after a timeout reuses the key, the change is adopted '
+        'and the difference is charged once', () async {
       final mock = server();
       final backend = _Backend(mock)..timeOutNextPatch = true;
       final first = changes(backend);
@@ -195,12 +195,10 @@ void main() {
         ride: ride(),
         destinationAddress: 'Arlanda',
       );
-      await expectLater(
-        first.apply(ride: ride(), quote: quote),
-        throwsA(isA<RouteChangeException>()),
-      );
-      // The rider opens Change route again and confirms the same change.
-      await changes(backend).apply(ride: ride(), quote: quote);
+      // rider-u38: the lost answer is asked for again with the same key, so
+      // the change the server applied is not reported as failed.
+      final updated = await first.apply(ride: ride(), quote: quote);
+      expect(updated.destinationAddress, 'Arlanda');
 
       expect(backend.keys, hasLength(2));
       expect(backend.keys[1], backend.keys[0]);

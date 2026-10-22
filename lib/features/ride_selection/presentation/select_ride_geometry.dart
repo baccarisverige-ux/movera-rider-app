@@ -24,35 +24,71 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
 
 /// D-009: bounds that frame [pickup] and [destination] inside a map of
 /// [mapHeight] whose bottom [bottomObstruction] pixels are covered by the
-/// sheet. google_maps_flutter only takes one uniform padding, so the covered
-/// band is reserved by stretching the bounds southwards.
+/// sheet and whose top [topObstruction] pixels sit under the search bar.
+/// google_maps_flutter only takes one uniform padding, so the covered bands
+/// are reserved by stretching the bounds south and north.
+///
+/// Owner round 4: [route] (the road line's points, when known) widens the
+/// bounds so a road that bulges past the straight line stays on screen, and
+/// [edgePadding] leaves room for the time bubbles drawn above the pins
+/// (about 110 x 56 px, anchored at their bottom centre).
 ({GeoPoint southwest, GeoPoint northeast, double padding}) selectRideCameraFit({
   required GeoPoint pickup,
   required GeoPoint destination,
   required double mapHeight,
   required double bottomObstruction,
-  double edgePadding = 56,
+  double topObstruction = 0,
+  List<GeoPoint> route = const [],
+  double edgePadding = selectRideEdgePadding,
 }) {
-  final south = math.min(pickup.latitude, destination.latitude);
-  final north = math.max(pickup.latitude, destination.latitude);
-  final west = math.min(pickup.longitude, destination.longitude);
-  final east = math.max(pickup.longitude, destination.longitude);
+  var south = math.min(pickup.latitude, destination.latitude);
+  var north = math.max(pickup.latitude, destination.latitude);
+  var west = math.min(pickup.longitude, destination.longitude);
+  var east = math.max(pickup.longitude, destination.longitude);
+  for (final point in route) {
+    south = math.min(south, point.latitude);
+    north = math.max(north, point.latitude);
+    west = math.min(west, point.longitude);
+    east = math.max(east, point.longitude);
+  }
   final full = math.max(mapHeight - 2 * edgePadding, 1.0);
+  final bottom = math.max(bottomObstruction, 0.0);
+  final top = math.max(topObstruction, 0.0);
   final usable = math.max(
-    mapHeight - math.max(bottomObstruction, 0.0) - 2 * edgePadding,
+    mapHeight - bottom - top - 2 * edgePadding,
     full * 0.2,
   );
-  final stretchedSouth = north - (north - south) * (full / usable);
+  final span = north - south;
+  final stretchedSouth = south - span * (bottom / usable);
+  final stretchedNorth = north + span * (top / usable);
   return (
     southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
-    northeast: GeoPoint(north, east),
+    northeast: GeoPoint(math.min(stretchedNorth, 85.0), east),
     padding: edgePadding,
   );
 }
 
+/// Room kept around the route on Select Ride: the time bubble above a pin
+/// is about 110 px wide and 56 px tall, so half its width plus a margin.
+const double selectRideEdgePadding = 76;
+
 /// Rough trip minutes from the straight-line distance, until the server sends
 /// the route duration (LATER_JOB B4): ×1.35 for roads, 40 km/h average.
-int estimatedTripMinutes(GeoPoint from, GeoPoint to) {
+int estimatedTripMinutes(GeoPoint from, GeoPoint to) =>
+    estimatedRouteMinutes(from, const [], to);
+
+/// [estimatedTripMinutes] over pickup → each of [stops] in order →
+/// destination (rider-u60: a stop the rider added moves the arrival).
+int estimatedRouteMinutes(GeoPoint from, List<GeoPoint> stops, GeoPoint to) {
+  final points = [from, ...stops, to];
+  var km = 0.0;
+  for (var i = 1; i < points.length; i++) {
+    km += _greatCircleKm(points[i - 1], points[i]);
+  }
+  return math.max(3, (km * 1.35 / 40 * 60).round());
+}
+
+double _greatCircleKm(GeoPoint from, GeoPoint to) {
   const r = 6371.0;
   double rad(double d) => d * math.pi / 180;
   final dLat = rad(to.latitude - from.latitude);
@@ -63,8 +99,7 @@ int estimatedTripMinutes(GeoPoint from, GeoPoint to) {
           math.cos(rad(to.latitude)) *
           math.sin(dLng / 2) *
           math.sin(dLng / 2);
-  final km = r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-  return math.max(3, (km * 1.35 / 40 * 60).round());
+  return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
 }
 
 /// "23:48"

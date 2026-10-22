@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class DriverTrackingController {
   DriverTrackingController({
@@ -47,9 +49,26 @@ class DriverTrackingController {
   /// `waiting.arrivedAt`, else when this app first saw the driver waiting.
   DateTime? waitingSince;
 
+  /// rider-r4-13: the projection's `waiting.freeUntil` and
+  /// `waiting.noShowAt`, on the device clock; null when the server has not
+  /// said (the zone's free-wait minutes from [waitingSince] apply then).
+  DateTime? waitingFreeUntil;
+  DateTime? waitingNoShowAt;
+
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
+
+  /// rider-u23: the driver who dropped the trip when the feed went straight
+  /// to another driver (the polls never saw the `searching` between).
+  /// Waiting takes it once to say so and to forget the old arrival.
+  MatchedDriver? takeReplacedDriver() {
+    final replaced = _replacedDriver;
+    _replacedDriver = null;
+    return replaced;
+  }
+
+  MatchedDriver? _replacedDriver;
   RideStatus? _lastPersistedStatus;
   int? _lastVersion;
   DateTime? _lastServerTime;
@@ -89,6 +108,23 @@ class DriverTrackingController {
   /// runs when an event actually arrives.
   static const _staleCheckInterval = Duration(seconds: 5);
 
+  /// rider-r4-13: `acceptedAt` and `waiting.arrivedAt` are server stamps;
+  /// the waiting-fee clock and the cancel-fee preview measure from them
+  /// with the device clock, so they are moved onto it (a phone 90 s fast
+  /// would otherwise show the fee 90 s early).
+  static DateTime? _onDevice(DateTime? server) =>
+      server == null ? null : ServerClock.toDevice(server);
+
+  void _takeWaitingDeadlines(RideRealtimeEvent event) {
+    waitingFreeUntil = _onDevice(event.waitingFreeUntil);
+    waitingNoShowAt = _onDevice(event.waitingNoShowAt);
+  }
+
+  void _clearWaitingDeadlines() {
+    waitingFreeUntil = null;
+    waitingNoShowAt = null;
+  }
+
   void start({
     required String rideId,
     MatchedDriver? initial,
@@ -102,6 +138,10 @@ class DriverTrackingController {
         (initialStatus.isMatched || initialStatus.isCompletedSurface)) {
       status = initialStatus;
     }
+    // rider-u45: a restored wait has a clock from the start; the server's
+    // own stamp replaces it when a projection carries one. Without this
+    // the screen fell back to "now" on every rebuild.
+    if (status == RideStatus.driverWaiting) waitingSince ??= DateTime.now();
     this.onChange = onChange;
     // A fresh subscription is a fresh feed; only its own errors degrade it.
     connectionDegraded = false;
@@ -136,12 +176,34 @@ class DriverTrackingController {
             // Back in dispatch: the next accept starts new clocks.
             acceptedAt = null;
             waitingSince = null;
+            _clearWaitingDeadlines();
+          } else if (event.kind == RealtimeKind.driverCancelled &&
+              event.status.isMatched) {
+            // rider-u23: another driver already took the dropped trip; the
+            // new accept starts new clocks too.
+            _replacedDriver = driver;
+            acceptedAt = null;
+            waitingSince = null;
+            _clearWaitingDeadlines();
           }
-          acceptedAt = event.acceptedAt ?? acceptedAt;
+          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
-            waitingSince = event.waitingArrivedAt;
+            waitingSince = _onDevice(event.waitingArrivedAt);
+            _takeWaitingDeadlines(event);
           } else if (event.status == RideStatus.driverWaiting) {
             waitingSince ??= DateTime.now();
+          }
+        } else if (_carriesCurrentClocks(event, eventVersion)) {
+          // rider-u45: the projection's `acceptedAt` and `waiting.arrivedAt`
+          // are server facts about this trip whatever the ordering verdict
+          // on its status. After a reload the first projection repeats the
+          // version the restore seeded and is rejected as a duplicate;
+          // dropping its stamps restarted the waiting clock and the
+          // free-cancel preview on the device clock.
+          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
+          if (event.waitingArrivedAt != null) {
+            waitingSince = _onDevice(event.waitingArrivedAt);
+            _takeWaitingDeadlines(event);
           }
         }
         if (event.driver != null) driver = event.driver;
@@ -201,6 +263,18 @@ class DriverTrackingController {
       eta = refreshed;
       this.onChange?.call();
     });
+  }
+
+  /// Whether a rejected [event] is still current enough for its clock
+  /// stamps to apply: not older than the last accepted version, and not a
+  /// return to dispatch (which starts new clocks when it is accepted).
+  bool _carriesCurrentClocks(RideRealtimeEvent event, int eventVersion) {
+    if (event.status.isSearching ||
+        event.status == RideStatus.cancelledByDriver) {
+      return false;
+    }
+    final last = _lastVersion;
+    return last == null || eventVersion >= last;
   }
 
   /// Set when the realtime stream itself errors or closes (see M-05). Waiting

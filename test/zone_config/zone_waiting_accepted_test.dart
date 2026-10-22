@@ -209,7 +209,7 @@ void main() {
   group('waiting fee (Q42)', () {
     final since = DateTime.utc(2026, 10, 20, 9);
 
-    test('free first, then the per-minute rate for each whole minute', () {
+    test('free first, then the per-minute rate counted by the second', () {
       const rate = Money(500, 'SEK');
       var state = WaitingFeeState.at(
         since: since,
@@ -229,7 +229,7 @@ void main() {
       );
       expect(state.charging, isTrue);
       expect(state.over, const Duration(minutes: 3, seconds: 30));
-      expect(state.fee, const Money(1500, 'SEK'));
+      expect(state.fee, const Money(1750, 'SEK'));
     });
 
     testWidgets('the counter runs live and shows the zone currency', (
@@ -253,7 +253,7 @@ void main() {
 
       now = since.add(const Duration(minutes: 6, seconds: 5));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('Waiting fee 3,45 €'), findsOneWidget);
+      expect(find.text('Waiting fee 3,55 €'), findsOneWidget);
       expect(find.text('3:05 after the free 3 min · 1,15 €/min'), findsOneWidget);
     });
 

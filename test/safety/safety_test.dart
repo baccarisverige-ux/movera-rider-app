@@ -25,6 +25,7 @@ import 'package:movera_rider/features/safety/presentation/pin_verification_page.
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 SafetyController buildController({SafetyStore? store}) {
@@ -64,6 +65,13 @@ class TestSafetyRecorder implements SafetyRecorder {
   Future<void> cancel() async {}
   @override
   Future<void> delete(String path) async { deletedPaths.add(path); }
+}
+
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
 }
 
 void main() {
@@ -433,9 +441,31 @@ void main() {
     await expectLater(unsupported.start(), throwsA(isA<SafetyAudioException>()));
   });
 
+  // rider-r4-27: a double tap on Record ran two overlapping start() calls;
+  // both passed isRecording because _active is set only after the awaits.
+  test('an overlapping audio start is refused, not a second take', () async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    await store.load();
+    final recorder = TestSafetyRecorder()..permissionGranted = true;
+    final audio = SafetyAudioService(recorder: recorder, store: store);
+    final first = audio.start(rideId: 'ride_a');
+    await expectLater(
+      audio.start(rideId: 'ride_a'),
+      throwsA(isA<SafetyAudioException>()
+          .having((e) => e.code, 'code', 'ALREADY_RECORDING')),
+    );
+    await first;
+    expect(recorder.starts, 1);
+    expect(audio.isRecording, isTrue);
+  });
+
   testWidgets('Safety Kit reports denied microphone access honestly', (
     tester,
   ) async {
+    _withAudioOption();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
       remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),

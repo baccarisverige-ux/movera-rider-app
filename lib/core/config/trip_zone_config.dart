@@ -42,6 +42,22 @@ extension TripZoneConfig on RiderConfigRepository {
   /// Q9: the IANA time zone the pickup zone's config names
   /// (`RiderAppConfig.timeZone`); the built-in zone's when none can be
   /// read. Never throws.
+  /// rider-r4-10: the pickup zone's time zone and reservation horizon
+  /// (`booking.bookingHorizonDays`), from one document; the zone's
+  /// built-in seed when none can be read. Never throws.
+  Future<({String timeZone, int horizonDays})> bookingWindowAt(
+    double? lat,
+    double? lng,
+  ) async {
+    RiderAppConfig config;
+    try {
+      config = await forPickup(lat, lng);
+    } catch (_) {
+      config = SeedRiderConfigRepository.seedFor(RiderZones.at(lat, lng).id);
+    }
+    return (timeZone: config.timeZone, horizonDays: config.bookingHorizonDays);
+  }
+
   Future<String> timeZoneAt(double? lat, double? lng) async {
     try {
       return (await forPickup(lat, lng)).timeZone;
@@ -57,14 +73,16 @@ RiderAppConfig? seedConfigForTrip(String currency) =>
     SeedRiderConfigRepository.seedForCurrency(currency);
 
 /// The zone the rider is in now, for screens with no trip (Wallet,
-/// Payment): the zone of the app's last good location fix, else the home
-/// zone. Never throws.
+/// Payment): the zone of the app's last good location fix, else the zone
+/// of the last fix this device ever had (sign-out drops the fix, not the
+/// zone: rider-r4-41), else the home zone. Never throws.
 Future<RiderZone> currentRiderZone({
   LocationRepository location = const LocationRepository(),
 }) async {
   try {
     final fix = await location.readLastGoodFix();
-    return RiderZones.at(fix?.latitude, fix?.longitude);
+    if (fix != null) return RiderZones.at(fix.latitude, fix.longitude);
+    return await LocationRepository.readLastZone() ?? RiderZones.home;
   } catch (_) {
     return RiderZones.home;
   }

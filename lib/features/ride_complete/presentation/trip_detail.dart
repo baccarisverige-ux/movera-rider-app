@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -23,7 +24,9 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trip = (controller ?? AppScope.instance.rideComplete).receipt();
+    final trip = (controller ?? AppScope.instance.rideComplete).receipt(
+      rideId: rideId,
+    );
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -74,9 +77,10 @@ class RideCompletedTripDetail extends StatelessWidget {
                   8.height,
                   _detailRow(
                     context.l10n.paymentMethod,
+                    // rider-u182: Wallet and Card too, not only Cash.
                     L10n.isCashLabel(trip.method)
                         ? context.l10n.payCash
-                        : trip.method,
+                        : paymentLabelFor(trip.method),
                   ),
                   8.height,
                   // RC5: a Ride check on this trip, with its answers.
@@ -142,13 +146,11 @@ class RideCompletedTripDetail extends StatelessWidget {
             }
           }
 
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
+          // rider-u183: MoveraSheet.show already lifts the sheet over the
+          // keyboard; padding by the inset here as well pushed Submit out
+          // of reach while the rider typed. It scrolls on a short screen.
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +202,10 @@ class RideCompletedTripDetail extends StatelessWidget {
   static String _drivenLabel(int? meters) {
     if (meters == null) return L10n.current.paidByDistance;
     final km = meters / 1000;
-    return L10n.current.kmDriven(km.toStringAsFixed(km < 10 ? 1 : 0));
+    // rider-r5-53: the app language's decimal mark ('4,2 km körda').
+    return L10n.current.kmDriven(
+      L10n.formatDecimal(km, digits: km < 10 ? 1 : 0),
+    );
   }
 
   Widget _detailRow(String label, String value) {

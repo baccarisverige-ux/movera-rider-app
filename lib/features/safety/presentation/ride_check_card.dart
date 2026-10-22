@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -213,6 +214,7 @@ class _RideCheckLayerState extends State<RideCheckLayer>
     if (!mounted || _ctl.sessionFor(widget.rideId) == null) return;
     final route = ModalRoute.of(context);
     if (route == null || route.isCurrent || !route.isActive) return;
+    _ctl.takeOverRecording();
     Navigator.of(context).popUntil((other) => other == route);
   }
 
@@ -623,8 +625,10 @@ class _MainStep extends StatelessWidget {
             _Note(session.callError!),
           ],
         ],
-        const SizedBox(height: 10),
-        _RecordAudio(session: session, controller: controller),
+        if (_showsRecording(session, controller)) ...[
+          const SizedBox(height: 10),
+          _RecordAudio(session: session, controller: controller),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(2, 14, 2, 2),
           child: Text(
@@ -750,8 +754,10 @@ class _FollowUpStep extends StatelessWidget {
           const SizedBox(height: 10),
           _NoteField(initial: session.note, onChanged: controller.setNote),
         ],
-        const SizedBox(height: 14),
-        _RecordAudio(session: session, controller: controller),
+        if (_showsRecording(session, controller)) ...[
+          const SizedBox(height: 14),
+          _RecordAudio(session: session, controller: controller),
+        ],
         const SizedBox(height: 14),
         _BigButton(
           key: const ValueKey<String>('ride-check-done'),
@@ -794,6 +800,8 @@ class _BigButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      // rider-u213: excludeSemantics drops the InkWell's own tap action.
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: red ? RideCheckColors.red : Colors.white,
@@ -840,6 +848,7 @@ class _Call112Now extends StatelessWidget {
     return Semantics(
       button: true,
       label: context.l10n.rcCall112NowSemantics,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         key: const ValueKey<String>('ride-check-call-112-now'),
@@ -964,6 +973,17 @@ class _AlertBanner extends StatelessWidget {
   }
 }
 
+/// Owner decision 10: "Record audio" is hidden for now. A recording that
+/// is already running (taken over from the Safety Kit) keeps its Stop, and
+/// the note about one that just ended stays, so neither is left dangling.
+bool _showsRecording(
+  RideCheckSession session,
+  RideCheckController controller,
+) =>
+    SafetyAudioOption.enabled ||
+    controller.recording ||
+    session.recordingNote != null;
+
 class _RecordAudio extends StatefulWidget {
   const _RecordAudio({required this.session, required this.controller});
 
@@ -1005,14 +1025,19 @@ class _RecordAudioState extends State<_RecordAudio> {
     final clock =
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
     final note = widget.session.recordingNote;
+    // rider-r5-30 (owner decision 10): with the option hidden, the button
+    // is there only to stop a running recording; after Stop just the note
+    // stays, never a "Record audio" that would start a new one.
+    final showButton = SafetyAudioOption.enabled || recording;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
+        if (showButton) Semantics(
           button: true,
           label: recording
               ? context.l10n.rcStopRecordingSemantics
               : context.l10n.rcRecordAudioSemantics,
+          onTap: widget.controller.toggleRecording,
           excludeSemantics: true,
           child: Material(
             key: const ValueKey<String>('ride-check-record'),
@@ -1071,7 +1096,10 @@ class _RecordAudioState extends State<_RecordAudio> {
             ),
           ),
         ),
-        if (note != null) ...[const SizedBox(height: 6), _Note(note)],
+        if (note != null) ...[
+          if (showButton) const SizedBox(height: 6),
+          _Note(note),
+        ],
       ],
     );
   }
@@ -1089,6 +1117,7 @@ class _RowTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: row.displayLabel,
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         key: ValueKey<String>('ride-check-row-${row.wire}'),
@@ -1160,6 +1189,7 @@ class _OptionButton extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: selected ? Colors.white : RideCheckColors.fill,

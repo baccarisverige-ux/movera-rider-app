@@ -9,20 +9,25 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
-import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
-import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The in-process backend without the platform token store, which never
-/// answers inside widget tests.
-ApiClient _api() => ApiClient(client: InProcessMockClient());
-
 void main() {
+  // rider-u235: one in-process backend per test, seeded with the ride, so a
+  // cancel only passes when the server row really becomes cancelled (an
+  // unseeded mock answers 404, which the cancel paths treat as confirmed).
+  late InProcessMockClient server;
+
+  /// The in-process backend without the platform token store, which never
+  /// answers inside widget tests.
+  ApiClient api() => ApiClient(client: server);
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
@@ -31,6 +36,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    server = InProcessMockClient();
     RideSnapshotStore.epoch = 0;
     FindingDriverController.active = null;
     AppScope.instance.ride
@@ -39,7 +45,8 @@ void main() {
       ..restoreFromBackend(RideStatus.idle);
   });
 
-  Future<void> seed(String id, RideStatus status) async {
+  Future<void> seed(String id, RideStatus status, String serverStatus) async {
+    server.rides[id] = {'id': id, 'status': serverStatus};
     AppScope.instance.ride.restoreFromBackend(status, id: id);
     await RideSnapshotStore.save(
       RideSnapshot(
@@ -59,48 +66,6 @@ void main() {
     );
   }
 
-  Future<void> openCancelRoute(
-    WidgetTester tester, {
-    required String routeName,
-    required String trigger,
-    required CancelPhase phase,
-  }) async {
-    final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: nav,
-        home: const Scaffold(body: Text('journey-home')),
-      ),
-    );
-    nav.currentState!.push(
-      MaterialPageRoute<void>(
-        settings: RouteSettings(name: routeName),
-        builder: (context) => Scaffold(
-          body: Center(
-            child: TextButton(
-              // Mirrors Waiting's production cancel: sheet, then the
-              // server-first ActiveRideController.markCancelled (D-013).
-              onPressed: () async {
-                final outcome = await showCancelRideSheet(
-                  context,
-                  takingLonger: false,
-                  phase: phase,
-                );
-                if (outcome.cancelled) {
-                  await ActiveRideController(
-                    api: _api(),
-                  ).markCancelled(reasonId: outcome.reasonId);
-                }
-              },
-              child: Text(trigger),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
   testWidgets('rider cancels while still searching', (tester) async {
     // Drives the real Finding screen: Cancel request commits the cancel
     // first, and the why-sheet afterwards is feedback only (CODE-3).
@@ -109,7 +74,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     const rideId = 'journey-cancel-searching';
-    await seed(rideId, RideStatus.findingDriver);
+    await seed(rideId, RideStatus.findingDriver, 'searching');
     final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
     addTearDown(realtime.dispose);
     final nav = GlobalKey<NavigatorState>();
@@ -133,7 +98,7 @@ void main() {
           price: 259,
           paymentMethod: 'Apple Pay',
           realtime: realtime,
-          controller: FindingDriverController(realtime: realtime, api: _api()),
+          controller: FindingDriverController(realtime: realtime, api: api()),
         ),
         settings: const RouteSettings(name: AppRoutes.findingDriver),
       ),
@@ -173,37 +138,68 @@ void main() {
     expect(AppScope.instance.ride.rideId, rideId);
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
     expect(await RideSnapshotStore.read(), isNull);
+    expect(server.rides[rideId]!['status'], 'cancelled_by_rider');
   });
 
   testWidgets('rider cancels after driver assignment', (tester) async {
+    // Drives the real Waiting screen (WaitingForDriver._confirmCancel) on a
+    // server that holds the accepted trip.
     const rideId = 'journey-cancel-matched';
-    await seed(rideId, RideStatus.driverAssigned);
-    await openCancelRoute(
-      tester,
-      routeName: AppRoutes.waitingForDriver,
-      trigger: 'cancel-matched',
-      phase: CancelPhase.matched,
+    await seed(rideId, RideStatus.driverAssigned, 'accepted');
+    // Resumes at the matched stage, as a restore of this ride does.
+    final realtime = MockRideRealtime(assignAfter: const Duration(days: 1))
+      ..primeResume(status: RideStatus.driverAssigned);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('journey-home')),
+      ),
     );
-
-    final trigger = find.text('cancel-matched');
-    expect(
-      ModalRoute.of(tester.element(trigger))?.settings.name,
-      AppRoutes.waitingForDriver,
+    nav.currentState!.push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: AppRoutes.waitingForDriver),
+        builder: (_) => WaitingForDriver(
+          pickupAddress: 'Sveavägen 1',
+          destinationAddress: 'Hornsgatan 2',
+          pickupPosition: const LatLng(59.34, 18.05),
+          destinationPosition: const LatLng(59.31, 18.04),
+          rideType: 'Movera',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+          rideId: rideId,
+          realtime: realtime,
+          controller: ActiveRideController(api: api()),
+        ),
+      ),
     );
-    expect(AppScope.instance.ride.rideId, rideId);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(WaitingForDriver), findsOneWidget);
     expect(AppScope.instance.ride.status, RideStatus.driverAssigned);
 
-    await tester.tap(trigger);
+    await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel request'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Driver/ride details are not suitable'));
     await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'Cancel ride'));
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.byType(WaitingForDriver).evaluate().isEmpty) break;
+    }
     await tester.pumpAndSettle();
 
+    expect(server.rides[rideId]!['status'], 'cancelled_by_rider');
+    expect(find.byType(WaitingForDriver), findsNothing);
+    expect(find.text('journey-home'), findsOneWidget);
     expect(AppScope.instance.ride.rideId, rideId);
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
     expect(await RideSnapshotStore.read(), isNull);
+    final history = await OnDemandRideHistoryStore.read();
+    expect(history.single.reservationId, 'ondemand-$rideId');
+    realtime.dispose();
+    await tester.pump(const Duration(seconds: 1));
   });
 }

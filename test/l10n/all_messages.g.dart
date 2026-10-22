@@ -4,7 +4,7 @@
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Every message of [l], by key. Placeholders get `<name>` (strings)
-/// or 3 (counts), so a test can check they survive translation.
+/// or 37 (counts), so a test can check they survive translation.
 Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'whereTo': l.whereTo,
@@ -100,6 +100,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'menuAboutArticle': l.menuAboutArticle,
   'accountSignOut': l.accountSignOut,
   'accountSignOutBody': l.accountSignOutBody,
+  'signingOut': l.signingOut,
   'planYourRide': l.planYourRide,
   'routeCouldNotReach': l.routeCouldNotReach,
   'tryAgain': l.tryAgain,
@@ -122,7 +123,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'noAddressFoundBody': l.noAddressFoundBody,
   'tryTheMap': l.tryTheMap,
   'seePrices': l.seePrices,
-  'homeRideCount': l.homeRideCount(3),
+  'homeRideCount': l.homeRideCount(37),
   'homeStartYourJourney': l.homeStartYourJourney,
   'homeCatchFlight': l.homeCatchFlight,
   'homeComfortCar': l.homeComfortCar,
@@ -164,6 +165,20 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chooseYourRide': l.chooseYourRide,
   'filterRecommended': l.filterRecommended,
   'filterFaster': l.filterFaster,
+  'rideNoteEconomy': l.rideNoteEconomy,
+  'rideNoteComfort': l.rideNoteComfort,
+  'rideNotePremium': l.rideNotePremium,
+  'rideNotePriority': l.rideNotePriority,
+  'rideNoteXl': l.rideNoteXl,
+  'rideNoteElectric': l.rideNoteElectric,
+  'rideNotePet': l.rideNotePet,
+  'rideNoteVan': l.rideNoteVan,
+  'rideNoteWheelchair': l.rideNoteWheelchair,
+  'rideNoteBusiness': l.rideNoteBusiness,
+  'rideNoteAirport': l.rideNoteAirport,
+  'rideNoteKids': l.rideNoteKids,
+  'rideNoteWomen': l.rideNoteWomen,
+  'rideNoteDelivery': l.rideNoteDelivery,
   'filterCheaper': l.filterCheaper,
   'walletWrongCurrency': l.walletWrongCurrency('<wallet>', '<ride>'),
   'paidByWallet': l.paidByWallet,
@@ -214,16 +229,19 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'payWith': l.payWith,
   'walletBalance': l.walletBalance('<amount>'),
   'walletTapToPay': l.walletTapToPay,
+  'walletTooLowForRide': l.walletTooLowForRide,
+  'walletTooLowChooseAnother': l.walletTooLowChooseAnother,
   'walletFirst': l.walletFirst,
   'walletFirstBody': l.walletFirstBody,
   'paymentMethods': l.paymentMethods,
   'addPaymentMethod': l.addPaymentMethod,
   'vouchers': l.vouchers,
-  'ridesLeft': l.ridesLeft(3),
+  'ridesLeft': l.ridesLeft(37),
   'addVoucherCode': l.addVoucherCode,
   'voucherSoon': l.voucherSoon,
   'addCardDemoNote': l.addCardDemoNote,
   'cardCheckNumber': l.cardCheckNumber,
+  'cardBrandsAccepted': l.cardBrandsAccepted,
   'cardUseMmYy': l.cardUseMmYy,
   'cardExpired': l.cardExpired,
   'cardCvc3': l.cardCvc3,
@@ -482,6 +500,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentProcessing': l.paymentProcessing,
   'completeConfirmedBody': l.completeConfirmedBody,
   'paymentConfirmed': l.paymentConfirmed,
+  'paymentNotCompleted': l.paymentNotCompleted,
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
@@ -490,6 +509,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
+  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'compassNorth': l.compassNorth,
+  'compassSouth': l.compassSouth,
+  'compassEast': l.compassEast,
+  'compassWest': l.compassWest,
+  'pickupSpotMainEntrance': l.pickupSpotMainEntrance,
+  'pickupSpotFrontOfBuilding': l.pickupSpotFrontOfBuilding,
+  'pickupSpotSideEntrance': l.pickupSpotSideEntrance,
+  'pickupSpotAroundCorner': l.pickupSpotAroundCorner,
+  'pickupSpotParking': l.pickupSpotParking,
+  'pickupSpotShortWalk': l.pickupSpotShortWalk,
+  'pickupSpotNearHome': l.pickupSpotNearHome,
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(37),
+  'pickupSpotPreviouslyUsed': l.pickupSpotPreviouslyUsed,
+  'pickupCurrentUpper': l.pickupCurrentUpper,
   'destination': l.destination,
   'endedEarly': l.endedEarly,
   'totalPayment': l.totalPayment,
@@ -513,6 +547,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tipAmount': l.tipAmount('<amount>'),
   'howWasTrip': l.howWasTrip,
   'rateYourDriver': l.rateYourDriver,
+  'ratingNotRated': l.ratingNotRated,
+  'ratingStarsValue': l.ratingStarsValue(37),
   'topUpUnconfirmed': l.topUpUnconfirmed,
   'topUpDeclined': l.topUpDeclined,
   'topUpOffline': l.topUpOffline,
@@ -558,6 +594,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'profileBusiness': l.profileBusiness,
   'defaultForRides': l.defaultForRides,
   'accountAddYourName': l.accountAddYourName,
+  'menuWelcomeNoName': l.menuWelcomeNoName,
   'serverEmailUnavailable': l.serverEmailUnavailable,
   'emailNotAdded': l.emailNotAdded,
   'valueVerified': l.valueVerified('<value>'),
@@ -600,6 +637,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'securityBody': l.securityBody,
   'securityUnavailable': l.securityUnavailable,
   'securityUnavailableBody': l.securityUnavailableBody,
+  'securitySessionsUpdateFailed': l.securitySessionsUpdateFailed,
   'passkeys': l.passkeys,
   'passkeyReady': l.passkeyReady,
   'noPasskey': l.noPasskey,
@@ -619,6 +657,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'signOutOthers': l.signOutOthers,
   'cancel': l.cancel,
   'thisSession': l.thisSession('<place>'),
+  'thisSessionOnly': l.thisSessionOnly,
   'save': l.save,
   'legalTermsBody': l.legalTermsBody,
   'legalPrivacyBody': l.legalPrivacyBody,
@@ -667,11 +706,18 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resCompleted': l.resCompleted,
   'resCancelledFee': l.resCancelledFee('<amount>'),
   'resCancelled': l.resCancelled,
+  'resPaymentFailed': l.resPaymentFailed,
   'reasonNoShow': l.reasonNoShow,
   'reasonPayment': l.reasonPayment,
   'reasonZoneClosed': l.reasonZoneClosed,
   'reasonError': l.reasonError,
+  'reasonRequestExpired': l.reasonRequestExpired,
+  'reasonCancelledBySystem': l.reasonCancelledBySystem,
+  'reasonRideFailed': l.reasonRideFailed,
+  'reasonDriverEnded': l.reasonDriverEnded,
+  'reasonRiderCancelledLive': l.reasonRiderCancelledLive,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
+  'resWasScheduledFor': l.resWasScheduledFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
   'now': l.now,
@@ -712,6 +758,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'driverChangedBody': l.driverChangedBody('<previous>', '<current>'),
   'driverLeftTitle': l.driverLeftTitle,
   'driverLeftBody': l.driverLeftBody('<name>'),
+  'driverLeftBodyUnnamed': l.driverLeftBodyUnnamed,
   'scheduledRides': l.scheduledRides,
   'historyHowBody': l.historyHowBody,
   'historyHow': l.historyHow,
@@ -737,7 +784,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentMethodLine': l.paymentMethodLine('<method>'),
   'reasonLine': l.reasonLine('<reason>'),
   'getHelpWithRide': l.getHelpWithRide,
-  'invalidSwedishMobile': l.invalidSwedishMobile,
   'enterPhone': l.enterPhone,
   'textFourDigitCode': l.textFourDigitCode,
   'byContinuing': l.byContinuing,
@@ -766,6 +812,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'lastName': l.lastName,
   'letsRide': l.letsRide,
   'brandTagline': l.brandTagline,
+  'brandTaglineSentence': l.brandTaglineSentence,
   'signedInWith': l.signedInWith('<provider>'),
   'signedInAs': l.signedInAs('<name>'),
   'oneNumberHead': l.oneNumberHead,
@@ -775,7 +822,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'onlyOnceCode': l.onlyOnceCode,
   'sendCode': l.sendCode,
   'continueWith': l.continueWith('<provider>'),
-  'sweden': l.sweden,
   'orContinueWith': l.orContinueWith,
   'skipDemo': l.skipDemo,
   'stepOf': l.stepOf('<step>', '<total>'),
@@ -789,20 +835,23 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errProvider': l.errProvider('<provider>'),
   'thatAccount': l.thatAccount,
   'pickupTimeUpdated': l.pickupTimeUpdated,
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(37),
   'selectDate': l.selectDate,
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
   'chooseDateTime': l.chooseDateTime,
-  'cancelBeforeAssigned': l.cancelBeforeAssigned,
+  'scheduleCancelTermsNote': l.scheduleCancelTermsNote,
   'pickupAtMode': l.pickupAtMode,
   'arriveByMode': l.arriveByMode,
   'date': l.date,
   'time': l.time,
   'estimatedArrival': l.estimatedArrival,
   'estimatedPickup': l.estimatedPickup,
+  'time24Hour': l.time24Hour,
   'continuing': l.continuing,
   'chronoNoDriverLabel': l.chronoNoDriverLabel,
   'reservationIn': l.reservationIn('<time>'),
+  'reservationNow': l.reservationNow,
   'chronoNoDriverRebook': l.chronoNoDriverRebook,
   'chronoNoDriverCancel': l.chronoNoDriverCancel,
   'rebook': l.rebook,
@@ -810,7 +859,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'noEndDate': l.noEndDate,
   'expiredOn': l.expiredOn('<date>'),
   'endsToday': l.endsToday,
-  'validUntilDays': l.validUntilDays('<date>', 3),
+  'validUntilDays': l.validUntilDays('<date>', 37),
   'promoOffLeftOf': l.promoOffLeftOf('<percent>', '<left>', '<total>'),
   'expired': l.expired,
   'allUsed': l.allUsed,
@@ -825,15 +874,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notification': l.notification,
   'allCaughtUp': l.allCaughtUp,
   'notificationsEmptyBody': l.notificationsEmptyBody,
-  'driverTripCount': l.driverTripCount(3),
+  'notificationRideEnded': l.notificationRideEnded,
+  'notificationUnread': l.notificationUnread,
+  'driverTripCount': l.driverTripCount(37),
+  'driverTripsCompleted': l.driverTripsCompleted(37),
+  'driverTaglineDefault': l.driverTaglineDefault,
+  'driverVehicleUnavailable': l.driverVehicleUnavailable,
   'safetyKit': l.safetyKit,
   'safetyKitRecording': l.safetyKitRecording,
   'sosRegistered': l.sosRegistered,
   'sosNeedsRide': l.sosNeedsRide,
   'sosNotRegistered': l.sosNotRegistered,
+  'sosRegisteredNoDialer': l.sosRegisteredNoDialer,
   'recordingSavedLocal': l.recordingSavedLocal,
   'recordingFailed': l.recordingFailed,
-  'tripSharingStarted': l.tripSharingStarted(3),
+  'tripSharingStarted': l.tripSharingStarted(37),
   'tripSharingNotStarted': l.tripSharingNotStarted,
   'tripSharingFailed': l.tripSharingFailed,
   'safetyTools': l.safetyTools,
@@ -859,6 +914,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pushRideUpdatesOff': l.pushRideUpdatesOff,
   'pushTurnOnInSettings': l.pushTurnOnInSettings,
   'pushHearDriver': l.pushHearDriver,
+  'pushWebBlockedBody': l.pushWebBlockedBody,
+  'pushTurnOnInBrowser': l.pushTurnOnInBrowser,
   'safetyTitle': l.safetyTitle,
   'safetyHubTagline': l.safetyHubTagline,
   'safetyPinTitle': l.safetyPinTitle,
@@ -875,7 +932,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'safetyProtectsTitle': l.safetyProtectsTitle,
   'safetyProtectsSubtitle': l.safetyProtectsSubtitle,
   'safetyContactsNone': l.safetyContactsNone,
-  'safetyContactsCount': l.safetyContactsCount(3),
+  'safetyContactsCount': l.safetyContactsCount(37),
   'safetyShareEveryRide': l.safetyShareEveryRide,
   'safetyShareManual': l.safetyShareManual,
   'safetyLoadFailed': l.safetyLoadFailed,
@@ -1112,6 +1169,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportMessagesTitle': l.supportMessagesTitle,
   'supportActive': l.supportActive,
   'supportNoActiveCases': l.supportNoActiveCases,
+  'supportCasesNotListed': l.supportCasesNotListed,
   'supportActiveBody': l.supportActiveBody,
   'supportClosed': l.supportClosed,
   'supportNoClosedCases': l.supportNoClosedCases,
@@ -1164,6 +1222,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'spDeletePlace': l.spDeletePlace('<place>'),
   'spLocationOff': l.spLocationOff,
   'spLocationDeniedForever': l.spLocationDeniedForever,
+  'spWebLocationDeniedForever': l.spWebLocationDeniedForever,
   'spLocationDenied': l.spLocationDenied,
   'spNoAddressHere': l.spNoAddressHere,
   'spLocationUnavailable': l.spLocationUnavailable,
@@ -1197,7 +1256,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrEditUnknown': l.resErrEditUnknown,
   'retryInAMoment': l.retryInAMoment,
   'retryIn': l.retryIn('<wait>'),
-  'retrySeconds': l.retrySeconds(3),
+  'retrySeconds': l.retrySeconds(37),
   'rideJustChanged': l.rideJustChanged,
   'apiUnreachable': l.apiUnreachable,
   'polPricingDisclaimer': l.polPricingDisclaimer,
@@ -1226,9 +1285,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resNoChangeCharge': l.resNoChangeCharge,
   'resNotFound': l.resNotFound,
   'resScheduleCaps': l.resScheduleCaps,
+  'scheduleHeaderCaps': l.scheduleHeaderCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
-  'resSeatsPayment': l.resSeatsPayment(3, '<payment>'),
+  'resCompletedRide': l.resCompletedRide,
+  'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
   'resDriverOnTheWay': l.resDriverOnTheWay,
   'resScheduledFor': l.resScheduledFor,
   'resPickupAt': l.resPickupAt,
@@ -1241,6 +1302,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resThingsToKnow': l.resThingsToKnow,
   'resViewTerms': l.resViewTerms,
   'resYourDriverName': l.resYourDriverName('<name>'),
+  'resPlateLabel': l.resPlateLabel('<plate>'),
+  'restoringRide': l.restoringRide,
   'resYourDriverCaps': l.resYourDriverCaps,
   'resWaitingTime': l.resWaitingTime,
   'resCancellation': l.resCancellation,
@@ -1291,11 +1354,96 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'locServicesOffBody': l.locServicesOffBody,
   'locOpenSettings': l.locOpenSettings,
   'locAllow': l.locAllow,
+  'locPreciseOffTitle': l.locPreciseOffTitle,
+  'locPreciseOffBody': l.locPreciseOffBody,
+  'locPreciseTurnOn': l.locPreciseTurnOn,
   'dismiss': l.dismiss,
   'notifYesterday': l.notifYesterday('<clock>'),
+  'invalidMobileNumber': l.invalidMobileNumber,
+  'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
+  'changeCountryCode': l.changeCountryCode,
+  'chooseCountry': l.chooseCountry,
+  'searchCountry': l.searchCountry,
+  'noCountryFound': l.noCountryFound,
+  'changeLanguage': l.changeLanguage,
+  'consentPrefix': l.consentPrefix,
+  'consentTerms': l.consentTerms,
+  'consentPrivacy': l.consentPrivacy,
+  'consentLabel': l.consentLabel,
+  'consentTickFirst': l.consentTickFirst,
+  'legalUpdatedOn': l.legalUpdatedOn,
+  'legalTermsIntro': l.legalTermsIntro,
+  'legalPrivacyIntro': l.legalPrivacyIntro,
+  'termsS1Title': l.termsS1Title,
+  'termsS1Body': l.termsS1Body,
+  'termsS2Title': l.termsS2Title,
+  'termsS2Body': l.termsS2Body,
+  'termsS3Title': l.termsS3Title,
+  'termsS3Body': l.termsS3Body,
+  'termsS4Title': l.termsS4Title,
+  'termsS4Body': l.termsS4Body,
+  'termsS5Title': l.termsS5Title,
+  'termsS5Body': l.termsS5Body,
+  'termsS6Title': l.termsS6Title,
+  'termsS6Body': l.termsS6Body,
+  'termsS7Title': l.termsS7Title,
+  'termsS7Body': l.termsS7Body,
+  'termsS8Title': l.termsS8Title,
+  'termsS8Body': l.termsS8Body,
+  'termsS9Title': l.termsS9Title,
+  'termsS9Body': l.termsS9Body,
+  'termsS10Title': l.termsS10Title,
+  'termsS10Body': l.termsS10Body,
+  'termsS11Title': l.termsS11Title,
+  'termsS11Body': l.termsS11Body,
+  'termsS12Title': l.termsS12Title,
+  'termsS12Body': l.termsS12Body,
+  'termsS13Title': l.termsS13Title,
+  'termsS13Body': l.termsS13Body,
+  'privacyS1Title': l.privacyS1Title,
+  'privacyS1Body': l.privacyS1Body,
+  'privacyS2Title': l.privacyS2Title,
+  'privacyS2Body': l.privacyS2Body,
+  'privacyS3Title': l.privacyS3Title,
+  'privacyS3Body': l.privacyS3Body,
+  'privacyS4Title': l.privacyS4Title,
+  'privacyS4Body': l.privacyS4Body,
+  'privacyS5Title': l.privacyS5Title,
+  'privacyS5Body': l.privacyS5Body,
+  'privacyS6Title': l.privacyS6Title,
+  'privacyS6Body': l.privacyS6Body,
+  'privacyS7Title': l.privacyS7Title,
+  'privacyS7Body': l.privacyS7Body,
+  'privacyS8Title': l.privacyS8Title,
+  'privacyS8Body': l.privacyS8Body,
+  'privacyS9Title': l.privacyS9Title,
+  'privacyS9Body': l.privacyS9Body,
+  'privacyS10Title': l.privacyS10Title,
+  'privacyS10Body': l.privacyS10Body,
+  'privacyS11Title': l.privacyS11Title,
+  'privacyS11Body': l.privacyS11Body,
+  'privacyS12Title': l.privacyS12Title,
+  'privacyS12Body': l.privacyS12Body,
 };
 
-/// The placeholders of each message, by key.
+/// The messages with a count, rendered with 1 for every count, so
+/// a plural's `=1` branch is checked too.
+Map<String, String> allMessagesWithOne(AppLocalizations l) => {
+  'homeRideCount': l.homeRideCount(1),
+  'ridesLeft': l.ridesLeft(1),
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(1),
+  'ratingStarsValue': l.ratingStarsValue(1),
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
+  'validUntilDays': l.validUntilDays('<date>', 1),
+  'driverTripCount': l.driverTripCount(1),
+  'driverTripsCompleted': l.driverTripsCompleted(1),
+  'tripSharingStarted': l.tripSharingStarted(1),
+  'safetyContactsCount': l.safetyContactsCount(1),
+  'retrySeconds': l.retrySeconds(1),
+  'resSeatsPayment': l.resSeatsPayment(1, '<payment>'),
+};
+
+/// The String placeholders of each message, by key.
 const messagePlaceholders = <String, List<String>>{
   'setPlaceAddress': ['place'],
   'destinationLabel': ['address'],
@@ -1360,10 +1508,13 @@ const messagePlaceholders = <String, List<String>>{
   'routePickupTooFar': ['meters'],
   'endedEarlyBodyAmount': ['amount'],
   'youPayAmount': ['amount'],
+  'droppedPinLabel': ['lat', 'latSide', 'lng', 'lngSide'],
+  'pickupSpotMetresFromHere': [],
   'kmDriven': ['km'],
   'tipName': ['name'],
   'tipSelected': ['amount'],
   'tipAmount': ['amount'],
+  'ratingStarsValue': [],
   'topUpRateLimited': ['when'],
   'inDuration': ['duration'],
   'walletAmount': ['amount'],
@@ -1375,6 +1526,7 @@ const messagePlaceholders = <String, List<String>>{
   'thisSession': ['place'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
+  'resWasScheduledFor': ['date', 'time'],
   'resKeepReady': ['date', 'time'],
   'durDaysHours': ['days', 'hours'],
   'durDays': ['days'],
@@ -1409,6 +1561,7 @@ const messagePlaceholders = <String, List<String>>{
   'stepOf': ['step', 'total'],
   'errTooManyIn': ['wait'],
   'errProvider': ['provider'],
+  'pickupTimeWithinHorizon': [],
   'reservationIn': ['time'],
   'expiredOn': ['date'],
   'validUntilDays': ['date'],
@@ -1417,6 +1570,7 @@ const messagePlaceholders = <String, List<String>>{
   'maxOffPerRide': ['amount'],
   'wasNowPromo': ['was', 'now'],
   'driverTripCount': [],
+  'driverTripsCompleted': [],
   'tripSharingStarted': [],
   'safetyContactsCount': [],
   'contactDeleteQ': ['name'],
@@ -1448,11 +1602,29 @@ const messagePlaceholders = <String, List<String>>{
   'retrySeconds': [],
   'resSeatsPayment': ['payment'],
   'resYourDriverName': ['name'],
+  'resPlateLabel': ['plate'],
   'resCostsMore': ['amount'],
   'resCostsLess': ['amount'],
   'resCancelBody': ['date', 'time'],
   'resTermsOtherFees': ['rule'],
   'notifYesterday': ['clock'],
+  'phoneCountryCode': ['country', 'dial'],
+};
+
+/// The count placeholders (rendered as 37) of each message, by key.
+const messageCounts = <String, List<String>>{
+  'homeRideCount': ['count'],
+  'ridesLeft': ['count'],
+  'pickupSpotMetresFromHere': ['metres'],
+  'ratingStarsValue': ['count'],
+  'pickupTimeWithinHorizon': ['days'],
+  'validUntilDays': ['days'],
+  'driverTripCount': ['count'],
+  'driverTripsCompleted': ['count'],
+  'tripSharingStarted': ['count'],
+  'safetyContactsCount': ['count'],
+  'retrySeconds': ['count'],
+  'resSeatsPayment': ['count'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -1650,6 +1822,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get accountSignOutBody => '';
   @override
+  String get signingOut => '';
+  @override
   String get planYourRide => '';
   @override
   String get routeCouldNotReach => '';
@@ -1778,6 +1952,34 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get filterFaster => '';
   @override
+  String get rideNoteEconomy => '';
+  @override
+  String get rideNoteComfort => '';
+  @override
+  String get rideNotePremium => '';
+  @override
+  String get rideNotePriority => '';
+  @override
+  String get rideNoteXl => '';
+  @override
+  String get rideNoteElectric => '';
+  @override
+  String get rideNotePet => '';
+  @override
+  String get rideNoteVan => '';
+  @override
+  String get rideNoteWheelchair => '';
+  @override
+  String get rideNoteBusiness => '';
+  @override
+  String get rideNoteAirport => '';
+  @override
+  String get rideNoteKids => '';
+  @override
+  String get rideNoteWomen => '';
+  @override
+  String get rideNoteDelivery => '';
+  @override
   String get filterCheaper => '';
   @override
   String walletWrongCurrency(String wallet, String ride) => '';
@@ -1878,6 +2080,10 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get walletTapToPay => '';
   @override
+  String get walletTooLowForRide => '';
+  @override
+  String get walletTooLowChooseAnother => '';
+  @override
   String get walletFirst => '';
   @override
   String get walletFirstBody => '';
@@ -1897,6 +2103,8 @@ class _Exhaustive implements AppLocalizations {
   String get addCardDemoNote => '';
   @override
   String get cardCheckNumber => '';
+  @override
+  String get cardBrandsAccepted => '';
   @override
   String get cardUseMmYy => '';
   @override
@@ -2414,6 +2622,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get paymentConfirmed => '';
   @override
+  String get paymentNotCompleted => '';
+  @override
   String get completeRateBody => '';
   @override
   String get readyForFeedback => '';
@@ -2429,6 +2639,36 @@ class _Exhaustive implements AppLocalizations {
   String get tripDetailsUnavailableBody => '';
   @override
   String get pickupLocation => '';
+  @override
+  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  @override
+  String get compassNorth => '';
+  @override
+  String get compassSouth => '';
+  @override
+  String get compassEast => '';
+  @override
+  String get compassWest => '';
+  @override
+  String get pickupSpotMainEntrance => '';
+  @override
+  String get pickupSpotFrontOfBuilding => '';
+  @override
+  String get pickupSpotSideEntrance => '';
+  @override
+  String get pickupSpotAroundCorner => '';
+  @override
+  String get pickupSpotParking => '';
+  @override
+  String get pickupSpotShortWalk => '';
+  @override
+  String get pickupSpotNearHome => '';
+  @override
+  String pickupSpotMetresFromHere(int metres) => '';
+  @override
+  String get pickupSpotPreviouslyUsed => '';
+  @override
+  String get pickupCurrentUpper => '';
   @override
   String get destination => '';
   @override
@@ -2475,6 +2715,10 @@ class _Exhaustive implements AppLocalizations {
   String get howWasTrip => '';
   @override
   String get rateYourDriver => '';
+  @override
+  String get ratingNotRated => '';
+  @override
+  String ratingStarsValue(int count) => '';
   @override
   String get topUpUnconfirmed => '';
   @override
@@ -2566,6 +2810,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get accountAddYourName => '';
   @override
+  String get menuWelcomeNoName => '';
+  @override
   String get serverEmailUnavailable => '';
   @override
   String get emailNotAdded => '';
@@ -2650,6 +2896,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get securityUnavailableBody => '';
   @override
+  String get securitySessionsUpdateFailed => '';
+  @override
   String get passkeys => '';
   @override
   String get passkeyReady => '';
@@ -2687,6 +2935,8 @@ class _Exhaustive implements AppLocalizations {
   String get cancel => '';
   @override
   String thisSession(String place) => '';
+  @override
+  String get thisSessionOnly => '';
   @override
   String get save => '';
   @override
@@ -2784,6 +3034,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get resCancelled => '';
   @override
+  String get resPaymentFailed => '';
+  @override
   String get reasonNoShow => '';
   @override
   String get reasonPayment => '';
@@ -2792,7 +3044,19 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get reasonError => '';
   @override
+  String get reasonRequestExpired => '';
+  @override
+  String get reasonCancelledBySystem => '';
+  @override
+  String get reasonRideFailed => '';
+  @override
+  String get reasonDriverEnded => '';
+  @override
+  String get reasonRiderCancelledLive => '';
+  @override
   String resReservedFor(String date, String time) => '';
+  @override
+  String resWasScheduledFor(String date, String time) => '';
   @override
   String resKeepReady(String date, String time) => '';
   @override
@@ -2874,6 +3138,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String driverLeftBody(String name) => '';
   @override
+  String get driverLeftBodyUnnamed => '';
+  @override
   String get scheduledRides => '';
   @override
   String get historyHowBody => '';
@@ -2923,8 +3189,6 @@ class _Exhaustive implements AppLocalizations {
   String reasonLine(String reason) => '';
   @override
   String get getHelpWithRide => '';
-  @override
-  String get invalidSwedishMobile => '';
   @override
   String get enterPhone => '';
   @override
@@ -2982,6 +3246,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get brandTagline => '';
   @override
+  String get brandTaglineSentence => '';
+  @override
   String signedInWith(String provider) => '';
   @override
   String signedInAs(String name) => '';
@@ -2999,8 +3265,6 @@ class _Exhaustive implements AppLocalizations {
   String get sendCode => '';
   @override
   String continueWith(String provider) => '';
-  @override
-  String get sweden => '';
   @override
   String get orContinueWith => '';
   @override
@@ -3028,6 +3292,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupTimeUpdated => '';
   @override
+  String pickupTimeWithinHorizon(int days) => '';
+  @override
   String get selectDate => '';
   @override
   String get selectTime => '';
@@ -3036,7 +3302,7 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get chooseDateTime => '';
   @override
-  String get cancelBeforeAssigned => '';
+  String get scheduleCancelTermsNote => '';
   @override
   String get pickupAtMode => '';
   @override
@@ -3050,11 +3316,15 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get estimatedPickup => '';
   @override
+  String get time24Hour => '';
+  @override
   String get continuing => '';
   @override
   String get chronoNoDriverLabel => '';
   @override
   String reservationIn(String time) => '';
+  @override
+  String get reservationNow => '';
   @override
   String get chronoNoDriverRebook => '';
   @override
@@ -3100,7 +3370,17 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get notificationsEmptyBody => '';
   @override
+  String get notificationRideEnded => '';
+  @override
+  String get notificationUnread => '';
+  @override
   String driverTripCount(int count) => '';
+  @override
+  String driverTripsCompleted(int count) => '';
+  @override
+  String get driverTaglineDefault => '';
+  @override
+  String get driverVehicleUnavailable => '';
   @override
   String get safetyKit => '';
   @override
@@ -3111,6 +3391,8 @@ class _Exhaustive implements AppLocalizations {
   String get sosNeedsRide => '';
   @override
   String get sosNotRegistered => '';
+  @override
+  String get sosRegisteredNoDialer => '';
   @override
   String get recordingSavedLocal => '';
   @override
@@ -3167,6 +3449,10 @@ class _Exhaustive implements AppLocalizations {
   String get pushTurnOnInSettings => '';
   @override
   String get pushHearDriver => '';
+  @override
+  String get pushWebBlockedBody => '';
+  @override
+  String get pushTurnOnInBrowser => '';
   @override
   String get safetyTitle => '';
   @override
@@ -3674,6 +3960,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get supportNoActiveCases => '';
   @override
+  String get supportCasesNotListed => '';
+  @override
   String get supportActiveBody => '';
   @override
   String get supportClosed => '';
@@ -3777,6 +4065,8 @@ class _Exhaustive implements AppLocalizations {
   String get spLocationOff => '';
   @override
   String get spLocationDeniedForever => '';
+  @override
+  String get spWebLocationDeniedForever => '';
   @override
   String get spLocationDenied => '';
   @override
@@ -3902,9 +4192,13 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get resScheduleCaps => '';
   @override
+  String get scheduleHeaderCaps => '';
+  @override
   String get resCancelledReservation => '';
   @override
   String get resUpcomingRide => '';
+  @override
+  String get resCompletedRide => '';
   @override
   String resSeatsPayment(int count, String payment) => '';
   @override
@@ -3931,6 +4225,10 @@ class _Exhaustive implements AppLocalizations {
   String get resViewTerms => '';
   @override
   String resYourDriverName(String name) => '';
+  @override
+  String resPlateLabel(String plate) => '';
+  @override
+  String get restoringRide => '';
   @override
   String get resYourDriverCaps => '';
   @override
@@ -4032,7 +4330,143 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get locAllow => '';
   @override
+  String get locPreciseOffTitle => '';
+  @override
+  String get locPreciseOffBody => '';
+  @override
+  String get locPreciseTurnOn => '';
+  @override
   String get dismiss => '';
   @override
   String notifYesterday(String clock) => '';
+  @override
+  String get invalidMobileNumber => '';
+  @override
+  String phoneCountryCode(String country, String dial) => '';
+  @override
+  String get changeCountryCode => '';
+  @override
+  String get chooseCountry => '';
+  @override
+  String get searchCountry => '';
+  @override
+  String get noCountryFound => '';
+  @override
+  String get changeLanguage => '';
+  @override
+  String get consentPrefix => '';
+  @override
+  String get consentTerms => '';
+  @override
+  String get consentPrivacy => '';
+  @override
+  String get consentLabel => '';
+  @override
+  String get consentTickFirst => '';
+  @override
+  String get legalUpdatedOn => '';
+  @override
+  String get legalTermsIntro => '';
+  @override
+  String get legalPrivacyIntro => '';
+  @override
+  String get termsS1Title => '';
+  @override
+  String get termsS1Body => '';
+  @override
+  String get termsS2Title => '';
+  @override
+  String get termsS2Body => '';
+  @override
+  String get termsS3Title => '';
+  @override
+  String get termsS3Body => '';
+  @override
+  String get termsS4Title => '';
+  @override
+  String get termsS4Body => '';
+  @override
+  String get termsS5Title => '';
+  @override
+  String get termsS5Body => '';
+  @override
+  String get termsS6Title => '';
+  @override
+  String get termsS6Body => '';
+  @override
+  String get termsS7Title => '';
+  @override
+  String get termsS7Body => '';
+  @override
+  String get termsS8Title => '';
+  @override
+  String get termsS8Body => '';
+  @override
+  String get termsS9Title => '';
+  @override
+  String get termsS9Body => '';
+  @override
+  String get termsS10Title => '';
+  @override
+  String get termsS10Body => '';
+  @override
+  String get termsS11Title => '';
+  @override
+  String get termsS11Body => '';
+  @override
+  String get termsS12Title => '';
+  @override
+  String get termsS12Body => '';
+  @override
+  String get termsS13Title => '';
+  @override
+  String get termsS13Body => '';
+  @override
+  String get privacyS1Title => '';
+  @override
+  String get privacyS1Body => '';
+  @override
+  String get privacyS2Title => '';
+  @override
+  String get privacyS2Body => '';
+  @override
+  String get privacyS3Title => '';
+  @override
+  String get privacyS3Body => '';
+  @override
+  String get privacyS4Title => '';
+  @override
+  String get privacyS4Body => '';
+  @override
+  String get privacyS5Title => '';
+  @override
+  String get privacyS5Body => '';
+  @override
+  String get privacyS6Title => '';
+  @override
+  String get privacyS6Body => '';
+  @override
+  String get privacyS7Title => '';
+  @override
+  String get privacyS7Body => '';
+  @override
+  String get privacyS8Title => '';
+  @override
+  String get privacyS8Body => '';
+  @override
+  String get privacyS9Title => '';
+  @override
+  String get privacyS9Body => '';
+  @override
+  String get privacyS10Title => '';
+  @override
+  String get privacyS10Body => '';
+  @override
+  String get privacyS11Title => '';
+  @override
+  String get privacyS11Body => '';
+  @override
+  String get privacyS12Title => '';
+  @override
+  String get privacyS12Body => '';
 }

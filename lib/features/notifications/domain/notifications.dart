@@ -23,12 +23,12 @@ class AppNotification {
   /// When it was sent, local time (FLOW-18); [time] is its label.
   final DateTime? at;
 
-  AppNotification copyWith({bool? read}) {
+  AppNotification copyWith({bool? read, String? time}) {
     return AppNotification(
       kind: kind,
       title: title,
       subtitle: subtitle,
-      time: time,
+      time: time ?? this.time,
       read: read ?? this.read,
       messageId: messageId,
       rideId: rideId,

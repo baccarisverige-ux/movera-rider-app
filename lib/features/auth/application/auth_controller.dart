@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
@@ -31,8 +34,12 @@ class AuthController {
   }) async {
     final result = await _auth.verifyOtp(challenge: challenge, code: code);
     lastChallenge = null;
+    // rider-r5-31: the new rider's name marker (rider-u74) was written by
+    // the verify call; a wipe of the previous rider's data must keep it.
+    final pendingName = await PendingRiderName.read();
     await _enterSession(phone: challenge.phone);
-    await _registerPushBestEffort();
+    if (pendingName != null) await PendingRiderName.mark(pendingName);
+    unawaited(_registerPushBestEffort());
     return result;
   }
 
@@ -42,7 +49,7 @@ class AuthController {
     final result = await _auth.signIn(provider: provider);
     if (result is ProviderSignedIn) {
       await _enterSession(provider: provider);
-      await _registerPushBestEffort();
+      unawaited(_registerPushBestEffort());
     }
     return result;
   }
@@ -70,7 +77,9 @@ class AuthController {
 
   /// Registers push only for a rider who already accepted the in-app
   /// explanation (UI-17); a first sign-in sees the explanation on Home
-  /// instead of a cold OS prompt.
+  /// instead of a cold OS prompt. rider-u67: sign-in does not wait for it
+  /// (Firebase, getToken and the device POST can take 15 s or more on a
+  /// poor connection); it runs on while the app opens.
   Future<void> _registerPushBestEffort() async {
     try {
       await (_pushPermission ?? AppScope.instance.pushPermission)

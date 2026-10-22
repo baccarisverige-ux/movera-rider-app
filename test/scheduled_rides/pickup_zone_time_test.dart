@@ -16,20 +16,20 @@ void main() {
   final winter = DateTime.utc(2026, 1, 20, 10);
 
   test('each zone has its own wall clock', () {
-    expect(ZoneClock.wallTime(ZoneClock.stockholm, summer), DateTime(2026, 10, 20, 12));
-    expect(ZoneClock.wallTime(ZoneClock.paris, summer), DateTime(2026, 10, 20, 12));
-    expect(ZoneClock.wallTime(ZoneClock.tunis, summer), DateTime(2026, 10, 20, 11));
-    expect(ZoneClock.wallTime(ZoneClock.tunis, winter), DateTime(2026, 1, 20, 11));
-    expect(ZoneClock.wallTime(ZoneClock.paris, winter), DateTime(2026, 1, 20, 11));
+    expect(ZoneClock.wallTime(ZoneClock.stockholm, summer), DateTime.utc(2026, 10, 20, 12));
+    expect(ZoneClock.wallTime(ZoneClock.paris, summer), DateTime.utc(2026, 10, 20, 12));
+    expect(ZoneClock.wallTime(ZoneClock.tunis, summer), DateTime.utc(2026, 10, 20, 11));
+    expect(ZoneClock.wallTime(ZoneClock.tunis, winter), DateTime.utc(2026, 1, 20, 11));
+    expect(ZoneClock.wallTime(ZoneClock.paris, winter), DateTime.utc(2026, 1, 20, 11));
   });
 
   test('a booked wall time is the right instant in its zone', () {
-    final wall = DateTime(2026, 10, 20, 18, 30);
+    final wall = DateTime.utc(2026, 10, 20, 18, 30);
     expect(ZoneClock.toUtc(wall, ZoneClock.stockholm), DateTime.utc(2026, 10, 20, 16, 30));
     expect(ZoneClock.toUtc(wall, ZoneClock.tunis), DateTime.utc(2026, 10, 20, 17, 30));
     // Across the October change (25 Oct 2026, 01:00 UTC).
     expect(
-      ZoneClock.toUtc(DateTime(2026, 10, 26, 9), ZoneClock.paris),
+      ZoneClock.toUtc(DateTime.utc(2026, 10, 26, 9), ZoneClock.paris),
       DateTime.utc(2026, 10, 26, 8),
     );
   });
@@ -37,14 +37,14 @@ void main() {
   test('the earliest pickup follows the pickup zone', () {
     expect(
       const PickupSchedule(ZoneClock.tunis).minimumPickup(summer),
-      DateTime(2026, 10, 20, 11, 30),
+      DateTime.utc(2026, 10, 20, 11, 30),
     );
     expect(
       const PickupSchedule(ZoneClock.stockholm).minimumPickup(summer),
-      DateTime(2026, 10, 20, 12, 30),
+      DateTime.utc(2026, 10, 20, 12, 30),
     );
     // 11:45 in Tunis is bookable now; in Stockholm it is the past.
-    final tunisLater = DateTime(2026, 10, 20, 11, 45);
+    final tunisLater = DateTime.utc(2026, 10, 20, 11, 45);
     expect(const PickupSchedule(ZoneClock.tunis).isLegalPickup(tunisLater, summer), isTrue);
     expect(StockholmSchedule.isLegalPickup(tunisLater, summer), isFalse);
   });
@@ -84,6 +84,6 @@ void main() {
     await tester.ensureVisible(next);
     await tester.tap(next);
     await tester.pumpAndSettle();
-    expect(chosen, DateTime(2026, 10, 20, 11, 30));
+    expect(chosen, DateTime.utc(2026, 10, 20, 11, 30));
   });
 }

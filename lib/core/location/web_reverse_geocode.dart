@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Street address for a point from OpenStreetMap's Nominatim, used on the
 /// web demo where the in-process transport has no geocoder of its own.
@@ -10,6 +11,7 @@ Future<String?> openStreetMapReverse(
   GeoPoint point, {
   Duration timeout = const Duration(seconds: 6),
   http.Client? client,
+  String? language,
 }) async {
   final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
     'format': 'jsonv2',
@@ -17,6 +19,8 @@ Future<String?> openStreetMapReverse(
     'lon': point.longitude.toStringAsFixed(6),
     'zoom': '18',
     'addressdetails': '1',
+    // rider-r4-44: names in the app language, not the browser's.
+    'accept-language': language ?? L10n.code,
   });
   final http.Client c = client ?? http.Client();
   try {
@@ -50,10 +54,16 @@ String? formatOpenStreetMapAddress(Map<String, dynamic> address) {
   final number = pick(['house_number']);
   final area = pick(['suburb', 'neighbourhood', 'quarter', 'city_district']);
   final city = pick(['city', 'town', 'village', 'municipality', 'county']);
+  // rider-r4-44: "Klockarvägen 37" in Sweden, "37 Rue de Rivoli" in
+  // France and Tunisia.
+  final country = pick(['country_code'])?.toLowerCase();
+  final numberFirst = _numberFirstCountries.contains(country);
   final street = road == null
       ? null
       : number == null
       ? road
+      : numberFirst
+      ? '$number $road'
       : '$road $number';
   final parts = <String>[
     if (street != null) street,
@@ -63,3 +73,6 @@ String? formatOpenStreetMapAddress(Map<String, dynamic> address) {
   if (parts.isEmpty) return null;
   return parts.join(', ');
 }
+
+/// Countries (Movera's zones) whose addresses put the house number first.
+const _numberFirstCountries = {'fr', 'tn'};

@@ -21,6 +21,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -59,13 +60,17 @@ class RideSelectionController {
   /// Q7: the currency of the pickup's zone. Every price below is in whole
   /// units of it. Select Ride sets it from the pickup; a quote the server
   /// prices in another currency moves it (the server decides). A change
-  /// drops the prices held in the old currency.
+  /// drops the prices held in the old currency. The wallet row may come
+  /// or go with it (Q8), so the chosen method is kept by brand
+  /// (rider-u184).
   String get currency => _currency;
   String _currency;
   set currency(String value) {
     if (value == _currency) return;
-    _currency = value;
-    offeredPrices.clear();
+    _keepPayment(() {
+      _currency = value;
+      offeredPrices.clear();
+    });
   }
 
   /// The currency of [walletBalance]: the trip's (Q8: one balance per
@@ -106,6 +111,11 @@ class RideSelectionController {
   final Map<String, DateTime> quoteExpiresAt = {};
   final Map<String, RideQuote> authoritativeQuotes = {};
   final Set<String> unavailableQuoteIds = <String>{};
+
+  /// Rides whose quote ran out: until a new one lands they have no price
+  /// to show, and their list price is never taken as the fare
+  /// (rider-u185, P4).
+  final Set<String> _expiredQuoteIds = <String>{};
   int _quoteGeneration = 0;
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
   bool _disposed = false;
@@ -162,7 +172,8 @@ class RideSelectionController {
     if (current != null) return current;
     final fallback = catalog.first;
     selectedRideId = fallback.id;
-    if (fallback.currency == currency) {
+    if (fallback.currency == currency &&
+        !_expiredQuoteIds.contains(fallback.id)) {
       offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
     }
     return fallback;
@@ -184,6 +195,14 @@ class RideSelectionController {
       Money(walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor, currency)
           .major;
 
+  /// Whether the wallet alone can pay [priceKr] (whole units of
+  /// [currency]): a balance of the trip's currency of at least the fare.
+  /// Below it the wallet is not a method for the whole ride (rider-74).
+  bool walletCovers(double priceKr) =>
+      walletMatchesTrip &&
+      Money.fromLegacyMajor(walletBalance, walletCurrency).amountMinor >=
+          moneyOf(priceKr).amountMinor;
+
   /// What the chosen method is charged after the wallet part.
   double remainderKr(double priceKr) => Money(
     walletSplitFor(moneyOf(priceKr).amountMinor).remainderMinor,
@@ -193,8 +212,14 @@ class RideSelectionController {
   /// The wallet / method split of [totalMinor] (minor units of [currency]),
   /// worked out in minor units so the parts always add up to the total.
   /// None until the balance of this trip's currency is known (Q8).
+  ///
+  /// rider-r4-31: none for Book for later either: a reservation carries
+  /// only its price and method, so a split shown there is never applied.
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
+    if (!useWalletFirst ||
+        !_flags.enableWallet ||
+        !walletMatchesTrip ||
+        createsReservation) {
       return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {
@@ -210,12 +235,13 @@ class RideSelectionController {
 
   /// Whether the rider has a saved card. Without one, the generic "Card"
   /// method opens Add card first.
-  bool get hasSavedCard => _savedCards.hasCards;
+  bool get hasSavedCard => _savedCards.usable().isNotEmpty;
 
   /// The saved cards as payment items (`card:<id>`, "Visa •••• 4242",
   /// "Expires 08/28").
   List<RidePaymentItem> savedCardItems() => [
-    for (final card in _savedCards.list())
+    // rider-u131: an expired card is not offered (nor kept as default).
+    for (final card in _savedCards.usable())
       RidePaymentItem(
         brand: card.methodBrand,
         name: card.displayName,
@@ -224,13 +250,17 @@ class RideSelectionController {
   ];
 
   /// The saved card behind a `card:<id>` brand, or null.
-  SavedCard? savedCardFor(String brand) => _savedCards.byMethodBrand(brand);
+  SavedCard? savedCardFor(String brand) {
+    final card = _savedCards.byMethodBrand(brand);
+    if (card == null) return null;
+    return _savedCards.usable().contains(card) ? card : null;
+  }
 
   /// Loads the saved cards once and keeps the chosen method afterwards.
   Future<void> loadSavedCards() async {
     final current = selectedPaymentItem()?.brand;
     await _savedCards.load();
-    if (current != null) selectPaymentByBrand(current);
+    _reselect(current);
   }
 
   List<RidePaymentItem> payments() {
@@ -276,6 +306,43 @@ class RideSelectionController {
     final i = list.indexWhere((item) => item.brand == 'cash');
     selectedPayment = i >= 0 ? i : 0;
   }
+
+  /// Runs [change], which may add or drop payment rows, and keeps the
+  /// chosen method on its brand: [selectedPayment] is an index, so a row
+  /// that drops out above it would otherwise move the choice to another
+  /// method. When the chosen brand itself is gone, the default.
+  void _keepPayment(void Function() change) {
+    final current = selectedPaymentItem()?.brand;
+    change();
+    _reselect(current);
+  }
+
+  /// After the payment rows changed: the method asked for before it was
+  /// offered ([_wanted]) when it now is, else [current] by brand, else
+  /// the default.
+  void _reselect(String? current) {
+    final list = payments();
+    final wanted = _wanted;
+    if (wanted != null) {
+      final i = list.indexWhere(wanted);
+      if (i >= 0) {
+        selectedPayment = i;
+        _wanted = null;
+        return;
+      }
+    }
+    if (current != null && list.any((item) => item.brand == current)) {
+      selectPaymentByBrand(current);
+    } else {
+      _selectDefaultPayment();
+    }
+  }
+
+  /// A method that was asked for (the saved default, or the reservation's
+  /// method) before it was offered: the wallet row appears only once the balance has loaded, so
+  /// it is chosen when it does (rider-75). A choice the rider makes
+  /// meanwhile wins.
+  bool Function(RidePaymentItem item)? _wanted;
 
   int beginQuotes() => ++_quoteGeneration;
 
@@ -349,6 +416,18 @@ class RideSelectionController {
     usedFallback = false;
     final catalog = rides();
     if (catalog.isEmpty) return;
+    // rider-r4-29: a category the catalog no longer offers keeps no quote;
+    // its row is never built, so its expiry would never be discarded and
+    // would hold the expiry re-quote in the past for good.
+    final offered = {for (final ride in catalog) ride.id};
+    for (final id in quoteExpiresAt.keys.toList()) {
+      if (offered.contains(id)) continue;
+      offeredPrices.remove(id);
+      quoteIds.remove(id);
+      quoteExpiresAt.remove(id);
+      authoritativeQuotes.remove(id);
+      _quotePickups.remove(id);
+    }
     final width = parallelism.clamp(1, catalog.length).toInt();
 
     for (var start = 0; start < catalog.length; start += width) {
@@ -399,13 +478,14 @@ class RideSelectionController {
         timeout,
       );
       if (generation != _quoteGeneration) return;
-      adoptQuote(rideId, quote);
+      adoptQuote(rideId, quote, pickupPoint: pickupPoint);
     } catch (_) {
       if (generation != _quoteGeneration) return;
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
       authoritativeQuotes.remove(rideId);
+      _quotePickups.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
   }
@@ -443,14 +523,15 @@ class RideSelectionController {
       timeout,
     );
     if (_disposed || generation != _pinQuoteGeneration) return null;
-    adoptQuote(rideId, quote);
+    adoptQuote(rideId, quote, pickupPoint: pickupPoint);
     return quote;
   }
 
   /// Takes [quote] as the authoritative price for [rideId], exactly as a
   /// loaded quote is. Set location calls this after pricing the ride from
-  /// the exact pin, so booking sends that quote.
-  void adoptQuote(String rideId, RideQuote quote) {
+  /// the exact pin, so booking sends that quote. [pickupPoint] is the
+  /// pickup it was priced at, when known.
+  void adoptQuote(String rideId, RideQuote quote, {GeoPoint? pickupPoint}) {
     if (_disposed) return;
     // The server priced the pickup in another zone's currency: every
     // price held so far was in the old one, and is dropped.
@@ -459,13 +540,39 @@ class RideSelectionController {
     quoteIds[rideId] = quote.id;
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
+    if (pickupPoint == null) {
+      _quotePickups.remove(rideId);
+    } else {
+      _quotePickups[rideId] = pickupPoint;
+    }
     unavailableQuoteIds.remove(rideId);
+    _expiredQuoteIds.remove(rideId);
   }
 
+  /// The pickup point each held quote was priced at, when known.
+  final Map<String, GeoPoint> _quotePickups = {};
+
+  /// How far (in degrees, either axis) a pickup may be from the point a
+  /// quote was priced at and still be that quote's pickup: the distance
+  /// Set pickup moves before it prices the pin again.
+  static const quotePickupTolerance = 0.00015;
+
+  /// Whether [id]'s quote was priced at [pickup] (rider-79): after the
+  /// rider confirms a moved pickup, a quote from the old point is not the
+  /// price of that ride. A quote of unknown pickup is taken as it is.
+  bool quoteIsAt(String id, GeoPoint pickup) {
+    final at = _quotePickups[id];
+    if (at == null) return true;
+    return (at.latitude - pickup.latitude).abs() <= quotePickupTolerance &&
+        (at.longitude - pickup.longitude).abs() <= quotePickupTolerance;
+  }
+
+  /// rider-r4-32: a quote's expiry is server time; without [now] it is
+  /// judged on the server clock, not the raw device clock.
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
     if (expiresAt == null) return false;
-    return expiresAt.isAfter(now ?? DateTime.now());
+    return expiresAt.isAfter(now ?? ServerClock.now());
   }
 
   bool quoteIsAvailable(String id, {DateTime? now}) {
@@ -487,12 +594,39 @@ class RideSelectionController {
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
-    if (expiresAt == null || expiresAt.isAfter(now ?? DateTime.now())) return;
+    if (expiresAt == null || expiresAt.isAfter(now ?? ServerClock.now())) {
+      return;
+    }
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
     authoritativeQuotes.remove(id);
+    _quotePickups.remove(id);
     unavailableQuoteIds.add(id);
+    _expiredQuoteIds.add(id);
+  }
+
+  /// rider-r4-29: drops every quote spent by [now] (default the server
+  /// clock), as a row's build does for its own, and says whether any was.
+  bool discardExpiredQuotes({DateTime? now}) {
+    final at = now ?? ServerClock.now();
+    final spent = [
+      for (final entry in quoteExpiresAt.entries)
+        if (!entry.value.isAfter(at)) entry.key,
+    ];
+    for (final id in spent) {
+      _discardExpiredQuote(id, now: at);
+    }
+    return spent.isNotEmpty;
+  }
+
+  /// The earliest time a quote held now runs out, or null.
+  DateTime? get nextQuoteExpiry {
+    DateTime? next;
+    for (final at in quoteExpiresAt.values) {
+      if (next == null || at.isBefore(next)) next = at;
+    }
+    return next;
   }
 
   double priceFor(String id, double catalog, {DateTime? now}) {
@@ -514,15 +648,23 @@ class RideSelectionController {
     String catalogCurrency = Money.defaultCurrency,
   }) {
     selectedRideId = id;
-    if (catalogCurrency == currency) {
+    if (catalogCurrency == currency && !_expiredQuoteIds.contains(id)) {
       offeredPrices.putIfAbsent(id, () => catalog);
     }
   }
 
   /// Whether [id] has a price to show in this pickup's currency: a quote,
-  /// or a list price in the same currency.
-  bool hasPriceFor(String id, {required String catalogCurrency}) =>
-      offeredPrices.containsKey(id) || catalogCurrency == currency;
+  /// or a list price in the same currency. Not once its quote ran out:
+  /// the list price is not that fare (rider-u185).
+  bool hasPriceFor(
+    String id, {
+    required String catalogCurrency,
+    DateTime? now,
+  }) {
+    _discardExpiredQuote(id, now: now);
+    return offeredPrices.containsKey(id) ||
+        (catalogCurrency == currency && !_expiredQuoteIds.contains(id));
+  }
 
   RidePaymentItem? selectedPaymentItem() {
     final list = payments();
@@ -541,6 +683,7 @@ class RideSelectionController {
       return;
     }
     selectedPayment = index.clamp(0, list.length - 1).toInt();
+    _wanted = null;
     _persistSelectedBrand();
   }
 
@@ -551,14 +694,22 @@ class RideSelectionController {
     // (removed, owner Q7): both are Cash now.
     final legacy = needle.toLowerCase();
     if (legacy == 'cash' || legacy == 'swish' || legacy == 'pay in car') {
+      _wanted = null;
       selectPaymentByBrand('cash');
       return;
     }
+    bool named(RidePaymentItem item) =>
+        item.name.toLowerCase() == needle.toLowerCase();
     final list = payments();
-    final i = list.indexWhere(
-      (item) => item.name.toLowerCase() == needle.toLowerCase(),
-    );
-    if (i >= 0) selectedPayment = i;
+    final i = list.indexWhere(named);
+    if (i >= 0) {
+      selectedPayment = i;
+      _wanted = null;
+    } else {
+      // A reservation or return ride paid with Movera Wallet: the wallet
+      // row is offered once the balance has loaded (rider-u186).
+      _wanted = named;
+    }
   }
 
   void selectPaymentByBrand(String? brand) {
@@ -575,7 +726,10 @@ class RideSelectionController {
     final list = payments();
     if (saved == null || !list.any((item) => item.brand == saved)) {
       _selectDefaultPayment();
+      // Not offered yet (the wallet before its balance has loaded).
+      if (saved != null) _wanted = (item) => item.brand == saved;
     } else {
+      _wanted = null;
       selectPaymentByBrand(saved);
     }
     selectedPaymentItem();
@@ -584,21 +738,13 @@ class RideSelectionController {
   /// Q7: the zone's payment methods. Keeps the chosen method when it is
   /// still offered, else falls back to the default.
   void setZonePaymentMethods(List<String> methods) {
-    final current = selectedPaymentItem()?.brand;
-    zonePaymentMethods = List.unmodifiable(methods);
-    final list = payments();
-    if (current != null && list.any((item) => item.brand == current)) {
-      selectPaymentByBrand(current);
-    } else {
-      _selectDefaultPayment();
-    }
+    _keepPayment(() => zonePaymentMethods = List.unmodifiable(methods));
   }
 
-  /// Keeps the chosen method when the list changes (e.g. the wallet appears).
+  /// Keeps the chosen method when the list changes (e.g. the wallet
+  /// appears), or takes the one asked for before the wallet was offered.
   void setWalletBalance(double balance) {
-    final current = selectedPaymentItem()?.brand;
-    walletBalance = balance;
-    if (current != null) selectPaymentByBrand(current);
+    _keepPayment(() => walletBalance = balance);
   }
 
   void _persistSelectedBrand() {

@@ -53,6 +53,9 @@ class _FailingGeocoding implements GeocodingRepository {
 
 class _Location implements LocationRepository {
   @override
+  bool get isWeb => false;
+
+  @override
   Future<bool> isLocationServiceEnabled() async => true;
 
   @override
@@ -78,6 +81,12 @@ class _Location implements LocationRepository {
 
   @override
   Future<GeoPoint?> lastKnownFix() async => null;
+
+  @override
+  Future<bool> isApproximateOnly() async => false;
+
+  @override
+  Future<bool> requestPreciseLocation() async => true;
 
   @override
   Future<GeoPoint?> readLastGoodFix() async => null;

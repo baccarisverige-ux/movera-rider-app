@@ -34,7 +34,11 @@ void main() {
     expect(ids.length, greaterThan(1));
   });
 
-  _guards();
+  // The guard that replaces "the mock never invents a driver" (no screen,
+  // controller or feature repository conjures a driver of its own; mock
+  // identities live behind the API boundary) is a source rule, so it lives
+  // in test/architecture/guard_test.dart ('layer imports respect
+  // boundaries'), rider-101.
 
   test('pool carries no removed demo identity', () {
     for (var i = 0; i < 10; i++) {
@@ -44,17 +48,4 @@ void main() {
       expect(d.plate, isNot('MVR 418'));
     }
   });
-}
-
-/// The guard that replaces "the mock never invents a driver".
-///
-/// That rule was reversed deliberately: a stand-in backend answering with a
-/// matched driver is a simulated API response, and without it every ride screen
-/// reads "Driver details unavailable". What must still hold is the reason the
-/// old rule existed — no screen, controller or feature repository may conjure a
-/// driver of its own. Mock identities live behind the API boundary, nowhere else.
-void _guards() {
-  
-
-  
 }

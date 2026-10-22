@@ -61,7 +61,7 @@ class SavedPlacesController {
     }
 
     final snapshot = await _store.load();
-    final places = _withIds(snapshot.places);
+    final places = withPlaceIds(snapshot.places);
 
     String? home = snapshot.home;
     String? work = snapshot.work;
@@ -120,7 +120,7 @@ class SavedPlacesController {
     final kind = _normalizeKind(place.kind);
     final snapshot = await _store.load();
     final id = place.id;
-    final places = _withIds(snapshot.places)
+    final places = withPlaceIds(snapshot.places)
         .where((item) => id == null || item['id'] != id)
         .toList();
 
@@ -133,18 +133,6 @@ class SavedPlacesController {
       ),
     );
     await hydrate();
-  }
-
-  /// Custom places saved before ids existed get a stable id from their
-  /// position, so they can be edited and removed one by one.
-  List<Map<String, String>> _withIds(List<Map<String, String>> raw) {
-    return [
-      for (var i = 0; i < raw.length; i++)
-        {
-          ...raw[i],
-          if ((raw[i]['id'] ?? '').trim().isEmpty) 'id': 'place_legacy_$i',
-        },
-    ];
   }
 
   List<PlaceShortcut> _fromSnapshot(HomeAddressSnapshot snapshot) {
@@ -169,12 +157,15 @@ class SavedPlacesController {
         ),
       );
     }
-    final places = _withIds(snapshot.places);
+    final places = withPlaceIds(snapshot.places);
     for (final item in places) {
       final address = (item['address'] ?? '').trim();
       if (address.isEmpty) continue;
       final kind = _normalizeKind(item['type'] ?? 'other');
-      final title = (item['title'] ?? '').trim();
+      var title = (item['title'] ?? '').trim();
+      // rider-42: a place saved from Home stores its type key ("gym") as
+      // its title; show the type's label instead.
+      if (title == (item['type'] ?? '').trim()) title = '';
       result.add(
         PlaceShortcut(
           title: title.isEmpty ? _labelForKind(kind) : title,
@@ -194,9 +185,23 @@ class SavedPlacesController {
     return lower;
   }
 
+  /// The kinds Home can add, as placeLabelFor (saved_places_row.dart)
+  /// names them; application code does not import presentation.
+  static Map<String, String> get _customLabels => {
+    'gym': L10n.current.placeGym,
+    'mall': L10n.current.placeMall,
+    'school': L10n.current.placeSchool,
+    'airport': L10n.current.placeAirport,
+    'family': L10n.current.placeFamily,
+    'restaurant': L10n.current.placeRestaurant,
+    'other': L10n.current.placeOther,
+  };
+
   String _labelForKind(String kind) {
     if (kind == 'office') return L10n.current.placeWork;
     if (kind == 'home') return L10n.current.placeHome;
+    final custom = _customLabels[kind];
+    if (custom != null) return custom;
     return kind
         .split('-')
         .where((part) => part.isNotEmpty)

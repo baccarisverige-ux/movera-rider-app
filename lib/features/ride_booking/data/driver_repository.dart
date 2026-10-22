@@ -33,11 +33,13 @@ class DriverRepository {
 
   /// The driver of the ride just completed. Explicitly-passed profiles win, so
   /// tests and callers with their own driver keep working unchanged.
-  DriverProfile? current() {
+  ///
+  /// rider-u166: with [rideId], only the driver of that ride.
+  DriverProfile? current({String? rideId}) {
     final injected = _current;
     if (injected != null) return injected;
 
-    final ride = LastCompletedRide.value;
+    final ride = LastCompletedRide.forRide(rideId);
     final driver = ride?.driver;
     if (ride == null || driver == null) return null;
 
@@ -49,19 +51,24 @@ class DriverRepository {
 
     return DriverProfile(
       name: driver.firstName,
+      // rider-70: the fallbacks in the app language.
       tagline: driver.tripCount == null
-          ? 'Movera driver'
-          : '${driver.tripCount} trips completed',
-      vehicle: vehicle.isEmpty ? 'Vehicle details unavailable' : vehicle,
+          ? L10n.current.driverTaglineDefault
+          : L10n.current.driverTripsCompleted(driver.tripCount!),
+      vehicle: vehicle.isEmpty
+          ? L10n.current.driverVehicleUnavailable
+          : vehicle,
       plate: driver.plate ?? '',
       rideNumber: ride.rideId ?? '',
       ratingLabel: driver.rating?.toStringAsFixed(1) ?? '',
-      completedAt: _completedAtLabel(ride.savedAt),
+      completedAt: _completedAtLabel(ride.completedAt ?? ride.savedAt),
     );
   }
 
-  static String _completedAtLabel(DateTime when) {
+  static String _completedAtLabel(DateTime saved) {
     // "5 Jan 2026, 08:05" in the app language (intl's month names).
+    // rider-r4-8: a snapshot read back from the store has a UTC savedAt.
+    final when = saved.toLocal();
     return '${L10n.formatDate(when, 'd MMM yyyy')}, ${L10n.formatTime(when)}';
   }
 }
@@ -99,11 +106,13 @@ class TripReceiptRepository {
   /// The receipt for the ride just completed, in its own currency (Q7: the
   /// pickup's zone). Null when no ride has
   /// finished, so the screen keeps its honest empty state.
-  TripReceipt? last() {
+  ///
+  /// rider-u166: with [rideId], only the receipt of that ride.
+  TripReceipt? last({String? rideId}) {
     final injected = _receipt;
     if (injected != null) return injected;
 
-    final ride = LastCompletedRide.value;
+    final ride = LastCompletedRide.forRide(rideId);
     if (ride == null) return null;
 
     final charged = LastCompletedRide.charged;

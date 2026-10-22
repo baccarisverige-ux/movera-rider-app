@@ -6,8 +6,11 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -31,15 +34,17 @@ abstract final class ReservationLiveRide {
     );
   }
 
-  static RideNotes notesOf(Reservation ride) {
-    final note = ride.note ?? '';
-    return RideNotes(
-      bags: note.contains('Bags'),
-      pet: note.contains('Pet'),
-      baby: note.contains('Baby'),
-      child: note.contains('Child'),
-    );
-  }
+  /// rider-u166: makes [ride] the ride the completion screen describes, so
+  /// it shows this reservation's driver, receipt and tip currency rather
+  /// than the previous Book Now ride's.
+  static void rememberCompleted(Reservation ride) =>
+      ReservationController.rememberCompleted(
+        ride,
+        driver: ride.driver == null ? null : driverOf(ride.driver!),
+        notes: notesOf(ride),
+      );
+
+  static RideNotes notesOf(Reservation ride) => RideNotes.fromNote(ride.note);
 
   static LatLng _point(ReservationPlace place) {
     if (place.lat != null && place.lng != null) {
@@ -60,12 +65,28 @@ abstract final class ReservationLiveRide {
       controller: reservations,
       reservationId: ride.reservationId,
     );
+    // rider-u53: the terms the rider confirmed against, so the fee they saw
+    // is the fee recorded (as the Upcoming screen does).
+    ReservationCancelTerms? shownTerms;
+    ReservationCancelTerms termsNow() => reservations.cancelTermsFor(
+      reservations.byId(ride.reservationId) ?? ride,
+    );
 
     return WaitingForDriver(
       pickupAddress: ride.pickup.label,
       destinationAddress: ride.destination.label,
       pickupPosition: _point(ride.pickup),
       destinationPosition: _point(ride.destination),
+      // rider-r4-28: the booked stops reach the live ride.
+      stops: [
+        for (final stop in ride.stops)
+          if (stop.lat != null && stop.lng != null)
+            RouteStop(
+              address: stop.label,
+              latitude: stop.lat!,
+              longitude: stop.lng!,
+            ),
+      ],
       rideType: ride.categoryName,
       price: ride.price,
       currency: ride.currency,
@@ -73,12 +94,25 @@ abstract final class ReservationLiveRide {
       notes: notesOf(ride),
       driver: ride.driver == null ? null : driverOf(ride.driver!),
       rideId: ride.reservationId,
+      // rider-u44: the reservation's own category for its waiting terms,
+      // never the Book Now session's last booked one.
+      categoryId: ride.categoryId,
       realtime: realtime,
       persistRideSnapshot: false,
+      // rider-u55: reservations are device-local; no server route quote.
+      routeChangeSupported: false,
+      cancelFeeNote: () async {
+        final terms = termsNow();
+        shownTerms = terms;
+        return ReservationFormat.cancelTermsTitle(terms);
+      },
       onCancel: (context, reasonId) async {
+        final terms = shownTerms ?? termsNow();
+        shownTerms = null;
         await reservations.cancel(
           ride.reservationId,
           reason: reasonId ?? 'rider_cancelled_live',
+          fee: terms.fee,
         );
         if (!context.mounted) return;
         Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
@@ -95,6 +129,7 @@ abstract final class ReservationLiveRide {
       },
       onCompleted: (context, status) async {
         if (!context.mounted) return;
+        rememberCompleted(reservations.byId(ride.reservationId) ?? ride);
         final completionRealtime = ReservationRideRealtime(
           controller: reservations,
           reservationId: ride.reservationId,

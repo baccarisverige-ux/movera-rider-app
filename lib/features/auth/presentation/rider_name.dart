@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Step 3, new riders only: the name the driver will look for. Replaces the
@@ -13,10 +16,18 @@ import 'package:movera_rider/l10n/l10n.dart';
 ///
 /// The session already exists here, so there is no back button.
 class RiderNameScreen extends StatefulWidget {
-  const RiderNameScreen({super.key, this.initialName, this.profile});
+  const RiderNameScreen({
+    super.key,
+    this.initialName,
+    this.profile,
+    this.language,
+  });
 
   final String? initialName;
   final ProfileController? profile;
+
+  /// The language the app speaks (default: the app's own controller).
+  final AppLanguageController? language;
 
   @override
   State<RiderNameScreen> createState() => _RiderNameScreenState();
@@ -64,9 +75,17 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
     try {
       final profile = widget.profile ?? AppScope.instance.profile;
       await profile.hydrate();
+      // rider-u75: the server speaks to the rider in the language the app
+      // already speaks (their choice, else the zone's), not the 'en'
+      // default of a fresh profile.
+      final language = widget.language ?? AppScope.instance.language;
       await profile.update(
-        profile.profile.copyWith(name: last.isEmpty ? first : '$first $last'),
+        profile.profile.copyWith(
+          name: last.isEmpty ? first : '$first $last',
+          language: language.code,
+        ),
       );
+      await PendingRiderName.clear();
       if (!mounted) return;
       enterMoveraApp(context);
     } catch (_) {
@@ -108,6 +127,9 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
               hint: context.l10n.lastName,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.familyName],
+              // rider-u78: first (40) + space + last stays within the
+              // profile's 80 characters.
+              maxLength: RiderProfileData.maxNameLength - 41,
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),
@@ -131,17 +153,21 @@ class _Signature extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700);
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: 'Mov', style: brand.copyWith(color: AuthColors.ink)),
-          TextSpan(text: 'era', style: brand.copyWith(color: AuthColors.green)),
-          TextSpan(text: context.l10n.brandTagline),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: AuthText.small(),
+    // Owner round 3: the same wordmark widget as every other screen.
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const MoveraWordmark(size: 13),
+        Flexible(
+          child: Text(
+            context.l10n.brandTagline,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AuthText.small(),
+          ),
+        ),
+      ],
     );
   }
 }

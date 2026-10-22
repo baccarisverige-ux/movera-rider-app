@@ -46,7 +46,14 @@ class MapView {
 
   /// When the rider last moved the map by hand (pan, pinch, wheel); null
   /// once the app recentred it.
-  DateTime? movedByHandAt;
+  DateTime? get movedByHandAt => _movedByHandAt;
+  DateTime? _movedByHandAt;
+  set movedByHandAt(DateTime? value) {
+    _movedByHandAt = value;
+    // rider-j8-12: camera reports after a hand move are the rider's, not
+    // late echoes of a flight that landed before it.
+    if (value != null) _landedAt = null;
+  }
 
   /// How long a map the rider moved by hand stays theirs: follow updates
   /// (the driver's position on the trip map, a late location fix on Home)
@@ -54,7 +61,7 @@ class MapView {
   /// camera. A recenter takes the map back at once.
   static const Duration followHold = Duration(seconds: 12);
 
-  /// Clock for [followHold] (tests replace it).
+  /// Clock for [followHold] and the glide's frame times (tests replace it).
   static DateTime Function() now = DateTime.now;
 
   /// Whether a follow update must leave the map alone.
@@ -80,13 +87,20 @@ class MapView {
   void interrupt() {
     generation += 1;
     easing = false;
+    // rider-j8-12: a touch or a newer command ends the landed flight's echo
+    // window; the camera reports after it are new poses.
+    _landedAt = null;
     _goal = null;
     _tiltEase = null;
     _flight = null;
     if (_jsFlight) {
       _jsFlight = false;
       final id = mapId;
-      if (id != null) RiderMapBridge.cancelFlight(id);
+      // rider-j8-13: while the flight ran, the map's camera reports were
+      // ignored, so [pose] is still where it started. Take the camera's
+      // live pose; when the layer cannot say, the pose is unknown and the
+      // next command or camera report sets it.
+      if (id != null) pose = RiderMapBridge.cancelFlight(id);
     }
     final done = _done;
     _done = null;
@@ -305,7 +319,15 @@ Future<void> easeCameraTo(
   final view = mapViewOf(controller);
   if (view.touching) return Future<void>.value();
   final running = view._done;
-  if (view.easing && view._goal != null && running != null) {
+  // rider-j8-15: a flight (a recenter) during a follow glide starts afresh
+  // below, so it runs on the browser's frame clock on the web and gets its
+  // own frame budget instead of the follow glide's remaining frames.
+  final startsFlight =
+      view._flight == null && duration >= _flightThreshold;
+  if (view.easing &&
+      view._goal != null &&
+      running != null &&
+      !startsFlight) {
     view._goal = to;
     view._goalDuration = duration;
     final id = view.mapId;
@@ -315,10 +337,6 @@ Future<void> easeCameraTo(
     }
     // A newer goal joins a running flight on its clock (a fresh fix after a
     // recenter, a follow update), so the flight still lands on time.
-    if (view._flight == null && duration >= _flightThreshold) {
-      view._flight = duration;
-      view._flownMicros = 0;
-    }
     return running.future;
   }
   view.interrupt();
@@ -420,13 +438,13 @@ Future<void> _glide(
       }
       await _send(controller, view, next);
       if (last || view.generation != generation) return;
-      final started = DateTime.now();
+      final started = MapView.now();
       await Future<void>.delayed(cameraEaseFrame);
       // Real time, but never less than one frame, so a glide also ends
       // where the clock barely moves (tests, fast frames).
       dt = math.max(
         cameraEaseFrame.inMicroseconds,
-        DateTime.now().difference(started).inMicroseconds,
+        MapView.now().difference(started).inMicroseconds,
       );
     }
   } catch (_) {

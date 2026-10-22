@@ -20,6 +20,7 @@ class SavedPlacesRow extends StatelessWidget {
     required this.onUseSavedPlace,
     required this.onAddPlace,
     this.onEditSavedPlace,
+    this.onEditCustomPlace,
     this.reveal = 1,
   });
 
@@ -36,6 +37,11 @@ class SavedPlacesRow extends StatelessWidget {
 
   /// Long-press on a place to change its address.
   final void Function(String target, {String? customType})? onEditSavedPlace;
+
+  /// Long-press on a custom place: change that place's address. Several
+  /// places can share a kind, so it is named by the place itself
+  /// (rider-41). Without it the long-press falls back to [onEditSavedPlace].
+  final void Function(SavedPlaceData place)? onEditCustomPlace;
 
   /// 0 → hidden, 1 → shown. The cards come in one after the other.
   final double reveal;
@@ -105,7 +111,9 @@ class SavedPlacesRow extends StatelessWidget {
                 target: 'custom',
                 customType: place.type,
               ),
-              onLongPress: onEditSavedPlace == null
+              onLongPress: onEditCustomPlace != null
+                  ? () => onEditCustomPlace!(place)
+                  : onEditSavedPlace == null
                   ? null
                   : () => onEditSavedPlace!('custom', customType: place.type),
             ),
@@ -147,6 +155,14 @@ String placeIconAssetFor(String type) {
     default:
       return AppAssets.solarMapPoint;
   }
+}
+
+/// rider-42: what a custom place is called on screen. A place saved from
+/// Home without a name stores its type key as the title ("gym"); that is
+/// shown as the type's label in the app language.
+String savedPlaceTitle(String title, String type) {
+  final clean = title.trim();
+  return clean.isEmpty || clean == type ? placeLabelFor(type) : clean;
 }
 
 /// Label for a custom saved place type ("gym" → "Gym").
@@ -237,7 +253,7 @@ class _CustomPlaceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: place.title,
+                      text: savedPlaceTitle(place.title, place.type),
                       color: _premiumInk,
                       fontSize: 10.5,
                       fontWeight: fwSemiBold,

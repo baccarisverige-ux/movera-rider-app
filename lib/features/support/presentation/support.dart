@@ -516,26 +516,12 @@ class SupportMessages extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Text(
-            context.l10n.supportActive,
-            style: SupportHome.text(18, weight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
+          // rider-u229: no case list backs this screen, so it never says
+          // "No active cases" to a rider who has just sent one.
           _EmptyCard(
             icon: Icons.forum_outlined,
-            title: context.l10n.supportNoActiveCases,
+            title: context.l10n.supportCasesNotListed,
             subtitle: context.l10n.supportActiveBody,
-          ),
-          const SizedBox(height: 28),
-          Text(
-            context.l10n.supportClosed,
-            style: SupportHome.text(18, weight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          _EmptyCard(
-            icon: Icons.inventory_2_outlined,
-            title: context.l10n.supportNoClosedCases,
-            subtitle: context.l10n.supportClosedBody,
           ),
         ],
       ),
@@ -1094,7 +1080,18 @@ class _RideRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              ride.failed ? context.l10n.supportFailed : formatMajor(ride.price, ride.currency),
+              // rider-u230: a cancelled ride reads as on the other Support
+              // screens (its fee, not the full fare).
+              ride.cancelled
+                  ? ride.priceLabel
+                  : ride.failed
+                  ? context.l10n.supportFailed
+                  // rider-r5-48: an ended-early charge to the öre.
+                  : formatMajor(
+                      ride.price,
+                      ride.currency,
+                      whole: !ride.endedEarly,
+                    ),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],
@@ -1431,9 +1428,10 @@ class _SupportRides extends StatefulWidget {
 }
 
 class _SupportRidesState extends State<_SupportRides> {
-  late final Future<List<SupportRide>> _rides = widget.load().timeout(
-    const Duration(seconds: 8),
-  );
+  late Future<List<SupportRide>> _rides = _load();
+
+  Future<List<SupportRide>> _load() =>
+      widget.load().timeout(const Duration(seconds: 8));
 
   @override
   Widget build(BuildContext context) {
@@ -1444,6 +1442,29 @@ class _SupportRidesState extends State<_SupportRides> {
           return const Padding(
             padding: EdgeInsets.all(24),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        // rider-r3-2: a history that could not be read is not "no rides".
+        if (snapshot.hasError) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _EmptyCard(
+                icon: Icons.cloud_off_outlined,
+                title: context.l10n.historyLoadFailed,
+                subtitle: context.l10n.historyLoadFailedBody,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() {
+                    _rides = _load();
+                  }),
+                  child: Text(context.l10n.retry),
+                ),
+              ),
+            ],
           );
         }
         return widget.builder(context, snapshot.data ?? const []);

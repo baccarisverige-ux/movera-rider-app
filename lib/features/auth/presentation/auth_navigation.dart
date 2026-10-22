@@ -6,7 +6,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
-import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 
 /// Leaves the sign-in flow for the map, clearing it from the back stack.
@@ -25,6 +25,12 @@ void enterMoveraApp(BuildContext context) {
   if (shown) {
     unawaited(RideRestoreCoordinator.instance.resumeIfNeeded());
   }
+  // rider-u148: a returning rider gets their server profile (name,
+  // language, consents) on this device; rider-r5-42: a language picked on
+  // Sign in goes to it.
+  unawaited(
+    AppScope.instance.profile.hydrateWithLanguage(AppScope.instance.language),
+  );
   // UI-17: explain ride updates before the OS notification prompt.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final home = moveraNavigatorKey.currentContext;
@@ -62,11 +68,13 @@ bool showMoveraRoot(
 
 /// The +46 number a rider typed into the national-number field, or null.
 ///
-/// Accepts both "70 123 45 67" and the everyday "070 123 45 67". The old
-/// screens prefixed +46 to whatever was typed, turning "070..." into the
-/// invalid "+46070...".
+/// rider-30 / rider-r3-11: national ("070 123 45 67", "70 123 45 67") and
+/// international (+46, 0046, a bare 46 of full length) forms of a Swedish
+/// mobile (+46 7 and eight more digits); anything else is refused.
+///
+/// Owner decision 7: the sign-in screens now take every country through
+/// [phoneNumberFromField]; this is its Sweden-only form.
 String? swedishNumberFromField(String typed) {
-  final digits = typed.replaceAll(RegExp(r'\s+'), '').trim();
-  if (digits.isEmpty) return null;
-  return SwedishPhone.toE164(digits.startsWith('0') ? digits : '+46$digits');
+  final number = phoneNumberFromField(typed, PhoneCountries.sweden);
+  return number != null && number.startsWith('+46') ? number : null;
 }

@@ -17,18 +17,25 @@ class DeviceOnlyActiveTripRepository implements ActiveTripRepository {
 /// `GET /api/v1/rider/trips/active` (C-5, PROPOSED).
 class ApiActiveTripRepository
     implements ActiveTripRepository, ServerBackedRepository {
-  ApiActiveTripRepository({required ApiClient api}) : _api = api;
+  ApiActiveTripRepository({required ApiClient api, this.categoryLabel})
+      : _api = api;
 
   static const path = '/api/v1/rider/trips/active';
 
   final ApiClient _api;
+
+  /// The catalog's category names; null is the built-in catalog.
+  final CategoryLabel? categoryLabel;
 
   @override
   Future<RideSnapshot?> fetchActive() async {
     final json = await _api.get(path);
     final trip = json['trip'] ?? json['ride'];
     if (trip is! Map) return null;
-    final snapshot = RideProjection.toSnapshot(Map<String, dynamic>.from(trip));
+    final snapshot = RideProjection.toSnapshot(
+      Map<String, dynamic>.from(trip),
+      categoryLabel: categoryLabel,
+    );
     if (snapshot == null || snapshot.status.isTerminal) return null;
     return snapshot;
   }

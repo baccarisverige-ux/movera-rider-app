@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// Asks before a destructive or replacing action (FLOW-5, FLOW-15), the way
 /// Wallet asks before removing a card. Resolves true only when the rider
 /// taps [confirmLabel]; dismissing the sheet or tapping Cancel is false.
+/// [cancelLabel] defaults to the app language's Cancel (rider-j8-11).
 Future<bool> confirmMoveraAction(
   BuildContext context, {
   required String title,
   required String message,
   required String confirmLabel,
-  String cancelLabel = 'Cancel',
+  String? cancelLabel,
 }) async {
   TextStyle style(double size, FontWeight weight, Color color) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
@@ -62,7 +64,7 @@ Future<bool> confirmMoveraAction(
                 key: const ValueKey('movera-confirm-cancel'),
                 onPressed: () => Navigator.of(sheetContext).pop(false),
                 child: Text(
-                  cancelLabel,
+                  cancelLabel ?? sheetContext.l10n.cancel,
                   style: style(15, FontWeight.w500, ink),
                 ),
               ),

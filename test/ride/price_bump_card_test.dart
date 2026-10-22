@@ -81,4 +81,33 @@ void main() {
     await tester.pump();
     expect(confirmed, isEmpty);
   });
+
+  testWidgets('rider-r4-17: a typed total on a fare with cents lights only '
+      'the step it really raises by', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PriceBumpCard(
+              currentPrice: 24.6,
+              maxPrice: 44,
+              currency: 'EUR',
+              steps: const [1, 2, 4],
+              onConfirm: (_) {},
+              onConfirmIncrease: (_) {},
+              onKeepWaiting: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    bool lit(String chip) =>
+        tester.widget<Text>(find.text(chip)).style?.color == Colors.white;
+    await tester.enterText(find.byType(TextField), '27'); // +2,40 €
+    await tester.pump();
+    expect(lit('+2 €'), isFalse);
+    await tester.tap(find.text('+2 €'));
+    await tester.pump();
+    expect(lit('+2 €'), isTrue);
+  });
 }

@@ -53,6 +53,13 @@ class ApiRideRealtime implements RideRealtime {
 
   /// Per-ride transport sequence, kept across subscriptions (ARCH-13).
   final Map<String, int> _sequences = {};
+
+  /// rider-u23: the lifecycle status and driver each ride was last shown
+  /// with, kept across subscriptions like [_sequences]. Every handover
+  /// (Finding to Waiting, a feed retry) starts a new poll, so a drop judged
+  /// by the poll's own last status was missed when the new poll's first
+  /// read already said `searching`.
+  final Map<String, ({RideStatus status, String? driverId})> _shown = {};
   bool _disposed = false;
 
   @override
@@ -70,10 +77,7 @@ class ApiRideRealtime implements RideRealtime {
         if (poll.timer != null) return;
         connection.state = RealtimeState.connecting;
         unawaited(_poll(poll));
-        poll.timer = Timer.periodic(
-          pollInterval,
-          (_) => unawaited(_poll(poll)),
-        );
+        _startPolling(poll);
       },
       onCancel: () {
         poll.timer?.cancel();
@@ -85,6 +89,10 @@ class ApiRideRealtime implements RideRealtime {
       },
     );
     return poll.controller!.stream;
+  }
+
+  void _startPolling(_RidePoll poll) {
+    poll.timer = Timer.periodic(pollInterval, (_) => unawaited(_poll(poll)));
   }
 
   Future<void> _poll(_RidePoll poll, {bool force = false}) async {
@@ -187,25 +195,40 @@ class ApiRideRealtime implements RideRealtime {
         connection.markConnected();
         return;
       }
-      // Contract v0.3.0: a driver drop before boarding (or an admin
-      // reassign) puts the trip back to `searching`. The rider keeps the
-      // trip; Waiting shows the reassignment notice for it.
-      final reassigned = status.isSearching &&
-          (poll.lastStatus?.isMatched ?? false);
-      // Q13 / X19: an admin reassign is not a driver cancel. The rider
-      // keeps the same redispatch path but is never told "driver
-      // cancelled": they see searching, then the next driver assigned.
-      final byAdmin = reassigned && _reassignedByAdmin(ride, explicitKind);
-      if (reassigned) status = RideStatus.cancelledByDriver;
-      final location = _location(ride);
       final rawDriver = ride['driver'];
       final driver = rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
           : null;
+      final shown = _shown[poll.id];
+      final wasMatched = shown?.status.isMatched ?? false;
+      // Contract v0.3.0: a driver drop before boarding (or an admin
+      // reassign) puts the trip back to `searching`. The rider keeps the
+      // trip; Waiting shows the reassignment notice for it.
+      final reassigned = status.isSearching && wasMatched;
+      // rider-u23: the polls can also skip the `searching` step (a
+      // backgrounded app, a failed poll): a different driver on a matched
+      // trip is that drop too. The event keeps the new driver's status.
+      final swapped = !reassigned &&
+          wasMatched &&
+          status.isMatched &&
+          driver != null &&
+          shown?.driverId != null &&
+          driver.id != shown!.driverId;
+      // Q13 / X19: an admin reassign is not a driver cancel. The rider
+      // keeps the same redispatch path but is never told "driver
+      // cancelled": they see searching, then the next driver assigned.
+      final byAdmin =
+          (reassigned || swapped) && _reassignedByAdmin(ride, explicitKind);
+      final dropped = (reassigned || swapped) && !byAdmin;
+      if (reassigned) status = RideStatus.cancelledByDriver;
+      final location = _location(ride);
       if (poll.version == version && poll.updatedAt == updatedAt &&
           poll.lastStatus == status &&
           poll.lastLat == location.lat &&
-          poll.lastLng == location.lng) {
+          poll.lastLng == location.lng &&
+          // rider-u24: a stationary driver still sends fresh fixes; a newer
+          // fix time with the same coordinates is news, not a repeat.
+          poll.lastLocationAt == location.at) {
         connection.markConnected();
         return;
       }
@@ -218,6 +241,12 @@ class ApiRideRealtime implements RideRealtime {
       poll.lastRatingStatus = ride['ratingStatus'];
       poll.lastLat = location.lat;
       poll.lastLng = location.lng;
+      poll.lastLocationAt = location.at;
+      _shown[poll.id] = (
+        status: status,
+        // A matched projection without a driver keeps the one shown.
+        driverId: driver?.id ?? (status.isMatched ? shown?.driverId : null),
+      );
       if (eventId != null) poll.remember(eventId);
       // The server's sequence (0 = no realtime event yet), else its
       // version. Only a legacy server that sends neither gets a local
@@ -228,7 +257,7 @@ class ApiRideRealtime implements RideRealtime {
         rideId: poll.id,
         status: status,
         sequence: sequence,
-        kind: reassigned && !byAdmin ? RealtimeKind.driverCancelled : kind,
+        kind: dropped ? RealtimeKind.driverCancelled : kind,
         eventId: eventId,
         version: version,
         serverTime: updatedAt,
@@ -238,7 +267,10 @@ class ApiRideRealtime implements RideRealtime {
         etaSeconds: _seconds(ride['etaSeconds']),
         locationAt: _onDeviceClock(
           serverLocationAt,
-          serverNow: _date(envelope['serverTime'] ?? ride['serverTime']),
+          // rider-r4-9: the contract's bare TripProjection has no
+          // serverTime; its own updatedAt is the newest server stamp then.
+          serverNow:
+              _date(envelope['serverTime'] ?? ride['serverTime']) ?? updatedAt,
         ),
         payload: {
           if (serverLocationAt != null)
@@ -247,9 +279,13 @@ class ApiRideRealtime implements RideRealtime {
           // Contract v0.4.0: when the driver accepted (Q12) and when the
           // waiting clock started (Q42), as the server stamped them.
           if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],
-          if (_waitingArrivedAt(ride) case final String at)
+          if (_waiting(ride, 'arrivedAt') case final String at)
             waitingArrivedAtKey: at,
-          if (reassigned && !byAdmin) 'kind': 'driver_cancelled',
+          if (_waiting(ride, 'freeUntil') case final String at)
+            waitingFreeUntilKey: at,
+          if (_waiting(ride, 'noShowAt') case final String at)
+            waitingNoShowAtKey: at,
+          if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
       ));
@@ -275,10 +311,11 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
-  /// `TripProjection.waiting.arrivedAt`, when the projection has one.
-  static String? _waitingArrivedAt(Map<String, dynamic> ride) {
+  /// `TripProjection.waiting.<field>` (arrivedAt, freeUntil, noShowAt),
+  /// when the projection has it.
+  static String? _waiting(Map<String, dynamic> ride, String field) {
     final waiting = ride['waiting'];
-    final at = waiting is Map ? waiting['arrivedAt'] : null;
+    final at = waiting is Map ? waiting[field] : null;
     return at is String ? at : null;
   }
 
@@ -286,6 +323,12 @@ class ApiRideRealtime implements RideRealtime {
   /// admin: the projection's `cancellation.actor` says so, or the server
   /// named the change with a kind other than `driver_cancelled` (a driver
   /// drop always carries that kind).
+  ///
+  /// rider-u26: the kind is the newest event's. It names the change that
+  /// ended the match only while the trip still sits where that change put
+  /// it (`searching`). Once dispatch has moved on (re-offered, another
+  /// driver accepted) within one poll, the kind is that later step's, so
+  /// without an actor the rider is told the driver cancelled.
   static bool _reassignedByAdmin(
     Map<String, dynamic> ride,
     RealtimeKind? explicitKind,
@@ -296,6 +339,7 @@ class ApiRideRealtime implements RideRealtime {
       if (actor == 'admin') return true;
       if (actor == 'driver') return false;
     }
+    if (ride['status'] != TripStatus.searching.wireName) return false;
     return explicitKind != null && explicitKind != RealtimeKind.driverCancelled;
   }
 
@@ -356,6 +400,8 @@ class ApiRideRealtime implements RideRealtime {
   /// device clock. With the server's own clock at answer time the age is
   /// `serverNow - locationAt`, which is moved onto the device clock so a
   /// phone whose clock runs fast or slow does not see a fresh fix as stale.
+  /// Without a `serverTime` the projection's `updatedAt` stands in for it
+  /// (rider-r4-9), never the device clock.
   DateTime? _onDeviceClock(DateTime? locationAt, {DateTime? serverNow}) {
     if (locationAt == null || serverNow == null) return locationAt;
     final age = serverNow.difference(locationAt);
@@ -387,6 +433,16 @@ class ApiRideRealtime implements RideRealtime {
       poll.notFound = poll.notFound > 0 ? notFoundLimit - 1 : 0;
     }
     await _poll(poll, force: true);
+    // rider-23: the pause cancelled the periodic poll, and onListen never
+    // runs again for the listener still attached. Without this a resync
+    // that reads the trip left it frozen while the banner said connected.
+    if (!_disposed &&
+        identical(_rides[poll.id], poll) &&
+        !poll.ended &&
+        poll.timer == null &&
+        (poll.controller?.hasListener ?? false)) {
+      _startPolling(poll);
+    }
   }
 
   @override
@@ -460,4 +516,5 @@ class _RidePoll {
   Object? lastRatingStatus;
   double? lastLat;
   double? lastLng;
+  DateTime? lastLocationAt;
 }

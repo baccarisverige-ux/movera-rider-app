@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -25,6 +27,7 @@ class PendingCancel {
     this.idempotencyKey,
     this.command = PendingCancelCommand.cancel,
     this.expectedVersion,
+    this.whileSearching = false,
   });
 
   final String rideId;
@@ -44,12 +47,18 @@ class PendingCancel {
   /// written before the field existed.
   final int? expectedVersion;
 
+  /// rider-u103: queued from the search, before any driver accepted. Such
+  /// a cancel is free; once a driver has accepted, the match overtook it
+  /// (RC-03) and it is never replayed on the matched trip.
+  final bool whileSearching;
+
   PendingCancel withKey(String key) => PendingCancel(
     rideId: rideId,
     reasonId: reasonId,
     idempotencyKey: key,
     command: command,
     expectedVersion: expectedVersion,
+    whileSearching: whileSearching,
   );
 
   PendingCancel withReason(String? reason) => PendingCancel(
@@ -58,6 +67,7 @@ class PendingCancel {
     idempotencyKey: idempotencyKey,
     command: command,
     expectedVersion: expectedVersion,
+    whileSearching: whileSearching,
   );
 
   /// The same command for a newer trip [version] the outbox re-read before
@@ -70,6 +80,7 @@ class PendingCancel {
     idempotencyKey: newIdempotencyKey('ride-cancel'),
     command: command,
     expectedVersion: version,
+    whileSearching: whileSearching,
   );
 
   /// The request body: the rider's reason and, when known, the version.
@@ -85,6 +96,7 @@ class PendingCancel {
     if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
     'command': command.pathSegment,
     'expectedVersion': ?expectedVersion,
+    if (whileSearching) 'whileSearching': true,
   };
 
   factory PendingCancel.fromJson(Map<String, dynamic> json) => PendingCancel(
@@ -93,6 +105,7 @@ class PendingCancel {
     idempotencyKey: json['idempotencyKey'] as String?,
     command: PendingCancelCommand.parse(json['command']),
     expectedVersion: (json['expectedVersion'] as num?)?.toInt(),
+    whileSearching: json['whileSearching'] == true,
   );
 }
 
@@ -127,9 +140,15 @@ enum PendingCancelResult {
   /// rider's cancel did not happen and the ride goes on.
   refused,
 
-  /// The ride is gone or already over (404/410, or a refusal for a ride
-  /// that has ended): nothing is left to cancel.
+  /// The server no longer knows the ride (404/410): nothing is left to
+  /// cancel.
   gone,
+
+  /// rider-r4-24: the server had already closed the trip some other way
+  /// (no driver found, cancelled by the driver or by Movera, completed).
+  /// Nothing was cancelled by the rider; [PendingCancelOutcome.endedAs] is
+  /// how the server closed it, and the ride is filed that way.
+  ended,
 
   /// R-O2: re-read before replaying, the trip had moved on so the command
   /// no longer applies (a queued cancel for a rider now on board, an
@@ -144,21 +163,44 @@ class PendingCancelOutcome {
     required this.rideId,
     required this.command,
     required this.result,
+    this.reasonId,
+    this.charged,
+    this.fee,
+    this.endedAs,
   });
 
   final String rideId;
   final PendingCancelCommand command;
   final PendingCancelResult result;
+
+  /// For [PendingCancelResult.ended]: the trip's terminal status as the
+  /// server read it. Null when unknown.
+  final RideStatus? endedAs;
+
+  /// rider-u32: what the queued entry carried and what the server answered
+  /// when it was [PendingCancelResult.sent], so the screen that later sees
+  /// the trip closed can file it right: the rider's reason, the trip's
+  /// `fare` after an end-early (what they pay), and a cancel's
+  /// `cancellation.fee`. Null when unknown.
+  final String? reasonId;
+  final Money? charged;
+  final Money? fee;
 }
 
 /// True when a cancel request failed in a way no retry can fix: the server
-/// no longer knows the ride (404/410) or refuses the transition because the
-/// ride is already finished/cancelled (409/422). Those entries must leave the
-/// outbox instead of being retried forever (D-020).
+/// no longer knows the ride (404/410), refuses the transition because the
+/// ride is already finished/cancelled (409/422), or refuses the body itself
+/// (400 invalid_request, rider-u19: the same body is refused every time).
+/// Those entries must leave the outbox instead of being retried forever
+/// (D-020).
 bool isPermanentCancelFailure(Object error) {
   if (error is! ApiError) return false;
   final status = error.statusCode;
-  return status == 404 || status == 409 || status == 410 || status == 422;
+  return status == 400 ||
+      status == 404 ||
+      status == 409 ||
+      status == 410 ||
+      status == 422;
 }
 
 /// R-O3: a refusal whose projection says the rider already cancelled the
@@ -187,8 +229,23 @@ class PendingCancelStore {
     } else {
       _notices.remove(outcome.rideId);
     }
+    if (outcome.result == PendingCancelResult.sent) {
+      _delivered[outcome.rideId] = outcome;
+    } else {
+      _delivered.remove(outcome.rideId);
+    }
     _outcomes.add(outcome);
   }
+
+  /// rider-u32: commands a flush delivered (`sent`), kept until the screen
+  /// that sees the trip closed on realtime takes them. A launch flush can
+  /// deliver an end-early before Waiting exists (a cold restore), and the
+  /// projection that follows says nothing about the reason or the amount.
+  static final Map<String, PendingCancelOutcome> _delivered = {};
+
+  /// The delivered command for [rideId], once; null when none was.
+  static PendingCancelOutcome? takeDelivered(String rideId) =>
+      _delivered.remove(rideId);
 
   /// Refusals and stale drops nobody has told the rider about yet. A flush
   /// at launch can answer before the ride's screen exists (a cold restore);
@@ -216,6 +273,7 @@ class PendingCancelStore {
         idempotencyKey: key is String && key.isNotEmpty ? key : null,
         command: PendingCancelCommand.parse(decoded['command']),
         expectedVersion: (decoded['expectedVersion'] as num?)?.toInt(),
+        whileSearching: decoded['whileSearching'] == true,
       );
     } catch (_) {
       return null;
@@ -285,18 +343,39 @@ class PendingCancelStore {
   /// sent, reusing the entry (and its idempotency key) if one already exists
   /// for the same [command]. A different command is a different request,
   /// so it replaces the entry with its own key.
+  ///
+  /// rider-u104: a new tap that names a different [expectedVersion] (the
+  /// trip moved on) or a different [reasonId] is a new body, so the entry
+  /// is refreshed with them under a new key, as the flush does with
+  /// [PendingCancel.forVersion]. The first tap's version would be refused
+  /// as stale, and its reason would differ from the one History files.
   static Future<PendingCancel> enqueue({
     required String rideId,
     String? reasonId,
     String? idempotencyKey,
     PendingCancelCommand command = PendingCancelCommand.cancel,
     int? expectedVersion,
+    bool whileSearching = false,
   }) async {
     final existing = await find(rideId);
     if (existing != null &&
         existing.command == command &&
+        existing.whileSearching == whileSearching &&
         existing.idempotencyKey != null) {
-      return existing;
+      final newVersion = expectedVersion != null &&
+          expectedVersion != existing.expectedVersion;
+      final newReason = reasonId != null && reasonId != existing.reasonId;
+      if (!newVersion && !newReason) return existing;
+      final refreshed = PendingCancel(
+        rideId: rideId,
+        reasonId: reasonId ?? existing.reasonId,
+        idempotencyKey: idempotencyKey ?? newIdempotencyKey('ride-cancel'),
+        command: command,
+        expectedVersion: expectedVersion ?? existing.expectedVersion,
+        whileSearching: whileSearching,
+      );
+      await add(refreshed);
+      return refreshed;
     }
     final entry = PendingCancel(
       rideId: rideId,
@@ -305,6 +384,7 @@ class PendingCancelStore {
           idempotencyKey ?? newIdempotencyKey('ride-cancel'),
       command: command,
       expectedVersion: expectedVersion,
+      whileSearching: whileSearching,
     );
     await add(entry);
     return entry;

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -25,6 +27,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
@@ -32,12 +35,14 @@ import 'package:movera_rider/features/finding_driver/presentation/still_looking_
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
     show RideSnapshot;
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -48,6 +53,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class FindingDrivers extends StatefulWidget {
@@ -115,6 +121,21 @@ class FindingDrivers extends StatefulWidget {
   State<FindingDrivers> createState() => _FindingDriversState();
 }
 
+/// How a "Try again" after no driver found ended.
+enum _Rebook {
+  /// The new search runs.
+  started,
+
+  /// Refused or failed: no new ride exists.
+  failed,
+
+  /// No answer (timeout, dropped connection): the ride may exist (RC-09).
+  uncertain,
+
+  /// rider-u107: the price changed and the rider chose not to book it.
+  declined,
+}
+
 class _FindingDriversState extends State<FindingDrivers> {
   /// The trip's currency: the one the search holds once it started (a
   /// restored or re-requested trip keeps its own), else the widget's.
@@ -128,6 +149,14 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _mapParked = false;
   bool _mapReady = false;
   bool _leaving = false;
+
+  /// rider-u106: "Try again" is creating the new booking. The screen must
+  /// not be left meanwhile, or the new live search has no owner.
+  bool _rebooking = false;
+
+  /// rider-u107: the quote the rider confirmed for "Try again", kept while
+  /// an uncertain booking is retried so it is not asked again.
+  RideQuote? _rebookQuote;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
   final bool _detailsSheetOpen = false;
@@ -195,6 +224,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     double? price,
     DateTime? searchStartedAt,
     DateTime? createdAt,
+    int? maxOfferMinor,
   }) {
     final effectivePrice =
         price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
@@ -214,6 +244,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       stops: _stops,
       searchStartedAt: searchStartedAt,
       createdAt: createdAt,
+      maxOfferMinor: maxOfferMinor,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(
@@ -300,6 +331,10 @@ class _FindingDriversState extends State<FindingDrivers> {
     final effectivePrice = current != null
         ? current.price
         : (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
+    // rider-u93: and the offer ceiling that route change set, not the one
+    // the session kept from booking.
+    final maxOfferMinor =
+        current?.maxOfferMinor ?? _match.ownershipSnapshot?.maxOfferMinor;
     _leaving = false;
     _cancelSheetOpen = false;
     _driverMatched.value = false;
@@ -309,7 +344,11 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(false);
     setState(() => _mapParked = false);
     // A new dispatch round: its own "still looking" mark.
-    _startMatching(price: effectivePrice, searchStartedAt: DateTime.now());
+    _startMatching(
+      price: effectivePrice,
+      searchStartedAt: DateTime.now(),
+      maxOfferMinor: maxOfferMinor,
+    );
     _loadMapBits();
   }
 
@@ -335,21 +374,69 @@ class _FindingDriversState extends State<FindingDrivers> {
     }
     // RIDE-19: the server found no driver. Offer the same request again, or
     // a different route from "Where to?".
-    final choice = await showNoDriverFoundSheet(context);
-    if (!mounted) return;
-    if (choice == NoDriverChoice.tryAgain && await _requestAgain(ended)) {
-      return;
+    var choice = await showNoDriverFoundSheet(context);
+    while (mounted && choice == NoDriverChoice.tryAgain) {
+      final outcome = await _requestAgain(ended);
+      if (outcome == _Rebook.started) return;
+      if (!mounted) break;
+      if (outcome == _Rebook.declined) {
+        // rider-u107: "Not now" on the new price; the rider decides again.
+        choice = await showNoDriverFoundSheet(context);
+        continue;
+      }
+      if (outcome != _Rebook.uncertain) break;
+      // rider-u108: the new ride may exist on the server. The rider stays
+      // here and may send the same booking again (same key, so never a
+      // second ride) rather than being sent Home with a live ride unseen.
+      choice = await showNoDriverFoundSheet(
+        context,
+        message: context.l10n.bookingUncertain,
+      );
     }
     if (!mounted) return;
     RideNavigator.home(context, status: status);
   }
 
   /// Requests the same route, category and payment again as a new booking
-  /// (a new ride, so a new idempotency key). True when the new search runs.
-  Future<bool> _requestAgain(RideSnapshot ended) async {
+  /// (a new ride, so a new idempotency key; a retry after an uncertain
+  /// answer reuses it).
+  Future<_Rebook> _requestAgain(RideSnapshot ended) async {
     String rideId;
+    final booking = widget.booking ?? BookingController();
+    // rider-u107: price the route again first. A price other than the one
+    // the rider last saw (a surge, or their raise from the last search) is
+    // booked only once they accept it, as on Select Ride.
+    var quote = _rebookQuote;
+    if (quote == null) {
+      setState(() => _rebooking = true);
+      try {
+        quote = await booking.freshQuote(
+          rideType: ended.categoryId!,
+          pickupAddress: ended.pickupAddress,
+          destinationAddress: ended.destinationAddress,
+          pickupLat: ended.pickupLat,
+          pickupLng: ended.pickupLng,
+          destinationLat: ended.destinationLat,
+          destinationLng: ended.destinationLng,
+          stops: ended.stops,
+        );
+      } catch (_) {
+        _showCancelNotice(L10n.current.rebookFailed);
+        return _Rebook.failed;
+      } finally {
+        if (mounted) setState(() => _rebooking = false);
+      }
+      if (!mounted) return _Rebook.failed;
+      final next = Money(quote.totalMinor, quote.currency);
+      if (next != ended.fare && !await _acceptNewPrice(ended.fare, next)) {
+        return _Rebook.declined;
+      }
+      if (!mounted) return _Rebook.failed;
+      _rebookQuote = quote;
+    }
+    setState(() => _rebooking = true);
     try {
-      rideId = await (widget.booking ?? BookingController()).submitFinding(
+      rideId = await booking.submitFinding(
         pickupAddress: ended.pickupAddress,
         destinationAddress: ended.destinationAddress,
         pickupLat: ended.pickupLat,
@@ -357,8 +444,12 @@ class _FindingDriversState extends State<FindingDrivers> {
         destinationLat: ended.destinationLat,
         destinationLng: ended.destinationLng,
         rideType: ended.categoryId!,
-        price: ended.price,
-        quoteCurrency: ended.currency,
+        price: Money(quote.totalMinor, quote.currency).major,
+        quoteId: quote.id,
+        quoteSignedPayload: quote.signedPayload,
+        quoteExpiresAt: quote.expiresAt,
+        quoteTotalMinor: quote.totalMinor,
+        quoteCurrency: quote.currency,
         paymentMethod: ended.paymentMethodId!,
         rideTypeLabel: widget.rideType,
         paymentMethodLabel: widget.paymentMethod,
@@ -367,15 +458,29 @@ class _FindingDriversState extends State<FindingDrivers> {
         useWalletFirst: widget.walletAmountMinor > 0,
         walletAmountMinor: widget.walletAmountMinor,
       );
-    } catch (_) {
+    } catch (error) {
+      // RC-09: a timeout or dropped connection may still have booked it.
+      if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
+      _rebookQuote = null;
       _showCancelNotice(
         L10n.current.rebookFailed,
       );
-      return false;
+      return _Rebook.failed;
+    } finally {
+      if (mounted) setState(() => _rebooking = false);
     }
-    if (!mounted || rideId.trim().isEmpty) return false;
+    _rebookQuote = null;
+    if (rideId.trim().isEmpty) return _Rebook.failed;
+    if (!mounted) {
+      // The new ride exists on the server: it gets a screen now.
+      await RideRestoreCoordinator.instance.recoverCreatedFinding(
+        rideId,
+        realtime: widget.realtime,
+      );
+      return _Rebook.started;
+    }
     final booked = await _match.storedRide(rideId: rideId);
-    if (!mounted) return false;
+    if (!mounted) return _Rebook.failed;
     if (booked != null) _adoptRoute(booked);
     _leaving = false;
     _terminalPending = null;
@@ -389,7 +494,33 @@ class _FindingDriversState extends State<FindingDrivers> {
       createdAt: booked?.createdAt,
     );
     _loadMapBits();
-    return true;
+    return _Rebook.started;
+  }
+
+  /// rider-u107: the same "Price updated" question Select Ride asks.
+  Future<bool> _acceptNewPrice(Money shown, Money next) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('rebook-price-updated'),
+        title: Text(context.l10n.priceUpdated),
+        content: Text(
+          context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.notNow),
+          ),
+          FilledButton(
+            key: const ValueKey('rebook-price-accept'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.bookForPrice(formatMoney(next))),
+          ),
+        ],
+      ),
+    );
+    return accepted == true;
   }
 
   /// Takes over [ride]'s route on this screen (without telling the server,
@@ -403,6 +534,28 @@ class _FindingDriversState extends State<FindingDrivers> {
     _roadRoutePoints = null;
     _loadMapBits();
     if (_mapReady) unawaited(_refreshRoadRoute());
+  }
+
+  /// rider-u61: on the web the car bitmap comes turned (the plugin ignores
+  /// rotation there).
+  Marker _nearbyMarker(NearbyVehicle vehicle) {
+    final look = MoveraVehicleMarker.look(
+      _driverCar,
+      vehicle.bearing,
+      onReady: () {
+        if (mounted) setState(_loadMapBits);
+      },
+    );
+    return Marker(
+      markerId: MarkerId('nearby-${vehicle.id}'),
+      position: LatLng(vehicle.latitude, vehicle.longitude),
+      rotation: look.rotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon:
+          look.icon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+    );
   }
 
   void _loadMapBits() {
@@ -426,17 +579,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         anchor: _pinAnchor,
       ),
-      for (final vehicle in _match.nearby)
-        Marker(
-          markerId: MarkerId('nearby-${vehicle.id}'),
-          position: LatLng(vehicle.latitude, vehicle.longitude),
-          rotation: vehicle.bearing,
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
-          icon:
-              _driverCar ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-        ),
+      for (final vehicle in _match.nearby) _nearbyMarker(vehicle),
     };
     _polylines = styledRoute(
       routePoints != null && routePoints.length >= 2
@@ -506,13 +649,22 @@ class _FindingDriversState extends State<FindingDrivers> {
   Future<void> _refreshRoadRoute() async {
     // With stops the straight pickup → stops → destination line is drawn.
     if (_stops.isNotEmpty) return;
+    final from = _pickupPosition;
+    final to = _destinationPosition;
     final route = await roadRoutePolyline(
       id: 'route',
-      from: _pickupPosition,
-      to: _destinationPosition,
+      from: from,
+      to: to,
       color: RiderRouteStyle.color,
     );
     if (!mounted || route.points.length < 2) return;
+    // rider-35: the route changed while this answer was on its way; the
+    // newer request draws the line.
+    if (from != _pickupPosition ||
+        to != _destinationPosition ||
+        _stops.isNotEmpty) {
+      return;
+    }
     _roadRoutePoints = route.points;
     _loadMapBits();
     setState(() {});
@@ -583,7 +735,14 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
     // A system back can close the sheet while the request is still out;
     // the server's answer decides, not the sheet.
-    final result = request == null ? null : await request;
+    SearchCancelResult? result;
+    try {
+      result = request == null ? null : await request;
+    } catch (_) {
+      // rider-u98: a failed request must not leave the sheet marked open,
+      // which would hold every later navigation back.
+      result = SearchCancelResult.unsent;
+    }
     if (!mounted) {
       _cancelSheetOpen = false;
       return;
@@ -606,6 +765,8 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice(context.l10n.cancelNoLonger);
+    } else if (result == SearchCancelResult.unsent) {
+      _showCancelNotice(context.l10n.routeCouldNotReach);
     } else if (result == SearchCancelResult.stale) {
       // R-O2 (owner's words): the trip changed just before the tap.
       _showCancelNotice(rideJustChangedMessage);
@@ -628,6 +789,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       context,
       phase: CancelPhase.searching,
       committed: true,
+      publishedReasons: _zoneConfig?.cancelReasons.map((r) => r.code),
     );
     final reason = feedback.reasonId;
     if (reason != null) unawaited(_match.sendCancelReason(reason));
@@ -690,7 +852,8 @@ class _FindingDriversState extends State<FindingDrivers> {
         context,
         driverAssigned: _match.matchCount > 0,
         paymentMethod: widget.paymentMethod,
-        differenceKr: updated.price - ride.price,
+        // rider-u36: the server's difference, as the sheet showed it.
+        differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
         currency: updated.currency,
       );
     }
@@ -788,15 +951,22 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   String _shortPlace(String value) => shortenPlace(value);
 
+  /// rider-u110: the sheet never rises over the top bar (Cancel and Safety
+  /// Kit sit at padding.top + 8, 48 px tall) or past the screen top; on a
+  /// short viewport the panel body scrolls instead.
+  double _sheetCeiling(MediaQueryData media) =>
+      media.size.height - media.padding.top - 64;
+
   double _minSheet(MediaQueryData media) {
     final base = _match.showPriceBump ? 520.0 : 332.0;
-    return base + media.padding.bottom;
+    return math.min(base + media.padding.bottom, _sheetCeiling(media));
   }
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
-    return maxH < minH + 48 ? minH + 48 : maxH;
+    final wanted = maxH < minH + 48 ? minH + 48 : maxH;
+    return math.max(minH, math.min(wanted, _sheetCeiling(media)));
   }
 
   @override
@@ -806,7 +976,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     final progress = (_match.elapsedSeconds / 90).clamp(0.08, 0.86);
     const mapReserve = 300.0;
     return PopScope(
-      canPop: _leaving,
+      canPop: _leaving && !_rebooking,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmCancel();
       },
@@ -995,6 +1165,16 @@ class _FindingDriversState extends State<FindingDrivers> {
                 ),
               ),
             ),
+            if (_rebooking)
+              const Positioned.fill(
+                child: ColoredBox(
+                  key: ValueKey('finding-rebooking'),
+                  color: Color(0x33FFFFFF),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF2D5878)),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1128,7 +1308,8 @@ class _FindingDriversState extends State<FindingDrivers> {
                       const SizedBox(height: 8),
                       Text(
                         bookedPaymentLine(
-                          paymentMethod: widget.paymentMethod,
+                          // rider-u231: the method in the app language.
+                          paymentMethod: paymentLabelFor(widget.paymentMethod),
                           priceKr: _match.currentPrice,
                           currency: _match.currency,
                           walletMinor: widget.walletAmountMinor,

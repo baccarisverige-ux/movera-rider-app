@@ -15,16 +15,18 @@ class WaitingFeeState {
   });
 
   /// The waiting clock at [now] for a driver waiting since [since], with
-  /// [freeWaitMin] free minutes and then [perMin] for each whole minute.
+  /// [freeWaitMin] free minutes and then [perMin] a minute, counted by the
+  /// second as the driver app charges it (rider-r5-1).
   factory WaitingFeeState.at({
     required DateTime since,
     required DateTime now,
     required int freeWaitMin,
     required Money perMin,
+    DateTime? freeUntil,
   }) {
     var waited = now.difference(since);
     if (waited.isNegative) waited = Duration.zero;
-    final free = Duration(minutes: freeWaitMin);
+    final free = freeWait(since, freeWaitMin, freeUntil);
     if (waited < free) {
       return WaitingFeeState._(
         freeLeft: free - waited,
@@ -36,8 +38,19 @@ class WaitingFeeState {
     return WaitingFeeState._(
       freeLeft: Duration.zero,
       over: over,
-      fee: Money(perMin.amountMinor * over.inMinutes, perMin.currency),
+      fee: Money(
+        (perMin.amountMinor * over.inSeconds / 60).round(),
+        perMin.currency,
+      ),
     );
+  }
+
+  /// The free wait: up to the projection's `waiting.freeUntil` when the
+  /// server says (rider-r4-13), else the zone's [freeWaitMin] minutes.
+  static Duration freeWait(DateTime since, int freeWaitMin, DateTime? freeUntil) {
+    if (freeUntil == null) return Duration(minutes: freeWaitMin);
+    final free = freeUntil.difference(since);
+    return free.isNegative ? Duration.zero : free;
   }
 
   /// Free waiting still left; zero once the fee runs.
@@ -46,7 +59,7 @@ class WaitingFeeState {
   /// How long past the free wait.
   final Duration over;
 
-  /// The waiting fee so far: [over]'s whole minutes at the per-minute rate.
+  /// The waiting fee so far: [over]'s seconds at the per-minute rate.
   final Money fee;
 
   bool get charging => freeLeft == Duration.zero;
@@ -70,6 +83,7 @@ class WaitingFeeCounter extends StatefulWidget {
     required this.since,
     required this.freeWaitMin,
     required this.perMin,
+    this.freeUntil,
     this.clock,
   });
 
@@ -79,6 +93,9 @@ class WaitingFeeCounter extends StatefulWidget {
 
   /// The category's waiting fee per minute, in the trip's currency.
   final Money perMin;
+
+  /// When the server ends the free wait (`waiting.freeUntil`), if it says.
+  final DateTime? freeUntil;
 
   /// Test seam for "now".
   final DateTime Function()? clock;
@@ -115,7 +132,13 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
       now: _now(),
       freeWaitMin: widget.freeWaitMin,
       perMin: widget.perMin,
+      freeUntil: widget.freeUntil,
     );
+    final freeMin = WaitingFeeState.freeWait(
+      widget.since,
+      widget.freeWaitMin,
+      widget.freeUntil,
+    ).inMinutes;
     final rate = context.l10n.perMinRate(formatMoneyShort(widget.perMin));
     final charging = state.charging;
     const muted = Color(0xFF5C656C);
@@ -124,7 +147,7 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
         ? context.l10n.waitingFeeAmount(formatMoney(state.fee, whole: true))
         : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
     final detail = charging
-        ? context.l10n.afterFreeWait(formatWaitClock(state.over), '${widget.freeWaitMin}', rate)
+        ? context.l10n.afterFreeWait(formatWaitClock(state.over), '$freeMin', rate)
         : context.l10n.thenWaitingFee(rate);
     return Semantics(
       container: true,

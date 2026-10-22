@@ -47,37 +47,45 @@ class RideCompleteController {
     rating: rating,
     tipMinor: tipMinor,
     // Q5: the tip is in the trip's own currency, never assumed kronor.
-    tipCurrency: _tripCurrency,
+    tipCurrency: _tripCurrency(rideId),
     idempotencyKey: idempotencyKey,
   );
+  Future<void> chargeCompletedWallet(String rideId) =>
+      _ride.chargeCompletedWallet(rideId);
+  Future<void> markCompletedPaymentFailed(String rideId) =>
+      _ride.markCompletedPaymentFailed(rideId);
+  Future<void> markPaymentRetried(String rideId, RideStatus status) =>
+      _ride.markPaymentRetried(rideId, status);
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
       _ride.persistCompletedStatus(status, rideId: rideId);
-  DriverProfile? driver() => _drivers.current();
-  TripReceipt? receipt() => _trips.last();
-  String get _tripCurrency =>
-      LastCompletedRide.value?.currency ?? Money.defaultCurrency;
+  // rider-u166: [rideId] is the ride the completion screen shows; another
+  // ride remembered in LastCompletedRide is never shown for it.
+  DriverProfile? driver({String? rideId}) => _drivers.current(rideId: rideId);
+  TripReceipt? receipt({String? rideId}) => _trips.last(rideId: rideId);
+  String _tripCurrency(String? rideId) =>
+      LastCompletedRide.forRide(rideId)?.currency ?? Money.defaultCurrency;
 
   /// The tip options to show before the zone's config is read: the fixed
   /// catalog when one was given, else the built-in seed of the trip's
   /// currency (owner Q5: 10/20/30 kr, 1/2/5 €, 1/2/3 DT).
-  List<Money> initialTips() =>
+  List<Money> initialTips({String? rideId}) =>
       _tips.fixed ??
-      seedConfigForTrip(_tripCurrency)?.enabledTips ??
+      seedConfigForTrip(_tripCurrency(rideId))?.enabledTips ??
       const <Money>[];
 
   /// The tip options of the trip's zone (Q5): its enabled `tips`, in its
   /// currency. Falls back to [initialTips] when no config of that currency
   /// can be read.
-  Future<List<Money>> tips() async {
+  Future<List<Money>> tips({String? rideId}) async {
     final fixed = _tips.fixed;
     if (fixed != null) return fixed;
-    final ride = LastCompletedRide.value;
+    final ride = LastCompletedRide.forRide(rideId);
     final config = await (_config ?? AppScope.instance.riderConfig).forTrip(
-      currency: _tripCurrency,
+      currency: _tripCurrency(rideId),
       pickupLat: ride?.pickupLat,
       pickupLng: ride?.pickupLng,
     );
-    return config?.enabledTips ?? initialTips();
+    return config?.enabledTips ?? initialTips(rideId: rideId);
   }
 
   Future<void> submitDispute({

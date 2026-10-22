@@ -11,6 +11,7 @@ import 'package:movera_rider/features/saved_places/application/current_address.d
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -50,6 +51,21 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   bool _locating = false;
   String? _searchError;
 
+  /// rider-u222: an address was returned; a second lookup never pops too.
+  bool _done = false;
+
+  void _finish(String address) => _leave(address);
+
+  /// rider-r5-35: every way out (an address, a saved chip, Close) leaves
+  /// once, and only while this picker is the top route. A lookup answering
+  /// after Close otherwise popped the screen under it (Add place).
+  void _leave([String? address]) {
+    if (_done) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    _done = true;
+    Navigator.of(context).pop(address);
+  }
+
   @override
   void dispose() {
     _query.dispose();
@@ -61,35 +77,41 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   /// and return the real place it names; never save unresolved text.
   Future<void> _submitQuery() async {
     final text = _query.text.trim();
-    if (text.isEmpty || _searching) return;
+    // rider-u222: one lookup at a time; CURRENT may be resolving.
+    if (text.isEmpty || _searching || _locating || _done) return;
     setState(() {
       _searching = true;
       _searchError = null;
     });
     PlaceResult? found;
+    var lookupFailed = false;
     try {
       final geocode = widget.geocode ?? AppScope.instance.geocoding.forward;
       found = await geocode(text).timeout(const Duration(seconds: 10));
     } catch (_) {
-      found = null;
+      // rider-u82: the lookup never ran (offline, timeout), which is not
+      // an address that does not exist.
+      lookupFailed = true;
     }
     if (!mounted) return;
     if (found == null) {
       setState(() {
         _searching = false;
-        _searchError = context.l10n.spAddressNotFound;
+        _searchError = lookupFailed
+            ? context.l10n.apiUnreachable
+            : context.l10n.spAddressNotFound;
       });
       return;
     }
     setState(() => _searching = false);
     final address = found.address.trim();
-    Navigator.maybePop(context, address.isNotEmpty ? address : text);
+    _finish(address.isNotEmpty ? address : text);
   }
 
   /// FLOW-4: return the address of where the rider is, never the words
   /// "Current location"; say why when it cannot be found.
   Future<void> _useCurrentLocation() async {
-    if (_locating || _searching) return;
+    if (_locating || _searching || _done) return;
     setState(() {
       _locating = true;
       _searchError = null;
@@ -108,7 +130,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       _locating = false;
       _searchError = error;
     });
-    if (address != null) Navigator.maybePop(context, address);
+    if (address != null) _finish(address);
   }
 
   @override
@@ -145,10 +167,10 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  InkWell(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                    },
+                  // rider-u224: a named 44 px target around the 26 px circle.
+                  MoveraHitArea(
+                    label: context.l10n.close,
+                    onTap: _leave,
                     child: Container(
                       height: ResSize.h * 26,
                       width: ResSize.w * 26,
@@ -196,7 +218,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                           IconButton(
                             key: const ValueKey('saved-place-search'),
                             tooltip: context.l10n.spSearchAddress,
-                            onPressed: _searching
+                            onPressed: _searching || _locating
                                 ? null
                                 : () => unawaited(_submitQuery()),
                             icon: _searching
@@ -211,7 +233,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                           ),
                           TextButton(
                             // Returns the address of the device position.
-                            onPressed: _locating
+                            onPressed: _locating || _searching
                                 ? null
                                 : () => unawaited(_useCurrentLocation()),
                             child: SizedBox(
@@ -225,7 +247,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                                   ),
                                   4.width,
                                   TextWidget(
-                                    text: 'CURRENT',
+                                    text: context.l10n.pickupCurrentUpper,
                                     fontSize: 8,
                                     fontWeight: fwBold,
                                     color: AppColor.black,
@@ -249,7 +271,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       title: context.l10n.placeHome,
                       subtitle: homeSubtitle,
                       isLeftRounded: true,
-                      onTap: () => _onShortcutTap(subtitle: homeSubtitle),
+                      onTap: _shortcutTap(homeSubtitle),
                     ),
                   ),
                   2.width,
@@ -258,16 +280,19 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       icon: AppAssets.office,
                       title: context.l10n.placeWork,
                       subtitle: workSubtitle,
-                      onTap: () => _onShortcutTap(subtitle: workSubtitle),
+                      onTap: _shortcutTap(workSubtitle),
                     ),
                   ),
-                  2.width,
-                  InkWell(
-                    // Was dead while the Home and Work chips beside it worked.
-                    onTap: () =>
-                        _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
-                    child: _buildFavorite(),
-                  ),
+                  // rider-r4-46: Favorite only adds a place; a picker that
+                  // cannot (Add place's own) does not show a dead chip.
+                  if (widget.allowCreateShortcut) ...[
+                    2.width,
+                    InkWell(
+                      onTap: () =>
+                          _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
+                      child: _buildFavorite(),
+                    ),
+                  ],
                 ],
               ),
               10.height,
@@ -333,10 +358,19 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     );
   }
 
+  bool _isSaved(String subtitle) =>
+      subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
+
+  /// rider-r4-46: an unsaved Home/Work chip has nothing to do when this
+  /// picker cannot create shortcuts, so it is not tappable.
+  VoidCallback? _shortcutTap(String subtitle) =>
+      _isSaved(subtitle) || widget.allowCreateShortcut
+      ? () => _onShortcutTap(subtitle: subtitle)
+      : null;
+
   void _onShortcutTap({required String subtitle}) {
-    final saved = subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
-    if (saved) {
-      Navigator.maybePop(context, subtitle);
+    if (_isSaved(subtitle)) {
+      _leave(subtitle);
       return;
     }
     if (!widget.allowCreateShortcut) return;
@@ -358,7 +392,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     required String icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     bool isLeftRounded = false,
   }) {
     return Material(

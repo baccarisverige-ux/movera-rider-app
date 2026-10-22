@@ -99,6 +99,15 @@ void main() {
       expect(terms.window, const Duration(minutes: 60));
     });
 
+    test('rider-r4-14: the kronor admin rule never prices a euro ride', () {
+      final terms = controller().cancelTermsFor(
+        _ride(category: 'airport', price: 40.75, currency: 'EUR'),
+        now: _before(30),
+      );
+      expect(terms.fee, isNull);
+      expect(terms.lateFee.currency, 'EUR');
+    });
+
     test('the config is read through the repository on refresh', () async {
       final premiumFree = RiderAppConfig.fromJson({
         'version': 13,

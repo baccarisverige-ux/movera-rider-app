@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
@@ -19,11 +20,13 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -79,6 +82,14 @@ Duration driverEaseDuration(Duration? sinceLastFix) {
   if (sinceLastFix > longest) return longest;
   return sinceLastFix;
 }
+
+/// rider-u58: whether the driver car eases between fixes. On web every
+/// marker update makes google_maps_flutter_web convert the car icon to a
+/// new blob URL that is never revoked, so a ~20 fps ease for the whole
+/// trip leaked thousands of blobs an hour; there the car moves once per
+/// fix instead. Native platforms keep the D-016 ease.
+@visibleForTesting
+bool driverMarkerEases = !kIsWeb;
 
 /// D-018: bounds and uniform padding that frame [a] and [b] above a bottom
 /// obstruction (the sheet) instead of padding every side by its height.
@@ -141,11 +152,15 @@ class WaitingForDriver extends StatefulWidget {
     this.driver,
     this.realtime,
     this.rideId,
+    this.categoryId,
     this.persistRideSnapshot = true,
+    this.routeChangeSupported = true,
     this.onTerminal,
     this.onDriverCancelled,
     this.onCompleted,
     this.onCancel,
+    this.cancelFeeNote,
+    this.controller,
   });
 
   final String pickupAddress;
@@ -173,7 +188,17 @@ class WaitingForDriver extends StatefulWidget {
   /// exact presentation without touching the on-demand ride session.
   final RideRealtime? realtime;
   final String? rideId;
+
+  /// rider-u44: the trip's own category id, for its waiting terms and the
+  /// cancel-fee preview (a reservation's). Null: the Book Now session's
+  /// booked category of [rideId], else the stored snapshot's.
+  final String? categoryId;
   final bool persistRideSnapshot;
+
+  /// rider-u55: false for a scheduled ride's live page. Its ride id is the
+  /// device-local reservation id the server has no route quote for, so
+  /// Change route and "change destination instead" can never succeed.
+  final bool routeChangeSupported;
   final Future<void> Function(BuildContext context, RideStatus status)?
   onTerminal;
   final Future<void> Function(BuildContext context)? onDriverCancelled;
@@ -181,12 +206,26 @@ class WaitingForDriver extends StatefulWidget {
   onCompleted;
   final Future<void> Function(BuildContext context, String? reasonId)? onCancel;
 
+  /// rider-u53: the fee line of the cancel sheet when the trip's cancel
+  /// terms are not the live Book Now rule (a reservation's late-cancel
+  /// terms). Null: the live rule of the trip's category is previewed.
+  final Future<String?> Function()? cancelFeeNote;
+
+  /// Test seam: the controller the cancel and end-early requests go
+  /// through (its API client). Production uses the shared one.
+  final ActiveRideController? controller;
+
+  /// Test seam: the clock the live cancel fee preview is worked out with.
+  @visibleForTesting
+  static DateTime Function() cancelFeeClock = DateTime.now;
+
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
 class _WaitingForDriverState extends State<WaitingForDriver> {
-  final ActiveRideController _ride = ActiveRideController();
+  late final ActiveRideController _ride =
+      widget.controller ?? ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     realtime: widget.realtime,
     pickupLat: widget.pickupPosition.latitude,
@@ -202,13 +241,27 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _leaving = false;
   bool _completedOpened = false;
   bool _arrivalAnnounced = false;
+
+  /// rider-u49: whether the saved "already announced" flag was read yet.
+  bool _arrivalFlagRead = false;
   bool _researching = false;
   bool _overlayOn = false;
   bool _mapParked = false;
   bool _modalHandoffInProgress = false;
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
+
+  /// rider-r5-26: which arrived sheet [_arrivedSheetShowing] is about. A
+  /// replaced driver's sheet closes after the new one opened; its close
+  /// must not clear the new one's state.
+  int _arrivedSheetToken = 0;
   bool _cancelling = false;
+
+  /// rider-29: the cancel or end-early request is out. Back must not pop
+  /// this screen meanwhile: the answer would be dropped on `!mounted`, a
+  /// confirmed cancel would never go Home and a refused one would leave
+  /// the ride with no screen.
+  bool _cancelInFlight = false;
   StreamSubscription<({String rideId, bool stale})>? _outboxSub;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
@@ -275,6 +328,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       _startRideCheckStillTimer(rideId.trim());
       unawaited(_loadWaitingTerms());
+      unawaited(_readArrivalAnnounced(rideId.trim()));
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -289,11 +343,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// wait, then the fee per minute), once the zone's config is read.
   RiderCategoryWaiting? _waitingTerms;
 
+  /// rider-u44: the category of this ride only. The on-demand session's
+  /// booked category and the stored snapshot describe whatever Book Now
+  /// ride ran last, so they count only when they are this ride.
+  Future<String?> _tripCategoryId() async {
+    final own = widget.categoryId;
+    if (own != null && own.trim().isNotEmpty) return own;
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return null;
+    final session = AppScope.instance.ride;
+    if (session.rideId?.trim() == rideId && session.bookedCategoryId != null) {
+      return session.bookedCategoryId;
+    }
+    final stored = await RouteChangeController.storedRide();
+    return stored?.rideId?.trim() == rideId ? stored?.categoryId : null;
+  }
+
   Future<void> _loadWaitingTerms() async {
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return;
       final config = await AppScope.instance.riderConfig.forTrip(
         currency: widget.currency,
@@ -319,11 +387,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return null;
     }
     return WaitingFeeCounter(
-      since: _tracking.waitingSince ?? DateTime.now(),
+      // rider-u45: the server's stamp, else one start kept for the whole
+      // wait (never "now" again on each rebuild).
+      since:
+          _tracking.waitingSince ?? (_waitingSinceFallback ??= DateTime.now()),
       freeWaitMin: terms.freeWaitMin,
       perMin: terms.perMin,
+      // rider-r4-13: the server's end of the free wait, when it says.
+      freeUntil: _tracking.waitingFreeUntil,
     );
   }
+
+  DateTime? _waitingSinceFallback;
 
   /// RC-02/RC-03: a cancel or end-early that waited offline was refused by
   /// the server once it was sent. The ride goes on; say so.
@@ -393,7 +468,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // dismissed yet, and dismissing it would then jump straight to "Trip
     // complete" with the in-trip phase never shown. Close it the moment the
     // trip actually starts so the rider sees that phase instead of skipping it.
-    if (_arrivedSheetShowing && DriverEta.isInTrip(status)) {
+    //
+    // rider-u47: a no-show or other end before the trip (the very moment the
+    // arrived sheet is up) closes it too, so the rider sees the ride ended
+    // instead of "Your driver has arrived" over a trip that is over.
+    if (_arrivedSheetShowing &&
+        (DriverEta.isInTrip(status) || status.isTerminal)) {
       _arrivedSheetShowing = false;
       // NAV-9: close the arrived sheet itself, not whatever route is on top
       // (a notification or Safety page pushed above it stays open).
@@ -413,6 +493,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       }
       return;
     }
+    final replaced = _tracking.takeReplacedDriver();
+    if (replaced != null) _onDriverReplaced(replaced);
 
     if (status.isTerminal && !status.isCompletedSurface) {
       _queueStageNavigation(status);
@@ -440,8 +522,52 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
+    // rider-u48: in the trip the sheet's "Arrive by HH:MM" comes from the
+    // live ETA, not from the constant in-trip headline, so it is part of
+    // the signature too (else the sheet keeps the first arrival time).
+    final arriveBy = _tripHeadline(eta, status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
-        '|${_tracking.connectionDegraded}';
+        '|${_tracking.connectionDegraded}|$arriveBy';
+  }
+
+  /// rider-u23: the feed went straight from the dropped driver to the next
+  /// one. Say so, close the old driver's arrived sheet, and announce the
+  /// new driver's arrival when it comes.
+  void _onDriverReplaced(MatchedDriver lost) {
+    if (_arrivedSheetShowing) {
+      _arrivedSheetShowing = false;
+      final route = _arrivedSheetRoute;
+      _arrivedSheetRoute = null;
+      closeRouteByReference(route);
+    }
+    _arrivalAnnounced = false;
+    // The next driver's arrival is news again, after a reload too.
+    unawaited(_saveArrivalAnnounced(false));
+    showDriverCancelledNotice(context, driverName: lost.firstName);
+  }
+
+  /// rider-u49: a reload must not show the arrived sheet the rider already
+  /// dismissed, so the flag is kept with the ride's snapshot.
+  Future<void> _readArrivalAnnounced(String rideId) async {
+    try {
+      if (await ActiveRideController.arrivalAnnounced(rideId)) {
+        _arrivalAnnounced = true;
+      }
+    } catch (_) {
+      // Unknown: the sheet may show once more, as before.
+    }
+    _arrivalFlagRead = true;
+    if (mounted) _maybeAnnounceArrival();
+  }
+
+  Future<void> _saveArrivalAnnounced(bool announced) async {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    try {
+      await ActiveRideController.rememberArrivalAnnounced(rideId, announced);
+    } catch (_) {
+      // Best effort: at worst the sheet shows again after a reload.
+    }
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not
@@ -449,6 +575,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _maybeAnnounceArrival() {
     if (!mounted ||
         _leaving ||
+        !_arrivalFlagRead ||
         _arrivalAnnounced ||
         _completedOpened ||
         _modalHandoffInProgress ||
@@ -461,14 +588,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     _arrivalAnnounced = true;
+    unawaited(_saveArrivalAnnounced(true));
     _arrivedSheetShowing = true;
+    final token = ++_arrivedSheetToken;
     unawaited(
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
-        onRoute: (route) => _arrivedSheetRoute = route,
+        // The builder runs again while a closed sheet animates out.
+        onRoute: (route) {
+          if (token == _arrivedSheetToken) _arrivedSheetRoute = route;
+        },
       ).whenComplete(() {
+        if (token != _arrivedSheetToken) return;
         _arrivedSheetShowing = false;
         _arrivedSheetRoute = null;
       }),
@@ -512,9 +645,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _queueStageNavigation(RideStatus status) {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     _pendingStageStatus = status;
+    // rider-u50: while a cancel or end-early is out the status waits here;
+    // a cancel the server refuses replays it (_replayLiveStatus), where it
+    // used to be dropped and Waiting stayed on a ride that was over.
+    if (_leaving) return;
     _drainStageNavigation();
+  }
+
+  /// rider-u50: the cancel did not go through, so the ride goes on from
+  /// whatever the live feed reported meanwhile (a completion, a no-show).
+  void _replayLiveStatus() {
+    if (!mounted || _leaving) return;
+    _onLiveTick();
   }
 
   void _drainStageNavigation() {
@@ -539,7 +683,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _maybeOpenCompleted() {
-    if (!mounted || _leaving || _completedOpened) return;
+    if (!mounted || _completedOpened) return;
     final status = _tracking.status;
     if (!status.isCompletedSurface) return;
     _queueStageNavigation(status);
@@ -564,14 +708,41 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setState(() {});
     _tracking.dispose();
 
+    // rider-u52: `closed` is a finished trip once it is paid and rated (a
+    // resync after a long disconnect in trip can jump straight there). It
+    // is not an external terminal and gets no error sheet: file it as
+    // completed and go Home.
+    if (status == RideStatus.closed) {
+      final customTerminal = widget.onTerminal;
+      if (customTerminal == null) await _ride.markClosedByServer();
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      if (customTerminal != null) {
+        await customTerminal(context, status);
+      } else {
+        RideNavigator.home(context, status: status);
+      }
+      return;
+    }
+
     // A queued outbox cancel (D-013/D-020) can land after the rider was told
     // the ride is still active. The server then reports cancelledByRider:
     // commit it locally instead of treating it as an external terminal.
     if (status == RideStatus.cancelledByRider && widget.onTerminal == null) {
-      await _ride.completeServerConfirmedCancel();
+      await _ride.completeServerConfirmedCancel(
+        drivenMeters: _tracking.drivenMeters > 0 ? _tracking.drivenMeters : null,
+      );
       if (!mounted) return;
       await _parkMapForStageChange();
       if (!mounted) return;
+      // rider-u51: a queued on-board End trip the outbox delivered is a
+      // finished trip with a receipt (UI-01), like the direct path.
+      final endedEarly = _ride.endedEarly;
+      if (endedEarly != null) {
+        _openEndedEarlySummary(endedEarly);
+        return;
+      }
       RideNavigator.home(context);
       return;
     }
@@ -649,6 +820,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setState(() {});
 
     final navigator = Navigator.of(context);
+    // Close what Waiting opened on top of itself (driver profile, chat, a
+    // sheet) first, so the pop below leaves Waiting and not that page.
+    final own = ModalRoute.of(context);
+    if (own != null && own.isActive && !own.isCurrent) {
+      navigator.popUntil((route) => route == own);
+    }
     if (navigator.canPop()) {
       // Normal forward path already has the parked Finding route directly
       // underneath this screen. Return to it instead of stacking another
@@ -756,6 +933,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   /// Q12: the free-cancel clock counts from the driver's accept, as the
   /// server stamped it (`TripProjection.acceptedAt`), else from [_shownAt].
+  /// Whether the last live preview of [_cancelFeeNote] was a fee.
+  bool _cancelFeeChargedNow = false;
+
   DateTime get _acceptedAt => _tracking.acceptedAt ?? _shownAt;
 
   /// The fee line shown before the rider confirms a cancel (contract
@@ -763,15 +943,22 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// on board (that is end-early: the distance driven) or when no rule
   /// applies.
   Future<String?> _cancelFeeNote() async {
+    _cancelFeeChargedNow = false;
     if (_isInTrip) {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
       return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
     }
+    final ownNote = widget.cancelFeeNote;
+    if (ownNote != null) {
+      try {
+        return await ownNote();
+      } catch (_) {
+        return null;
+      }
+    }
     try {
-      final stored = await RouteChangeController.storedRide();
-      final category =
-          AppScope.instance.ride.bookedCategoryId ?? stored?.categoryId;
+      final category = await _tripCategoryId();
       if (category == null) return null;
       // Q7: the fee rules of the trip's own zone, in its currency.
       final zone = RiderZones.byCurrency(widget.currency) ??
@@ -784,14 +971,17 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         categoryId: category,
         fare: Money.fromLegacyMajor(_price, widget.currency),
         acceptedAt: _acceptedAt,
-        now: DateTime.now(),
+        now: WaitingForDriver.cancelFeeClock(),
       );
       if (preview == null) return null;
       if (preview.fee.isPositive) {
+        _cancelFeeChargedNow = true;
         return L10n.current.cancelCostsNow(formatMoney(preview.fee));
       }
       final left = preview.freeMinutesLeft;
-      return left <= 1
+      // rider-r4-18: past the window of a zero-fee rule it stays free.
+      if (left == 0) return L10n.current.noFeeToCancel;
+      return left == 1
           ? L10n.current.cancelFreeUnderMinute
           : L10n.current.cancelFreeMinutes('$left');
     } catch (_) {
@@ -803,10 +993,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_leaving) return;
     final feeNote = await _cancelFeeNote();
     if (!mounted || _leaving) return;
+    final inTripAtOpen = _isInTrip;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
-      phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
+      phase: inTripAtOpen ? CancelPhase.inTrip : CancelPhase.matched,
       feeNote: feeNote,
       offerDestinationChange: _routeEditable,
     );
@@ -817,7 +1008,27 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     if (!outcome.cancelled) return;
+    if (inTripAtOpen != _isInTrip) {
+      // rider-u54: the trip started (or ended) while the sheet was open.
+      // What the rider confirmed ("Cancel ride?", free) is not what the
+      // command would now do (end-early, charged for the distance): ask
+      // again for the stage they are in, and send nothing on this answer.
+      if (_tracking.status.isTerminal) return;
+      return _confirmCancel();
+    }
+    if (!_isInTrip && widget.cancelFeeNote == null) {
+      // rider-r5-11: the sheets wait on the rider with no time limit, and
+      // the server prices the cancel when it gets it. When the free window
+      // closed meanwhile (or the fee changed), show the fee and ask again.
+      final noteNow = await _cancelFeeNote();
+      if (!mounted || _leaving) return;
+      if (noteNow != feeNote && _cancelFeeChargedNow) {
+        if (_tracking.status.isTerminal) return;
+        return _confirmCancel();
+      }
+    }
     _leaving = true;
+    _cancelInFlight = true;
     setState(() {});
 
     try {
@@ -827,6 +1038,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         // taken over the ride; if it throws, live updates must still work.
         await customCancel(context, outcome.reasonId);
         if (!mounted) return;
+        _cancelInFlight = false;
         _tracking.dispose();
         await _parkMapForStageChange();
         return;
@@ -844,12 +1056,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             : null,
       );
       if (!mounted) return;
+      _cancelInFlight = false;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
           _cancelling = false;
           _leaving = false;
         });
         _showCancelProblem(result);
+        _replayLiveStatus();
         return;
       }
       _tracking.dispose();
@@ -873,6 +1087,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       if (!mounted) return;
       setState(() {
+        _cancelInFlight = false;
         _cancelling = false;
         _leaving = false;
       });
@@ -886,6 +1101,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      _replayLiveStatus();
     }
   }
 
@@ -939,6 +1155,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       RideCancelOutcome.rejected => context.l10n.cancelNoLonger,
       // R-O2 (owner's words): the trip changed just before the tap.
       RideCancelOutcome.stale => rideJustChangedMessage,
+      // rider-r5-21: neither sent nor queued; nothing will retry it.
+      RideCancelOutcome.unsent => context.l10n.cancelFailedTryAgain,
       _ =>
         context.l10n.cancelUnconfirmedOffline,
     };
@@ -960,13 +1178,30 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _leaving = true;
       _cancelling = true;
     });
+    RideCancelOutcome? outcome;
     try {
-      await _ride.cancelUntrackedRide(rideId: _rideId);
+      outcome = await _ride.cancelUntrackedRide(rideId: _rideId);
     } catch (_) {
-      // cancelUntrackedRide already logs; a transient failure stays queued
-      // in the pending-cancel outbox. Leaving is still what the rider chose.
+      // rider-r5-21: nothing is known to be sent or queued.
+      outcome = RideCancelOutcome.unsent;
     }
     if (!mounted) return;
+    // rider-r5-21: a cancel neither sent nor queued would leave the server
+    // ride and the driver going with nothing to retry it: stay and say so.
+    if (outcome == RideCancelOutcome.unsent) {
+      setState(() {
+        _leaving = false;
+        _cancelling = false;
+      });
+      _showCancelProblem(outcome!);
+      return;
+    }
+    // rider-r4-25: a refused cancel is not queued; say so rather than
+    // going Home as if the ride had been cancelled.
+    if (outcome == RideCancelOutcome.rejected ||
+        outcome == RideCancelOutcome.stale) {
+      _showCancelProblem(outcome!);
+    }
     RideNavigator.home(context);
   }
 
@@ -1001,7 +1236,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       !_isInTrip &&
       _tracking.status != RideStatus.driverWaiting &&
       !_tracking.status.isTerminal;
-  bool get _routeEditable => !_tracking.status.isTerminal && !_completedOpened;
+  bool get _routeEditable =>
+      widget.routeChangeSupported &&
+      !_tracking.status.isTerminal &&
+      !_completedOpened;
 
   /// The three dots on the ride card: the route screen with the current
   /// addresses. The pickup can move until the driver is there; the
@@ -1088,7 +1326,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           context,
           driverAssigned: true,
           paymentMethod: widget.paymentMethod,
-          differenceKr: updated.price - ride.price,
+          // rider-u36: the server's difference, as the sheet showed it.
+          differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
           currency: updated.currency,
         );
       }
@@ -1101,16 +1340,38 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   // ---- Ride check (RC1): live positions against the admin's triggers. ----
 
   bool _rideCheckEnded = false;
+  bool _autoShareAsked = false;
   Timer? _rideCheckStillTimer;
+  bool _liveFeedWasDown = false;
+
+  /// rider-u56: whether this screen's live feed is down. The polling
+  /// transport never errors the tracking stream on a failed poll; it marks
+  /// the shared connection failed and backs off, so that state counts too.
+  bool get _liveFeedDown =>
+      _tracking.connectionDegraded ||
+      (widget.realtime == null &&
+          AppScope.instance.realtime.state != RealtimeState.connected);
 
   /// A driver app may stay quiet while the car stands still, so no new fix
   /// comes in to measure the stop. While the trip is under way and the live
-  /// feed is up, check the long stop against the clock as well.
+  /// feed is up, check the long stop against the clock as well. With the
+  /// feed down (the rider's own phone offline) no fix can come, so time
+  /// without one says nothing about the car; the stop clock restarts when
+  /// the feed is back.
   void _startRideCheckStillTimer(String rideId) {
     _rideCheckStillTimer?.cancel();
     if (!RideCheckController.tripMonitoring) return;
     _rideCheckStillTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || _tracking.connectionDegraded) return;
+      if (!mounted) return;
+      if (_liveFeedDown) {
+        _liveFeedWasDown = true;
+        return;
+      }
+      if (_liveFeedWasDown) {
+        _liveFeedWasDown = false;
+        RideCheckController.shared.liveFeedResumed(rideId);
+        return;
+      }
       if (!DriverEta.isInTrip(_tracking.status)) return;
       RideCheckController.shared.checkStill(rideId);
     });
@@ -1200,6 +1461,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             : driver.vehicleLabel,
       ),
     );
+    if (DriverEta.isInTrip(status) && !_autoShareAsked) {
+      // rider-u217: "Automatically share every ride".
+      _autoShareAsked = true;
+      unawaited(SafetyController.shared.autoShareRide(rideId));
+    }
     final eta = _tracking.eta;
     final lat = eta?.latitude;
     final lng = eta?.longitude;
@@ -1233,6 +1499,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (realtime is MockRideRealtime) {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
+      realtime.movePickup(_pickupPosition.latitude, _pickupPosition.longitude);
     }
     final rideId = _rideId?.trim();
     if (rideId != null && rideId.isNotEmpty) {
@@ -1439,7 +1706,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final media = MediaQuery.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
-      canPop: _leaving,
+      canPop: _leaving && !_cancelInFlight,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         // RC5: an open Ride check card has to be answered first.
@@ -1886,7 +2153,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: _callDriverUnavailable,
-        onMore: _openDetails,
+        onMore: widget.routeChangeSupported ? _openDetails : null,
         onCancel: _confirmCancel,
       );
     }
@@ -1901,7 +2168,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             rideId: _rideId,
             onOpenProfile: _openProfile,
             onCall: _callDriverUnavailable,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           const SizedBox(height: 12),
           if (_waitingFeeCounter() case final counter?) ...[
@@ -1917,9 +2184,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             currency: widget.currency,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
-          WaitingNotesAndPin(notes: widget.notes),
+          WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],
       ),
     );
@@ -2028,6 +2295,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   @override
   void initState() {
     super.initState();
+    // rider-u59: a map rebuilt mid-ride (after a route change) starts from
+    // the driver's last known fix instead of waiting for the next one,
+    // which a driver standing at the pickup may not send for a while.
+    _updateDriverAnimation();
     _markers = _buildMarkers();
     unawaited(_prepareMapVisuals());
   }
@@ -2125,6 +2396,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       _driverAnimTo = next;
       _driverHeadingFrom = 0;
       _driverHeadingTo = 0;
+      return;
+    }
+    if (!driverMarkerEases) {
+      // rider-u58: one marker update per fix, no in-between positions.
+      final heading = _bearingDegrees(previousTo, next) ?? _driverHeadingTo;
+      _driverAnim.stop();
+      _driverAnimFrom = next;
+      _driverAnimTo = next;
+      _driverHeadingFrom = heading;
+      _driverHeadingTo = heading;
       return;
     }
     _driverAnimFrom = _currentDriverPosition() ?? previousTo;
@@ -2229,11 +2510,15 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
             Duration(
               minutes:
                   toPickupMin +
-                  estimatedTripMinutes(
+                  estimatedRouteMinutes(
                     GeoPoint(
                       widget.pickupPosition.latitude,
                       widget.pickupPosition.longitude,
                     ),
+                    [
+                      for (final stop in widget.stops)
+                        GeoPoint(stop.latitude, stop.longitude),
+                    ],
                     GeoPoint(
                       widget.destinationPosition.latitude,
                       widget.destinationPosition.longitude,
@@ -2295,18 +2580,30 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
             ? RouteTimeMarker.anchor
             : const Offset(0.5, 0.5),
       ),
-      if (driverPosition != null)
-        Marker(
-          markerId: const MarkerId('driver'),
-          position: driverPosition,
-          rotation: _currentDriverHeading(),
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
-          icon:
-              _driverCar ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-        ),
+      if (driverPosition != null) _driverMarker(driverPosition),
     };
+  }
+
+  /// rider-u61: on the web the car bitmap comes turned (the plugin ignores
+  /// rotation there).
+  Marker _driverMarker(LatLng position) {
+    final look = MoveraVehicleMarker.look(
+      _driverCar,
+      _currentDriverHeading(),
+      onReady: () {
+        if (mounted) setState(() {});
+      },
+    );
+    return Marker(
+      markerId: const MarkerId('driver'),
+      position: position,
+      rotation: look.rotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon:
+          look.icon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+    );
   }
 
   Future<void> _prepareMapVisuals() async {
@@ -2325,13 +2622,50 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     });
   }
 
-  ({GeoPoint from, GeoPoint to})? _routeEndpoints() {
+  /// rider-u62/u63: how many of the trip's stops, in order, the car has
+  /// reached (come within [_stopReachedMeters] of). The route from the
+  /// driver goes through the rest.
+  int _stopsReached = 0;
+  static const double _stopReachedMeters = 80;
+
+  void _noteStopsReached(GeoPoint driverPoint) {
+    final stops = widget.stops;
+    var reached = _stopsReached;
+    while (reached < stops.length) {
+      final stop = stops[reached];
+      final meters = GeoDistance.metersBetween(
+        driverPoint.latitude,
+        driverPoint.longitude,
+        stop.latitude,
+        stop.longitude,
+      );
+      if (meters > _stopReachedMeters) break;
+      reached += 1;
+    }
+    if (reached != _stopsReached) {
+      _stopsReached = reached;
+      _routeKey = null; // The next refresh draws the remaining legs.
+    }
+  }
+
+  /// The stops still ahead of the car, in order.
+  List<GeoPoint> _remainingStops() {
+    final stops = widget.stops;
+    final reached = _stopsReached.clamp(0, stops.length);
+    return [
+      for (final stop in stops.sublist(reached))
+        GeoPoint(stop.latitude, stop.longitude),
+    ];
+  }
+
+  ({GeoPoint from, List<GeoPoint> via, GeoPoint to})? _routeEndpoints() {
     final eta = widget.tracking.eta;
     final driverPoint = eta?.latitude != null && eta?.longitude != null
         ? GeoPoint(eta!.latitude!, eta.longitude!)
         : null;
 
     if (_inTrip) {
+      if (driverPoint != null) _noteStopsReached(driverPoint);
       return (
         from:
             driverPoint ??
@@ -2339,6 +2673,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
               widget.pickupPosition.latitude,
               widget.pickupPosition.longitude,
             ),
+        // rider-u62/u63: through the stops still ahead, never straight to
+        // the destination past them.
+        via: _remainingStops(),
         to: GeoPoint(
           widget.destinationPosition.latitude,
           widget.destinationPosition.longitude,
@@ -2349,6 +2686,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     if (driverPoint == null) return null;
     return (
       from: driverPoint,
+      via: const <GeoPoint>[],
       to: GeoPoint(
         widget.pickupPosition.latitude,
         widget.pickupPosition.longitude,
@@ -2364,25 +2702,31 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     String keyFor(GeoPoint point) =>
         '${point.latitude.toStringAsFixed(4)},${point.longitude.toStringAsFixed(4)}';
     final requestKey =
-        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>${keyFor(endpoints.to)}';
+        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>'
+        '${endpoints.via.map(keyFor).join('>')}>${keyFor(endpoints.to)}';
     if (!force && requestKey == _routeKey) return;
 
     _routeKey = requestKey;
     _lastRouteRefresh = DateTime.now();
-    final route = await roadRoutePolyline(
+    final resolved = await roadRoutePolylineVia(
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
+      via: [
+        for (final stop in endpoints.via)
+          LatLng(stop.latitude, stop.longitude),
+      ],
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
       color: RiderRouteStyle.color,
     );
+    final route = resolved.route;
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
-    // roadRoutePolyline falls back to a straight two-point line whenever a
-    // real road route can't be resolved. A genuine road route for anything
-    // but a trivially short hop has more than two vertices, so this is a
+    // A leg falls back to a straight two-point line whenever a real road
+    // route can't be resolved. A genuine road route for anything but a
+    // trivially short hop has more than two vertices, so this is a
     // reasonable signal to tell the rider the line is approximate rather
     // than implying turn-by-turn accuracy that isn't there.
-    final approximate = route.points.length <= 2;
+    final approximate = resolved.approximate;
     if (_inTrip && !approximate) {
       widget.onTripRoute?.call([
         for (final point in route.points)

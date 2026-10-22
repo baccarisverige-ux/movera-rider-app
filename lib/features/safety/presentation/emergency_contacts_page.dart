@@ -284,6 +284,8 @@ class _ContactEditorState extends State<_ContactEditor> {
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
+      // rider-84: the rider may have swiped the sheet away meanwhile.
+      if (!mounted) return;
       setState(() {
         _error = widget.controller.error ?? context.l10n.contactSaveFailed;
         _saving = false;
@@ -293,9 +295,9 @@ class _ContactEditorState extends State<_ContactEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final inset = MediaQuery.of(context).viewInsets.bottom;
+    // rider-u210: MoveraSheet already lifts the sheet above the keyboard.
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

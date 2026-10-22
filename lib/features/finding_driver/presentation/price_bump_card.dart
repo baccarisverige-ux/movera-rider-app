@@ -146,12 +146,11 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
   void _selectStep(int step) {
     setState(() {
       _selectedStep = step;
-      // A fare with cents (24,60 €) raised by a whole step is 26,60 €: the
-      // field shows it exactly and the step is the raise.
-      _price.text = _currentMinor % _unitMinor == 0
-          ? '${_current + step}'
-          : Money(_currentMinor + step * _unitMinor, widget.currency)
-                .majorString;
+      // A fare with cents (24,60 €) raised by a whole step is 26,60 €. The
+      // field takes whole units only (rider-r5-13: '26.60' turned into
+      // '266' on the next keystroke), so it is left empty and the step is
+      // the raise; the Confirm label shows the exact total.
+      _price.text = _currentMinor % _unitMinor == 0 ? '${_current + step}' : '';
       _price.selection = TextSelection.collapsed(offset: _price.text.length);
     });
   }
@@ -163,8 +162,14 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         _selectedStep = null;
         return;
       }
-      final extra = total - _current;
-      _selectedStep = widget.steps.contains(extra) ? extra : null;
+      // rider-r4-17: the step the typed total really raises by, to the
+      // minor unit (27 on a 24,60 € fare is +2,40 €, no step).
+      final extraMinor = total * _unitMinor - _currentMinor;
+      final extra = extraMinor ~/ _unitMinor;
+      _selectedStep =
+          extraMinor % _unitMinor == 0 && widget.steps.contains(extra)
+              ? extra
+              : null;
     });
   }
 

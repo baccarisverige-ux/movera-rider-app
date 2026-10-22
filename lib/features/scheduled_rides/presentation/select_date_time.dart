@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -10,9 +13,11 @@ import 'package:movera_rider/features/scheduled_rides/application/stockholm_sche
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
-  final VoidCallback onConfirm;
+  /// The next step. Continue stays locked until it completes (rider-88).
+  final FutureOr<void> Function() onConfirm;
   final VoidCallback? onBack;
   final Widget body;
   final ScheduledRideSession? session;
@@ -20,12 +25,18 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final DateTime Function()? now;
 
   /// Trip length for the "Estimated arrival / pickup" row. Unknown (null)
-  /// hides the row rather than showing a made-up time.
+  /// hides the row rather than showing a made-up time, and Arrive by is
+  /// not offered: without it there is no pickup to book (rider-89).
   final int? tripMinutes;
 
   /// Q9: the pickup zone's IANA time zone; every time on this screen is
-  /// that zone's wall-clock time.
+  /// that zone's wall-clock time ([ZoneClock.wallTime], whatever the
+  /// phone's own time zone; owner decision 9).
   final String timeZone;
+
+  /// rider-r4-10: how many days ahead the zone takes reservations
+  /// (`booking.bookingHorizonDays` of its config).
+  final int horizonDays;
 
   const ScheduleDateTimeSelector({
     super.key,
@@ -37,6 +48,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.now,
     this.tripMinutes,
     this.timeZone = ZoneClock.stockholm,
+    this.horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -47,9 +59,13 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     DateTime Function()? now,
     int? tripMinutes,
     String timeZone = ZoneClock.stockholm,
+    int horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   }) {
-    final session = ScheduledRideSession();
-    if (initial != null) session.captureSchedule(initial, timezone: timeZone);
+    // rider-u225: the prefill goes in as it is; initState clamps it and
+    // says so when it moved (captureSchedule would clamp it silently).
+    final session = ScheduledRideSession()
+      ..scheduledAt = initial
+      ..timezone = timeZone;
     return Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
         builder: (_) => ScheduleDateTimeSelector(
@@ -59,6 +75,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           now: now,
           tripMinutes: tripMinutes,
           timeZone: timeZone,
+          horizonDays: horizonDays,
           onConfirm: () {},
         ),
       ),
@@ -87,14 +104,16 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   void initState() {
     super.initState();
     setWebOverlayOpen(true);
-    final existing = widget.session?.scheduledAt;
+    final prefill = widget.session?.scheduledAt;
+    final existing = prefill == null ? null : ZoneClock.wall(prefill);
     final now = widget.now?.call();
     if (existing != null) {
-      final corrected = _schedule.clampPickup(existing, now);
+      final corrected = _withinHorizon(_schedule.clampPickup(existing, now));
       _selectedDateTime = corrected;
       if (corrected != existing) {
-        _pickupCorrectionMessage =
-            context.l10n.pickupTimeUpdated;
+        _pickupCorrectionMessage = _beyondHorizon(existing, now)
+            ? context.l10n.pickupTimeWithinHorizon(widget.horizonDays)
+            : context.l10n.pickupTimeUpdated;
       }
     } else {
       _selectedDateTime = _schedule.defaultPickup(now);
@@ -108,12 +127,71 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     super.dispose();
   }
 
-  void _goNext() {
+  /// rider-89: in Arrive by the chosen time is the arrival, and the pickup
+  /// booked is that minus the trip estimate, on the slot at or before it so
+  /// the rider is not late. Otherwise the chosen time is the pickup.
+  DateTime _pickupFor(DateTime chosen) {
+    final trip = widget.tripMinutes;
+    if (_pickupMode || trip == null) return chosen;
+    // The trip is real elapsed time in the pickup zone, not the device
+    // zone, and the booking reads a repeated hour as its later copy: step
+    // back a slot until the booked instant is not after arrival - trip.
+    final latest = _schedule
+        .toUtc(chosen)
+        .subtract(Duration(minutes: trip));
+    final wall = ZoneClock.wallTime(widget.timeZone, latest);
+    var slot = DateTime.utc(
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute - wall.minute % StockholmSchedule.slotMinutes,
+    );
+    while (_schedule.toUtc(slot).isAfter(latest)) {
+      slot = slot.subtract(
+        const Duration(minutes: StockholmSchedule.slotMinutes),
+      );
+    }
+    return slot;
+  }
+
+  DateTime get _pickupAt => _pickupFor(_selectedDateTime);
+
+  /// rider-r4-10: the latest pickup the zone takes (its horizon from now).
+  DateTime _latestPickup([DateTime? now]) =>
+      _schedule.latestPickup(widget.horizonDays, now ?? widget.now?.call());
+
+  bool _beyondHorizon(DateTime chosen, [DateTime? now]) =>
+      chosen.isAfter(_latestPickup(now));
+
+  DateTime _withinHorizon(DateTime chosen, [DateTime? now]) =>
+      _beyondHorizon(chosen, now) ? _latestPickup(now) : chosen;
+
+  /// [chosen] on the slot grid, raised to the first time whose pickup is
+  /// legal.
+  DateTime _clampChosen(DateTime chosen, DateTime? now) {
+    final trip = widget.tripMinutes;
+    if (_pickupMode || trip == null) {
+      return _withinHorizon(_schedule.clampPickup(chosen, now), now);
+    }
+    if (_schedule.isLegalPickup(_pickupFor(chosen), now)) {
+      final arrival = StockholmSchedule.roundToFive(chosen);
+      return _beyondHorizon(_pickupFor(arrival), now)
+          ? _latestPickup(now)
+          : arrival;
+    }
+    final first = _schedule.minimumPickup(now);
+    return StockholmSchedule.roundToFive(
+      DateTime.utc(first.year, first.month, first.day, first.hour, first.minute + trip),
+    );
+  }
+
+  Future<void> _goNext() async {
     if (_continuing) return;
 
     final now = widget.now?.call();
-    if (!_schedule.isLegalPickup(_selectedDateTime, now)) {
-      final corrected = _schedule.clampPickup(_selectedDateTime, now);
+    if (!_schedule.isLegalPickup(_pickupAt, now)) {
+      final corrected = _clampChosen(_selectedDateTime, now);
       setState(() {
         _selectedDateTime = corrected;
         _pickupCorrectionMessage =
@@ -128,23 +206,28 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     _commitSchedule();
 
     if (widget.popOnConfirm) {
-      Navigator.pop(context, _selectedDateTime);
+      Navigator.pop(context, _pickupAt);
       return;
     }
 
     setState(() {});
-    widget.onConfirm();
+    try {
+      await widget.onConfirm();
+    } finally {
+      // rider-88: the rider can come back from the next step (or it can
+      // stop early with a toast) to this same State; Continue works again.
+      if (mounted) setState(() => _continuing = false);
+    }
   }
 
   void _applyPickedDateTime(DateTime candidate) {
-    final corrected = _schedule.clampPickup(
-      candidate,
-      widget.now?.call(),
-    );
+    final corrected = _clampChosen(candidate, widget.now?.call());
     setState(() {
       _selectedDateTime = corrected;
       _pickupCorrectionMessage = corrected == candidate
           ? null
+          : _beyondHorizon(candidate)
+          ? context.l10n.pickupTimeWithinHorizon(widget.horizonDays)
           : context.l10n.pickupTimeUpdated;
     });
     _commitSchedule();
@@ -152,9 +235,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   void _commitSchedule() {
     widget.session?.captureSchedule(
-      _selectedDateTime,
+      _pickupAt,
       timezone: widget.timeZone,
     );
+  }
+
+  void _setPickupMode(bool pickupMode) {
+    _pickupMode = pickupMode;
+    // The same time now means the other thing; re-check its pickup.
+    _applyPickedDateTime(_selectedDateTime);
   }
 
   TextStyle _style(
@@ -174,10 +263,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
     final first = _schedule.zoneNow(widget.now?.call());
-    final last = first.add(const Duration(days: 365));
+    final last = _latestPickup();
     if (draftDate.isBefore(first)) {
       draftDate = _schedule.clampPickup(draftDate, widget.now?.call());
     }
+    if (draftDate.isAfter(last)) draftDate = last;
     final result = await MoveraSheet.show<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -281,7 +371,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     );
     if (result == null || !mounted) return;
     _applyPickedDateTime(
-      DateTime(
+      DateTime.utc(
         result.year,
         result.month,
         result.day,
@@ -339,7 +429,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     ),
                     const Spacer(),
                     Text(
-                      '24-hour',
+                      context.l10n.time24Hour,
                       style: _style(
                         10.5,
                         weight: FontWeight.w500,
@@ -439,8 +529,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     hourController.dispose();
     minuteController.dispose();
     if (result == null || !mounted) return;
+    // Owner decision 9: the pick is the pickup zone's wall time, which the
+    // phone's own time zone cannot move. A time the pickup zone skips
+    // (rider-r4-12) moves forward in the clamp and the rider is told.
     _applyPickedDateTime(
-      DateTime(
+      DateTime.utc(
         _selectedDateTime.year,
         _selectedDateTime.month,
         _selectedDateTime.day,
@@ -484,8 +577,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final estimatedTime = trip == null
         ? null
         : _pickupMode
-        ? _selectedDateTime.add(Duration(minutes: trip))
-        : _selectedDateTime.subtract(Duration(minutes: trip));
+        // Real elapsed time in the pickup zone, across a change of its clock.
+        ? ZoneClock.wallTime(
+            widget.timeZone,
+            _schedule.toUtc(_selectedDateTime).add(Duration(minutes: trip)),
+          )
+        : _pickupAt;
 
     return PointerInterceptor(
       child: Material(
@@ -529,7 +626,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ],
                       const SizedBox(height: 25),
                       Text(
-                        context.l10n.cancelBeforeAssigned,
+                        context.l10n.scheduleCancelTermsNote,
                         style: _style(
                           10.5,
                           weight: FontWeight.w400,
@@ -567,17 +664,22 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           child: InkWell(
             onTap: widget.onBack ?? () => Navigator.maybePop(context),
             customBorder: const CircleBorder(),
-            child: const SizedBox(
-              width: 42,
-              height: 42,
-              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+            // rider-u167: named, and the 44 px floor.
+            child: Semantics(
+              button: true,
+              label: context.l10n.back,
+              child: const SizedBox(
+                width: A11y.minTapIOS,
+                height: A11y.minTapIOS,
+                child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+              ),
             ),
           ),
         ),
         const Spacer(),
         Text(context.l10n.navScheduleRide, style: _style(12, weight: FontWeight.w600)),
         const Spacer(),
-        const SizedBox(width: 42),
+        const SizedBox(width: A11y.minTapIOS),
       ],
     );
   }
@@ -595,12 +697,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           _modeOption(
             label: context.l10n.pickupAtMode,
             selected: _pickupMode,
-            onTap: () => setState(() => _pickupMode = true),
+            onTap: () => _setPickupMode(true),
           ),
           _modeOption(
             label: context.l10n.arriveByMode,
             selected: !_pickupMode,
-            onTap: () => setState(() => _pickupMode = false),
+            // No trip estimate, no pickup to book from an arrival time.
+            onTap: widget.tripMinutes == null
+                ? null
+                : () => _setPickupMode(false),
           ),
         ],
       ),
@@ -610,7 +715,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Widget _modeOption({
     required String label,
     required bool selected,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     return Expanded(
       child: Material(
@@ -750,11 +855,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = _schedule.isLegalPickup(
-      _selectedDateTime,
-      widget.now?.call(),
-    );
-    final enabled = legal && !_continuing;
+    // rider-u227: a time that went stale while the screen was open is not
+    // a grey button; Continue moves it to the next slot and says so.
+    final enabled = !_continuing;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
       child: Container(
@@ -787,32 +890,27 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: Semantics(
-                container: true,
-                label: 'Schedule Continue',
-                button: true,
-                enabled: enabled,
-                child: ExcludeSemantics(
-                  child: ElevatedButton(
-                    onPressed: enabled ? _goNext : null,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: _ink,
-                      disabledBackgroundColor: _ink.withValues(alpha: 0.38),
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(17),
-                      ),
-                    ),
-                    child: Text(
-                      _continuing ? context.l10n.continuing : context.l10n.continueLabel,
-                      style: _style(
-                        14,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+              // rider-u228: the button's own semantics: the visible,
+              // localized label (or "Continuing…") and a tap action.
+              child: ElevatedButton(
+                key: const Key('schedule-continue'),
+                onPressed: enabled ? _goNext : null,
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: _ink,
+                  disabledBackgroundColor: _ink.withValues(alpha: 0.38),
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                ),
+                child: Text(
+                  _continuing ? context.l10n.continuing : context.l10n.continueLabel,
+                  style: _style(
+                    14,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ),

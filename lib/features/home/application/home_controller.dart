@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color, Offset;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -12,9 +13,14 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show isDroppedPinLabel, locationOffPickupLabel, pickupLocationFallbackLabel;
 import 'package:movera_rider/core/location/location_access_issue.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
+
+export 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show locationOffPickupLabel;
 
 /// U7: Home used to re-rasterise the puck (toImage, PNG encode, new
 /// BitmapDescriptor) on every heading sample and pulse tick. Headings are
@@ -55,9 +61,6 @@ class RotatedPuckCache {
   void clear() => _icons.clear();
 }
 
-/// Label for the pickup when no GPS fix exists. A fallback map point must
-/// never be called "Current location" (U2 / D-002).
-const String locationOffPickupLabel = 'Location off, set pickup';
 
 /// Whether [label] is a placeholder rather than a real address, so it must
 /// not be forward-geocoded or saved.
@@ -92,6 +95,12 @@ final class GeocodeStale<T> extends GeocodeOutcome<T> {
   const GeocodeStale();
 }
 
+/// The lookup itself failed (offline, a timeout, a server error), as
+/// opposed to finding nothing (rider-45).
+final class GeocodeFailed<T> extends GeocodeOutcome<T> {
+  const GeocodeFailed();
+}
+
 /// Whether [text] is a raw "lat, lng" coordinate string (D-004).
 bool isRawCoordinateLabel(String? text) => RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
@@ -120,7 +129,12 @@ class DetectedLocation {
     required this.address,
     required this.heading,
     this.failure,
+    this.approximate = false,
   });
+
+  /// rider-u114: [target] is an approximate-only fix: map and puck only,
+  /// never the pickup.
+  final bool approximate;
 
   final LatLng? target;
   final String address;
@@ -146,7 +160,9 @@ class HomeLocationController extends ChangeNotifier {
     void Function()? stopCompass,
     bool? compassSupported,
     DateTime Function()? clock,
+    bool? pulseAnimates,
   }) : _now = clock ?? DateTime.now,
+       _pulseAnimates = pulseAnimates ?? !kIsWeb,
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
@@ -161,6 +177,12 @@ class HomeLocationController extends ChangeNotifier {
   final double? Function() _readCompass;
   final void Function() _stopCompass;
   final DateTime Function() _now;
+
+  /// rider-u116: false on the web. Each pulse swaps the puck between two
+  /// bitmaps, and the web map plugin turns every swapped bitmap into a new
+  /// blob URL it never revokes (one every 850 ms while Home is open). The
+  /// web puck therefore stays in its compact state instead of pulsing.
+  final bool _pulseAnimates;
 
   /// UI-12: a compass sample repaints the puck only when it turned at least
   /// this far since the last repaint, or [headingRepaintInterval] has passed.
@@ -209,6 +231,12 @@ class HomeLocationController extends ChangeNotifier {
   final StaleGuard _detectGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
   Timer? _resubscribeTimer;
+
+  /// rider-20: the scheduled frame of the running puck glide.
+  int? _glideFrameId;
+
+  /// rider-u120: after [dispose], nothing starts GPS, compass or pulse.
+  bool _disposed = false;
   int _resubscribeAttempts = 0;
   bool Function()? _trackingMounted;
   void Function(LatLng latLng, double heading)? _trackingOnFix;
@@ -253,9 +281,22 @@ class HomeLocationController extends ChangeNotifier {
 
   Future<String> normaliseAddress(String input, {int? generation}) async {
     final clean = input.trim();
-    if (clean.isEmpty || clean == 'Current location') return clean;
+    // rider-39: a placeholder or dropped-pin label names no place; a fuzzy
+    // geocoder would swap it for some other place's name.
+    if (isPlaceholderPickupLabel(clean) ||
+        clean == pickupLocationFallbackLabel ||
+        isDroppedPinLabel(clean)) {
+      return clean;
+    }
     final scope = generation ?? _normaliseGuard.next();
-    final result = await geocoding.forward(clean);
+    PlaceResult? result;
+    try {
+      result = await geocoding.forward(clean);
+    } catch (_) {
+      // rider-45: normalising only tidies the text; a failed lookup keeps
+      // what the rider chose instead of aborting the flow.
+      return clean;
+    }
     if (!_normaliseGuard.isCurrent(scope)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
@@ -273,7 +314,13 @@ class HomeLocationController extends ChangeNotifier {
   /// call superseded this one" (RIDE-18).
   Future<GeocodeOutcome<LatLng>> resolveLatLng(String address) async {
     final generation = _pointGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound(LatLng(result.point.latitude, result.point.longitude));
@@ -285,7 +332,13 @@ class HomeLocationController extends ChangeNotifier {
     String address,
   ) async {
     final generation = _placeGuard.next();
-    final result = await geocoding.forward(address);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.forward(address);
+    } catch (_) {
+      if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
+      return const GeocodeFailed();
+    }
     if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
     if (result == null) return const GeocodeNotFound();
     return GeocodeFound((
@@ -306,8 +359,37 @@ class HomeLocationController extends ChangeNotifier {
       _permissionBlocked
           ? LocationAccessIssue.deniedForever
           : LocationAccessIssue.denied,
-    _ => null,
+    _ => _preciseOff ? LocationAccessIssue.approximate : null,
   };
+
+  bool _preciseOff = false;
+
+  /// rider-u114: the rider allowed only approximate location. The fix still
+  /// centres the map and draws the puck, but it is never the pickup: Home
+  /// shows the 'set pickup' state until precise location is on.
+  bool get preciseLocationOff => _preciseOff;
+
+  void _setPreciseOff(bool off) {
+    if (_preciseOff == off) return;
+    _preciseOff = off;
+    notifyListeners();
+  }
+
+  /// rider-u114: reads the accuracy grant again (an app resume, after the
+  /// "Turn on" button). Resolves with whether it changed.
+  Future<bool> recheckPrecision() async {
+    final off = await location.isApproximateOnly();
+    if (_disposed || off == _preciseOff) return false;
+    _setPreciseOff(off);
+    return true;
+  }
+
+  /// rider-u114: the notice's "Turn on" button.
+  Future<void> requestPreciseLocation() async {
+    await location.requestPreciseLocation();
+    if (_disposed) return;
+    await recheckPrecision();
+  }
 
   void _setState(HomeLocationState next) {
     if (state == next) return;
@@ -353,7 +435,10 @@ class HomeLocationController extends ChangeNotifier {
     onGoodFix?.call(point);
   }
 
-  Future<DetectedLocation> detectCurrent() async {
+  /// rider-43: [askPermission] false never shows the system prompt (an app
+  /// resume, a second try right after the rider answered it); a denied
+  /// permission then reads as denied.
+  Future<DetectedLocation> detectCurrent({bool askPermission = true}) async {
     _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
@@ -366,7 +451,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       var permission = await location.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied && askPermission) {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
@@ -402,8 +487,28 @@ class HomeLocationController extends ChangeNotifier {
           )
           .timeout(detectFixTimeout);
       _accurateFixSeen = true;
-      _rememberGoodFix(position);
       final generation = _detectGuard.next();
+      // rider-u114: read after the fix, so the fix's own timeout still
+      // bounds the whole detection.
+      final approximate = await location.isApproximateOnly();
+      if (approximate) {
+        // rider-u114: a fix that may be hundreds of metres off names no
+        // pickup and is not kept as a good fix; it still centres the map.
+        onGoodFix?.call(GeoPoint(position.latitude, position.longitude));
+        heading = position.heading.isFinite && position.heading >= 0
+            ? position.heading
+            : 0;
+        _setPreciseOff(true);
+        _setState(HomeLocationState.live);
+        return DetectedLocation(
+          target: LatLng(position.latitude, position.longitude),
+          address: locationOffPickupLabel,
+          heading: heading,
+          approximate: true,
+        );
+      }
+      _setPreciseOff(false);
+      _rememberGoodFix(position);
       String? detected;
       try {
         detected = await geocoding.reverse(
@@ -450,6 +555,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(LatLng latLng, double heading) onFix,
   }) {
+    if (_disposed) return;
     _positionSub?.cancel();
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
@@ -510,11 +616,42 @@ class HomeLocationController extends ChangeNotifier {
     });
   }
 
+  /// rider-20: steps the puck along [MotionEngine]'s glide to the latest
+  /// fix on painted frames (no timer), so it moves instead of jumping.
+  void _glideTo(
+    DateTime glideStart,
+    void Function(LatLng latLng, double heading) onFix,
+  ) {
+    _cancelGlide();
+    Duration? first;
+    void step(Duration frame) {
+      _glideFrameId = null;
+      final isMounted = _trackingMounted;
+      if (isMounted == null || !isMounted() || _livePaused) return;
+      first ??= frame;
+      final next = motion.poseAt(glideStart.add(frame - first!));
+      if (next == null) return;
+      onFix(LatLng(next.position.latitude, next.position.longitude), heading);
+      if (next.progress < 1) {
+        _glideFrameId = SchedulerBinding.instance.scheduleFrameCallback(step);
+      }
+    }
+
+    _glideFrameId = SchedulerBinding.instance.scheduleFrameCallback(step);
+  }
+
+  void _cancelGlide() {
+    final id = _glideFrameId;
+    _glideFrameId = null;
+    if (id != null) SchedulerBinding.instance.cancelFrameCallbackWithId(id);
+  }
+
   void _deliverFix(
     Position position,
     void Function(LatLng latLng, double heading) onFix,
   ) {
     _setState(HomeLocationState.live);
+    final glideStart = DateTime.now();
     final pose = motion.ingest(
       LocationPoint(
         point: GeoPoint(position.latitude, position.longitude),
@@ -523,7 +660,9 @@ class HomeLocationController extends ChangeNotifier {
         speedMps: position.speed,
         heading: position.heading,
       ),
+      now: glideStart,
     );
+    if (pose != null && pose.progress < 1) _glideTo(glideStart, onFix);
     final latLng = pose == null
         ? LatLng(position.latitude, position.longitude)
         : LatLng(pose.position.latitude, pose.position.longitude);
@@ -543,6 +682,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
   }) async {
+    if (_disposed) return false;
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();
@@ -621,7 +761,8 @@ class HomeLocationController extends ChangeNotifier {
         )
         .timeout(latestFixTimeout);
     _accurateFixSeen = true;
-    _rememberGoodFix(position);
+    // rider-u114: an approximate-only fix is not kept as a good fix.
+    if (!_preciseOff) _rememberGoodFix(position);
     final target = LatLng(position.latitude, position.longitude);
     if (!hasCompassHeading &&
         position.heading.isFinite &&
@@ -636,9 +777,12 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function() onTick,
   }) {
+    if (_disposed) return;
     _pulseTimer?.cancel();
+    _pulseTimer = null;
     pulseExpanded = false;
     onTick();
+    if (!_pulseAnimates) return;
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
       if (!isMounted() || _livePaused || cameraMoving) return;
       pulseExpanded = !pulseExpanded;
@@ -652,6 +796,7 @@ class HomeLocationController extends ChangeNotifier {
     required void Function(double heading) onHeading,
     required void Function() onPulse,
   }) async {
+    if (_disposed) return;
     startTracking(isMounted: isMounted, onFix: onFix);
     startPulse(isMounted: isMounted, onTick: onPulse);
     await startHeading(isMounted: isMounted, onHeading: onHeading);
@@ -715,7 +860,9 @@ class HomeLocationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _positionSub?.cancel();
+    _cancelGlide();
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _trackingMounted = null;
@@ -756,6 +903,12 @@ class HomeLocationController extends ChangeNotifier {
       if (target == null || !isMounted() || _livePaused) return;
       _setState(HomeLocationState.live);
       onFix(target, heading);
+      // rider-u115: a revoke or services-off error ended the stream without
+      // a resubscribe. A fresh fix means location works again, so follow
+      // the rider again instead of freezing the puck on this one fix.
+      if (_positionSub == null && _resubscribeTimer == null) {
+        startTracking(isMounted: isMounted, onFix: onFix);
+      }
     } catch (_) {
       // No fresh fix: keep the last one; the stream will deliver the next.
     } finally {

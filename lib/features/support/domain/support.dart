@@ -10,7 +10,9 @@ class SupportRide {
     this.currency = 'SEK',
     this.cancelled = false,
     this.failed = false,
+    this.endedEarly = false,
     this.extra,
+    this.cancellationFee,
     this.id,
   });
 
@@ -25,7 +27,15 @@ class SupportRide {
   final String image;
   final bool cancelled;
   final bool failed;
+
+  /// UI-01: the rider ended the trip on board; [price] is what they were
+  /// charged for the distance driven.
+  final bool endedEarly;
   final String? extra;
+
+  /// rider-u230: the late-cancel fee charged for a cancelled ride, in whole
+  /// units of [currency] (History shows it too). Null: cancelled for free.
+  final double? cancellationFee;
 
   /// "20 Oct · 09:05" in the app language (24-hour, as elsewhere).
   String get whenLabel =>
@@ -39,12 +49,18 @@ class SupportRide {
 
   String get priceLabel {
     if (cancelled) {
-      final zero = formatMajor(0, currency);
+      // rider-r5-48: a charged amount to the öre, as History and the
+      // receipt show it.
+      final charged = formatMajor(cancellationFee ?? 0, currency, whole: false);
       return extra == null
-          ? L10n.current.supportPriceCancelled(zero)
-          : L10n.current.supportPriceCancelledExtra(zero, extra!);
+          ? L10n.current.supportPriceCancelled(charged)
+          : L10n.current.supportPriceCancelledExtra(charged, extra!);
     }
     if (failed) return L10n.current.supportFailed;
+    if (endedEarly) {
+      return '${formatMajor(price, currency, whole: false)} · '
+          '${L10n.current.endedEarly}';
+    }
     return formatMajor(price, currency);
   }
 }

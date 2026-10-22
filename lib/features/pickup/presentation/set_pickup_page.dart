@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
@@ -27,6 +29,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// The map point [pixelsAboveCentre] above the camera [target] on screen,
@@ -308,6 +311,15 @@ class _SetPickupPageState extends State<SetPickupPage>
     duration: const Duration(milliseconds: 180),
     reverseDuration: const Duration(milliseconds: 520),
   );
+
+  // rider-u143: built once, not on every build (each CurvedAnimation adds a
+  // status listener to its parent until it is disposed).
+  late final CurvedAnimation _pinDrop = CurvedAnimation(
+    parent: _lift,
+    curve: Curves.easeOut,
+    reverseCurve: Curves.bounceIn,
+  );
+  final Map<(double, double), CurvedAnimation> _reveals = {};
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
     geocoding: widget.geocoding ?? AppScope.instance.geocoding,
@@ -352,6 +364,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   late bool _addressIsStale =
       _isPlaceholder(_address) || needsDroppedPinLabel(_address);
   int _resolveGeneration = 0;
+  int _searchGeneration = 0;
   Future<void>? _resolveTask;
   Future<void>? _requoteTask;
 
@@ -426,6 +439,10 @@ class _SetPickupPageState extends State<SetPickupPage>
   void dispose() {
     _spotsTimer?.cancel();
     _mapTouch?.cancel();
+    for (final curve in _reveals.values) {
+      curve.dispose();
+    }
+    _pinDrop.dispose();
     _sheet.dispose();
     _lift.dispose();
     _pickup.dispose();
@@ -440,7 +457,16 @@ class _SetPickupPageState extends State<SetPickupPage>
   String get _arriveClock {
     final scheduled = widget.scheduledPickup;
     final at = scheduled != null
-        ? scheduled.add(Duration(minutes: widget.ride.tripMinutes))
+        // rider-r5-9: real trip time in the pickup zone, as the date picker
+        // estimates it, so a clock change between pickup and arrival holds.
+        ? ZoneClock.wallAfter(
+            RiderZones.at(
+              widget.initialPosition.latitude,
+              widget.initialPosition.longitude,
+            ).timeZone,
+            scheduled,
+            Duration(minutes: widget.ride.tripMinutes),
+          )
         : DateTime.now().add(
             Duration(minutes: widget.ride.etaMin + widget.ride.tripMinutes),
           );
@@ -486,7 +512,18 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (!_moving) _lift.reverse();
   }
 
+  /// rider-u140: a Confirm tapped while the camera still moves waits here
+  /// for the next idle (which starts the new pin's lookup and quote).
+  Completer<void>? _settled;
+
   void _onCameraIdle() {
+    _settleIdle();
+    final settled = _settled;
+    _settled = null;
+    settled?.complete();
+  }
+
+  void _settleIdle() {
     if (!_moving) return;
     _moving = false;
     if (!_fingerDown) _lift.reverse();
@@ -504,6 +541,10 @@ class _SetPickupPageState extends State<SetPickupPage>
       unawaited(_resolveAddress());
       _scheduleSpots();
       unawaited(_requote());
+    } else if (_addressIsStale && !_resolving) {
+      // rider-u138: back near the last rest point after its lookup was
+      // dropped (the pin was elsewhere when it answered): ask again.
+      unawaited(_resolveAddress());
     }
   }
 
@@ -553,7 +594,12 @@ class _SetPickupPageState extends State<SetPickupPage>
     setState(() => _resolving = true);
     final address = await _pickup.reverse(at);
     if (!mounted || generation != _resolveGeneration) return;
-    if (_isAwayFrom(at, _center)) return;
+    if (_isAwayFrom(at, _center)) {
+      // rider-u138: the pin moved on during the lookup. Stop saying it is
+      // being found; the next rest asks again for the pin's own point.
+      setState(() => _resolving = false);
+      return;
+    }
     setState(() {
       _resolving = false;
       if (!isUnusablePickupLabel(address)) {
@@ -628,8 +674,14 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Future<void> _useCurrentLocation() async {
+    final at = _center;
     final result = await _pickup.currentPosition();
     if (!mounted) return;
+    // rider-u134: the rider moved the pin while the fix was coming; a late
+    // answer must not glide it away from there.
+    if (result.position != null && (_moving || _isAwayFrom(at, _center))) {
+      return;
+    }
     final position = result.position;
     if (position == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -657,41 +709,38 @@ class _SetPickupPageState extends State<SetPickupPage>
     final controller = TextEditingController();
     final query = await MoveraSheet.show<String>(
       context: context,
+      // rider-u139: MoveraSheet already lifts the sheet over the keyboard;
+      // padding by the inset again here doubled it.
       builder: (sheetContext) => PointerInterceptor(
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (value) => Navigator.pop(sheetContext, value),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.searchAddress,
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: _field,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) => Navigator.pop(sheetContext, value),
+                decoration: InputDecoration(
+                  hintText: context.l10n.searchAddress,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: _field,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -699,8 +748,18 @@ class _SetPickupPageState extends State<SetPickupPage>
     controller.dispose();
     final text = query?.trim() ?? '';
     if (text.isEmpty || !mounted) return;
+    final at = _center;
+    final generation = ++_searchGeneration;
     final found = await _pickup.search(text);
     if (!mounted) return;
+    // rider-58: the page stays usable while the search runs. If the pin
+    // was moved (a drag, a spot, My location) or a newer search started,
+    // this answer must not pull the pin back to the searched place.
+    if (generation != _searchGeneration ||
+        _moving ||
+        _isAwayFrom(at, _center)) {
+      return;
+    }
     if (found == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(content: Text(context.l10n.addressNotFoundMoveMap)),
@@ -731,6 +790,22 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (_confirming || !_usable) return;
     _confirming = true;
     HapticFeedback.mediumImpact();
+    // rider-u140: mid-glide the pin's street and fare are still the old
+    // point's; only the idle marks them stale and asks again. Wait for it.
+    if (_moving || _isAwayFrom(_center, _routeStart)) {
+      setState(() => _confirmWaiting = true);
+      try {
+        await (_settled ??= Completer<void>()).future.timeout(confirmWait);
+      } catch (_) {
+        // Still moving: the rider confirms again once it rests.
+      }
+      if (!mounted) return;
+      setState(() => _confirmWaiting = false);
+      if (_moving || _isAwayFrom(_center, _routeStart)) {
+        _confirming = false;
+        return;
+      }
+    }
     final at = _center;
     final pending = <Future<void>>[
       if (_resolving && _resolveTask != null) _resolveTask!,
@@ -839,7 +914,7 @@ class _SetPickupPageState extends State<SetPickupPage>
               child: Center(
                 child: _PickupPin(
                   key: const ValueKey('set-pickup-pin'),
-                  lift: _lift,
+                  lift: _pinDrop,
                 ),
               ),
             ),
@@ -976,53 +1051,64 @@ class _SetPickupPageState extends State<SetPickupPage>
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: GestureDetector(
-                        key: const ValueKey('set-pickup-handle'),
-                        onTap: () => _settleSheet(_sheet.value < 0.5),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: _line,
-                              borderRadius: BorderRadius.circular(8),
+              // rider-u141: Confirm is a pinned footer. Only the sections
+              // above it fold into the height cap, so opening the sheet can
+              // no longer clip Confirm off the screen.
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: GestureDetector(
+                              key: const ValueKey('set-pickup-handle'),
+                              onTap: () => _settleSheet(_sheet.value < 0.5),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+                                color: Colors.transparent,
+                                child: Container(
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: _line,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          _reveal(0.0, 0.55, _rideHeader()),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  context.l10n.pickupSpot,
+                                  style: _text(13.5, weight: FontWeight.w600, color: _muted),
+                                ),
+                              ),
+                              _shortBagsChip(),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _pickupCard(),
+                          _spotChips(),
+                          _reveal(0.25, 0.85, _bagsRow()),
+                          _reveal(0.35, 0.95, _priceBox()),
+                          _reveal(0.45, 1.0, _paymentLine()),
+                        ],
                       ),
                     ),
-                    _reveal(0.0, 0.55, _rideHeader()),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.pickupSpot,
-                            style: _text(13.5, weight: FontWeight.w600, color: _muted),
-                          ),
-                        ),
-                        _shortBagsChip(),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _pickupCard(),
-                    _spotChips(),
-                    _reveal(0.25, 0.85, _bagsRow()),
-                    _reveal(0.35, 0.95, _priceBox()),
-                    _reveal(0.45, 1.0, _paymentLine()),
-                    const SizedBox(height: 14),
-                    _confirmButton(),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 14),
+                  _confirmButton(),
+                ],
               ),
             ),
           ),
@@ -1033,9 +1119,12 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   /// Folds a section away as the sheet slides down; staggered by [start].
   Widget _reveal(double start, double end, Widget child) {
-    final curve = CurvedAnimation(
-      parent: _sheet,
-      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    final curve = _reveals.putIfAbsent(
+      (start, end),
+      () => CurvedAnimation(
+        parent: _sheet,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ),
     );
     return SizeTransition(
       sizeFactor: curve,
@@ -1391,7 +1480,9 @@ class _SetPickupPageState extends State<SetPickupPage>
               key: const ValueKey('set-pickup-wallet-part'),
             ),
             _priceRow(
-              fare.split.paidByWallet ? context.l10n.nothingMoreToPay : _payment.name,
+              fare.split.paidByWallet
+                  ? context.l10n.nothingMoreToPay
+                  : paymentNameFor(_payment.brand, _payment.name),
               fare.split.remainderLabel,
               key: const ValueKey('set-pickup-remainder'),
             ),
@@ -1428,9 +1519,18 @@ class _SetPickupPageState extends State<SetPickupPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_payment.name, style: _text(14.5, weight: FontWeight.w600)),
+                    // rider-u142: the catalog's English name and line
+                    // ('Cash', 'Pay the driver in cash') as Select Ride
+                    // shows them, in the app language.
+                    Text(
+                      paymentNameFor(_payment.brand, _payment.name),
+                      style: _text(14.5, weight: FontWeight.w600),
+                    ),
                     if (_payment.detail.trim().isNotEmpty)
-                      Text(_payment.detail, style: _text(12.5, color: _muted)),
+                      Text(
+                        paymentDetailFor(_payment.brand, _payment.detail),
+                        style: _text(12.5, color: _muted),
+                      ),
                   ],
                 ),
               ),
@@ -1478,6 +1578,7 @@ class _SetPickupPageState extends State<SetPickupPage>
 class _PickupPin extends StatelessWidget {
   const _PickupPin({super.key, required this.lift});
 
+  /// The lift, already curved (ease out up, a small bounce down).
   final Animation<double> lift;
 
   static const _bubble = 34.0;
@@ -1488,11 +1589,7 @@ class _PickupPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drop = CurvedAnimation(
-      parent: lift,
-      curve: Curves.easeOut,
-      reverseCurve: Curves.bounceIn,
-    );
+    final drop = lift;
     return AnimatedBuilder(
       animation: drop,
       builder: (context, _) {

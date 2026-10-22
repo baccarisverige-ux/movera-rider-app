@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -48,11 +49,16 @@ void main() {
     );
   }
 
+  // Owner decision 9: [pickupAt] is a Stockholm wall time (StockholmSchedule
+  // returns zone wall times, no longer device-local values), so the origin
+  // is booked as its instant in Stockholm, as the app books a ride.
   Reservation origin(DateTime pickupAt) {
+    final at = ZoneClock.toUtc(pickupAt, ZoneClock.stockholm);
     return Reservation(
       reservationId: 'rsv_origin',
-      createdAt: pickupAt.subtract(const Duration(days: 1)),
-      scheduledPickupAt: pickupAt,
+      createdAt: at.subtract(const Duration(days: 1)),
+      scheduledPickupAt: at,
+      timeZone: ZoneClock.stockholm,
       pickup: const ReservationPlace(
         label: 'Klockarvägen 37',
         lat: 59.19,
@@ -177,7 +183,7 @@ void main() {
     final opened = <String>[];
     final startedAt = DateTime.now();
     final ride = origin(StockholmSchedule.stockholmNow().add(originOffset));
-    final prefill = ride.scheduledPickupAt.add(const Duration(hours: 3));
+    final prefill = ride.pickupWallTime.add(const Duration(hours: 3));
     expect(
       StockholmSchedule.isLegalPickup(prefill),
       isFalse,
@@ -246,21 +252,21 @@ void main() {
     final booked = c.all.single;
     expect(opened, [booked.reservationId]);
     expect(booked.parentReservationId, 'rsv_origin');
-    expect(booked.scheduledPickupAt, isNot(prefill));
+    expect(booked.pickupWallTime, isNot(prefill));
     expect(
-      booked.scheduledPickupAt.isBefore(slotAtStart) ||
-          booked.scheduledPickupAt.isAfter(slotAtEnd),
+      booked.pickupWallTime.isBefore(slotAtStart) ||
+          booked.pickupWallTime.isAfter(slotAtEnd),
       isFalse,
       reason: 'the picker books the clamped prefill: the earliest legal slot '
           'at some moment between $slotAtStart and $slotAtEnd, '
-          'got ${booked.scheduledPickupAt}',
+          'got ${booked.pickupWallTime}',
     );
     expect(
-      StockholmSchedule.isLegalPickup(booked.scheduledPickupAt, startedAt),
+      StockholmSchedule.isLegalPickup(booked.pickupWallTime, startedAt),
       isTrue,
       reason: 'the booked return pickup satisfies the 30-minute lead',
     );
-    expect(booked.scheduledPickupAt.minute % StockholmSchedule.slotMinutes, 0);
+    expect(booked.pickupWallTime.minute % StockholmSchedule.slotMinutes, 0);
   }
 
   phase114Widgets(
@@ -342,7 +348,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      final booked = c.all.single.scheduledPickupAt;
+      final booked = c.all.single.pickupWallTime;
       expect(StockholmSchedule.isLegalPickup(booked), isTrue);
       expect(StockholmSchedule.isOnGrid(booked), isTrue);
       expect(opened, [c.all.single.reservationId]);
@@ -394,7 +400,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      final booked = c.all.single.scheduledPickupAt;
+      final booked = c.all.single.pickupWallTime;
       expect(StockholmSchedule.isLegalPickup(booked), isTrue);
       expect(StockholmSchedule.isOnGrid(booked), isTrue);
       expect(opened, [c.all.single.reservationId]);
@@ -493,7 +499,7 @@ void main() {
           StockholmSchedule.stockholmNow().add(const Duration(hours: 1)),
         ),
       );
-      final prefill = ride.scheduledPickupAt.add(const Duration(hours: 3));
+      final prefill = ride.pickupWallTime.add(const Duration(hours: 3));
       await pumpApp(
         tester,
         PlanReturnRidePage(
@@ -510,7 +516,7 @@ void main() {
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
-      expect(c.all.single.scheduledPickupAt, prefill);
+      expect(c.all.single.pickupWallTime, prefill);
       expect(c.all.single.parentReservationId, 'rsv_origin');
       expect(opened, [c.all.single.reservationId]);
     },
@@ -521,7 +527,7 @@ void main() {
     (tester) async {
       final now = StockholmSchedule.stockholmNow();
       final onGridSoon = StockholmSchedule.roundToFive(
-        DateTime(
+        DateTime.utc(
           now.year,
           now.month,
           now.day,
@@ -533,7 +539,7 @@ void main() {
       // since 3 hours is an exact multiple of the 5-minute slot.
       final offGridOriginPickup = onGridSoon.add(const Duration(minutes: 2));
       final ride = origin(offGridOriginPickup);
-      final prefill = ride.scheduledPickupAt.add(const Duration(hours: 3));
+      final prefill = ride.pickupWallTime.add(const Duration(hours: 3));
       expect(
         StockholmSchedule.isLegalPickup(prefill),
         isTrue,
@@ -584,7 +590,7 @@ void main() {
       expect(opened, [booked.reservationId]);
       expect(booked.parentReservationId, 'rsv_origin');
       expect(
-        StockholmSchedule.isOnGrid(booked.scheduledPickupAt),
+        StockholmSchedule.isOnGrid(booked.pickupWallTime),
         isTrue,
         reason: 'the picker grid-aligns the final booked time',
       );
@@ -620,7 +626,7 @@ void main() {
 
       expect(find.byType(ScheduleDateTimeSelector), findsNothing);
       expect(c.all, hasLength(1));
-      expect(c.all.single.scheduledPickupAt, picked);
+      expect(c.all.single.pickupWallTime, picked);
       expect(c.all.single.parentReservationId, isNull);
       expect(opened, [c.all.single.reservationId]);
     },

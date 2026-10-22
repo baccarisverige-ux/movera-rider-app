@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,6 +30,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -134,6 +136,13 @@ Future<void> _setUpSafety({
   );
 }
 
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -229,6 +238,7 @@ void main() {
   testWidgets(
     'RC3 the dark-glass card opens at the top with the rider rows and Solar icons only',
     (tester) async {
+      _withAudioOption();
       await _setUpSafety();
       await pumpTrip(tester);
       await openCard(
@@ -461,6 +471,85 @@ void main() {
     );
   });
 
+  // rider-u213: excludeSemantics dropped the InkWell's tap action, so
+  // TalkBack / web screen readers could not press any Ride check button.
+  testWidgets('every Ride check button can be pressed by a screen reader', (
+    tester,
+  ) async {
+    _withAudioOption();
+    final semantics = tester.ensureSemantics();
+    await _setUpSafety();
+    await pumpTrip(tester);
+    await openCard(tester, RideCheckTrigger.longStop);
+
+    /// Every labelled button node inside the card.
+    List<SemanticsNode> buttons() {
+      final nodes = <SemanticsNode>[];
+      final cardNode = tester.getSemantics(card());
+      void walk(SemanticsNode node) {
+        final data = node.getSemanticsData();
+        if (data.flagsCollection.isButton && data.label.isNotEmpty) {
+          nodes.add(node);
+        }
+        node.visitChildren((child) {
+          walk(child);
+          return true;
+        });
+      }
+
+      walk(cardNode);
+      return nodes;
+    }
+
+    void expectAllTappable(Iterable<String> mustInclude) {
+      final found = buttons();
+      final labels = [for (final n in found) n.getSemanticsData().label];
+      for (final label in mustInclude) {
+        expect(
+          labels.any((l) => l.startsWith(label)),
+          isTrue,
+          reason: '$label in $labels',
+        );
+      }
+      for (final node in found) {
+        expect(
+          node.getSemanticsData().hasAction(SemanticsAction.tap),
+          isTrue,
+          reason: 'no tap action on "${node.getSemanticsData().label}"',
+        );
+      }
+    }
+
+    SemanticsNode byLabel(String prefix) => buttons().firstWhere(
+      (n) => n.getSemanticsData().label.startsWith(prefix),
+    );
+    Future<void> press(String prefix) async {
+      final node = byLabel(prefix);
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      await settle(tester);
+    }
+
+    // Main step: Call 112, I'm OK, Record and the answer rows.
+    expectAllTappable([
+      'Call 112',
+      "I'm OK",
+      'Record audio',
+      'There was an accident',
+    ]);
+
+    // A row pressed through semantics opens its follow-up: options and Done.
+    await press('There was an accident');
+    expect(_rideCheck.session!.step, RideCheckStep.followUp);
+    expectAllTappable(['Done', 'Yes', 'Not sure']);
+    await press('Done');
+    expect(
+      _rideCheck.session,
+      isNull,
+      reason: 'Done pressed by a screen reader',
+    );
+    semantics.dispose();
+  });
+
   testWidgets('Call 112 opens the phone dialer with 112; Movera never calls', (
     tester,
   ) async {
@@ -538,6 +627,7 @@ void main() {
   testWidgets(
     'RC5 Record audio stays on this phone and is never sent to Movera',
     (tester) async {
+      _withAudioOption();
       await _setUpSafety();
       await pumpTrip(tester);
       await openCard(tester, RideCheckTrigger.longStop);
@@ -584,6 +674,7 @@ void main() {
   testWidgets('Record audio says so where the phone cannot record', (
     tester,
   ) async {
+    _withAudioOption();
     await _setUpSafety(recorderSupported: false);
     await pumpTrip(tester);
     await openCard(tester, RideCheckTrigger.longStop);

@@ -73,6 +73,10 @@ class LocalReservationRepository implements ReservationRepository {
   final String Function() _nextId;
   final DateTime Function() _clock;
   final List<Reservation> _items = [];
+
+  /// How long before pickup a ride starts waiting for a driver
+  /// (ReservationController.startLiveIfDue).
+  static const assignmentWindow = Duration(minutes: 2);
   bool _hydrated = false;
 
   static String _defaultId() {
@@ -102,7 +106,13 @@ class LocalReservationRepository implements ReservationRepository {
           : const [];
       _items
         ..clear()
-        ..addAll(list.map(Reservation.tryParse).whereType<Reservation>());
+        ..addAll(
+          list
+              .map(Reservation.tryParse)
+              .whereType<Reservation>()
+              // Owner decision 9: older rides read with their pickup zone.
+              .map((ride) => ride.withPickupZone()),
+        );
     } catch (_) {
       // Ignore corrupt local data rather than crash on restore.
     }
@@ -179,6 +189,8 @@ class LocalReservationRepository implements ReservationRepository {
         note: draft.note,
         policyVersion: policy.version,
         parentReservationId: draft.parentReservationId,
+        timeZone: draft.timeZone,
+        stops: List.unmodifiable(draft.stops),
       );
       await _commit([created, ..._items]);
       return created;
@@ -193,6 +205,22 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: decided before an earlier change in the queue (the
+      // rider's cancel, the trip's end) committed. A finished ride stays
+      // finished.
+      if (!current.status.isUpcoming) return current;
+      // rider-j8-9: a ride still waiting for a driver that is moved out of
+      // the assignment window is a normal booking again; it waits for its
+      // new time (ReservationController.startLiveIfDue) instead of
+      // showing "searching" until then.
+      final movedPickup = patch.scheduledPickupAt;
+      final status = patch.status ??
+          (movedPickup != null &&
+                  current.status == ReservationStatus.driverAssignmentPending &&
+                  current.driver == null &&
+                  movedPickup.difference(_clock()) > assignmentWindow
+              ? ReservationStatus.scheduled
+              : null);
       final next = current.copyWith(
         scheduledPickupAt: patch.scheduledPickupAt,
         estimatedDropoffAt: patch.estimatedDropoffAt,
@@ -206,10 +234,12 @@ class LocalReservationRepository implements ReservationRepository {
         price: patch.price,
         currency: patch.currency,
         note: patch.note,
-        status: patch.status,
+        status: status,
         driver: patch.driver,
         clearDriver: patch.clearDriver,
         previousDriver: patch.previousDriver,
+        timeZone: patch.timeZone,
+        stops: patch.stops == null ? null : List.unmodifiable(patch.stops!),
       );
       await _commit(_replacing(reservationId, next));
       return next;
@@ -225,6 +255,9 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u170: confirmed against an older copy of the ride. One that
+      // has since completed (or was already cancelled) stays as it is.
+      if (!current.status.canCancel) return current;
       final next = current.copyWith(
         status: ReservationStatus.cancelled,
         cancellationReason: reason,
@@ -266,6 +299,8 @@ class LocalReservationRepository implements ReservationRepository {
     return _oneAtATime(() async {
       await hydrate();
       final current = _require(reservationId);
+      // rider-u159: as in [updateReservation].
+      if (!current.status.isUpcoming) return current;
       final leaving = current.driver;
       // The driver who had the ride and is now losing it, if any. A repeat
       // of the same assignment changes nothing.

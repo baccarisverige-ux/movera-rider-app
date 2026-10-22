@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -47,16 +48,25 @@ class _ScheduleRideState extends State<ScheduleRide> {
   static const Color _scheduleLine = Color(0xFFE4E7E8);
   static const Color _scheduleAccent = Color(0xFF356879);
 
-  /// U5 stopgap (same kill-switch as Home's `_stopsSupported`): stops typed
-  /// here reached `ScheduledRideSession.stops` → `SelectRide(stops:)` and were
-  /// then silently dropped — `ReservationDraft` has no stops, and there is no
-  /// multi-stop fare or routing. Hidden until multi-stop quoting, routing and
-  /// booking exist end to end (blocked on backend).
+  /// Same switch as Home's `_stopsSupported`: stops typed here go through
+  /// `ScheduledRideSession.stops` → `SelectRide(stops:)`, which quotes them
+  /// and books them on the reservation (rider-r4-28).
   static const bool _stopsSupported = true;
 
+  // rider-87: the "Current location" stand-in, in the app language. The
+  // ride still records the stand-in itself ([_pickupLabel]).
   final TextEditingController _pickupController = TextEditingController(
-    text: 'Current location',
+    text: L10n.place('Current location'),
   );
+
+  /// The pickup as the booking reads it: the translated stand-in shown in
+  /// the field is the "Current location" stand-in.
+  String get _pickupLabel {
+    final text = _pickupController.text;
+    return text.trim() == L10n.current.currentLocation
+        ? 'Current location'
+        : text;
+  }
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
@@ -80,12 +90,26 @@ class _ScheduleRideState extends State<ScheduleRide> {
     super.initState();
     final editing = widget.editing;
     if (editing != null) {
-      _pickupController.text = editing.pickup.label;
+      _pickupController.text = L10n.place(editing.pickup.label);
       _dropoffController.text = editing.destination.label;
-      _session.captureSchedule(editing.scheduledPickupAt);
+      // rider-63: the booked time in its own pickup zone (owner decision
+      // 9: a ride with no zone is read on the home zone's clock it is
+      // edited in, not as the phone's wall time).
+      final zone = editing.timeZone ?? ZoneClock.stockholm;
+      _session.captureSchedule(
+        ZoneClock.wallTime(zone, editing.scheduledPickupAt),
+        timezone: zone,
+      );
       _session.captureRideType(editing.categoryId);
       _session.capturePayment(editing.paymentMethod);
       if (editing.hasPreferences) _session.captureNote(editing.note!.trim());
+      // rider-r4-28: the booked stops, so a changed ride keeps them.
+      for (final stop in editing.stops.take(3)) {
+        _stopControllers.add(
+          TextEditingController(text: stop.label)
+            ..addListener(_syncRouteToSession),
+        );
+      }
     }
     setWebOverlayOpen(true);
     _pickupController.addListener(_syncRouteToSession);
@@ -114,7 +138,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void _syncRouteToSession() {
     _session.captureRoute(
-      pickup: _pickupController.text,
+      pickup: _pickupLabel,
       dropoff: _dropoffController.text,
       stops: _stopControllers
           .map((controller) => controller.text.trim())
@@ -174,21 +198,28 @@ class _ScheduleRideState extends State<ScheduleRide> {
   Future<void> _confirmPickupThenCalendar() async {
     // Only the camera start for the pin screen: the rider confirms the real
     // spot there (CODE-5), so a missing fix just opens the default view.
-    final start = await resolveScheduledPoint(_pickupController.text) ??
+    final start = await resolveScheduledPoint(_pickupLabel) ??
         _initialPosition.target;
     if (!mounted) return;
     final spot = await ConfirmPickupSpot.open(
       context,
       initialPosition: start,
-      initialAddress: _pickupController.text.trim().isEmpty
+      initialAddress: _pickupLabel.trim().isEmpty
           ? 'Current location'
-          : _pickupController.text.trim(),
+          : _pickupLabel.trim(),
       confirmLabel: context.l10n.confirmPickupSpot,
     );
     if (spot == null || !mounted) return;
     // The drop-off must be a real place before choosing a time; its distance
     // gives the honest arrival estimate on the next screen.
-    final dropoff = await findScheduledPoint(_dropoffController.text);
+    final LatLng? dropoff;
+    try {
+      dropoff = await findScheduledPoint(_dropoffController.text);
+    } on ScheduledPointLookupFailed {
+      // rider-r5-23: the lookup failed; the address may be fine.
+      if (mounted) MoveraToast.show(context, context.l10n.apiUnreachable);
+      return;
+    }
     if (!mounted) return;
     if (dropoff == null) {
       MoveraToast.show(context, context.l10n.resValidDestination);
@@ -198,7 +229,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       GeoPoint(spot.position.latitude, spot.position.longitude),
       GeoPoint(dropoff.latitude, dropoff.longitude),
     );
-    _pickupController.text = spot.address;
+    _pickupController.text = L10n.place(spot.address);
     _session.capturePickupPoint(
       spot.position.latitude,
       spot.position.longitude,
@@ -264,6 +295,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
       timeZone:
           _pickupTimeZone ??
           PickupSchedule.at(_session.pickupLat, _session.pickupLng).timeZone,
+      // rider-r4-10: the zone's reservation horizon.
+      horizonDays: PickupSchedule.at(
+        _session.pickupLat,
+        _session.pickupLng,
+      ).horizonDays,
     );
   }
 
@@ -289,20 +325,26 @@ class _ScheduleRideState extends State<ScheduleRide> {
                           child: InkWell(
                             onTap: goToPreviousStep,
                             customBorder: const CircleBorder(),
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                size: 23,
-                                color: _scheduleInk,
+                            // rider-u167: the button has a name.
+                            child: Semantics(
+                              button: true,
+                              label: context.l10n.back,
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(
+                                  Icons.arrow_back_rounded,
+                                  size: 23,
+                                  color: _scheduleInk,
+                                ),
                               ),
                             ),
                           ),
                         ),
                         const Spacer(),
                         Text(
-                          'SCHEDULE',
+                          // rider-90: in the app language.
+                          context.l10n.scheduleHeaderCaps,
                           style: GoogleFonts.poppins(
                             color: _scheduleMuted,
                             fontSize: 10,

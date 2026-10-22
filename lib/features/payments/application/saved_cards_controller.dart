@@ -64,6 +64,8 @@ class CardInput {
     return true;
   }
 
+  /// Developer text of the [ArgumentError] [SavedCardsController.add]
+  /// throws; riders read l10n's cardBrandsAccepted (rider-52).
   static const String brandError = 'We accept Visa and Mastercard';
 
   /// Whole number: 16 digits, accepted brand, Luhn-valid.
@@ -121,6 +123,15 @@ class SavedCardsController extends ChangeNotifier {
   List<SavedCard> list() => List.unmodifiable(_cards);
 
   bool get hasCards => _cards.isNotEmpty;
+
+  /// rider-u131: the cards a ride can still be paid with. Expiry is checked
+  /// when a card is added, but a card saved in August that expires in
+  /// September stayed bookable (and the default) in October.
+  List<SavedCard> usable({DateTime? now}) => List.unmodifiable(
+    _cards.where(
+      (card) => CardInput.expiryInFuture(card.expMonth, card.expYear, now: now),
+    ),
+  );
 
   SavedCard? byId(String id) {
     for (final card in _cards) {

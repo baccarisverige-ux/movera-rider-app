@@ -27,12 +27,13 @@ void main() {
     plate: 'ABC 123',
   );
 
-  Future<ReservationController> seeded() async {
+  Future<ReservationController> seeded({DateTime Function()? clock}) async {
     final c = ReservationController(
       store: LocalReservationRepository(
         storage: MemoryReservationStorage(),
         nextId: () => 'rsv_ui',
       ),
+      clock: clock,
     );
     await c.create(
       ReservationDraft(
@@ -179,7 +180,9 @@ void main() {
   testWidgets('details match the reservation and keep the same id on edit', (
     tester,
   ) async {
-    final c = await seeded();
+    // The day before the 23 Sep pickup: once it has passed with no driver
+    // the page says "No driver found" instead (rider-j8-1).
+    final c = await seeded(clock: () => DateTime(2026, 9, 22, 12));
     await pumpPhone(
       tester,
       UpcomingReservationPage(reservationId: 'rsv_ui', controller: c),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -27,8 +28,10 @@ void main() {
   testWidgets(
     'schedule -> countdown -> assigned live ride -> completion -> Home',
     (tester) async {
-      final now = DateTime(2026, 9, 26, 8);
-      final pickupAt = now.add(const Duration(hours: 2, minutes: 15));
+      // rider-63: the pick is Stockholm wall-clock time and now is an
+      // instant, so the countdown is right on a device in any zone.
+      final now = ZoneClock.toUtc(DateTime(2026, 9, 26, 8), ZoneClock.stockholm);
+      final pickupAt = DateTime(2026, 9, 26, 10, 15);
       final reservations = ReservationController(
         store: LocalReservationRepository(
           storage: MemoryReservationStorage(),

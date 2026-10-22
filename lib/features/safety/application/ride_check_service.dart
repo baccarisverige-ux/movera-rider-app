@@ -79,6 +79,10 @@ class RideCheckService {
     );
   }
 
+  /// Saves the answers on this device only, without a send.
+  Future<void> keepAnswers(RideCheckSubmission submission) =>
+      _store.keepRideCheckAnswers(submission);
+
   /// RC4: sends the answers (and the alert, when they call for one).
   Future<RideCheckReceipt> submitAnswers(RideCheckSubmission submission) =>
       _store.submitRideCheckAnswers(submission);

@@ -1,4 +1,4 @@
-"""Generates contracts/openapi.yaml (v0.4.0) from contract.json + hand-written surface.
+"""Generates contracts/openapi.yaml (v0.4.4) from contract.json + hand-written surface.
 Enums are read from contract.json so they stay byte-exact."""
 import json, sys, yaml
 from collections import OrderedDict
@@ -175,12 +175,17 @@ S["Quote"] = obj(OrderedDict([
     ("expiresAt", ref("Timestamp")), ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", arr(ref("Place"))),
     ("surgeMultiplier", n(minimum=1)), ("etaSeconds", ref("DurationSeconds")),
 ]), ["quoteId", "categoryId", "total", "fareLines", "expiresAt", "pickup", "dropoff", "stops"])
-S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"), "total": ref("Money"),
-                       "difference": {"allOf": [ref("Money")], "description": "total − current fare (may be negative)."},
+S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
+                       "total": {"allOf": [ref("Money")], "description": "Booked fare + the rider's offer raises + distance price of "
+                                 "(new route km − booked route km, the booked route going through the booked stops) + the stop fee "
+                                 "for each stop that was not booked; never below half of (booked fare + raises). CONTRACT.md §3, v0.4.3."},
+                       "difference": {"allOf": [ref("Money")], "description": "total − current fare (may be negative). Re-quoting "
+                                      "the route the trip already has gives 0; a route change never refunds an offer raise."},
                        "fareLines": arr(ref("FareLine")), "dropoff": ref("Place"), "stops": arr(ref("Place")),
                        "expiresAt": ref("Timestamp")},
                       ["routeQuoteId", "tripId", "total", "difference", "dropoff", "stops", "expiresAt"],
-                      "Price for a route change after request; apply with PATCH /trips/{tripId}.")
+                      "Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking "
+                      "(owner decision 5, v0.4.3): a booked stop is counted once and offer raises stay.")
 
 S["Rider"] = obj({"riderId": ref("Id"), "firstName": s(), "phone": s(pattern=r"^\+[1-9]\d{6,14}$"), "email": s(format="email"),
                   "rating": n(minimum=0, maximum=5), "status": s(enum=["active", "suspended"]), "version": i(minimum=1)},
@@ -197,8 +202,12 @@ S["Document"] = obj({"documentId": ref("Id"), "ownerId": {"allOf": [ref("Id")], 
 S["Driver"] = obj({"driverId": ref("Id"), "accountStatus": ref("DriverAccountStatus"), "onlineStatus": ref("DriverOnlineStatus"),
                    "firstName": s(), "rating": n(minimum=0, maximum=5), "zoneIds": arr(ref("Id")),
                    "categoryIds": arr(ref("CategoryId")), "vehicleId": ref("Id"), "documents": arr(ref("DocumentSummary")),
-                   "activeTripId": ref("Id"), "version": i(minimum=1)},
+                   "activeTripId": ref("Id"), "scheduledRides": ref("DriverScheduledRides"), "version": i(minimum=1)},
                   ["driverId", "accountStatus", "onlineStatus", "firstName", "zoneIds", "categoryIds", "documents", "version"])
+S["DriverScheduledRides"] = obj({"on": b("false = no new reservations for this driver; true = on, and the late-cancel pause is skipped while it lasts."),
+                                 "until": {"description": "When the admin's choice ends; null = until an admin changes it.", **nullable("Timestamp")}},
+                                ["on"], "Owner decision 2 (v0.4.2): an admin's reservations on/off for this one driver (CONTRACT.md §6.1). "
+                                "Missing = no admin choice; the zone switch and the late-cancel pause decide. Accepted reservations always stay.")
 S["VehicleStatus"] = s(enum=["pending", "approved", "rejected", "blocked"])
 S["Vehicle"] = obj({"vehicleId": ref("Id"), "make": s(), "model": s(), "year": i(minimum=1950, maximum=2100), "color": s(),
                     "plate": s(), "seats": i(minimum=1, maximum=20), "categoryIds": arr(ref("CategoryId")),
@@ -331,6 +340,42 @@ S["Languages"] = obj({"available": arr(ref("Language"), uniqueItems=True, minIte
 S["DriverBonusLimits"] = obj({"defaultLimit": {"allOf": [ref("Money")], "description": "Above this the admin is told to adjust the limit in Pricing."},
                               "hardMax": {"allOf": [ref("Money")], "description": "The limit can never be set above this."}},
                              ["defaultLimit", "hardMax"], "Movera-paid driver bonus (\"add money to trip\") limits per country.")
+RD = C["configDefaults"]["reservations"]
+def dflt(o, v): return {**o, "default": v}
+S["ReservationRideType"] = obj({
+    "onlineBeforeMin": i("Be online this many minutes before pickup.", minimum=5, maximum=240),
+    "spareMin": i("Spare minutes in the smart gap and in Leave now.", minimum=0, maximum=60),
+    "reminderMin": arr(i(minimum=1, maximum=1440), description="Reminder times, minutes before pickup, largest first.", maxItems=4)},
+    desc="Times for one kind of scheduled ride.")
+S["LateEta"] = obj({
+    "on": dflt(b("Watch an online driver's ETA from Leave now until arrival at the pickup."), RD["lateEta"]["on"]),
+    "toleranceMin": dflt(i("Reassign when now + ETA > pickup time + toleranceMin.", minimum=0, maximum=30), RD["lateEta"]["toleranceMin"]),
+    "checkEverySeconds": dflt(i("How often the ETA is checked.", minimum=15, maximum=600), RD["lateEta"]["checkEverySeconds"]),
+    "reassignTo": dflt(s("exclusive = Exclusive offer to the nearest available driver; radar = Radar trips; dispatch = back to admin dispatch.",
+                         enum=["exclusive", "radar", "dispatch"]), RD["lateEta"]["reassignTo"])},
+    desc="Running late: an online driver who would arrive more than toleranceMin late loses the ride early. Otherwise an online driver keeps it.")
+S["DriverReservations"] = obj(OrderedDict([
+    ("on", dflt(b("Reservations for every driver in this zone (same value as features.scheduledRides). Off: no new reservations; accepted ones still run."), RD["on"])),
+    ("lateWarn", dflt(b("Island warning \"Head to your 07:40 pickup\" when Leave now cannot start the trip (driver offline, or busy with another screen). Leave now itself always opens the trip; there is no switch for it (v0.4.2)."), RD["lateWarn"])),
+    ("offlineBackupAfterMin", dflt(i("Only an OFFLINE driver loses the ride, this many minutes after Leave now; an online driver keeps it.", minimum=1, maximum=60), RD["offlineBackupAfterMin"])),
+    ("homePopupAfterMin", dflt(i("Untaken: the Home popup this many minutes after booking.", minimum=1, maximum=1440), RD["homePopupAfterMin"])),
+    ("exclusiveBeforeMin", dflt(i("Untaken: Exclusive from this many minutes before pickup.", minimum=1, maximum=180), RD["exclusiveBeforeMin"])),
+    ("radarBeforeMin", dflt(i("Untaken: Radar trips from this many minutes before pickup.", minimum=1, maximum=180), RD["radarBeforeMin"])),
+    ("onDriverCancel", dflt(s("Where a ride goes after a driver cancels.", enum=["byTime", "list", "home", "exclusive"]), RD["onDriverCancel"])),
+    ("hideClashing", dflt(b("Rides that do not fit the smart gap leave the driver's Scheduled rides list once they take one."), RD["hideClashing"])),
+    ("towardPickup", dflt(b("Before the ride, offers head toward the scheduled pickup."), RD["towardPickup"])),
+    ("towardPickupBeforeMin", dflt(i(minimum=15, maximum=240), RD["towardPickupBeforeMin"])),
+    ("longTripKm", dflt(n("A ride longer than this is a longTrip.", minimum=10, maximum=500), RD["longTripKm"])),
+    ("driverLateCancelHours", dflt(n("A driver cancel with less than this many hours to pickup is a late cancel.", minimum=0.5, maximum=72), RD["driverLateCancelHours"])),
+    ("lateCancelLimit", dflt(i("Late cancels within lateCancelPeriodDays before a pause.", minimum=1, maximum=20), RD["lateCancelLimit"])),
+    ("lateCancelPeriodDays", dflt(i(minimum=1, maximum=90), RD["lateCancelPeriodDays"])),
+    ("pauseDays", dflt(i("No scheduled rides for this many days after the limit.", minimum=1, maximum=365), RD["pauseDays"])),
+    ("assignAcceptSeconds", dflt(i("Time to accept a ride assigned by Movera.", minimum=10, maximum=600), RD["assignAcceptSeconds"])),
+    ("rideTypes", obj({k: ref("ReservationRideType") for k in ["normal", "airport", "longTrip", "comfortPremium", "event"]},
+                      desc="Per kind of ride. Admin ids long and premium are longTrip and comfortPremium.")),
+    ("lateEta", ref("LateEta")),
+]), desc="Scheduled-ride rules for the driver app (CONTRACT.md §6). Every field is optional; a missing or invalid one keeps the default "
+         "(contract.json#configDefaults.reservations).")
 CONFIG_HEAD = OrderedDict([("version", i("Only increases; apps keep the last good document.", minimum=1)),
                            ("publishedAt", ref("Timestamp")), ("zoneId", ref("Id")), ("currency", ref("CurrencyCode")),
                            ("timeZone", s("IANA zone of the zone, for wall-clock rules and booking times.", pattern=r"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$",
@@ -379,6 +424,7 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
     ("waiting", ref("DriverWaiting")),
     ("destinationMode", {"type": "object", "properties": {"perDay": i(minimum=0)}}),
     ("nextTrips", {"type": "object", "properties": {"on": b()}}),
+    ("reservations", ref("DriverReservations")),
     ("cancelReasons", obj({"driverBeforeTrip": arr(ref("DriverBeforeTripCancelReasonCode")),
                            "driverDuringTrip": arr(ref("DriverDuringTripCancelReasonCode")),
                            "driverNextTrip": arr(ref("DriverNextTripCancelReasonCode")),
@@ -453,6 +499,9 @@ S["CancelCommand"] = obj(dict(EV, reasonCode=ref("CancelReasonCode"), note=s(max
                          ["expectedVersion", "reasonCode"],
                          "Actor comes from the token; reasonCode must be in the actor's group (rider; driverBeforeTrip/driverDuringTrip/scheduled/driverNextTrip).")
 S["EndEarlyCommand"] = obj(dict(EV, reasonCode=ref("RiderCancelReasonCode"), note=s(maxLength=1000)), ["expectedVersion"])
+S["CancelReasonCommand"] = obj({"reasonCode": ref("RiderCancelReasonCode"), "note": s(maxLength=1000)}, ["reasonCode"],
+                               "The reason a rider tells after a cancel-first (owner decision 6, v0.4.4). No expectedVersion: "
+                               "the trip's version does not change.")
 S["QuoteRequest"] = obj({"pickup": ref("Place"), "dropoff": ref("Place"), "stops": arr(ref("Place"), description="MUST be sent (may be empty)."),
                          "categoryIds": arr(ref("CategoryId"), description="Omit for every category in the zone."),
                          "kind": ref("TripKind"), "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod")},
@@ -665,6 +714,12 @@ op("post", "/trips/{tripId}/cancel", "cancelTrip", "Cancel the trip (rider or dr
         "driver scheduled: accepted → requested; driver onboard+: → cancelled_by_driver. Anything else → 409 invalid_transition.")
 op("post", "/trips/{tripId}/end-early", "endTripEarly", "Rider ends an onboard trip early", ["rider"], "Rider · Booking",
    params=TID, body="EndEarlyCommand", ok=(200, TP), mutation=True, transition="end_early")
+op("post", "/trips/{tripId}/cancel-reason", "setCancelReason", "Rider tells the reason after a cancel-first", ["rider"], "Rider · Booking",
+   params=TID, body="CancelReasonCommand", ok=(200, TP), mutation=True,
+   desc="Owner decision 6 (v0.4.4), CONTRACT.md §3 \"After-cancel reason\". Allowed only while the trip is cancelled_by_rider and "
+        "cancellation.reasonCode is still something_else (the code a cancel-first names): sets cancellation.reasonCode and "
+        "cancellation.note. Not a lifecycle transition: status, version, sequence, fee and fare do not change and no realtime event "
+        "is sent. Any other state (also a reason already told) → 409 invalid_transition; a code outside the rider group → 400 invalid_request.")
 op("get", "/trips/{tripId}/events", "streamTripEvents", "Trip realtime stream (SSE / WebSocket) or JSON replay",
    ["rider", "driver", "admin"], "Realtime", params=TID + [pref("After"), pref("Limit"), pref("LastEventId")],
    content=sse("Server-sent events. A WebSocket upgrade on the same URL carries the same JSON frames.", "RealtimeEvent", "RealtimeEventPage"),
@@ -880,11 +935,11 @@ doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
     "title": "Movera API",
-    "version": "0.4.0",
+    "version": "0.4.4",
     "description": (
         "**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter) and "
         "Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + "
-        "`CONTRACT.md` v0.4.0 in this folder; this file must agree with them.\n\n"
+        "`CONTRACT.md` v0.4.4 in this folder; this file must agree with them.\n\n"
         "Wire rules: ids match `" + ID_PATTERN + "`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is "
         "`Money {amountMinor, currency}`; keys camelCase, enum values snake_case. Success responses are the bare resource; errors are `Error`.\n\n"
         "Every mutation needs `Idempotency-Key`. Trip, offer, driver, rider, vehicle and config commands send `expectedVersion`; a stale "
@@ -912,7 +967,7 @@ def to_plain(x):
 
 class D(yaml.SafeDumper):
     def ignore_aliases(self, data): return True
-header = "# Movera API v0.4.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
+header = "# Movera API v0.4.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
 with open(OUT, "w") as f:
     f.write(header)
     yaml.dump(to_plain(doc), f, Dumper=D, sort_keys=False, allow_unicode=True, width=120)

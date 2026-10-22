@@ -35,12 +35,17 @@ class PayWithPage extends StatefulWidget {
     required this.promotion,
     required this.brandMark,
     this.walletCurrency = Money.defaultCurrency,
+    this.walletCoversFare = true,
     this.useWalletFirst = true,
     this.onWalletFirstChanged,
     this.savedCards,
   });
 
   final List<PayWithMethod> methods;
+
+  /// Whether [walletBalance] pays the whole fare. When it does not, the
+  /// wallet row says so and cannot be chosen (rider-74).
+  final bool walletCoversFare;
 
   /// Where "Add payment method" saves the card (defaults to the app's).
   final SavedCardsController? savedCards;
@@ -66,6 +71,7 @@ class PayWithPage extends StatefulWidget {
     required RiderPromotion? promotion,
     required Widget Function(String brand) brandMark,
     String walletCurrency = Money.defaultCurrency,
+    bool walletCoversFare = true,
     bool useWalletFirst = true,
     ValueChanged<bool>? onWalletFirstChanged,
     SavedCardsController? savedCards,
@@ -79,6 +85,7 @@ class PayWithPage extends StatefulWidget {
           promotion: promotion,
           brandMark: brandMark,
           walletCurrency: walletCurrency,
+          walletCoversFare: walletCoversFare,
           useWalletFirst: useWalletFirst,
           onWalletFirstChanged: onWalletFirstChanged,
           savedCards: savedCards,
@@ -225,10 +232,16 @@ class _PayWithPageState extends State<PayWithPage> {
               _section(context.l10n.moveraWallet),
               _row(
                 leading: brandMark('wallet'),
-                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency), whole: true)),
-                subtitle: context.l10n.walletTapToPay,
+                // rider-r4-33: to the öre, as walletCoversFare compares it
+                // ("249,60 kr" is too low for 250 kr, never "250 kr").
+                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency))),
+                subtitle: widget.walletCoversFare
+                    ? context.l10n.walletTapToPay
+                    : context.l10n.walletTooLowForRide,
                 trailing: _radio(selectedBrand == 'wallet'),
-                onTap: () => Navigator.of(context).pop('wallet'),
+                onTap: widget.walletCoversFare
+                    ? () => Navigator.of(context).pop('wallet')
+                    : null,
               ),
               SwitchListTile.adaptive(
                 key: const ValueKey('pay-with-wallet-first'),

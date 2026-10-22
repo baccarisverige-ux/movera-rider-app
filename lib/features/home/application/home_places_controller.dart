@@ -1,5 +1,10 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart'
+    show isPlaceholderPickupLabel, isRawCoordinateLabel;
 import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show pickupLocationFallbackLabel;
 
 class SavedPlaceData {
   const SavedPlaceData({
@@ -56,6 +61,11 @@ class HomePlacesController {
   List<String> routeStops = [];
   List<String> recentAddresses = [];
   List<SavedPlaceData> savedPlaces = [];
+
+  /// rider-40: stored custom places past [maxCustom]. Home shows only the
+  /// first [maxCustom], but Saved Places has no cap, so these are written
+  /// back unchanged on every [persist] instead of being deleted.
+  List<Map<String, String>> _placesBeyondCap = [];
   LatLng? currentLatLng;
   LatLng? tripPickupLatLng;
 
@@ -64,10 +74,17 @@ class HomePlacesController {
     homeAddress = saved.home;
     workAddress = saved.work;
     recentAddresses = List<String>.from(saved.recent);
-    savedPlaces = saved.places
-        .map((place) => SavedPlaceData.fromJson(Map<String, dynamic>.from(place)))
-        .take(maxCustom)
-        .toList();
+    // rider-41: a place stored before ids existed gets the id Saved Places
+    // gives it, so it can be edited on its own (rider-u220: never an id
+    // another place has).
+    savedPlaces = [
+      for (final place in withPlaceIds(saved.places).take(maxCustom))
+        SavedPlaceData.fromJson(place),
+    ];
+    _placesBeyondCap = [
+      for (final place in saved.places.skip(maxCustom))
+        Map<String, String>.from(place),
+    ];
   }
 
   Future<void> persist() {
@@ -76,14 +93,24 @@ class HomePlacesController {
         home: homeAddress,
         work: workAddress,
         recent: recentAddresses,
-        places: savedPlaces.map((place) => place.toJson()).toList(),
+        places: [
+          ...savedPlaces.map((place) => place.toJson()),
+          ..._placesBeyondCap,
+        ],
       ),
     );
   }
 
+  /// rider-46: placeholders ('Location off, set pickup') and raw
+  /// coordinates are not places; they never become Recents.
   void remember(String address) {
     final clean = address.trim();
-    if (clean.isEmpty || clean == 'Current location') return;
+    // rider-r5-34: nor the label of a pickup whose street was not found.
+    if (isPlaceholderPickupLabel(clean) ||
+        isRawCoordinateLabel(clean) ||
+        clean == pickupLocationFallbackLabel) {
+      return;
+    }
     recentAddresses.removeWhere(
       (saved) => saved.toLowerCase() == clean.toLowerCase(),
     );
@@ -113,7 +140,10 @@ class HomePlacesController {
     required String address,
     LatLng? pickupPosition,
     String? customType,
+    String? placeId,
   }) {
+    // rider-46: a placeholder is never saved as a place.
+    if (target != 'pickup' && isPlaceholderPickupLabel(address)) return;
     switch (target) {
       case 'pickup':
         pickupAddress = address;
@@ -130,19 +160,28 @@ class HomePlacesController {
         break;
       case 'custom':
         final type = customType ?? 'other';
-        final existingIndex = savedPlaces.indexWhere((place) => place.type == type);
+        // rider-41: an edit names its place by id. Several places can share
+        // a kind (FLOW-5), so without an id this is a new place.
+        final existingIndex = placeId == null
+            ? -1
+            : savedPlaces.indexWhere((place) => place.id == placeId);
         if (existingIndex >= 0) {
           // Same place, new address: keep its name and id (FLOW-5).
           final existing = savedPlaces[existingIndex];
           savedPlaces[existingIndex] = SavedPlaceData(
             id: existing.id,
             title: existing.title,
-            type: type,
+            type: existing.type,
             address: address,
           );
         } else if (savedPlaces.length < maxCustom) {
           savedPlaces.add(
-            SavedPlaceData(title: type, type: type, address: address),
+            SavedPlaceData(
+              id: 'place_${newRequestId()}',
+              title: type,
+              type: type,
+              address: address,
+            ),
           );
         }
         break;

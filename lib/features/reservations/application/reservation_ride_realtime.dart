@@ -142,10 +142,13 @@ class ReservationRideRealtime implements RideRealtime {
     if (_disposed) return;
     final ride = controller.byId(reservationId);
     if (ride == null || !ride.status.canCancel) return;
+    // rider-65: the reservation's own late-cancel terms, as the live
+    // screen's sheet and the Upcoming page apply them.
     unawaited(
       controller.cancel(
         reservationId,
         reason: 'rider_cancelled_live',
+        fee: controller.cancelTermsFor(ride).fee,
       ),
     );
   }

@@ -71,17 +71,15 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SupportMessages()));
     await tester.pumpAndSettle();
 
-    expect(find.text('No active cases'), findsOneWidget);
+    // rider-u229: nothing lists the rider's cases, so the screen does not
+    // claim there are none.
+    expect(find.text("Your cases aren't listed in the app yet"), findsOneWidget);
     expect(
       find.text('Messages you send about a ride go to the Movera team for review.'),
       findsOneWidget,
     );
-    await tester.scrollUntilVisible(find.text('No closed cases'), 160);
-    expect(find.text('No closed cases'), findsOneWidget);
-    expect(
-      find.text('You have no closed support cases.'),
-      findsOneWidget,
-    );
+    expect(find.text('No active cases'), findsNothing);
+    expect(find.text('No closed cases'), findsNothing);
     expect(find.text('I was charged for cancellation'), findsNothing);
     expect(find.text('I want to cancel my delayed order'), findsNothing);
     expect(find.text('29 October 2024'), findsNothing);

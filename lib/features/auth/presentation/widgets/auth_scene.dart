@@ -18,6 +18,23 @@ class AuthScene extends StatefulWidget {
 
   static const designSize = Size(390, 230);
 
+  /// Where a point of the design canvas lands in a scene of [size]: the
+  /// canvas is scaled to the width and anchored to the bottom, as painted.
+  static Offset designToLocal(Size size, Offset design) {
+    final s = size.width / designSize.width;
+    return Offset(
+      design.dx * s,
+      size.height - designSize.height * s + design.dy * s,
+    );
+  }
+
+  /// The centre of the balloon in the person's hand, in a scene of [size].
+  static Offset balloonCentre(Size size) =>
+      designToLocal(size, _ScenePainter._balloon);
+
+  /// The balloon's radius on the design canvas (BalloonFlight starts at it).
+  static const balloonRadius = _ScenePainter._balloonRadius;
+
   @override
   State<AuthScene> createState() => _AuthSceneState();
 }
@@ -32,7 +49,8 @@ class _AuthSceneState extends State<AuthScene>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (widget.storyProgress != null) return;
     if (reduceMotion) {
       _drive.value = 1;
@@ -56,8 +74,7 @@ class _AuthSceneState extends State<AuthScene>
     if (time < 0.64) {
       return 0.62; // Wait while the person boards.
     }
-    return 0.62 + 0.38 *
-        Curves.easeInOutCubic.transform(phase(0.64, 0.98));
+    return 0.62 + 0.38 * Curves.easeInOutCubic.transform(phase(0.64, 0.98));
   }
 
   @override
@@ -70,8 +87,8 @@ class _AuthSceneState extends State<AuthScene>
           painter: _ScenePainter(
             car: widget.showCar
                 ? widget.storyProgress == null
-                    ? Curves.easeOutCubic.transform(_drive.value)
-                    : _storyCarProgress(widget.storyProgress!.value)
+                      ? Curves.easeOutCubic.transform(_drive.value)
+                      : _storyCarProgress(widget.storyProgress!.value)
                 : null,
             story: widget.storyProgress?.value,
           ),
@@ -132,15 +149,15 @@ class _ScenePainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     if (story == null) {
       canvas.drawPath(
-      Path()
-        ..moveTo(250, 34)
-        ..lineTo(255, 38)
-        ..lineTo(260, 34)
-        ..moveTo(268, 26)
-        ..lineTo(272, 29)
-        ..lineTo(276, 26),
-      bird,
-    );
+        Path()
+          ..moveTo(250, 34)
+          ..lineTo(255, 38)
+          ..lineTo(260, 34)
+          ..moveTo(268, 26)
+          ..lineTo(272, 29)
+          ..lineTo(276, 26),
+        bird,
+      );
     }
   }
 
@@ -166,7 +183,10 @@ class _ScenePainter extends CustomPainter {
       Rect.fromLTWH(264, 108, 34, 36),
     ];
     for (final r in blocks) {
-      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(2)), building);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(r, const Radius.circular(2)),
+        building,
+      );
     }
     // A domed hall and a spire, generic rather than any real landmark.
     canvas.drawPath(
@@ -277,7 +297,11 @@ class _ScenePainter extends CustomPainter {
         ..close(),
       Paint()..color = const Color(0xFF2F3A34),
     );
-    canvas.drawCircle(const Offset(338, 123), 2.3, Paint()..color = const Color(0xFFE8F4EC));
+    canvas.drawCircle(
+      const Offset(338, 123),
+      2.3,
+      Paint()..color = const Color(0xFFE8F4EC),
+    );
 
     canvas.drawLine(
       const Offset(370, 150),
@@ -315,8 +339,8 @@ class _ScenePainter extends CustomPainter {
       canvas.drawCircle(
         const Offset(284, 157),
         5,
-        Paint()..color = const Color(0xFFDBB994)
-            .withValues(alpha: personOpacity),
+        Paint()
+          ..color = const Color(0xFFDBB994).withValues(alpha: personOpacity),
       );
       canvas.drawLine(const Offset(284, 163), const Offset(284, 181), ink);
       canvas.drawLine(const Offset(284, 167), const Offset(297, 169), ink);
@@ -328,50 +352,47 @@ class _ScenePainter extends CustomPainter {
           const Rect.fromLTWH(279, 164, 10, 16),
           const Radius.circular(3),
         ),
-        Paint()..color = const Color(0xFF6D9E7C)
-            .withValues(alpha: personOpacity),
+        Paint()
+          ..color = const Color(0xFF6D9E7C).withValues(alpha: personOpacity),
       );
       canvas.restore();
     }
 
-    final released = phase(0.44, 0.56);
-    if (time >= 0.58) {
-      return;
-    }
-    final balloon = Offset(304, 141 - released * 149);
-    const colors = [
-      Color(0xFF4285F4),
-      Color(0xFFEA4335),
-      Color(0xFFFBBC05),
-      Color(0xFF34A853),
-    ];
-    final rect = Rect.fromCircle(center: balloon, radius: 11);
-    for (var i = 0; i < 4; i++) {
-      canvas.drawArc(
-        rect,
-        -1.57079632679 + i * 1.57079632679,
-        1.585,
-        true,
-        Paint()..color = colors[i],
-      );
-    }
-    if (released < 1) {
-      canvas.drawLine(
-        const Offset(297, 169),
-        balloon + const Offset(0, 11),
-        Paint()
-          ..color = AuthColors.muted.withValues(alpha: 1 - released)
-          ..strokeWidth = 1,
-      );
-    }
+    // The balloon waits in the hand until BalloonFlight takes it over at
+    // the very same spot (owner round 3: one continuous flight).
+    if (time >= _balloonRelease) return;
+    canvas.drawLine(
+      const Offset(297, 169),
+      _balloon + const Offset(0, 11),
+      Paint()
+        ..color = AuthColors.ink
+        ..strokeWidth = 1,
+    );
+    canvas.drawCircle(
+      _balloon,
+      _balloonRadius,
+      Paint()..color = AuthColors.green,
+    );
+    canvas.drawCircle(
+      _balloon + const Offset(-3.5, -3.5),
+      3,
+      Paint()..color = Colors.white.withValues(alpha: 0.38),
+    );
   }
+
+  /// Story time when the balloon leaves the hand (BalloonFlight.releaseAt).
+  static const _balloonRelease = 0.44;
+
+  /// The balloon's centre on the design canvas while it is in the hand.
+  static const _balloon = Offset(304, 141);
+  static const _balloonRadius = 11.0;
 
   void _paintCar(Canvas canvas, double progress) {
     // Arrive at the person, pause for boarding, then continue to the right.
     final metric = _road.computeMetrics().first;
-    final distance = metric.length * (story == null
-        ? 0.08 + 0.30 * progress
-        : 0.02 + 0.96 * progress);
+    final distance =
+        metric.length *
+        (story == null ? 0.08 + 0.30 * progress : 0.02 + 0.96 * progress);
     final tangent = metric.getTangentForOffset(distance);
     if (tangent == null) return;
     canvas.save();
@@ -429,16 +450,28 @@ class _ScenePainter extends CustomPainter {
         ..strokeWidth = 1.6,
     );
     for (final x in const [19.0, 52.0]) {
-      canvas.drawCircle(Offset(x, 25), 5, Paint()..color = const Color(0xFF1B211E));
-      canvas.drawCircle(Offset(x, 25), 2, Paint()..color = const Color(0xFFD8E2DA));
+      canvas.drawCircle(
+        Offset(x, 25),
+        5,
+        Paint()..color = const Color(0xFF1B211E),
+      );
+      canvas.drawCircle(
+        Offset(x, 25),
+        2,
+        Paint()..color = const Color(0xFFD8E2DA),
+      );
     }
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(58, 17, 4, 2.4), const Radius.circular(1)),
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(58, 17, 4, 2.4),
+        const Radius.circular(1),
+      ),
       Paint()..color = const Color(0xFFE8F4EC),
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_ScenePainter oldDelegate) => oldDelegate.car != car || oldDelegate.story != story;
+  bool shouldRepaint(_ScenePainter oldDelegate) =>
+      oldDelegate.car != car || oldDelegate.story != story;
 }

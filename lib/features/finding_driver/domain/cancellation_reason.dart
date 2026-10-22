@@ -57,7 +57,25 @@ class CancellationReason {
     label: 'Something else',
   );
 
-  static List<CancellationReason> forPhase(CancelPhase phase) {
+  /// The reasons offered in [phase]. rider-u105: with the codes the
+  /// zone's config publishes (`RiderAppConfig.cancelReasons`, admin's
+  /// Dispatch › Cancel reasons) only those of this phase are offered, in
+  /// the published order; without any that fit, the shipped list.
+  static List<CancellationReason> forPhase(
+    CancelPhase phase, {
+    Iterable<String>? published,
+  }) {
+    final shipped = _shipped(phase);
+    if (published == null) return shipped;
+    final byId = {for (final reason in shipped) reason.id: reason};
+    final offered = <CancellationReason>[
+      for (final code in published.toSet())
+        if (byId[code] != null) byId[code]!,
+    ];
+    return offered.isEmpty ? shipped : offered;
+  }
+
+  static List<CancellationReason> _shipped(CancelPhase phase) {
     switch (phase) {
       case CancelPhase.searching:
         return const [

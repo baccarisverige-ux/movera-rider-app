@@ -6,6 +6,7 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RiderInTripPanel extends StatelessWidget {
@@ -23,7 +24,7 @@ class RiderInTripPanel extends StatelessWidget {
     this.headline,
     required this.onOpenProfile,
     required this.onCall,
-    required this.onMore,
+    this.onMore,
     required this.onCancel,
   });
 
@@ -46,7 +47,8 @@ class RiderInTripPanel extends StatelessWidget {
   final String? headline;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55).
+  final VoidCallback? onMore;
   final VoidCallback onCancel;
 
   @override
@@ -82,13 +84,19 @@ class RiderInTripPanel extends StatelessWidget {
                             color: MoveraTokens.accent,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
-                            style: waitingText(
-                              11,
-                              weight: FontWeight.w700,
-                              color: MoveraTokens.accent,
-                            ).copyWith(letterSpacing: 0.7),
+                          // rider-u39: the label ellipsizes rather than
+                          // overflow the pill (Swedish, large text).
+                          Flexible(
+                            child: Text(
+                              approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: waitingText(
+                                11,
+                                weight: FontWeight.w700,
+                                color: MoveraTokens.accent,
+                              ).copyWith(letterSpacing: 0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -123,7 +131,8 @@ class RiderInTripPanel extends StatelessWidget {
           // One slim line: the destination is already the subtitle above.
           Text(
             '$rideType · ${bookedPaymentLine(
-              paymentMethod: paymentMethod,
+              // rider-u231: the method in the app language.
+              paymentMethod: paymentLabelFor(paymentMethod),
               priceKr: price,
               currency: currency,
               walletMinor: walletAmountMinor,
@@ -165,9 +174,11 @@ class RiderInTripPanel extends StatelessWidget {
                       color: MoveraTokens.ink,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      context.l10n.tripSafety,
-                      style: waitingText(14, weight: FontWeight.w700),
+                    Flexible(
+                      child: Text(
+                        context.l10n.tripSafety,
+                        style: waitingText(14, weight: FontWeight.w700),
+                      ),
                     ),
                   ],
                 ),

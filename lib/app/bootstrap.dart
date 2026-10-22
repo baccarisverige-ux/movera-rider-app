@@ -16,6 +16,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
+import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
@@ -48,12 +49,53 @@ Future<void> _registerExistingPushSession() async {
   }
 }
 
+/// Push work that must not hold the first frame. rider-5: re-registering a
+/// restored session's push (Firebase init, getToken, POST /push/devices)
+/// was awaited before runApp, so a slow network kept the boot screen up for
+/// as long as the API timeout. It now runs after the coordinator once a
+/// real frame is painted, and nothing waits for it.
+@visibleForTesting
+void startPushAfterFirstFrame({
+  required Future<void> Function() startCoordinator,
+  required Future<void> Function() registerExisting,
+}) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // The HTML boot screen covers the blank page while the bundle loads.
+    // Clear it once there is a real frame behind it, and before anything
+    // slower runs, so the rider is not kept waiting on push registration.
+    dismissWebSplash();
+    unawaited(startCoordinator());
+    unawaited(registerExisting());
+  });
+}
+
 void _openNotificationsFromPush() {
   unawaited(() async {
     // Nothing opens over Sign in, and a second open does not stack a copy.
     if (await navigationBlockedBySignIn()) return;
     pushPageOnce(() => const NotificationScreen(), AppRoutes.notifications);
   }());
+}
+
+/// uat-r1: a start-up step that reads or writes device storage must not
+/// take the whole boot down. On iOS Safari a localStorage write can be
+/// refused (Private Browsing on older iOS, a full origin, "Block All
+/// Cookies"), and one such refusal in a step awaited before runApp left the
+/// rider on the MOVERA boot screen for ever, which reads as "the app
+/// crashed". The step is logged and skipped; what it would have loaded
+/// keeps its defaults.
+@visibleForTesting
+Future<void> bootStep(String name, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (error, stackTrace) {
+    AppLog.error(
+      'boot.step_failed',
+      error: error,
+      stackTrace: stackTrace,
+      extra: {'step': name},
+    );
+  }
 }
 
 Future<void> bootstrap() async {
@@ -105,16 +147,33 @@ Future<void> bootstrap() async {
   };
 
   AppScope.instance.lifecycle.attach();
-  if (AppEnv.current.flavor == AppFlavor.demo) {
-    await WalletStore.seedDemoBalance();
+  // rider-u17: before anything writes a preference or reads the session,
+  // drop a Keychain session a previous install of the app left behind.
+  if (!kIsWeb) {
+    await bootStep(
+      'fresh_install_reset',
+      () => FreshInstallReset.run(tokens: AppScope.instance.tokens),
+    );
   }
-  await AppScope.instance.reservations.hydrate();
-  await AppScope.instance.profile.hydrate();
+  if (AppEnv.current.flavor == AppFlavor.demo) {
+    await bootStep('wallet.seed_demo', WalletStore.seedDemoBalance);
+  }
+  await bootStep(
+    'reservations.hydrate',
+    AppScope.instance.reservations.hydrate,
+  );
+  await bootStep(
+    'profile.hydrate',
+    AppScope.instance.profile.hydrateLocalThenServer,
+  );
   // Q48: the saved language, else the default of the rider's zone; a
   // later good fix in another zone moves the default with it.
-  await AppScope.instance.language.load(
-    config: AppScope.instance.riderConfig,
-    zone: await currentRiderZone(),
+  await bootStep(
+    'language.load',
+    () async => AppScope.instance.language.load(
+      config: AppScope.instance.riderConfig,
+      zone: await currentRiderZone(),
+    ),
   );
   HomeLocationController.onGoodFix = (point) => unawaited(
     AppScope.instance.language.useZone(
@@ -127,7 +186,6 @@ Future<void> bootstrap() async {
   unawaited(AppScope.instance.catalog.load());
   // Scheduled-ride rules (cancel window, fee); defaults until they land.
   unawaited(AppScope.instance.reservations.refreshRules());
-  await _registerExistingPushSession();
   unawaited(FindingDriverController.flushPendingCancels());
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
@@ -139,13 +197,10 @@ Future<void> bootstrap() async {
         openRide: openRideFromNotification,
         openNotifications: _openNotificationsFromPush,
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // The HTML boot screen covers the blank page while the bundle loads.
-        // Clear it once there is a real frame behind it, and before anything
-        // slower runs, so the rider is not kept waiting on push registration.
-        dismissWebSplash();
-        unawaited(_pushCoordinator!.start());
-      });
+      startPushAfterFirstFrame(
+        startCoordinator: _pushCoordinator!.start,
+        registerExisting: _registerExistingPushSession,
+      );
     },
     (error, stack) {
       AppScope.instance.crashes.record(error, stack);

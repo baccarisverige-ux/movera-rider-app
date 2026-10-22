@@ -1,6 +1,9 @@
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-double screenHorizPadding = ScreenUtil().setWidth(16);
+/// The side gutter, read at its use so it follows a window resize (and is
+/// never fixed from ScreenUtil's defaults before ScreenUtilInit ran,
+/// rider-96).
+double get screenHorizPadding => ScreenUtil().setWidth(16);
 
 class ResSize {
   static double get h => ScreenUtil().scaleHeight;

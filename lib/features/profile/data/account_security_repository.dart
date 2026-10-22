@@ -11,8 +11,15 @@ class AccountSecurityRepository {
     return _decode(response);
   }
 
+  /// rider-u146: the sign-out answer carries the new `security`, so it is
+  /// read from there. A separate GET could fail after the sign-out went
+  /// through and report that as a failure (a retry then gets 403
+  /// reauth_required). Only an answer without it is read again.
   Future<AccountSecurityState> signOutOtherDevices() async {
-    await _api.post('/api/v1/account/security/sessions/sign-out-others');
+    final response = await _api.post(
+      '/api/v1/account/security/sessions/sign-out-others',
+    );
+    if (response['security'] is Map) return _decode(response);
     return load();
   }
 

@@ -25,9 +25,9 @@ void main() {
     );
   });
 
-  test('duplicate payment key returns same intent family', () async {
+  test('duplicate payment key returns the same intent', () async {
     final gw = MockPaymentGateway();
-    await gw.create(
+    final first = await gw.create(
       amountMinor: 5000,
       currency: 'SEK',
       idempotencyKey: 'dup',
@@ -37,7 +37,30 @@ void main() {
       currency: 'SEK',
       idempotencyKey: 'dup',
     );
+    expect(second.id, first.id);
     expect(second.amountMinor, 5000);
+  });
+
+  test('a reused key returns its own intent, not the newest one', () async {
+    final gw = MockPaymentGateway();
+    final a = await gw.create(
+      amountMinor: 10000,
+      currency: 'SEK',
+      idempotencyKey: 'key-a',
+    );
+    final b = await gw.create(
+      amountMinor: 20000,
+      currency: 'SEK',
+      idempotencyKey: 'key-b',
+    );
+    expect(b.id, isNot(a.id));
+    final retryA = await gw.create(
+      amountMinor: 10000,
+      currency: 'SEK',
+      idempotencyKey: 'key-a',
+    );
+    expect(retryA.id, a.id);
+    expect(retryA.amountMinor, 10000);
   });
 
   test('ledger calculation', () {

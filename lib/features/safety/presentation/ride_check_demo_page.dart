@@ -156,4 +156,4 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
 }
 
 String _km(double km) =>
-    km == km.roundToDouble() ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
+    L10n.formatDecimal(km, digits: km == km.roundToDouble() ? 0 : 1);

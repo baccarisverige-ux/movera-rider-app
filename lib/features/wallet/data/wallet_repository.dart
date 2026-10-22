@@ -107,16 +107,21 @@ class WalletStore implements WalletBalanceSource {
     );
   }
 
+  /// The default method as it is stored: removed methods (PayPal, Klarna,
+  /// Swish) and unverified local cards are Cash.
+  static String storableDefault(String method) =>
+      _removedMethods.contains(method) ||
+          method == 'card' ||
+          method.startsWith('card_')
+      ? 'cash'
+      : method;
+
   Future<void> savePayments(WalletPaymentSettings settings) async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
-    final method = settings.defaultMethod;
     await prefs.setString(
       'movera_default_payment',
-      _removedMethods.contains(method) || method == 'card' ||
-              method.startsWith('card_')
-          ? 'cash'
-          : method,
+      storableDefault(settings.defaultMethod),
     );
     await prefs.setBool('movera_payment_business', settings.business);
     // Only an explicit choice is written; settings built without it (the
@@ -124,6 +129,12 @@ class WalletStore implements WalletBalanceSource {
     final walletFirst = settings._useWalletFirst;
     if (walletFirst != null) await prefs.setBool(walletFirstKey, walletFirst);
     await prefs.remove('movera_payment_methods');
+  }
+
+  /// The Personal/Business choice alone; the default method is not touched.
+  Future<void> saveBusiness(bool business) async {
+    final prefs = await PreferencesStore.load();
+    await prefs.setBool('movera_payment_business', business);
   }
 
   static const walletFirstKey = 'movera_wallet_first';

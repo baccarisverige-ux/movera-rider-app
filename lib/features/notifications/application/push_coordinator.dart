@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 
 typedef RidePushOpener = Future<bool> Function(String rideId);
@@ -71,6 +72,15 @@ class PushCoordinator {
   }
 
   Future<void> _handleOpened(PushPayload payload) async {
+    // rider-r5-44: the OS tray outlives a sign-out. A notification sent
+    // before this rider signed in on the device is the previous rider's:
+    // it never enters this rider's feed or routing.
+    final sentAt = payload.sentAt;
+    final started = sentAt == null ? null : await UserDataWipe.sessionStartedAt();
+    if (sentAt != null && started != null && sentAt.isBefore(started)) {
+      AppLog.info('push.opened_before_session', extra: {'type': payload.type});
+      return;
+    }
     _notifications.ingest(payload, read: true);
 
     final rideId = payload.routedRideId;

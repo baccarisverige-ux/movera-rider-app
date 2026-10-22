@@ -71,7 +71,9 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
         );
       },
     );
-    if (ok == true) await _ctl.rotatePin();
+    if (ok == true && mounted) {
+      await runSafetyChange(context, _ctl, _ctl.rotatePin);
+    }
   }
 
   @override
@@ -108,7 +110,11 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
                     context,
                     SafetyUi.accent,
                   ),
-                  onChanged: _ctl.setPinRequired,
+                  onChanged: (value) => runSafetyChange(
+                    context,
+                    _ctl,
+                    () => _ctl.setPinRequired(value),
+                  ),
                 ),
               ],
             ),

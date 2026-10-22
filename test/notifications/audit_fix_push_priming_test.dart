@@ -68,13 +68,18 @@ void main() {
     expect(push.registers, 2);
   });
 
-  test('a system refusal is remembered instead of asked again', () async {
+  test('rider-r4-40: a system refusal is remembered, and push registers '
+      'again once Settings allows it', () async {
     final push = _Push()..deny = true;
     final gate = PushPermissionGate(push: push, enabled: true);
     expect(await gate.accept(), PushOptInResult.blockedBySystem);
     expect(await gate.consent(), PushConsent.blockedBySystem);
+    // The rider turns notifications on in Settings; the next sign-in or
+    // cold start registers (the OS answers without a new prompt).
+    push.deny = false;
     await gate.registerIfConsented(logEvent: 'test');
-    expect(push.registers, 1);
+    expect(push.registers, 2);
+    expect(await gate.consent(), PushConsent.accepted);
   });
 
   test('signing in never shows the OS prompt before the explanation', () async {
@@ -109,6 +114,8 @@ void main() {
     final second = signIn();
     final again = await second.requestOtp(phone: '+46701234567');
     await second.verifyOtp(challenge: again, code: '1234');
+    // rider-u67: registration runs on after sign-in returns.
+    await pumpEventQueue();
     expect(push.registers, 2);
   });
 
@@ -150,6 +157,33 @@ void main() {
     expect(settings, 1);
   });
 
+  testWidgets('rider-r4-45: swiping the explanation away counts as Not now', (
+    tester,
+  ) async {
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => maybeShowPushPrimer(context, gate: gate),
+              child: const Text('go'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // the barrier
+    await tester.pumpAndSettle();
+    expect(find.text('Get ride updates'), findsNothing);
+    expect(await gate.shouldOffer(), isFalse);
+    expect(push.registers, 0);
+  });
+
   testWidgets('the Notifications screen offers a way back', (tester) async {
     SharedPreferences.setMockInitialValues({
       PushPermissionGate.storageKey: PushConsent.blockedBySystem.name,
@@ -166,6 +200,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Open settings'), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgets('rider-95: on the web the way back is the browser, not an '
+      'Open settings button that throws', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PushPermissionGate.storageKey: PushConsent.blockedBySystem.name,
+    });
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: PushStatusBanner(gate: gate, isWeb: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Turn them on in your browser settings.'), findsOneWidget);
+    await tester.tap(find.text('Ride updates are off'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open settings'), findsNothing);
+    expect(find.textContaining('this site in your browser'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(push.registers, 1);
   });
 
   testWidgets('mock push offers nothing', (tester) async {

@@ -14,6 +14,8 @@ void main() {
     expect(workflow, contains('-t lib/main_production.dart'));
     expect(workflow, contains('--dart-define=MOVERA_FLAVOR=production'));
     expect(workflow, contains('--dart-define=MOVERA_API_BASE_URL='));
+    // rider-u18: crash telemetry names the release, not 'dev'.
+    expect(workflow, contains('--dart-define=MOVERA_APP_VERSION='));
     expect(workflow, isNot(contains('lib/main_demo.dart')));
   });
 

@@ -27,6 +27,8 @@ LocationSettingsOpener? locationSettingsOpenerFor(
       openAppSettings ?? Geolocator.openAppSettings,
     LocationAccessIssue.servicesOff =>
       openLocationSettings ?? Geolocator.openLocationSettings,
+    // rider-u114: asked through [LocationAccessNotice.onPrecise].
+    LocationAccessIssue.approximate => null,
   };
 }
 
@@ -39,6 +41,7 @@ class LocationAccessNotice extends StatelessWidget {
     super.key,
     required this.issue,
     this.onRetry,
+    this.onPrecise,
     this.onDismiss,
     this.isWeb = kIsWeb,
     this.openAppSettings,
@@ -49,6 +52,9 @@ class LocationAccessNotice extends StatelessWidget {
 
   /// Asks for location again (re-runs the permission request).
   final VoidCallback? onRetry;
+
+  /// rider-u114: asks for precise location ("Turn on").
+  final VoidCallback? onPrecise;
   final VoidCallback? onDismiss;
   final bool isWeb;
 
@@ -63,6 +69,7 @@ class LocationAccessNotice extends StatelessWidget {
     LocationAccessIssue.denied => L10n.current.locNeededTitle,
     LocationAccessIssue.deniedForever => L10n.current.locOffTitle,
     LocationAccessIssue.servicesOff => L10n.current.locServicesOffTitle,
+    LocationAccessIssue.approximate => L10n.current.locPreciseOffTitle,
   };
 
   String get _body {
@@ -71,12 +78,14 @@ class LocationAccessNotice extends StatelessWidget {
         LocationAccessIssue.denied => L10n.current.locWebDenied,
         LocationAccessIssue.deniedForever => L10n.current.locWebDeniedForever,
         LocationAccessIssue.servicesOff => L10n.current.locWebServicesOff,
+        LocationAccessIssue.approximate => L10n.current.locPreciseOffBody,
       };
     }
     return switch (issue) {
       LocationAccessIssue.denied => L10n.current.locDenied,
       LocationAccessIssue.deniedForever => L10n.current.locDeniedForever,
       LocationAccessIssue.servicesOff => L10n.current.locServicesOffBody,
+      LocationAccessIssue.approximate => L10n.current.locPreciseOffBody,
     };
   }
 
@@ -90,7 +99,10 @@ class LocationAccessNotice extends StatelessWidget {
     );
     final String actionLabel;
     final VoidCallback? action;
-    if (openSettings != null) {
+    if (issue == LocationAccessIssue.approximate) {
+      actionLabel = context.l10n.locPreciseTurnOn;
+      action = onPrecise;
+    } else if (openSettings != null) {
       actionLabel = context.l10n.locOpenSettings;
       action = () => openSettings();
     } else {
@@ -113,9 +125,15 @@ class LocationAccessNotice extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Icon(Icons.location_off_outlined, color: _ink, size: 22),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  issue == LocationAccessIssue.approximate
+                      ? Icons.location_searching_rounded
+                      : Icons.location_off_outlined,
+                  color: _ink,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

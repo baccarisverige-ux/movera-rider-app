@@ -9,6 +9,7 @@ void main() {
   Future<void> pumpTripDetail(
     WidgetTester tester, {
     RideCompleteController? controller,
+    String? rideId,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -22,7 +23,10 @@ void main() {
         splitScreenMode: true,
         builder: (_, __) => MaterialApp(
           home: Scaffold(
-            body: RideCompletedTripDetail(controller: controller),
+            body: RideCompletedTripDetail(
+              controller: controller,
+              rideId: rideId,
+            ),
           ),
         ),
       ),
@@ -78,5 +82,37 @@ void main() {
     expect(find.text('Total payment'), findsOneWidget);
     expect(find.text('Cash'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsNothing);
+  });
+
+  testWidgets('rider-u183: with the keyboard open the receipt issue sheet '
+      'sits on the keyboard and Submit takes taps', (tester) async {
+    addTearDown(tester.view.resetViewInsets);
+    final controller = RideCompleteController(
+      trips: const TripReceiptRepository(
+        receipt: TripReceipt(
+          pickup: 'Stockholm Central',
+          destination: 'Arlanda Terminal 5',
+          total: '522 kr',
+          method: 'Cash',
+        ),
+      ),
+    );
+    await pumpTripDetail(tester, controller: controller, rideId: 'ride-1');
+    await tester.tap(find.byKey(const ValueKey('receipt-report-issue')));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('receipt-dispute-detail')),
+      'Charged twice',
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final submit = find.byKey(const ValueKey('receipt-dispute-submit'));
+    expect(submit.hitTestable(), findsOneWidget);
+    final rect = tester.getRect(submit);
+    expect(rect.bottom, lessThanOrEqualTo(844 - 336));
+    // Not lifted a second keyboard height above the keyboard.
+    expect(rect.bottom, greaterThan(844 - 336 - 120));
   });
 }

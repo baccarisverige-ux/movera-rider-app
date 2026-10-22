@@ -11,7 +11,15 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
-  const RideCompletedAddTip({super.key, this.controller, this.onTipChanged});
+  const RideCompletedAddTip({
+    super.key,
+    this.controller,
+    this.onTipChanged,
+    this.rideId,
+  });
+
+  /// The ride the tip is for: its currency and driver (rider-u166).
+  final String? rideId;
 
   final RideCompleteController? controller;
   final ValueChanged<int?>? onTipChanged;
@@ -25,8 +33,8 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
       widget.controller ?? AppScope.instance.rideComplete;
   /// Q5: the trip zone's tips, in its currency. The seed shows on the
   /// first frame; the zone's config replaces it once read.
-  late List<Money> _amounts = _ctl.initialTips();
-  late final String? _driverName = _ctl.driver()?.name;
+  late List<Money> _amounts = _ctl.initialTips(rideId: widget.rideId);
+  late final String? _driverName = _ctl.driver(rideId: widget.rideId)?.name;
   Money? _selected;
 
   @override
@@ -38,7 +46,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   Future<void> _loadTips() async {
     final List<Money> amounts;
     try {
-      amounts = await _ctl.tips();
+      amounts = await _ctl.tips(rideId: widget.rideId);
     } catch (_) {
       return;
     }

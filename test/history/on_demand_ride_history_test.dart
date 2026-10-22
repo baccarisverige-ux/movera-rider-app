@@ -147,8 +147,8 @@ void main() {
     final history = await OnDemandRideHistoryStore.read();
     expect(history, hasLength(1));
     expect(history.single.reservationId, 'ondemand-ride-retry');
-    // Persistence is UTC now, so compare the same instant in UTC.
-    expect(history.single.scheduledPickupAt, secondEnd.toUtc());
+    // Persistence is UTC; History reads it back in local time (rider-36).
+    expect(history.single.scheduledPickupAt, secondEnd);
   });
 
   test('archive refuses to invent an id when rideId is missing', () async {
@@ -163,10 +163,12 @@ void main() {
   });
 
   test('only completed, cancelled or server-ended searches archive', () async {
+    // rider-37: a payment-failed trip is now a completed History ride, so a
+    // live trip stands in for the status History refuses.
     await expectLater(
       OnDemandRideHistoryStore.archive(
-        snapshot(rideId: 'ride-payment-failed'),
-        terminalStatus: RideStatus.paymentFailed,
+        snapshot(rideId: 'ride-in-progress'),
+        terminalStatus: RideStatus.tripInProgress,
       ),
       throwsA(isA<ArgumentError>()),
     );
@@ -181,7 +183,7 @@ void main() {
     final history = await OnDemandRideHistoryStore.read();
     expect(history.single.reservationId, 'ondemand-ride-no-driver');
     expect(history.single.status.name, 'cancelled');
-    expect(history.single.cancellationReason, 'No driver found');
+    expect(history.single.cancellationReason, 'system_no_driver');
   });
 
   test('multiple archived rides are newest first', () async {

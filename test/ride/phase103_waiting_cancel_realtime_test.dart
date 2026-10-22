@@ -18,6 +18,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -217,6 +218,12 @@ void main() {
 
       expect(outcome, RideCancelOutcome.confirmed);
       expect(seen.single.url.path, '/api/v1/rides/orphan-1/cancel');
+      // rider-r4-25: the cancelled ride stays in History, as on every other
+      // cancel path, before the snapshot is cleared.
+      expect(
+        (await OnDemandRideHistoryStore.read()).single.reservationId,
+        'ondemand-orphan-1',
+      );
     });
 
     test('keeps the cancel queued when the server cannot be reached', () async {

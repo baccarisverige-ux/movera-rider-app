@@ -101,7 +101,8 @@ jobs:
       - name: Schedule Continue is a real accessible button
         run: |
           grep -q "ElevatedButton(" lib/features/scheduled_rides/presentation/select_date_time.dart
-          grep -q "label: 'Schedule Continue'" lib/features/scheduled_rides/presentation/select_date_time.dart
+          grep -q "key: const Key('schedule-continue')" lib/features/scheduled_rides/presentation/select_date_time.dart
+          ! grep -q "label: 'Schedule Continue'" lib/features/scheduled_rides/presentation/select_date_time.dart
           ! grep -q "onPointerDown: (_) => _goNext()" lib/features/scheduled_rides/presentation/select_date_time.dart
 
       - name: History archive failures are observable

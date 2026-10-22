@@ -198,14 +198,35 @@ void main() {
       expect(results['r1'], PendingCancelResult.refused);
     });
 
-    test('a refusal for a ride that already ended is gone', () async {
+    // rider-r4-24: a trip the server already closed (completed, expired,
+    // cancelled by the driver or Movera) is `ended` with the server's
+    // status, not `gone`, which was then filed as the rider's cancel.
+    test('a refusal for a ride that already ended is ended', () async {
       await PendingCancelStore.add(
         const PendingCancel(rideId: 'r1', idempotencyKey: 'k1'),
       );
       final results = await FindingDriverController.flushPendingCancels(
         api: _refusing(409, rideStatus: 'completed'),
       );
-      expect(results['r1'], PendingCancelResult.gone);
+      expect(results['r1'], PendingCancelResult.ended);
+    });
+
+    test('a queued cancel for an expired search reports how it ended',
+        () async {
+      await PendingCancelStore.add(
+        const PendingCancel(rideId: 'r1', idempotencyKey: 'k1'),
+      );
+      final reported = <PendingCancelOutcome>[];
+      final sub = PendingCancelStore.outcomes.listen(reported.add);
+      addTearDown(sub.cancel);
+      final paths = <String>[];
+      final results = await FindingDriverController.flushPendingCancels(
+        api: _refusing(409, rideStatus: 'expired', paths: paths),
+      );
+      await pumpEventQueue();
+      expect(paths, ['GET /api/v1/rides/r1'], reason: 'nothing is sent');
+      expect(results['r1'], PendingCancelResult.ended);
+      expect(reported.single.endedAs, RideStatus.noDriverFound);
     });
   });
 
@@ -305,6 +326,22 @@ void main() {
       expect(await PendingCancelStore.all(), isEmpty);
     });
 
+    test('a search the server ended is shown as it ended, not cancelled '
+        '(rider-r4-24)', () async {
+      await startOffline('q6');
+      PendingCancelStore.report(const PendingCancelOutcome(
+        rideId: 'q6',
+        command: PendingCancelCommand.cancel,
+        result: PendingCancelResult.ended,
+        endedAs: RideStatus.noDriverFound,
+      ));
+      await pumpEventQueue();
+      expect(controller.cancelled, isFalse);
+      expect(terminal, [RideStatus.noDriverFound]);
+      final filed = (await OnDemandRideHistoryStore.read()).single;
+      expect(filed.cancellationReason, 'system_no_driver');
+    });
+
     test('a refused flush resumes the search and tells the rider', () async {
       await startOffline('q5');
       PendingCancelStore.report(const PendingCancelOutcome(
@@ -348,6 +385,14 @@ void main() {
       await coordinator.root();
       expect(coordinator.showing, RestoredSurface.finding);
       expect(await RideSnapshotStore.read(), isNotNull);
+    });
+
+    test('ended by the server: restored to show how, not archived as the '
+        "rider's cancel (rider-r4-24)", () async {
+      final coordinator = await restoring(PendingCancelResult.ended);
+      await coordinator.root();
+      expect(await RideSnapshotStore.read(), isNotNull);
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
     });
 
     test('confirmed: Home, with the cancel archived', () async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
@@ -33,7 +34,16 @@ Future<void> openScheduledCategorySelector(
   }
   // Never book to a made-up point: a destination we cannot find on the map
   // sends the rider back to fix the address instead.
-  final destinationPosition = await findScheduledPoint(destinationLabel);
+  LatLng? found;
+  try {
+    found = await findScheduledPoint(destinationLabel);
+  } on ScheduledPointLookupFailed {
+    if (context.mounted) {
+      MoveraToast.show(context, context.l10n.apiUnreachable);
+    }
+    return;
+  }
+  final destinationPosition = found;
   if (!context.mounted) return;
   if (destinationPosition == null) {
     MoveraToast.show(context, context.l10n.resValidDestination);
@@ -75,19 +85,30 @@ Future<void> openScheduledCategorySelector(
   }
 }
 
+/// The address lookup itself failed (offline, timed out, server error):
+/// not the same as an address that was not found (rider-r5-23).
+class ScheduledPointLookupFailed implements Exception {
+  const ScheduledPointLookupFailed();
+}
+
 /// The map point for a typed address, or null when it cannot be found.
-Future<LatLng?> findScheduledPoint(String label) async {
+Future<LatLng?> findScheduledPoint(
+  String label, {
+  AppGeocoding? geocoding,
+}) async {
   final clean = label.trim();
   if (clean.isEmpty) return null;
   try {
-    final result = await AppScope.instance.geocoding
+    final result = await (geocoding ?? AppScope.instance.geocoding)
         .geocodeAddress(clean)
         .timeout(const Duration(seconds: 6));
     if (result != null) {
       return LatLng(result.point.latitude, result.point.longitude);
     }
   } catch (_) {
-    // Best-effort geocode: the caller treats null as "no point".
+    // rider-r5-23: the caller says "check your connection", not "choose a
+    // valid address", for a lookup that never got an answer.
+    throw const ScheduledPointLookupFailed();
   }
   return null;
 }

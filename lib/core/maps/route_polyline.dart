@@ -37,6 +37,23 @@ Polyline routePolyline({
 }
 
 
+/// uat-r1: a route a screen already resolved (its kept road points) as the
+/// polyline it draws, with the same colour and width rules as
+/// [routePolyline], so the road line and the first-paint line are one shape.
+Polyline resolvedRoutePolyline({
+  required String id,
+  required List<LatLng> points,
+  required Color color,
+  int width = 4,
+}) {
+  return Polyline(
+    polylineId: PolylineId(id),
+    points: List<LatLng>.unmodifiable(points),
+    color: color,
+    width: width,
+  );
+}
+
 /// Resolves road-following geometry through the shared routing seam and returns
 /// a map-ready polyline. Feature screens must use this instead of constructing
 /// their own [Polyline], preserving one routing source of truth.
@@ -60,6 +77,56 @@ Future<Polyline> roadRoutePolyline({
     ],
     color: color,
     width: width,
+  );
+}
+
+/// rider-u62/u63: the road route from [from] through every point of [via]
+/// (the trip's remaining stops, in order) to [to], one road leg per pair
+/// joined into one line. [approximate] is true when any leg fell back to
+/// a straight two-point line, so the screen can say the line is not
+/// turn-by-turn. Ride check measures "off the route" against this line,
+/// so a driver heading to a stop off the direct line is not off route.
+Future<({Polyline route, bool approximate})> roadRoutePolylineVia({
+  required String id,
+  required LatLng from,
+  required List<LatLng> via,
+  required LatLng to,
+  required Color color,
+  int width = 4,
+  RoutingService? routing,
+}) async {
+  final service = routing ?? RoutingService.current;
+  final waypoints = <LatLng>[from, ...via, to];
+  final points = <GeoPoint>[];
+  var approximate = false;
+  for (var i = 1; i < waypoints.length; i++) {
+    final a = waypoints[i - 1];
+    final b = waypoints[i];
+    final leg = await service.roadLine(
+      from: GeoPoint(a.latitude, a.longitude),
+      to: GeoPoint(b.latitude, b.longitude),
+    );
+    if (leg.length <= 2) approximate = true;
+    for (final point in leg) {
+      final last = points.isEmpty ? null : points.last;
+      if (last != null &&
+          last.latitude == point.latitude &&
+          last.longitude == point.longitude) {
+        continue;
+      }
+      points.add(point);
+    }
+  }
+  return (
+    route: Polyline(
+      polylineId: PolylineId(id),
+      points: [
+        for (final point in points) LatLng(point.latitude, point.longitude),
+      ],
+      color: color,
+      width: width,
+    ),
+    approximate: approximate,
   );
 }
 

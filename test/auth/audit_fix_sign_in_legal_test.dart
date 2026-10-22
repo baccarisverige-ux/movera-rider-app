@@ -32,8 +32,8 @@ void main() {
   }
 
   for (final (link, kind) in [
-    ('Terms', 'terms'),
-    ('Privacy Policy', 'privacy'),
+    ('terms and conditions', 'terms'),
+    ('privacy policy', 'privacy'),
   ]) {
     testWidgets('"$link" on Sign in opens the $kind page', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -65,7 +65,10 @@ void main() {
         find.byType(AccountLegalPage),
       );
       expect(page.kind, kind);
-      expect(find.textContaining('This is a short summary.'), findsOneWidget);
+      expect(
+        find.textContaining(kind == 'terms' ? 'Who we are' : 'Who is responsible'),
+        findsOneWidget,
+      );
       await tester.pumpWidget(const SizedBox());
     });
   }

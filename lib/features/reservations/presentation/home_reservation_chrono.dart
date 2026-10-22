@@ -8,11 +8,13 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -70,7 +72,16 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   }
 
   Future<void> _onTick() async {
-    await _reservations.startLiveIfDue(now: _now);
+    try {
+      await _reservations.startLiveIfDue(now: _now);
+    } catch (error, stack) {
+      // rider-j8-6: same unguarded unawaited path; the next tick retries.
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        operation: 'reservation.start_live',
+      );
+    }
     if (mounted) setState(() {});
     _openLiveIfNeeded();
     _promptNoDriverIfNeeded();
@@ -102,7 +113,14 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     if (_promptedNoDriverId == ride.reservationId) return;
     _promptedNoDriverId = ride.reservationId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_routeIsCurrent) return;
+      if (!mounted) return;
+      if (!_routeIsCurrent) {
+        // A live ride opened first: ask again once Home is back.
+        if (_promptedNoDriverId == ride.reservationId) {
+          _promptedNoDriverId = null;
+        }
+        return;
+      }
       unawaited(_showNoDriverFound(ride));
     });
   }
@@ -121,7 +139,24 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
       final current = _reservations.byId(ride.reservationId);
       // A driver may have been assigned while the sheet was open.
       if (current == null || !_isNoDriverFound(current)) return;
-      await _reservations.resolveNoDriverFound(ride.reservationId);
+      try {
+        await _reservations.resolveNoDriverFound(ride.reservationId);
+      } catch (error, stack) {
+        // rider-j8-6: a failed save must not escape as an unhandled async
+        // error with nothing on screen; say so, like Upcoming's cancel.
+        AppScope.instance.crashes.record(
+          error,
+          stack,
+          operation: 'reservation.no_driver_resolve',
+        );
+        if (mounted) {
+          MoveraToast.show(
+            context,
+            reservationErrorMessage(error, ReservationAction.cancel),
+          );
+        }
+        return;
+      }
       if (!mounted) return;
       if (choice == _NoDriverChoice.rebook) widget.onRebook?.call();
     } finally {
@@ -131,8 +166,10 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
 
   void _openLiveIfNeeded() {
     if (!mounted || !_routeIsCurrent) return;
-    final ride = _nextRide();
-    if (ride == null || !ride.revealsDriver) return;
+    // rider-j8-10: the first ride whose driver is on the way, even when an
+    // earlier one is still waiting to be resolved as "no driver found".
+    final ride = _sortedUpcoming().where((r) => r.revealsDriver).firstOrNull;
+    if (ride == null) return;
     if (_openedLiveId == ride.reservationId) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_routeIsCurrent) return;
@@ -196,11 +233,23 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   ReservationController get _reservations =>
       widget.controller ?? AppScope.instance.reservations;
 
+  List<Reservation> _sortedUpcoming() => [..._reservations.upcoming()]
+    ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
+
+  /// The ride the chrono stands for: the earliest upcoming one, skipping a
+  /// "no driver found" ride the rider was already shown when a later ride
+  /// is waiting (rider-j8-10).
   Reservation? _nextRide() {
-    final upcoming = [..._reservations.upcoming()]
-      ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
+    final upcoming = _sortedUpcoming();
     if (upcoming.isEmpty) return null;
-    return upcoming.first;
+    return upcoming
+            .where(
+              (ride) =>
+                  ride.reservationId != _promptedNoDriverId ||
+                  !_isNoDriverFound(ride),
+            )
+            .firstOrNull ??
+        upcoming.first;
   }
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
@@ -247,11 +296,17 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
           ride.scheduledPickupAt,
           now: _now,
         );
+        // rider-j8-7: under a minute left, or a pickup already past (driver
+        // arrived, trip under way), is "now", not "in Now".
+        final due =
+            ride.scheduledPickupAt.difference(_now).inSeconds < 60;
         return PointerInterceptor(
           child: Semantics(
             button: true,
             label: noDriver
                 ? context.l10n.chronoNoDriverLabel
+                : due
+                ? context.l10n.reservationNow
                 : context.l10n.reservationIn(compact),
             child: GestureDetector(
               onTap: () => _openRide(ride),
@@ -298,29 +353,45 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
                                     size: 18,
                                     color: HomeReservationChrono.noDriver,
                                   )
-                                else ...[
-                                  Text(
-                                    parts.primary,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: parts.secondary == null
-                                          ? 13
-                                          : 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: HomeReservationChrono.ink,
-                                      height: 1,
-                                    ),
-                                  ),
-                                  if (parts.secondary != null)
-                                    Text(
-                                      parts.secondary!,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF6B757B),
-                                        height: 1.1,
+                                else
+                                  // rider-u160: one line each, scaled down to
+                                  // fit the disc at large text sizes and for
+                                  // long words ('Maintenant').
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            parts.primary,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: parts.secondary == null
+                                                  ? 13
+                                                  : 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: HomeReservationChrono.ink,
+                                              height: 1,
+                                            ),
+                                          ),
+                                          if (parts.secondary != null)
+                                            Text(
+                                              parts.secondary!,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF6B757B),
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                ],
+                                  ),
                               ],
                             ),
                           ),

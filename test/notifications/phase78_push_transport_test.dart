@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -54,6 +56,24 @@ class _FakeGateway implements FirebasePushGateway {
     await refresh.close();
     await foreground.close();
     await opened.close();
+  }
+}
+
+/// The backend has already dropped the old token: unregister is a 404.
+class _StaleUnregister extends http.BaseClient {
+  _StaleUnregister(this.inner);
+  final InProcessMockClient inner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.url.path.endsWith('/push/devices/unregister')) {
+      return http.StreamedResponse(
+        Stream.value(utf8.encode('{"code":"not_found","message":"gone"}')),
+        404,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    return inner.send(request);
   }
 }
 
@@ -158,4 +178,48 @@ void main() {
     expect(gateway.deleteCalls, 1);
   });
 
+  test('rider-u21: inbound pushes still route when the token POST fails',
+      () async {
+    const launch = PushPayload(type: 'ride_update', rideId: 'r1');
+    const tap = PushPayload(type: 'driver_arrived', rideId: 'r1');
+    final backend = InProcessMockClient()..failNext = true;
+    final gateway = _FakeGateway()..initial = launch;
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    final opened = <PushPayload>[];
+    final sub = service.openedMessages.listen(opened.add);
+    addTearDown(sub.cancel);
+
+    await expectLater(service.register(), throwsA(anything));
+
+    expect(backend.pushDevices, isEmpty);
+    expect(await service.takeInitialMessage(), same(launch));
+    gateway.opened.add(tap);
+    await pumpEventQueue();
+    expect(opened, [same(tap)]);
+  });
+
+  test('rider-r4-23: a failed unregister of the old token still registers '
+      'the rotated one', () async {
+    final backend = InProcessMockClient();
+    final gateway = _FakeGateway();
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: _StaleUnregister(backend)),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await service.register();
+    gateway.refresh.add('fcm-token-b');
+    await pumpEventQueue();
+
+    expect(backend.pushDevices['fcm-token-b']?['provider'], 'fcm');
+  });
 }

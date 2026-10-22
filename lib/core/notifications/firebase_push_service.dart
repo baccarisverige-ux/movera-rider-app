@@ -187,6 +187,8 @@ class FirebasePushService implements PushService {
   StreamSubscription<PushPayload>? _openedSub;
   String? _registeredToken;
   PushPayload? _initialMessage;
+  bool _initialRead = false;
+  bool _initialTaken = false;
 
   @override
   Stream<PushPayload> get foregroundMessages => _foreground.stream;
@@ -212,6 +214,11 @@ class FirebasePushService implements PushService {
     if (permission == PushAuthorizationStatus.denied) {
       throw const PushPermissionDeniedException();
     }
+    // rider-u21: what the OS shows (a tap, a foreground message, the
+    // notification that launched the app) is routed whether or not the
+    // backend acknowledges the token below. Attached only after that ack,
+    // a failed POST at cold start dropped the launch tap and every later one.
+    await _attachInboundStreams();
 
     await _gateway.ensureAppleTransportReady();
     final token = await _gateway.getToken(
@@ -224,7 +231,6 @@ class FirebasePushService implements PushService {
     }
 
     await _replaceToken(token.trim());
-    await _attachInboundStreams();
     await _tokenSub?.cancel();
     _tokenSub = _gateway.onTokenRefresh.listen((next) {
       final normalized = next.trim();
@@ -264,21 +270,34 @@ class FirebasePushService implements PushService {
         );
       },
     );
-    _initialMessage = await _gateway.getInitialMessage();
+    // rider-r5-40: the launch notification is read once. At cold start the
+    // coordinator already asked for it before register() ran, so a late one
+    // is routed as a tap instead of waiting for a read that never comes.
+    if (_initialRead) return;
+    _initialRead = true;
+    final initial = await _gateway.getInitialMessage();
+    if (initial == null) return;
+    if (_initialTaken) {
+      _opened.add(initial);
+    } else {
+      _initialMessage = initial;
+    }
   }
 
   @override
   Future<PushPayload?> takeInitialMessage() async {
+    _initialTaken = true;
     final initial = _initialMessage;
     _initialMessage = null;
     return initial;
   }
 
+  /// rider-r4-23: the new token is registered first and the old one is
+  /// then removed best effort. Unregistering first let a 404 (the backend
+  /// already dropped a token FCM reported dead) or any API failure abort
+  /// the rotation and leave the device on the dead token.
   Future<void> _replaceToken(String token) async {
     final previous = _registeredToken;
-    if (previous != null && previous != token) {
-      await _unregisterToken(previous);
-    }
 
     final response = await _api.post(
       '/api/v1/push/devices',
@@ -294,6 +313,17 @@ class FirebasePushService implements PushService {
       );
     }
     _registeredToken = token;
+
+    if (previous != null && previous != token) {
+      try {
+        await _unregisterToken(previous);
+      } catch (error) {
+        AppLog.warning(
+          'push.old_token_unregister_failed',
+          extra: {'error': error.runtimeType.toString()},
+        );
+      }
+    }
   }
 
   Future<void> _unregisterToken(String token) async {

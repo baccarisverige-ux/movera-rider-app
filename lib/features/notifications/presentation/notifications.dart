@@ -74,8 +74,11 @@ class NotificationScreen extends StatelessWidget {
               child: StreamBuilder<List<AppNotification>>(
                 stream: notificationController.watch(),
                 initialData: notificationController.feed(),
-                builder: (context, snapshot) {
-                  final items = snapshot.data ?? const <AppNotification>[];
+                // rider-r5-45: the stream only says when to rebuild; the
+                // feed is read on every build, so its time labels follow a
+                // language switch instead of the last emitted copy.
+                builder: (context, _) {
+                  final items = notificationController.feed();
                   if (items.isEmpty) {
                     return MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
@@ -109,7 +112,7 @@ class NotificationScreen extends StatelessWidget {
                               ),
                             );
                           },
-                          child: _buildNotificationCard(notification),
+                          child: _buildNotificationCard(context, notification),
                         ),
                       );
                     },
@@ -127,7 +130,10 @@ class NotificationScreen extends StatelessWidget {
     Navigator.of(context).push(RightToLeftTransition(RideHistory()));
   }
 
-  Widget _buildNotificationCard(AppNotification notification) {
+  Widget _buildNotificationCard(
+    BuildContext context,
+    AppNotification notification,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResSize.w * 4,
@@ -173,13 +179,15 @@ class NotificationScreen extends StatelessWidget {
                   fontWeight: fwMedium,
                   color: AppColor.primary,
                 ),
-                2.height,
-                TextWidget(
-                  text: notification.subtitle,
-                  fontSize: 14,
-                  fontWeight: fwNormal,
-                  color: AppColor.subtitle,
-                ),
+                if (notification.subtitle.isNotEmpty) ...[
+                  2.height,
+                  TextWidget(
+                    text: notification.subtitle,
+                    fontSize: 14,
+                    fontWeight: fwNormal,
+                    color: AppColor.subtitle,
+                  ),
+                ],
               ],
             ),
           ),
@@ -194,12 +202,16 @@ class NotificationScreen extends StatelessWidget {
               ),
               if (!notification.read) ...[
                 4.width,
-                Container(
-                  width: ResSize.w * 8,
-                  height: ResSize.w * 8,
-                  decoration: BoxDecoration(
-                    color: AppColor.primary,
-                    shape: BoxShape.circle,
+                // rider-u130: the dot is not the only sign of a new one.
+                Semantics(
+                  label: context.l10n.notificationUnread,
+                  child: Container(
+                    width: ResSize.w * 8,
+                    height: ResSize.w * 8,
+                    decoration: BoxDecoration(
+                      color: AppColor.primary,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ],

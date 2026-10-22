@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
@@ -13,6 +14,8 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
@@ -62,6 +65,12 @@ class RideRestoreCoordinator {
   /// cancel before it shows the ride as still cancelling.
   static const queuedCancelWait = Duration(seconds: 4);
 
+  /// rider-u174: how long a cold start with no ride on this device waits
+  /// for the server's active trip before it shows Home. A hanging network
+  /// used to hold a blank screen for the client's full timeout (about
+  /// 30 s); a trip that comes back later still opens.
+  static const serverTripWait = Duration(seconds: 2);
+
   static Future<PendingCancelResult?> _defaultFlushCancel(String rideId) =>
       FindingDriverController.flushPendingCancels()
           .then<PendingCancelResult?>((results) => results[rideId])
@@ -84,6 +93,9 @@ class RideRestoreCoordinator {
         return null;
       }
       if (expectedRideId != null && id != expectedRideId.trim()) return null;
+      // The lookup may have been slow: a ride this device started meanwhile
+      // keeps its own snapshot.
+      if (await _reader() != null) return null;
       await RideSnapshotStore.save(trip);
       AppLog.info('ride.restore.server_active_trip', extra: {
         'rideId': id,
@@ -142,7 +154,9 @@ class RideRestoreCoordinator {
       'answer': answer?.name ?? 'none',
     });
     // An end-early that went through ends the trip, it does not cancel it:
-    // the restored trip resyncs and shows how the server closed it.
+    // the restored trip resyncs and shows how the server closed it. So does
+    // a trip the server had already closed some other way (rider-r4-24:
+    // `ended`, e.g. no driver found), which is not the rider's cancel.
     if (queued.command != PendingCancelCommand.cancel ||
         (answer != PendingCancelResult.sent &&
             answer != PendingCancelResult.gone)) {
@@ -160,6 +174,9 @@ class RideRestoreCoordinator {
     } catch (_) {
       await RideSnapshotStore.clear();
     }
+    // The rider's own cancel went through: nothing was interrupted
+    // (rider-u117).
+    clearSearchLive();
     return null;
   }
 
@@ -329,18 +346,30 @@ class RideRestoreCoordinator {
     _adoptBookingIds(snapshot);
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
+    final realtime = AppScope.instance.rideRealtime;
+    if (surface == RestoredSurface.complete && realtime is MockRideRealtime) {
+      // rider-u173: the demo goes on from the stored post-trip stage; with
+      // nothing primed it searched for and drove the finished trip again.
+      realtime.primeResume(
+        status: snapshot.status,
+        driver: snapshot.driver,
+        version: snapshot.version,
+      );
+    }
     if (surface == RestoredSurface.waiting) {
       // Phase 135: this is the other half of the fix. Only this call site
       // actually knows the restore is genuine (a normal live continuation
       // never goes through pageFor), so priming happens here rather than in
       // WaitingForDriver itself, which cannot tell a real restore apart from
       // a screen mounting fresh mid-session with an already-matched status.
-      final realtime = AppScope.instance.rideRealtime;
       if (realtime is MockRideRealtime && snapshot.status.isMatched) {
         realtime.primeResume(
           status: snapshot.status,
           driver: snapshot.driver,
           version: snapshot.version,
+          // rider-24: the driver approaches this trip's pickup.
+          pickupLat: snapshot.pickupLat,
+          pickupLng: snapshot.pickupLng,
         );
       }
     }
@@ -433,7 +462,7 @@ class RideRestoreCoordinator {
           AppEnv.current.authPreview && snapshot == null) {
         return const SignIn();
       }
-      return const Home();
+      return await _nameStepOr(const Home());
     }
     try {
       final snapshot = await _dropIfCancelQueued(await _reader());
@@ -450,7 +479,16 @@ class RideRestoreCoordinator {
         reportRestoreSurface('signInPreview');
         return const SignIn();
       }
-      return pageFor(snapshot ?? await adoptServerActiveTrip());
+      if (snapshot == null) {
+        final initialName = await PendingRiderName.read();
+        if (initialName != null) {
+          // rider-u74: signed in, but the new rider's name step never
+          // finished (reload or kill on it).
+          reportRestoreSurface('riderName');
+          return RiderNameScreen(initialName: initialName);
+        }
+      }
+      return pageFor(snapshot ?? await _serverTripForColdStart());
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
@@ -461,6 +499,41 @@ class RideRestoreCoordinator {
       }
       return const Home();
     }
+  }
+
+  /// [fallback], unless a new rider still owes their name (rider-u74).
+  Future<Widget> _nameStepOr(Widget fallback) async {
+    final initialName = await PendingRiderName.read();
+    return initialName == null
+        ? fallback
+        : RiderNameScreen(initialName: initialName);
+  }
+
+  /// The server's active trip when it answers within [serverTripWait];
+  /// otherwise null (Home shows), and a trip that arrives later replaces
+  /// the root while the rider is still on Home.
+  Future<RideSnapshot?> _serverTripForColdStart() {
+    final lookup = adoptServerActiveTrip();
+    return lookup.timeout(
+      serverTripWait,
+      onTimeout: () {
+        AppLog.info('ride.restore.server_active_trip_slow');
+        unawaited(lookup.then(_openLateServerTrip));
+        return null;
+      },
+    );
+  }
+
+  void _openLateServerTrip(RideSnapshot? trip) {
+    if (trip == null ||
+        showing != RestoredSurface.home ||
+        authRootShowing ||
+        !atRoot) {
+      // Kept as the snapshot: the next resume opens it.
+      return;
+    }
+    if (surfaceFor(trip) == RestoredSurface.home) return;
+    onReplaceRoot?.call(pageFor(trip));
   }
 
   bool get atRoot {
@@ -592,7 +665,12 @@ class RideRestoreCoordinator {
     }
     snapshot = await _dropIfCancelQueued(snapshot);
     if (!atRoot) return null;
-    if (AppScope.instance.ride.suppressRestore) {
+    // rider-67: the flag belongs to the ride that ended on this device. A
+    // snapshot of another ride (one a push tap just adopted from the
+    // server) is not that ride and is opened.
+    final session = AppScope.instance.ride;
+    if (session.suppressRestore &&
+        snapshot?.rideId?.trim() == session.rideId?.trim()) {
       unawaited(RideSnapshotStore.clear());
       return null;
     }
@@ -617,7 +695,8 @@ class _RideRecoveryBarrier extends StatelessWidget {
       color: const Color(0xFFF6F5F1),
       child: Center(
         child: Semantics(
-          label: 'Restoring active ride',
+          // rider-68: in the app language.
+          label: L10n.current.restoringRide,
           child: const CircularProgressIndicator(),
         ),
       ),

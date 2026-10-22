@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
@@ -58,9 +59,8 @@ class AuthRepository {
     required String code,
   }) async {
     final normalizedCode = code.trim();
-    if (challenge.isExpired) {
-      throw StateError('OTP challenge has expired.');
-    }
+    // rider-u73: expiry is the server's call (410 otp_expired); the device
+    // clock can run minutes ahead and turned every code down.
     if (!RidePin.isValidFormat(normalizedCode)) {
       throw ArgumentError.value(code, 'code', 'A 4-digit code is required.');
     }
@@ -74,7 +74,15 @@ class AuthRepository {
       },
     );
     await _persistTokens(response);
-    return OtpVerifyResult(isNewRider: response['isNewRider'] == true);
+    final isNewRider = response['isNewRider'] == true;
+    // rider-u74: right after the session exists, so a reload on the name
+    // step still asks for the name.
+    if (isNewRider) {
+      await PendingRiderName.mark(challenge.link?.name);
+    } else {
+      await PendingRiderName.clear();
+    }
+    return OtpVerifyResult(isNewRider: isNewRider);
   }
 
   /// Signs in with Apple or Google.

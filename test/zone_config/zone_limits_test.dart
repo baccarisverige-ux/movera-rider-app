@@ -292,14 +292,14 @@ void main() {
       // 10:00 UTC in January is 12:00 in Helsinki (EET).
       expect(
         schedule.zoneNow(DateTime.utc(2026, 1, 15, 10)),
-        DateTime(2026, 1, 15, 12),
+        DateTime.utc(2026, 1, 15, 12),
       );
       // Without a config, the seed's: Paris.
       expect(PickupSchedule.at(48.86, 2.34).timeZone, 'Europe/Paris');
       // Tunis keeps UTC+1 all year.
       expect(
         PickupSchedule.at(36.8, 10.18).zoneNow(DateTime.utc(2026, 7, 1, 10)),
-        DateTime(2026, 7, 1, 11),
+        DateTime.utc(2026, 7, 1, 11),
       );
     });
   });

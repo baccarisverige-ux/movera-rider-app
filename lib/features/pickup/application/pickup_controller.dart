@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/pickup/data/pickup_repository.dart';
@@ -43,6 +44,9 @@ class PickupMapController {
   final AppGeocoding geocoding;
   final StaleGuard _stale = StaleGuard();
   int _inFlight = 0;
+
+  /// How long My location waits for a fix before it reports "unavailable".
+  static const currentPositionTimeout = Duration(seconds: 16);
 
   /// A lookup is running.
   bool get resolving => _inFlight > 0;
@@ -94,12 +98,17 @@ class PickupMapController {
           PickupLocationFailure.permissionDenied,
         );
       }
-      final current = await location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      // D-003 / rider-u134: geolocator_web passes timeLimit in microseconds
+      // (15 s becomes ~4 h). The Dart-side timeout makes a fix that never
+      // comes end as "unavailable".
+      final current = await location
+          .getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 15),
+            ),
+          )
+          .timeout(currentPositionTimeout);
       return PickupCurrentPositionResult.success(
         LatLng(current.latitude, current.longitude),
       );
@@ -110,8 +119,15 @@ class PickupMapController {
     }
   }
 
+  /// Null when nothing was found or the lookup failed (offline, a timeout):
+  /// the callers treat both as "not found" (rider-45).
   Future<PickupMapFix?> search(String query) async {
-    final result = await geocoding.geocodeAddress(query);
+    final PlaceResult? result;
+    try {
+      result = await geocoding.geocodeAddress(query);
+    } catch (_) {
+      return null;
+    }
     if (result == null) return null;
     return PickupMapFix(
       position: LatLng(result.point.latitude, result.point.longitude),

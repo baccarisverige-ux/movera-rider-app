@@ -73,6 +73,7 @@ import 'package:movera_rider/features/ride_complete/application/ride_complete_co
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
@@ -109,6 +110,8 @@ class AppScope {
         // different one does, AuthController wipes it first
         // (UserDataWipe.enterSessionAs). Sign-out wipes everything.
         await LocationRepository.clearLastGoodFix();
+        // rider-u201: the microphone does not stay on behind Sign in.
+        await SafetyController.stopRecordingForSessionExpiry();
         // Sign in becomes the root gate's child so the gate survives. The
         // screen is registered from app.dart so DI never imports
         // presentation (ARCH-17).
@@ -151,8 +154,16 @@ class AppScope {
       final methods = ApiPaymentMethodRepository(api: api);
       payments = methods;
       defaultPayment = methods;
-      rideHistory = ApiRideHistoryRepository(api: api);
-      activeTrips = ApiActiveTripRepository(api: api);
+      // rider-r4-7: a server trip names only its categoryId; the
+      // catalog the rider sees names it.
+      rideHistory = ApiRideHistoryRepository(
+        api: api,
+        categoryLabel: (id) => catalog.labelOf(id),
+      );
+      activeTrips = ApiActiveTripRepository(
+        api: api,
+        categoryLabel: (id) => catalog.labelOf(id),
+      );
     } else {
       payments = LocalPaymentRepository();
       defaultPayment = const PrefsDefaultPaymentStore();
@@ -188,7 +199,13 @@ class AppScope {
       api: api,
       allowPublicReverseFallback: environment.allowsMockTransport,
     );
-    routing = RoutingService(api: api);
+    // uat-r1: the demo's in-process transport knows no roads; on the web
+    // demo the road line comes from a public router (as reverse geocoding
+    // does above). Release builds never reach it.
+    routing = RoutingService(
+      api: api,
+      allowPublicRoadFallback: environment.allowsMockTransport,
+    );
     RoutingService.defaultProvider ??= () => AppScope.instance.routing;
     quotes = ApiQuoteRepository(api: api);
     // R-O2: the transports report the trip's projection version, which
@@ -290,6 +307,12 @@ class AppScope {
   late final DefaultPaymentStore defaultPayment;
   late final WalletBalanceRepository walletBalances;
   late final ReservationRepository reservationRepository;
+
+  /// rider-u124: Book for later can book in this build. Off where it is
+  /// composed with the fail-closed stand-in (staging/production, flags
+  /// off), so its entry points say so at once instead of running the
+  /// whole scheduling flow first.
+  bool get bookLaterAvailable => reservationRepository is! FeatureOffRepository;
   late final SavedCardsStore savedCardsStore;
   late final RideHistoryRepository rideHistory;
   late final ActiveTripRepository activeTrips;
@@ -325,6 +348,8 @@ class AppScope {
   late final RideCompleteController rideComplete = RideCompleteController();
   late final WalletController walletController = WalletController(
     balances: walletBalances,
+    // rider-u232: the Payments tab's default is the one Select Ride uses.
+    defaultPayment: defaultPayment,
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
 

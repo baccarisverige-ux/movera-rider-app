@@ -47,7 +47,7 @@ abstract final class OnDemandRideHistoryStore {
       final cutoff = DateTime.now().subtract(retention);
       final byId = <String, Reservation>{};
       for (final value in decoded) {
-        final ride = Reservation.tryParse(value);
+        final ride = _local(Reservation.tryParse(value));
         if (ride == null || !ride.scheduledPickupAt.isAfter(cutoff)) continue;
         final current = byId[ride.reservationId];
         if (current == null ||
@@ -109,6 +109,7 @@ abstract final class OnDemandRideHistoryStore {
     String? cancellationReason,
     bool endedEarly = false,
     Money? charged,
+    Money? cancellationFee,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -126,6 +127,7 @@ abstract final class OnDemandRideHistoryStore {
       cancellationReason: cancellationReason,
       endedEarly: endedEarly,
       charged: charged,
+      cancellationFee: cancellationFee,
     );
     if (record == null) {
       throw ArgumentError.value(
@@ -152,7 +154,7 @@ abstract final class OnDemandRideHistoryStore {
       final prefs = await PreferencesStore.load();
       await prefs.setString(
         key,
-        jsonEncode(retained.map((ride) => ride.toJson()).toList()),
+        jsonEncode(retained.map(_stored).toList()),
       );
       _changes.add(null);
 
@@ -181,6 +183,8 @@ abstract final class OnDemandRideHistoryStore {
   /// The History record for a finished ride, or null when [terminalStatus]
   /// is neither completed nor an explicit cancel. Also used to read server
   /// trips (`ApiRideHistoryRepository`), so both sources look the same.
+  /// [cancellationFee] is what the server charged for a cancel (rider-u33:
+  /// contract §6 `cancellation.fee`), shown on the record when positive.
   static Reservation? recordFor(
     RideSnapshot snapshot, {
     required RideStatus terminalStatus,
@@ -188,6 +192,7 @@ abstract final class OnDemandRideHistoryStore {
     String? cancellationReason,
     bool endedEarly = false,
     Money? charged,
+    Money? cancellationFee,
   }) {
     final rideId = snapshot.rideId?.trim();
     final reservationStatus = _reservationStatus(terminalStatus);
@@ -198,7 +203,10 @@ abstract final class OnDemandRideHistoryStore {
     return Reservation(
       reservationId: 'ondemand-$rideId',
       createdAt: snapshot.createdAt.toUtc(),
-      scheduledPickupAt: ended.toUtc(),
+      // rider-36: History reads the hour and day straight off this value,
+      // as it does for Book later's wall-clock times, so hold the rider's
+      // local time. It is still stored as UTC ([_stored]).
+      scheduledPickupAt: ended.toLocal(),
       pickup: ReservationPlace(
         label: snapshot.pickupAddress,
         lat: snapshot.pickupLat,
@@ -231,8 +239,24 @@ abstract final class OnDemandRideHistoryStore {
           _endedSearchReason(terminalStatus),
       endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
       chargedFare: charged,
+      cancellationFee:
+          cancellationFee != null && cancellationFee.isPositive
+              ? cancellationFee
+              : null,
+      paymentFailed: terminalStatus == RideStatus.paymentFailed,
     );
   }
+
+  /// [ride] with its History time in the rider's local time; records
+  /// written by older builds hold it in UTC.
+  static Reservation? _local(Reservation? ride) =>
+      ride?.copyWith(scheduledPickupAt: ride.scheduledPickupAt.toLocal());
+
+  /// The persisted form: the History time as a UTC instant, so a stored
+  /// ride keeps its moment if the device changes time zone.
+  static Map<String, dynamic> _stored(Reservation ride) => ride
+      .copyWith(scheduledPickupAt: ride.scheduledPickupAt.toUtc())
+      .toJson();
 
   static Future<void> clear() async {
     final prefs = await PreferencesStore.load();
@@ -241,7 +265,14 @@ abstract final class OnDemandRideHistoryStore {
   }
 
   static ReservationStatus? _reservationStatus(RideStatus status) {
-    if (status.isCompletedSurface) return ReservationStatus.completed;
+    // rider-37: a trip paid and rated (or rating skipped) is `closed`, and
+    // one whose payment failed is still a completed trip; History keeps
+    // both (the second with a "Payment failed" label).
+    if (status.isCompletedSurface ||
+        status == RideStatus.closed ||
+        status == RideStatus.paymentFailed) {
+      return ReservationStatus.completed;
+    }
     if (status == RideStatus.cancelledByRider ||
         status == RideStatus.cancelledByDriver ||
         status == RideStatus.cancelledBySystem ||
@@ -258,15 +289,17 @@ abstract final class OnDemandRideHistoryStore {
     return null;
   }
 
+  /// rider-u112: a reason code, not an English sentence;
+  /// ReservationFormat.reasonLabel shows it in the app language.
   static String? _endedSearchReason(RideStatus status) => switch (status) {
-    RideStatus.noDriverFound => 'No driver found',
-    RideStatus.bookingExpired => 'Request expired',
+    RideStatus.noDriverFound => 'system_no_driver',
+    RideStatus.bookingExpired => 'system_expired',
     // Contract v0.3.0: each cause stays distinct in History.
-    RideStatus.cancelledByAdmin => 'Cancelled by Movera',
-    RideStatus.cancelledBySystem => 'Cancelled by the system',
-    RideStatus.noShow => 'No-show',
-    RideStatus.tripFailed => 'Ride failed',
-    RideStatus.endedByDriver => 'Driver ended the ride',
+    RideStatus.cancelledByAdmin => 'admin_cancelled',
+    RideStatus.cancelledBySystem => 'system_cancelled',
+    RideStatus.noShow => 'rider_no_show',
+    RideStatus.tripFailed => 'system_trip_failed',
+    RideStatus.endedByDriver => 'driver_ended',
     _ => null,
   };
 

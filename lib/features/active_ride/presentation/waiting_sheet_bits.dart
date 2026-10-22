@@ -9,10 +9,12 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 String shortPickupPlace(String raw) {
@@ -81,8 +83,9 @@ class WaitingShareButton extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => _share(context),
-          child: const Padding(
-            padding: EdgeInsets.all(10),
+          // rider-u64: the 44 px floor; the 20 px icon was a 40 px target.
+          child: const SizedBox.square(
+            dimension: A11y.minTapIOS,
             child: Icon(
               Icons.ios_share_rounded,
               size: 20,
@@ -106,7 +109,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
     this.walletAmountMinor = 0,
     required this.price,
     this.currency = Money.defaultCurrency,
-    required this.onMore,
+    this.onMore,
   });
 
   final String rideType;
@@ -121,7 +124,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
 
   /// ISO-4217 code of [price] (the trip's zone).
   final String currency;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55): no ⋯ button.
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +164,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   bookedPaymentLine(
-                    paymentMethod: paymentMethod,
+                    // rider-u231: the method in the app language.
+                    paymentMethod: paymentLabelFor(paymentMethod),
                     priceKr: price,
                     currency: currency,
                     walletMinor: walletAmountMinor,
@@ -174,11 +179,12 @@ class WaitingRideDetailsCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            onPressed: onMore,
-            icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: context.l10n.rideDetails,
-          ),
+          if (onMore != null)
+            IconButton(
+              onPressed: onMore,
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: context.l10n.rideDetails,
+            ),
         ],
       ),
     );
@@ -192,14 +198,15 @@ class WaitingDriverCard extends StatefulWidget {
     this.rideId,
     required this.onOpenProfile,
     required this.onCall,
-    required this.onMore,
+    this.onMore,
   });
 
   final MatchedDriver? driver;
   final String? rideId;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55): no ⋯ button.
+  final VoidCallback? onMore;
 
   @override
   State<WaitingDriverCard> createState() => _WaitingDriverCardState();
@@ -402,9 +409,15 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                             color: MoveraTokens.ink,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            context.l10n.message,
-                            style: waitingText(14, weight: FontWeight.w600),
+                          // rider-u65: ellipsize rather than run under the
+                          // call chip (Swedish, large text, unread badge).
+                          Flexible(
+                            child: Text(
+                              context.l10n.message,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: waitingText(14, weight: FontWeight.w600),
+                            ),
                           ),
                           if (unreadMessages > 0) ...[
                             const SizedBox(width: 7),
@@ -441,12 +454,14 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                 onTap: onCall,
                 semanticLabel: context.l10n.callDriver,
               ),
-              const SizedBox(width: 8),
-              _IconChip(
-                icon: Icons.more_horiz_rounded,
-                onTap: onMore,
-                semanticLabel: context.l10n.moreOptions,
-              ),
+              if (onMore != null) ...[
+                const SizedBox(width: 8),
+                _IconChip(
+                  icon: Icons.more_horiz_rounded,
+                  onTap: onMore,
+                  semanticLabel: context.l10n.moreOptions,
+                ),
+              ],
             ],
           ),
         ],
@@ -456,9 +471,14 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
 }
 
 class WaitingNotesAndPin extends StatelessWidget {
-  const WaitingNotesAndPin({super.key, required this.notes});
+  const WaitingNotesAndPin({super.key, required this.notes, this.rideId});
 
   final RideNotes notes;
+
+  /// rider-u66: the screen's ride (a reservation's id on a scheduled live
+  /// ride), which SOS, trip sharing and recording target. Null: the
+  /// on-demand session's ride.
+  final String? rideId;
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +567,7 @@ class WaitingNotesAndPin extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        SafetyKitSheetRow(rideId: AppScope.instance.ride.rideId),
+        SafetyKitSheetRow(rideId: rideId ?? AppScope.instance.ride.rideId),
       ],
     );
   }

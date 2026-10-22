@@ -1,3 +1,4 @@
+import 'package:flutter/animation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
@@ -64,4 +65,54 @@ void main() {
       controller.dispose();
     });
   });
+
+  // rider-r4-26: the sheet listener calls scheduleIdleClose on every metrics
+  // tick at the middle stop. A second call used to cancel the armed timer, so
+  // an even number of ticks meant the sheet never auto-collapsed.
+  testWidgets('repeated scheduleIdleClose at the middle still collapses once', (
+    tester,
+  ) async {
+    final sheet = _AtMiddleSheet();
+    final controller = HomeSheetController(
+      controller: sheet,
+      minPixels: () => 100,
+      midPixels: () => 300,
+    );
+    for (var tick = 0; tick < 4; tick++) {
+      controller.scheduleIdleClose(
+        accessibleNavigation: false,
+        isMounted: () => true,
+      );
+    }
+    await tester.pump(const Duration(seconds: 3));
+    expect(sheet.collapses, 1);
+    controller.dispose();
+  });
+}
+
+class _AtMiddleSheet extends SheetController {
+  int collapses = 0;
+
+  @override
+  bool get hasClient => true;
+
+  @override
+  SheetMetrics? get metrics => _Offset(300);
+
+  @override
+  Future<void> animateTo(
+    SheetOffset to, {
+    Duration duration = const Duration(milliseconds: 300),
+    Curve curve = Curves.easeInOut,
+  }) async => collapses++;
+}
+
+class _Offset with SheetMetrics {
+  _Offset(this.offset);
+
+  @override
+  final double offset;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
