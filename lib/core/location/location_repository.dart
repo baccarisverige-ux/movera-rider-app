@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -48,6 +49,49 @@ class LocationRepository {
       return await Geolocator.checkPermission();
     } catch (_) {
       return requested;
+    }
+  }
+
+  /// rider-u114: the purpose key of the iOS temporary full accuracy prompt;
+  /// it names an entry of NSLocationTemporaryUsageDescriptionDictionary in
+  /// ios/Runner/Info.plist (text in the InfoPlist.strings files).
+  static const precisePurposeKey = 'PickupPrecision';
+
+  /// rider-u114: whether the rider allowed only approximate location
+  /// (iOS "Precise: Off", Android "Approximate"). Such a fix can be hundreds
+  /// of metres off, so it is never used as the pickup. Always false on the
+  /// web (browsers have no approximate mode) and when the plugin cannot say.
+  Future<bool> isApproximateOnly() async {
+    if (isWeb) return false;
+    try {
+      return await Geolocator.getLocationAccuracy() ==
+          LocationAccuracyStatus.reduced;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// rider-u114: asks for precise location. iOS shows the temporary full
+  /// accuracy prompt (for this app session; the rider can make it permanent
+  /// in Settings). Android asks for fine location again, which shows the
+  /// "Precise" upgrade dialog; when that changes nothing (refused before),
+  /// the app's settings page opens instead. Resolves with whether precise
+  /// location is on now.
+  Future<bool> requestPreciseLocation() async {
+    if (isWeb) return true;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return await Geolocator.requestTemporaryFullAccuracy(
+              purposeKey: precisePurposeKey,
+            ) ==
+            LocationAccuracyStatus.precise;
+      }
+      await Geolocator.requestPermission();
+      if (!await isApproximateOnly()) return true;
+      await Geolocator.openAppSettings();
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -1,3 +1,5 @@
 /* iOS permission prompts in French (rider-u6). */
 "NSLocationWhenInUseUsageDescription" = "Movera utilise votre position pendant que vous utilisez l’app pour définir votre point de départ, trouver des chauffeurs à proximité et indiquer au chauffeur où vous retrouver.";
 "NSMicrophoneUsageDescription" = "Movera utilise le micro uniquement lorsque vous choisissez d’enregistrer l’audio pendant une course.";
+/* rider-u114: the temporary precise location prompt (purpose key in Info.plist). */
+"PickupPrecision" = "Movera a besoin de votre position exacte pour placer votre départ là où vous êtes, afin que le chauffeur vous trouve.";
