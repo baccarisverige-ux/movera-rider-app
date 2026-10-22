@@ -49,14 +49,17 @@ class SupportRide {
 
   String get priceLabel {
     if (cancelled) {
-      final charged = formatMajor(cancellationFee ?? 0, currency);
+      // rider-r5-48: a charged amount to the öre, as History and the
+      // receipt show it.
+      final charged = formatMajor(cancellationFee ?? 0, currency, whole: false);
       return extra == null
           ? L10n.current.supportPriceCancelled(charged)
           : L10n.current.supportPriceCancelledExtra(charged, extra!);
     }
     if (failed) return L10n.current.supportFailed;
     if (endedEarly) {
-      return '${formatMajor(price, currency)} · ${L10n.current.endedEarly}';
+      return '${formatMajor(price, currency, whole: false)} · '
+          '${L10n.current.endedEarly}';
     }
     return formatMajor(price, currency);
   }
