@@ -346,6 +346,25 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('rider-r3-6: the generic Card picked on Set pickup opens Add '
+      'card before booking', (tester) async {
+    CardEntryPolicy.debugOverride = true;
+    addTearDown(() => CardEntryPolicy.debugOverride = null);
+    final selection = _selection(_Quotes());
+    final booking = _Booking();
+    await _pumpSelectRide(tester, selection, booking);
+    await tester.tap(find.text('Select Movera'));
+    await _settle(tester, 30);
+    // The rider chooses "Card" in Set pickup's payment picker.
+    final cards = selection.payments().indexWhere((p) => p.brand == 'cards');
+    expect(cards, isNonNegative);
+    selection.selectPayment(cards);
+    await _confirmPickup(tester);
+    expect(booking.booked, isEmpty);
+    expect(find.byType(AddCardPage), findsOneWidget);
+    await _close(tester);
+  });
+
   testWidgets('rider-u155: Last changed is the rider\'s local day', (
     tester,
   ) async {

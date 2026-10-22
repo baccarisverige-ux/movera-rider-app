@@ -1256,6 +1256,11 @@ class _SelectRideState extends State<SelectRide>
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
           _notes = _notes.withBagLevel(spot.bagLevel);
+          // rider-r3-6: Card may have been picked on Set pickup.
+          if (_selection.selectedPaymentItem()?.brand == 'cards' &&
+              !_selection.hasSavedCard) {
+            if (await _addCardFirst() == null || !mounted) return;
+          }
         }
         if (_returnTimeNeedsPicker) {
           // The prefill went stale while the rider confirmed the pickup spot.
@@ -1393,16 +1398,16 @@ class _SelectRideState extends State<SelectRide>
     _bookingInFlight = false;
     if (!mounted) return;
     setState(() {});
-    if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
-  }
-
-  void _releaseRouteWork() {
-    _bookingInFlight = false;
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
       unawaited(_loadQuotes());
       return;
     }
+    if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
+  }
+
+  void _releaseRouteWork() {
+    _bookingInFlight = false;
     _expiryRequote?.cancel();
     _expiryRequote = null;
     _selection.cancelPendingQuotes();
@@ -1678,6 +1683,17 @@ class _SelectRideState extends State<SelectRide>
             brand: chosen.brand,
             name: chosen.name,
             detail: chosen.detail,
+          );
+        }
+        // rider-r3-6: the generic Card row picked on Set pickup needs a
+        // saved card too, as it does before Set pickup.
+        if (payment.brand == 'cards' && !_selection.hasSavedCard) {
+          final card = await _addCardFirst();
+          if (card == null || !mounted) return;
+          payment = _PaymentOption(
+            brand: card.methodBrand,
+            name: card.displayName,
+            detail: context.l10n.cardExpires(card.expiryLabel),
           );
         }
 
