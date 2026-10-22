@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
@@ -33,7 +34,11 @@ class AuthController {
   }) async {
     final result = await _auth.verifyOtp(challenge: challenge, code: code);
     lastChallenge = null;
+    // rider-r5-31: the new rider's name marker (rider-u74) was written by
+    // the verify call; a wipe of the previous rider's data must keep it.
+    final pendingName = await PendingRiderName.read();
     await _enterSession(phone: challenge.phone);
+    if (pendingName != null) await PendingRiderName.mark(pendingName);
     unawaited(_registerPushBestEffort());
     return result;
   }
