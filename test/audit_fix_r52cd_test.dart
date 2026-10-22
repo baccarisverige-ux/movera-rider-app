@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -51,6 +52,7 @@ import 'package:movera_rider/features/support/application/support_controller.dar
 import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
+import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'safety/safety_test.dart' show TestSafetyRecorder;
@@ -622,5 +624,26 @@ void main() {
 
     expect(loads, 2);
     expect(find.text('No rides yet'), findsOneWidget);
+  });
+
+  testWidgets('rider-96: the side gutter follows a window resize',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<double> gutterAt(double width) async {
+      tester.view.physicalSize = Size(width, 844);
+      late double gutter;
+      await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) => Builder(builder: (_) {
+          gutter = screenHorizPadding;
+          return const SizedBox();
+        }),
+      ));
+      return gutter;
+    }
+
+    expect(await gutterAt(390), 16);
+    expect(await gutterAt(487.5), 20, reason: '16 at the 1.25 scale');
   });
 }
