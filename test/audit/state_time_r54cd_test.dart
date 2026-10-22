@@ -5,6 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -134,6 +141,25 @@ Future<FindingDriverController> _landedQueuedCancel(
   return controller;
 }
 
+/// A geocoder that records forward queries and finds a business for each.
+class _RecordingGeocoder implements GeocodingRepository {
+  final queries = <String>[];
+
+  @override
+  Future<PlaceResult?> forward(String query) async {
+    queries.add(query);
+    return const PlaceResult(
+      address: 'Pickup Location AB, Malmö',
+      point: GeoPoint(55.6, 13.0),
+    );
+  }
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => null;
+}
+
+class _NoLocation extends Fake implements LocationRepository {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -253,5 +279,25 @@ void main() {
     ));
     expect(find.text(L10n.current.cancelReasonPlansChanged), findsOneWidget);
     expect(find.text(L10n.current.cancelReasonWaitTooLong), findsNothing);
+  });
+
+  test('rider-39: placeholder pickup labels are not forward-geocoded',
+      () async {
+    final geocoder = _RecordingGeocoder();
+    final home = HomeLocationController(
+      location: _NoLocation(),
+      geocoding: geocoder,
+      motion: MotionEngine(),
+    );
+    addTearDown(home.dispose);
+    final labels = [
+      pickupLocationFallbackLabel,
+      locationOffPickupLabel,
+      droppedPinPickupAddress(const LatLng(59.31, 18.0686)),
+    ];
+    for (final label in labels) {
+      expect(await home.normaliseAddress(label), label);
+    }
+    expect(geocoder.queries, isEmpty);
   });
 }

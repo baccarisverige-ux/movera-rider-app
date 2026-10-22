@@ -13,7 +13,7 @@ import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart'
-    show locationOffPickupLabel;
+    show isDroppedPinLabel, locationOffPickupLabel, pickupLocationFallbackLabel;
 import 'package:movera_rider/core/location/location_access_issue.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
@@ -269,7 +269,13 @@ class HomeLocationController extends ChangeNotifier {
 
   Future<String> normaliseAddress(String input, {int? generation}) async {
     final clean = input.trim();
-    if (clean.isEmpty || clean == 'Current location') return clean;
+    // rider-39: a placeholder or dropped-pin label names no place; a fuzzy
+    // geocoder would swap it for some other place's name.
+    if (isPlaceholderPickupLabel(clean) ||
+        clean == pickupLocationFallbackLabel ||
+        isDroppedPinLabel(clean)) {
+      return clean;
+    }
     final scope = generation ?? _normaliseGuard.next();
     PlaceResult? result;
     try {

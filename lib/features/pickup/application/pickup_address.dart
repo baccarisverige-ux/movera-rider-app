@@ -48,6 +48,14 @@ String droppedPinPickupAddress(LatLng position) {
   );
 }
 
+final RegExp _droppedPinPoint = RegExp(
+  r'\d{1,3}\.\d{5}° \S+ \d{1,3}\.\d{5}° \S+$',
+);
+
+/// True for a [droppedPinPickupAddress] label, in any app language.
+bool isDroppedPinLabel(String? label) =>
+    _droppedPinPoint.hasMatch(label?.trim() ?? '');
+
 /// True when [label] does not name the pin's place for a booking: an
 /// unusable label or the neutral [pickupLocationFallbackLabel].
 bool needsDroppedPinLabel(String? label) =>
