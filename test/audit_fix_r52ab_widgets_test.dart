@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,6 +15,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -322,6 +326,29 @@ void main() {
 
     expect(cars(), hasLength(1));
     expect(cars().single.position, const LatLng(59.3340, 18.0600));
+  });
+
+  testWidgets('rider-u82: a saved-place search that could not run says '
+      'so, not "address not found"', (tester) async {
+    // As phase100_destination_input_test's pumpSearch.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(390, 844),
+      builder: (_, __) => MaterialApp(
+        home: RiderSearchPickupLocation(
+          geocode: (_) async => throw TimeoutException('offline'),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Kungsgatan 4');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't reach Movera. Check your connection."),
+        findsOneWidget);
   });
 
   testWidgets('rider-u91: a place the rider named shows that name in '
