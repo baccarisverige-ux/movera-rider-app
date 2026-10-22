@@ -1839,6 +1839,7 @@
       }
     }
   },
+  "reservationNow": "Reservation now",
   "chronoNoDriverRebook": "We couldn't find a driver for your scheduled pickup. Rebook for a new time or cancel this reservation.",
   "chronoNoDriverCancel": "We couldn't find a driver for your scheduled pickup. Cancel this reservation and book again.",
   "rebook": "Rebook",
@@ -1931,6 +1932,16 @@
       }
     }
   },
+  "driverTripsCompleted": "{count, plural, =1{1 trip completed} other{{count} trips completed}}",
+  "@driverTripsCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "driverTaglineDefault": "Movera driver",
+  "driverVehicleUnavailable": "Vehicle details unavailable",
   "safetyKit": "Safety Kit",
   "safetyKitRecording": "Recording. It stops and is saved on this device when you tap Stop audio or close the Safety Kit.",
   "sosRegistered": "Phone dialer opened. Movera registered your SOS.",
@@ -2556,6 +2567,7 @@
   "resNoChangeCharge": "No additional change charge",
   "resNotFound": "Reservation not found",
   "resScheduleCaps": "SCHEDULE",
+  "scheduleHeaderCaps": "SCHEDULE",
   "resCancelledReservation": "Cancelled reservation",
   "resUpcomingRide": "Upcoming ride",
   "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",

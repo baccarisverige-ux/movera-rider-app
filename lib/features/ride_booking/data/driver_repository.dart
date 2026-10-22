@@ -51,10 +51,13 @@ class DriverRepository {
 
     return DriverProfile(
       name: driver.firstName,
+      // rider-70: the fallbacks in the app language.
       tagline: driver.tripCount == null
-          ? 'Movera driver'
-          : '${driver.tripCount} trips completed',
-      vehicle: vehicle.isEmpty ? 'Vehicle details unavailable' : vehicle,
+          ? L10n.current.driverTaglineDefault
+          : L10n.current.driverTripsCompleted(driver.tripCount!),
+      vehicle: vehicle.isEmpty
+          ? L10n.current.driverVehicleUnavailable
+          : vehicle,
       plate: driver.plate ?? '',
       rideNumber: ride.rideId ?? '',
       ratingLabel: driver.rating?.toStringAsFixed(1) ?? '',

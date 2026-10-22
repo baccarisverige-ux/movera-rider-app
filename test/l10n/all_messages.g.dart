@@ -851,6 +851,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'continuing': l.continuing,
   'chronoNoDriverLabel': l.chronoNoDriverLabel,
   'reservationIn': l.reservationIn('<time>'),
+  'reservationNow': l.reservationNow,
   'chronoNoDriverRebook': l.chronoNoDriverRebook,
   'chronoNoDriverCancel': l.chronoNoDriverCancel,
   'rebook': l.rebook,
@@ -876,6 +877,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notificationRideEnded': l.notificationRideEnded,
   'notificationUnread': l.notificationUnread,
   'driverTripCount': l.driverTripCount(37),
+  'driverTripsCompleted': l.driverTripsCompleted(37),
+  'driverTaglineDefault': l.driverTaglineDefault,
+  'driverVehicleUnavailable': l.driverVehicleUnavailable,
   'safetyKit': l.safetyKit,
   'safetyKitRecording': l.safetyKitRecording,
   'sosRegistered': l.sosRegistered,
@@ -1280,6 +1284,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resNoChangeCharge': l.resNoChangeCharge,
   'resNotFound': l.resNotFound,
   'resScheduleCaps': l.resScheduleCaps,
+  'scheduleHeaderCaps': l.scheduleHeaderCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
   'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
@@ -1361,6 +1366,7 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
   'validUntilDays': l.validUntilDays('<date>', 1),
   'driverTripCount': l.driverTripCount(1),
+  'driverTripsCompleted': l.driverTripsCompleted(1),
   'tripSharingStarted': l.tripSharingStarted(1),
   'safetyContactsCount': l.safetyContactsCount(1),
   'retrySeconds': l.retrySeconds(1),
@@ -1493,6 +1499,7 @@ const messagePlaceholders = <String, List<String>>{
   'maxOffPerRide': ['amount'],
   'wasNowPromo': ['was', 'now'],
   'driverTripCount': [],
+  'driverTripsCompleted': [],
   'tripSharingStarted': [],
   'safetyContactsCount': [],
   'contactDeleteQ': ['name'],
@@ -1541,6 +1548,7 @@ const messageCounts = <String, List<String>>{
   'pickupTimeWithinHorizon': ['days'],
   'validUntilDays': ['days'],
   'driverTripCount': ['count'],
+  'driverTripsCompleted': ['count'],
   'tripSharingStarted': ['count'],
   'safetyContactsCount': ['count'],
   'retrySeconds': ['count'],
@@ -3244,6 +3252,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String reservationIn(String time) => '';
   @override
+  String get reservationNow => '';
+  @override
   String get chronoNoDriverRebook => '';
   @override
   String get chronoNoDriverCancel => '';
@@ -3293,6 +3303,12 @@ class _Exhaustive implements AppLocalizations {
   String get notificationUnread => '';
   @override
   String driverTripCount(int count) => '';
+  @override
+  String driverTripsCompleted(int count) => '';
+  @override
+  String get driverTaglineDefault => '';
+  @override
+  String get driverVehicleUnavailable => '';
   @override
   String get safetyKit => '';
   @override
@@ -4101,6 +4117,8 @@ class _Exhaustive implements AppLocalizations {
   String get resNotFound => '';
   @override
   String get resScheduleCaps => '';
+  @override
+  String get scheduleHeaderCaps => '';
   @override
   String get resCancelledReservation => '';
   @override

@@ -21,9 +21,17 @@ String paymentDetailFor(String brand, String detail) => switch (detail) {
 /// A payment method stored on a ride by its English name ("Cash", "Card",
 /// "Movera Wallet") as the rider reads it; other names (Apple Pay, a card's
 /// "Visa •••• 4242") are shown as they are.
-String paymentLabelFor(String stored) => switch (stored.trim()) {
-  'Cash' => L10n.current.payCash,
-  'Card' => L10n.current.payCard,
-  'Movera Wallet' => L10n.current.moveraWallet,
-  _ => stored,
-};
+///
+/// rider-u231: a ride restored from the server without a label holds the
+/// method id instead ('cash', 'wallet', 'cards', `card:<id>`); those read
+/// as the same translated names.
+String paymentLabelFor(String stored) {
+  final value = stored.trim();
+  if (value.startsWith('card:')) return L10n.current.payCard;
+  return switch (value) {
+    'Cash' || 'cash' => L10n.current.payCash,
+    'Card' || 'cards' => L10n.current.payCard,
+    'Movera Wallet' || 'wallet' => L10n.current.moveraWallet,
+    _ => stored,
+  };
+}

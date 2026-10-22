@@ -247,11 +247,17 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
           ride.scheduledPickupAt,
           now: _now,
         );
+        // rider-j8-7: under a minute left, or a pickup already past (driver
+        // arrived, trip under way), is "now", not "in Now".
+        final due =
+            ride.scheduledPickupAt.difference(_now).inSeconds < 60;
         return PointerInterceptor(
           child: Semantics(
             button: true,
             label: noDriver
                 ? context.l10n.chronoNoDriverLabel
+                : due
+                ? context.l10n.reservationNow
                 : context.l10n.reservationIn(compact),
             child: GestureDetector(
               onTap: () => _openRide(ride),

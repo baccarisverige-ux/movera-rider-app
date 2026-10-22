@@ -52,6 +52,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class FindingDrivers extends StatefulWidget {
@@ -1275,7 +1276,8 @@ class _FindingDriversState extends State<FindingDrivers> {
                       const SizedBox(height: 8),
                       Text(
                         bookedPaymentLine(
-                          paymentMethod: widget.paymentMethod,
+                          // rider-u231: the method in the app language.
+                          paymentMethod: paymentLabelFor(widget.paymentMethod),
                           priceKr: _match.currentPrice,
                           currency: _match.currency,
                           walletMinor: widget.walletAmountMinor,

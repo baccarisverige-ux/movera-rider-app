@@ -14,6 +14,7 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 String shortPickupPlace(String raw) {
@@ -163,7 +164,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   bookedPaymentLine(
-                    paymentMethod: paymentMethod,
+                    // rider-u231: the method in the app language.
+                    paymentMethod: paymentLabelFor(paymentMethod),
                     priceKr: price,
                     currency: currency,
                     walletMinor: walletAmountMinor,

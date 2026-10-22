@@ -6,6 +6,7 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RiderInTripPanel extends StatelessWidget {
@@ -130,7 +131,8 @@ class RiderInTripPanel extends StatelessWidget {
           // One slim line: the destination is already the subtitle above.
           Text(
             '$rideType · ${bookedPaymentLine(
-              paymentMethod: paymentMethod,
+              // rider-u231: the method in the app language.
+              paymentMethod: paymentLabelFor(paymentMethod),
               priceKr: price,
               currency: currency,
               walletMinor: walletAmountMinor,

@@ -8,6 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// A driver dropping the ride before pickup is not the rider's ride ending.
 /// Dispatch looks again, so the rider keeps their ride, their price and their
 /// addresses — and must not be filed in History as a cancelled trip.
+/// Waits until [done] holds (at most 5 s), instead of a fixed delay that a
+/// loaded machine can outrun.
+Future<void> _until(bool Function() done) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!done() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -19,15 +28,15 @@ void main() {
     final seen = <RideStatus>[];
     rt.subscribe('ride_dc_1').listen((e) => seen.add(e.status));
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
     expect(rt.lastStatus, RideStatus.driverAssigned);
 
     rt.cancelByDriver();
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await _until(() => seen.contains(RideStatus.cancelledByDriver));
     expect(seen, contains(RideStatus.cancelledByDriver));
 
     rt.researchAfterDriverCancel();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
 
     expect(rt.lastStatus, RideStatus.driverAssigned);
     expect(rt.lastDriver, isNotNull);
@@ -39,12 +48,14 @@ void main() {
 
     rt.subscribe('ride_dc_2');
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
     final first = rt.lastDriver;
 
     rt.cancelByDriver();
     rt.researchAfterDriverCancel();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await _until(() =>
+        rt.lastStatus == RideStatus.driverAssigned &&
+        rt.lastDriver?.id != first?.id);
 
     expect(first, isNotNull);
     expect(rt.lastDriver, isNotNull);
@@ -57,10 +68,10 @@ void main() {
 
     rt.subscribe('ride_dc_3');
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
     rt.cancelByDriver();
     rt.researchAfterDriverCancel();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
 
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
   });
@@ -71,7 +82,7 @@ void main() {
 
     rt.subscribe('ride_dc_4');
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 40));
+    await _until(() => rt.lastStatus == RideStatus.driverAssigned);
     rt.lastStatus = RideStatus.tripCompleted;
 
     rt.cancelByDriver();

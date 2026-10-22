@@ -333,7 +333,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
                         ),
                         const Spacer(),
                         Text(
-                          'SCHEDULE',
+                          // rider-90: in the app language.
+                          context.l10n.scheduleHeaderCaps,
                           style: GoogleFonts.poppins(
                             color: _scheduleMuted,
                             fontSize: 10,

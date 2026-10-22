@@ -234,12 +234,13 @@ class RideCheckReason {
   }
 }
 
-/// "650 m" below a kilometre, "1.2 km" from there.
+/// "650 m" below a kilometre, "1.2 km" from there (rider-u209: "1,2 km" in
+/// French and Swedish).
 String formatRideCheckDistance(double meters) {
   if (meters < 1000) {
     final rounded = (meters / 10).round() * 10;
     return '$rounded m';
   }
   final km = meters / 1000;
-  return '${km.toStringAsFixed(km >= 10 ? 0 : 1)} km';
+  return '${L10n.formatDecimal(km, digits: km >= 10 ? 0 : 1)} km';
 }

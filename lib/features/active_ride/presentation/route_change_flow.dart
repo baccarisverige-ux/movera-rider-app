@@ -15,6 +15,7 @@ import 'package:movera_rider/features/wallet/application/wallet_controller.dart'
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Which row of the ride details the rider tapped.
@@ -260,12 +261,14 @@ void showRouteUpdated(
   if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
     // [differenceKr] is in whole units of [currency].
     final kr = formatMajor(differenceKr.abs(), currency);
+    // rider-u231: the method's name in the app language.
+    final method = paymentLabelFor(paymentMethod);
     if (differenceKr > 0) {
-      parts.add(context.l10n.chargedTo(kr, paymentMethod));
+      parts.add(context.l10n.chargedTo(kr, method));
     } else if ((refundTo ?? lastRefundDestination) == RefundDestination.wallet) {
       parts.add(context.l10n.creditedToWallet(kr));
     } else {
-      parts.add(context.l10n.refundedToDays(kr, paymentMethod));
+      parts.add(context.l10n.refundedToDays(kr, method));
     }
   }
   ScaffoldMessenger.maybeOf(context)
