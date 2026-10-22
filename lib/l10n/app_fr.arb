@@ -845,6 +845,7 @@
   "continuing": "Un instant…",
   "chronoNoDriverLabel": "Aucun chauffeur trouvé. Réserver à nouveau ou annuler",
   "reservationIn": "Réservation dans {time}",
+  "reservationNow": "Réservation maintenant",
   "chronoNoDriverRebook": "Nous n’avons pas trouvé de chauffeur pour votre départ planifié. Réservez pour une autre heure ou annulez cette réservation.",
   "chronoNoDriverCancel": "Nous n’avons pas trouvé de chauffeur pour votre départ planifié. Annulez cette réservation et réservez à nouveau.",
   "rebook": "Réserver à nouveau",

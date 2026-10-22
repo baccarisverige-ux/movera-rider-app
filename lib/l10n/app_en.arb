@@ -1839,6 +1839,7 @@
       }
     }
   },
+  "reservationNow": "Reservation now",
   "chronoNoDriverRebook": "We couldn't find a driver for your scheduled pickup. Rebook for a new time or cancel this reservation.",
   "chronoNoDriverCancel": "We couldn't find a driver for your scheduled pickup. Cancel this reservation and book again.",
   "rebook": "Rebook",

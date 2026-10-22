@@ -845,6 +845,7 @@
   "continuing": "Fortsätter…",
   "chronoNoDriverLabel": "Ingen förare hittades. Boka om eller avboka",
   "reservationIn": "Bokning om {time}",
+  "reservationNow": "Bokning nu",
   "chronoNoDriverRebook": "Vi hittade ingen förare till din förbokade upphämtning. Boka om till en ny tid eller avboka bokningen.",
   "chronoNoDriverCancel": "Vi hittade ingen förare till din förbokade upphämtning. Avboka bokningen och boka igen.",
   "rebook": "Boka om",

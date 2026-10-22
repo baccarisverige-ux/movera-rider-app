@@ -851,6 +851,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'continuing': l.continuing,
   'chronoNoDriverLabel': l.chronoNoDriverLabel,
   'reservationIn': l.reservationIn('<time>'),
+  'reservationNow': l.reservationNow,
   'chronoNoDriverRebook': l.chronoNoDriverRebook,
   'chronoNoDriverCancel': l.chronoNoDriverCancel,
   'rebook': l.rebook,
@@ -3243,6 +3244,8 @@ class _Exhaustive implements AppLocalizations {
   String get chronoNoDriverLabel => '';
   @override
   String reservationIn(String time) => '';
+  @override
+  String get reservationNow => '';
   @override
   String get chronoNoDriverRebook => '';
   @override
