@@ -1026,6 +1026,52 @@
   "@compassWest": {
     "description": "Abbreviation for west after a longitude."
   },
+  "pickupSpotMainEntrance": "Main entrance",
+  "@pickupSpotMainEntrance": {
+    "description": "Pickup spot chip title; also part of the booked pickup label ('Street 1 – Main entrance')."
+  },
+  "pickupSpotFrontOfBuilding": "Front of the building",
+  "@pickupSpotFrontOfBuilding": {
+    "description": "Subtitle of the Main entrance pickup spot."
+  },
+  "pickupSpotSideEntrance": "Side entrance",
+  "@pickupSpotSideEntrance": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotAroundCorner": "Around the corner",
+  "@pickupSpotAroundCorner": {
+    "description": "Subtitle of the Side entrance pickup spot."
+  },
+  "pickupSpotParking": "Parking",
+  "@pickupSpotParking": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotShortWalk": "Short walk",
+  "@pickupSpotShortWalk": {
+    "description": "Subtitle of the Parking pickup spot."
+  },
+  "pickupSpotNearHome": "Near Home",
+  "@pickupSpotNearHome": {
+    "description": "Pickup spot chip title when the rider's Home is close."
+  },
+  "pickupSpotMetresFromHere": "{metres} m from here",
+  "@pickupSpotMetresFromHere": {
+    "description": "Subtitle of the Near Home pickup spot: its distance in metres.",
+    "placeholders": {
+      "metres": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "pickupSpotPreviouslyUsed": "Previously used",
+  "@pickupSpotPreviouslyUsed": {
+    "description": "Pickup spot chip title for a pickup the rider confirmed before."
+  },
+  "pickupCurrentUpper": "CURRENT",
+  "@pickupCurrentUpper": {
+    "description": "Small button on the saved place map picker that moves the pin to the current location."
+  },
   "destination": "Destination",
   "endedEarly": "Ended early",
   "totalPayment": "Total payment",

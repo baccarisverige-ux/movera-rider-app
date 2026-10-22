@@ -28,6 +28,8 @@ void main() {
       'supportMessages', 'polPromotionsTitle',
       // R5.1: compass letters French shares with English.
       'compassNorth', 'compassSouth', 'compassEast',
+      // R5.1: a pickup spot named with the word French shares.
+      'pickupSpotParking',
     },
     'sv': {
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',

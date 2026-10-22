@@ -513,6 +513,16 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
   'compassWest': l.compassWest,
+  'pickupSpotMainEntrance': l.pickupSpotMainEntrance,
+  'pickupSpotFrontOfBuilding': l.pickupSpotFrontOfBuilding,
+  'pickupSpotSideEntrance': l.pickupSpotSideEntrance,
+  'pickupSpotAroundCorner': l.pickupSpotAroundCorner,
+  'pickupSpotParking': l.pickupSpotParking,
+  'pickupSpotShortWalk': l.pickupSpotShortWalk,
+  'pickupSpotNearHome': l.pickupSpotNearHome,
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(37),
+  'pickupSpotPreviouslyUsed': l.pickupSpotPreviouslyUsed,
+  'pickupCurrentUpper': l.pickupCurrentUpper,
   'destination': l.destination,
   'endedEarly': l.endedEarly,
   'totalPayment': l.totalPayment,
@@ -1342,6 +1352,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
 Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'homeRideCount': l.homeRideCount(1),
   'ridesLeft': l.ridesLeft(1),
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(1),
   'ratingStarsValue': l.ratingStarsValue(1),
   'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
   'validUntilDays': l.validUntilDays('<date>', 1),
@@ -1418,6 +1429,7 @@ const messagePlaceholders = <String, List<String>>{
   'endedEarlyBodyAmount': ['amount'],
   'youPayAmount': ['amount'],
   'droppedPinLabel': ['lat', 'latSide', 'lng', 'lngSide'],
+  'pickupSpotMetresFromHere': [],
   'kmDriven': ['km'],
   'tipName': ['name'],
   'tipSelected': ['amount'],
@@ -1520,6 +1532,7 @@ const messagePlaceholders = <String, List<String>>{
 const messageCounts = <String, List<String>>{
   'homeRideCount': ['count'],
   'ridesLeft': ['count'],
+  'pickupSpotMetresFromHere': ['metres'],
   'ratingStarsValue': ['count'],
   'pickupTimeWithinHorizon': ['days'],
   'validUntilDays': ['days'],
@@ -2550,6 +2563,26 @@ class _Exhaustive implements AppLocalizations {
   String get compassEast => '';
   @override
   String get compassWest => '';
+  @override
+  String get pickupSpotMainEntrance => '';
+  @override
+  String get pickupSpotFrontOfBuilding => '';
+  @override
+  String get pickupSpotSideEntrance => '';
+  @override
+  String get pickupSpotAroundCorner => '';
+  @override
+  String get pickupSpotParking => '';
+  @override
+  String get pickupSpotShortWalk => '';
+  @override
+  String get pickupSpotNearHome => '';
+  @override
+  String pickupSpotMetresFromHere(int metres) => '';
+  @override
+  String get pickupSpotPreviouslyUsed => '';
+  @override
+  String get pickupCurrentUpper => '';
   @override
   String get destination => '';
   @override

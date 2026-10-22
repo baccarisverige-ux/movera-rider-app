@@ -22,6 +22,7 @@ import 'package:movera_rider/features/notifications/presentation/notifications.d
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -379,6 +380,34 @@ void main() {
           code == 'fr'
               ? 'Repère placé · 59.32930° N 18.06860° O'
               : 'Placerad nål · 59.32930° N 18.06860° V',
+        );
+      });
+
+      test('rider-55: pickup spot chips and the booked label are translated', () async {
+        L10n.use(code);
+        const at = LatLng(59.3293, 18.0686);
+        final spots = await PickupSpotsController().forAddress(
+          at: at,
+          address: 'Klockarvägen 37, Huddinge',
+          home: pickupSpotOffset(at, northM: 100),
+        );
+        final titles = spots.map((s) => s.title).toList();
+        expect(titles, [
+          L10n.current.pickupSpotMainEntrance,
+          L10n.current.pickupSpotSideEntrance,
+          L10n.current.pickupSpotParking,
+          L10n.current.pickupSpotNearHome,
+        ]);
+        expect(titles, isNot(contains('Main entrance')));
+        expect(
+          spots.last.subtitle,
+          code == 'fr' ? 'À 100 m d’ici' : '100 m härifrån',
+        );
+        expect(
+          pickupSpotLabel('Klockarvägen 37, Huddinge', spots.first),
+          code == 'fr'
+              ? 'Klockarvägen 37 – Entrée principale'
+              : 'Klockarvägen 37 – Huvudentré',
         );
       });
     });

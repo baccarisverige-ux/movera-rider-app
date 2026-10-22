@@ -228,7 +228,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                                   ),
                                   4.width,
                                   TextWidget(
-                                    text: 'CURRENT',
+                                    text: context.l10n.pickupCurrentUpper,
                                     fontSize: 8,
                                     fontWeight: fwBold,
                                     color: AppColor.black,
