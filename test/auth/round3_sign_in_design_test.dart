@@ -195,50 +195,57 @@ void main() {
           : tester.widget<CustomPaint>(paints);
     }
 
-    double pinOpacity() => tester
-        .widget<Opacity>(
+    double dotScale() => tester
+        .widget<AnimatedScale>(
           find.descendant(
             of: find.byKey(wordmarkKey),
-            matching: find.byType(Opacity),
+            matching: find.byKey(const ValueKey('movera-dot')),
           ),
         )
-        .opacity;
+        .scale;
 
     // In the hand: the scene draws it; the wordmark already reads "Movera"
-    // with its pin (owner: never an empty "o").
+    // with its pin, only the dot waits for the balloon.
     story.value = 0.2;
     await tester.pump();
     expect(painted(), isNull);
-    expect(pinOpacity(), 1);
+    expect(dotScale(), 0);
 
-    // Released: the flight layer draws it, from the hand's position.
+    // Released: the flight layer draws it, still full size, on its arc.
     story.value = 0.5;
     await tester.pump();
     expect(painted(), isNotNull);
-    expect(pinOpacity(), 1);
+    expect(dotScale(), 0);
     expect(BalloonFlight.travel(0.5), inExclusiveRange(0, 1));
-    expect(BalloonFlight.morph(0.5), 0, reason: 'still a balloon');
+    expect(BalloonFlight.shrink(0.5), 0, reason: 'not shrinking yet');
 
-    // Half-way it is already turning into the pin, still one layer.
-    story.value = 0.8;
+    // Near the end it shrinks towards the dot, still one layer.
+    story.value = 0.82;
     await tester.pump();
     expect(painted(), isNotNull);
-    expect(BalloonFlight.morph(0.8), inExclusiveRange(0, 1));
-    expect(pinOpacity(), 1);
+    expect(BalloonFlight.shrink(0.82), inExclusiveRange(0, 1));
+    expect(dotScale(), 0);
 
-    // Landed: the flight stops; the balloon has become the pin that was there.
+    // Landed: the flight stops and the wordmark's dot pops in.
     story.value = BalloonFlight.landAt;
     await tester.pump();
     expect(painted(), isNull);
-    expect(pinOpacity(), 1);
+    expect(dotScale(), 1);
     expect(BalloonFlight.travel(1), 1);
-    expect(BalloonFlight.morph(1), 1);
+    expect(BalloonFlight.shrink(1), 1);
+    await tester.pumpAndSettle();
 
-    // The hand-over point is one and the same spot.
+    // The arc leaves the hand's position and ends on the dot's centre.
     final scene = sceneKey.currentContext!.findRenderObject()! as RenderBox;
     final start = AuthScene.balloonCentre(scene.size);
     expect(start.dx, closeTo(304 * scene.size.width / 390, 0.01));
     expect(start.dy, lessThan(scene.size.height));
+    const from = Offset(300, 500);
+    const to = Offset(120, 60);
+    expect(BalloonFlight.along(from, to, 0), from);
+    expect(BalloonFlight.along(from, to, 1), to);
+    final mid = BalloonFlight.along(from, to, 0.5);
+    expect(mid.dy, lessThan((from.dy + to.dy) / 2), reason: 'rises first');
   });
 
   testWidgets('reduce motion: no flight, the pin is simply there', (
@@ -260,13 +267,13 @@ void main() {
         ),
       ),
     );
-    final opacity = tester.widget<Opacity>(
+    final dot = tester.widget<AnimatedScale>(
       find.descendant(
         of: find.byKey(wordmarkKey),
-        matching: find.byType(Opacity),
+        matching: find.byKey(const ValueKey('movera-dot')),
       ),
     );
-    expect(opacity.opacity, 1);
+    expect(dot.scale, 1);
     expect(find.byType(MoveraWordmark), findsOneWidget);
   });
 }

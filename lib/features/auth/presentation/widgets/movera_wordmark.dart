@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
 /// The one Movera wordmark: "Mov" in ink, the map pin as the "o" (ink
-/// running into green from head to tip), "era" in green. Every sign-in screen draws this same widget, only at another
+/// running into green from head to tip, a small green dot in its hole),
+/// "era" in green. Every sign-in screen draws this same widget, only at another
 /// [size], so the mark is identical everywhere (owner round 3).
 ///
 /// Proportions follow the approved mock-up and are relative to the font
@@ -12,12 +13,16 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart'
 ///  * the pin's tip ends [MoveraPin.tipBelowBaseline] under the baseline;
 ///  * [MoveraPin.gap] of air on each side of the pin.
 class MoveraWordmark extends StatelessWidget {
-  const MoveraWordmark({super.key, this.size = 27, this.pinOpacity = 1});
+  const MoveraWordmark({super.key, this.size = 27, this.showDot = true});
 
   final double size;
 
-  /// 0 hides the pin (the brand intro draws a balloon there instead).
-  final double pinOpacity;
+  /// The small green dot inside the pin's hole (owner round 4). The brand
+  /// intro hides it until the balloon has landed there and become it.
+  final bool showDot;
+
+  /// How long the dot pops in when it appears.
+  static const dotPop = Duration(milliseconds: 240);
 
   static TextStyle textStyle(double size) => GoogleFonts.urbanist(
     fontSize: size,
@@ -43,12 +48,18 @@ class MoveraWordmark extends StatelessWidget {
     final gap = MoveraPin.gap * size;
     final pinLeft = m.width + gap;
     final pinTop = baseline - MoveraPin.xHeight * size;
+    final pinRect = Rect.fromLTWH(pinLeft, pinTop, pinWidth, pinHeight);
+    final pinScale = pinHeight / MoveraPin.designSize.height;
     final layout = MoveraWordmarkLayout(
       size: Size(pinLeft + pinWidth + gap + vera.width, size),
       baseline: baseline,
       mLeft: 0,
       veraLeft: pinLeft + pinWidth + gap,
-      pinRect: Rect.fromLTWH(pinLeft, pinTop, pinWidth, pinHeight),
+      pinRect: pinRect,
+      dotRect: Rect.fromCircle(
+        center: pinRect.topLeft + MoveraPin.headCentre * pinScale,
+        radius: MoveraPin.dotRadius * pinScale,
+      ),
     );
     m.dispose();
     vera.dispose();
@@ -76,11 +87,23 @@ class MoveraWordmark extends StatelessWidget {
             Positioned(
               left: l.pinRect.left,
               top: l.pinRect.top,
-              child: Opacity(
-                opacity: pinOpacity.clamp(0.0, 1.0),
-                child: CustomPaint(
-                  size: l.pinRect.size,
-                  painter: const _PinPainter(),
+              child: CustomPaint(
+                size: l.pinRect.size,
+                painter: const _PinPainter(),
+              ),
+            ),
+            Positioned.fromRect(
+              rect: l.dotRect,
+              child: AnimatedScale(
+                key: const ValueKey('movera-dot'),
+                scale: showDot ? 1 : 0,
+                duration: dotPop,
+                curve: Curves.easeOutBack,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: MoveraPin.dotColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ),
@@ -114,6 +137,7 @@ class MoveraWordmarkLayout {
     required this.mLeft,
     required this.veraLeft,
     required this.pinRect,
+    required this.dotRect,
   });
 
   final Size size;
@@ -123,6 +147,9 @@ class MoveraWordmarkLayout {
 
   /// The pin's box, relative to the wordmark's top-left corner.
   final Rect pinRect;
+
+  /// The small dot inside the pin's hole, relative to the wordmark.
+  final Rect dotRect;
 }
 
 /// The Movera map pin: its geometry, shared by the wordmark and the balloon
@@ -133,6 +160,11 @@ abstract final class MoveraPin {
   static const headCentre = Offset(16, 16);
   static const headRadius = 15.0;
   static const holeRadius = 7.5;
+
+  /// The small green dot inside the hole (owner round 4, option A), on
+  /// [designSize]; the intro's balloon shrinks into it.
+  static const dotRadius = 4.6;
+  static const dotColor = AuthColors.green;
 
   /// Urbanist ExtraBold, measured: the x-height as a share of the font size.
   static const xHeight = 0.511;
