@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
@@ -214,6 +214,10 @@ class WaitingForDriver extends StatefulWidget {
   /// Test seam: the controller the cancel and end-early requests go
   /// through (its API client). Production uses the shared one.
   final ActiveRideController? controller;
+
+  /// Test seam: the clock the live cancel fee preview is worked out with.
+  @visibleForTesting
+  static DateTime Function() cancelFeeClock = DateTime.now;
 
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
@@ -919,6 +923,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   /// Q12: the free-cancel clock counts from the driver's accept, as the
   /// server stamped it (`TripProjection.acceptedAt`), else from [_shownAt].
+  /// Whether the last live preview of [_cancelFeeNote] was a fee.
+  bool _cancelFeeChargedNow = false;
+
   DateTime get _acceptedAt => _tracking.acceptedAt ?? _shownAt;
 
   /// The fee line shown before the rider confirms a cancel (contract
@@ -926,6 +933,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// on board (that is end-early: the distance driven) or when no rule
   /// applies.
   Future<String?> _cancelFeeNote() async {
+    _cancelFeeChargedNow = false;
     if (_isInTrip) {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
@@ -953,10 +961,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         categoryId: category,
         fare: Money.fromLegacyMajor(_price, widget.currency),
         acceptedAt: _acceptedAt,
-        now: DateTime.now(),
+        now: WaitingForDriver.cancelFeeClock(),
       );
       if (preview == null) return null;
       if (preview.fee.isPositive) {
+        _cancelFeeChargedNow = true;
         return L10n.current.cancelCostsNow(formatMoney(preview.fee));
       }
       final left = preview.freeMinutesLeft;
@@ -996,6 +1005,17 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // again for the stage they are in, and send nothing on this answer.
       if (_tracking.status.isTerminal) return;
       return _confirmCancel();
+    }
+    if (!_isInTrip && widget.cancelFeeNote == null) {
+      // rider-r5-11: the sheets wait on the rider with no time limit, and
+      // the server prices the cancel when it gets it. When the free window
+      // closed meanwhile (or the fee changed), show the fee and ask again.
+      final noteNow = await _cancelFeeNote();
+      if (!mounted || _leaving) return;
+      if (noteNow != feeNote && _cancelFeeChargedNow) {
+        if (_tracking.status.isTerminal) return;
+        return _confirmCancel();
+      }
     }
     _leaving = true;
     _cancelInFlight = true;
