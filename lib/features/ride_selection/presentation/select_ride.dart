@@ -720,7 +720,9 @@ class _SelectRideState extends State<SelectRide>
     _allRides,
     _filter,
     etaMin: (ride) => ride.etaMin,
-    price: (ride) => ride.price,
+    // rider-r3-7: the fare each row shows (the quote, promotion included),
+    // the list price only for a ride without one.
+    price: _priceFor,
   );
 
   TextStyle _text(
@@ -2525,7 +2527,10 @@ class _SelectRideState extends State<SelectRide>
                               ),
                           ],
                         ),
+                        // rider-80: no split worked out from a list price
+                        // the tile itself does not show ('…').
                         if (selected &&
+                            _hasPrice(ride) &&
                             _selection
                                 .walletSplitFor(
                                   _selection.moneyOf(price).amountMinor,

@@ -60,8 +60,11 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     String timeZone = ZoneClock.stockholm,
     int horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   }) {
-    final session = ScheduledRideSession();
-    if (initial != null) session.captureSchedule(initial, timezone: timeZone);
+    // rider-u225: the prefill goes in as it is; initState clamps it and
+    // says so when it moved (captureSchedule would clamp it silently).
+    final session = ScheduledRideSession()
+      ..scheduledAt = initial
+      ..timezone = timeZone;
     return Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
         builder: (_) => ScheduleDateTimeSelector(
@@ -851,11 +854,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = _schedule.isLegalPickup(
-      _pickupAt,
-      widget.now?.call(),
-    );
-    final enabled = legal && !_continuing;
+    // rider-u227: a time that went stale while the screen was open is not
+    // a grey button; Continue moves it to the next slot and says so.
+    final enabled = !_continuing;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
       child: Container(

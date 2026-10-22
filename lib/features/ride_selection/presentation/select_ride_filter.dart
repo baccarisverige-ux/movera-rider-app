@@ -2,8 +2,8 @@
 enum SelectRideFilter { recommended, faster, cheaper }
 
 /// Returns [rides] in the order [filter] shows them, without mutating the
-/// input. Recommended keeps catalog order. Cheaper compares [price] (the
-/// catalog base price), not the live quote shown on each tile.
+/// input. Recommended keeps catalog order. Cheaper compares [price] (Select
+/// Ride passes the fare each tile shows, rider-r3-7).
 List<T> orderRidesForFilter<T>(
   Iterable<T> rides,
   SelectRideFilter filter, {

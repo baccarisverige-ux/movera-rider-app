@@ -657,6 +657,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'signOutOthers': l.signOutOthers,
   'cancel': l.cancel,
   'thisSession': l.thisSession('<place>'),
+  'thisSessionOnly': l.thisSessionOnly,
   'save': l.save,
   'legalTermsBody': l.legalTermsBody,
   'legalPrivacyBody': l.legalPrivacyBody,
@@ -716,6 +717,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'reasonDriverEnded': l.reasonDriverEnded,
   'reasonRiderCancelledLive': l.reasonRiderCancelledLive,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
+  'resWasScheduledFor': l.resWasScheduledFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
   'now': l.now,
@@ -1169,6 +1171,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportMessagesTitle': l.supportMessagesTitle,
   'supportActive': l.supportActive,
   'supportNoActiveCases': l.supportNoActiveCases,
+  'supportCasesNotListed': l.supportCasesNotListed,
   'supportActiveBody': l.supportActiveBody,
   'supportClosed': l.supportClosed,
   'supportNoClosedCases': l.supportNoClosedCases,
@@ -1287,6 +1290,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'scheduleHeaderCaps': l.scheduleHeaderCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
+  'resCompletedRide': l.resCompletedRide,
   'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
   'resDriverOnTheWay': l.resDriverOnTheWay,
   'resScheduledFor': l.resScheduledFor,
@@ -1456,6 +1460,7 @@ const messagePlaceholders = <String, List<String>>{
   'thisSession': ['place'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
+  'resWasScheduledFor': ['date', 'time'],
   'resKeepReady': ['date', 'time'],
   'durDaysHours': ['days', 'hours'],
   'durDays': ['days'],
@@ -2864,6 +2869,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String thisSession(String place) => '';
   @override
+  String get thisSessionOnly => '';
+  @override
   String get save => '';
   @override
   String get legalTermsBody => '';
@@ -2981,6 +2988,8 @@ class _Exhaustive implements AppLocalizations {
   String get reasonRiderCancelledLive => '';
   @override
   String resReservedFor(String date, String time) => '';
+  @override
+  String resWasScheduledFor(String date, String time) => '';
   @override
   String resKeepReady(String date, String time) => '';
   @override
@@ -3888,6 +3897,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get supportNoActiveCases => '';
   @override
+  String get supportCasesNotListed => '';
+  @override
   String get supportActiveBody => '';
   @override
   String get supportClosed => '';
@@ -4123,6 +4134,8 @@ class _Exhaustive implements AppLocalizations {
   String get resCancelledReservation => '';
   @override
   String get resUpcomingRide => '';
+  @override
+  String get resCompletedRide => '';
   @override
   String resSeatsPayment(int count, String payment) => '';
   @override

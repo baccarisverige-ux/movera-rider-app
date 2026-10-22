@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
@@ -21,8 +22,8 @@ import 'package:movera_rider/features/ride_selection/data/ride_selection_reposit
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Every ride costs 412 kr. The first round of quotes lives [firstTtl]
-/// (real time), later ones five minutes.
+/// Every ride costs 412 kr. The first round of quotes lives [firstTtl],
+/// later ones five minutes, on the server clock (as the app judges them).
 class _ShortQuotes implements QuoteRepository {
   _ShortQuotes(this.firstTtl);
 
@@ -48,7 +49,7 @@ class _ShortQuotes implements QuoteRepository {
       rideType: rideType,
       totalMinor: 41200,
       currency: 'SEK',
-      expiresAt: DateTime.now().add(
+      expiresAt: ServerClock.now().add(
         first ? firstTtl : const Duration(minutes: 5),
       ),
       signedPayload: 'signature',
@@ -112,7 +113,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final quotes = _ShortQuotes(const Duration(milliseconds: 1500));
+      addTearDown(ServerClock.reset);
+      final quotes = _ShortQuotes(const Duration(minutes: 10));
       final selection = RideSelectionController(
         catalog: RideCatalogController(
           api: ApiClient(
@@ -144,17 +146,24 @@ void main() {
       expect(find.text('259 kr'), findsNothing);
       final firstRound = quotes.calls;
 
-      // The quotes run out while the rider looks at the list.
-      // Real time passes (quotes expire by the wall clock); no async work
-      // runs meanwhile.
-      sleep(const Duration(milliseconds: 1700));
+      // The quotes run out while the rider looks at the list: the server
+      // clock moves 11 minutes on (not the real clock, so a slow machine
+      // cannot spend them early), before the expiry timer has fired.
+      final server = DateTime.utc(2026, 10, 22, 12);
+      ServerClock.observeDateHeader(
+        HttpDate.format(server),
+        receivedAt: server.subtract(const Duration(minutes: 11)),
+      );
+      expect(ServerClock.offset, const Duration(minutes: 11));
+      expect(quotes.calls, firstRound, reason: 'nothing re-priced yet');
       await tester.tap(find.text('Comfort').first);
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('259 kr'), findsNothing);
       expect(find.text('339 kr'), findsNothing);
 
-      // Priced again at expiry, without a tap on Book.
-      for (var i = 0; i < 20; i++) {
+      // Priced again at expiry (the expiry timer), without a tap on Book.
+      await tester.pump(const Duration(minutes: 10));
+      for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(quotes.calls, greaterThan(firstRound));

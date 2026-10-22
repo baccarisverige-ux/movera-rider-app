@@ -139,7 +139,7 @@ void main() {
         ),
         'Support cases': (
           () async => const SupportMessages(),
-          (l) => l.supportNoActiveCases,
+          (l) => l.supportCasesNotListed,
         ),
         'Saved places': (
           () async => const SavedPlaces(),

@@ -254,12 +254,18 @@ class _LoginTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // rider-u157: an empty place (or source) leaves no dangling separator.
+    final place = session.place.trim();
     return AccountTile(
       mark: const AccountIcon(Icons.smartphone_outlined),
       title: session.device,
       body: session.current
-          ? context.l10n.thisSession(session.place)
-          : '${session.place}  ·  ${session.source}',
+          ? (place.isEmpty
+              ? context.l10n.thisSessionOnly
+              : context.l10n.thisSession(place))
+          : [place, session.source.trim()]
+              .where((part) => part.isNotEmpty)
+              .join('  ·  '),
       showDivider: showDivider,
     );
   }

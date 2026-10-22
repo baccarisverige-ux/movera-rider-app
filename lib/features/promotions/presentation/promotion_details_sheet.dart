@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -62,19 +63,24 @@ class PromotionDetailsSheet extends StatelessWidget {
   /// Clock for the "days left" line; tests pin it.
   final DateTime? now;
 
-  /// Opens the sheet. [categories] default to the ride catalog; [prices] are
-  /// the current quotes when the caller has them.
+  /// Opens the sheet. [categories] default to the live ride catalog
+  /// ([catalog], else the app's); [prices] are the current quotes when the
+  /// caller has them.
   static Future<void> open(
     BuildContext context,
     RiderPromotion promotion, {
     List<PromotionCategory>? categories,
     Map<String, PromotionPrice> prices = const {},
     String? currency,
+    RideCatalogController? catalog,
   }) async {
+    // rider-61: the categories Select Ride offers (loaded at start-up from
+    // the server, else the cache), not the built-in fallback list with the
+    // ones admin may switch on later.
     final list =
         categories ??
         [
-          for (final ride in AppScope.instance.rideCatalog.rides())
+          for (final ride in (catalog ?? AppScope.instance.catalog).current)
             PromotionCategory(id: ride.id, name: ride.name),
         ];
     // Without a trip, the zone the rider is in decides the money.

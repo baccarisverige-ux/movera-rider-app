@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+
+/// rider-u203: runs a safety setting change and, when it failed, shows the
+/// controller's message (a failed switch has already snapped back).
+Future<void> runSafetyChange(
+  BuildContext context,
+  SafetyController controller,
+  Future<void> Function() change,
+) async {
+  await change();
+  final error = controller.error;
+  if (error != null && context.mounted) MoveraToast.show(context, error);
+}
 
 class SafetyUi {
   static const ink = Color(0xFF1C2329);

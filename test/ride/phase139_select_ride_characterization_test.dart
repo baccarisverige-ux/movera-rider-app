@@ -110,7 +110,7 @@ void main() {
   }
 
   testWidgets(
-    'filter chips order the list: Faster by ETA, Cheaper by catalog price, '
+    'filter chips order the list: Faster by ETA, Cheaper by shown fare, '
     'Recommended back to catalog order',
     (tester) async {
       // Tall enough that the lazily built list shows every ride at once.
@@ -148,11 +148,15 @@ void main() {
         faster,
         expectedOrder(catalog, (r) => r.name, (r) => r.etaMin),
       );
-      // Deliberately the catalog base price, not the live quote on each tile:
-      // this is the current behaviour, pinned here so a change is a decision.
+      // rider-r3-7 (a decision): the fare each tile shows, the live quote
+      // when there is one, no longer the catalog base price.
       expect(
         cheaper,
-        expectedOrder(catalog, (r) => r.name, (r) => r.price),
+        expectedOrder(
+          catalog,
+          (r) => r.name,
+          (r) => selection.priceFor(r.id, r.price),
+        ),
       );
       expect(recommended, expectedOrder(catalog, (r) => r.name, null));
     },

@@ -1310,6 +1310,7 @@
       }
     }
   },
+  "thisSessionOnly": "This session",
   "save": "Save",
   "legalTermsBody": "How Movera rides and reservations work.",
   "legalPrivacyBody": "What we keep, and how you control it.",
@@ -1392,6 +1393,17 @@
   },
   "resReservedFor": "Your ride is reserved for {date} at {time}",
   "@resReservedFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resWasScheduledFor": "This ride was scheduled for {date} at {time}",
+  "@resWasScheduledFor": {
     "placeholders": {
       "date": {
         "type": "String"
@@ -2341,6 +2353,7 @@
   "supportMessagesTitle": "Support messages",
   "supportActive": "Active",
   "supportNoActiveCases": "No active cases",
+  "supportCasesNotListed": "Your cases aren't listed in the app yet",
   "supportActiveBody": "Messages you send about a ride go to the Movera team for review.",
   "supportClosed": "Closed",
   "supportNoClosedCases": "No closed cases",
@@ -2570,6 +2583,7 @@
   "scheduleHeaderCaps": "SCHEDULE",
   "resCancelledReservation": "Cancelled reservation",
   "resUpcomingRide": "Upcoming ride",
+  "resCompletedRide": "Completed ride",
   "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",
   "@resSeatsPayment": {
     "placeholders": {

@@ -102,7 +102,14 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     if (_promptedNoDriverId == ride.reservationId) return;
     _promptedNoDriverId = ride.reservationId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_routeIsCurrent) return;
+      if (!mounted) return;
+      if (!_routeIsCurrent) {
+        // A live ride opened first: ask again once Home is back.
+        if (_promptedNoDriverId == ride.reservationId) {
+          _promptedNoDriverId = null;
+        }
+        return;
+      }
       unawaited(_showNoDriverFound(ride));
     });
   }
@@ -131,8 +138,10 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
 
   void _openLiveIfNeeded() {
     if (!mounted || !_routeIsCurrent) return;
-    final ride = _nextRide();
-    if (ride == null || !ride.revealsDriver) return;
+    // rider-j8-10: the first ride whose driver is on the way, even when an
+    // earlier one is still waiting to be resolved as "no driver found".
+    final ride = _sortedUpcoming().where((r) => r.revealsDriver).firstOrNull;
+    if (ride == null) return;
     if (_openedLiveId == ride.reservationId) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_routeIsCurrent) return;
@@ -196,11 +205,23 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   ReservationController get _reservations =>
       widget.controller ?? AppScope.instance.reservations;
 
+  List<Reservation> _sortedUpcoming() => [..._reservations.upcoming()]
+    ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
+
+  /// The ride the chrono stands for: the earliest upcoming one, skipping a
+  /// "no driver found" ride the rider was already shown when a later ride
+  /// is waiting (rider-j8-10).
   Reservation? _nextRide() {
-    final upcoming = [..._reservations.upcoming()]
-      ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
+    final upcoming = _sortedUpcoming();
     if (upcoming.isEmpty) return null;
-    return upcoming.first;
+    return upcoming
+            .where(
+              (ride) =>
+                  ride.reservationId != _promptedNoDriverId ||
+                  !_isNoDriverFound(ride),
+            )
+            .firstOrNull ??
+        upcoming.first;
   }
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
@@ -304,29 +325,45 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
                                     size: 18,
                                     color: HomeReservationChrono.noDriver,
                                   )
-                                else ...[
-                                  Text(
-                                    parts.primary,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: parts.secondary == null
-                                          ? 13
-                                          : 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: HomeReservationChrono.ink,
-                                      height: 1,
-                                    ),
-                                  ),
-                                  if (parts.secondary != null)
-                                    Text(
-                                      parts.secondary!,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF6B757B),
-                                        height: 1.1,
+                                else
+                                  // rider-u160: one line each, scaled down to
+                                  // fit the disc at large text sizes and for
+                                  // long words ('Maintenant').
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            parts.primary,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: parts.secondary == null
+                                                  ? 13
+                                                  : 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: HomeReservationChrono.ink,
+                                              height: 1,
+                                            ),
+                                          ),
+                                          if (parts.secondary != null)
+                                            Text(
+                                              parts.secondary!,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF6B757B),
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                ],
+                                  ),
                               ],
                             ),
                           ),

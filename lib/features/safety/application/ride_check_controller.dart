@@ -562,10 +562,12 @@ class RideCheckController extends ChangeNotifier {
     final alreadyCalled = latest.answers.any(
       (answer) => answer.kind == RideCheckAnswerKind.call112,
     );
+    // rider-81: 'Called 112' is saved only when the dialer opened; the
+    // alert goes out either way.
     _session = latest.copyWith(
       called112: true,
       callError: () => failure,
-      answers: alreadyCalled
+      answers: alreadyCalled || failure != null
           ? latest.answers
           : [...latest.answers, RideCheckAnswer.call112(_clock())],
     );

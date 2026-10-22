@@ -81,7 +81,11 @@ class _RideCheckPageState extends State<RideCheckPage> {
                     context,
                     SafetyUi.accent,
                   ),
-                  onChanged: _ctl.setRideCheck,
+                  onChanged: (value) => runSafetyChange(
+                    context,
+                    _ctl,
+                    () => _ctl.setRideCheck(value),
+                  ),
                 ),
               ],
             ),
