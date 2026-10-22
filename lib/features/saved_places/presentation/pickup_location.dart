@@ -51,6 +51,15 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   bool _locating = false;
   String? _searchError;
 
+  /// rider-u222: an address was returned; a second lookup never pops too.
+  bool _done = false;
+
+  void _finish(String address) {
+    if (_done) return;
+    _done = true;
+    Navigator.maybePop(context, address);
+  }
+
   @override
   void dispose() {
     _query.dispose();
@@ -62,7 +71,8 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   /// and return the real place it names; never save unresolved text.
   Future<void> _submitQuery() async {
     final text = _query.text.trim();
-    if (text.isEmpty || _searching) return;
+    // rider-u222: one lookup at a time; CURRENT may be resolving.
+    if (text.isEmpty || _searching || _locating || _done) return;
     setState(() {
       _searching = true;
       _searchError = null;
@@ -89,13 +99,13 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     }
     setState(() => _searching = false);
     final address = found.address.trim();
-    Navigator.maybePop(context, address.isNotEmpty ? address : text);
+    _finish(address.isNotEmpty ? address : text);
   }
 
   /// FLOW-4: return the address of where the rider is, never the words
   /// "Current location"; say why when it cannot be found.
   Future<void> _useCurrentLocation() async {
-    if (_locating || _searching) return;
+    if (_locating || _searching || _done) return;
     setState(() {
       _locating = true;
       _searchError = null;
@@ -114,7 +124,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       _locating = false;
       _searchError = error;
     });
-    if (address != null) Navigator.maybePop(context, address);
+    if (address != null) _finish(address);
   }
 
   @override
@@ -204,7 +214,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                           IconButton(
                             key: const ValueKey('saved-place-search'),
                             tooltip: context.l10n.spSearchAddress,
-                            onPressed: _searching
+                            onPressed: _searching || _locating
                                 ? null
                                 : () => unawaited(_submitQuery()),
                             icon: _searching
@@ -219,7 +229,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                           ),
                           TextButton(
                             // Returns the address of the device position.
-                            onPressed: _locating
+                            onPressed: _locating || _searching
                                 ? null
                                 : () => unawaited(_useCurrentLocation()),
                             child: SizedBox(

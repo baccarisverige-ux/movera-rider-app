@@ -558,4 +558,50 @@ void main() {
     await second.resume('ride_u197');
     expect(second.session, isNull);
   });
+
+  testWidgets('rider-u222: search waits while CURRENT is resolving', (
+    tester,
+  ) async {
+    final here = Completer<String>();
+    var searches = 0;
+    String? picked;
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, _) => MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => picked = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RiderSearchPickupLocation(
+                    currentAddress: () => here.future,
+                    geocode: (query) async {
+                      searches++;
+                      return PlaceResult(
+                        address: query,
+                        point: const GeoPoint(59.34, 18.05),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CURRENT'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'Odenplan');
+    await tester.tap(find.byKey(const ValueKey('saved-place-search')));
+    await tester.pump();
+    here.complete('Klockarvägen 37');
+    await tester.pumpAndSettle();
+    expect(searches, 0);
+    expect(picked, 'Klockarvägen 37');
+  });
 }
