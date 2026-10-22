@@ -10,6 +10,10 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
+import 'package:movera_rider/features/promotions/domain/rider_promotion.dart';
+import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +31,28 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: home));
     await tester.pumpAndSettle();
   }
+
+  /// Pumps a page with one button that runs [open], and taps it.
+  Future<void> openFrom(
+    WidgetTester tester,
+    Future<void> Function(BuildContext context) open,
+  ) =>
+      pumpPage(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => open(context),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ).then((_) async {
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+      });
 
   /// A Security controller over an API answering GET with [security];
   /// [posts] counts the sign-out requests.
@@ -85,5 +111,50 @@ void main() {
 
     expect(find.text('This session'), findsOneWidget);
     expect(find.text('Web'), findsOneWidget);
+  });
+
+  testWidgets('rider-61: promotion details list the live catalog, not the '
+      'built-in one', (tester) async {
+    // Admin publishes two categories; the built-in list has fourteen.
+    Map<String, dynamic> type(String id, String name) => {
+          'id': id,
+          'name': name,
+          'seats': 4,
+          'etaMin': 5,
+          'price': {'amountMinor': 25900, 'currency': 'SEK'},
+          'enabled': true,
+        };
+    final catalog = RideCatalogController(
+      api: ApiClient(
+        client: MockClient((_) async => http.Response(
+              jsonEncode({
+                'code': 'OK',
+                'rideTypes': [type('economy', 'Movera'), type('comfort', 'Comfort')],
+              }),
+              200,
+            )),
+        env: AppEnv.current,
+      ),
+      cache: MemoryRideCatalogCache(),
+    );
+    await catalog.load(); // as bootstrap does
+    final promotion = RiderPromotion.fromJson({
+      'id': 'p1',
+      'title': '30% off your next 5 rides',
+      'percentOff': 30,
+      'ridesLeft': 4,
+      'ridesTotal': 5,
+      'endsAt': '2026-11-30T23:59:00',
+      'rideTypes': <String>[],
+      'rules': <String>[],
+    })!;
+
+    await openFrom(tester, (context) =>
+        PromotionDetailsSheet.open(context, promotion, catalog: catalog));
+
+    final sheet = tester.widget<PromotionDetailsSheet>(
+      find.byType(PromotionDetailsSheet),
+    );
+    expect(sheet.categories.map((c) => c.id), ['economy', 'comfort']);
   });
 }
