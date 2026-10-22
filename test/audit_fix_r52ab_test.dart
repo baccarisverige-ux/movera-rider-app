@@ -14,6 +14,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -279,5 +280,33 @@ void main() {
       reverse: (_) async => 'Sveavägen 1, Stockholm',
     );
     expect(label, 'Sveavägen 1, Stockholm');
+  });
+
+  test('rider-u146: a sign-out that went through is not reported failed '
+      'when the follow-up read fails', () async {
+    final api = ApiClient(
+      client: MockClient((request) async {
+        if (request.method == 'POST') {
+          return http.Response(
+            jsonEncode({
+              'code': 'OK',
+              'security': {
+                'phone': '+46700000000',
+                'email': 'rider@example.com',
+                'sessions': [
+                  {'id': 's1', 'device': 'This phone', 'current': true},
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        throw http.ClientException('timed out'); // the follow-up GET
+      }),
+      env: AppEnv.current,
+    );
+    final state =
+        await AccountSecurityRepository(api: api).signOutOtherDevices();
+    expect(state.sessions.map((s) => s.id), ['s1']);
   });
 }
