@@ -12,7 +12,15 @@ class AccountSecurityController extends ChangeNotifier {
   AccountSecurityState? state;
   bool loading = false;
   bool available = true;
-  String? errorMessage;
+  /// rider-r5-46: what went wrong, put into words when it is shown, so
+  /// the line follows a language switch.
+  _SecurityError? _error;
+  String? get errorMessage => switch (_error) {
+    null => null,
+    _SecurityError.unavailable => L10n.current.securityUnavailableBody,
+    _SecurityError.reauth => L10n.current.reauthBeforeRevoke,
+    _SecurityError.updateFailed => L10n.current.securitySessionsUpdateFailed,
+  };
   int _session = 0;
 
   /// Forgets the signed-out rider's security state. A load still in flight
@@ -22,14 +30,14 @@ class AccountSecurityController extends ChangeNotifier {
     state = null;
     loading = false;
     available = true;
-    errorMessage = null;
+    _error = null;
     notifyListeners();
   }
 
   Future<void> load() async {
     final session = _session;
     loading = true;
-    errorMessage = null;
+    _error = null;
     notifyListeners();
     try {
       final loaded = await _repository.load();
@@ -41,7 +49,7 @@ class AccountSecurityController extends ChangeNotifier {
       state = null;
       available = false;
       // rider-59: shown on the Security screen, so in the app language.
-      errorMessage = L10n.current.securityUnavailableBody;
+      _error = _SecurityError.unavailable;
     } finally {
       if (session == _session) {
         loading = false;
@@ -61,21 +69,23 @@ class AccountSecurityController extends ChangeNotifier {
     // rider-u156: the page may have been open past the 5-minute window;
     // say so instead of doing nothing.
     if (!current.hasFreshReauthentication) {
-      errorMessage = L10n.current.reauthBeforeRevoke;
+      _error = _SecurityError.reauth;
       notifyListeners();
       return;
     }
     loading = true;
-    errorMessage = null;
+    _error = null;
     notifyListeners();
     try {
       state = await _repository.signOutOtherDevices();
       available = true;
     } catch (_) {
-      errorMessage = L10n.current.securitySessionsUpdateFailed;
+      _error = _SecurityError.updateFailed;
     } finally {
       loading = false;
       notifyListeners();
     }
   }
 }
+
+enum _SecurityError { unavailable, reauth, updateFailed }
