@@ -60,8 +60,11 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     String timeZone = ZoneClock.stockholm,
     int horizonDays = RiderAppConfig.defaultBookingHorizonDays,
   }) {
-    final session = ScheduledRideSession();
-    if (initial != null) session.captureSchedule(initial, timezone: timeZone);
+    // rider-u225: the prefill goes in as it is; initState clamps it and
+    // says so when it moved (captureSchedule would clamp it silently).
+    final session = ScheduledRideSession()
+      ..scheduledAt = initial
+      ..timezone = timeZone;
     return Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
         builder: (_) => ScheduleDateTimeSelector(

@@ -44,6 +44,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -531,5 +532,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Could not change PIN.'), findsOneWidget);
+  });
+
+  testWidgets('rider-u225: a return-ride prefill off the slot grid says it '
+      'moved', (tester) async {
+    final now = DateTime.now();
+    // Three hours ahead, at :02 (off the 5-minute grid).
+    final prefill = DateTime(now.year, now.month, now.day, now.hour + 3, 2);
+    await openFrom(tester, (context) => ScheduleDateTimeSelector.choose(
+          context,
+          initial: prefill,
+          now: () => now,
+        ));
+
+    expect(find.text('Pickup time updated to the next available slot.'),
+        findsOneWidget);
   });
 }
