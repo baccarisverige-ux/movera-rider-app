@@ -104,4 +104,25 @@ void main() {
     expect(controller.stillLooking, isTrue);
     _closeAll();
   });
+
+  test('rider-u100: a refused cancel resumes the search at its real elapsed '
+      'time', () async {
+    var clock = DateTime(2026, 5, 4, 12);
+    final answer = Completer<http.Response>();
+    final controller = _finding(
+      _api((request) {
+        if (request.url.path.endsWith('/cancel')) return answer.future;
+        return Future.value(_json({'code': 'OK', 'vehicles': []}));
+      }),
+      'ride_u100',
+      clock,
+      now: () => clock,
+    );
+    final cancel = controller.cancelSearch();
+    // Two minutes waiting on the cancel, then the server refuses it.
+    clock = clock.add(const Duration(minutes: 2));
+    answer.complete(_json({'code': 'invalid_transition'}, 422));
+    expect(await cancel, SearchCancelResult.rejected);
+    expect(controller.elapsedSeconds, greaterThanOrEqualTo(120));
+  });
 }

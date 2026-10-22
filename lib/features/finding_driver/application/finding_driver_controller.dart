@@ -433,6 +433,15 @@ class FindingDriverController {
 
   void _startTick() {
     _tick?.cancel();
+    // rider-u100: the tick stops while a cancel is in flight or queued. A
+    // refused cancel picks the search up at its real elapsed time, not at
+    // the value it froze at.
+    final behind = _sinceSearchStart() - elapsedSeconds;
+    if (behind > 0) {
+      elapsedSeconds += behind;
+      _evaluatePhase();
+      _afterElapsed(behind);
+    }
     _tick = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_disposed || _assigned || _cancelled || _terminated) {
         timer.cancel();
