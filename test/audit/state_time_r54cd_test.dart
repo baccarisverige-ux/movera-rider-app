@@ -1,19 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
+import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 5 R5.4 parts c + d: state and time (low). One test per bug.
@@ -230,5 +236,22 @@ void main() {
     });
     expect(again.idempotencyKey, isNot(first.idempotencyKey));
     expect((await PendingCancelStore.find('ride_u104'))!.expectedVersion, 5);
+  });
+
+  testWidgets('rider-u105: the reason sheet offers the reasons the zone '
+      'publishes', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    final published = SeedRiderConfigRepository.seed.cancelReasons;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: CancelReasonSheet(
+          phase: CancelPhase.searching,
+          committed: true,
+          publishedReasons: published.map((r) => r.code),
+        ),
+      ),
+    ));
+    expect(find.text(L10n.current.cancelReasonPlansChanged), findsOneWidget);
+    expect(find.text(L10n.current.cancelReasonWaitTooLong), findsNothing);
   });
 }

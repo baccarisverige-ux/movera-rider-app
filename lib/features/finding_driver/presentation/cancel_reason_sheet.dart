@@ -19,6 +19,7 @@ Future<CancelOutcome> showCancelReasonSheet(
   required CancelPhase phase,
   bool committed = false,
   bool offerDestinationChange = false,
+  Iterable<String>? publishedReasons,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancelReason);
   final result = await MoveraSheet.show<CancelOutcome>(
@@ -27,6 +28,7 @@ Future<CancelOutcome> showCancelReasonSheet(
       phase: phase,
       committed: committed,
       offerDestinationChange: offerDestinationChange,
+      publishedReasons: publishedReasons,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
@@ -42,9 +44,14 @@ class CancelReasonSheet extends StatefulWidget {
     required this.phase,
     this.committed = false,
     this.offerDestinationChange = false,
+    this.publishedReasons,
   });
 
   final CancelPhase phase;
+
+  /// The reason codes the trip's zone publishes (rider-u105); null offers
+  /// the shipped list.
+  final Iterable<String>? publishedReasons;
 
   /// Q2: picking "Destination needs to be changed" offers the route change
   /// instead (the rider can still cancel). Only where the ride is still
@@ -64,7 +71,10 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    final reasons = CancellationReason.forPhase(widget.phase);
+    final reasons = CancellationReason.forPhase(
+      widget.phase,
+      published: widget.publishedReasons,
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: SingleChildScrollView(

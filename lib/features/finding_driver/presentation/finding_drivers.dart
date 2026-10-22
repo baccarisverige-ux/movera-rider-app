@@ -767,6 +767,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       context,
       phase: CancelPhase.searching,
       committed: true,
+      publishedReasons: _zoneConfig?.cancelReasons.map((r) => r.code),
     );
     final reason = feedback.reasonId;
     if (reason != null) unawaited(_match.sendCancelReason(reason));
