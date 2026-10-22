@@ -636,13 +636,22 @@ class _FindingDriversState extends State<FindingDrivers> {
   Future<void> _refreshRoadRoute() async {
     // With stops the straight pickup → stops → destination line is drawn.
     if (_stops.isNotEmpty) return;
+    final from = _pickupPosition;
+    final to = _destinationPosition;
     final route = await roadRoutePolyline(
       id: 'route',
-      from: _pickupPosition,
-      to: _destinationPosition,
+      from: from,
+      to: to,
       color: RiderRouteStyle.color,
     );
     if (!mounted || route.points.length < 2) return;
+    // rider-35: the route changed while this answer was on its way; the
+    // newer request draws the line.
+    if (from != _pickupPosition ||
+        to != _destinationPosition ||
+        _stops.isNotEmpty) {
+      return;
+    }
     _roadRoutePoints = route.points;
     _loadMapBits();
     setState(() {});
