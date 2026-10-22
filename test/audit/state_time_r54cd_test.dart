@@ -378,4 +378,21 @@ void main() {
     );
     expect(feed.all().single.time, L10n.current.notifYesterday('23:10'));
   });
+
+  test('rider-51: a push from last night says Yesterday the next morning',
+      () {
+    var clock = DateTime(2026, 5, 4, 23, 55);
+    final feed = NotificationsRepository(now: () => clock);
+    feed.ingest(
+      PushPayload(
+        type: 'ride.driver_arrived',
+        title: 'Driver arrived',
+        sentAt: DateTime(2026, 5, 4, 23, 50),
+      ),
+      read: false,
+    );
+    expect(feed.all().single.time, '23:50');
+    clock = DateTime(2026, 5, 5, 8);
+    expect(feed.all().single.time, L10n.current.notifYesterday('23:50'));
+  });
 }

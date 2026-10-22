@@ -15,7 +15,13 @@ class NotificationsRepository {
   final StreamController<List<AppNotification>> _changes =
       StreamController<List<AppNotification>>.broadcast();
 
-  List<AppNotification> all() => List<AppNotification>.unmodifiable(_items);
+  /// rider-51: each label is worked out now from when the push was sent,
+  /// so a row from last night reads "Yesterday …" the next morning instead
+  /// of the clock it got when it arrived.
+  List<AppNotification> all() => List<AppNotification>.unmodifiable([
+    for (final item in _items)
+      item.at == null ? item : item.copyWith(time: _formatTime(item.at!)),
+  ]);
 
   Stream<List<AppNotification>> watch() => _changes.stream;
 
