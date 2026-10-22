@@ -22,7 +22,9 @@ import 'package:movera_rider/features/reservations/data/local_reservation_reposi
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
@@ -489,4 +491,53 @@ void main() {
     );
     expect(state.charging, isTrue);
   });
+
+  test(
+    'rider-r4-8: an ended-early receipt is dated when the trip ended',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      RideSnapshotStore.epoch = 0;
+      LastCompletedRide.clear();
+      addTearDown(LastCompletedRide.clear);
+      final lastSave = DateTime.now().subtract(const Duration(minutes: 40));
+      await RideSnapshotStore.save(
+        RideSnapshot(
+          status: RideStatus.tripInProgress,
+          savedAt: lastSave,
+          pickupAddress: 'A',
+          destinationAddress: 'B',
+          pickupLat: 59.33,
+          pickupLng: 18.06,
+          destinationLat: 59.34,
+          destinationLng: 18.07,
+          rideType: 'Movera',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+          rideId: 'ride_r48',
+        ),
+      );
+      AppScope.instance.ride
+        ..rideId = null
+        ..restoreFromBackend(RideStatus.tripInProgress, id: 'ride_r48');
+      addTearDown(
+        () => AppScope.instance.ride
+          ..rideId = null
+          ..status = RideStatus.idle,
+      );
+      final api = ApiClient(
+        client: MockClient(
+          (_) async => http.Response(
+            '{"code":"OK","ride":{"tripId":"ride_r48",'
+            '"status":"cancelled_by_rider"}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+      await ActiveRideController(api: api).markCancelled();
+      expect(LastCompletedRide.endedEarly, isTrue);
+      final endedAt = LastCompletedRide.value!.completedAt!;
+      expect(DateTime.now().difference(endedAt).inSeconds.abs(), lessThan(5));
+    },
+  );
 }
