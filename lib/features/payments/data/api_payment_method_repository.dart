@@ -81,7 +81,9 @@ class ApiPaymentMethodRepository
         body: {'methodId': brand},
         idempotencyKey: newIdempotencyKey('payment-default'),
       );
-      if (_unsaved == brand) _unsaved = null;
+      // rider-r5-28: the rider's latest choice saved; an older one that
+      // did not is no longer theirs to send again.
+      if (_unsaved == brand || _defaultId == brand) _unsaved = null;
     } catch (error) {
       if (_defaultId == brand) _unsaved = brand;
       AppLog.warning(
