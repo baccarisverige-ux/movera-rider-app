@@ -4,6 +4,18 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// The finished-ride screen existed but nothing could reach it: the mock
 /// stopped at the driver waiting on the kerb, so a ride never ended.
+///
+/// Each step waits on the status it needs, not a fixed delay, so a loaded
+/// machine cannot run the next step before the mock reached the last one.
+/// Only the "never happens" checks still wait a fixed time: on a slow machine
+/// that can only make them weaker, never fail them.
+Future<void> _until(bool Function() done) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!done() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
   test('a ride runs through boarding to completion', () async {
     final rt = MockRideRealtime(
@@ -22,7 +34,7 @@ void main() {
     rt.lastLng = 18.0550;
     rt.markArrivedForTest();
 
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await _until(() => seen.contains(RideStatus.tripCompleted));
 
     expect(seen, contains(RideStatus.tripStarted));
     expect(seen.last, RideStatus.tripCompleted);
@@ -45,9 +57,9 @@ void main() {
     rt.subscribe('ride_order_1').listen((e) => seen.add(e.status));
 
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 8));
+    await _until(() => seen.contains(RideStatus.driverAssigned));
     rt.markArrivedForTest();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await _until(() => seen.contains(RideStatus.ratingPending));
 
     for (final pair in <(RideStatus, RideStatus)>[
       (RideStatus.driverAssigned, RideStatus.driverWaiting),
@@ -81,10 +93,10 @@ void main() {
     rt.subscribe('ride_rating_1').listen((e) => seen.add(e.status));
 
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await _until(() => seen.contains(RideStatus.driverAssigned));
     rt.markArrivedForTest();
 
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await _until(() => seen.contains(RideStatus.ratingPending));
 
     expect(seen, contains(RideStatus.tripCompleted));
     expect(seen, contains(RideStatus.paymentProcessing));
@@ -108,9 +120,9 @@ void main() {
     rt.subscribe('ride_rating_2').listen((e) => seen.add(e.status));
 
     rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await _until(() => seen.contains(RideStatus.driverAssigned));
     rt.markArrivedForTest();
-    await Future<void>.delayed(const Duration(milliseconds: 8));
+    await _until(() => seen.contains(RideStatus.tripCompleted));
     rt.dispose();
 
     await Future<void>.delayed(const Duration(milliseconds: 80));
