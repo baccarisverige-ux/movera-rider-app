@@ -6,7 +6,9 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -108,5 +110,15 @@ void main() {
     expect(flights, [recenter]);
     mapViewOf(fake).interrupt();
     await tester.pump(cameraEaseFrame);
+  });
+
+  test('rider-u20: the road-route cache stays bounded on a long ride', () async {
+    final routing = RoutingService(api: ApiClient(client: InProcessMockClient()));
+    const pickup = GeoPoint(59.3326, 18.0649);
+    // A driver moving: every 10 s refresh has a new origin.
+    for (var i = 0; i < roadCacheLimit + 20; i++) {
+      await routing.roadLine(from: GeoPoint(59.30 + i * 0.0001, 18.06), to: pickup);
+    }
+    expect(roadCacheLengthOf(routing), roadCacheLimit);
   });
 }
