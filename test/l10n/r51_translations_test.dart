@@ -23,6 +23,7 @@ import 'package:movera_rider/features/payments/application/saved_cards_controlle
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -410,6 +411,24 @@ void main() {
               : 'Klockarvägen 37 – Huvudentré',
         );
       });
+
+      for (final stand in ['Current location', 'Pickup location']) {
+        testWidgets('rider-56: Confirm pickup spot shows "$stand" translated', (
+          tester,
+        ) async {
+          await pumpIn(
+            tester,
+            code,
+            ConfirmPickupSpot(
+              initialPosition: const LatLng(59.19, 17.62),
+              initialAddress: stand,
+            ),
+          );
+          // The search field and the address caption.
+          expect(find.text(L10n.place(stand)), findsNWidgets(2));
+          expect(find.text(stand), findsNothing);
+        });
+      }
     });
   }
 }

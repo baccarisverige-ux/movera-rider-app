@@ -87,11 +87,13 @@ abstract final class L10n {
   }
 
   /// A place label as the rider reads it: the app's own English stand-ins
-  /// for a pickup without a street address ("Current location") are
-  /// translated; real addresses pass through.
+  /// for a pickup without a street address ("Current location",
+  /// "Pickup location") are translated; real addresses pass through.
   static String place(String label) => switch (label) {
     'Current location' => current.currentLocation,
     'Location off, set pickup' => current.locationOffSetPickup,
+    // rider-56: pickupLocationFallbackLabel, a pin with no street.
+    'Pickup location' => current.pickupLocation,
     _ => label,
   };
 
