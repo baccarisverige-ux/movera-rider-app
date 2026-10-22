@@ -40,6 +40,8 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -508,5 +510,43 @@ void main() {
         .reconcileCreatedFinding('ride_duplicate');
     expect(kept, 'ride_owner');
     expect(await PendingCancelStore.find('ride_duplicate'), isNotNull);
+  });
+
+  testWidgets('rider-u85: two addresses with the same short form keep their '
+      'own full address', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    RoutePickerSelection? chosen;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RoutePickerPage(
+          pickupAddress: 'Kyrkvägen 2, Bromma, Stockholm',
+          destinationAddress: '',
+          stops: const [],
+          stopsSupported: true,
+          initialField: 'destination',
+          capture: EarlyInputCapture(),
+          here: const GeoPoint(59.33, 18.06),
+          homeAddress: null,
+          workAddress: null,
+          recent: const ['Kyrkvägen 2, Hägersten, Stockholm'],
+          onSetFavourite: (_) async => null,
+          onPickOnMap: ({required pickup, required address}) async => null,
+          onFinish: (selection) async {
+            chosen = selection;
+            return null;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Kyrkvägen 2').last);
+    await tester.pump();
+    expect(chosen?.destination, 'Kyrkvägen 2, Hägersten, Stockholm');
+    expect(chosen?.pickup, 'Kyrkvägen 2, Bromma, Stockholm');
+    await tester.pumpWidget(const SizedBox());
   });
 }
