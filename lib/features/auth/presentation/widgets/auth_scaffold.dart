@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_language_button.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
@@ -59,7 +60,7 @@ class AuthScaffold extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 24, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
                     child: _TopBar(
                       step: step,
                       totalSteps: totalSteps,
@@ -172,7 +173,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 48,
       child: Row(
         children: [
           // UI-11: 48 px, so Back is a full-size target (was 40).
@@ -225,7 +226,7 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 48,
+            width: 40,
             child: Text(
               '$step / $totalSteps',
               textAlign: TextAlign.right,
@@ -238,6 +239,8 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
+          // Owner decision 7: the language switch on every sign-in step.
+          const AuthLanguageButton(),
         ],
       ),
     );
