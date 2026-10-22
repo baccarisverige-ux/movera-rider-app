@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -478,6 +479,7 @@ class ActiveRideController {
       await _archive(snapshot, status, expectedRideId: id);
     }
     await _store.clear();
+    clearSearchLive(); // rider-r5-18: ended, not interrupted.
   }
 
   /// rider-u52: the server reports the trip `closed` (completed, paid and
@@ -492,6 +494,7 @@ class ActiveRideController {
     _stopSafetyRecording();
     await _archive(snapshot, RideStatus.closed, expectedRideId: id);
     await _store.clear();
+    clearSearchLive(); // rider-r5-18: ended, not interrupted.
   }
 
   Future<void> markCompleted(RideStatus status) async {
@@ -601,6 +604,9 @@ class ActiveRideController {
     if (snapshot == null || _clean(snapshot.rideId) != id) return;
     await _archive(snapshot, RideStatus.paymentFailed, expectedRideId: id);
     await _store.clear();
+    // rider-r5-18: the trip is over, not interrupted; a reload on this
+    // screen must not say the search was.
+    clearSearchLive();
   }
 
   /// Finish History archival before clearing the restorable completion record.
