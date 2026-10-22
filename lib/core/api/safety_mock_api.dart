@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -152,9 +155,15 @@ class SafetyMockApi {
   final Map<String, Map<String, dynamic>> rideCheckAlerts = {};
   String? lastLoggedPin;
 
+  /// rider-u16: where new PINs come from. Before, the PIN was the clock's
+  /// microseconds mod 10000; on the web DateTime.now() has millisecond
+  /// precision, so every demo PIN ended in 000 (ten possible values).
+  @visibleForTesting
+  static Random pinRandom = Random.secure();
+
   static Map<String, dynamic> _newPin({required bool required}) {
     final now = DateTime.now().toUtc();
-    final n = now.microsecondsSinceEpoch % 10000;
+    final n = pinRandom.nextInt(10000);
     return {
       'pinId': 'pin_${now.microsecondsSinceEpoch}',
       'userId': 'rider-local',
