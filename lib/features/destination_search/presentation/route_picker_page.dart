@@ -1001,6 +1001,17 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       .take(2)
       .toList();
 
+  /// rider-u92: a suggestion repeats a recent only when it is the same
+  /// place: the whole address, or the title against the recent's first
+  /// part. 'Kungsgatan 4' is not 'Kungsgatan 44'.
+  bool _sameAsRecent(PlaceSuggestion suggestion, String recent) {
+    String norm(String value) =>
+        foldForSearch(value).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final (head, _) = _split(compactAddress(recent));
+    return norm(recent) == norm(suggestion.address) ||
+        norm(head) == norm(suggestion.title);
+  }
+
   List<Widget> _whileTyping() {
     final recentMatches = _recentMatches();
     final shown = _showAll ? _results : _results.take(4).toList();
@@ -1020,7 +1031,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           );
         }(),
       for (final s in shown)
-        if (!recentMatches.any((r) => r.startsWith(s.title)))
+        if (!recentMatches.any((r) => _sameAsRecent(s, r)))
           _row(
             icon: Icons.location_on_outlined,
             title: _highlighted(s.title),

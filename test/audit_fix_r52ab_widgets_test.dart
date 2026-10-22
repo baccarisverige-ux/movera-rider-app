@@ -337,6 +337,26 @@ void main() {
     expect(find.text('Other'), findsNothing);
   });
 
+  testWidgets('rider-u92: a recent with a longer house number does not '
+      'hide the address typed', (tester) async {
+    await openPicker(tester, recent: const ['Drottninggatan 50, Stockholm']);
+    final field = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.hintText == 'Where to?',
+    );
+    await tester.enterText(field, 'Drottninggatan 5');
+    // As audit_fix_route_picker_test: the in-process backend answers on a
+    // real clock, so wait for its suggestions (bounded).
+    final suggestion = find.byIcon(Icons.location_on_outlined);
+    for (var i = 0; i < 100 && suggestion.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+    }
+    expect(suggestion, findsWidgets,
+        reason: "'Drottninggatan 5' is not the recent 'Drottninggatan 50'");
+  });
+
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '
       'ended ride', (tester) async {
     final realtime = await openWaiting(tester);
