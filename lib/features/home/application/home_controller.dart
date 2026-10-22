@@ -475,7 +475,6 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       _setState(HomeLocationState.acquiringFix);
-      final approximate = await location.isApproximateOnly();
       // D-003: geolocator_web passes timeLimit in microseconds to a JS API
       // that expects milliseconds (15 s becomes ~4 h). The Dart-side
       // timeout guarantees the fallback path still runs.
@@ -489,6 +488,9 @@ class HomeLocationController extends ChangeNotifier {
           .timeout(detectFixTimeout);
       _accurateFixSeen = true;
       final generation = _detectGuard.next();
+      // rider-u114: read after the fix, so the fix's own timeout still
+      // bounds the whole detection.
+      final approximate = await location.isApproximateOnly();
       if (approximate) {
         // rider-u114: a fix that may be hundreds of metres off names no
         // pickup and is not kept as a good fix; it still centres the map.

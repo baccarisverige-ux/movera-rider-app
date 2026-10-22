@@ -912,8 +912,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
-        refreshCurrentLocation:
-            chosen == null && !_locationCtl.preciseLocationOff,
+        // rider-u114: never re-seeded from an approximate fix.
+        refreshCurrentLocation: chosen == null && !_locationCtl.preciseLocationOff,
       );
       if (result == null) return null;
       return PickupMapResult(
