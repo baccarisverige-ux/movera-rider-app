@@ -25,10 +25,17 @@ class ApiPaymentMethodRepository
   /// save was made keeps the saved choice instead of the server's older one.
   int _saves = 0;
 
+  /// rider-u132: a default the rider chose that the server has not taken
+  /// (the PATCH failed). It is sent again on the next read, and until the
+  /// server has it the server's older default does not replace it.
+  String? _unsaved;
+
   @override
   Future<List<PaymentMethod>> listMethods() async {
     final json = await _api.get(path);
-    _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+    if (_unsaved == null) {
+      _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+    }
     final raw = json['methods'];
     if (raw is! List) return const [];
     return [
@@ -42,10 +49,12 @@ class ApiPaymentMethodRepository
 
   @override
   Future<String?> read() async {
+    final unsaved = _unsaved;
+    if (unsaved != null) await _send(unsaved);
     final saves = _saves;
     try {
       final json = await _api.get(path);
-      if (saves == _saves) {
+      if (saves == _saves && _unsaved == null) {
         _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
       }
     } catch (error) {
@@ -62,13 +71,19 @@ class ApiPaymentMethodRepository
   Future<void> save(String brand) async {
     _defaultId = brand;
     _saves++;
+    await _send(brand);
+  }
+
+  Future<void> _send(String brand) async {
     try {
       await _api.patch(
         '$path/default',
         body: {'methodId': brand},
         idempotencyKey: newIdempotencyKey('payment-default'),
       );
+      if (_unsaved == brand) _unsaved = null;
     } catch (error) {
+      if (_defaultId == brand) _unsaved = brand;
       AppLog.warning(
         'payments.default_save_failed',
         extra: {'error': '$error'},
@@ -77,7 +92,10 @@ class ApiPaymentMethodRepository
   }
 
   @override
-  void clearLocal() => _defaultId = null;
+  void clearLocal() {
+    _defaultId = null;
+    _unsaved = null;
+  }
 
   static PaymentMethod? _method(Map<String, dynamic> json) {
     final id = _string(json['id']);

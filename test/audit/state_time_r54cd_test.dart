@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
@@ -394,5 +395,25 @@ void main() {
     expect(feed.all().single.time, '23:50');
     clock = DateTime(2026, 5, 5, 8);
     expect(feed.all().single.time, L10n.current.notifYesterday('23:50'));
+  });
+
+  test('rider-u132: a default the server did not take is kept and sent again',
+      () async {
+    var patches = 0;
+    var serverDefault = 'cash';
+    final payments = ApiPaymentMethodRepository(
+      api: _api((request) async {
+        if (request.method == 'PATCH') {
+          // The first save is lost; the retry lands.
+          if (++patches == 1) return _json({'code': 'unavailable'}, 503);
+          serverDefault = (jsonDecode(request.body) as Map)['methodId'];
+          return _json({'code': 'OK'});
+        }
+        return _json({'methods': [], 'defaultMethodId': serverDefault});
+      }),
+    );
+    await payments.save('google_pay');
+    expect(await payments.read(), 'google_pay');
+    expect(serverDefault, 'google_pay');
   });
 }
