@@ -31,6 +31,42 @@ RideSnapshot _snapshot(String id, RideStatus status) => RideSnapshot(
   rideId: id,
 );
 
+/// Books a live ride on the stand-in server (quote, then ride) and answers
+/// its server-made id.
+Future<String> _bookOnServer(ApiClient api) async {
+  final quoted = await api.post(
+    '/api/v1/quotes',
+    body: <String, dynamic>{
+      'rideType': 'economy',
+      'pickup': <String, dynamic>{'lat': 59.3293, 'lng': 18.0686},
+      'destination': <String, dynamic>{'lat': 59.6519, 'lng': 17.9186},
+    },
+  );
+  final quote = Map<String, dynamic>.from(quoted['quote'] as Map);
+  final created = await api.post(
+    '/api/v1/rides',
+    body: <String, dynamic>{
+      'categoryId': 'economy',
+      'paymentMethod': 'apple_pay',
+      'pickupAddress': 'Stockholm Central',
+      'destinationAddress': 'Arlanda Airport',
+      'pickupLat': 59.3293,
+      'pickupLng': 18.0686,
+      'destinationLat': 59.6519,
+      'destinationLng': 17.9186,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+      'fare': <String, dynamic>{
+        'amountMinor': quote['totalMinor'],
+        'currency': quote['currency'],
+      },
+    },
+  );
+  return (created['ride'] as Map)['id'] as String;
+}
+
 Future<void> _waitFor(
   bool Function() predicate, {
   Duration timeout = const Duration(seconds: 3),
@@ -112,7 +148,10 @@ void main() {
     );
     addTearDown(realtime.dispose);
 
-    const rideId = 'phase85-driver-replacement';
+    // rider-u29: the ride is booked on the stand-in server first, so the
+    // accept is the real one (the mock no longer shows a driver the server
+    // refused, as it did for a ride id the server never had).
+    final rideId = await _bookOnServer(api);
     realtime.subscribe(rideId).listen((_) {});
     realtime.assignNow();
     await _waitFor(
