@@ -636,13 +636,22 @@ class _FindingDriversState extends State<FindingDrivers> {
   Future<void> _refreshRoadRoute() async {
     // With stops the straight pickup → stops → destination line is drawn.
     if (_stops.isNotEmpty) return;
+    final from = _pickupPosition;
+    final to = _destinationPosition;
     final route = await roadRoutePolyline(
       id: 'route',
-      from: _pickupPosition,
-      to: _destinationPosition,
+      from: from,
+      to: to,
       color: RiderRouteStyle.color,
     );
     if (!mounted || route.points.length < 2) return;
+    // rider-35: the route changed while this answer was on its way; the
+    // newer request draws the line.
+    if (from != _pickupPosition ||
+        to != _destinationPosition ||
+        _stops.isNotEmpty) {
+      return;
+    }
     _roadRoutePoints = route.points;
     _loadMapBits();
     setState(() {});
@@ -713,7 +722,14 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
     // A system back can close the sheet while the request is still out;
     // the server's answer decides, not the sheet.
-    final result = request == null ? null : await request;
+    SearchCancelResult? result;
+    try {
+      result = request == null ? null : await request;
+    } catch (_) {
+      // rider-u98: a failed request must not leave the sheet marked open,
+      // which would hold every later navigation back.
+      result = SearchCancelResult.unsent;
+    }
     if (!mounted) {
       _cancelSheetOpen = false;
       return;
@@ -736,6 +752,8 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice(context.l10n.cancelNoLonger);
+    } else if (result == SearchCancelResult.unsent) {
+      _showCancelNotice(context.l10n.routeCouldNotReach);
     } else if (result == SearchCancelResult.stale) {
       // R-O2 (owner's words): the trip changed just before the tap.
       _showCancelNotice(rideJustChangedMessage);
@@ -758,6 +776,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       context,
       phase: CancelPhase.searching,
       committed: true,
+      publishedReasons: _zoneConfig?.cancelReasons.map((r) => r.code),
     );
     final reason = feedback.reasonId;
     if (reason != null) unawaited(_match.sendCancelReason(reason));

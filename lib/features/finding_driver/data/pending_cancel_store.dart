@@ -343,6 +343,12 @@ class PendingCancelStore {
   /// sent, reusing the entry (and its idempotency key) if one already exists
   /// for the same [command]. A different command is a different request,
   /// so it replaces the entry with its own key.
+  ///
+  /// rider-u104: a new tap that names a different [expectedVersion] (the
+  /// trip moved on) or a different [reasonId] is a new body, so the entry
+  /// is refreshed with them under a new key, as the flush does with
+  /// [PendingCancel.forVersion]. The first tap's version would be refused
+  /// as stale, and its reason would differ from the one History files.
   static Future<PendingCancel> enqueue({
     required String rideId,
     String? reasonId,
@@ -356,7 +362,20 @@ class PendingCancelStore {
         existing.command == command &&
         existing.whileSearching == whileSearching &&
         existing.idempotencyKey != null) {
-      return existing;
+      final newVersion = expectedVersion != null &&
+          expectedVersion != existing.expectedVersion;
+      final newReason = reasonId != null && reasonId != existing.reasonId;
+      if (!newVersion && !newReason) return existing;
+      final refreshed = PendingCancel(
+        rideId: rideId,
+        reasonId: reasonId ?? existing.reasonId,
+        idempotencyKey: idempotencyKey ?? newIdempotencyKey('ride-cancel'),
+        command: command,
+        expectedVersion: expectedVersion ?? existing.expectedVersion,
+        whileSearching: whileSearching,
+      );
+      await add(refreshed);
+      return refreshed;
     }
     final entry = PendingCancel(
       rideId: rideId,

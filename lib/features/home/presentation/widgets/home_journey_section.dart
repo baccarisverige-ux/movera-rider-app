@@ -184,11 +184,15 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
     super.dispose();
   }
 
+  /// rider-u126: bumped by every [_load]; only the newest read is shown.
+  int _loadGeneration = 0;
+
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
       final rides =
           await (widget.ridesLoader ?? HomeJourneySection.defaultRides)();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() => _stats = MonthRideStats.fromRides(rides, _now));
     } catch (_) {
       // Keep the empty month; the card is informational only.
