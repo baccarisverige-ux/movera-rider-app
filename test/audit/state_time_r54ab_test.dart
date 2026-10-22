@@ -21,6 +21,9 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride_ge
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -268,5 +271,37 @@ void main() {
       estimatedRouteMinutes(pickup, const [stop], destination),
       greaterThan(direct + 5),
     );
+  });
+
+  test('rider-u68: a flush still running after the sign-out wipe writes '
+      'nothing back', () async {
+    SharedPreferences.setMockInitialValues({});
+    await PendingCancelStore.enqueue(rideId: 'ride_u68', expectedVersion: 1);
+    final reread = Completer<http.Response>();
+    var gets = 0;
+    var posts = 0;
+    final api = ApiClient(
+      env: _env,
+      client: MockClient((request) {
+        if (request.method == 'GET') {
+          gets++;
+          return reread.future;
+        }
+        posts++;
+        return Future.value(http.Response('{"code":"OK"}', 200));
+      }),
+    );
+    final flush = FindingDriverController.flushPendingCancels(api: api);
+    await _until(() => gets == 1);
+    await UserDataWipe.run();
+    reread.complete(http.Response(
+      jsonEncode({
+        'ride': {'id': 'ride_u68', 'status': 'searching', 'version': 2},
+      }),
+      200,
+    ));
+    await flush;
+    expect(await PendingCancelStore.all(), isEmpty);
+    expect(posts, 0);
   });
 }

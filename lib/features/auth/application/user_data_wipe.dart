@@ -99,6 +99,9 @@ abstract final class UserDataWipe {
   /// are not touched here: sign-out clears them, and a new rider signing in
   /// has just saved theirs.
   static Future<void> run() async {
+    // rider-u68: a flush the sign-out budget gave up on keeps running; it
+    // must not write this rider's cancels back after the wipe.
+    FindingDriverController.abandonPendingCancelFlush();
     resetInMemory();
     await RideSnapshotStore.clear();
     clearSearchLive();
