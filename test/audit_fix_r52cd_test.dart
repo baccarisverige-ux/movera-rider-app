@@ -233,4 +233,35 @@ void main() {
 
     expect(find.byType(WaitingForDriver), findsOneWidget);
   });
+
+  testWidgets('rider-u160: the chrono countdown fits its disc in French at '
+      'large text', (tester) async {
+    L10n.use('fr');
+    addTearDown(() => L10n.use('en'));
+    clock = DateTime(2026, 10, 22, 8);
+    final controller = reservations();
+    await book(controller, DateTime(2026, 10, 22, 10));
+    clock = DateTime(2026, 10, 22, 9, 59, 30); // 'Maintenant'
+
+    await pumpPage(
+      tester,
+      Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: Scaffold(
+            body: Center(
+              child: HomeReservationChrono(
+                controller: controller,
+                now: () => clock,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Maintenant'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+  });
 }

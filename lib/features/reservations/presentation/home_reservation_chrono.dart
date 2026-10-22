@@ -325,29 +325,45 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
                                     size: 18,
                                     color: HomeReservationChrono.noDriver,
                                   )
-                                else ...[
-                                  Text(
-                                    parts.primary,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: parts.secondary == null
-                                          ? 13
-                                          : 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: HomeReservationChrono.ink,
-                                      height: 1,
-                                    ),
-                                  ),
-                                  if (parts.secondary != null)
-                                    Text(
-                                      parts.secondary!,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF6B757B),
-                                        height: 1.1,
+                                else
+                                  // rider-u160: one line each, scaled down to
+                                  // fit the disc at large text sizes and for
+                                  // long words ('Maintenant').
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            parts.primary,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: parts.secondary == null
+                                                  ? 13
+                                                  : 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: HomeReservationChrono.ink,
+                                              height: 1,
+                                            ),
+                                          ),
+                                          if (parts.secondary != null)
+                                            Text(
+                                              parts.secondary!,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF6B757B),
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                ],
+                                  ),
                               ],
                             ),
                           ),
