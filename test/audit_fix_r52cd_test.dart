@@ -46,6 +46,8 @@ import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -583,5 +585,19 @@ void main() {
     expect(find.text('No active cases'), findsNothing);
     expect(find.text("Your cases aren't listed in the app yet"),
         findsOneWidget);
+  });
+
+  test('rider-u230: Support shows a late-cancel fee, not 0 or the fare',
+      () async {
+    clock = DateTime(2026, 10, 22, 9, 30);
+    final controller = reservations();
+    final ride = await book(controller, DateTime(2026, 10, 22, 10));
+    final cancelled =
+        await controller.cancel(ride.reservationId, fee: const Money(5000));
+
+    final row = SupportController.rideFor(cancelled);
+
+    expect(row.priceLabel, contains('50'));
+    expect(row.priceLabel, isNot(contains('450')));
   });
 }

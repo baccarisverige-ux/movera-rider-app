@@ -1080,7 +1080,13 @@ class _RideRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              ride.failed ? context.l10n.supportFailed : formatMajor(ride.price, ride.currency),
+              // rider-u230: a cancelled ride reads as on the other Support
+              // screens (its fee, not the full fare).
+              ride.cancelled
+                  ? ride.priceLabel
+                  : ride.failed
+                  ? context.l10n.supportFailed
+                  : formatMajor(ride.price, ride.currency),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],
