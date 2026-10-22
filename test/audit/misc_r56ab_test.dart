@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 /// A [Random] that always answers [value].
 class _FixedRandom implements Random {
   _FixedRandom(this.value);
@@ -17,6 +19,12 @@ class _FixedRandom implements Random {
   double nextDouble() => 0;
   @override
   bool nextBool() => false;
+}
+
+/// Takes camera moves instead of driving a platform map.
+class _FakeMap extends Fake implements GoogleMapController {
+  @override
+  Future<void> moveCamera(CameraUpdate cameraUpdate) => Future<void>.value();
 }
 
 /// R5.6 parts a and b: small local fixes, one short test per bug.
@@ -73,5 +81,32 @@ void main() {
     addTearDown(() => SafetyMockApi.pinRandom = before);
     SafetyMockApi.pinRandom = _FixedRandom(4321);
     expect((SafetyMockApi()..reset()).pin['pin'], '4321');
+  });
+
+  testWidgets('rider-j8-15: a recenter during a follow glide flies on the '
+      'web frame clock', (tester) async {
+    final flights = <CameraPosition>[];
+    RiderMapBridge.debugFlight = (_, to, _) {
+      flights.add(to);
+      return Future.value(true);
+    };
+    addTearDown(() => RiderMapBridge.debugFlight = null);
+    final fake = _FakeMap();
+    mapViewOf(fake)
+      ..mapId = 1
+      ..pose = const CameraPosition(target: LatLng(59.33, 18.06), zoom: 13);
+    unawaited(
+      easeCameraTo(
+        fake,
+        const CameraPosition(target: LatLng(59.331, 18.06), zoom: 13),
+      ),
+    );
+    await tester.pump(cameraEaseFrame);
+    const recenter = CameraPosition(target: LatLng(59.34, 18.07), zoom: 15);
+    unawaited(easeCameraTo(fake, recenter, duration: cameraFlightDuration));
+    await tester.pump(cameraEaseFrame);
+    expect(flights, [recenter]);
+    mapViewOf(fake).interrupt();
+    await tester.pump(cameraEaseFrame);
   });
 }

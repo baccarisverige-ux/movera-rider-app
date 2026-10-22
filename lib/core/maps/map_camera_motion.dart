@@ -319,7 +319,15 @@ Future<void> easeCameraTo(
   final view = mapViewOf(controller);
   if (view.touching) return Future<void>.value();
   final running = view._done;
-  if (view.easing && view._goal != null && running != null) {
+  // rider-j8-15: a flight (a recenter) during a follow glide starts afresh
+  // below, so it runs on the browser's frame clock on the web and gets its
+  // own frame budget instead of the follow glide's remaining frames.
+  final startsFlight =
+      view._flight == null && duration >= _flightThreshold;
+  if (view.easing &&
+      view._goal != null &&
+      running != null &&
+      !startsFlight) {
     view._goal = to;
     view._goalDuration = duration;
     final id = view.mapId;
@@ -329,10 +337,6 @@ Future<void> easeCameraTo(
     }
     // A newer goal joins a running flight on its clock (a fresh fix after a
     // recenter, a follow update), so the flight still lands on time.
-    if (view._flight == null && duration >= _flightThreshold) {
-      view._flight = duration;
-      view._flownMicros = 0;
-    }
     return running.future;
   }
   view.interrupt();
