@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -26,6 +29,12 @@ import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
+import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -81,6 +90,32 @@ Future<void> _until(bool Function() done, {int turns = 500}) async {
   final events = <RideRealtimeEvent>[];
   rt.subscribe('ride_demo').listen(events.add);
   return (rt, events);
+}
+
+/// Records what is saved, then refuses it (the name screen stays put).
+class _RecordingProfiles implements RiderProfileRepository {
+  RiderProfileData? saved;
+
+  @override
+  RiderProfileData current = RiderProfileData.defaults();
+
+  @override
+  String displayName() => current.name;
+
+  @override
+  Future<void> hydrate() async {}
+
+  @override
+  Future<void> hydrateLocal() async {}
+
+  @override
+  void clearLocal() {}
+
+  @override
+  Future<RiderProfileData> save(RiderProfileData next) async {
+    saved = next;
+    throw StateError('offline');
+  }
 }
 
 /// A map controller that only records camera moves.
@@ -345,5 +380,32 @@ void main() {
       serverActiveTrip: () async => null,
     ).root();
     expect(page, isA<RiderNameScreen>());
+  });
+
+  testWidgets('rider-u75: the new rider\'s profile carries the language the '
+      'app speaks', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    SharedPreferences.setMockInitialValues({});
+    final language = AppLanguageController();
+    await tester.runAsync(() => language.choose('sv'));
+    addTearDown(() => L10n.use('en'));
+    final profiles = _RecordingProfiles();
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, _) => MaterialApp(
+          home: RiderNameScreen(
+            profile: ProfileController(store: profiles),
+            language: language,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, 'Elin');
+    await tester.tap(find.byType(AuthPrimaryButton));
+    await tester.pump();
+    await tester.pump();
+    expect(profiles.saved?.language, 'sv');
   });
 }
