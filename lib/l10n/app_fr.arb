@@ -847,6 +847,7 @@
   "notification": "Notification",
   "allCaughtUp": "Vous êtes à jour.",
   "notificationsEmptyBody": "Les infos sur vos courses et votre compte apparaîtront ici.",
+  "notificationRideEnded": "Cette course est terminée.",
   "notificationUnread": "Non lu",
   "driverTripCount": "{count, plural, =1{1 course} other{{count} courses}}",
   "safetyKit": "Kit de sécurité",

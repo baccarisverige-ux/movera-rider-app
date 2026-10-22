@@ -13,6 +13,7 @@ import 'package:movera_rider/features/home/presentation/widgets/home_journey_sec
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -266,6 +267,33 @@ void main() {
         );
         expect(find.text(L10n.current.placeRestaurant), findsOneWidget);
         expect(find.text('restaurant'), findsNothing);
+      });
+
+      testWidgets('rider-49: an ended ride notification toast is translated', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => openNotificationRide(
+                  context,
+                  'r51-ended',
+                  open: (_) async => false,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text(L10n.current.notificationRideEnded), findsOneWidget);
+        expect(find.text('This ride has ended.'), findsNothing);
+        await tester.pump(const Duration(seconds: 5));
       });
     });
   }

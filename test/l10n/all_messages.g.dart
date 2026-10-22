@@ -853,6 +853,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notification': l.notification,
   'allCaughtUp': l.allCaughtUp,
   'notificationsEmptyBody': l.notificationsEmptyBody,
+  'notificationRideEnded': l.notificationRideEnded,
   'notificationUnread': l.notificationUnread,
   'driverTripCount': l.driverTripCount(37),
   'safetyKit': l.safetyKit,
@@ -3222,6 +3223,8 @@ class _Exhaustive implements AppLocalizations {
   String get allCaughtUp => '';
   @override
   String get notificationsEmptyBody => '';
+  @override
+  String get notificationRideEnded => '';
   @override
   String get notificationUnread => '';
   @override

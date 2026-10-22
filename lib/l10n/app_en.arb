@@ -1814,6 +1814,10 @@
   "notification": "Notification",
   "allCaughtUp": "You're all caught up.",
   "notificationsEmptyBody": "Ride and account updates will appear here when they arrive.",
+  "notificationRideEnded": "This ride has ended.",
+  "@notificationRideEnded": {
+    "description": "Toast when a tapped notification's ride can no longer be opened."
+  },
   "notificationUnread": "Unread",
   "@notificationUnread": {
     "description": "Screen-reader label of the dot on an unread notification."

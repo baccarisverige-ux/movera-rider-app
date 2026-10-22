@@ -847,6 +847,7 @@
   "notification": "Avisering",
   "allCaughtUp": "Du är helt uppdaterad.",
   "notificationsEmptyBody": "Uppdateringar om resor och konto visas här när de kommer.",
+  "notificationRideEnded": "Den här resan är avslutad.",
   "notificationUnread": "Oläst",
   "driverTripCount": "{count, plural, =1{1 resa} other{{count} resor}}",
   "safetyKit": "Säkerhetskit",
