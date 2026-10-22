@@ -351,4 +351,39 @@ void main() {
       startsWith(L10n.current.tomorrowDate('').trim()),
     );
   });
+
+  test('rider-j8-9: a ride waiting for a driver moved to tomorrow is '
+      'scheduled again', () async {
+    final now = DateTime(2026, 10, 22, 10);
+    final reservations = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        clock: () => now,
+      ),
+      clock: () => now,
+    );
+    const place = ReservationPlace(label: 'A', lat: 59.33, lng: 18.06);
+    final ride = await reservations.create(
+      ReservationDraft(
+        scheduledPickupAt: now.add(const Duration(minutes: 1)),
+        pickup: place,
+        destination: place,
+        categoryId: 'economy',
+        categoryName: 'Movera',
+        categoryImage: '',
+        price: 259,
+        paymentMethod: 'cash',
+      ),
+    );
+    await reservations.startLiveIfDue(now: now);
+    expect(
+      reservations.byId(ride.reservationId)!.status,
+      ReservationStatus.driverAssignmentPending,
+    );
+    final moved = await reservations.update(
+      ride.reservationId,
+      ReservationPatch(scheduledPickupAt: now.add(const Duration(days: 1))),
+    );
+    expect(moved.status, ReservationStatus.scheduled);
+  });
 }
