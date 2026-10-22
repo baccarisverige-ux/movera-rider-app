@@ -212,7 +212,14 @@ class _ScheduleRideState extends State<ScheduleRide> {
     if (spot == null || !mounted) return;
     // The drop-off must be a real place before choosing a time; its distance
     // gives the honest arrival estimate on the next screen.
-    final dropoff = await findScheduledPoint(_dropoffController.text);
+    final LatLng? dropoff;
+    try {
+      dropoff = await findScheduledPoint(_dropoffController.text);
+    } on ScheduledPointLookupFailed {
+      // rider-r5-23: the lookup failed; the address may be fine.
+      if (mounted) MoveraToast.show(context, context.l10n.apiUnreachable);
+      return;
+    }
     if (!mounted) return;
     if (dropoff == null) {
       MoveraToast.show(context, context.l10n.resValidDestination);
