@@ -67,7 +67,7 @@ abstract final class RiderZones {
   );
 
   /// The home zone: the one a pickup outside every known zone gets.
-  static const home = sweden;
+  static const home = france;
 
   static const all = <RiderZone>[sweden, france, tunisia];
 
