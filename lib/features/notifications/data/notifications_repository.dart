@@ -50,8 +50,16 @@ class NotificationsRepository {
     }
 
     final at = (payload.sentAt ?? _now()).toLocal();
+    // rider-u129: newest sent first. A tray push tapped later (or the
+    // cold-start message) is ingested after newer foreground ones and
+    // goes below them, not to the top.
+    var index = _items.indexWhere((item) {
+      final itemAt = item.at;
+      return itemAt == null || !itemAt.isAfter(at);
+    });
+    if (index < 0) index = _items.length;
     _items.insert(
-      0,
+      index,
       AppNotification(
         kind: payload.isRideEvent ? 'ride' : 'info',
         title: title?.isNotEmpty == true ? title! : 'Movera',

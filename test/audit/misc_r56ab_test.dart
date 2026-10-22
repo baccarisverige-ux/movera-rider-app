@@ -22,6 +22,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
@@ -35,6 +36,7 @@ import 'package:movera_rider/features/destination_search/presentation/route_pick
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -453,5 +455,18 @@ void main() {
       find.byType(NotificationScreen, skipOffstage: false),
       findsOneWidget,
     );
+  });
+
+  test('rider-u129: a tray push tapped later goes below newer ones', () {
+    final feed = NotificationsRepository(now: () => DateTime(2026, 10, 22, 13));
+    PushPayload push(String id, int hour) => PushPayload(
+      type: 'promo',
+      messageId: id,
+      title: 'Push $id',
+      sentAt: DateTime(2026, 10, 22, hour),
+    );
+    feed.ingest(push('b', 12), read: false); // Foreground, 12:00.
+    feed.ingest(push('a', 11), read: true); // Tapped in the tray, 11:00.
+    expect(feed.all().map((n) => n.messageId), ['b', 'a']);
   });
 }
