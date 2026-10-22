@@ -65,6 +65,25 @@ class ActiveRideController {
 
   ApiClient get api => _api ?? AppScope.instance.api;
 
+  /// rider-u49: whether "Your driver has arrived" was already shown for
+  /// [rideId]'s current driver, as saved with the ride's snapshot.
+  static Future<bool> arrivalAnnounced(String rideId) async {
+    final saved = await RideSnapshotStore.read();
+    return saved?.rideId?.trim() == rideId.trim() &&
+        saved!.arrivalAnnounced;
+  }
+
+  /// rider-u49: saves [announced] for [rideId] (a new driver clears it).
+  static Future<void> rememberArrivalAnnounced(
+    String rideId,
+    bool announced,
+  ) async {
+    final saved = await RideSnapshotStore.read();
+    if (saved == null || saved.rideId?.trim() != rideId.trim()) return;
+    if (saved.arrivalAnnounced == announced) return;
+    await RideSnapshotStore.save(saved.copyWith(arrivalAnnounced: announced));
+  }
+
   /// RC-02/RC-03: ride ids whose queued cancel or end-early the server
   /// refused once it was sent, while the ride goes on.
   static Stream<String> get queuedCancelRefusals => PendingCancelStore
@@ -468,7 +487,7 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
     AppScope.instance.ride.backendReconcile(status, id: id);
-    _stopSafetyRecording();
+    _stopSafetyRecording(keepRideCheck: true);
     if (snapshot == null) return;
 
     // Keep a restorable completion snapshot until the rider explicitly leaves
@@ -639,7 +658,11 @@ class ActiveRideController {
   /// FLOW-6: a Safety Kit recording belongs to the ride; once the ride is
   /// over the rider can no longer reach Stop audio, so it stops and is
   /// saved here. Best effort, never blocks the ride flow.
-  void _stopSafetyRecording() {
-    unawaited(SafetyController.stopRecordingForRideEnd());
+  /// rider-u35: [keepRideCheck] on completion, whose summary still shows
+  /// an open Ride check card and its Stop control.
+  void _stopSafetyRecording({bool keepRideCheck = false}) {
+    unawaited(
+      SafetyController.stopRecordingForRideEnd(keepRideCheck: keepRideCheck),
+    );
   }
 }

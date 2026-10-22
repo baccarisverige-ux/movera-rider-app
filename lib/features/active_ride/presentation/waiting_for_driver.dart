@@ -154,6 +154,7 @@ class WaitingForDriver extends StatefulWidget {
     this.rideId,
     this.categoryId,
     this.persistRideSnapshot = true,
+    this.routeChangeSupported = true,
     this.onTerminal,
     this.onDriverCancelled,
     this.onCompleted,
@@ -193,6 +194,11 @@ class WaitingForDriver extends StatefulWidget {
   /// booked category of [rideId], else the stored snapshot's.
   final String? categoryId;
   final bool persistRideSnapshot;
+
+  /// rider-u55: false for a scheduled ride's live page. Its ride id is the
+  /// device-local reservation id the server has no route quote for, so
+  /// Change route and "change destination instead" can never succeed.
+  final bool routeChangeSupported;
   final Future<void> Function(BuildContext context, RideStatus status)?
   onTerminal;
   final Future<void> Function(BuildContext context)? onDriverCancelled;
@@ -231,6 +237,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _leaving = false;
   bool _completedOpened = false;
   bool _arrivalAnnounced = false;
+
+  /// rider-u49: whether the saved "already announced" flag was read yet.
+  bool _arrivalFlagRead = false;
   bool _researching = false;
   bool _overlayOn = false;
   bool _mapParked = false;
@@ -310,6 +319,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       _startRideCheckStillTimer(rideId.trim());
       unawaited(_loadWaitingTerms());
+      unawaited(_readArrivalAnnounced(rideId.trim()));
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -447,7 +457,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // dismissed yet, and dismissing it would then jump straight to "Trip
     // complete" with the in-trip phase never shown. Close it the moment the
     // trip actually starts so the rider sees that phase instead of skipping it.
-    if (_arrivedSheetShowing && DriverEta.isInTrip(status)) {
+    //
+    // rider-u47: a no-show or other end before the trip (the very moment the
+    // arrived sheet is up) closes it too, so the rider sees the ride ended
+    // instead of "Your driver has arrived" over a trip that is over.
+    if (_arrivedSheetShowing &&
+        (DriverEta.isInTrip(status) || status.isTerminal)) {
       _arrivedSheetShowing = false;
       // NAV-9: close the arrived sheet itself, not whatever route is on top
       // (a notification or Safety page pushed above it stays open).
@@ -496,8 +511,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
+    // rider-u48: in the trip the sheet's "Arrive by HH:MM" comes from the
+    // live ETA, not from the constant in-trip headline, so it is part of
+    // the signature too (else the sheet keeps the first arrival time).
+    final arriveBy = _tripHeadline(eta, status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
-        '|${_tracking.connectionDegraded}';
+        '|${_tracking.connectionDegraded}|$arriveBy';
   }
 
   /// rider-u23: the feed went straight from the dropped driver to the next
@@ -511,7 +530,33 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       closeRouteByReference(route);
     }
     _arrivalAnnounced = false;
+    // The next driver's arrival is news again, after a reload too.
+    unawaited(_saveArrivalAnnounced(false));
     showDriverCancelledNotice(context, driverName: lost.firstName);
+  }
+
+  /// rider-u49: a reload must not show the arrived sheet the rider already
+  /// dismissed, so the flag is kept with the ride's snapshot.
+  Future<void> _readArrivalAnnounced(String rideId) async {
+    try {
+      if (await ActiveRideController.arrivalAnnounced(rideId)) {
+        _arrivalAnnounced = true;
+      }
+    } catch (_) {
+      // Unknown: the sheet may show once more, as before.
+    }
+    _arrivalFlagRead = true;
+    if (mounted) _maybeAnnounceArrival();
+  }
+
+  Future<void> _saveArrivalAnnounced(bool announced) async {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    try {
+      await ActiveRideController.rememberArrivalAnnounced(rideId, announced);
+    } catch (_) {
+      // Best effort: at worst the sheet shows again after a reload.
+    }
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not
@@ -519,6 +564,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _maybeAnnounceArrival() {
     if (!mounted ||
         _leaving ||
+        !_arrivalFlagRead ||
         _arrivalAnnounced ||
         _completedOpened ||
         _modalHandoffInProgress ||
@@ -531,6 +577,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     _arrivalAnnounced = true;
+    unawaited(_saveArrivalAnnounced(true));
     _arrivedSheetShowing = true;
     unawaited(
       showDriverArrivedSheet(
@@ -1145,7 +1192,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       !_isInTrip &&
       _tracking.status != RideStatus.driverWaiting &&
       !_tracking.status.isTerminal;
-  bool get _routeEditable => !_tracking.status.isTerminal && !_completedOpened;
+  bool get _routeEditable =>
+      widget.routeChangeSupported &&
+      !_tracking.status.isTerminal &&
+      !_completedOpened;
 
   /// The three dots on the ride card: the route screen with the current
   /// addresses. The pickup can move until the driver is there; the
@@ -1232,7 +1282,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           context,
           driverAssigned: true,
           paymentMethod: widget.paymentMethod,
-          differenceKr: updated.price - ride.price,
+          // rider-u36: the server's difference, as the sheet showed it.
+          differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
           currency: updated.currency,
         );
       }
@@ -2057,7 +2108,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: _callDriverUnavailable,
-        onMore: _openDetails,
+        onMore: widget.routeChangeSupported ? _openDetails : null,
         onCancel: _confirmCancel,
       );
     }
@@ -2072,7 +2123,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             rideId: _rideId,
             onOpenProfile: _openProfile,
             onCall: _callDriverUnavailable,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           const SizedBox(height: 12),
           if (_waitingFeeCounter() case final counter?) ...[
@@ -2088,7 +2139,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             currency: widget.currency,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],
@@ -2199,6 +2250,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   @override
   void initState() {
     super.initState();
+    // rider-u59: a map rebuilt mid-ride (after a route change) starts from
+    // the driver's last known fix instead of waiting for the next one,
+    // which a driver standing at the pickup may not send for a while.
+    _updateDriverAnimation();
     _markers = _buildMarkers();
     unawaited(_prepareMapVisuals());
   }

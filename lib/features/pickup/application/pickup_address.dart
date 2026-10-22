@@ -6,6 +6,10 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// (pickupLat/pickupLng); a raw "lat, lng" string is never shown.
 const String pickupLocationFallbackLabel = 'Pickup location';
 
+/// Label for the pickup when no GPS fix exists. A fallback map point must
+/// never be called "Current location" (U2 / D-002).
+const String locationOffPickupLabel = 'Location off, set pickup';
+
 String coordinatePickupAddress(LatLng position) =>
     '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
 
@@ -14,12 +18,16 @@ final RegExp _rawCoordinates = RegExp(
 );
 
 /// True for labels that do not name a place: empty, the UI-only
-/// "Current location", or a raw coordinate string such as the demo
-/// reverse-geocoder writes when it cannot produce an address.
+/// "Current location", the "Location off, set pickup" placeholder, or a
+/// raw coordinate string such as the demo reverse-geocoder writes when it
+/// cannot produce an address.
 bool isUnusablePickupLabel(String? label) {
   final clean = label?.trim() ?? '';
   return clean.isEmpty ||
       clean.toLowerCase() == 'current location' ||
+      // rider-u133: after a late fix this placeholder reached the booking
+      // as the pickup's address; it is resolved like "Current location".
+      clean.toLowerCase() == locationOffPickupLabel.toLowerCase() ||
       _rawCoordinates.hasMatch(clean);
 }
 

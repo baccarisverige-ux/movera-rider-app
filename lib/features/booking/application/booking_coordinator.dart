@@ -19,6 +19,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -236,6 +237,44 @@ class BookingCoordinator {
       ..observeProjection(json);
     Analytics.bookingSubmitted(rideId: rideId);
     return rideId;
+  }
+
+  /// rider-u107: a fresh, signed quote for booking the same route again
+  /// ("Try again" after no driver), so the screen can ask the rider to
+  /// accept a changed price before it books. Throws when no bookable quote
+  /// could be had.
+  Future<RideQuote> freshQuote({
+    required String rideType,
+    required String pickupAddress,
+    required String destinationAddress,
+    required double pickupLat,
+    required double pickupLng,
+    required double destinationLat,
+    required double destinationLng,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) async {
+    final quote = await ApiQuoteRepository(api: _client).quote(
+      rideType: rideType,
+      distanceMeters: _approxDistanceMeters(
+        pickupLat,
+        pickupLng,
+        destinationLat,
+        destinationLng,
+      ),
+      pickup: pickupAddress,
+      destination: destinationAddress,
+      pickupPoint: GeoPoint(pickupLat, pickupLng),
+      destinationPoint: GeoPoint(destinationLat, destinationLng),
+      stops: stops,
+    );
+    _BookingQuoteBinding(
+      id: quote.id,
+      signedPayload: quote.signedPayload ?? '',
+      expiresAt: quote.expiresAt,
+      totalMinor: quote.totalMinor,
+      currency: quote.currency,
+    ).validate();
+    return quote;
   }
 
   Future<String> submitFinding({

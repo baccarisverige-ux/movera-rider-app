@@ -71,7 +71,7 @@ Future<RideSnapshot?> openRouteChange(
           workAddress: places.workAddress,
           savedPlaces: places.savedPlaces,
           recent: places.recentAddresses,
-          onSetFavourite: (_) async => null,
+          // rider-u40: no "Set your Home/Work" rows that do nothing here.
           onPickOnMap: ({required pickup, required address}) async {
             final start = pickup
                 ? LatLng(ride.pickupLat, ride.pickupLng)
@@ -125,7 +125,11 @@ Future<RideSnapshot?> openRouteChange(
                 before: ride,
                 after: updated,
               );
-              return {'ride': updated, 'refundTo': decision.refundTo};
+              return {
+                'ride': updated,
+                'refundTo': decision.refundTo,
+                'differenceKr': quote.differenceKr,
+              };
             } on RouteChangeException catch (error) {
               messenger
                 ?..hideCurrentSnackBar()
@@ -139,6 +143,8 @@ Future<RideSnapshot?> openRouteChange(
     final updated = draft?['ride'];
     final refundTo = draft?['refundTo'];
     lastRefundDestination = refundTo is RefundDestination ? refundTo : null;
+    final difference = draft?['differenceKr'];
+    lastRouteDifferenceKr = difference is double ? difference : null;
     return updated is RideSnapshot ? updated : null;
   } finally {
     capture.stop();
@@ -164,6 +170,12 @@ Future<int> _maxPickupMoveMeters(RideSnapshot ride) async {
 
 /// Where the last confirmed refund went, for the confirmation banner.
 RefundDestination? lastRefundDestination;
+
+/// rider-u36: the difference the server priced for the last confirmed
+/// change (whole units), for the confirmation banner. The device's own
+/// price can lag the server's, so `updated.price - ride.price` is only a
+/// fallback.
+double? lastRouteDifferenceKr;
 
 /// A refund the rider sent to the Movera Wallet is credited right away.
 ///
@@ -275,6 +287,7 @@ Future<RideSnapshot?> removeRouteStop(
   RouteChangeController? controller,
 }) async {
   if (index < 0 || index >= ride.stops.length) return null;
+  lastRouteDifferenceKr = null;
   final changes =
       controller ??
       RouteChangeController(
@@ -314,6 +327,7 @@ Future<RideSnapshot?> removeRouteStop(
       after: updated,
     );
     lastRefundDestination = decision.refundTo;
+    lastRouteDifferenceKr = quote.differenceKr;
     return updated;
   } on RouteChangeException catch (error) {
     messenger

@@ -163,6 +163,9 @@ class RideCheckController extends ChangeNotifier {
   static RideCheckController get shared =>
       _shared ??= RideCheckController.forSafety(SafetyController.shared);
 
+  /// The shared controller if one was made; never creates one.
+  static RideCheckController? get existing => _shared;
+
   @visibleForTesting
   static set sharedForTest(RideCheckController? controller) {
     _shared = controller;

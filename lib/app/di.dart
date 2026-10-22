@@ -298,6 +298,12 @@ class AppScope {
   late final DefaultPaymentStore defaultPayment;
   late final WalletBalanceRepository walletBalances;
   late final ReservationRepository reservationRepository;
+
+  /// rider-u124: Book for later can book in this build. Off where it is
+  /// composed with the fail-closed stand-in (staging/production, flags
+  /// off), so its entry points say so at once instead of running the
+  /// whole scheduling flow first.
+  bool get bookLaterAvailable => reservationRepository is! FeatureOffRepository;
   late final SavedCardsStore savedCardsStore;
   late final RideHistoryRepository rideHistory;
   late final ActiveTripRepository activeTrips;

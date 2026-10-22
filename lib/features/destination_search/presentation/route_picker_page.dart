@@ -70,7 +70,7 @@ class RoutePickerPage extends StatefulWidget {
     this.openWithNewStop = false,
     this.finishLabel,
     required this.recent,
-    required this.onSetFavourite,
+    this.onSetFavourite,
     required this.onPickOnMap,
     required this.onFinish,
   });
@@ -111,7 +111,10 @@ class RoutePickerPage extends StatefulWidget {
   final String? finishLabel;
 
   /// Opens the "Set your address" popup; returns the saved address.
-  final Future<String?> Function(String target) onSetFavourite;
+  ///
+  /// rider-u40: null where no address can be set (Change route in a
+  /// live ride): an unset Home or Work row is then not offered at all.
+  final Future<String?> Function(String target)? onSetFavourite;
 
   /// Opens "Choose on map" for the pickup or the destination.
   final Future<RoutePickerMapPick?> Function({
@@ -206,6 +209,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   /// longer query is on its way, so Enter checks they are for the text.
   String _resultsQuery = '';
   bool _searching = false;
+
+  /// rider-u82: the last lookup failed; say so instead of "No address found".
+  bool _lookupFailed = false;
   bool _showAll = false;
   bool _finishing = false;
 
@@ -311,6 +317,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _query = value;
       _showAll = false;
       _searching = value.trim().isNotEmpty;
+      _lookupFailed = false;
       if (value.trim().isEmpty) _results = const [];
     });
     if (value.trim().isEmpty) return;
@@ -324,6 +331,16 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             _results = results;
             _resultsQuery = query;
             _searching = false;
+            _lookupFailed = false;
+          });
+        },
+        onFailed: (query) {
+          if (!mounted || query != _activeController.text) return;
+          setState(() {
+            _results = const [];
+            _resultsQuery = query;
+            _searching = false;
+            _lookupFailed = true;
           });
         },
       ),
@@ -502,7 +519,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   Future<void> _setFavourite(String target) async {
-    final saved = await widget.onSetFavourite(target);
+    final saved = await widget.onSetFavourite?.call(target);
     if (!mounted || saved == null || saved.trim().isEmpty) return;
     setState(() {
       if (target == 'home') _home = saved;
@@ -856,6 +873,17 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     );
   }
 
+  /// rider-u91: a place the rider named ('Mamma', type 'mamma') shows that
+  /// name; a known type keeps its translated label, and a place with no
+  /// name of its own reads 'Other'.
+  String _savedPlaceTitle(SavedPlaceData place) {
+    final label = placeLabelFor(place.type);
+    if (label != L10n.current.placeOther) return label;
+    final title = place.title.trim();
+    // A saved place with no title reads back its raw type key as title.
+    return title.isEmpty || title == place.type.trim() ? label : title;
+  }
+
   (String, String) _split(String address) {
     final i = address.indexOf(',');
     if (i < 0) return (address, '');
@@ -883,6 +911,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       ('work', context.l10n.placeWork, _work),
     ]) {
       final set = value != null && value.trim().isNotEmpty;
+      if (!set && widget.onSetFavourite == null) continue;
       rows.add(
         _row(
           // Same Solar linear icons as the Home sheet chips.
@@ -916,7 +945,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             size: 24,
             color: _ink,
           ),
-          title: Text(placeLabelFor(place.type), style: _t(16)),
+          title: Text(_savedPlaceTitle(place), style: _t(16)),
           subtitle: compactAddress(address),
           onTap: () => _choose(address),
         ),
@@ -972,6 +1001,17 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       .take(2)
       .toList();
 
+  /// rider-u92: a suggestion repeats a recent only when it is the same
+  /// place: the whole address, or the title against the recent's first
+  /// part. 'Kungsgatan 4' is not 'Kungsgatan 44'.
+  bool _sameAsRecent(PlaceSuggestion suggestion, String recent) {
+    String norm(String value) =>
+        foldForSearch(value).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final (head, _) = _split(compactAddress(recent));
+    return norm(recent) == norm(suggestion.address) ||
+        norm(head) == norm(suggestion.title);
+  }
+
   List<Widget> _whileTyping() {
     final recentMatches = _recentMatches();
     final shown = _showAll ? _results : _results.take(4).toList();
@@ -991,7 +1031,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           );
         }(),
       for (final s in shown)
-        if (!recentMatches.any((r) => r.startsWith(s.title)))
+        if (!recentMatches.any((r) => _sameAsRecent(s, r)))
           _row(
             icon: Icons.location_on_outlined,
             title: _highlighted(s.title),
@@ -1035,13 +1075,23 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           padding: const EdgeInsets.symmetric(vertical: 22),
           child: Column(
             children: [
-              Text(context.l10n.noAddressFound, style: _t(16, weight: FontWeight.w600)),
-              const SizedBox(height: 4),
+              // rider-u82: a failed lookup is a connection problem, not
+              // an address that does not exist.
               Text(
-                context.l10n.noAddressFoundBody,
+                _lookupFailed
+                    ? context.l10n.apiUnreachable
+                    : context.l10n.noAddressFound,
                 textAlign: TextAlign.center,
-                style: _t(13.5, weight: FontWeight.w400, color: _muted),
+                style: _t(16, weight: FontWeight.w600),
               ),
+              if (!_lookupFailed) ...[
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.noAddressFoundBody,
+                  textAlign: TextAlign.center,
+                  style: _t(13.5, weight: FontWeight.w400, color: _muted),
+                ),
+              ],
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _pickOnMap,

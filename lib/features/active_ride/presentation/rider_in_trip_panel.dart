@@ -23,7 +23,7 @@ class RiderInTripPanel extends StatelessWidget {
     this.headline,
     required this.onOpenProfile,
     required this.onCall,
-    required this.onMore,
+    this.onMore,
     required this.onCancel,
   });
 
@@ -46,7 +46,8 @@ class RiderInTripPanel extends StatelessWidget {
   final String? headline;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55).
+  final VoidCallback? onMore;
   final VoidCallback onCancel;
 
   @override

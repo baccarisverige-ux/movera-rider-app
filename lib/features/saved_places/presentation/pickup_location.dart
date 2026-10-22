@@ -68,17 +68,22 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       _searchError = null;
     });
     PlaceResult? found;
+    var lookupFailed = false;
     try {
       final geocode = widget.geocode ?? AppScope.instance.geocoding.forward;
       found = await geocode(text).timeout(const Duration(seconds: 10));
     } catch (_) {
-      found = null;
+      // rider-u82: the lookup never ran (offline, timeout), which is not
+      // an address that does not exist.
+      lookupFailed = true;
     }
     if (!mounted) return;
     if (found == null) {
       setState(() {
         _searching = false;
-        _searchError = context.l10n.spAddressNotFound;
+        _searchError = lookupFailed
+            ? context.l10n.apiUnreachable
+            : context.l10n.spAddressNotFound;
       });
       return;
     }

@@ -107,6 +107,8 @@ abstract final class ReservationLiveRide {
       categoryId: ride.categoryId,
       realtime: realtime,
       persistRideSnapshot: false,
+      // rider-u55: reservations are device-local; no server route quote.
+      routeChangeSupported: false,
       cancelFeeNote: () async {
         final terms = termsNow();
         shownTerms = terms;

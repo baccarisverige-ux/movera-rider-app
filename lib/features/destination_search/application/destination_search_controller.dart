@@ -26,13 +26,29 @@ class DestinationSearchController {
 
   /// Suggestions for [query]; [onReady] only fires for the latest query, so
   /// a slow answer for "Kl" never replaces the one for "Klo".
+  ///
+  /// rider-u82: when the lookup fails, [onFailed] fires instead (else
+  /// [onReady] with no results), so the screen does not say the address
+  /// does not exist when the lookup never ran.
   Future<void> suggest(
     String query, {
     GeoPoint? near,
     required void Function(String query, List<PlaceSuggestion> results) onReady,
+    void Function(String query)? onFailed,
   }) async {
     final generation = ++_suggestGeneration;
-    final results = await _suggestions.suggest(query, near: near);
+    List<PlaceSuggestion> results;
+    try {
+      results = await _suggestions.suggest(query, near: near);
+    } on PlaceSuggestionsUnavailable {
+      if (generation != _suggestGeneration) return;
+      if (onFailed != null) {
+        onFailed(query);
+      } else {
+        onReady(query, const []);
+      }
+      return;
+    }
     if (generation != _suggestGeneration) return;
     _store.remember(query);
     onReady(query, results);
