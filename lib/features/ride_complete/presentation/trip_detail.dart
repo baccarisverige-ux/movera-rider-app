@@ -202,7 +202,10 @@ class RideCompletedTripDetail extends StatelessWidget {
   static String _drivenLabel(int? meters) {
     if (meters == null) return L10n.current.paidByDistance;
     final km = meters / 1000;
-    return L10n.current.kmDriven(km.toStringAsFixed(km < 10 ? 1 : 0));
+    // rider-r5-53: the app language's decimal mark ('4,2 km körda').
+    return L10n.current.kmDriven(
+      L10n.formatDecimal(km, digits: km < 10 ? 1 : 0),
+    );
   }
 
   Widget _detailRow(String label, String value) {
