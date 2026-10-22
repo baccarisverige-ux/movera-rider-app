@@ -195,6 +195,25 @@ void main() {
     expect(rideCheck.session!.trigger, RideCheckTrigger.longStop);
   });
 
+  test('rider-u200: a failed stop leaves no orphan recording', () async {
+    resetSafetyMockForProcess();
+    final (:store, :local) = _store();
+    await store.load();
+    final recorder = _Recorder()..path = null;
+    final audio = SafetyAudioService(recorder: recorder, store: store);
+    await audio.start(rideId: 'ride_a');
+    await expectLater(audio.stop(), throwsA(isA<SafetyAudioException>()));
+    expect((await local.load()).recordings, isEmpty);
+
+    // The server lost the take: it is still kept here with its file.
+    recorder.path = '/device/safety/take.m4a';
+    await audio.start(rideId: 'ride_a');
+    resetSafetyMockForProcess();
+    final saved = await audio.stop();
+    expect(saved.localPath, '/device/safety/take.m4a');
+    expect((await local.load()).recordings.single.endedAt, isNotNull);
+  });
+
   test('rider-u207: Kit audio starts offline and keeps one entry', () async {
     resetSafetyMockForProcess();
     final online = _store();

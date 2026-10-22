@@ -132,17 +132,6 @@ class SafetyStore {
         ];
   }
 
-  void Function() _keepRecording(String id) {
-    final previous = _cache.recordings.where((r) => r.id == id);
-    final before = previous.isEmpty ? null : previous.last;
-    return () => _cache.recordings = [
-          for (final item in _cache.recordings)
-            if (item.id != id) item else if (before != null) before,
-          if (before != null && !_cache.recordings.any((r) => r.id == id))
-            before,
-        ];
-  }
-
   Future<SafetyPreferences> patchPreferences(SafetyPreferences next) {
     return _write(
       () => _remote.patchPreferences(next),
@@ -621,36 +610,40 @@ class SafetyStore {
     }
   }
 
-  Future<AudioRecording> completeAudio(AudioRecording recording) {
-    final next = recording.copyWith(
-      endedAt: DateTime.now().toUtc(),
+  /// Saves the finished take on this phone first, then tells the server.
+  /// rider-u200: a failed server confirm used to undo the local save and
+  /// throw SAVE_FAILED, leaving the captured file with no record of its
+  /// path; the take is now kept here either way.
+  Future<AudioRecording> completeAudio(AudioRecording recording) async {
+    await _ensure();
+    final local = recording.copyWith(
+      endedAt: recording.endedAt ?? DateTime.now().toUtc(),
       uploadStatus: AudioUploadStatus.localOnly,
     );
-    return _write(
-      () => _remote.completeAudio(
+    _putRecording(recording.id, local);
+    await _local.save(_cache);
+    try {
+      final confirmed = await _remote.completeAudio(
         rideId: recording.rideId ?? '',
         recordingId: recording.id,
         durationMs: recording.durationMs,
-      ),
-      next,
-      (value) {
-        // Completion confirms metadata, not the private file on this device.
-        final local = value.copyWith(
-          localPath: recording.localPath,
-          durationMs: recording.durationMs,
-          endedAt: recording.endedAt,
-        );
-        _cache.recordings = [
-          for (final item in _cache.recordings)
-            if (item.id == value.id) local else item,
-        ];
-      },
-      keep: () => _keepRecording(recording.id),
-    ).then((value) => value.copyWith(
-          localPath: recording.localPath,
-          durationMs: recording.durationMs,
-          endedAt: recording.endedAt,
-        ));
+      );
+      // Completion confirms metadata, not the private file on this device.
+      final next = confirmed.copyWith(
+        localPath: recording.localPath,
+        durationMs: recording.durationMs,
+        endedAt: local.endedAt,
+      );
+      _putRecording(recording.id, next);
+      await _local.save(_cache);
+      return next;
+    } catch (error) {
+      AppLog.warning(
+        'safety.audio.complete_unconfirmed',
+        extra: {'error': '$error'},
+      );
+      return local;
+    }
   }
 
   /// Replaces the recording kept as [id] with [next] (its id may differ).

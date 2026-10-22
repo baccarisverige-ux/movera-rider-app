@@ -142,6 +142,16 @@ class SafetyAudioService extends ChangeNotifier {
     final path = await _recorder.stop();
     _active = null;
     if (path == null) {
+      // rider-u200: nothing was captured, so the entry start() registered
+      // goes too; left behind it stayed "recording" (endedAt null) forever.
+      try {
+        await _store.deleteAudio(current);
+      } catch (error) {
+        AppLog.warning(
+          'safety.audio.forget_failed',
+          extra: {'error': '$error'},
+        );
+      }
       throw SafetyAudioException('NO_AUDIO', L10n.current.audioNoFile);
     }
     AudioRecording next;
