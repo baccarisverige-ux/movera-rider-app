@@ -71,6 +71,14 @@ class RouteChangeQuote {
       ? Money(differenceMinor!, currency).major
       : newPriceKr - oldPriceKr;
 
+  /// rider-u43: true when the change costs or refunds anything, compared in
+  /// minor units. A "below half a unit" rule hid real cent and millime
+  /// changes (18.20 € to 18.60 €) as "Same price" in EUR and TND zones.
+  bool get changesPrice =>
+      (differenceMinor ??
+          Money.fromLegacyMajor(differenceKr, currency).amountMinor) !=
+      0;
+
   Map<String, dynamic> toRequest() => {
     'pickupAddress': pickupAddress,
     'pickupLat': pickupPoint.latitude,

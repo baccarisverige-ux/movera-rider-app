@@ -1054,9 +1054,8 @@ class InProcessMockClient extends http.BaseClient {
               : method.toLowerCase() == 'cash' ||
                     method.toLowerCase().contains('pay in car');
           final difference = pricing['differenceMinor'] as int;
-          // Half a major unit or more (50 öre, 50 cents, 500 millimes).
-          if (!cash &&
-              difference.abs() * 2 >= Money.minorPerMajor(rideCurrency)) {
+          // rider-u43: any difference (cents and millimes count).
+          if (!cash && difference != 0) {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
               'at': ride['updatedAt'],
               'method': method,

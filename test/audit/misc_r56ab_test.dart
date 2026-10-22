@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -12,6 +14,8 @@ import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
+import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
 class _FixedRandom implements Random {
@@ -29,6 +33,15 @@ class _FixedRandom implements Random {
 class _FakeMap extends Fake implements GoogleMapController {
   @override
   Future<void> moveCamera(CameraUpdate cameraUpdate) => Future<void>.value();
+}
+
+/// Pumps [child] alone on a phone-sized screen.
+Future<void> _pumpPage(WidgetTester tester, Widget child) async {
+  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
+  await tester.pump();
 }
 
 /// R5.6 parts a and b: small local fixes, one short test per bug.
@@ -142,5 +155,28 @@ void main() {
     expect(half.position.latitude, closeTo(59.3305, 1e-9));
     expect(end.position.latitude, closeTo(59.3310, 1e-9));
     expect(end.progress, 1);
+  });
+
+  testWidgets('rider-u43: a 0.40 EUR route change is not "Same price" and '
+      'asks for the card step', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    await _pumpPage(
+      tester,
+      const RouteChangeSheet(
+        quote: RouteChangeQuote(
+          pickupAddress: 'Rue de Rivoli 1',
+          pickupPoint: GeoPoint(48.86, 2.34),
+          destinationAddress: 'Gare du Nord',
+          destinationPoint: GeoPoint(48.88, 2.355),
+          stops: [],
+          oldPriceKr: 18.20,
+          newPriceKr: 18.60,
+          currency: 'EUR',
+        ),
+        paymentMethod: 'Visa •••• 4242',
+      ),
+    );
+    expect(find.text('Same price as before.'), findsNothing);
+    expect(find.text('Confirm · next: payment'), findsOneWidget);
   });
 }
