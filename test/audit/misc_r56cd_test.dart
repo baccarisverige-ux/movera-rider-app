@@ -5,6 +5,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 
 /// Wave 5 R5.6 parts c + d: everything else (low). One test per bug.
 
@@ -79,5 +80,20 @@ void main() {
     expect(find.byType(SnackBar), findsOneWidget);
     expect(rebooked, 0);
     expect(c.byId('rsv_1')!.status.isUpcoming, isTrue);
+  });
+
+  test('rider-u164: live ride notes match whole labels only', () async {
+    final c = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv_1',
+      ),
+    );
+    final ride = await c.create(
+      _draft(note: 'Petra will meet the driver · Bags 3+'),
+    );
+    final notes = ReservationLiveRide.notesOf(ride);
+    expect(notes.bagLevel, 2);
+    expect(notes.pet, isFalse);
   });
 }

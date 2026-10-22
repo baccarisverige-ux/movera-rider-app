@@ -59,6 +59,25 @@ class RideNotes {
       [for (final item in part.split(', ')) labelFor(item)].join(', '),
   ].join(' · ');
 
+  /// rider-u164: the notes back from a saved ride note ("Leave at the
+  /// gate · Bags 3+ · Pet"). Only a whole part that is exactly one of the
+  /// [selected] labels counts, so 'Bags 3+' keeps its count and the rider's
+  /// own words ('Petra meets you') never turn a chip on.
+  factory RideNotes.fromNote(String? note) {
+    final labels = {
+      for (final part in (note ?? '').split(' · '))
+        for (final item in part.split(', ')) item.trim(),
+    };
+    final many = labels.contains('Bags 3+');
+    return RideNotes(
+      bags: many || labels.contains('Bags'),
+      manyBags: many,
+      pet: labels.contains('Pet'),
+      baby: labels.contains('Baby'),
+      child: labels.contains('Child'),
+    );
+  }
+
   RideNotes copyWith({bool? bags, bool? pet, bool? baby, bool? child}) {
     return RideNotes(
       bags: bags ?? this.bags,

@@ -44,15 +44,7 @@ abstract final class ReservationLiveRide {
         notes: notesOf(ride),
       );
 
-  static RideNotes notesOf(Reservation ride) {
-    final note = ride.note ?? '';
-    return RideNotes(
-      bags: note.contains('Bags'),
-      pet: note.contains('Pet'),
-      baby: note.contains('Baby'),
-      child: note.contains('Child'),
-    );
-  }
+  static RideNotes notesOf(Reservation ride) => RideNotes.fromNote(ride.note);
 
   static LatLng _point(ReservationPlace place) {
     if (place.lat != null && place.lng != null) {
