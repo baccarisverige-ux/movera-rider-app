@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
@@ -299,5 +303,53 @@ void main() {
       expect(await home.normaliseAddress(label), label);
     }
     expect(geocoder.queries, isEmpty);
+  });
+
+  testWidgets('rider-u126: an older month read does not overwrite a newer '
+      'one', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final reads = <Completer<List<Reservation>>>[];
+    final changes = StreamController<void>.broadcast();
+    addTearDown(changes.close);
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(390, 844),
+      builder: (_, _) => MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: HomeJourneySection(
+              onDestinationTap: () {},
+              onOpenSchedule: () {},
+              ridesLoader: () => (reads..add(Completer())).last.future,
+              clock: () => DateTime(2026, 10, 14, 12),
+              changes: changes.stream,
+            ),
+          ),
+        ),
+      ),
+    ));
+    changes.add(null);
+    await tester.pump();
+    final ride = Reservation(
+      reservationId: 'r1',
+      createdAt: DateTime(2026, 10, 1),
+      scheduledPickupAt: DateTime(2026, 10, 3, 8),
+      pickup: const ReservationPlace(label: 'A'),
+      destination: const ReservationPlace(label: 'B'),
+      categoryId: 'economy',
+      categoryName: 'Economy',
+      categoryImage: 'assets/images/rides/movera.webp',
+      price: 200,
+      currency: 'SEK',
+      paymentMethod: 'Cash',
+      status: ReservationStatus.completed,
+    );
+    reads[1].complete([ride]); // the newer read, after the ride was archived
+    await tester.pump();
+    reads[0].complete(const []);
+    await tester.pump();
+    expect(find.text('1 ride · 200 kr'), findsOneWidget);
   });
 }
