@@ -55,8 +55,14 @@ class AccountSecurityController extends ChangeNotifier {
     if (current == null ||
         !available ||
         !current.capabilities.signOutOtherDevices ||
-        !current.capabilities.reauthentication ||
-        !current.hasFreshReauthentication) {
+        !current.capabilities.reauthentication) {
+      return;
+    }
+    // rider-u156: the page may have been open past the 5-minute window;
+    // say so instead of doing nothing.
+    if (!current.hasFreshReauthentication) {
+      errorMessage = L10n.current.reauthBeforeRevoke;
+      notifyListeners();
       return;
     }
     loading = true;
