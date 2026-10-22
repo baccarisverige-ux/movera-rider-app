@@ -844,13 +844,22 @@ class BookingCoordinator {
     // network loses is retried by the outbox flush (launch, reconnect)
     // instead of leaving a second live ride. Its failure is not this
     // booking's: the rider's ride is the owner's, which is fine.
-    await PendingCancelStore.enqueue(
-      rideId: createdRideId,
-      idempotencyKey: key,
-      expectedVersion: AppScope.instance.ride.projectionVersionOf(
-        createdRideId,
-      ),
-    );
+    try {
+      await PendingCancelStore.enqueue(
+        rideId: createdRideId,
+        idempotencyKey: key,
+        expectedVersion: AppScope.instance.ride.projectionVersionOf(
+          createdRideId,
+        ),
+      );
+    } catch (error) {
+      // rider-r5-32: storage that cannot hold the outbox (a full web
+      // localStorage) must not stop the cancel itself, as in Finding.
+      AppLog.warning(
+        'booking.duplicate_stand_down_queue_failed',
+        extra: {'rideId': createdRideId, 'error': error.toString()},
+      );
+    }
     try {
       await _client.post(
         '/api/v1/rides/$createdRideId/cancel',

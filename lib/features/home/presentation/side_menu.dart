@@ -388,7 +388,8 @@ class RiderMenuPage extends StatelessWidget {
     Money? balance,
     VoidCallback reload,
   ) {
-    final amount = balance == null ? null : formatMoney(balance, whole: true);
+    // rider-r5-14: the exact balance, never rounded up.
+    final amount = balance == null ? null : formatMoney(balance);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
       label: amount == null ? context.l10n.menuWallet : context.l10n.menuWalletWithAmount(amount),

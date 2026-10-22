@@ -42,9 +42,14 @@ class PickupSchedule {
       ZoneClock.wallTime(timeZone, now ?? StockholmSchedule.clock());
 
   /// Earliest legal pickup: zone now + lead, rounded up to the 5-min slot.
-  DateTime minimumPickup([DateTime? now]) => StockholmSchedule.roundToFive(
-    zoneNow(now).add(const Duration(minutes: StockholmSchedule.leadMinutes)),
-  );
+  /// rider-r5-8: a slot the zone's clock skips (02:20 on spring-forward
+  /// night) moves forward by the gap (03:20), the time it is booked as.
+  DateTime minimumPickup([DateTime? now]) {
+    final slot = StockholmSchedule.roundToFive(
+      zoneNow(now).add(const Duration(minutes: StockholmSchedule.leadMinutes)),
+    );
+    return ZoneClock.wallTime(timeZone, toUtc(slot));
+  }
 
   DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
 

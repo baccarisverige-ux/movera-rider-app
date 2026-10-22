@@ -70,19 +70,28 @@ class MonthRideStats {
     var count = 0;
     var electric = 0;
     final totals = <String, Money>{};
+    void add(Money price) {
+      final total = totals[price.currency];
+      totals[price.currency] = total == null ? price : total + price;
+    }
+
     for (final ride in rides) {
-      if (!ride.status.isCompleted) continue;
       final at = ride.pickupWallTime;
       if (at.year != now.year || at.month != now.month) continue;
+      if (!ride.status.isCompleted) {
+        // rider-r5-15: not a completed ride, but an ended-early trip's
+        // charge or a cancel fee is money the rider paid this month.
+        final paid = ride.chargedFare ?? ride.cancellationFee;
+        if (paid != null && paid.isPositive) add(paid);
+        continue;
+      }
       count++;
       if (ride.categoryId == 'electric') electric++;
       weeks[(at.day - 1) ~/ 7]++;
       // A trip whose payment failed was taken but not paid: it is a ride,
       // not money spent.
       if (ride.paymentFailed) continue;
-      final price = Money.fromLegacyMajor(ride.price, ride.currency);
-      final total = totals[price.currency];
-      totals[price.currency] = total == null ? price : total + price;
+      add(Money.fromLegacyMajor(ride.price, ride.currency));
     }
     return MonthRideStats(
       month: DateTime(now.year, now.month),
@@ -152,10 +161,16 @@ class HomeJourneySection extends StatefulWidget {
   State<HomeJourneySection> createState() => _HomeJourneySectionState();
 }
 
-class _HomeJourneySectionState extends State<HomeJourneySection> {
+class _HomeJourneySectionState extends State<HomeJourneySection>
+    with WidgetsBindingObserver {
   late MonthRideStats _stats;
   StreamSubscription<void>? _changes;
   Listenable? _reservations;
+
+  /// rider-r5-24: whether a history read has succeeded. Until one has,
+  /// the card states no count (a failed read is not "0 rides"), and the
+  /// read is tried again when the app comes back to the foreground.
+  bool _known = false;
 
   DateTime get _now => (widget.clock ?? DateTime.now)();
 
@@ -174,6 +189,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
       );
       _reservations = AppScope.instance.reservations..addListener(_load);
     }
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
@@ -181,7 +197,13 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
   void dispose() {
     _changes?.cancel();
     _reservations?.removeListener(_load);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_known) _load();
   }
 
   /// rider-u126: bumped by every [_load]; only the newest read is shown.
@@ -193,7 +215,10 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
       final rides =
           await (widget.ridesLoader ?? HomeJourneySection.defaultRides)();
       if (!mounted || generation != _loadGeneration) return;
-      setState(() => _stats = MonthRideStats.fromRides(rides, _now));
+      setState(() {
+        _stats = MonthRideStats.fromRides(rides, _now);
+        _known = true;
+      });
     } catch (_) {
       // Keep the empty month; the card is informational only.
     }
@@ -210,7 +235,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MonthCard(stats: _stats),
+        _MonthCard(stats: _stats, known: _known),
         SizedBox(height: ResSize.h * 10),
         Padding(
           padding: EdgeInsets.only(left: ResSize.w * 2, bottom: ResSize.h * 7),
@@ -262,9 +287,10 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
 }
 
 class _MonthCard extends StatelessWidget {
-  const _MonthCard({required this.stats});
+  const _MonthCard({required this.stats, this.known = true});
 
   final MonthRideStats stats;
+  final bool known;
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +335,7 @@ class _MonthCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: TextWidget(
-                  text: stats.pillText,
+                  text: known ? stats.pillText : '–',
                   color: _muted,
                   fontSize: 10,
                   fontWeight: fwMedium,

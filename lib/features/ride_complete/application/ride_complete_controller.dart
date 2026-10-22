@@ -54,6 +54,8 @@ class RideCompleteController {
       _ride.chargeCompletedWallet(rideId);
   Future<void> markCompletedPaymentFailed(String rideId) =>
       _ride.markCompletedPaymentFailed(rideId);
+  Future<void> markPaymentRetried(String rideId, RideStatus status) =>
+      _ride.markPaymentRetried(rideId, status);
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
       _ride.persistCompletedStatus(status, rideId: rideId);
   // rider-u166: [rideId] is the ride the completion screen shows; another

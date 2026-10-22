@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -857,6 +858,25 @@ class FindingDriverController {
     _reportQa();
   }
 
+  /// Whether [snapshot] is paid with the wallet and its balance (in the
+  /// trip's currency) is below [total]. False when unknown.
+  Future<bool> _walletCannotPay(RideSnapshot snapshot, double total) async {
+    final methodId = snapshot.paymentMethodId;
+    final byWallet = methodId != null
+        ? methodId == 'wallet'
+        : WalletController.isWalletPayment(snapshot.paymentMethod);
+    if (!byWallet) return false;
+    try {
+      final wallet = AppScope.instance.walletController.forCurrency(currency);
+      if (!wallet.available) return false;
+      final balance = await wallet.loadBalance();
+      return Money.fromLegacyMajor(balance, currency).amountMinor <
+          Money.fromLegacyMajor(total, currency).amountMinor;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Raises the offer by [kr] whole units of the trip's [currency]
   /// (kronor, euros, dinars).
   Future<bool> confirmPriceIncrease(int kr) {
@@ -877,6 +897,13 @@ class FindingDriverController {
     if (next > maxOfferPrice ||
         (snapshot.maxOfferMinor == null &&
             !FareRules.allowsTotal(total: next, catalog: catalog))) {
+      return false;
+    }
+    if (await _walletCannotPay(snapshot, next)) {
+      // rider-r5-16: as Select Ride refuses the wallet for a fare above
+      // its balance (rider-74), a wallet trip is not raised above it.
+      editFeedback = L10n.current.walletTooLowForRide;
+      _onTick?.call(elapsedSeconds);
       return false;
     }
     final editToken = _beginEdit();

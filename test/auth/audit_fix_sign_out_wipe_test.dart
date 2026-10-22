@@ -191,8 +191,12 @@ void main() {
       await _signInAs('+46709876543');
 
       final left = await _riderKeysLeft();
+      // rider-r5-31: and that the new rider still owes a name;
+      // rider-r5-44: and since when they are signed in on this device.
       expect(left, [
         'movera_rider_fingerprint',
+        'movera_rider_name_pending',
+        'movera_rider_session_started_at',
       ], reason: 'only who is signed in');
       expect(AppScope.instance.profile.profile.name, isEmpty);
       expect(

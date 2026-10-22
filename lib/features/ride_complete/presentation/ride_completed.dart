@@ -129,8 +129,17 @@ class _RideCompletedState extends State<RideCompleted> {
       // rider-u179: a declined card arrives as paymentFailed, which is not
       // a completion surface. It used to be dropped here, leaving the
       // rider on "Payment processing" and the trip filed as completed.
-      // It is final for this screen.
-      if (!mounted || _leaving || _status == RideStatus.paymentFailed) return;
+      if (!mounted || _leaving) return;
+      if (_status == RideStatus.paymentFailed) {
+        // rider-r5-3: contract paymentTransitions has failed -> authorized
+        // (a retried charge); a later authorized or captured payment moves
+        // the summary and History forward. Nothing else leaves it.
+        if (status == RideStatus.paymentProcessing ||
+            status == RideStatus.paymentFinalized) {
+          _onPaymentRetried(event, rideId, status);
+        }
+        return;
+      }
       if (status == RideStatus.paymentFailed) {
         _onPaymentFailed(event, rideId);
         return;
@@ -154,6 +163,25 @@ class _RideCompletedState extends State<RideCompleted> {
       _maybeChargeWallet();
     });
     _maybeChargeWallet();
+  }
+
+  void _onPaymentRetried(
+    RideRealtimeEvent event,
+    String rideId,
+    RideStatus status,
+  ) {
+    if (widget.persistOnDemandState) {
+      // Only a projection newer than the decline moves it on.
+      final fresh = AppScope.instance.ride.backendReconcile(
+        status,
+        id: event.tripId,
+        version: event.version ?? event.sequence,
+        updatedAt: event.serverTime ?? event.occurredAt,
+      );
+      if (!fresh) return;
+      unawaited(_controller.markPaymentRetried(rideId, status));
+    }
+    setState(() => _status = status);
   }
 
   void _onPaymentFailed(RideRealtimeEvent event, String rideId) {

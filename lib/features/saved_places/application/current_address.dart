@@ -68,7 +68,9 @@ Future<String> resolveCurrentAddress({
       GeoPoint(position.latitude, position.longitude),
     ).timeout(const Duration(seconds: 10));
   } catch (_) {
-    address = null;
+    // rider-r5-38: no answer from the lookup (offline, timed out, server
+    // error) is not an answer of "no address here".
+    throw CurrentAddressException(L10n.current.apiUnreachable);
   }
   final clean = address?.trim() ?? '';
   if (clean.isEmpty || clean.toLowerCase() == 'current location') {

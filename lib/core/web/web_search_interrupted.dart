@@ -6,7 +6,7 @@ import 'package:movera_rider/core/web/web_search_interrupted_io.dart'
 void markSearchLive() => webMarkSearchLive();
 
 /// The ride ended deliberately; forget it.
-void clearSearchLive() => webClearSearchLive();
+void clearSearchLive() => (debugClearSearchLive ?? webClearSearchLive)();
 
 /// True once if a ride was still live when the previous document ended.
 bool takeWebSearchInterrupted() =>
@@ -15,3 +15,7 @@ bool takeWebSearchInterrupted() =>
 /// Tests: stands in for the web session flag, which non-web builds lack.
 @visibleForTesting
 bool Function()? debugTakeWebSearchInterrupted;
+
+/// Tests: sees [clearSearchLive], which non-web builds make a no-op.
+@visibleForTesting
+void Function()? debugClearSearchLive;

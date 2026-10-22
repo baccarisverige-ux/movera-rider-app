@@ -81,6 +81,9 @@ void installSafetyNavigationBridge(bool Function() open) {
 }
 
 void reportSearchSnapshot(String json) {
+  // rider-r5-19: carries the pickup address and coordinates, so it is a QA
+  // hook like the others (docs/QA_HOOKS.md), never on a public release.
+  if (!moveraQaHooksEnabled) return;
   globalContext.setProperty('moveraSearchSnapshotJson'.toJS, json.toJS);
 }
 

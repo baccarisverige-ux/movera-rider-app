@@ -1025,10 +1025,14 @@ class _RecordAudioState extends State<_RecordAudio> {
     final clock =
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
     final note = widget.session.recordingNote;
+    // rider-r5-30 (owner decision 10): with the option hidden, the button
+    // is there only to stop a running recording; after Stop just the note
+    // stays, never a "Record audio" that would start a new one.
+    final showButton = SafetyAudioOption.enabled || recording;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
+        if (showButton) Semantics(
           button: true,
           label: recording
               ? context.l10n.rcStopRecordingSemantics
@@ -1092,7 +1096,10 @@ class _RecordAudioState extends State<_RecordAudio> {
             ),
           ),
         ),
-        if (note != null) ...[const SizedBox(height: 6), _Note(note)],
+        if (note != null) ...[
+          if (showButton) const SizedBox(height: 6),
+          _Note(note),
+        ],
       ],
     );
   }

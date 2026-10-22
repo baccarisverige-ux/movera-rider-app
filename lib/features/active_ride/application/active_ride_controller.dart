@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -411,6 +412,14 @@ class ActiveRideController {
       if (charged != null && _clean(snapshot.rideId) == id) {
         await _chargeWallet(snapshot, fare: charged);
       }
+    } else if (snapshot != null &&
+        cancellationFee != null &&
+        cancellationFee.amountMinor > 0 &&
+        _clean(snapshot.rideId) == id) {
+      // rider-r5-12: History says the cancel fee was paid with the ride's
+      // method; a wallet ride (or its wallet part) is debited it here,
+      // once per ride like a completed trip.
+      await _chargeWallet(snapshot, fare: cancellationFee);
     }
     await _archive(
       snapshot,
@@ -470,6 +479,7 @@ class ActiveRideController {
       await _archive(snapshot, status, expectedRideId: id);
     }
     await _store.clear();
+    clearSearchLive(); // rider-r5-18: ended, not interrupted.
   }
 
   /// rider-u52: the server reports the trip `closed` (completed, paid and
@@ -484,6 +494,7 @@ class ActiveRideController {
     _stopSafetyRecording();
     await _archive(snapshot, RideStatus.closed, expectedRideId: id);
     await _store.clear();
+    clearSearchLive(); // rider-r5-18: ended, not interrupted.
   }
 
   Future<void> markCompleted(RideStatus status) async {
@@ -593,6 +604,27 @@ class ActiveRideController {
     if (snapshot == null || _clean(snapshot.rideId) != id) return;
     await _archive(snapshot, RideStatus.paymentFailed, expectedRideId: id);
     await _store.clear();
+    // rider-r5-18: the trip is over, not interrupted; a reload on this
+    // screen must not say the search was.
+    clearSearchLive();
+  }
+
+  /// rider-r5-3: a declined payment the server retried and authorized or
+  /// captured (contract paymentTransitions `failed -> authorized`). The
+  /// completion snapshot was dropped at the decline, so the trip the
+  /// summary remembers is re-filed in History with its new payment status,
+  /// and a captured wallet trip is debited now.
+  Future<void> markPaymentRetried(String rideId, RideStatus status) async {
+    if (status != RideStatus.paymentProcessing &&
+        status != RideStatus.paymentFinalized) {
+      return;
+    }
+    final id = rideId.trim();
+    final remembered = LastCompletedRide.forRide(id);
+    if (remembered == null) return;
+    final snapshot = remembered.copyWith(status: status);
+    await _archive(snapshot, status, expectedRideId: id);
+    if (status == RideStatus.paymentFinalized) await _chargeWallet(snapshot);
   }
 
   /// Finish History archival before clearing the restorable completion record.

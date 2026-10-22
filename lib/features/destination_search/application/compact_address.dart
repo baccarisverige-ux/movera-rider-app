@@ -13,6 +13,8 @@ String compactAddress(String? address) {
     final lower = part.toLowerCase();
     if (_countries.contains(lower)) continue;
     if (_regionSuffixes.any(lower.endsWith)) continue;
+    // rider-r5-39: French names put the region word first.
+    if (_regionPrefixes.any(lower.startsWith)) continue;
     if (_postal.hasMatch(part)) continue;
     if (!seen.add(lower)) continue;
     parts.add(part);
@@ -52,4 +54,11 @@ const _regionSuffixes = [
   ' governorate',
   ' gouvernorat',
   ' département',
+];
+
+const _regionPrefixes = [
+  'gouvernorat ',
+  'département ',
+  'région ',
+  'délégation ',
 ];

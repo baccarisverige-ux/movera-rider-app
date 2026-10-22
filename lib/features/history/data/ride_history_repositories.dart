@@ -59,6 +59,11 @@ class ApiRideHistoryRepository
     return list;
   }
 
+  static Object? _cancelledAt(Map<String, dynamic> trip) {
+    final cancellation = trip['cancellation'];
+    return cancellation is Map ? cancellation['at'] : null;
+  }
+
   Reservation? _record(Map<String, dynamic> trip) {
     final snapshot = RideProjection.toSnapshot(
       trip,
@@ -68,8 +73,11 @@ class ApiRideHistoryRepository
     return OnDemandRideHistoryStore.recordFor(
       snapshot,
       terminalStatus: snapshot.status,
+      // rider-r5-51: `cancellation.at` is stable; `updatedAt` moves with
+      // every later rating, payment or refund change.
       endedAt:
           WireTime.tryParse(trip['endedAt']) ??
+          WireTime.tryParse(_cancelledAt(trip)) ??
           WireTime.tryParse(trip['updatedAt']),
       // rider-u33: the fee the server charged for a cancel.
       cancellationFee: RideProjection.cancellationFee(trip),

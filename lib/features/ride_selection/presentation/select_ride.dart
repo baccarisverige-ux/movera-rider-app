@@ -902,7 +902,15 @@ class _SelectRideState extends State<SelectRide>
   String _arrivalFor(_RideOption ride) {
     final scheduled = _scheduledPickup;
     if (scheduled != null) {
-      return clockTime(scheduled.add(Duration(minutes: _tripMinutes())));
+      // rider-r5-9: the trip's real time in the pickup zone (as the date
+      // picker estimates it), so it holds across a clock change.
+      return clockTime(
+        ZoneClock.wallAfter(
+          _pickupSchedule.timeZone,
+          scheduled,
+          Duration(minutes: _tripMinutes()),
+        ),
+      );
     }
     return clockTime(
       DateTime.now().add(Duration(minutes: ride.etaMin + _tripMinutes())),
