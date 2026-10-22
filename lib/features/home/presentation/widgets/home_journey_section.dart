@@ -161,7 +161,8 @@ class HomeJourneySection extends StatefulWidget {
   State<HomeJourneySection> createState() => _HomeJourneySectionState();
 }
 
-class _HomeJourneySectionState extends State<HomeJourneySection> {
+class _HomeJourneySectionState extends State<HomeJourneySection>
+    with WidgetsBindingObserver {
   late MonthRideStats _stats;
   StreamSubscription<void>? _changes;
   Listenable? _reservations;
@@ -170,7 +171,6 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
   /// the card states no count (a failed read is not "0 rides"), and the
   /// read is tried again when the app comes back to the foreground.
   bool _known = false;
-  AppLifecycleListener? _lifecycle;
 
   DateTime get _now => (widget.clock ?? DateTime.now)();
 
@@ -189,11 +189,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
       );
       _reservations = AppScope.instance.reservations..addListener(_load);
     }
-    _lifecycle = AppLifecycleListener(
-      onResume: () {
-        if (!_known) _load();
-      },
-    );
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
@@ -201,8 +197,13 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
   void dispose() {
     _changes?.cancel();
     _reservations?.removeListener(_load);
-    _lifecycle?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_known) _load();
   }
 
   /// rider-u126: bumped by every [_load]; only the newest read is shown.
