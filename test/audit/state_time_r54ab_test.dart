@@ -192,4 +192,24 @@ void main() {
     );
     rt.dispose();
   });
+
+  testWidgets('rider-u31: in the trip the demo ETA counts down to the '
+      'destination', (tester) async {
+    final (rt, events) = _resumedDemo(RideStatus.tripInProgress);
+    rt
+      ..destinationLat = 59.36
+      ..destinationLng = 18.10;
+    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 3));
+    }
+    final etas = [
+      for (final e in events)
+        if (e.status == RideStatus.tripInProgress && e.etaSeconds != null)
+          e.etaSeconds!,
+    ];
+    expect(etas.length, greaterThan(2));
+    expect(etas.last, lessThan(etas.first));
+    rt.dispose();
+  });
 }
