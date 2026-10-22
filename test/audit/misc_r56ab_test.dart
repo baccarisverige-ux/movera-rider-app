@@ -4,18 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_permission_gate.dart';
+import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
+import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -43,6 +49,15 @@ Future<void> _pumpPage(WidgetTester tester, Widget child) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
   await tester.pump();
+}
+
+/// Push registration that hangs (a poor connection) once [slow] is set,
+/// until [answer].
+class _SlowPush extends Fake implements PushService {
+  bool slow = false;
+  final answer = Completer<void>();
+  @override
+  Future<void> register() => slow ? answer.future : Future<void>.value();
 }
 
 /// R5.6 parts a and b: small local fixes, one short test per bug.
@@ -203,5 +218,33 @@ void main() {
     final turned = MoveraVehicleMarker.look(car, 92, web: true);
     expect(turned.rotation, 0);
     expect(turned.icon, isNot(same(car)));
+  });
+
+  test('rider-u67: sign-in does not wait for push registration', () async {
+    final push = _SlowPush();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    // The rider allowed notifications on an earlier sign-in.
+    await gate.accept();
+    push.slow = true;
+    final tokens = MemoryTokenStore();
+    final auth = AuthController(
+      auth: AuthRepository(
+        api: ApiClient(
+          env: const AppEnv(
+            flavor: AppFlavor.test,
+            apiBaseUrl: 'https://api.test.movera.invalid',
+          ),
+          client: InProcessMockClient(),
+          tokens: tokens,
+        ),
+        tokens: tokens,
+      ),
+      pushPermission: gate,
+    );
+    final challenge = await auth.requestOtp(phone: '+46701234567');
+    await auth
+        .verifyOtp(challenge: challenge, code: '1234')
+        .timeout(const Duration(seconds: 5));
+    push.answer.complete();
   });
 }

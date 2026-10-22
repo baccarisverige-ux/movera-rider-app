@@ -114,6 +114,8 @@ void main() {
     final second = signIn();
     final again = await second.requestOtp(phone: '+46701234567');
     await second.verifyOtp(challenge: again, code: '1234');
+    // rider-u67: registration runs on after sign-in returns.
+    await pumpEventQueue();
     expect(push.registers, 2);
   });
 
