@@ -199,7 +199,13 @@ class AppScope {
       api: api,
       allowPublicReverseFallback: environment.allowsMockTransport,
     );
-    routing = RoutingService(api: api);
+    // uat-r1: the demo's in-process transport knows no roads; on the web
+    // demo the road line comes from a public router (as reverse geocoding
+    // does above). Release builds never reach it.
+    routing = RoutingService(
+      api: api,
+      allowPublicRoadFallback: environment.allowsMockTransport,
+    );
     RoutingService.defaultProvider ??= () => AppScope.instance.routing;
     quotes = ApiQuoteRepository(api: api);
     // R-O2: the transports report the trip's projection version, which

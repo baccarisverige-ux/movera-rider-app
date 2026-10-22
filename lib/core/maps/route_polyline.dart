@@ -37,6 +37,23 @@ Polyline routePolyline({
 }
 
 
+/// uat-r1: a route a screen already resolved (its kept road points) as the
+/// polyline it draws, with the same colour and width rules as
+/// [routePolyline], so the road line and the first-paint line are one shape.
+Polyline resolvedRoutePolyline({
+  required String id,
+  required List<LatLng> points,
+  required Color color,
+  int width = 4,
+}) {
+  return Polyline(
+    polylineId: PolylineId(id),
+    points: List<LatLng>.unmodifiable(points),
+    color: color,
+    width: width,
+  );
+}
+
 /// Resolves road-following geometry through the shared routing seam and returns
 /// a map-ready polyline. Feature screens must use this instead of constructing
 /// their own [Polyline], preserving one routing source of truth.
