@@ -1310,6 +1310,7 @@
       }
     }
   },
+  "thisSessionOnly": "This session",
   "save": "Save",
   "legalTermsBody": "How Movera rides and reservations work.",
   "legalPrivacyBody": "What we keep, and how you control it.",

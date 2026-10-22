@@ -651,6 +651,7 @@
   "signOutOthers": "Déconnecter les autres",
   "cancel": "Annuler",
   "thisSession": "Cette session  ·  {place}",
+  "thisSessionOnly": "Cette session",
   "save": "Enregistrer",
   "legalTermsBody": "Comment fonctionnent les courses et réservations Movera.",
   "legalPrivacyBody": "Ce que nous conservons, et comment vous le contrôlez.",

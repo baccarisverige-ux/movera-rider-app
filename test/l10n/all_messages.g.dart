@@ -657,6 +657,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'signOutOthers': l.signOutOthers,
   'cancel': l.cancel,
   'thisSession': l.thisSession('<place>'),
+  'thisSessionOnly': l.thisSessionOnly,
   'save': l.save,
   'legalTermsBody': l.legalTermsBody,
   'legalPrivacyBody': l.legalPrivacyBody,
@@ -2863,6 +2864,8 @@ class _Exhaustive implements AppLocalizations {
   String get cancel => '';
   @override
   String thisSession(String place) => '';
+  @override
+  String get thisSessionOnly => '';
   @override
   String get save => '';
   @override

@@ -651,6 +651,7 @@
   "signOutOthers": "Logga ut andra",
   "cancel": "Avbryt",
   "thisSession": "Den här sessionen  ·  {place}",
+  "thisSessionOnly": "Den här sessionen",
   "save": "Spara",
   "legalTermsBody": "Så fungerar resor och bokningar med Movera.",
   "legalPrivacyBody": "Vad vi sparar och hur du styr det.",
