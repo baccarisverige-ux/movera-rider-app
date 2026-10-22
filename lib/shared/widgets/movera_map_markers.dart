@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
@@ -79,15 +81,58 @@ class MoveraVehicleMarker {
 
   static Future<BitmapDescriptor> createIcon({double scale = 0.65}) {
     final cacheKey = (scale * 1000).round();
-    return _iconCache.putIfAbsent(cacheKey, () => _createIcon(scale));
+    return _iconCache.putIfAbsent(cacheKey, () => _createIcon(scale, 0));
   }
 
-  static Future<BitmapDescriptor> _createIcon(double scale) async {
+  /// rider-u61: the web turns the car in this many degrees per bitmap.
+  static const int webHeadingStep = 10;
+  static final Map<int, BitmapDescriptor> _turned = {};
+  static final Set<int> _turning = {};
+
+  /// How a car heading [heading] (degrees from north) is drawn. Off the web
+  /// the map turns the bitmap ([Marker.rotation]); google_maps_flutter_web
+  /// ignores rotation, so there the car comes already turned (built once
+  /// per [webHeadingStep] bucket) and [onReady] runs when a new one is
+  /// built. Until then the upright [car] is shown.
+  static ({BitmapDescriptor? icon, double rotation}) look(
+    BitmapDescriptor? car,
+    double heading, {
+    VoidCallback? onReady,
+    bool web = kIsWeb,
+  }) {
+    if (!web) return (icon: car, rotation: heading);
+    if (!heading.isFinite) return (icon: car, rotation: 0);
+    final buckets = 360 ~/ webHeadingStep;
+    final bucket = ((heading % 360) / webHeadingStep).round() % buckets;
+    final turned = _turned[bucket];
+    if (turned != null) return (icon: turned, rotation: 0);
+    if (_turning.add(bucket)) {
+      _createIcon(0.65, (bucket * webHeadingStep).toDouble())
+          .then((icon) {
+            _turned[bucket] = icon;
+            onReady?.call();
+          })
+          .whenComplete(() => _turning.remove(bucket));
+    }
+    return (icon: car, rotation: 0);
+  }
+
+  static Future<BitmapDescriptor> _createIcon(
+    double scale,
+    double heading,
+  ) async {
     const designSize = 96.0;
     final outputSize = 48.0 * scale;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    if (heading != 0) {
+      final centre = outputSize / 2;
+      canvas
+        ..translate(centre, centre)
+        ..rotate(heading * math.pi / 180)
+        ..translate(-centre, -centre);
+    }
     canvas.scale(outputSize / designSize);
 
     final shadowPaint = Paint()

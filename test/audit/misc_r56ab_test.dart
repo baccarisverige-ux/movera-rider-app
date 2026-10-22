@@ -16,6 +16,7 @@ import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
 class _FixedRandom implements Random {
@@ -178,5 +179,29 @@ void main() {
     );
     expect(find.text('Same price as before.'), findsNothing);
     expect(find.text('Confirm · next: payment'), findsOneWidget);
+  });
+
+  testWidgets('rider-u61: on the web the car comes turned to its heading', (
+    tester,
+  ) async {
+    final car = BitmapDescriptor.defaultMarker;
+    // Phones: the map turns the bitmap.
+    expect(MoveraVehicleMarker.look(car, 90, web: false).rotation, 90);
+    // Web ignores Marker.rotation: a turned bitmap is built, then used.
+    await tester.runAsync(() {
+      final ready = Completer<void>();
+      final first = MoveraVehicleMarker.look(
+        car,
+        90,
+        web: true,
+        onReady: ready.complete,
+      );
+      expect(first.rotation, 0);
+      expect(first.icon, same(car), reason: 'upright until built');
+      return ready.future.timeout(const Duration(seconds: 10));
+    });
+    final turned = MoveraVehicleMarker.look(car, 92, web: true);
+    expect(turned.rotation, 0);
+    expect(turned.icon, isNot(same(car)));
   });
 }

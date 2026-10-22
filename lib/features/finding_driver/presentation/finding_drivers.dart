@@ -27,6 +27,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
@@ -535,6 +536,28 @@ class _FindingDriversState extends State<FindingDrivers> {
     if (_mapReady) unawaited(_refreshRoadRoute());
   }
 
+  /// rider-u61: on the web the car bitmap comes turned (the plugin ignores
+  /// rotation there).
+  Marker _nearbyMarker(NearbyVehicle vehicle) {
+    final look = MoveraVehicleMarker.look(
+      _driverCar,
+      vehicle.bearing,
+      onReady: () {
+        if (mounted) setState(_loadMapBits);
+      },
+    );
+    return Marker(
+      markerId: MarkerId('nearby-${vehicle.id}'),
+      position: LatLng(vehicle.latitude, vehicle.longitude),
+      rotation: look.rotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon:
+          look.icon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+    );
+  }
+
   void _loadMapBits() {
     final routePoints = _roadRoutePoints;
     _markers = {
@@ -556,17 +579,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         anchor: _pinAnchor,
       ),
-      for (final vehicle in _match.nearby)
-        Marker(
-          markerId: MarkerId('nearby-${vehicle.id}'),
-          position: LatLng(vehicle.latitude, vehicle.longitude),
-          rotation: vehicle.bearing,
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
-          icon:
-              _driverCar ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-        ),
+      for (final vehicle in _match.nearby) _nearbyMarker(vehicle),
     };
     _polylines = styledRoute(
       routePoints != null && routePoints.length >= 2
