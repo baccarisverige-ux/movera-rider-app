@@ -210,4 +210,25 @@ void main() {
     expect(cancels, greaterThan(0));
     expect(controller.cancelInFlight, isFalse);
   });
+
+  test('rider-u104: a second cancel tap sends its own version and reason',
+      () async {
+    final first = await PendingCancelStore.enqueue(
+      rideId: 'ride_u104',
+      reasonId: 'plans_changed',
+      expectedVersion: 3,
+    );
+    final again = await PendingCancelStore.enqueue(
+      rideId: 'ride_u104',
+      reasonId: 'driver_not_suitable',
+      expectedVersion: 5,
+    );
+    expect(again.body(), {
+      'reasonCode': 'driver_not_suitable',
+      'reason': 'driver_not_suitable',
+      'expectedVersion': 5,
+    });
+    expect(again.idempotencyKey, isNot(first.idempotencyKey));
+    expect((await PendingCancelStore.find('ride_u104'))!.expectedVersion, 5);
+  });
 }
