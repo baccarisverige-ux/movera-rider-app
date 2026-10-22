@@ -167,24 +167,32 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
 
   /// Fields show the short "street, city" form; the full geocoder address
   /// is what the booking receives when the rider leaves the text as is.
-  final Map<String, String> _fullAddress = {};
+  /// rider-u85: kept per field. Keyed by the short text, two addresses with
+  /// the same short form ('Kyrkvägen 2, Stockholm') expanded to the same,
+  /// last-shown full address.
+  final Map<TextEditingController, String> _fullAddress = {};
 
-  String _show(String address) {
-    final short = compactAddress(address);
-    if (short.isNotEmpty && short != address.trim()) {
-      _fullAddress[short] = address.trim();
-    }
-    return short;
+  /// Puts [address] in [field] in its short form, remembering the full one.
+  void _show(TextEditingController field, String address) {
+    _fullAddress[field] = address.trim();
+    field.text = compactAddress(address);
   }
 
-  String _expand(String text) {
-    final clean = text.trim();
-    return _fullAddress[clean] ?? clean;
+  /// What [field] stands for: its full address while the rider left the
+  /// short form as it was shown, else the text as typed.
+  String _expand(TextEditingController field) {
+    final clean = field.text.trim();
+    final full = _fullAddress[field];
+    return full != null && compactAddress(full) == clean ? full : clean;
   }
 
-  late final TextEditingController _pickup = TextEditingController(
-    text: _show(widget.pickupAddress ?? ''),
-  );
+  late final TextEditingController _pickup = _shortField(widget.pickupAddress ?? '');
+
+  TextEditingController _shortField(String address) {
+    final field = TextEditingController();
+    _show(field, address);
+    return field;
+  }
   late final TextEditingController _destination = TextEditingController(
     text: widget.destinationAddress,
   );
@@ -362,6 +370,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       final lastText = last.text;
       final lastPoint = _stopPoints.last;
       setState(() {
+        _swapFull(last, _destination);
         last.text = _destination.text;
         _stopPoints.last = _destinationPoint;
         _destination.text = lastText;
@@ -376,6 +385,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     final pickupText = _pickup.text;
     final pickupPoint = _pickupPoint;
     setState(() {
+      _swapFull(_pickup, _destination);
       _pickup.text = _destination.text;
       _pickupPoint = _destinationPoint;
       _destination.text = pickupText;
@@ -383,6 +393,14 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _rerouted = true;
     });
     unawaited(_loadMaxStops());
+  }
+
+  /// The full addresses move with their texts.
+  void _swapFull(TextEditingController a, TextEditingController b) {
+    final fullA = _fullAddress.remove(a);
+    final fullB = _fullAddress.remove(b);
+    if (fullB != null) _fullAddress[a] = fullB;
+    if (fullA != null) _fullAddress[b] = fullA;
   }
 
   void _addStop() {
@@ -400,6 +418,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
 
   void _removeStop(int index) {
     final controller = _stops.removeAt(index);
+    _fullAddress.remove(controller);
     final focus = _stopFocus.removeAt(index);
     _stopPoints.removeAt(index);
     controller.dispose();
@@ -412,7 +431,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing) return;
     if (_active == 'pickup') {
       setState(() {
-        _pickup.text = _show(address);
+        _show(_pickup, address);
         _pickupPoint = point;
       });
       unawaited(_loadMaxStops());
@@ -423,7 +442,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       }
     } else if (_active == 'stop') {
       setState(() {
-        _activeController.text = _show(address);
+        _show(_activeController, address);
         if (_activeStop >= 0 && _activeStop < _stops.length) {
           _stopPoints[_activeStop] = point;
         }
@@ -433,7 +452,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       return;
     } else {
       setState(() {
-        _destination.text = _show(address);
+        _show(_destination, address);
         _destinationPoint = point;
       });
     }
@@ -452,11 +471,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     try {
       draft = await widget.onFinish(
         RoutePickerSelection(
-          pickup: _expand(_pickup.text),
+          pickup: _expand(_pickup),
           pickupPoint: _pickupPoint,
-          destination: _expand(_destination.text),
+          destination: _expand(_destination),
           destinationPoint: _destinationPoint,
-          stops: [for (final i in filled) _expand(_stops[i].text)],
+          stops: [for (final i in filled) _expand(_stops[i])],
           stopPoints: [for (final i in filled) _stopPoints[i]],
         ),
       );
@@ -512,7 +531,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     // tell what the rider typed, so it gets that one back.
     final result = await widget.onPickOnMap(
       pickup: pickup,
-      address: _expand(_activeController.text),
+      address: _expand(_activeController),
     );
     if (result == null || !mounted) return;
     await _choose(result.address, point: result.point);

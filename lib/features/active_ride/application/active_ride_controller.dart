@@ -493,9 +493,12 @@ class ActiveRideController {
     // Keep a restorable completion snapshot until the rider explicitly leaves
     // the completion surface. This protects payment/rating state across reload,
     // crash, PWA eviction and app resume.
+    final now = DateTime.now();
     final completed = snapshot.copyWith(
       status: status,
-      savedAt: DateTime.now(),
+      savedAt: now,
+      // rider-25: a repeat (a resync on the summary) keeps the first time.
+      completedAt: snapshot.completedAt ?? now,
     );
     LastCompletedRide.remember(completed);
     await _archive(completed, status, expectedRideId: id);
@@ -542,6 +545,9 @@ class ActiveRideController {
       await OnDemandRideHistoryStore.archive(
         snapshot,
         terminalStatus: status,
+        // rider-25: a later archive (Done on the summary) keeps the
+        // completion time, not the time the rider left.
+        endedAt: snapshot.completedAt,
         cancellationReason: cancellationReason,
         endedEarly: endedEarly != null,
         charged: endedEarly?.charged,

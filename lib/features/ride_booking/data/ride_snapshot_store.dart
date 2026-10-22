@@ -43,6 +43,7 @@ class RideSnapshot {
     this.maxOfferMinor,
     this.currency = Money.defaultCurrency,
     this.arrivalAnnounced = false,
+    this.completedAt,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -114,6 +115,11 @@ class RideSnapshot {
   /// rider-u49: the rider was already shown "Your driver has arrived" for
   /// this ride's current driver, so a reload does not open it again.
   final bool arrivalAnnounced;
+  /// rider-25: when the trip completed (the first time the completion
+  /// surface was reached). Unlike [savedAt], which every later save and
+  /// backgrounding moves, it stays put; History and the receipt use it.
+  /// Null for older snapshots and before completion.
+  final DateTime? completedAt;
 
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
@@ -165,6 +171,7 @@ class RideSnapshot {
     int? maxOfferMinor,
     String? currency,
     bool? arrivalAnnounced,
+    DateTime? completedAt,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -194,6 +201,7 @@ class RideSnapshot {
       maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
       currency: currency ?? this.currency,
       arrivalAnnounced: arrivalAnnounced ?? this.arrivalAnnounced,
+      completedAt: completedAt ?? this.completedAt,
     );
   }
 
@@ -227,6 +235,8 @@ class RideSnapshot {
     if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
     if (currency != Money.defaultCurrency) 'currency': currency,
     if (arrivalAnnounced) 'arrivalAnnounced': true,
+    if (completedAt != null)
+      'completedAt': completedAt!.toUtc().toIso8601String(),
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -313,6 +323,7 @@ class RideSnapshot {
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
       currency:
           Money.normalizeCurrency(json['currency']) ?? Money.defaultCurrency,
+      completedAt: _utcOrNull(json['completedAt']),
     );
   }
 }

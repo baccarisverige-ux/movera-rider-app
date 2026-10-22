@@ -1453,6 +1453,19 @@ class FindingDriverController {
   }
 
   static Future<Map<String, PendingCancelResult>>? _flushInFlight;
+
+  /// rider-u68: bumped by [abandonPendingCancelFlush]. A flush that began
+  /// under an older value belongs to a session that is over: it writes
+  /// nothing more to the outbox and sends nothing more.
+  static int _flushSession = 0;
+
+  /// The rider signed out (the wipe is about to drop the outbox): a flush
+  /// still running for them stops at its next step, and the next flush
+  /// starts fresh instead of joining it.
+  static void abandonPendingCancelFlush() {
+    _flushSession += 1;
+    _flushInFlight = null;
+  }
   static StreamSubscription<RealtimeState>? _reconnectFlush;
 
   /// Retries any ride cancellations that were never acknowledged. Called at
@@ -1476,7 +1489,9 @@ class FindingDriverController {
     if (inFlight != null) return inFlight;
     final run = _flushPendingCancels(api ?? AppScope.instance.api);
     _flushInFlight = run;
-    return run.whenComplete(() => _flushInFlight = null);
+    return run.whenComplete(() {
+      if (identical(_flushInFlight, run)) _flushInFlight = null;
+    });
   }
 
   /// Flushes the outbox every time [connection] returns to connected after
@@ -1511,9 +1526,12 @@ class FindingDriverController {
     ApiClient client,
   ) async {
     final results = <String, PendingCancelResult>{};
+    final session = _flushSession;
+    bool over() => session != _flushSession;
     final pending = await PendingCancelStore.all();
     if (pending.isEmpty) return results;
     for (var cancel in pending) {
+      if (over()) return results;
       if (cancel.idempotencyKey == null) {
         // Entry from before D-020: mint its one key now and keep it.
         cancel = cancel.withKey(newIdempotencyKey('ride-cancel'));
@@ -1522,6 +1540,7 @@ class FindingDriverController {
       // R-O2: read the trip again before replaying a command queued while
       // offline. The rider tapped on a screen that may be long out of date.
       final current = await _rereadForReplay(client, cancel);
+      if (over()) return results;
       if (current == null) continue; // Still unreachable: kept for later.
       PendingCancelResult? result = current.result;
       // rider-u32: what the server answered a delivered command with.
@@ -1544,6 +1563,7 @@ class FindingDriverController {
             body: cancel.body(),
             idempotencyKey: cancel.idempotencyKey,
           );
+          if (over()) return results;
           AppScope.instance.ride.observeProjection(response);
           answered = tripProjectionOf(response);
           result = PendingCancelResult.sent;
@@ -1555,7 +1575,9 @@ class FindingDriverController {
             );
             continue;
           }
+          if (over()) return results;
           final refusal = await _refusalResult(client, cancel, error);
+          if (over()) return results;
           result = refusal.result;
           endedAs = refusal.endedAs;
           answered = (error as ApiError).projection;

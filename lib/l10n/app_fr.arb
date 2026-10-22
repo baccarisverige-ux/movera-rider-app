@@ -94,6 +94,7 @@
   "menuAboutArticle": "Movera est une application de courses pour la Suède. Les options de réservation et de paiement disponibles s’affichent lors de votre demande de course.\n\nIcônes : Solar Icons par 480 Design (CC BY 4.0). Illustrations : unDraw.",
   "accountSignOut": "Se déconnecter",
   "accountSignOutBody": "Supprimer vos données de cet appareil",
+  "signingOut": "Déconnexion…",
   "planYourRide": "Planifiez votre course",
   "routeCouldNotReach": "Impossible de joindre Movera. Vérifiez votre connexion et réessayez.",
   "tryAgain": "Réessayer",

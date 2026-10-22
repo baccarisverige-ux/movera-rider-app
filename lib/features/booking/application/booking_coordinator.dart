@@ -16,6 +16,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/booking/application/booking_attempt.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
@@ -838,12 +839,37 @@ class BookingCoordinator {
     // A visible Finding surface already owns another ride. The race-losing
     // backend ride must be explicitly stood down; never leave two live rides.
     final cancelIntent = createdRideId;
-    await _client.post(
-      '/api/v1/rides/$createdRideId/cancel',
-      body: _cancelBody(createdRideId),
-      idempotencyKey: _duplicateCancelMutation.keyFor(cancelIntent),
+    final key = _duplicateCancelMutation.keyFor(cancelIntent);
+    // rider-u81: queued first, with the same key, so a stand-down the
+    // network loses is retried by the outbox flush (launch, reconnect)
+    // instead of leaving a second live ride. Its failure is not this
+    // booking's: the rider's ride is the owner's, which is fine.
+    await PendingCancelStore.enqueue(
+      rideId: createdRideId,
+      idempotencyKey: key,
+      expectedVersion: AppScope.instance.ride.projectionVersionOf(
+        createdRideId,
+      ),
     );
-    _duplicateCancelMutation.succeeded(cancelIntent);
+    try {
+      await _client.post(
+        '/api/v1/rides/$createdRideId/cancel',
+        body: _cancelBody(createdRideId),
+        idempotencyKey: key,
+      );
+      _duplicateCancelMutation.succeeded(cancelIntent);
+      await PendingCancelStore.remove(createdRideId);
+    } catch (error) {
+      if (isPermanentCancelFailure(error)) {
+        // Gone or already over on the server: nothing left to stand down.
+        _duplicateCancelMutation.succeeded(cancelIntent);
+        await PendingCancelStore.remove(createdRideId);
+      }
+      AppLog.warning(
+        'booking.duplicate_stand_down_failed',
+        extra: {'rideId': createdRideId, 'error': error.toString()},
+      );
+    }
 
     // Restore the visible owner's identity after the duplicate create response
     // may have temporarily projected the new id into the process-wide session.

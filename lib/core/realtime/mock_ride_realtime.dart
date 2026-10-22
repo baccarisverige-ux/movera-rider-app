@@ -105,6 +105,19 @@ class MockRideRealtime implements RideRealtime {
   double? _resumePickupLat;
   double? _resumePickupLng;
 
+  /// rider-u30: the rider moved the pickup after the accept (Q40). The
+  /// demo driver turns towards the new point, and arrives there, instead
+  /// of the pickup it was first sent to. Ignored once the rider is aboard.
+  void movePickup(double lat, double lng) {
+    if (_onTripStatuses.contains(lastStatus) ||
+        lastStatus.isCompletedSurface ||
+        lastStatus.isTerminal) {
+      return;
+    }
+    _pickupLat = lat;
+    _pickupLng = lng;
+  }
+
   /// The stand-in pickup when neither the caller nor the server knows one.
   static const _fallbackPickup = (59.3293, 18.0686);
 
@@ -681,16 +694,21 @@ class MockRideRealtime implements RideRealtime {
     });
   }
 
+  /// Seconds to where the driver is headed: the pickup before boarding,
+  /// the destination once the rider is aboard (rider-u31: measured to the
+  /// pickup, the in-trip 'Arrive by' moved later as the car neared the
+  /// drop-off). Null when that point is not known.
   int? _etaSeconds() {
     final lat = lastLat;
     final lng = lastLng;
-    final pickupLat = _pickupLat;
-    final pickupLng = _pickupLng;
-    if (lat == null || lng == null || pickupLat == null || pickupLng == null) {
+    final aboard = _onTripStatuses.contains(lastStatus);
+    final toLat = aboard ? destinationLat : _pickupLat;
+    final toLng = aboard ? destinationLng : _pickupLng;
+    if (lat == null || lng == null || toLat == null || toLng == null) {
       return null;
     }
     return GeoDistance.urbanSecondsForDistance(
-      GeoDistance.metersBetween(lat, lng, pickupLat, pickupLng),
+      GeoDistance.metersBetween(lat, lng, toLat, toLng),
     );
   }
 

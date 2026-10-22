@@ -17,7 +17,8 @@ is committed as `cancelledByRider`, archived to History and `RideSnapshotStore.c
 does the optional why-sheet open (Skip / Send, no Keep ride); its reason is sent as feedback, so a
 reload while it is open lands on Home. A 409 (driver already accepted) commits nothing and the
 rider moves on to Waiting with a short notice. Waiting/in-trip stay server-first after the sheet (D-013).
-QA `window.movera*` hooks are gated (`kDebugMode` or `--dart-define=MOVERA_QA=true`).
+QA `window.movera*` hooks are gated (`kDebugMode` or `--dart-define=MOVERA_QA=true`),
+except the navigation-only `moveraOpenSafety` bridge, which every web build has (see QA_HOOKS.md).
 See `docs/API_V1_MOCK.md`, `docs/UAT_CHECKLIST.md`, `docs/QA_HOOKS.md`.
 
 ## Canonical frontend state (existing names)
@@ -87,4 +88,4 @@ architecture guard test enforces this.
 
 ## Live
 
-https://baccarisverige-ux.github.io/-movera-rider/
+https://baccarisverige-ux.github.io/movera-rider-app/
