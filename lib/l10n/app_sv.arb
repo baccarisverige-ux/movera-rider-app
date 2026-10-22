@@ -234,6 +234,7 @@
   "voucherSoon": "Värdekoder kommer snart",
   "addCardDemoNote": "Demo: kortet sparas bara på den här enheten. När betalpartnern är ansluten sparas kort i dess säkra valv och Movera ser aldrig hela numret.",
   "cardCheckNumber": "Kontrollera kortnumret",
+  "cardBrandsAccepted": "Vi tar emot Visa och Mastercard",
   "cardUseMmYy": "Använd MM/ÅÅ",
   "cardExpired": "Kortet har gått ut",
   "cardCvc3": "3 siffror",

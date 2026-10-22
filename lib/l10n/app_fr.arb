@@ -234,6 +234,7 @@
   "voucherSoon": "Les codes promo arrivent bientôt",
   "addCardDemoNote": "Démo : cette carte est enregistrée uniquement sur cet appareil. Une fois le partenaire de paiement connecté, les cartes seront conservées dans son coffre sécurisé et Movera ne verra jamais le numéro complet.",
   "cardCheckNumber": "Vérifiez le numéro de carte",
+  "cardBrandsAccepted": "Nous acceptons Visa et Mastercard",
   "cardUseMmYy": "Format MM/AA",
   "cardExpired": "Cette carte a expiré",
   "cardCvc3": "3 chiffres",

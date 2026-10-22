@@ -18,6 +18,8 @@ import 'package:movera_rider/features/notifications/application/notification_nav
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
+import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -320,6 +322,23 @@ void main() {
         );
         expect(find.text('Movera'), findsWidgets);
         expect(find.text('ride.driver_arrived'), findsNothing);
+      });
+
+      testWidgets('rider-53: the card brand error is translated', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          AddCardPage(cards: SavedCardsController(), now: DateTime(2026, 10, 13)),
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('add-card-number')),
+          '378282246310005',
+        );
+        await tester.pump();
+        expect(find.text(L10n.current.cardBrandsAccepted), findsOneWidget);
+        expect(find.text('We accept Visa and Mastercard'), findsNothing);
       });
     });
   }

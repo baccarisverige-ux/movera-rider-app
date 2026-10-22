@@ -122,7 +122,8 @@ class _AddCardPageState extends State<AddCardPage> {
   /// Shown under the number once the rider has typed enough to be wrong.
   String? get _numberError {
     final digits = _digits;
-    if (CardInput.brandRejected(digits)) return CardInput.brandError;
+    // rider-53: in the app language, like the other field errors.
+    if (CardInput.brandRejected(digits)) return context.l10n.cardBrandsAccepted;
     final done = digits.length == 16 || (!_numberFocus.hasFocus && digits.isNotEmpty);
     if (done && !_numberOk) return context.l10n.cardCheckNumber;
     return null;

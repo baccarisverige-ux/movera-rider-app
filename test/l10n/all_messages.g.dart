@@ -240,6 +240,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'voucherSoon': l.voucherSoon,
   'addCardDemoNote': l.addCardDemoNote,
   'cardCheckNumber': l.cardCheckNumber,
+  'cardBrandsAccepted': l.cardBrandsAccepted,
   'cardUseMmYy': l.cardUseMmYy,
   'cardExpired': l.cardExpired,
   'cardCvc3': l.cardCvc3,
@@ -1997,6 +1998,8 @@ class _Exhaustive implements AppLocalizations {
   String get addCardDemoNote => '';
   @override
   String get cardCheckNumber => '';
+  @override
+  String get cardBrandsAccepted => '';
   @override
   String get cardUseMmYy => '';
   @override

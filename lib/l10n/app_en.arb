@@ -468,6 +468,10 @@
   "voucherSoon": "Voucher codes open soon",
   "addCardDemoNote": "Demo: this card is stored on this device only. When the payment partner is connected, cards are saved in its secure vault and Movera never sees the full number.",
   "cardCheckNumber": "Check the card number",
+  "cardBrandsAccepted": "We accept Visa and Mastercard",
+  "@cardBrandsAccepted": {
+    "description": "Error under the card number when the card is neither Visa nor Mastercard."
+  },
   "cardUseMmYy": "Use MM/YY",
   "cardExpired": "This card has expired",
   "cardCvc3": "3 digits",
