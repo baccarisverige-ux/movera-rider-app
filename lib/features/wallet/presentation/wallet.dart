@@ -578,7 +578,12 @@ class _WalletHomeState extends State<WalletHome> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _money(_balance),
+                        // rider-r5-14: exact, as Pay With shows it and as
+                        // Select Ride compares it; rounding up claimed öre
+                        // the wallet does not have.
+                        formatMoney(
+                          Money.fromLegacyMajor(_balance, _currency),
+                        ),
                         style: _style(
                           34,
                           weight: FontWeight.w700,
