@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
@@ -166,6 +169,15 @@ class _RecordingGeocoder implements GeocodingRepository {
 }
 
 class _NoLocation extends Fake implements LocationRepository {}
+
+/// A reverse geocoder the test answers by hand.
+class _HandGeocoder extends AppGeocoding {
+  final lookups = <Completer<String?>>[];
+
+  @override
+  Future<String?> reverseGeocodeAddress(double latitude, double longitude) =>
+      (lookups..add(Completer())).last.future;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -415,5 +427,35 @@ void main() {
     await payments.save('google_pay');
     expect(await payments.read(), 'google_pay');
     expect(serverDefault, 'google_pay');
+  });
+
+  testWidgets('rider-57: an older pin lookup answering last keeps the newer '
+      'street', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    final geocoder = _HandGeocoder();
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(
+      navigatorKey: navigator,
+      home: const SizedBox(),
+    ));
+    unawaited(navigator.currentState!.push(MaterialPageRoute<void>(
+      builder: (_) => ConfirmPickupSpot(
+        initialPosition: const LatLng(59.19, 17.62),
+        initialAddress: 'Klockarvägen 1',
+        geocoding: geocoder,
+      ),
+    )));
+    await tester.pumpAndSettle();
+    final map = tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap));
+    for (final lat in [59.1950, 59.1952]) {
+      map.onCameraMove!(CameraPosition(target: LatLng(lat, 17.626), zoom: 16));
+      map.onCameraIdle!();
+    }
+    geocoder.lookups[1].complete('Klockarvägen 37');
+    await tester.pump();
+    geocoder.lookups[0].complete('Klockarvägen 35');
+    await tester.pump();
+    expect(find.text('Klockarvägen 37'), findsWidgets);
+    expect(find.text(pickupLocationFallbackLabel), findsNothing);
   });
 }

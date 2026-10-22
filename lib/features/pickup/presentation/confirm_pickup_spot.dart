@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_access_notice.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -35,6 +36,7 @@ class ConfirmPickupSpot extends StatefulWidget {
     this.confirmLabel,
     this.positionIsFallback = false,
     this.refreshCurrentLocation = false,
+    this.geocoding,
   });
 
   static Future<ConfirmPickupResult?> open(
@@ -86,6 +88,9 @@ class ConfirmPickupSpot extends StatefulWidget {
   /// position came from (possibly stale) GPS rather than a chosen place.
   final bool refreshCurrentLocation;
 
+  /// The street lookups; the app's by default.
+  final AppGeocoding? geocoding;
+
   /// Size of the centre pin glyph.
   static const pinSize = 44.0;
 
@@ -126,7 +131,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
-    geocoding: AppScope.instance.geocoding,
+    geocoding: widget.geocoding ?? AppScope.instance.geocoding,
   );
 
   static const _radiusMeters = 90.0;
@@ -228,11 +233,16 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     }
   }
 
+  /// rider-57: bumped by every [_idle]; an older lookup answering last
+  /// (superseded, so null) must not replace the newer one's street.
+  int _idleGeneration = 0;
+
   Future<void> _idle() async {
     if (_moving) return;
     final at = _center;
+    final generation = ++_idleGeneration;
     final address = await _pickup.reverse(at);
-    if (!mounted) return;
+    if (!mounted || generation != _idleGeneration || _isAwayFrom(at)) return;
     // D-010: a raw "lat, lng" string is not an address the rider can use.
     final label = isUnusablePickupLabel(address)
         ? pickupLocationFallbackLabel
