@@ -1354,6 +1354,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'locServicesOffBody': l.locServicesOffBody,
   'locOpenSettings': l.locOpenSettings,
   'locAllow': l.locAllow,
+  'locPreciseOffTitle': l.locPreciseOffTitle,
+  'locPreciseOffBody': l.locPreciseOffBody,
+  'locPreciseTurnOn': l.locPreciseTurnOn,
   'dismiss': l.dismiss,
   'notifYesterday': l.notifYesterday('<clock>'),
   'invalidMobileNumber': l.invalidMobileNumber,
@@ -4268,6 +4271,12 @@ class _Exhaustive implements AppLocalizations {
   String get locOpenSettings => '';
   @override
   String get locAllow => '';
+  @override
+  String get locPreciseOffTitle => '';
+  @override
+  String get locPreciseOffBody => '';
+  @override
+  String get locPreciseTurnOn => '';
   @override
   String get dismiss => '';
   @override

@@ -83,6 +83,12 @@ class _Location implements LocationRepository {
   Future<GeoPoint?> lastKnownFix() async => null;
 
   @override
+  Future<bool> isApproximateOnly() async => false;
+
+  @override
+  Future<bool> requestPreciseLocation() async => true;
+
+  @override
   Future<GeoPoint?> readLastGoodFix() async => null;
 
   @override

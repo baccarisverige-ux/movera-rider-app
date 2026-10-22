@@ -2706,6 +2706,9 @@
   "locServicesOffBody": "Turn on Location Services in Settings, or set your pickup on the map.",
   "locOpenSettings": "Open settings",
   "locAllow": "Allow location",
+  "locPreciseOffTitle": "Precise location is off",
+  "locPreciseOffBody": "Set your pickup on the map.",
+  "locPreciseTurnOn": "Turn on",
   "dismiss": "Dismiss",
   "notifYesterday": "Yesterday {clock}",
   "@notifYesterday": {
