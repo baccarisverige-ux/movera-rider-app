@@ -23,6 +23,7 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_shee
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
+import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -253,5 +254,15 @@ void main() {
     expect(swedishNumberFromField('70 123 45 67'), '+46701234567');
     expect(swedishNumberFromField('70 123 45 6'), isNull, reason: 'a digit short');
     expect(swedishNumberFromField('08 123 456 78'), isNull, reason: 'a landline');
+  });
+
+  test('rider-u84: the highlight range is in the title\'s own offsets', () {
+    // On the web 'İ' lower-cases to two code units ('i' + a combining dot).
+    String webLower(String value) =>
+        foldForSearch(value.replaceAll('İ', 'i\u0307'));
+    const title = 'İzmir Kebab';
+    final (start, end) = matchRange(title, 'kebab', fold: webLower)!;
+    expect(title.substring(start, end), 'Kebab');
+    expect(matchRange('Klockarvägen 3', 'klockarvag'), (0, 10));
   });
 }
