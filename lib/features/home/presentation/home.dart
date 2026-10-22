@@ -1042,6 +1042,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       'destinationLat': destinationPoint.latitude,
       'destinationLng': destinationPoint.longitude,
       'stops': selection.stops,
+      // rider-r5-36: the points the rider picked, so no stop is located
+      // again from its label.
+      'stopPoints': [
+        for (var i = 0; i < selection.stops.length; i++)
+          i < selection.stopPoints.length ? selection.stopPoints[i] : null,
+      ],
       if (scheduledAt != null) 'scheduledAt': scheduledAt.toIso8601String(),
     };
   }
@@ -1109,6 +1115,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
         .whereType<String>()
         .toList();
+    final rawStopPoints = (draft['stopPoints'] as List<dynamic>? ?? const [])
+        .map((point) => point is GeoPoint ? point : null)
+        .toList();
     final routePreparationWatch = Stopwatch()..start();
     final normaliseBatch = _locationCtl.beginNormalisationBatch();
     final normalizedRoute = await Future.wait<String>([
@@ -1125,10 +1134,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     );
     var pickup = normalizedRoute[0];
     final destination = normalizedRoute[1];
-    final stops = normalizedRoute
-        .skip(2)
-        .where((address) => address.isNotEmpty)
-        .toList();
+    final stops = <String>[];
+    final stopPoints = <GeoPoint?>[];
+    final normalizedStops = normalizedRoute.skip(2).toList();
+    for (var i = 0; i < normalizedStops.length; i++) {
+      if (normalizedStops[i].isEmpty) continue;
+      stops.add(normalizedStops[i]);
+      stopPoints.add(i < rawStopPoints.length ? rawStopPoints[i] : null);
+    }
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
@@ -1192,6 +1205,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               pickupIsFallback: pickupIsFallback,
               destinationPosition: destinationPosition,
               stops: List<String>.from(stops),
+              stopPoints: List<GeoPoint?>.from(stopPoints),
               bookingMode: scheduledAt == null
                   ? BookingMode.now
                   : BookingMode.scheduled,
