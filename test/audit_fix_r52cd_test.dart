@@ -43,6 +43,7 @@ import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -513,5 +514,22 @@ void main() {
     );
     expect(session.alertState, isNot(RideCheckAlertState.none),
         reason: 'the alert is still sent');
+  });
+
+  testWidgets('rider-u203: a PIN change that failed says so', (tester) async {
+    final safety = safetyWith();
+    await safety.load();
+    await pumpPage(tester, PinVerificationPage(controller: safety));
+
+    store.failNextWrite = true; // offline
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Change PIN'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not change PIN.'), findsOneWidget);
   });
 }

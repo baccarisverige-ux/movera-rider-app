@@ -106,7 +106,11 @@ class _TripSharePageState extends State<TripSharePage> {
                         context,
                         SafetyUi.accent,
                       ),
-                      onChanged: (value) => _ctl.setTripShare(enabled: value),
+                      onChanged: (value) => runSafetyChange(
+                        context,
+                        _ctl,
+                        () => _ctl.setTripShare(enabled: value),
+                      ),
                     ),
                   ],
                 ),
@@ -131,10 +135,14 @@ class _TripSharePageState extends State<TripSharePage> {
                     SafetyUi.accent,
                   ),
                   onChanged: prefs.tripShareEnabled
-                      ? (value) => _ctl.setTripShare(
-                          mode: value
-                              ? TripShareMode.auto
-                              : TripShareMode.manual,
+                      ? (value) => runSafetyChange(
+                          context,
+                          _ctl,
+                          () => _ctl.setTripShare(
+                            mode: value
+                                ? TripShareMode.auto
+                                : TripShareMode.manual,
+                          ),
                         )
                       : null,
                 ),
