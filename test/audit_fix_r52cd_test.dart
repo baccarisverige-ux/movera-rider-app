@@ -12,6 +12,12 @@ import 'package:movera_rider/features/profile/data/account_security_repository.d
 import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/features/promotions/domain/rider_promotion.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -53,6 +59,49 @@ void main() {
         await tester.tap(find.text('open'));
         await tester.pumpAndSettle();
       });
+
+  /// Reservations on a clock the test moves ([clock]).
+  var clock = DateTime(2026, 10, 22, 8);
+  var reservationIds = 0;
+  ReservationController reservations() {
+    final controller = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv-r52cd-${reservationIds++}',
+      ),
+      clock: () => clock,
+    );
+    addTearDown(controller.dispose);
+    return controller;
+  }
+
+  /// Books a Comfort ride at [pickupAt] on [controller].
+  Future<Reservation> book(
+    ReservationController controller,
+    DateTime pickupAt,
+  ) =>
+      controller.create(ReservationDraft(
+        scheduledPickupAt: pickupAt,
+        pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
+        destination:
+            const ReservationPlace(label: 'Arlanda', lat: 59.65, lng: 17.93),
+        categoryId: 'comfort',
+        categoryName: 'Comfort',
+        categoryImage: 'assets/images/rides/comfort.webp',
+        price: 450,
+        paymentMethod: 'Cash',
+      ));
+
+  /// Pumps frames until [finder] finds something (at most [max] frames).
+  Future<void> pumpUntil(
+    WidgetTester tester,
+    Finder finder, {
+    int max = 40,
+  }) async {
+    for (var i = 0; i < max && finder.evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 
   /// A Security controller over an API answering GET with [security];
   /// [posts] counts the sign-out requests.
@@ -156,5 +205,32 @@ void main() {
       find.byType(PromotionDetailsSheet),
     );
     expect(sheet.categories.map((c) => c.id), ['economy', 'comfort']);
+  });
+
+  testWidgets('rider-j8-10: a later ride\'s driver on the way opens its '
+      'live page past an unresolved "no driver found" ride', (tester) async {
+    clock = DateTime(2026, 10, 22, 8);
+    final controller = reservations();
+    await book(controller, DateTime(2026, 10, 22, 9)); // never got a driver
+    final later = await book(controller, DateTime(2026, 10, 22, 11));
+    await controller.applyDriverAssignment(
+      later.reservationId,
+      driver: const ReservationDriver(firstName: 'Amina', rating: 4.9),
+    );
+    await controller.update(
+      later.reservationId,
+      const ReservationPatch(status: ReservationStatus.driverEnRoute),
+    );
+    clock = DateTime(2026, 10, 22, 10, 58);
+
+    await pumpPage(
+      tester,
+      Scaffold(
+        body: HomeReservationChrono(controller: controller, now: () => clock),
+      ),
+    );
+    await pumpUntil(tester, find.byType(WaitingForDriver));
+
+    expect(find.byType(WaitingForDriver), findsOneWidget);
   });
 }
