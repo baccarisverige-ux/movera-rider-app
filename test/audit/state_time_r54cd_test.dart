@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
@@ -177,6 +178,46 @@ class _HandGeocoder extends AppGeocoding {
   @override
   Future<String?> reverseGeocodeAddress(double latitude, double longitude) =>
       (lookups..add(Completer())).last.future;
+}
+
+/// Opens Set pickup at Stockholm city with [geocoder]; returns its map.
+Future<CustomGoogleMap Function()> _openSetPickup(
+  WidgetTester tester,
+  AppGeocoding geocoder,
+) async {
+  GoogleFonts.config.allowRuntimeFetching = false;
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final navigator = GlobalKey<NavigatorState>();
+  await tester.pumpWidget(MaterialApp(
+    navigatorKey: navigator,
+    home: const SizedBox(),
+  ));
+  unawaited(navigator.currentState!.push(MaterialPageRoute<void>(
+    builder: (_) => SetPickupPage(
+      initialPosition: const LatLng(59.3293, 18.0686),
+      initialAddress: 'Klockarvägen 1',
+      destinationAddress: 'Arlanda',
+      destinationPosition: const LatLng(59.6519, 17.9186),
+      ride: const SetPickupRide(
+        name: 'Movera',
+        image: 'missing.png',
+        seats: 4,
+        etaMin: 5,
+        tripMinutes: 40,
+      ),
+      fare: const SetPickupFare(totalKr: 259),
+      payment: const SetPickupPayment(brand: 'cash', name: 'Cash', detail: ''),
+      brandMark: (_) => const SizedBox(),
+      geocoding: geocoder,
+    ),
+  )));
+  for (var i = 0; i < 8; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  final map = find.byKey(const ValueKey('set-pickup-map'));
+  return () => tester.widget<CustomGoogleMap>(map);
 }
 
 void main() {
@@ -457,5 +498,35 @@ void main() {
     await tester.pump();
     expect(find.text('Klockarvägen 37'), findsWidgets);
     expect(find.text(pickupLocationFallbackLabel), findsNothing);
+  });
+
+  testWidgets('rider-u138: a pin back near its rest point after a dropped '
+      'lookup asks again', (tester) async {
+    final geocoder = _HandGeocoder();
+    final map = await _openSetPickup(tester, geocoder);
+    map().onCameraMoveStarted!();
+    map().onCameraMove!(
+      const CameraPosition(target: LatLng(59.3100, 18.0686), zoom: 16),
+    );
+    map().onCameraIdle!();
+    await tester.pump();
+    final asked = geocoder.lookups.length;
+    // Dragged away while that lookup answers, then let go next to it.
+    map().onCameraMoveStarted!();
+    map().onCameraMove!(
+      const CameraPosition(target: LatLng(59.3000, 18.0686), zoom: 16),
+    );
+    geocoder.lookups.last.complete('Tingsvägen 4');
+    await tester.pump();
+    map().onCameraMove!(
+      const CameraPosition(target: LatLng(59.31005, 18.0686), zoom: 16),
+    );
+    map().onCameraIdle!();
+    await tester.pump();
+    expect(geocoder.lookups, hasLength(asked + 1));
+    geocoder.lookups.last.complete('Tingsvägen 4');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(L10n.current.findingTheAddress), findsNothing);
   });
 }

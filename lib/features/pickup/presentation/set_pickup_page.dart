@@ -516,6 +516,10 @@ class _SetPickupPageState extends State<SetPickupPage>
       unawaited(_resolveAddress());
       _scheduleSpots();
       unawaited(_requote());
+    } else if (_addressIsStale && !_resolving) {
+      // rider-u138: back near the last rest point after its lookup was
+      // dropped (the pin was elsewhere when it answered): ask again.
+      unawaited(_resolveAddress());
     }
   }
 
@@ -565,7 +569,12 @@ class _SetPickupPageState extends State<SetPickupPage>
     setState(() => _resolving = true);
     final address = await _pickup.reverse(at);
     if (!mounted || generation != _resolveGeneration) return;
-    if (_isAwayFrom(at, _center)) return;
+    if (_isAwayFrom(at, _center)) {
+      // rider-u138: the pin moved on during the lookup. Stop saying it is
+      // being found; the next rest asks again for the pin's own point.
+      setState(() => _resolving = false);
+      return;
+    }
     setState(() {
       _resolving = false;
       if (!isUnusablePickupLabel(address)) {
