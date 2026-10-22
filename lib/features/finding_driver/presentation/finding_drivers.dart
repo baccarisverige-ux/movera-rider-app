@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -40,6 +41,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -127,6 +129,9 @@ enum _Rebook {
 
   /// No answer (timeout, dropped connection): the ride may exist (RC-09).
   uncertain,
+
+  /// rider-u107: the price changed and the rider chose not to book it.
+  declined,
 }
 
 class _FindingDriversState extends State<FindingDrivers> {
@@ -146,6 +151,10 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// rider-u106: "Try again" is creating the new booking. The screen must
   /// not be left meanwhile, or the new live search has no owner.
   bool _rebooking = false;
+
+  /// rider-u107: the quote the rider confirmed for "Try again", kept while
+  /// an uncertain booking is retried so it is not asked again.
+  RideQuote? _rebookQuote;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
   final bool _detailsSheetOpen = false;
@@ -367,7 +376,13 @@ class _FindingDriversState extends State<FindingDrivers> {
     while (mounted && choice == NoDriverChoice.tryAgain) {
       final outcome = await _requestAgain(ended);
       if (outcome == _Rebook.started) return;
-      if (outcome != _Rebook.uncertain || !mounted) break;
+      if (!mounted) break;
+      if (outcome == _Rebook.declined) {
+        // rider-u107: "Not now" on the new price; the rider decides again.
+        choice = await showNoDriverFoundSheet(context);
+        continue;
+      }
+      if (outcome != _Rebook.uncertain) break;
       // rider-u108: the new ride may exist on the server. The rider stays
       // here and may send the same booking again (same key, so never a
       // second ride) rather than being sent Home with a live ride unseen.
@@ -385,9 +400,41 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// answer reuses it).
   Future<_Rebook> _requestAgain(RideSnapshot ended) async {
     String rideId;
+    final booking = widget.booking ?? BookingController();
+    // rider-u107: price the route again first. A price other than the one
+    // the rider last saw (a surge, or their raise from the last search) is
+    // booked only once they accept it, as on Select Ride.
+    var quote = _rebookQuote;
+    if (quote == null) {
+      setState(() => _rebooking = true);
+      try {
+        quote = await booking.freshQuote(
+          rideType: ended.categoryId!,
+          pickupAddress: ended.pickupAddress,
+          destinationAddress: ended.destinationAddress,
+          pickupLat: ended.pickupLat,
+          pickupLng: ended.pickupLng,
+          destinationLat: ended.destinationLat,
+          destinationLng: ended.destinationLng,
+          stops: ended.stops,
+        );
+      } catch (_) {
+        _showCancelNotice(L10n.current.rebookFailed);
+        return _Rebook.failed;
+      } finally {
+        if (mounted) setState(() => _rebooking = false);
+      }
+      if (!mounted) return _Rebook.failed;
+      final next = Money(quote.totalMinor, quote.currency);
+      if (next != ended.fare && !await _acceptNewPrice(ended.fare, next)) {
+        return _Rebook.declined;
+      }
+      if (!mounted) return _Rebook.failed;
+      _rebookQuote = quote;
+    }
     setState(() => _rebooking = true);
     try {
-      rideId = await (widget.booking ?? BookingController()).submitFinding(
+      rideId = await booking.submitFinding(
         pickupAddress: ended.pickupAddress,
         destinationAddress: ended.destinationAddress,
         pickupLat: ended.pickupLat,
@@ -395,8 +442,12 @@ class _FindingDriversState extends State<FindingDrivers> {
         destinationLat: ended.destinationLat,
         destinationLng: ended.destinationLng,
         rideType: ended.categoryId!,
-        price: ended.price,
-        quoteCurrency: ended.currency,
+        price: Money(quote.totalMinor, quote.currency).major,
+        quoteId: quote.id,
+        quoteSignedPayload: quote.signedPayload,
+        quoteExpiresAt: quote.expiresAt,
+        quoteTotalMinor: quote.totalMinor,
+        quoteCurrency: quote.currency,
         paymentMethod: ended.paymentMethodId!,
         rideTypeLabel: widget.rideType,
         paymentMethodLabel: widget.paymentMethod,
@@ -408,6 +459,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     } catch (error) {
       // RC-09: a timeout or dropped connection may still have booked it.
       if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
+      _rebookQuote = null;
       _showCancelNotice(
         L10n.current.rebookFailed,
       );
@@ -415,6 +467,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     } finally {
       if (mounted) setState(() => _rebooking = false);
     }
+    _rebookQuote = null;
     if (rideId.trim().isEmpty) return _Rebook.failed;
     if (!mounted) {
       // The new ride exists on the server: it gets a screen now.
@@ -440,6 +493,32 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
     _loadMapBits();
     return _Rebook.started;
+  }
+
+  /// rider-u107: the same "Price updated" question Select Ride asks.
+  Future<bool> _acceptNewPrice(Money shown, Money next) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('rebook-price-updated'),
+        title: Text(context.l10n.priceUpdated),
+        content: Text(
+          context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.notNow),
+          ),
+          FilledButton(
+            key: const ValueKey('rebook-price-accept'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.bookForPrice(formatMoney(next))),
+          ),
+        ],
+      ),
+    );
+    return accepted == true;
   }
 
   /// Takes over [ride]'s route on this screen (without telling the server,

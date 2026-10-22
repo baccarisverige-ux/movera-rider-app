@@ -1,6 +1,7 @@
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
@@ -55,6 +56,28 @@ class BookingRepository {
       walletAmountMinor: walletAmountMinor,
     );
   }
+
+  /// rider-u107: see [BookingCoordinator.freshQuote].
+  Future<RideQuote> freshQuote({
+    required String rideType,
+    required String pickupAddress,
+    required String destinationAddress,
+    required double pickupLat,
+    required double pickupLng,
+    required double destinationLat,
+    required double destinationLng,
+    List<RouteStop> stops = const <RouteStop>[],
+  }) => _coordinator.freshQuote(
+    rideType: rideType,
+    pickupAddress: pickupAddress,
+    destinationAddress: destinationAddress,
+    pickupLat: pickupLat,
+    pickupLng: pickupLng,
+    destinationLat: destinationLat,
+    destinationLng: destinationLng,
+    stops: stops,
+  );
+
   Future<String> reconcileCreatedFinding(String createdRideId) {
     return _coordinator.reconcileCreatedFinding(createdRideId);
   }

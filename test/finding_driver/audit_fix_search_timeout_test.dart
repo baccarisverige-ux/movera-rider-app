@@ -413,6 +413,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
+    /// rider-u107: Try again prices the route again; the fare differs from
+    /// the 349 kr this search showed, so the rider is asked first.
+    Future<void> tryAgainAtNewPrice(WidgetTester tester) async {
+      await tester.tap(find.text('Try again'));
+      final accept = find.byKey(const ValueKey('rebook-price-accept'));
+      await pumpUntil(tester, () => accept.evaluate().isNotEmpty);
+      expect(find.text('Price updated'), findsOneWidget);
+      await tester.tap(accept);
+      await tester.pump();
+    }
+
     testWidgets('RIDE-19: after the server says no driver, Try again '
         'requests the same ride as a new booking', (tester) async {
       const firstId = 'to-try-again';
@@ -426,7 +437,7 @@ void main() {
 
       // The next booking should not expire straight away.
       server.rides.clear();
-      await tester.tap(find.text('Try again'));
+      await tryAgainAtNewPrice(tester);
       await searchingAgain(tester, controller, firstId);
 
       final secondId = AppScope.instance.ride.rideId;
@@ -457,13 +468,31 @@ void main() {
       expect(AppScope.instance.ride.status, RideStatus.noDriverFound);
     });
 
+    testWidgets('rider-u107: Try again at a changed price books nothing '
+        'until the rider accepts it', (tester) async {
+      await noDriverFound(tester, 'to-new-price');
+      server.rides.clear();
+      await tester.tap(find.text('Try again'));
+      final notNow = find.text('Not now');
+      await pumpUntil(tester, () => notNow.evaluate().isNotEmpty);
+      expect(find.text('Price updated'), findsOneWidget);
+
+      await tester.tap(notNow);
+      await pumpUntil(
+        tester,
+        () => find.text('No driver found').evaluate().isNotEmpty,
+      );
+      expect(backend.bookingKeys, isEmpty, reason: 'nothing was booked');
+      expect(find.text('Try again'), findsOneWidget);
+    });
+
     testWidgets('rider-u106: back while Try again books keeps the screen, '
         'which then owns the new search', (tester) async {
       const firstId = 'to-back-while-booking';
       final controller = await noDriverFound(tester, firstId);
       server.rides.clear();
       backend.holdBooking = Completer<void>();
-      await tester.tap(find.text('Try again'));
+      await tryAgainAtNewPrice(tester);
       await pumpUntil(tester, () => backend.bookingKeys.isNotEmpty);
       await tester.pump();
 
@@ -483,7 +512,7 @@ void main() {
       final controller = await noDriverFound(tester, firstId);
       server.rides.clear();
       backend.bookingOffline = true;
-      await tester.tap(find.text('Try again'));
+      await tryAgainAtNewPrice(tester);
       final uncertain = find.text(
         'We couldn’t confirm your booking. Check your connection and try '
         'again.',
