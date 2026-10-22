@@ -187,8 +187,9 @@ class _TripSharePageState extends State<TripSharePage> {
                                 shareable[i].name,
                                 style: SafetyUi.text(15.5),
                               ),
+                              // rider-u218: as on Emergency contacts.
                               subtitle: Text(
-                                shareable[i].relationship,
+                                relationshipLabel(shareable[i].relationship),
                                 style: SafetyUi.text(
                                   12.5,
                                   color: SafetyUi.muted,

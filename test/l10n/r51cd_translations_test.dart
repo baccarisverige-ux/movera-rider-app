@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -12,7 +13,12 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
+import 'package:movera_rider/features/safety/data/safety_repository.dart';
+import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -181,6 +187,31 @@ void main() {
         expect(formatRideCheckDistance(3600), '3,6 km');
         expect(formatRideCheckDistance(12400), '12 km');
         expect(formatRideCheckDistance(650), '650 m');
+      });
+
+      testWidgets('rider-u218: Trip share shows the translated relationship', (
+        tester,
+      ) async {
+        resetSafetyMockForProcess();
+        SafetyStore.resetShared();
+        SafetyRepository.resetShared();
+        SafetyController.resetShared();
+        final safety = SafetyController(
+          session: SafetyStore(
+            local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+          ),
+        );
+        await tester.runAsync(() async {
+          await safety.load();
+          await safety.addContact(
+            name: 'Anna',
+            phone: '0701234567',
+            relationship: 'Family',
+          );
+        });
+        await pumpIn(tester, code, TripSharePage(controller: safety));
+        expect(find.text(L10n.current.relationshipFamily), findsOneWidget);
+        expect(find.text('Family'), findsNothing);
       });
     });
   }
