@@ -142,7 +142,16 @@
     };
     const tiltFor = zoom => state.tiltFollowsZoom &&
       map.getRenderingType?.() !== sdk.RenderingType.RASTER ? tiltForZoom(zoom) : 0;
-    state.cancelFlight = () => endFlight(false);
+    // rider-j8-13: a cancelled flight stops mid-way; hand back where the
+    // camera now is, so Dart's next glide starts from there.
+    state.cancelFlight = () => {
+      if (!flight) return null;
+      endFlight(false);
+      const c = map.getCenter();
+      if (!c) return null;
+      return {lat: c.lat(), lng: c.lng(), zoom: Number(map.getZoom()),
+        heading: map.getHeading() || 0, tilt: map.getTilt() || 0};
+    };
     state.retarget = to => { if (flight) flight.to = to; };
     state.flight = (to, ms) => new Promise(resolve => {
       endFlight(false);
@@ -476,7 +485,7 @@
       states.get(id)?.retarget({lat, lng, zoom, heading, tilt});
     },
     cancelFlight(id) {
-      states.get(id)?.cancelFlight();
+      return states.get(id)?.cancelFlight() ?? null;
     },
     // Test/verification hook: the live camera of a map.
     camera(id) {

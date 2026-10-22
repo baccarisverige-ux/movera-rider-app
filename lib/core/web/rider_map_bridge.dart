@@ -75,6 +75,22 @@ abstract final class RiderMapBridge {
         to.tilt,
       );
 
-  /// Stops a running flight where it is.
-  static void cancelFlight(int mapId) => impl.cancelFlight(mapId);
+  /// Stops a running flight where it is, and returns where that is (null
+  /// when nothing was flying or the layer cannot tell).
+  static CameraPosition? cancelFlight(int mapId) {
+    final fake = debugCancelFlight;
+    if (fake != null) return fake(mapId);
+    final at = impl.cancelFlight(mapId);
+    if (at == null) return null;
+    return CameraPosition(
+      target: LatLng(at.lat, at.lng),
+      zoom: at.zoom,
+      bearing: at.heading,
+      tilt: at.tilt,
+    );
+  }
+
+  /// Tests stand in for the web layer's [cancelFlight].
+  @visibleForTesting
+  static CameraPosition? Function(int mapId)? debugCancelFlight;
 }

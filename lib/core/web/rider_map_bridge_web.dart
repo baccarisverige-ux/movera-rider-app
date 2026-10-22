@@ -79,6 +79,24 @@ void retarget(int mapId, double lat, double lng, double zoom, double heading,
   ]);
 }
 
-void cancelFlight(int mapId) {
-  _forMap(mapId)?.callMethod<JSAny?>('cancelFlight'.toJS, mapId.toJS);
+({double lat, double lng, double zoom, double heading, double tilt})?
+    cancelFlight(int mapId) {
+  final at = _forMap(mapId)?.callMethod<JSAny?>('cancelFlight'.toJS, mapId.toJS);
+  if (at == null || !at.isA<JSObject>()) return null;
+  final pose = at as JSObject;
+  double? read(String key) {
+    final value = pose.getProperty<JSAny?>(key.toJS);
+    return value != null && value.isA<JSNumber>()
+        ? (value as JSNumber).toDartDouble
+        : null;
+  }
+  final lat = read('lat'), lng = read('lng'), zoom = read('zoom');
+  if (lat == null || lng == null || zoom == null) return null;
+  return (
+    lat: lat,
+    lng: lng,
+    zoom: zoom,
+    heading: read('heading') ?? 0,
+    tilt: read('tilt') ?? 0,
+  );
 }

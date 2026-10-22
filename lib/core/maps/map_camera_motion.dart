@@ -96,7 +96,11 @@ class MapView {
     if (_jsFlight) {
       _jsFlight = false;
       final id = mapId;
-      if (id != null) RiderMapBridge.cancelFlight(id);
+      // rider-j8-13: while the flight ran, the map's camera reports were
+      // ignored, so [pose] is still where it started. Take the camera's
+      // live pose; when the layer cannot say, the pose is unknown and the
+      // next command or camera report sets it.
+      if (id != null) pose = RiderMapBridge.cancelFlight(id);
     }
     final done = _done;
     _done = null;

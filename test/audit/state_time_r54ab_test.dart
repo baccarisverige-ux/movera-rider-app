@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -8,6 +10,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/web/rider_map_bridge.dart';
 
 /// Wave 5 R5.4 parts a + b: state and time (low). One test per bug.
 const _env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
@@ -40,6 +44,12 @@ Future<String> _book(ApiClient api) async {
     },
   );
   return (created['ride'] as Map)['id'] as String;
+}
+
+/// A map controller that only records camera moves.
+class _FakeMap extends Fake implements GoogleMapController {
+  @override
+  Future<void> moveCamera(CameraUpdate cameraUpdate) async {}
 }
 
 void main() {
@@ -88,5 +98,26 @@ void main() {
     expect(after['fare'], isNot(before['fare']));
     expect(after['version'], (before['version'] as int) + 1);
     expect(after['eventId'], isNot(before['eventId']));
+  });
+
+  test('rider-j8-13: a web flight stopped by a tap leaves the pose where the '
+      'camera stopped', () async {
+    const start = CameraPosition(target: LatLng(59.30, 18.00), zoom: 13);
+    const goal = CameraPosition(target: LatLng(59.40, 18.10), zoom: 15);
+    const midway = CameraPosition(target: LatLng(59.35, 18.05), zoom: 14);
+    RiderMapBridge.debugFlight = (_, _, _) => Completer<bool>().future;
+    RiderMapBridge.debugCancelFlight = (_) => midway;
+    addTearDown(() {
+      RiderMapBridge.debugFlight = null;
+      RiderMapBridge.debugCancelFlight = null;
+    });
+    final map = _FakeMap();
+    final view = mapViewOf(map)
+      ..mapId = 1
+      ..pose = start;
+    unawaited(easeCameraTo(map, goal, duration: cameraFlightDuration));
+    expect(view.easing, isTrue);
+    view.touching = true; // the tap stops the flight
+    expect(view.pose, midway);
   });
 }
