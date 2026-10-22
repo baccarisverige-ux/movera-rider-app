@@ -40,6 +40,9 @@ import 'package:movera_rider/features/notifications/data/notifications_repositor
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/saved_cards_store.dart';
+import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
+import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -125,6 +128,14 @@ HomeLocationController _homeLocation(_Location location) =>
       readCompass: () => null,
       stopCompass: () {},
     );
+
+class _NoPickups implements PreviousPickupsStore {
+  @override
+  Future<List<PreviousPickup>> read() async => const [];
+
+  @override
+  Future<void> write(List<PreviousPickup> pickups) async {}
+}
 
 /// R5.6 parts a and b: small local fixes, one short test per bug.
 void main() {
@@ -491,5 +502,70 @@ void main() {
     expect(selection.hasSavedCard, isFalse);
     expect(selection.payments().map((p) => p.brand), isNot(contains('card:old')));
     expect(selection.savedCardFor('card:old'), isNull);
+  });
+
+  testWidgets('rider-u143: Set pickup keeps its curved animations across '
+      'rebuilds', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    await _pumpPage(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => SetPickupPage.open(
+            context,
+            initialPosition: const LatLng(59.3293, 18.0686),
+            initialAddress: 'Klockarvägen 37',
+            destinationAddress: 'Alby Centrum, Norsborg',
+            destinationPosition: const LatLng(59.2390, 17.8450),
+            ride: const SetPickupRide(
+              name: 'Comfort',
+              image: 'missing.png',
+              seats: 4,
+              etaMin: 11,
+              tripMinutes: 22,
+            ),
+            fare: const SetPickupFare(totalKr: 237),
+            payment: const SetPickupPayment(
+              brand: 'cash',
+              name: 'Cash',
+              detail: 'Pay the driver in cash',
+            ),
+            brandMark: (_) => const Icon(Icons.directions_car),
+            onChangePayment: () async => null,
+            spotsController: PickupSpotsController(store: _NoPickups()),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    List<Listenable> curves() => [
+      for (final t in tester.widgetList<SizeTransition>(
+        find.descendant(
+          of: find.byType(SetPickupPage),
+          matching: find.byType(SizeTransition),
+        ),
+      ))
+        t.sizeFactor,
+      tester
+          .widget<AnimatedBuilder>(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('set-pickup-pin')),
+                  matching: find.byType(AnimatedBuilder),
+                )
+                .first,
+          )
+          .animation,
+    ];
+    final before = curves();
+    expect(before.length, greaterThan(1));
+    tester.element(find.byType(SetPickupPage)).markNeedsBuild();
+    await tester.pump();
+    final after = curves();
+    for (var i = 0; i < before.length; i++) {
+      expect(after[i], same(before[i]), reason: 'curve $i rebuilt');
+    }
   });
 }

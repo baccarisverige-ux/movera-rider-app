@@ -309,6 +309,15 @@ class _SetPickupPageState extends State<SetPickupPage>
     duration: const Duration(milliseconds: 180),
     reverseDuration: const Duration(milliseconds: 520),
   );
+
+  // rider-u143: built once, not on every build (each CurvedAnimation adds a
+  // status listener to its parent until it is disposed).
+  late final CurvedAnimation _pinDrop = CurvedAnimation(
+    parent: _lift,
+    curve: Curves.easeOut,
+    reverseCurve: Curves.bounceIn,
+  );
+  final Map<(double, double), CurvedAnimation> _reveals = {};
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
     geocoding: widget.geocoding ?? AppScope.instance.geocoding,
@@ -428,6 +437,10 @@ class _SetPickupPageState extends State<SetPickupPage>
   void dispose() {
     _spotsTimer?.cancel();
     _mapTouch?.cancel();
+    for (final curve in _reveals.values) {
+      curve.dispose();
+    }
+    _pinDrop.dispose();
     _sheet.dispose();
     _lift.dispose();
     _pickup.dispose();
@@ -890,7 +903,7 @@ class _SetPickupPageState extends State<SetPickupPage>
               child: Center(
                 child: _PickupPin(
                   key: const ValueKey('set-pickup-pin'),
-                  lift: _lift,
+                  lift: _pinDrop,
                 ),
               ),
             ),
@@ -1095,9 +1108,12 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   /// Folds a section away as the sheet slides down; staggered by [start].
   Widget _reveal(double start, double end, Widget child) {
-    final curve = CurvedAnimation(
-      parent: _sheet,
-      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    final curve = _reveals.putIfAbsent(
+      (start, end),
+      () => CurvedAnimation(
+        parent: _sheet,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ),
     );
     return SizeTransition(
       sizeFactor: curve,
@@ -1551,6 +1567,7 @@ class _SetPickupPageState extends State<SetPickupPage>
 class _PickupPin extends StatelessWidget {
   const _PickupPin({super.key, required this.lift});
 
+  /// The lift, already curved (ease out up, a small bounce down).
   final Animation<double> lift;
 
   static const _bubble = 34.0;
@@ -1561,11 +1578,7 @@ class _PickupPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drop = CurvedAnimation(
-      parent: lift,
-      curve: Curves.easeOut,
-      reverseCurve: Curves.bounceIn,
-    );
+    final drop = lift;
     return AnimatedBuilder(
       animation: drop,
       builder: (context, _) {
