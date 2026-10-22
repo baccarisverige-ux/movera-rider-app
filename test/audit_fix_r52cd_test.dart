@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -31,8 +33,20 @@ import 'package:movera_rider/features/reservations/presentation/upcoming_reserva
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
+import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
+import 'package:movera_rider/features/safety/data/safety_store.dart';
+import 'package:movera_rider/features/safety/data/safety_repository.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'safety/safety_test.dart' show TestSafetyRecorder;
 
 /// Quotes [totalMinor] for each ride type, at once (as
 /// phase139_select_ride_characterization_test); null never answers.
@@ -62,6 +76,13 @@ class _Quotes implements QuoteRepository {
       signedPayload: 'sig',
     ));
   }
+}
+
+/// A device with no dialer (web, tablet).
+class _NoDialer implements EmergencyDialer {
+  @override
+  Future<void> open(String number) async =>
+      throw const EmergencyCallException('No phone app on this device');
 }
 
 /// Wave 5 R5.2 parts c+d: messages that claim success they did not get.
@@ -171,6 +192,31 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     return selection;
+  }
+
+  /// Safety over the in-process backend (as audit_fix_r52ab_test's
+  /// rider-u35), with [dialer]; [store] is the session's store.
+  late SafetyStore store;
+  SafetyController safetyWith({EmergencyDialer? dialer}) {
+    resetSafetyMockForProcess();
+    SafetyStore.resetShared();
+    SafetyRepository.resetShared();
+    SafetyController.resetShared();
+    store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
+    );
+    final safety = SafetyController(
+      session: store,
+      emergency:
+          EmergencyCallService(dialer: dialer ?? RecordingEmergencyDialer()),
+      audio: SafetyAudioService(recorder: TestSafetyRecorder(), store: store),
+    );
+    SafetyController.sharedForTest = safety;
+    addTearDown(() => SafetyController.sharedForTest = null);
+    return safety;
   }
 
   /// A Security controller over an API answering GET with [security];
@@ -436,5 +482,36 @@ void main() {
     // Let Select Ride's pending quote timers run out.
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 1));
+  });
+
+  test('rider-81: a call to 112 that never opened is not saved as '
+      '"Called 112"', () async {
+    final rideCheck = RideCheckController.forSafety(
+      safetyWith(dialer: _NoDialer()),
+    );
+    RideCheckController.sharedForTest = rideCheck;
+    addTearDown(() {
+      RideCheckController.sharedForTest = null;
+      rideCheck.dispose();
+    });
+    rideCheck.attachTrip(
+      const RideCheckTripContext(rideId: 'r1'),
+      const RideCheckPlan(
+        pickup: GeoPoint(59.3293, 18.0686),
+        destination: GeoPoint(59.3600, 18.0000),
+      ),
+    );
+    await rideCheck.open(RideCheckTrigger.longStop, rideId: 'r1');
+
+    await rideCheck.call112();
+
+    final session = rideCheck.session!;
+    expect(session.callError, isNotNull);
+    expect(
+      session.answers.map((answer) => answer.kind),
+      isNot(contains(RideCheckAnswerKind.call112)),
+    );
+    expect(session.alertState, isNot(RideCheckAlertState.none),
+        reason: 'the alert is still sent');
   });
 }
