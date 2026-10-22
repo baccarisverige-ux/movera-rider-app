@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +28,7 @@ import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -329,5 +332,42 @@ void main() {
     expect(formatRideCheckDistance(997), isNot(contains('1000')));
     expect(formatRideCheckDistance(997), endsWith(' km'));
     expect(formatRideCheckDistance(994), '990 m');
+  });
+
+  testWidgets('rider-84: a contact save failing after the sheet closed', (
+    tester,
+  ) async {
+    resetSafetyMockForProcess();
+    final gate = Completer<void>();
+    final server = InProcessMockClient();
+    final client = MockClient((request) async {
+      if (request.method == 'POST' && request.url.path.contains('contacts')) {
+        await gate.future;
+        throw http.ClientException('offline');
+      }
+      return http.Response.fromStream(await server.send(request));
+    });
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
+    );
+    final safety = SafetyController(session: store);
+    await tester.runAsync(safety.load);
+    await tester.pumpWidget(
+      MaterialApp(home: EmergencyContactsPage(controller: safety)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add contact'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Kim');
+    await tester.enterText(find.byType(TextField).last, '0701234567');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.tapAt(const Offset(20, 20)); // swipe/tap the sheet away
+    await tester.pumpAndSettle();
+    expect(find.text('Saving…'), findsNothing);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

@@ -284,6 +284,8 @@ class _ContactEditorState extends State<_ContactEditor> {
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
+      // rider-84: the rider may have swiped the sheet away meanwhile.
+      if (!mounted) return;
       setState(() {
         _error = widget.controller.error ?? context.l10n.contactSaveFailed;
         _saving = false;
