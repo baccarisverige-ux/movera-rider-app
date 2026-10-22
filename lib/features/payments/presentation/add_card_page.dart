@@ -164,11 +164,15 @@ class _AddCardPageState extends State<AddCardPage> {
       );
       if (!mounted) return;
       navigator.pop(card);
-    } on ArgumentError catch (e) {
+    } on ArgumentError {
       if (!mounted) return;
+      // rider-52: the controller's ArgumentError text is English and for
+      // developers; the rider reads the l10n line.
       setState(() {
         _saving = false;
-        _saveError = e.message?.toString() ?? context.l10n.cardCheckDetails;
+        _saveError = CardInput.brandRejected(_digits)
+            ? context.l10n.cardBrandsAccepted
+            : context.l10n.cardCheckDetails;
       });
     } catch (_) {
       if (!mounted) return;

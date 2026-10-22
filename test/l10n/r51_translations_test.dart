@@ -340,6 +340,35 @@ void main() {
         expect(find.text(L10n.current.cardBrandsAccepted), findsOneWidget);
         expect(find.text('We accept Visa and Mastercard'), findsNothing);
       });
+
+      testWidgets('rider-52: a refused save shows the l10n error', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          AddCardPage(cards: _RefusingCards(), now: DateTime(2026, 10, 13)),
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('add-card-number')),
+          '4242424242424242',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('add-card-expiry')),
+          '1230',
+        );
+        await tester.enterText(find.byKey(const ValueKey('add-card-cvc')), '123');
+        await tester.enterText(
+          find.byKey(const ValueKey('add-card-holder')),
+          'Alex Berg',
+        );
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(const ValueKey('add-card-save')));
+        await tester.tap(find.byKey(const ValueKey('add-card-save')));
+        await tester.pump();
+        expect(find.text(L10n.current.cardCheckDetails), findsOneWidget);
+        expect(find.text(CardInput.brandError), findsNothing);
+      });
     });
   }
 }
@@ -350,3 +379,17 @@ const _driver = MatchedDriver(
   vehicleMake: 'Volvo',
   vehicleModel: 'EX30',
 );
+
+/// Refuses every card the way [SavedCardsController.add] refuses a bad
+/// one: an [ArgumentError] with English developer text.
+class _RefusingCards extends SavedCardsController {
+  @override
+  Future<SavedCard> add({
+    required String number,
+    required int expMonth,
+    required int expYear,
+    required String holder,
+    DateTime? now,
+    String? id,
+  }) async => throw ArgumentError(CardInput.brandError);
+}
