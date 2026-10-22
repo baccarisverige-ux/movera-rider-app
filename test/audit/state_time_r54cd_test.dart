@@ -171,9 +171,14 @@ class _RecordingGeocoder implements GeocodingRepository {
 
 class _NoLocation extends Fake implements LocationRepository {}
 
-/// A reverse geocoder the test answers by hand.
+/// A geocoder the test answers by hand.
 class _HandGeocoder extends AppGeocoding {
   final lookups = <Completer<String?>>[];
+  final searches = <Completer<PlaceResult?>>[];
+
+  @override
+  Future<PlaceResult?> geocodeAddress(String address) =>
+      (searches..add(Completer())).last.future;
 
   @override
   Future<String?> reverseGeocodeAddress(double latitude, double longitude) =>
@@ -528,5 +533,30 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text(L10n.current.findingTheAddress), findsNothing);
+  });
+
+  testWidgets('rider-58: a search answering after the pin was moved leaves '
+      'the pin', (tester) async {
+    final geocoder = _HandGeocoder();
+    final map = await _openSetPickup(tester, geocoder);
+    await tester.tap(find.text('Klockarvägen 1'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Storgatan 1');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    // The rider drags the pin to the entrance while the search runs.
+    map().onCameraMoveStarted!();
+    map().onCameraMove!(
+      const CameraPosition(target: LatLng(59.3100, 18.0686), zoom: 16),
+    );
+    map().onCameraIdle!();
+    await tester.pump();
+    geocoder.searches.single.complete(const PlaceResult(
+      address: 'Storgatan 1',
+      point: GeoPoint(59.335, 18.08),
+    ));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Storgatan 1'), findsNothing);
   });
 }

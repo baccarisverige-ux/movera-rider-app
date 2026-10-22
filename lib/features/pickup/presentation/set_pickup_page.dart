@@ -353,6 +353,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   late bool _addressIsStale =
       _isPlaceholder(_address) || needsDroppedPinLabel(_address);
   int _resolveGeneration = 0;
+  int _searchGeneration = 0;
   Future<void>? _resolveTask;
   Future<void>? _requoteTask;
 
@@ -723,8 +724,18 @@ class _SetPickupPageState extends State<SetPickupPage>
     controller.dispose();
     final text = query?.trim() ?? '';
     if (text.isEmpty || !mounted) return;
+    final at = _center;
+    final generation = ++_searchGeneration;
     final found = await _pickup.search(text);
     if (!mounted) return;
+    // rider-58: the page stays usable while the search runs. If the pin
+    // was moved (a drag, a spot, My location) or a newer search started,
+    // this answer must not pull the pin back to the searched place.
+    if (generation != _searchGeneration ||
+        _moving ||
+        _isAwayFrom(at, _center)) {
+      return;
+    }
     if (found == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(content: Text(context.l10n.addressNotFoundMoveMap)),

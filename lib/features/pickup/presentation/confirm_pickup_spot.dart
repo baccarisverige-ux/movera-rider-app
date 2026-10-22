@@ -310,8 +310,10 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   Future<void> _lookup() async {
     final query = _search.text.trim();
     if (query.isEmpty) return;
+    final at = _center;
     final found = await _pickup.search(query);
-    if (!mounted || found == null) return;
+    // rider-58: the pin was moved while the search ran; it stays there.
+    if (!mounted || found == null || _moving || _isAwayFrom(at)) return;
     setState(() {
       _center = found.position;
       _hasUsablePickupCoordinates = true;
