@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -76,9 +77,10 @@ class RideCompletedTripDetail extends StatelessWidget {
                   8.height,
                   _detailRow(
                     context.l10n.paymentMethod,
+                    // rider-u182: Wallet and Card too, not only Cash.
                     L10n.isCashLabel(trip.method)
                         ? context.l10n.payCash
-                        : trip.method,
+                        : paymentLabelFor(trip.method),
                   ),
                   8.height,
                   // RC5: a Ride check on this trip, with its answers.

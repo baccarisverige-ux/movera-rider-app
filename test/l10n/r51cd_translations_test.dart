@@ -9,7 +9,9 @@ import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -141,6 +143,36 @@ void main() {
           L10n.current.driverTripsCompleted(12),
         );
         expect(L10n.current.driverTripsCompleted(12), contains('12'));
+      });
+
+      testWidgets('rider-u182: receipt names Wallet and Card in the language', (
+        tester,
+      ) async {
+        for (final (stored, shown) in [
+          ('Movera Wallet', () => L10n.current.moveraWallet),
+          ('Card', () => L10n.current.payCard),
+        ]) {
+          await pumpIn(
+            tester,
+            code,
+            Scaffold(
+              body: RideCompletedTripDetail(
+                controller: RideCompleteController(
+                  trips: TripReceiptRepository(
+                    receipt: TripReceipt(
+                      pickup: 'Sveavägen 1',
+                      destination: 'Hornsgatan 2',
+                      total: '259 kr',
+                      method: stored,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          expect(find.text(shown()), findsOneWidget);
+          expect(find.text(stored), findsNothing);
+        }
       });
     });
   }
