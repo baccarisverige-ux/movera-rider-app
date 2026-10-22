@@ -42,6 +42,14 @@ class ApiClient {
   String? _expiredAccess;
   static const _timeout = Duration(seconds: 15);
 
+  /// Sign-in calls: their 401 means wrong credentials, never an expired
+  /// session, whatever token the request happened to carry.
+  static const _signInPaths = {
+    '/api/v1/auth/otp/request',
+    '/api/v1/auth/otp/verify',
+    '/api/v1/auth/provider',
+  };
+
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
 
   Future<Map<String, dynamic>> post(
@@ -87,9 +95,13 @@ class ApiClient {
         if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       };
       var response = await _request(method, uri, headers, body);
-      if (response.statusCode == 401 && access?.isNotEmpty == true) {
+      if (response.statusCode == 401 &&
+          access?.isNotEmpty == true &&
+          !_signInPaths.contains(path)) {
         // An OTP rejection is not an expired session. Only requests that
-        // carried an access token enter the refresh/retry path.
+        // carried an access token enter the refresh/retry path. rider-6: a
+        // sign-in call can carry an earlier session's token (web keeps it in
+        // sessionStorage across a reload), so its 401 is still a wrong code.
         final refresh = await _refreshAccess(access!);
         final replacement = refresh.access;
         if (refresh.unavailable) {
