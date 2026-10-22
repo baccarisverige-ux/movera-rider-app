@@ -12,6 +12,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -173,6 +174,13 @@ void main() {
           expect(find.text(shown()), findsOneWidget);
           expect(find.text(stored), findsNothing);
         }
+      });
+
+      test('rider-u209: Ride check distances use a decimal comma', () {
+        L10n.use(code);
+        expect(formatRideCheckDistance(3600), '3,6 km');
+        expect(formatRideCheckDistance(12400), '12 km');
+        expect(formatRideCheckDistance(650), '650 m');
       });
     });
   }
