@@ -324,4 +324,10 @@ void main() {
     expect(at(0.0002, 9), isNull);
     expect(monitor.hasFired(RideCheckTrigger.offRoute), isFalse);
   });
+
+  test('rider-r3-5: 997 m reads as a kilometre, not "1000 m"', () {
+    expect(formatRideCheckDistance(997), isNot(contains('1000')));
+    expect(formatRideCheckDistance(997), endsWith(' km'));
+    expect(formatRideCheckDistance(994), '990 m');
+  });
 }
