@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -30,6 +33,9 @@ import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/features/home/presentation/side_menu.dart';
+import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -412,5 +418,40 @@ void main() {
       onPulse: () {},
     );
     expect(location.subscriptions, 0);
+  });
+
+  testWidgets('rider-u125: a push tap over the menu\'s Notifications does '
+      'not stack a second copy', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, _) => MaterialApp(
+          navigatorKey: moveraNavigatorKey,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => RiderMenuPage.open(context),
+              child: const Text('menu'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Notifications'));
+    await tester.pumpAndSettle();
+    expect(
+      pushPageOnce(() => const NotificationScreen(), AppRoutes.notifications),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(NotificationScreen, skipOffstage: false),
+      findsOneWidget,
+    );
   });
 }
