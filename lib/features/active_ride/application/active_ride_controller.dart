@@ -609,6 +609,24 @@ class ActiveRideController {
     clearSearchLive();
   }
 
+  /// rider-r5-3: a declined payment the server retried and authorized or
+  /// captured (contract paymentTransitions `failed -> authorized`). The
+  /// completion snapshot was dropped at the decline, so the trip the
+  /// summary remembers is re-filed in History with its new payment status,
+  /// and a captured wallet trip is debited now.
+  Future<void> markPaymentRetried(String rideId, RideStatus status) async {
+    if (status != RideStatus.paymentProcessing &&
+        status != RideStatus.paymentFinalized) {
+      return;
+    }
+    final id = rideId.trim();
+    final remembered = LastCompletedRide.forRide(id);
+    if (remembered == null) return;
+    final snapshot = remembered.copyWith(status: status);
+    await _archive(snapshot, status, expectedRideId: id);
+    if (status == RideStatus.paymentFinalized) await _chargeWallet(snapshot);
+  }
+
   /// Finish History archival before clearing the restorable completion record.
   ///
   /// rider-72: leaving never fails once the ride is this one. A session
