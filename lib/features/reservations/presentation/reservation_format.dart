@@ -160,12 +160,14 @@ abstract final class ReservationFormat {
 
   static String shortPlace(String raw) => shortenPlace(raw);
 
-  static String cardDate(DateTime when) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  static String cardDate(DateTime when, {DateTime? now}) {
+    final clock = now ?? DateTime.now();
+    final today = DateTime(clock.year, clock.month, clock.day);
     final day = DateTime(when.year, when.month, when.day);
     if (day == today) return L10n.current.todayDate(_dayMonth(when));
-    if (day == today.add(const Duration(days: 1))) {
+    // rider-64: the next calendar day. today + 24 h is 01:00 of it on the
+    // spring-forward day.
+    if (day == DateTime(clock.year, clock.month, clock.day + 1)) {
       return L10n.current.tomorrowDate(_dayMonth(when));
     }
     return weekdayDate(when);

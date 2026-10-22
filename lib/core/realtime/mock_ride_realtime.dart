@@ -220,6 +220,19 @@ class MockRideRealtime implements RideRealtime {
       unawaited(_resume(rideId, resumeStatus));
       return _controller.stream;
     }
+    if (resumeStatus != null && resumeStatus.isCompletedSurface) {
+      // rider-u173: a restored completion screen goes on from its stage;
+      // the finished trip is never searched for and driven again.
+      _sequence = resumeVersion ?? 0;
+      lastStatus = resumeStatus;
+      lastDriver = resumeDriver;
+      scheduleMicrotask(() {
+        if (cancelled || disposed || _rideId != rideId) return;
+        _emit(resumeStatus);
+        _startPostTripFlow(from: resumeStatus);
+      });
+      return _controller.stream;
+    }
 
     _sequence = 0;
     lastStatus = RideStatus.findingDriver;
@@ -670,28 +683,44 @@ class MockRideRealtime implements RideRealtime {
     });
   }
 
-  void _startPostTripFlow() {
+  /// Payment, then rating, after the stage [from] the trip has reached.
+  void _startPostTripFlow({RideStatus from = RideStatus.tripCompleted}) {
     _paymentProcessing?.cancel();
     _paymentFinalized?.cancel();
     _ratingPending?.cancel();
 
-    _paymentProcessing = Timer(paymentProcessingAfter, () {
-      if (cancelled || disposed || _rideId == null) return;
-      lastStatus = RideStatus.paymentProcessing;
-      _emit(RideStatus.paymentProcessing);
+    void ratingPending() {
+      _ratingPending = Timer(ratingPendingAfter, () {
+        if (cancelled || disposed || _rideId == null) return;
+        lastStatus = RideStatus.ratingPending;
+        _emit(RideStatus.ratingPending);
+      });
+    }
 
+    void paymentFinalized() {
       _paymentFinalized = Timer(paymentFinalizedAfter, () {
         if (cancelled || disposed || _rideId == null) return;
         lastStatus = RideStatus.paymentFinalized;
         _emit(RideStatus.paymentFinalized);
-
-        _ratingPending = Timer(ratingPendingAfter, () {
-          if (cancelled || disposed || _rideId == null) return;
-          lastStatus = RideStatus.ratingPending;
-          _emit(RideStatus.ratingPending);
-        });
+        ratingPending();
       });
-    });
+    }
+
+    switch (from) {
+      case RideStatus.ratingPending:
+        return;
+      case RideStatus.paymentFinalized:
+        ratingPending();
+      case RideStatus.paymentProcessing:
+        paymentFinalized();
+      default:
+        _paymentProcessing = Timer(paymentProcessingAfter, () {
+          if (cancelled || disposed || _rideId == null) return;
+          lastStatus = RideStatus.paymentProcessing;
+          _emit(RideStatus.paymentProcessing);
+          paymentFinalized();
+        });
+    }
   }
 
   /// Seconds to where the driver is headed: the pickup before boarding,

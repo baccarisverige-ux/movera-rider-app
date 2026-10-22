@@ -141,6 +141,22 @@ class RideSession {
     // projections are authoritative and may skip client-only intermediate
     // states (for example driverArriving -> paymentFinalized after reconnect).
     // Ordering and ride identity are the safety boundaries for this path.
+    // rider-69: DECISIONS R6 - a jump the graph does not allow is logged
+    // (a session with no ride yet has nothing to jump from).
+    if (!isNewRide &&
+        status != RideStatus.idle &&
+        status != backendStatus &&
+        !canTransition(status, backendStatus)) {
+      AppLog.info(
+        'ride.restore.jump',
+        extra: {
+          'from': status.name,
+          'to': backendStatus.name,
+          'rideId': id ?? rideId,
+          'version': version,
+        },
+      );
+    }
 
     rideId = id ?? rideId;
     status = backendStatus;

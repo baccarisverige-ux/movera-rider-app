@@ -437,8 +437,18 @@ class _SelectRideState extends State<SelectRide>
       _catalogIds = ids;
       _selection.ensureCatalogSelection();
     });
-    if (!sameIds) unawaited(_loadQuotes());
+    if (sameIds) return;
+    // rider-u187: while a booking flow is open the list prices the
+    // unconfirmed pickup and would replace the pin's price; the lock's
+    // release prices the new ids.
+    if (_bookingInFlight) {
+      _catalogRequoteDeferred = true;
+      return;
+    }
+    unawaited(_loadQuotes());
   }
+
+  bool _catalogRequoteDeferred = false;
 
   @override
   void didChangeDependencies() {
@@ -699,6 +709,8 @@ class _SelectRideState extends State<SelectRide>
       _selection.hasPriceFor(ride.id, catalogCurrency: ride.currency);
 
   void _selectRide(String id) {
+    // rider-u189: the booking under way has captured its ride.
+    if (_bookingInFlight) return;
     _RideOption? selected;
     for (final ride in _allRides) {
       if (ride.id == id) {
@@ -1008,6 +1020,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showBookingPicker() async {
+    if (_bookingInFlight) return;
     if (widget.lockBookingMode) {
       await _chooseLater();
       return;
@@ -1243,6 +1256,11 @@ class _SelectRideState extends State<SelectRide>
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
           _notes = _notes.withBagLevel(spot.bagLevel);
+          // rider-r3-6: Card may have been picked on Set pickup.
+          if (_selection.selectedPaymentItem()?.brand == 'cards' &&
+              !_selection.hasSavedCard) {
+            if (await _addCardFirst() == null || !mounted) return;
+          }
         }
         if (_returnTimeNeedsPicker) {
           // The prefill went stale while the rider confirmed the pickup spot.
@@ -1380,6 +1398,11 @@ class _SelectRideState extends State<SelectRide>
     _bookingInFlight = false;
     if (!mounted) return;
     setState(() {});
+    if (_catalogRequoteDeferred) {
+      _catalogRequoteDeferred = false;
+      unawaited(_loadQuotes());
+      return;
+    }
     if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
   }
 
@@ -1662,10 +1685,41 @@ class _SelectRideState extends State<SelectRide>
             detail: chosen.detail,
           );
         }
+        // rider-r3-6: the generic Card row picked on Set pickup needs a
+        // saved card too, as it does before Set pickup.
+        if (payment.brand == 'cards' && !_selection.hasSavedCard) {
+          final card = await _addCardFirst();
+          if (card == null || !mounted) return;
+          payment = _PaymentOption(
+            brand: card.methodBrand,
+            name: card.displayName,
+            detail: context.l10n.cardExpires(card.expiryLabel),
+          );
+        }
 
         // Book the price Set pickup showed, not the one from before it.
-        final bookable = await _quoteAfterPickup(selected);
+        var bookable = await _quoteAfterPickup(selected);
         if (!mounted) return;
+        var shown = spot.fareTotalKr;
+        while (bookable != null &&
+            shown != null &&
+            _selection.moneyOf(shown).amountMinor !=
+                bookable.quote.totalMinor) {
+          if (!await _acceptNewPrice(shown, bookable.price)) {
+            if (!mounted) return;
+            setState(() {});
+            // rider-79: the other categories are priced from the confirmed
+            // pickup too.
+            unawaited(_loadQuotes());
+            return;
+          }
+          if (!mounted) return;
+          // rider-u190: the dialog has no time limit. A quote that ran out
+          // while it was open is priced again; a new price is asked again.
+          shown = bookable.price;
+          bookable = await _quoteAfterPickup(selected);
+          if (!mounted) return;
+        }
         if (bookable == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1677,18 +1731,6 @@ class _SelectRideState extends State<SelectRide>
         }
         final quote = bookable.quote;
         final authoritativePrice = bookable.price;
-        final shown = spot.fareTotalKr;
-        if (shown != null &&
-            _selection.moneyOf(shown).amountMinor != quote.totalMinor &&
-            !await _acceptNewPrice(shown, authoritativePrice)) {
-          if (!mounted) return;
-          setState(() {});
-          // rider-79: the other categories are priced from the confirmed
-          // pickup too.
-          unawaited(_loadQuotes());
-          return;
-        }
-        if (!mounted) return;
         if (_walletCannotPay(authoritativePrice)) return;
         // The wallet part the rider was shown travels with the booking.
         final walletSplit = _selection.walletSplitFor(quote.totalMinor);
@@ -2751,7 +2793,8 @@ class _SelectRideState extends State<SelectRide>
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: _showPaymentPicker,
+        // rider-u189: Set pickup changes the method of a booking under way.
+        onTap: _bookingInFlight ? null : _showPaymentPicker,
         borderRadius: BorderRadius.circular(14),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 52),

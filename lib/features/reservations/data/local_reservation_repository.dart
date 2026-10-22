@@ -73,6 +73,10 @@ class LocalReservationRepository implements ReservationRepository {
   final String Function() _nextId;
   final DateTime Function() _clock;
   final List<Reservation> _items = [];
+
+  /// How long before pickup a ride starts waiting for a driver
+  /// (ReservationController.startLiveIfDue).
+  static const assignmentWindow = Duration(minutes: 2);
   bool _hydrated = false;
 
   static String _defaultId() {
@@ -199,6 +203,18 @@ class LocalReservationRepository implements ReservationRepository {
       // rider's cancel, the trip's end) committed. A finished ride stays
       // finished.
       if (!current.status.isUpcoming) return current;
+      // rider-j8-9: a ride still waiting for a driver that is moved out of
+      // the assignment window is a normal booking again; it waits for its
+      // new time (ReservationController.startLiveIfDue) instead of
+      // showing "searching" until then.
+      final movedPickup = patch.scheduledPickupAt;
+      final status = patch.status ??
+          (movedPickup != null &&
+                  current.status == ReservationStatus.driverAssignmentPending &&
+                  current.driver == null &&
+                  movedPickup.difference(_clock()) > assignmentWindow
+              ? ReservationStatus.scheduled
+              : null);
       final next = current.copyWith(
         scheduledPickupAt: patch.scheduledPickupAt,
         estimatedDropoffAt: patch.estimatedDropoffAt,
@@ -212,7 +228,7 @@ class LocalReservationRepository implements ReservationRepository {
         price: patch.price,
         currency: patch.currency,
         note: patch.note,
-        status: patch.status,
+        status: status,
         driver: patch.driver,
         clearDriver: patch.clearDriver,
         previousDriver: patch.previousDriver,

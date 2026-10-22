@@ -346,13 +346,22 @@ class RideRestoreCoordinator {
     _adoptBookingIds(snapshot);
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
+    final realtime = AppScope.instance.rideRealtime;
+    if (surface == RestoredSurface.complete && realtime is MockRideRealtime) {
+      // rider-u173: the demo goes on from the stored post-trip stage; with
+      // nothing primed it searched for and drove the finished trip again.
+      realtime.primeResume(
+        status: snapshot.status,
+        driver: snapshot.driver,
+        version: snapshot.version,
+      );
+    }
     if (surface == RestoredSurface.waiting) {
       // Phase 135: this is the other half of the fix. Only this call site
       // actually knows the restore is genuine (a normal live continuation
       // never goes through pageFor), so priming happens here rather than in
       // WaitingForDriver itself, which cannot tell a real restore apart from
       // a screen mounting fresh mid-session with an already-matched status.
-      final realtime = AppScope.instance.rideRealtime;
       if (realtime is MockRideRealtime && snapshot.status.isMatched) {
         realtime.primeResume(
           status: snapshot.status,
