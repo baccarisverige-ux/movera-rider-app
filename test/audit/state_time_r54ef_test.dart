@@ -386,4 +386,44 @@ void main() {
     );
     expect(moved.status, ReservationStatus.scheduled);
   });
+
+  test(
+    'rider-u173: a restored completion screen goes on from its stage',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final snapshot = RideSnapshot(
+        status: RideStatus.paymentFinalized,
+        savedAt: DateTime.now(),
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.33,
+        pickupLng: 18.06,
+        destinationLat: 59.34,
+        destinationLng: 18.07,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'cash',
+        rideId: 'ride_u173',
+        version: 9,
+      );
+      RideRestoreCoordinator(
+        skipRestore: () => false,
+        authRequired: () => false,
+        serverActiveTrip: () async => null,
+      ).pageFor(snapshot);
+      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+      final seen = <RideStatus>[];
+      final sub = realtime
+          .subscribe('ride_u173')
+          .listen((e) => seen.add(e.status));
+      addTearDown(sub.cancel);
+      expect(
+        await _eventually(() => seen.contains(RideStatus.ratingPending)),
+        isTrue,
+        reason: 'seen: $seen',
+      );
+      expect(seen.first, RideStatus.paymentFinalized);
+      expect(seen, isNot(contains(RideStatus.findingDriver)));
+    },
+  );
 }
