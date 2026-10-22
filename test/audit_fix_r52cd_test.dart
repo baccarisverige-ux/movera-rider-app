@@ -46,6 +46,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -572,5 +573,15 @@ void main() {
     expect(find.text('Pickup time updated to the next available slot.'),
         findsOneWidget);
     expect(confirmed, 0, reason: 'the corrected time is shown first');
+  });
+
+  testWidgets('rider-u229: Support cases does not say "No active cases" '
+      'with nothing behind it', (tester) async {
+    // The rider has just sent a ride issue; no case list backs this page.
+    await pumpPage(tester, const SupportMessages());
+
+    expect(find.text('No active cases'), findsNothing);
+    expect(find.text("Your cases aren't listed in the app yet"),
+        findsOneWidget);
   });
 }

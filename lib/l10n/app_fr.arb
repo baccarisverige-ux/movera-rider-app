@@ -1165,6 +1165,7 @@
   "supportMessagesTitle": "Messages d'assistance",
   "supportActive": "En cours",
   "supportNoActiveCases": "Aucune demande en cours",
+  "supportCasesNotListed": "Vos demandes ne sont pas encore affichées dans l’app",
   "supportActiveBody": "Les messages que vous envoyez au sujet d'un trajet sont examinés par l'équipe Movera.",
   "supportClosed": "Clôturées",
   "supportNoClosedCases": "Aucune demande clôturée",

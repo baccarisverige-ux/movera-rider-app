@@ -1171,6 +1171,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportMessagesTitle': l.supportMessagesTitle,
   'supportActive': l.supportActive,
   'supportNoActiveCases': l.supportNoActiveCases,
+  'supportCasesNotListed': l.supportCasesNotListed,
   'supportActiveBody': l.supportActiveBody,
   'supportClosed': l.supportClosed,
   'supportNoClosedCases': l.supportNoClosedCases,
@@ -3895,6 +3896,8 @@ class _Exhaustive implements AppLocalizations {
   String get supportActive => '';
   @override
   String get supportNoActiveCases => '';
+  @override
+  String get supportCasesNotListed => '';
   @override
   String get supportActiveBody => '';
   @override

@@ -1165,6 +1165,7 @@
   "supportMessagesTitle": "Supportmeddelanden",
   "supportActive": "Aktiva",
   "supportNoActiveCases": "Inga aktiva ärenden",
+  "supportCasesNotListed": "Dina ärenden visas inte i appen än",
   "supportActiveBody": "Meddelanden du skickar om en resa granskas av Movera-teamet.",
   "supportClosed": "Avslutade",
   "supportNoClosedCases": "Inga avslutade ärenden",

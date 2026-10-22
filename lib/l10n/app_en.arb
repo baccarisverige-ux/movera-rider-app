@@ -2353,6 +2353,7 @@
   "supportMessagesTitle": "Support messages",
   "supportActive": "Active",
   "supportNoActiveCases": "No active cases",
+  "supportCasesNotListed": "Your cases aren't listed in the app yet",
   "supportActiveBody": "Messages you send about a ride go to the Movera team for review.",
   "supportClosed": "Closed",
   "supportNoClosedCases": "No closed cases",

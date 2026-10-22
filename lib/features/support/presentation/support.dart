@@ -516,26 +516,12 @@ class SupportMessages extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Text(
-            context.l10n.supportActive,
-            style: SupportHome.text(18, weight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
+          // rider-u229: no case list backs this screen, so it never says
+          // "No active cases" to a rider who has just sent one.
           _EmptyCard(
             icon: Icons.forum_outlined,
-            title: context.l10n.supportNoActiveCases,
+            title: context.l10n.supportCasesNotListed,
             subtitle: context.l10n.supportActiveBody,
-          ),
-          const SizedBox(height: 28),
-          Text(
-            context.l10n.supportClosed,
-            style: SupportHome.text(18, weight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          _EmptyCard(
-            icon: Icons.inventory_2_outlined,
-            title: context.l10n.supportNoClosedCases,
-            subtitle: context.l10n.supportClosedBody,
           ),
         ],
       ),
