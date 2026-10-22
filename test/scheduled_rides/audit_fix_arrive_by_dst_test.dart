@@ -102,8 +102,8 @@ void main() {
       'time it really is, never an hour later than shown', () {
     final now = DateTime.utc(2026, 3, 27, 10);
     const stockholm = PickupSchedule(ZoneClock.stockholm);
-    final picked = stockholm.clampPickup(DateTime(2026, 3, 29, 2, 30), now);
-    expect(picked, DateTime(2026, 3, 29, 3, 30));
+    final picked = stockholm.clampPickup(DateTime.utc(2026, 3, 29, 2, 30), now);
+    expect(picked, DateTime.utc(2026, 3, 29, 3, 30));
     expect(
       ZoneClock.wallTime(ZoneClock.stockholm, stockholm.toUtc(picked)),
       picked,

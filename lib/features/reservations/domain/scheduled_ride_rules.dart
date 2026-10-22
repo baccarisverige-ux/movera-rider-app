@@ -128,6 +128,7 @@ class ScheduledRideRules {
       window: window,
       lateFee: lateFee,
       fee: charged ? fee : null,
+      timeZone: ride.timeZone,
     );
   }
 
@@ -161,6 +162,7 @@ class ReservationCancelTerms {
     required this.window,
     required this.lateFee,
     this.fee,
+    this.timeZone,
   });
 
   /// When these terms were worked out.
@@ -177,6 +179,10 @@ class ReservationCancelTerms {
 
   /// The fee for cancelling at [at], or null when it is free.
   final Money? fee;
+
+  /// Owner decision 9: the ride's pickup zone, whose clock [freeUntil] is
+  /// shown in. Null: the device's.
+  final String? timeZone;
 
   bool get isFree => fee == null;
 

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
@@ -178,10 +179,12 @@ class ReservationDraft {
   DateTime get pickupWallTime => zoneWallTime(scheduledPickupAt, timeZone);
 }
 
-/// [instant] as wall-clock time in [timeZone] (rider-63); without a zone,
-/// [instant] as it is (a device-local booking).
+/// [instant] as wall-clock time in [timeZone] (rider-63, owner decision 9:
+/// a [ZoneClock.wallTime], whatever the phone's time zone); without a zone,
+/// [instant] in the device's time zone (a ride saved before rides kept
+/// their zone, shown as it always was).
 DateTime zoneWallTime(DateTime instant, String? timeZone) =>
-    timeZone == null ? instant : ZoneClock.wallTime(timeZone, instant);
+    timeZone == null ? instant.toLocal() : ZoneClock.wallTime(timeZone, instant);
 
 class ReservationPriceChange {
   const ReservationPriceChange({
@@ -358,6 +361,19 @@ class Reservation {
   DateTime? get dropoffWallTime {
     final dropoff = estimatedDropoffAt;
     return dropoff == null ? null : zoneWallTime(dropoff, timeZone);
+  }
+
+  /// Owner decision 9: a ride saved before rides kept their pickup zone
+  /// gets the zone of its pickup point (as Book later picks it
+  /// at booking). Its instant stays as it was always read (an offset-less
+  /// legacy value is device-local, as it was written); only how it is shown
+  /// changes, to the pickup zone's clock. A ride with no pickup point keeps
+  /// the device's time zone.
+  Reservation withPickupZone() {
+    final lat = pickup.lat;
+    final lng = pickup.lng;
+    if (timeZone != null || lat == null || lng == null) return this;
+    return copyWith(timeZone: RiderZones.at(lat, lng).timeZone);
   }
 
   bool get driverAssigned => status.hasDriver && driver != null;

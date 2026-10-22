@@ -41,9 +41,12 @@ class ScheduledRideBooking {
     return PickupSchedule.at(lat, lng).timeZone;
   }
 
-  /// The instant of the wall-clock pick [wall] in [timeZone].
+  /// The instant of the wall-clock pick [wall] in [timeZone]; without a
+  /// zone, [wall]'s fields in the device's time zone.
   static DateTime pickupInstant(DateTime wall, String? timeZone) =>
-      timeZone == null ? wall : ZoneClock.toUtc(wall, timeZone);
+      timeZone == null
+      ? DateTime(wall.year, wall.month, wall.day, wall.hour, wall.minute)
+      : ZoneClock.toUtc(wall, timeZone);
 
   static Future<Reservation> confirm({
     required ReservationController reservations,

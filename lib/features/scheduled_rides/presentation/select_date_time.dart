@@ -30,7 +30,8 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final int? tripMinutes;
 
   /// Q9: the pickup zone's IANA time zone; every time on this screen is
-  /// that zone's wall-clock time.
+  /// that zone's wall-clock time ([ZoneClock.wallTime], whatever the
+  /// phone's own time zone; owner decision 9).
   final String timeZone;
 
   /// rider-r4-10: how many days ahead the zone takes reservations
@@ -103,7 +104,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   void initState() {
     super.initState();
     setWebOverlayOpen(true);
-    final existing = widget.session?.scheduledAt;
+    final prefill = widget.session?.scheduledAt;
+    final existing = prefill == null ? null : ZoneClock.wall(prefill);
     final now = widget.now?.call();
     if (existing != null) {
       final corrected = _withinHorizon(_schedule.clampPickup(existing, now));
@@ -145,14 +147,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       wall.hour,
       wall.minute - wall.minute % StockholmSchedule.slotMinutes,
     );
-    DateTime plain(DateTime f) =>
-        DateTime(f.year, f.month, f.day, f.hour, f.minute);
-    while (_schedule.toUtc(plain(slot)).isAfter(latest)) {
+    while (_schedule.toUtc(slot).isAfter(latest)) {
       slot = slot.subtract(
         const Duration(minutes: StockholmSchedule.slotMinutes),
       );
     }
-    return plain(slot);
+    return slot;
   }
 
   DateTime get _pickupAt => _pickupFor(_selectedDateTime);
@@ -182,7 +182,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     }
     final first = _schedule.minimumPickup(now);
     return StockholmSchedule.roundToFive(
-      DateTime(first.year, first.month, first.day, first.hour, first.minute + trip),
+      DateTime.utc(first.year, first.month, first.day, first.hour, first.minute + trip),
     );
   }
 
@@ -220,11 +220,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     }
   }
 
-  void _applyPickedDateTime(DateTime candidate, {bool moved = false}) {
+  void _applyPickedDateTime(DateTime candidate) {
     final corrected = _clampChosen(candidate, widget.now?.call());
     setState(() {
       _selectedDateTime = corrected;
-      _pickupCorrectionMessage = corrected == candidate && !moved
+      _pickupCorrectionMessage = corrected == candidate
           ? null
           : _beyondHorizon(candidate)
           ? context.l10n.pickupTimeWithinHorizon(widget.horizonDays)
@@ -371,7 +371,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     );
     if (result == null || !mounted) return;
     _applyPickedDateTime(
-      DateTime(
+      DateTime.utc(
         result.year,
         result.month,
         result.day,
@@ -529,20 +529,17 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     hourController.dispose();
     minuteController.dispose();
     if (result == null || !mounted) return;
-    final candidate = DateTime(
-      _selectedDateTime.year,
-      _selectedDateTime.month,
-      _selectedDateTime.day,
-      result.hour,
-      result.minute,
-    );
-    // rider-r4-12: a time the device's own zone skips is normalised by
-    // DateTime (02:30 becomes 03:30 on an EU phone); the rider is told it
-    // moved rather than booked silently. A time the pickup zone skips is
-    // moved by the clamp.
+    // Owner decision 9: the pick is the pickup zone's wall time, which the
+    // phone's own time zone cannot move. A time the pickup zone skips
+    // (rider-r4-12) moves forward in the clamp and the rider is told.
     _applyPickedDateTime(
-      candidate,
-      moved: candidate.hour != result.hour || candidate.minute != result.minute,
+      DateTime.utc(
+        _selectedDateTime.year,
+        _selectedDateTime.month,
+        _selectedDateTime.day,
+        result.hour,
+        result.minute,
+      ),
     );
   }
 
@@ -580,7 +577,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final estimatedTime = trip == null
         ? null
         : _pickupMode
-        ? _selectedDateTime.add(Duration(minutes: trip))
+        // Real elapsed time in the pickup zone, across a change of its clock.
+        ? ZoneClock.wallTime(
+            widget.timeZone,
+            _schedule.toUtc(_selectedDateTime).add(Duration(minutes: trip)),
+          )
         : _pickupAt;
 
     return PointerInterceptor(

@@ -84,7 +84,7 @@ void main() {
   });
 
   test('the review draft shows the picked zone time too', () {
-    final wall = DateTime(2026, 10, 22, 7, 15);
+    final wall = DateTime.utc(2026, 10, 22, 7, 15);
     final draft = ScheduledRideCheckout.draftFrom(
       selection: pickedAt(wall),
       pickup: stockholmPickup,
@@ -100,7 +100,7 @@ void main() {
   });
 
   test('a ride stored and read back keeps its zone and time', () async {
-    final wall = DateTime(2026, 10, 22, 7, 15);
+    final wall = DateTime.utc(2026, 10, 22, 7, 15);
     final c = reservations();
     final ride = await ScheduledRideBooking.confirm(
       reservations: c,

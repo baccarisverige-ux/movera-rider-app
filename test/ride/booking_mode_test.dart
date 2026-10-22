@@ -93,6 +93,7 @@ void main() {
       paymentMethod: 'Cash',
       status: ReservationStatus.scheduled,
       note: 'Bags · Pet',
+      timeZone: 'Europe/Stockholm',
     );
     final page = SelectRide.forReturnRide(origin);
     expect(page.bookingMode, BookingMode.scheduled);
@@ -104,7 +105,9 @@ void main() {
     expect(page.note, 'Bags · Pet');
     expect(page.pickupPosition, const LatLng(59.65, 17.93));
     expect(page.destinationPosition, const LatLng(59.19, 17.62));
-    expect(page.initialScheduledFor, DateTime.utc(2026, 9, 23, 9, 55));
+    // Owner decision 9: origin + 3 h on the pickup zone's clock (06:55Z is
+    // 08:55 in Stockholm), a zone wall time.
+    expect(page.initialScheduledFor, DateTime.utc(2026, 9, 23, 11, 55));
     expect(
       BookingMode.scheduled.ctaLabel(origin.categoryName),
       'Schedule Movera',

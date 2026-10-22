@@ -52,25 +52,42 @@ abstract final class ZoneClock {
     return Duration(hours: standard + (_euSummer(instant.toUtc()) ? 1 : 0));
   }
 
-  /// The wall-clock time in [timeZone] at [instant], as a plain (local,
-  /// offset-free) [DateTime] the pickers can show as is.
+  /// The wall-clock time in [timeZone] at [instant] (owner decision 9).
+  ///
+  /// A zone wall time is carried in a UTC-tagged [DateTime] whose fields
+  /// (year … millisecond) are the zone's clock reading. It is not the
+  /// instant: [toUtc] turns it into one. UTC has no summer time, so every
+  /// wall time of every zone exists in it and the phone's own time zone
+  /// can never move it (a device-local value of Tunis 02:30 does not exist
+  /// on an EU phone on the spring-forward night, and Dart moved it to
+  /// 03:30).
   static DateTime wallTime(String timeZone, DateTime instant) {
     final utc = instant.toUtc();
-    final local = utc.add(offsetAt(timeZone, utc));
-    return DateTime(
-      local.year,
-      local.month,
-      local.day,
-      local.hour,
-      local.minute,
-      local.second,
-      local.millisecond,
-    );
+    return wall(utc.add(offsetAt(timeZone, utc)));
   }
 
-  /// The UTC instant of the wall-clock time [wall] in [timeZone]. In the
-  /// hour that does not exist (spring forward) the summer offset is used;
-  /// in the hour that happens twice, the later one.
+  /// [any]'s fields as a wall time (see [wallTime]): a device-local value
+  /// built from picker fields reads as the same clock reading.
+  static DateTime wall(DateTime any) => any.isUtc
+      ? any
+      : DateTime.utc(
+          any.year,
+          any.month,
+          any.day,
+          any.hour,
+          any.minute,
+          any.second,
+          any.millisecond,
+        );
+
+  /// The UTC instant of the wall-clock time [wall] in [timeZone]; only its
+  /// fields are read.
+  ///
+  /// A wall time the zone skips (02:30 on the EU spring-forward night) is
+  /// moved forward by the gap: it is read with the offset before the
+  /// change, so it lands on 03:30. [exists] says whether that happened.
+  /// A wall time the zone has twice (02:30 on the fall-back night) is the
+  /// first of the two, in summer time.
   static DateTime toUtc(DateTime wall, String timeZone) {
     final asUtc = DateTime.utc(
       wall.year,
@@ -81,9 +98,24 @@ abstract final class ZoneClock {
       wall.second,
       wall.millisecond,
     );
-    final guess = asUtc.subtract(offsetAt(timeZone, asUtc));
-    return asUtc.subtract(offsetAt(timeZone, guess));
+    // Offsets in force half a day either side: a wall time can only be
+    // read with one of these (zones change at most once in that span).
+    final before = offsetAt(timeZone, asUtc.subtract(const Duration(hours: 14)));
+    final after = offsetAt(timeZone, asUtc.add(const Duration(hours: 14)));
+    DateTime? first;
+    for (final offset in {before, after}) {
+      final candidate = asUtc.subtract(offset);
+      if (offsetAt(timeZone, candidate) != offset) continue;
+      if (first == null || candidate.isBefore(first)) first = candidate;
+    }
+    return first ?? asUtc.subtract(before);
   }
+
+  /// Whether the wall-clock time [wall] happens in [timeZone] (false in
+  /// the hour a spring-forward change skips).
+  static bool exists(DateTime wall, String timeZone) =>
+      wallTime(timeZone, toUtc(wall, timeZone)) ==
+      ZoneClock.wall(wall).copyWith(microsecond: 0);
 
   static bool _euSummer(DateTime utc) {
     final start = _lastSundayUtc(utc.year, 3).add(const Duration(hours: 1));

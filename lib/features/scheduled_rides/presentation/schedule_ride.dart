@@ -92,10 +92,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
     if (editing != null) {
       _pickupController.text = L10n.place(editing.pickup.label);
       _dropoffController.text = editing.destination.label;
-      // rider-63: the booked time in its own pickup zone.
+      // rider-63: the booked time in its own pickup zone (owner decision
+      // 9: a ride with no zone is read on the home zone's clock it is
+      // edited in, not as the phone's wall time).
+      final zone = editing.timeZone ?? ZoneClock.stockholm;
       _session.captureSchedule(
-        editing.pickupWallTime,
-        timezone: editing.timeZone ?? ZoneClock.stockholm,
+        ZoneClock.wallTime(zone, editing.scheduledPickupAt),
+        timezone: zone,
       );
       _session.captureRideType(editing.categoryId);
       _session.capturePayment(editing.paymentMethod);
