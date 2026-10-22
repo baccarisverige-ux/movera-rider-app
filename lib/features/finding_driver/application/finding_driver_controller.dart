@@ -1184,8 +1184,10 @@ class FindingDriverController {
   /// retry, same key). Only its answer commits the cancel locally:
   /// - confirmed (or 404, nothing left to cancel): cancelled, archived to
   ///   History and the snapshot cleared, so a reload lands on Home;
-  /// - unreachable: the same local commit, with the outbox entry kept so the
-  ///   next reconnect or launch retries it;
+  /// - unreachable: nothing is committed (RC-03). The outbox entry stays
+  ///   so the next reconnect or launch retries it, and the search keeps
+  ///   listening and shows "Cancelling…" until the server's answer commits
+  ///   the cancel or a driver who accepted first moves the rider on;
   /// - 409 "driver already accepted" (or 410/422): nothing is committed. The
   ///   search keeps listening and resyncs, so a match that raced the cancel
   ///   moves the rider to the matched screen.
