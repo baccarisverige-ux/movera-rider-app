@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/location/place_search.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -15,6 +16,10 @@ class DestinationSearchController {
   final PlaceSuggestionRepository _suggestions;
   final _store = DestinationSearchRepository();
   int _suggestGeneration = 0;
+
+  /// How many suggestion requests went out (rider-u86 checks the debounce).
+  @visibleForTesting
+  int get suggestRequests => _suggestGeneration;
 
   void type(String value, void Function(String text) onReady) {
     _search.query(value, (text, generation) {

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -24,6 +25,8 @@ import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -264,5 +267,43 @@ void main() {
     final (start, end) = matchRange(title, 'kebab', fold: webLower)!;
     expect(title.substring(start, end), 'Kebab');
     expect(matchRange('Klockarvägen 3', 'klockarvag'), (0, 10));
+  });
+
+  testWidgets('rider-u86: Where to? asks for suggestions once typing '
+      'pauses', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    await _pumpPage(
+      tester,
+      RoutePickerPage(
+        pickupAddress: 'Sveavägen 1, Stockholm',
+        destinationAddress: '',
+        stops: const [],
+        stopsSupported: true,
+        initialField: 'destination',
+        capture: EarlyInputCapture(),
+        here: const GeoPoint(59.33, 18.06),
+        homeAddress: null,
+        workAddress: null,
+        recent: const [],
+        onSetFavourite: (_) async => null,
+        onPickOnMap: ({required pickup, required address}) async => null,
+        onFinish: (_) async => null,
+      ),
+    );
+    final search = AppScope.instance.destinationSearch;
+    final before = search.suggestRequests;
+    final field = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Where to?',
+      ),
+    );
+    for (final typed in ['D', 'Dr', 'Dro', 'Drot', 'Drott']) {
+      field.controller!.text = typed;
+      field.onChanged!(typed);
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    await tester.pump(RoutePickerPage.suggestDebounce);
+    expect(search.suggestRequests - before, 1);
+    await tester.pumpWidget(const SizedBox());
   });
 }

@@ -51,6 +51,9 @@ class RoutePickerMapPick {
 /// address suggestions while typing. Tapping a real address moves on — there
 /// is no Next button.
 class RoutePickerPage extends StatefulWidget {
+  /// rider-u86: how long typing must pause before suggestions are asked.
+  static const suggestDebounce = Duration(milliseconds: 300);
+
   const RoutePickerPage({
     super.key,
     required this.pickupAddress,
@@ -282,6 +285,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   @override
   void dispose() {
     widget.capture.onChanged = null;
+    _suggestDebounce?.cancel();
     _pickup.dispose();
     _destination.dispose();
     for (final c in _stops) {
@@ -328,32 +332,40 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _lookupFailed = false;
       if (value.trim().isEmpty) _results = const [];
     });
+    _suggestDebounce?.cancel();
     if (value.trim().isEmpty) return;
-    unawaited(
-      AppScope.instance.destinationSearch.suggest(
-        value,
-        near: widget.here,
-        onReady: (query, results) {
-          if (!mounted || query != _activeController.text) return;
-          setState(() {
-            _results = results;
-            _resultsQuery = query;
-            _searching = false;
-            _lookupFailed = false;
-          });
-        },
-        onFailed: (query) {
-          if (!mounted || query != _activeController.text) return;
-          setState(() {
-            _results = const [];
-            _resultsQuery = query;
-            _searching = false;
-            _lookupFailed = true;
-          });
-        },
-      ),
-    );
+    // rider-u86: one autocomplete request once typing pauses, not one per
+    // keystroke (17 POSTs for "Drottninggatan 53").
+    _suggestDebounce = Timer(RoutePickerPage.suggestDebounce, () {
+      if (!mounted || value != _activeController.text) return;
+      unawaited(
+        AppScope.instance.destinationSearch.suggest(
+          value,
+          near: widget.here,
+          onReady: (query, results) {
+            if (!mounted || query != _activeController.text) return;
+            setState(() {
+              _results = results;
+              _resultsQuery = query;
+              _searching = false;
+              _lookupFailed = false;
+            });
+          },
+          onFailed: (query) {
+            if (!mounted || query != _activeController.text) return;
+            setState(() {
+              _results = const [];
+              _resultsQuery = query;
+              _searching = false;
+              _lookupFailed = true;
+            });
+          },
+        ),
+      );
+    });
   }
+
+  Timer? _suggestDebounce;
 
   void _clear() {
     _activeController.clear();

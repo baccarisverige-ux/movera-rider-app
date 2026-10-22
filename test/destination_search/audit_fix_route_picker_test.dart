@@ -242,7 +242,8 @@ void main() {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 20)),
         );
-        await tester.pump();
+        // rider-u86: the request waits for a pause in typing (fake time).
+        await tester.pump(const Duration(milliseconds: 20));
       }
     }
 
