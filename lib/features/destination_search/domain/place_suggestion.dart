@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// One address or place offered while the rider types.
 class PlaceSuggestion {
@@ -60,14 +61,15 @@ class PlaceSuggestion {
 
 enum PlaceSuggestionKind { address, recent, home, work, myLocation }
 
-/// "<1 km", "1 km", "1.2 km", "38 km".
+/// "<1 km", "1 km", "1.2 km", "38 km"; "1,2 km" in French and Swedish
+/// (rider-u83).
 String formatDistanceKm(double km) {
   if (km < 1) return '<1 km';
   if (km < 10) {
     final rounded = (km * 10).round() / 10;
     return rounded == rounded.roundToDouble()
         ? '${rounded.toInt()} km'
-        : '${rounded.toStringAsFixed(1)} km';
+        : '${L10n.formatDecimal(rounded)} km';
   }
   return '${km.round()} km';
 }

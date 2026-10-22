@@ -104,6 +104,11 @@ abstract final class L10n {
     );
   }
 
+  /// [value] with [digits] decimals and the app language's decimal mark:
+  /// `1.2` in English, `1,2` in French and Swedish.
+  static String formatDecimal(double value, {int digits = 1}) =>
+      NumberFormat(digits > 0 ? '0.${'0' * digits}' : '0', _code).format(value);
+
   /// 24-hour clock time, `08:05`, as Movera shows it in every language.
   static String formatTime(DateTime when) =>
       '${when.hour.toString().padLeft(2, '0')}:'

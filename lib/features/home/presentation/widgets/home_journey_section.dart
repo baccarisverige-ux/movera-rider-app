@@ -366,7 +366,7 @@ class _MonthCard extends StatelessWidget {
                             children: [
                               TextWidget(
                                 text:
-                                    context.l10n.homeCo2Kg(stats.co2AvoidedKg.toStringAsFixed(1)),
+                                    context.l10n.homeCo2Kg(L10n.formatDecimal(stats.co2AvoidedKg)),
                                 color: _ink,
                                 fontSize: 14,
                                 fontWeight: fwBold,

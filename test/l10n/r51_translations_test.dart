@@ -5,6 +5,8 @@ import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
+import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -117,6 +119,29 @@ void main() {
         expect(tagline, isNot('Moving to a new era.'));
         expect(find.text(tagline), findsOneWidget);
         expect(find.bySemanticsLabel('Movera. $tagline'), findsOneWidget);
+      });
+
+      testWidgets('rider-u83: distances and CO2 use the decimal comma', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          Scaffold(
+            body: SingleChildScrollView(
+              child: HomeJourneySection(
+                onDestinationTap: noop,
+                onOpenSchedule: noop,
+                ridesLoader: () async => const [],
+                clock: () => DateTime(2026, 10, 12, 9),
+                changes: const Stream<void>.empty(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('0,0 kg'), findsOneWidget);
+        expect(formatDistanceKm(1.24), '1,2 km');
       });
     });
   }
