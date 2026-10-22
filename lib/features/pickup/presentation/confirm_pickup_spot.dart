@@ -145,7 +145,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
         widget.initialPosition.longitude >= -180 &&
         widget.initialPosition.longitude <= 180 &&
         !widget.positionIsFallback;
-    _search.text = widget.initialAddress;
+    // rider-56: the app's English stand-ins ('Current location', 'Pickup
+    // location') stay in [_address]; the rider reads them translated.
+    _search.text = L10n.place(widget.initialAddress);
     setWebOverlayOpen(false);
     if (widget.refreshCurrentLocation) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -174,7 +176,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _hasUsablePickupCoordinates = true;
       _address = 'Current location';
       _addressAt = position;
-      _search.text = _address;
+      _search.text = L10n.place(_address);
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(position));
     final address = await _pickup.reverse(position);
@@ -184,7 +186,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     setState(() {
       _address = address!.trim();
       _addressAt = position;
-      _search.text = _address;
+      _search.text = L10n.place(_address);
     });
   }
 
@@ -238,7 +240,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     setState(() {
       _address = label;
       _addressAt = at;
-      _search.text = label;
+      _search.text = L10n.place(label);
     });
   }
 
@@ -283,7 +285,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
       _hasUsablePickupCoordinates = true;
       _address = 'Current location';
       _addressAt = position;
-      _search.text = _address;
+      _search.text = L10n.place(_address);
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(position));
     final address = await _pickup.reverse(position);
@@ -291,7 +293,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     setState(() {
       _address = address!.trim();
       _addressAt = position;
-      _search.text = _address;
+      _search.text = L10n.place(_address);
     });
   }
 
@@ -534,7 +536,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                 ],
                 const SizedBox(height: 4),
                 Text(
-                  _address,
+                  L10n.place(_address),
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     color: const Color(0xFF5C656C),

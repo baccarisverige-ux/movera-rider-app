@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Rider-facing label when no real address is known for a pickup point
 /// (D-010). The coordinates themselves always travel separately
@@ -26,14 +27,17 @@ bool isUnusablePickupLabel(String? label) {
 /// (AUD-2): says plainly that it is a dropped pin and gives the point, so
 /// the rider and the driver see where it is rather than the neutral
 /// [pickupLocationFallbackLabel]. No comma, so short place labels keep it
-/// whole.
+/// whole. rider-54: in the app language ('Repère placé · … N … E').
 String droppedPinPickupAddress(LatLng position) {
+  final l10n = L10n.current;
   final lat = position.latitude;
   final lng = position.longitude;
-  final ns = lat < 0 ? 'S' : 'N';
-  final ew = lng < 0 ? 'W' : 'E';
-  return 'Dropped pin · ${lat.abs().toStringAsFixed(5)}° $ns '
-      '${lng.abs().toStringAsFixed(5)}° $ew';
+  return l10n.droppedPinLabel(
+    lat.abs().toStringAsFixed(5),
+    lat < 0 ? l10n.compassSouth : l10n.compassNorth,
+    lng.abs().toStringAsFixed(5),
+    lng < 0 ? l10n.compassWest : l10n.compassEast,
+  );
 }
 
 /// True when [label] does not name the pin's place for a booking: an

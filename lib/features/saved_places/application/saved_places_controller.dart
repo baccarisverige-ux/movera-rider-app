@@ -162,7 +162,10 @@ class SavedPlacesController {
       final address = (item['address'] ?? '').trim();
       if (address.isEmpty) continue;
       final kind = _normalizeKind(item['type'] ?? 'other');
-      final title = (item['title'] ?? '').trim();
+      var title = (item['title'] ?? '').trim();
+      // rider-42: a place saved from Home stores its type key ("gym") as
+      // its title; show the type's label instead.
+      if (title == (item['type'] ?? '').trim()) title = '';
       result.add(
         PlaceShortcut(
           title: title.isEmpty ? _labelForKind(kind) : title,
@@ -182,9 +185,23 @@ class SavedPlacesController {
     return lower;
   }
 
+  /// The kinds Home can add, as placeLabelFor (saved_places_row.dart)
+  /// names them; application code does not import presentation.
+  static Map<String, String> get _customLabels => {
+    'gym': L10n.current.placeGym,
+    'mall': L10n.current.placeMall,
+    'school': L10n.current.placeSchool,
+    'airport': L10n.current.placeAirport,
+    'family': L10n.current.placeFamily,
+    'restaurant': L10n.current.placeRestaurant,
+    'other': L10n.current.placeOther,
+  };
+
   String _labelForKind(String kind) {
     if (kind == 'office') return L10n.current.placeWork;
     if (kind == 'home') return L10n.current.placeHome;
+    final custom = _customLabels[kind];
+    if (custom != null) return custom;
     return kind
         .split('-')
         .where((part) => part.isNotEmpty)

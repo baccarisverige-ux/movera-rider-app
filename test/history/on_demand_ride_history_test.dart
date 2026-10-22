@@ -183,7 +183,7 @@ void main() {
     final history = await OnDemandRideHistoryStore.read();
     expect(history.single.reservationId, 'ondemand-ride-no-driver');
     expect(history.single.status.name, 'cancelled');
-    expect(history.single.cancellationReason, 'No driver found');
+    expect(history.single.cancellationReason, 'system_no_driver');
   });
 
   test('multiple archived rides are newest first', () async {

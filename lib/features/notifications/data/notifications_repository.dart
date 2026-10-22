@@ -49,7 +49,9 @@ class NotificationsRepository {
       AppNotification(
         kind: payload.isRideEvent ? 'ride' : 'info',
         title: title?.isNotEmpty == true ? title! : 'Movera',
-        subtitle: body?.isNotEmpty == true ? body! : payload.type,
+        // rider-u128: no body means no second line; the wire type
+        // ('ride.driver_arrived') is not text for the rider.
+        subtitle: body?.isNotEmpty == true ? body! : '',
         time: _formatTime(at),
         at: at,
         read: read,

@@ -339,7 +339,7 @@ void main() {
       expect(controller.cancelled, isFalse);
       expect(terminal, [RideStatus.noDriverFound]);
       final filed = (await OnDemandRideHistoryStore.read()).single;
-      expect(filed.cancellationReason, 'No driver found');
+      expect(filed.cancellationReason, 'system_no_driver');
     });
 
     test('a refused flush resumes the search and tells the rider', () async {

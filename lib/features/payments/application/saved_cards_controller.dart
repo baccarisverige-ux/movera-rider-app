@@ -64,6 +64,8 @@ class CardInput {
     return true;
   }
 
+  /// Developer text of the [ArgumentError] [SavedCardsController.add]
+  /// throws; riders read l10n's cardBrandsAccepted (rider-52).
   static const String brandError = 'We accept Visa and Mastercard';
 
   /// Whole number: 16 digits, accepted brand, Luhn-valid.

@@ -289,15 +289,17 @@ abstract final class OnDemandRideHistoryStore {
     return null;
   }
 
+  /// rider-u112: a reason code, not an English sentence;
+  /// ReservationFormat.reasonLabel shows it in the app language.
   static String? _endedSearchReason(RideStatus status) => switch (status) {
-    RideStatus.noDriverFound => 'No driver found',
-    RideStatus.bookingExpired => 'Request expired',
+    RideStatus.noDriverFound => 'system_no_driver',
+    RideStatus.bookingExpired => 'system_expired',
     // Contract v0.3.0: each cause stays distinct in History.
-    RideStatus.cancelledByAdmin => 'Cancelled by Movera',
-    RideStatus.cancelledBySystem => 'Cancelled by the system',
-    RideStatus.noShow => 'No-show',
-    RideStatus.tripFailed => 'Ride failed',
-    RideStatus.endedByDriver => 'Driver ended the ride',
+    RideStatus.cancelledByAdmin => 'admin_cancelled',
+    RideStatus.cancelledBySystem => 'system_cancelled',
+    RideStatus.noShow => 'rider_no_show',
+    RideStatus.tripFailed => 'system_trip_failed',
+    RideStatus.endedByDriver => 'driver_ended',
     _ => null,
   };
 

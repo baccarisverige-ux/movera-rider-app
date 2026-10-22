@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The text stays in place. A released balloon rises into the existing "o"
 /// and becomes its multicolor location-pin form.
@@ -23,7 +24,8 @@ class BalloonBrandIntro extends StatelessWidget {
       color: const Color(0xFF438D6A),
     );
     return Semantics(
-      label: 'Movera. Moving to a new era.',
+      // rider-31: the slogan in the app language, as Rider name shows it.
+      label: 'Movera. ${context.l10n.brandTaglineSentence}',
       child: ExcludeSemantics(
         child: SizedBox(
           height: 142,
@@ -91,16 +93,19 @@ class BalloonBrandIntro extends StatelessWidget {
                           left: 0,
                           right: 0,
                           top: 98,
-                          child: Text(
-                            'Moving to a new era.',
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              height: 1.2,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.5,
-                              color: AuthColors.deepGreen,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              context.l10n.brandTaglineSentence,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                height: 1.2,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.5,
+                                color: AuthColors.deepGreen,
+                              ),
                             ),
                           ),
                         ),

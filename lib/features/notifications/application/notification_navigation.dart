@@ -9,6 +9,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -151,7 +152,7 @@ Future<void> openNotificationRide(
   try {
     final opened = await (open ?? openRideFromNotification)(rideId);
     if (!opened && context.mounted) {
-      MoveraToast.show(context, 'This ride has ended.');
+      MoveraToast.show(context, context.l10n.notificationRideEnded);
       onEnded?.call();
     }
   } finally {

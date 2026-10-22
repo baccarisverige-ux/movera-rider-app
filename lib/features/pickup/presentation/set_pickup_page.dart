@@ -27,6 +27,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// The map point [pixelsAboveCentre] above the camera [target] on screen,
@@ -1432,7 +1433,9 @@ class _SetPickupPageState extends State<SetPickupPage>
               key: const ValueKey('set-pickup-wallet-part'),
             ),
             _priceRow(
-              fare.split.paidByWallet ? context.l10n.nothingMoreToPay : _payment.name,
+              fare.split.paidByWallet
+                  ? context.l10n.nothingMoreToPay
+                  : paymentNameFor(_payment.brand, _payment.name),
               fare.split.remainderLabel,
               key: const ValueKey('set-pickup-remainder'),
             ),
@@ -1469,9 +1472,18 @@ class _SetPickupPageState extends State<SetPickupPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_payment.name, style: _text(14.5, weight: FontWeight.w600)),
+                    // rider-u142: the catalog's English name and line
+                    // ('Cash', 'Pay the driver in cash') as Select Ride
+                    // shows them, in the app language.
+                    Text(
+                      paymentNameFor(_payment.brand, _payment.name),
+                      style: _text(14.5, weight: FontWeight.w600),
+                    ),
                     if (_payment.detail.trim().isNotEmpty)
-                      Text(_payment.detail, style: _text(12.5, color: _muted)),
+                      Text(
+                        paymentDetailFor(_payment.brand, _payment.detail),
+                        style: _text(12.5, color: _muted),
+                      ),
                   ],
                 ),
               ),

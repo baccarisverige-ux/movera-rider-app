@@ -122,7 +122,8 @@ class _AddCardPageState extends State<AddCardPage> {
   /// Shown under the number once the rider has typed enough to be wrong.
   String? get _numberError {
     final digits = _digits;
-    if (CardInput.brandRejected(digits)) return CardInput.brandError;
+    // rider-53: in the app language, like the other field errors.
+    if (CardInput.brandRejected(digits)) return context.l10n.cardBrandsAccepted;
     final done = digits.length == 16 || (!_numberFocus.hasFocus && digits.isNotEmpty);
     if (done && !_numberOk) return context.l10n.cardCheckNumber;
     return null;
@@ -163,11 +164,15 @@ class _AddCardPageState extends State<AddCardPage> {
       );
       if (!mounted) return;
       navigator.pop(card);
-    } on ArgumentError catch (e) {
+    } on ArgumentError {
       if (!mounted) return;
+      // rider-52: the controller's ArgumentError text is English and for
+      // developers; the rider reads the l10n line.
       setState(() {
         _saving = false;
-        _saveError = e.message?.toString() ?? context.l10n.cardCheckDetails;
+        _saveError = CardInput.brandRejected(_digits)
+            ? context.l10n.cardBrandsAccepted
+            : context.l10n.cardCheckDetails;
       });
     } catch (_) {
       if (!mounted) return;

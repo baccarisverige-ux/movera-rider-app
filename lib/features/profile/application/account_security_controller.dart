@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/domain/account_security.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class AccountSecurityController extends ChangeNotifier {
   AccountSecurityController({required AccountSecurityRepository repository})
@@ -39,7 +40,8 @@ class AccountSecurityController extends ChangeNotifier {
       if (session != _session) return;
       state = null;
       available = false;
-      errorMessage = 'Account security is unavailable right now.';
+      // rider-59: shown on the Security screen, so in the app language.
+      errorMessage = L10n.current.securityUnavailableBody;
     } finally {
       if (session == _session) {
         loading = false;
@@ -64,7 +66,7 @@ class AccountSecurityController extends ChangeNotifier {
       state = await _repository.signOutOtherDevices();
       available = true;
     } catch (_) {
-      errorMessage = 'Could not update active sessions.';
+      errorMessage = L10n.current.securitySessionsUpdateFailed;
     } finally {
       loading = false;
       notifyListeners();

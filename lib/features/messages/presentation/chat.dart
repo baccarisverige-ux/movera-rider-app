@@ -191,9 +191,11 @@ class _ChatState extends State<Chat> {
   }
 }
 
+/// rider-48: the app's 24-hour clock ('15:05'), as on the ride sheet,
+/// not Material's 12-hour English default.
 String? _messageTime(BuildContext context, DateTime? sentAt) {
   if (sentAt == null) return null;
-  return TimeOfDay.fromDateTime(sentAt.toLocal()).format(context);
+  return L10n.formatTime(sentAt.toLocal());
 }
 
 class RiderMessageBubble extends StatelessWidget {

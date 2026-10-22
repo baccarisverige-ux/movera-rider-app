@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/features/pickup/data/previous_pickups_store.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// Metres between two points (equirectangular; fine for a few hundred m).
 double pickupSpotDistanceM(LatLng a, LatLng b) {
@@ -69,25 +70,28 @@ class PickupSpotsController {
     required String address,
     LatLng? home,
   }) async {
+    // rider-55: titles and subtitles in the app language; a chosen spot's
+    // title is also the booked pickup label's suffix.
+    final l10n = L10n.current;
     final generated = <PickupSpot>[
       PickupSpot(
         id: 'entrance-main',
-        title: 'Main entrance',
-        subtitle: 'Front of the building',
+        title: l10n.pickupSpotMainEntrance,
+        subtitle: l10n.pickupSpotFrontOfBuilding,
         kind: PickupSpotKind.entrance,
         position: pickupSpotOffset(at, northM: 25),
       ),
       PickupSpot(
         id: 'entrance-side',
-        title: 'Side entrance',
-        subtitle: 'Around the corner',
+        title: l10n.pickupSpotSideEntrance,
+        subtitle: l10n.pickupSpotAroundCorner,
         kind: PickupSpotKind.entrance,
         position: pickupSpotOffset(at, northM: -30),
       ),
       PickupSpot(
         id: 'parking',
-        title: 'Parking',
-        subtitle: 'Short walk',
+        title: l10n.pickupSpotParking,
+        subtitle: l10n.pickupSpotShortWalk,
         kind: PickupSpotKind.parking,
         position: pickupSpotOffset(at, eastM: 60),
       ),
@@ -96,8 +100,10 @@ class PickupSpotsController {
       generated.add(
         PickupSpot(
           id: 'home',
-          title: 'Near Home',
-          subtitle: '${pickupSpotDistanceM(at, home).round()} m from here',
+          title: l10n.pickupSpotNearHome,
+          subtitle: l10n.pickupSpotMetresFromHere(
+            pickupSpotDistanceM(at, home).round(),
+          ),
           kind: PickupSpotKind.home,
           position: home,
         ),
@@ -115,7 +121,7 @@ class PickupSpotsController {
       previous.add(
         PickupSpot(
           id: 'previous-${previous.length}',
-          title: 'Previously used',
+          title: l10n.pickupSpotPreviouslyUsed,
           subtitle: spotName ?? pickupSpotStreet(p.address),
           kind: PickupSpotKind.previous,
           position: p.position,

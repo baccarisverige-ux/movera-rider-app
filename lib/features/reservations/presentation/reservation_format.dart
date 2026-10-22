@@ -43,11 +43,29 @@ abstract final class ReservationFormat {
     'system_payment_failed': L10n.current.reasonPayment,
     'system_zone_closed': L10n.current.reasonZoneClosed,
     'system_error': L10n.current.reasonError,
+    // rider-u112: the codes History writes for a ride the server ended,
+    // and the English labels older builds stored for the same causes.
+    'system_expired': L10n.current.reasonRequestExpired,
+    'system_cancelled': L10n.current.reasonCancelledBySystem,
+    'system_trip_failed': L10n.current.reasonRideFailed,
+    'driver_ended': L10n.current.reasonDriverEnded,
+    // rider-j8-3: the codes reservations record themselves
+    // (ReservationController.noDriverFoundReason, the live-ride cancel).
+    'no_driver_found': L10n.current.termNoDriverFound,
+    'rider_cancelled_live': L10n.current.reasonRiderCancelledLive,
+    'No driver found': L10n.current.termNoDriverFound,
+    'Request expired': L10n.current.reasonRequestExpired,
+    'Cancelled by Movera': L10n.current.cancelledByMovera,
+    'Cancelled by the system': L10n.current.reasonCancelledBySystem,
+    'No-show': L10n.current.reasonNoShow,
+    'Ride failed': L10n.current.reasonRideFailed,
+    'Driver ended the ride': L10n.current.reasonDriverEnded,
   };
 
   /// UI-07: a cancel reason as riders read it. Reason codes
-  /// (`plans_changed`) map to their labels; older records already hold a
-  /// label ("No driver found") and are shown as they are.
+  /// (`plans_changed`) map to their labels; the English labels older
+  /// records hold ("No driver found") are translated too, and any other
+  /// label is shown as it is.
   static String reasonLabel(String raw) {
     final value = raw.trim();
     for (final phase in CancelPhase.values) {

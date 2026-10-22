@@ -240,6 +240,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'voucherSoon': l.voucherSoon,
   'addCardDemoNote': l.addCardDemoNote,
   'cardCheckNumber': l.cardCheckNumber,
+  'cardBrandsAccepted': l.cardBrandsAccepted,
   'cardUseMmYy': l.cardUseMmYy,
   'cardExpired': l.cardExpired,
   'cardCvc3': l.cardCvc3,
@@ -507,6 +508,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
+  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'compassNorth': l.compassNorth,
+  'compassSouth': l.compassSouth,
+  'compassEast': l.compassEast,
+  'compassWest': l.compassWest,
+  'pickupSpotMainEntrance': l.pickupSpotMainEntrance,
+  'pickupSpotFrontOfBuilding': l.pickupSpotFrontOfBuilding,
+  'pickupSpotSideEntrance': l.pickupSpotSideEntrance,
+  'pickupSpotAroundCorner': l.pickupSpotAroundCorner,
+  'pickupSpotParking': l.pickupSpotParking,
+  'pickupSpotShortWalk': l.pickupSpotShortWalk,
+  'pickupSpotNearHome': l.pickupSpotNearHome,
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(37),
+  'pickupSpotPreviouslyUsed': l.pickupSpotPreviouslyUsed,
+  'pickupCurrentUpper': l.pickupCurrentUpper,
   'destination': l.destination,
   'endedEarly': l.endedEarly,
   'totalPayment': l.totalPayment,
@@ -577,6 +593,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'profileBusiness': l.profileBusiness,
   'defaultForRides': l.defaultForRides,
   'accountAddYourName': l.accountAddYourName,
+  'menuWelcomeNoName': l.menuWelcomeNoName,
   'serverEmailUnavailable': l.serverEmailUnavailable,
   'emailNotAdded': l.emailNotAdded,
   'valueVerified': l.valueVerified('<value>'),
@@ -619,6 +636,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'securityBody': l.securityBody,
   'securityUnavailable': l.securityUnavailable,
   'securityUnavailableBody': l.securityUnavailableBody,
+  'securitySessionsUpdateFailed': l.securitySessionsUpdateFailed,
   'passkeys': l.passkeys,
   'passkeyReady': l.passkeyReady,
   'noPasskey': l.noPasskey,
@@ -691,6 +709,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'reasonPayment': l.reasonPayment,
   'reasonZoneClosed': l.reasonZoneClosed,
   'reasonError': l.reasonError,
+  'reasonRequestExpired': l.reasonRequestExpired,
+  'reasonCancelledBySystem': l.reasonCancelledBySystem,
+  'reasonRideFailed': l.reasonRideFailed,
+  'reasonDriverEnded': l.reasonDriverEnded,
+  'reasonRiderCancelledLive': l.reasonRiderCancelledLive,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
@@ -787,6 +810,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'lastName': l.lastName,
   'letsRide': l.letsRide,
   'brandTagline': l.brandTagline,
+  'brandTaglineSentence': l.brandTaglineSentence,
   'signedInWith': l.signedInWith('<provider>'),
   'signedInAs': l.signedInAs('<name>'),
   'oneNumberHead': l.oneNumberHead,
@@ -848,6 +872,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notification': l.notification,
   'allCaughtUp': l.allCaughtUp,
   'notificationsEmptyBody': l.notificationsEmptyBody,
+  'notificationRideEnded': l.notificationRideEnded,
   'notificationUnread': l.notificationUnread,
   'driverTripCount': l.driverTripCount(37),
   'safetyKit': l.safetyKit,
@@ -1330,6 +1355,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
 Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'homeRideCount': l.homeRideCount(1),
   'ridesLeft': l.ridesLeft(1),
+  'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(1),
   'ratingStarsValue': l.ratingStarsValue(1),
   'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
   'validUntilDays': l.validUntilDays('<date>', 1),
@@ -1405,6 +1431,8 @@ const messagePlaceholders = <String, List<String>>{
   'routePickupTooFar': ['meters'],
   'endedEarlyBodyAmount': ['amount'],
   'youPayAmount': ['amount'],
+  'droppedPinLabel': ['lat', 'latSide', 'lng', 'lngSide'],
+  'pickupSpotMetresFromHere': [],
   'kmDriven': ['km'],
   'tipName': ['name'],
   'tipSelected': ['amount'],
@@ -1507,6 +1535,7 @@ const messagePlaceholders = <String, List<String>>{
 const messageCounts = <String, List<String>>{
   'homeRideCount': ['count'],
   'ridesLeft': ['count'],
+  'pickupSpotMetresFromHere': ['metres'],
   'ratingStarsValue': ['count'],
   'pickupTimeWithinHorizon': ['days'],
   'validUntilDays': ['days'],
@@ -1991,6 +2020,8 @@ class _Exhaustive implements AppLocalizations {
   String get addCardDemoNote => '';
   @override
   String get cardCheckNumber => '';
+  @override
+  String get cardBrandsAccepted => '';
   @override
   String get cardUseMmYy => '';
   @override
@@ -2526,6 +2557,36 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupLocation => '';
   @override
+  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  @override
+  String get compassNorth => '';
+  @override
+  String get compassSouth => '';
+  @override
+  String get compassEast => '';
+  @override
+  String get compassWest => '';
+  @override
+  String get pickupSpotMainEntrance => '';
+  @override
+  String get pickupSpotFrontOfBuilding => '';
+  @override
+  String get pickupSpotSideEntrance => '';
+  @override
+  String get pickupSpotAroundCorner => '';
+  @override
+  String get pickupSpotParking => '';
+  @override
+  String get pickupSpotShortWalk => '';
+  @override
+  String get pickupSpotNearHome => '';
+  @override
+  String pickupSpotMetresFromHere(int metres) => '';
+  @override
+  String get pickupSpotPreviouslyUsed => '';
+  @override
+  String get pickupCurrentUpper => '';
+  @override
   String get destination => '';
   @override
   String get endedEarly => '';
@@ -2666,6 +2727,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get accountAddYourName => '';
   @override
+  String get menuWelcomeNoName => '';
+  @override
   String get serverEmailUnavailable => '';
   @override
   String get emailNotAdded => '';
@@ -2749,6 +2812,8 @@ class _Exhaustive implements AppLocalizations {
   String get securityUnavailable => '';
   @override
   String get securityUnavailableBody => '';
+  @override
+  String get securitySessionsUpdateFailed => '';
   @override
   String get passkeys => '';
   @override
@@ -2893,6 +2958,16 @@ class _Exhaustive implements AppLocalizations {
   String get reasonZoneClosed => '';
   @override
   String get reasonError => '';
+  @override
+  String get reasonRequestExpired => '';
+  @override
+  String get reasonCancelledBySystem => '';
+  @override
+  String get reasonRideFailed => '';
+  @override
+  String get reasonDriverEnded => '';
+  @override
+  String get reasonRiderCancelledLive => '';
   @override
   String resReservedFor(String date, String time) => '';
   @override
@@ -3086,6 +3161,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get brandTagline => '';
   @override
+  String get brandTaglineSentence => '';
+  @override
   String signedInWith(String provider) => '';
   @override
   String signedInAs(String name) => '';
@@ -3207,6 +3284,8 @@ class _Exhaustive implements AppLocalizations {
   String get allCaughtUp => '';
   @override
   String get notificationsEmptyBody => '';
+  @override
+  String get notificationRideEnded => '';
   @override
   String get notificationUnread => '';
   @override

@@ -4,6 +4,7 @@ import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// The profile kept on this device only (demo, and the cache under
 /// `SyncedProfileRepository`).
@@ -22,7 +23,9 @@ class ProfileRepository implements RiderProfileRepository {
   @override
   RiderProfileData get current => _profile;
 
-  static const emptyDisplayName = 'Welcome to Movera';
+  /// rider-u147: the greeting for a rider with no name, in the app
+  /// language ('Welcome to Movera').
+  static String get emptyDisplayName => L10n.current.menuWelcomeNoName;
 
   @override
   String displayName() {
