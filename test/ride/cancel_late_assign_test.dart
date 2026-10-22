@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
@@ -61,6 +62,45 @@ Future<void> _until(FutureOr<bool> Function() done) async {
   }
 }
 
+/// rider-u29: each ride is booked on the app's stand-in server first (quote,
+/// then ride), so the mock's accept is the real one. The mock no longer
+/// shows a driver the server refused, as it did for the made-up ids these
+/// tests used before.
+Future<String> _bookOnServer() async {
+  final ApiClient api = AppScope.instance.api;
+  final quoted = await api.post(
+    '/api/v1/quotes',
+    body: <String, dynamic>{
+      'rideType': 'economy',
+      'pickup': <String, dynamic>{'lat': 59.3, 'lng': 18.0},
+      'destination': <String, dynamic>{'lat': 59.4, 'lng': 18.1},
+    },
+  );
+  final quote = Map<String, dynamic>.from(quoted['quote'] as Map);
+  final created = await api.post(
+    '/api/v1/rides',
+    body: <String, dynamic>{
+      'categoryId': 'economy',
+      'paymentMethod': 'apple_pay',
+      'pickupAddress': 'A',
+      'destinationAddress': 'B',
+      'pickupLat': 59.3,
+      'pickupLng': 18.0,
+      'destinationLat': 59.4,
+      'destinationLng': 18.1,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+      'fare': <String, dynamic>{
+        'amountMinor': quote['totalMinor'],
+        'currency': quote['currency'],
+      },
+    },
+  );
+  return (created['ride'] as Map)['id'] as String;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -71,7 +111,8 @@ void main() {
     'finding: cancel then late assign stays Home (not Finding/Waiting)',
     () async {
       final rt = _rt;
-      final ride = AppScope.instance.ride..rideId = 'r-find';
+      final findId = await _bookOnServer();
+      final ride = AppScope.instance.ride..rideId = findId;
       var matches = 0;
       final controller = FindingDriverController(
         realtime: rt,
@@ -79,7 +120,7 @@ void main() {
         store: FindingDriverRepository(),
       );
       controller.start(
-        snapshot: findingSnap(rideId: 'r-find'),
+        snapshot: findingSnap(rideId: findId),
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
@@ -130,7 +171,8 @@ void main() {
     'waiting: cancel-first then late assign stays Home (not Waiting/Finding)',
     () async {
       final rt = _rt;
-      final ride = AppScope.instance.ride..rideId = 'r-wait';
+      final waitId = await _bookOnServer();
+      final ride = AppScope.instance.ride..rideId = waitId;
       var matches = 0;
       final controller = FindingDriverController(
         realtime: rt,
@@ -138,7 +180,7 @@ void main() {
         store: FindingDriverRepository(),
       );
       controller.start(
-        snapshot: findingSnap(rideId: 'r-wait'),
+        snapshot: findingSnap(rideId: waitId),
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
@@ -208,14 +250,15 @@ void main() {
     'cancel-first bumps epoch so a late assigned snapshot save cannot revive Waiting',
     () async {
       final rt = _rt;
-      final ride = AppScope.instance.ride..rideId = 'r-epoch';
+      final epochId = await _bookOnServer();
+      final ride = AppScope.instance.ride..rideId = epochId;
       final controller = FindingDriverController(
         realtime: rt,
         ride: ride,
         store: FindingDriverRepository(),
       );
       controller.start(
-        snapshot: findingSnap(rideId: 'r-epoch'),
+        snapshot: findingSnap(rideId: epochId),
         onTick: (_) {},
         onMatched: () {},
       );
@@ -223,7 +266,7 @@ void main() {
 
       // In-flight persist started before cancel-first (captures old epoch).
       final pending = RideSnapshotStore.save(
-        findingSnap(rideId: 'r-epoch').copyWith(
+        findingSnap(rideId: epochId).copyWith(
           status: RideStatus.driverAssigned,
           savedAt: DateTime.now(),
           driver: null,

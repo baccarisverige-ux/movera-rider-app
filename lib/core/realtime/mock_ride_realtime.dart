@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/realtime/mock_driver_pool.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -371,8 +372,25 @@ class MockRideRealtime implements RideRealtime {
       return;
     }
 
+    // rider-u29: the server refused the accept (404: it has no such ride;
+    // 409: the transition table does not allow it, e.g. the rider already
+    // cancelled). No driver is shown and none is kept: before, the mock
+    // made one up and drove it to the pickup while the server still had
+    // no accepted trip. The search stays as it is; the server's own
+    // projection (expiry, cancel) is what ends it.
+    if (accepted is _Refused) {
+      lastDriver = null;
+      if (pickupKnown) {
+        lastLat = null;
+        lastLng = null;
+        lastLocationAt = null;
+      }
+      _assignmentInFlight = false;
+      return;
+    }
+    final acceptedRide = accepted as Map<dynamic, dynamic>?;
     if (!pickupKnown) {
-      if (accepted != null) _adoptPickup(accepted);
+      if (acceptedRide != null) _adoptPickup(acceptedRide);
       _pickupLat ??= _fallbackPickup.$1;
       _pickupLng ??= _fallbackPickup.$2;
       _spawnDriver();
@@ -765,8 +783,9 @@ class MockRideRealtime implements RideRealtime {
     _pickupLng ??= lng;
   }
 
-  /// Commits the accept; answers the server's trip projection, if any.
-  Future<Map<dynamic, dynamic>?> _persistAssignment(String rideId) async {
+  /// Commits the accept; answers the server's trip projection, if any,
+  /// or [_Refused] when the server answered the accept with a 4xx.
+  Future<Object?> _persistAssignment(String rideId) async {
     final client = api;
     if (client == null) return null;
     _committedTarget = TripStatus.accepted.wireName;
@@ -785,6 +804,7 @@ class MockRideRealtime implements RideRealtime {
         },
       ),
     );
+    if (response is _Refused) return response;
     final ride = response is Map ? response['ride'] : null;
     return ride is Map ? ride : null;
   }
@@ -891,14 +911,21 @@ class MockRideRealtime implements RideRealtime {
     );
   }
 
-  /// Queues [call] after the earlier commits; answers its response, or
-  /// null when it was refused or lost.
+  /// Queues [call] after the earlier commits; answers its response,
+  /// [_Refused] when the server refused it (a 4xx), or null when it was
+  /// lost.
   Future<Object?> _enqueue(Future<Object?> Function() call) {
     final done = _commits.then((_) async {
       try {
         final response = await call();
         _observe(response);
         return response;
+      } on ApiError catch (error) {
+        final status = error.statusCode;
+        if (status != null && status >= 400 && status < 500) {
+          return _Refused(error);
+        }
+        return null;
       } catch (_) {
         // Mock transport: a refused or lost commit leaves the server as is.
         return null;
@@ -1010,4 +1037,11 @@ class MockRideRealtime implements RideRealtime {
     unsubscribe();
     if (!_controller.isClosed) _controller.close();
   }
+}
+
+/// rider-u29: the stand-in server refused a commit (a 4xx answer).
+class _Refused {
+  const _Refused(this.error);
+
+  final ApiError error;
 }

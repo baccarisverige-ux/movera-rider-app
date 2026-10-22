@@ -24,6 +24,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,6 +50,13 @@ class _Recorder implements SafetyRecorder {
   Future<void> cancel() async => recording = false;
   @override
   Future<void> delete(String path) async {}
+}
+
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
 }
 
 void main() {
@@ -77,6 +85,7 @@ void main() {
   testWidgets('a Safety Kit recording keeps running when a card opens', (
     tester,
   ) async {
+    _withAudioOption();
     tester.view
       ..physicalSize = const Size(390, 844)
       ..devicePixelRatio = 1;

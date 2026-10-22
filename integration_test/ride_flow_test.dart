@@ -16,6 +16,45 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
+/// rider-u29: books a live ride on the stand-in server (quote, then ride)
+/// and answers its server-made id, so the mock's accept is the real one.
+/// The mock no longer shows a driver the server refused, as it did for
+/// the made-up ride ids these tests used before.
+Future<String> _bookOnServer(ApiClient api) async {
+  final quoted = await api.post(
+    '/api/v1/quotes',
+    body: <String, dynamic>{
+      'rideType': 'economy',
+      'pickup': <String, dynamic>{'lat': 59.3293, 'lng': 18.0686},
+      'destination': <String, dynamic>{'lat': 59.6519, 'lng': 17.9186},
+    },
+  );
+  final quote = Map<String, dynamic>.from(quoted['quote'] as Map);
+  final created = await api.post(
+    '/api/v1/rides',
+    body: <String, dynamic>{
+      'categoryId': 'economy',
+      'paymentMethod': 'apple_pay',
+      'pickupAddress': 'Stockholm Central',
+      'destinationAddress': 'Arlanda Airport',
+      'pickupLat': 59.3293,
+      'pickupLng': 18.0686,
+      'destinationLat': 59.6519,
+      'destinationLng': 17.9186,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+      'fare': <String, dynamic>{
+        'amountMinor': quote['totalMinor'],
+        'currency': quote['currency'],
+      },
+    },
+  );
+  return (created['ride'] as Map)['id'] as String;
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -62,7 +101,8 @@ void main() {
     RideSnapshotStore.epoch = 0;
     final api = ApiClient(client: InProcessMockClient());
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1), api: api);
-    final ride = RideSession()..rideId = 'r-uat';
+    final rideId = await _bookOnServer(api);
+    final ride = RideSession()..rideId = rideId;
     var matches = 0;
     final controller = FindingDriverController(
       realtime: rt,
@@ -83,7 +123,7 @@ void main() {
         rideType: 'Movera',
         price: 259,
         paymentMethod: 'Apple Pay',
-        rideId: 'r-uat',
+        rideId: rideId,
       ),
       onTick: (_) {},
       onMatched: () => matches += 1,

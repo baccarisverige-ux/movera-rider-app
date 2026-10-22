@@ -15,6 +15,7 @@ import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Recorder implements SafetyRecorder {
@@ -62,6 +63,13 @@ SafetyStore _store({SafetyRemoteDataSource? remote}) => SafetyStore(
       ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
 );
 
+/// Owner decision 10 hides "Record audio" by default; the recording tests
+/// turn the option back on through its test seam.
+void _withAudioOption() {
+  SafetyAudioOption.debugEnabled = true;
+  addTearDown(() => SafetyAudioOption.debugEnabled = null);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -75,6 +83,7 @@ void main() {
   testWidgets('FLOW-6: closing the Safety Kit stops and saves the recording', (
     tester,
   ) async {
+    _withAudioOption();
     final recorder = _Recorder();
     final store = _store();
     final ctl = SafetyController(
