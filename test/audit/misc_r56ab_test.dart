@@ -38,9 +38,12 @@ import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
+import 'package:movera_rider/features/payments/data/saved_cards_store.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -468,5 +471,25 @@ void main() {
     feed.ingest(push('b', 12), read: false); // Foreground, 12:00.
     feed.ingest(push('a', 11), read: true); // Tapped in the tray, 11:00.
     expect(feed.all().map((n) => n.messageId), ['b', 'a']);
+  });
+
+  test('rider-u131: a saved card that has since expired is not offered '
+      'for a ride', () async {
+    final lastYear = DateTime.now().year - 1;
+    final expired = SavedCard(
+      id: 'old',
+      brand: 'visa',
+      last4: '4242',
+      expMonth: 9,
+      expYear: lastYear,
+      holder: 'Anna Berg',
+    );
+    final selection = RideSelectionController(
+      savedCards: SavedCardsController(store: MemorySavedCardsStore([expired])),
+    );
+    await selection.loadSavedCards();
+    expect(selection.hasSavedCard, isFalse);
+    expect(selection.payments().map((p) => p.brand), isNot(contains('card:old')));
+    expect(selection.savedCardFor('card:old'), isNull);
   });
 }
