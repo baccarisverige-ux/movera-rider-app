@@ -9,4 +9,8 @@ enum LocationAccessIssue {
 
   /// Location Services are switched off for the whole device.
   servicesOff,
+
+  /// rider-u114: only approximate location is allowed (iOS "Precise: Off",
+  /// Android "Approximate"): the fix is too coarse to be the pickup.
+  approximate,
 }

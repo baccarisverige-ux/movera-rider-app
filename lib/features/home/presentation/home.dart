@@ -124,6 +124,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
   set _currentLatLng(LatLng? value) => _places.currentLatLng = value;
+
+  /// rider-u114: the GPS point a pickup may start from. Null while only
+  /// approximate location is allowed: that fix centres the map and draws
+  /// the puck, but the rider sets the pickup pin themselves.
+  LatLng? get _gpsPickup =>
+      _locationCtl.preciseLocationOff ? null : _currentLatLng;
   LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
   set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
   List<String> get _recentAddresses => _places.recentAddresses;
@@ -270,7 +276,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       // rider-43: a resume never prompts again; a rider who allowed
       // location in Settings meanwhile still gets the fix.
       unawaited(_detectCurrentAddress(askPermission: false));
-    } else if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
+      return;
+    }
+    // rider-u114: precise location may have been turned on or off in
+    // Settings meanwhile.
+    unawaited(_recheckPrecision());
+    if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
@@ -362,6 +373,36 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     });
   }
 
+  /// rider-u114: reads the accuracy grant again; when it changed, the
+  /// pickup label follows (the 'set pickup' state, or the current location
+  /// again). Never over a pickup the rider chose or during a flow.
+  Future<void> _recheckPrecision() async {
+    final changed = await _locationCtl.recheckPrecision();
+    if (changed) _applyPrecisionChange();
+  }
+
+  void _applyPrecisionChange() {
+    if (!mounted ||
+        _routeFlowOpen ||
+        _mapParkingGuard.isParked ||
+        _tripPickupLatLng != null) {
+      return;
+    }
+    _resetPickupLabel();
+  }
+
+  /// rider-u114: the notice's "Turn on" button.
+  Future<void> _turnOnPreciseLocation() async {
+    final wasOff = _locationCtl.preciseLocationOff;
+    await _locationCtl.requestPreciseLocation();
+    if (!mounted) return;
+    if (_currentLatLng == null) {
+      await _detectCurrentAddress(askPermission: false);
+    } else if (wasOff != _locationCtl.preciseLocationOff) {
+      _applyPrecisionChange();
+    }
+  }
+
   /// Detects the rider's location once; a second call while one is running
   /// joins it, so the booking flow can wait for the fix Home already asked
   /// for instead of asking again.
@@ -376,8 +417,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// Waits briefly for a location fix when none has landed yet (first fix
   /// still coming, permission prompt open). Null when there is still none.
   Future<LatLng?> _awaitCurrentFix() async {
-    final known = _tripPickupLatLng ?? _currentLatLng;
+    final known = _tripPickupLatLng ?? _gpsPickup;
     if (known != null) return known;
+    // rider-u114: an approximate fix is no pickup; waiting brings no better.
+    if (_locationCtl.preciseLocationOff) return null;
     final hint = Timer(const Duration(milliseconds: 700), () {
       if (mounted) MoveraToast.show(context, context.l10n.homeFindingLocation);
     });
@@ -395,7 +438,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           askPermission: attempt == 0,
         ).timeout(left, onTimeout: () {});
         if (!mounted) return null;
-        final fix = _tripPickupLatLng ?? _currentLatLng;
+        final fix = _tripPickupLatLng ?? _gpsPickup;
         if (fix != null) return fix;
       }
     } catch (_) {
@@ -403,7 +446,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } finally {
       hint.cancel();
     }
-    return _tripPickupLatLng ?? _currentLatLng;
+    return _tripPickupLatLng ?? _gpsPickup;
   }
 
   Future<void> _runDetectCurrentAddress({bool askPermission = true}) async {
@@ -543,7 +586,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     LatLng? resolvedPickupPosition;
     if (target == 'pickup') {
       if (resolved.toLowerCase() == 'current location') {
-        resolvedPickupPosition = _currentLatLng;
+        resolvedPickupPosition = _gpsPickup;
       } else {
         final geocodedPickup = await _locationCtl.geocodeLatLng(resolved);
         if (geocodedPickup != null) {
@@ -755,7 +798,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   LatLng? _pickupLabelAt;
 
   void _resetPickupLabel() {
-    final here = _currentLatLng;
+    final here = _gpsPickup;
     final generation = ++_pickupLabelGeneration;
     _pickupLabelAt = here;
     setState(() {
@@ -846,8 +889,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
       if (geocoded != null) chosen = geocoded;
     }
-    final gps = _currentLatLng;
-    final initialPosition = chosen ?? gps ?? _initialPosition.target;
+    final gps = _gpsPickup;
+    // rider-u114: an approximate fix still opens the picker near the rider,
+    // as a fallback point the rider has to move.
+    final initialPosition =
+        chosen ?? gps ?? _currentLatLng ?? _initialPosition.target;
     // D-002: with no fix and no chosen pickup the picker opens on a default
     // map point; it must not be confirmable as if it were the rider's spot.
     final positionIsFallback = chosen == null && gps == null;
@@ -866,7 +912,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
-        refreshCurrentLocation: chosen == null,
+        refreshCurrentLocation:
+            chosen == null && !_locationCtl.preciseLocationOff,
       );
       if (result == null) return null;
       return PickupMapResult(
@@ -927,7 +974,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // location) before it can be confirmed.
     return PickupMapResult(
       address: locationOffPickupLabel,
-      position: _initialPosition.target,
+      position: _currentLatLng ?? _initialPosition.target,
       isFallback: true,
     );
   }
@@ -1009,7 +1056,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // entry points that open the picker directly.
     final routeCapture = capture ?? (EarlyInputCapture()..start());
     final ownsCapture = capture == null;
-    final gps = _currentLatLng;
+    final gps = _gpsPickup;
     final here = gps == null ? null : GeoPoint(gps.latitude, gps.longitude);
     Map<String, dynamic>? draft;
     try {
@@ -1088,7 +1135,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final pickupIsFallback = draft['pickupIsFallback'] == true;
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
-        : (_tripPickupLatLng ?? _currentLatLng);
+        : (_tripPickupLatLng ?? _gpsPickup);
     if (exactPickupPosition != null) {
       pickup = await _bookingPickup(pickup, exactPickupPosition);
       if (!mounted) return;
@@ -2119,7 +2166,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress),
+                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress, onPrecise: _turnOnPreciseLocation),
                       if (_destinationSheetOpen)
                         Positioned.fill(
                           // UI-13: a plain 5% white wash. The 1.4 sigma

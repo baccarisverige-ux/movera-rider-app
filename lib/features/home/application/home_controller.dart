@@ -129,7 +129,12 @@ class DetectedLocation {
     required this.address,
     required this.heading,
     this.failure,
+    this.approximate = false,
   });
+
+  /// rider-u114: [target] is an approximate-only fix: map and puck only,
+  /// never the pickup.
+  final bool approximate;
 
   final LatLng? target;
   final String address;
@@ -354,8 +359,37 @@ class HomeLocationController extends ChangeNotifier {
       _permissionBlocked
           ? LocationAccessIssue.deniedForever
           : LocationAccessIssue.denied,
-    _ => null,
+    _ => _preciseOff ? LocationAccessIssue.approximate : null,
   };
+
+  bool _preciseOff = false;
+
+  /// rider-u114: the rider allowed only approximate location. The fix still
+  /// centres the map and draws the puck, but it is never the pickup: Home
+  /// shows the 'set pickup' state until precise location is on.
+  bool get preciseLocationOff => _preciseOff;
+
+  void _setPreciseOff(bool off) {
+    if (_preciseOff == off) return;
+    _preciseOff = off;
+    notifyListeners();
+  }
+
+  /// rider-u114: reads the accuracy grant again (an app resume, after the
+  /// "Turn on" button). Resolves with whether it changed.
+  Future<bool> recheckPrecision() async {
+    final off = await location.isApproximateOnly();
+    if (_disposed || off == _preciseOff) return false;
+    _setPreciseOff(off);
+    return true;
+  }
+
+  /// rider-u114: the notice's "Turn on" button.
+  Future<void> requestPreciseLocation() async {
+    await location.requestPreciseLocation();
+    if (_disposed) return;
+    await recheckPrecision();
+  }
 
   void _setState(HomeLocationState next) {
     if (state == next) return;
@@ -441,6 +475,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       _setState(HomeLocationState.acquiringFix);
+      final approximate = await location.isApproximateOnly();
       // D-003: geolocator_web passes timeLimit in microseconds to a JS API
       // that expects milliseconds (15 s becomes ~4 h). The Dart-side
       // timeout guarantees the fallback path still runs.
@@ -453,8 +488,25 @@ class HomeLocationController extends ChangeNotifier {
           )
           .timeout(detectFixTimeout);
       _accurateFixSeen = true;
-      _rememberGoodFix(position);
       final generation = _detectGuard.next();
+      if (approximate) {
+        // rider-u114: a fix that may be hundreds of metres off names no
+        // pickup and is not kept as a good fix; it still centres the map.
+        onGoodFix?.call(GeoPoint(position.latitude, position.longitude));
+        heading = position.heading.isFinite && position.heading >= 0
+            ? position.heading
+            : 0;
+        _setPreciseOff(true);
+        _setState(HomeLocationState.live);
+        return DetectedLocation(
+          target: LatLng(position.latitude, position.longitude),
+          address: locationOffPickupLabel,
+          heading: heading,
+          approximate: true,
+        );
+      }
+      _setPreciseOff(false);
+      _rememberGoodFix(position);
       String? detected;
       try {
         detected = await geocoding.reverse(
@@ -707,7 +759,8 @@ class HomeLocationController extends ChangeNotifier {
         )
         .timeout(latestFixTimeout);
     _accurateFixSeen = true;
-    _rememberGoodFix(position);
+    // rider-u114: an approximate-only fix is not kept as a good fix.
+    if (!_preciseOff) _rememberGoodFix(position);
     final target = LatLng(position.latitude, position.longitude);
     if (!hasCompassHeading &&
         position.heading.isFinite &&
