@@ -93,8 +93,10 @@ abstract final class ZoneClock {
   /// moved forward by the gap: it is read with the offset before the
   /// change, so it lands on 03:30. [exists] says whether that happened.
   /// A wall time the zone has twice (02:30 on the fall-back night) is the
-  /// first of the two, in summer time.
-  static DateTime toUtc(DateTime wall, String timeZone) {
+  /// first of the two, in summer time; with [notBefore], the first of the
+  /// two that is not before it (rider-r5-7: a pickup picked during the
+  /// second copy of the hour is that copy, not one already past).
+  static DateTime toUtc(DateTime wall, String timeZone, {DateTime? notBefore}) {
     final asUtc = DateTime.utc(
       wall.year,
       wall.month,
@@ -109,12 +111,18 @@ abstract final class ZoneClock {
     final before = offsetAt(timeZone, asUtc.subtract(const Duration(hours: 14)));
     final after = offsetAt(timeZone, asUtc.add(const Duration(hours: 14)));
     DateTime? first;
+    DateTime? firstToCome;
     for (final offset in {before, after}) {
       final candidate = asUtc.subtract(offset);
       if (offsetAt(timeZone, candidate) != offset) continue;
       if (first == null || candidate.isBefore(first)) first = candidate;
+      if (notBefore != null &&
+          !candidate.isBefore(notBefore) &&
+          (firstToCome == null || candidate.isBefore(firstToCome))) {
+        firstToCome = candidate;
+      }
     }
-    return first ?? asUtc.subtract(before);
+    return firstToCome ?? first ?? asUtc.subtract(before);
   }
 
   /// Whether the wall-clock time [wall] happens in [timeZone] (false in
