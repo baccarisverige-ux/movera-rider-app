@@ -86,8 +86,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   /// has seen more time pass.
   void _startResendWindow(Duration wait) {
     _ticker?.cancel();
-    final seconds =
-        wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
+    final seconds = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
     _secondsUntilResend = seconds;
     if (seconds <= 0) return;
     final now = widget.clock ?? DateTime.now;
@@ -233,7 +232,12 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 ),
               ),
             ),
-          if (AppEnv.current.authPreview) ...[
+          if (AppEnv.current.authPreview &&
+              !(const bool.fromEnvironment(
+                    'MOVERA_REAL_OTP',
+                    defaultValue: false,
+                  ) &&
+                  (phone?.startsWith('+33') ?? false))) ...[
             const SizedBox(height: 12),
             AuthNote(
               icon: Icons.info_outline_rounded,
@@ -287,7 +291,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       return const SizedBox(
         height: 20,
         width: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.ink),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AuthColors.deepGreen,
+        ),
       );
     }
     if (wait > 0) {
@@ -326,7 +333,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       ),
       child: Text(
         context.l10n.resendCode,
-        style: GoogleFonts.urbanist(fontSize: 13.5, fontWeight: FontWeight.w600),
+        style: GoogleFonts.urbanist(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/app/config/env.dart';
@@ -20,11 +21,10 @@ class ApiClient {
     AppEnv? env,
     TokenStore? tokens,
     Future<void> Function()? onSessionExpired,
-  })
-      : _env = env ?? AppEnv.current,
-        _client = client ?? _defaultClient(env ?? AppEnv.current),
-        _tokens = tokens,
-        _onSessionExpired = onSessionExpired;
+  }) : _env = env ?? AppEnv.current,
+       _client = client ?? _defaultClient(env ?? AppEnv.current),
+       _tokens = tokens,
+       _onSessionExpired = onSessionExpired;
 
   static http.Client _defaultClient(AppEnv env) {
     return env.allowsMockTransport
@@ -94,8 +94,28 @@ class ApiClient {
         if (access != null) 'Authorization': 'Bearer $access',
         if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       };
-      var response = await _request(method, uri, headers, body);
-      if (response.statusCode == 401 &&
+      // Real French OTP through the same-origin Codespaces proxy.
+      // All other demo APIs continue using InProcessMockClient.
+      final useRealOtp =
+          kIsWeb &&
+          _env.allowsMockTransport &&
+          const bool.fromEnvironment('MOVERA_REAL_OTP', defaultValue: false) &&
+          (path == '/api/v1/auth/otp/request' ||
+              path == '/api/v1/auth/otp/verify') &&
+          ((body?['phone'] as String?)?.startsWith('+33') ?? false);
+
+      var response = useRealOtp
+          ? await http
+                .post(
+                  Uri.base.resolve(path),
+                  headers: headers,
+                  body: jsonEncode(body ?? {}),
+                )
+                .timeout(_timeout)
+          : await _request(method, uri, headers, body);
+
+      if (!useRealOtp &&
+          response.statusCode == 401 &&
           access?.isNotEmpty == true &&
           !_signInPaths.contains(path)) {
         // An OTP rejection is not an expired session. Only requests that
@@ -142,7 +162,10 @@ class ApiClient {
       if (decoded is Map<String, dynamic>) return decoded;
       return {'data': decoded, 'requestId': requestId};
     } on TimeoutException {
-      AppLog.error('api.timeout', extra: {'path': path, 'requestId': requestId});
+      AppLog.error(
+        'api.timeout',
+        extra: {'path': path, 'requestId': requestId},
+      );
       throw ApiError(
         code: 'TIMEOUT',
         message: 'Request timed out',
@@ -157,24 +180,22 @@ class ApiClient {
     Map<String, String> headers,
     Map<String, dynamic>? body,
   ) async {
-      if (method == 'GET') {
-        return _getWithRetry(uri, headers);
-      } else if (method == 'DELETE') {
-        return _client
-            .send(
-              http.Request('DELETE', uri)..headers.addAll(headers),
-            )
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
-      } else {
-        final request = http.Request(method, uri)
-          ..headers.addAll(headers)
-          ..body = jsonEncode(body ?? {});
-        return _client
-            .send(request)
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
-      }
+    if (method == 'GET') {
+      return _getWithRetry(uri, headers);
+    } else if (method == 'DELETE') {
+      return _client
+          .send(http.Request('DELETE', uri)..headers.addAll(headers))
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
+    } else {
+      final request = http.Request(method, uri)
+        ..headers.addAll(headers)
+        ..body = jsonEncode(body ?? {});
+      return _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
+    }
   }
 
   Future<_Refresh> _refreshAccess(String failedAccess) async {
@@ -200,11 +221,16 @@ class ApiClient {
     final refresh = await _tokens?.readRefresh();
     if (refresh == null || refresh.isEmpty) return const _Refresh.rejected();
     try {
-      final response = await _client.post(
-        Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refresh}),
-      ).timeout(_timeout);
+      final response = await _client
+          .post(
+            Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'refreshToken': refresh}),
+          )
+          .timeout(_timeout);
       final status = response.statusCode;
       if (status == 400 || status == 401 || status == 403) {
         return const _Refresh.rejected();
@@ -251,7 +277,9 @@ class ApiClient {
         final rawCode = decoded['code'] ?? decoded['error'];
         final rawMessage = decoded['message'];
         final rawReason = decoded['reason'];
-        if (rawCode is String && rawCode.trim().isNotEmpty) code = rawCode.trim();
+        if (rawCode is String && rawCode.trim().isNotEmpty) {
+          code = rawCode.trim();
+        }
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
         }
