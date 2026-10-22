@@ -100,6 +100,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'menuAboutArticle': l.menuAboutArticle,
   'accountSignOut': l.accountSignOut,
   'accountSignOutBody': l.accountSignOutBody,
+  'signingOut': l.signingOut,
   'planYourRide': l.planYourRide,
   'routeCouldNotReach': l.routeCouldNotReach,
   'tryAgain': l.tryAgain,
@@ -1740,6 +1741,8 @@ class _Exhaustive implements AppLocalizations {
   String get accountSignOut => '';
   @override
   String get accountSignOutBody => '';
+  @override
+  String get signingOut => '';
   @override
   String get planYourRide => '';
   @override

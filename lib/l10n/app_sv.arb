@@ -94,6 +94,7 @@
   "menuAboutArticle": "Movera är en reseapp för Sverige. Tillgängliga boknings- och betalningsalternativ visas när du beställer en resa.\n\nIkoner: Solar Icons av 480 Design (CC BY 4.0). Illustrationer: unDraw.",
   "accountSignOut": "Logga ut",
   "accountSignOutBody": "Ta bort dina uppgifter från den här enheten",
+  "signingOut": "Loggar ut…",
   "planYourRide": "Planera din resa",
   "routeCouldNotReach": "Kunde inte nå Movera. Kontrollera din anslutning och försök igen.",
   "tryAgain": "Försök igen",

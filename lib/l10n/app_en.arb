@@ -142,6 +142,7 @@
   "menuAboutArticle": "Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.",
   "accountSignOut": "Sign out",
   "accountSignOutBody": "Remove your data from this device",
+  "signingOut": "Signing out…",
   "planYourRide": "Plan your ride",
   "routeCouldNotReach": "Couldn't reach Movera. Check your connection and try again.",
   "tryAgain": "Try again",

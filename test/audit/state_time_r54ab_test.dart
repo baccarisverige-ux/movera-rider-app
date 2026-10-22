@@ -24,7 +24,9 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride_ge
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/rider_name.dart';
@@ -116,6 +118,16 @@ class _RecordingProfiles implements RiderProfileRepository {
     saved = next;
     throw StateError('offline');
   }
+}
+
+/// A sign-out that waits for the test to finish it.
+class _SlowSignOut extends AuthController {
+  _SlowSignOut() : super(auth: AuthRepository(tokens: MemoryTokenStore()));
+
+  final finish = Completer<void>();
+
+  @override
+  Future<void> signOut() => finish.future;
 }
 
 /// A map controller that only records camera moves.
@@ -407,5 +419,42 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(profiles.saved?.language, 'sv');
+  });
+
+  testWidgets('rider-u76: Sign out shows progress and blocks taps while it '
+      'runs', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    final auth = _SlowSignOut();
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                TextButton(
+                  onPressed: () => confirmAndSignOut(context, auth: auth),
+                  child: const Text('open'),
+                ),
+                TextButton(
+                  onPressed: () => taps++,
+                  child: const Text('book'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('sign-out-confirm')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(L10n.current.signingOut), findsOneWidget);
+    await tester.tap(find.text('book'), warnIfMissed: false);
+    expect(taps, 0);
+    await tester.pumpWidget(const SizedBox());
+    auth.finish.complete();
   });
 }
