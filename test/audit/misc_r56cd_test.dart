@@ -29,6 +29,7 @@ import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,6 +106,25 @@ class _Recorder implements SafetyRecorder {
     remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
   );
   return (store: store, local: local);
+}
+
+/// A route animation that counts its live status listeners.
+class _CountingAnimation extends Animation<double> {
+  int statusListeners = 0;
+
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
+  @override
+  void addStatusListener(AnimationStatusListener listener) => statusListeners++;
+  @override
+  void removeStatusListener(AnimationStatusListener listener) =>
+      statusListeners--;
+  @override
+  AnimationStatus get status => AnimationStatus.forward;
+  @override
+  double get value => 0.5;
 }
 
 /// Lets queued async work run until [done] holds (no real-time wait).
@@ -369,5 +389,33 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rider-j8-14: transition frames do not leak listeners', (
+    tester,
+  ) async {
+    final route = RightToLeftTransition<void>(const SizedBox());
+    final animation = _CountingAnimation();
+    final frame = ValueNotifier(0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<int>(
+          valueListenable: frame,
+          builder: (context, _, _) => route.transitionsBuilder(
+            context,
+            animation,
+            kAlwaysDismissedAnimation,
+            const SizedBox(),
+          ),
+        ),
+      ),
+    );
+    for (var i = 1; i <= 5; i++) {
+      frame.value = i;
+      await tester.pump();
+    }
+    expect(animation.statusListeners, lessThanOrEqualTo(1));
+    await tester.pumpWidget(const SizedBox());
+    expect(animation.statusListeners, 0);
   });
 }
