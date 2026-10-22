@@ -70,19 +70,28 @@ class MonthRideStats {
     var count = 0;
     var electric = 0;
     final totals = <String, Money>{};
+    void add(Money price) {
+      final total = totals[price.currency];
+      totals[price.currency] = total == null ? price : total + price;
+    }
+
     for (final ride in rides) {
-      if (!ride.status.isCompleted) continue;
       final at = ride.pickupWallTime;
       if (at.year != now.year || at.month != now.month) continue;
+      if (!ride.status.isCompleted) {
+        // rider-r5-15: not a completed ride, but an ended-early trip's
+        // charge or a cancel fee is money the rider paid this month.
+        final paid = ride.chargedFare ?? ride.cancellationFee;
+        if (paid != null && paid.isPositive) add(paid);
+        continue;
+      }
       count++;
       if (ride.categoryId == 'electric') electric++;
       weeks[(at.day - 1) ~/ 7]++;
       // A trip whose payment failed was taken but not paid: it is a ride,
       // not money spent.
       if (ride.paymentFailed) continue;
-      final price = Money.fromLegacyMajor(ride.price, ride.currency);
-      final total = totals[price.currency];
-      totals[price.currency] = total == null ? price : total + price;
+      add(Money.fromLegacyMajor(ride.price, ride.currency));
     }
     return MonthRideStats(
       month: DateTime(now.year, now.month),
