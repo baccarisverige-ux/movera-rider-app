@@ -66,6 +66,12 @@ enum SearchCancelResult {
   /// search resyncs and the rider decides again.
   stale,
 
+  /// rider-u98: the server could not be reached and the cancel could not
+  /// be written to the outbox either (storage refused it), so nothing
+  /// would retry it. Nothing was committed; the search goes on and the
+  /// rider can try again.
+  unsent,
+
   /// Nothing to do: already cancelled, finished, matched or disposed.
   ignored,
 }
@@ -1264,12 +1270,32 @@ class FindingDriverController {
   }) async {
     // R-O2: the trip version this search last saw, kept with the entry so
     // a retry is the same request (same key, same body).
-    final entry = await PendingCancelStore.enqueue(
-      rideId: id,
-      reasonId: reasonId,
-      expectedVersion: ride.projectionVersionOf(id),
-      whileSearching: true,
-    );
+    PendingCancel entry;
+    var outboxed = true;
+    try {
+      entry = await PendingCancelStore.enqueue(
+        rideId: id,
+        reasonId: reasonId,
+        expectedVersion: ride.projectionVersionOf(id),
+        whileSearching: true,
+      );
+    } catch (error) {
+      // rider-u98: storage refused the entry (e.g. a full web
+      // localStorage). The server is still asked, with a key for this
+      // attempt only.
+      AppLog.warning(
+        'ride.cancel.outbox_write_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+      outboxed = false;
+      entry = PendingCancel(
+        rideId: id,
+        reasonId: reasonId,
+        idempotencyKey: newIdempotencyKey('ride-cancel'),
+        expectedVersion: ride.projectionVersionOf(id),
+        whileSearching: true,
+      );
+    }
     // One in-session retry, only for an unreachable server: a refusal is
     // final and is never sent again.
     for (var attempt = 1; attempt <= 2; attempt += 1) {
@@ -1279,7 +1305,7 @@ class FindingDriverController {
           body: entry.body(reasonId),
           idempotencyKey: entry.idempotencyKey,
         );
-        await PendingCancelStore.remove(id);
+        await _forgetOutboxEntry(id);
         ride.observeProjection(response);
         return SearchCancelResult.confirmed;
       } catch (error) {
@@ -1289,7 +1315,7 @@ class FindingDriverController {
         );
         if (isPermanentCancelFailure(error)) {
           // D-020: retrying can never succeed, so the entry leaves the outbox.
-          await PendingCancelStore.remove(id);
+          await _forgetOutboxEntry(id);
           ride.observeProjection((error as ApiError).projection);
           // R-O3: already cancelled by the rider is what they asked for.
           if (alreadyCancelledByRider(error)) {
@@ -1312,8 +1338,21 @@ class FindingDriverController {
       }
     }
     // Still unreachable: the outbox entry, with its key, stays for the
-    // reconnect / next-launch flush.
-    return SearchCancelResult.queued;
+    // reconnect / next-launch flush. Without one nothing would retry it.
+    return outboxed ? SearchCancelResult.queued : SearchCancelResult.unsent;
+  }
+
+  /// Drops [id]'s outbox entry; a storage failure does not undo the
+  /// server's answer.
+  static Future<void> _forgetOutboxEntry(String id) async {
+    try {
+      await PendingCancelStore.remove(id);
+    } catch (error) {
+      AppLog.warning(
+        'ride.cancel.outbox_remove_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
   }
 
   /// A restored search whose cancel is still in the outbox shows it as

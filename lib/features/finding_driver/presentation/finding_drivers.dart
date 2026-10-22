@@ -713,7 +713,14 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
     // A system back can close the sheet while the request is still out;
     // the server's answer decides, not the sheet.
-    final result = request == null ? null : await request;
+    SearchCancelResult? result;
+    try {
+      result = request == null ? null : await request;
+    } catch (_) {
+      // rider-u98: a failed request must not leave the sheet marked open,
+      // which would hold every later navigation back.
+      result = SearchCancelResult.unsent;
+    }
     if (!mounted) {
       _cancelSheetOpen = false;
       return;
@@ -736,6 +743,8 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice(context.l10n.cancelNoLonger);
+    } else if (result == SearchCancelResult.unsent) {
+      _showCancelNotice(context.l10n.routeCouldNotReach);
     } else if (result == SearchCancelResult.stale) {
       // R-O2 (owner's words): the trip changed just before the tap.
       _showCancelNotice(rideJustChangedMessage);

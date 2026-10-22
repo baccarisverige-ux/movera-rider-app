@@ -189,4 +189,25 @@ void main() {
     await controller.sendCancelReason('wait_too_long');
     expect(posts, contains('/api/v1/trips/ride_u102/cancel-reason'));
   });
+
+  test('rider-u98: a cancel the outbox cannot store is still sent and does '
+      'not jam Finding', () async {
+    // Storage that throws on every outbox read and write.
+    SharedPreferences.setMockInitialValues({'movera_pending_cancels': 'x'});
+    var cancels = 0;
+    final controller = _finding(
+      _api((request) async {
+        if (request.url.path.endsWith('/cancel')) {
+          cancels++;
+          return _json({'code': 'unavailable'}, 503);
+        }
+        return _json({'code': 'OK', 'vehicles': []});
+      }),
+      'ride_u98',
+      DateTime.now(),
+    );
+    expect(await controller.cancelSearch(), SearchCancelResult.unsent);
+    expect(cancels, greaterThan(0));
+    expect(controller.cancelInFlight, isFalse);
+  });
 }
