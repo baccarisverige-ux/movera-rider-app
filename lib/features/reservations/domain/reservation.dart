@@ -197,7 +197,17 @@ class ReservationPriceChange {
 
   double get delta => next - previous;
 
-  bool get unchanged => delta.abs() < 0.5;
+  /// rider-j8-4: no change at the precision the difference is shown in.
+  /// SEK is shown in whole kronor, so under half a krona reads "0 kr";
+  /// EUR and TND are shown to the cent and the millime, so any change of
+  /// a minor unit or more is a real change.
+  bool get unchanged {
+    if (Money.fromLegacyMajor(0, currency).currency == 'SEK') {
+      return delta.abs() < 0.5;
+    }
+    return Money.fromLegacyMajor(next, currency).amountMinor ==
+        Money.fromLegacyMajor(previous, currency).amountMinor;
+  }
 
   String get summary {
     if (unchanged) return L10n.current.resPriceUnchanged;
