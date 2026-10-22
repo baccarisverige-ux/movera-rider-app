@@ -343,4 +343,12 @@ void main() {
       ),
     );
   });
+
+  test('rider-64: the day after the spring-forward day is Tomorrow', () {
+    final monday = DateTime(2026, 3, 30, 10);
+    expect(
+      ReservationFormat.cardDate(monday, now: DateTime(2026, 3, 29, 12)),
+      startsWith(L10n.current.tomorrowDate('').trim()),
+    );
+  });
 }
