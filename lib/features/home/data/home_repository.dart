@@ -88,19 +88,32 @@ class HomeAddressRepository {
   }
 
   Future<void> save(HomeAddressSnapshot data) async {
-    final prefs = await PreferencesStore.load();
-    if (data.home == null) {
-      await prefs.remove('movera_home_address');
-    } else {
-      await prefs.setString('movera_home_address', data.home!);
+    try {
+      final prefs = await PreferencesStore.load();
+      if (data.home == null) {
+        await prefs.remove('movera_home_address');
+      } else {
+        await prefs.setString('movera_home_address', data.home!);
+      }
+      if (data.work == null) {
+        await prefs.remove('movera_work_address');
+      } else {
+        await prefs.setString('movera_work_address', data.work!);
+      }
+      await prefs.setStringList('movera_recent_addresses', data.recent);
+      await prefs.setString('movera_saved_places', jsonEncode(data.places));
+    } catch (error) {
+      // uat-r1: Home awaits this write right after a destination is
+      // chosen. A refused write (iOS Safari: quota, Private Browsing on
+      // older iOS, "Block All Cookies") threw out of that step and Select
+      // Ride never opened. The addresses stay in memory for this session;
+      // the device copy is best effort.
+      AppLog.warning(
+        'home.saved_places_write_refused',
+        extra: {'error': error.toString()},
+      );
+      return;
     }
-    if (data.work == null) {
-      await prefs.remove('movera_work_address');
-    } else {
-      await prefs.setString('movera_work_address', data.work!);
-    }
-    await prefs.setStringList('movera_recent_addresses', data.recent);
-    await prefs.setString('movera_saved_places', jsonEncode(data.places));
     _changes.add(null);
   }
 }

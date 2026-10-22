@@ -45,7 +45,11 @@ jobs:
             exit 1
           fi
 
-          if grep -R --line-number --fixed-strings 'router.project-osrm.org' lib web; then
+          # Owner decision 11 (2026-10-22): the demo build may ask the public
+          # road router from one web-only file, like the driver app's demo.
+          # Release flavors never reach it (road_route_public_fallback_test).
+          if grep -R --line-number --fixed-strings 'router.project-osrm.org' lib web \
+            | grep -v '^lib/core/maps/web_road_route.dart:'; then
             echo 'Rider still calls uncontrolled public routing provider'
             exit 1
           fi
