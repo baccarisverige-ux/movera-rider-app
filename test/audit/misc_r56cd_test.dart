@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
@@ -11,7 +13,9 @@ import 'package:movera_rider/features/reservations/presentation/home_reservation
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
+import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
@@ -52,6 +56,44 @@ Future<ReservationController> _reservations(ReservationStorage storage) async {
   );
   await c.create(_draft());
   return c;
+}
+
+/// A microphone that captures [path] (null: nothing was written).
+class _Recorder implements SafetyRecorder {
+  String? path = '/device/safety/take.m4a';
+  bool live = false;
+
+  @override
+  bool get supported => true;
+  @override
+  Future<bool> requestPermission() async => true;
+  @override
+  Future<void> start(String recordingId) async => live = true;
+  @override
+  Future<String?> stop() async {
+    live = false;
+    return path;
+  }
+
+  @override
+  Future<void> cancel() async => live = false;
+  @override
+  Future<void> delete(String path) async {}
+}
+
+/// A Safety store on the in-process stand-in server, with its cache.
+({SafetyStore store, PreferencesSafetyLocalDataSource local}) _store({
+  bool offline = false,
+}) {
+  final local = PreferencesSafetyLocalDataSource(memoryOnly: true);
+  final client = offline
+      ? MockClient((_) async => throw http.ClientException('offline'))
+      : InProcessMockClient();
+  final store = SafetyStore(
+    local: local,
+    remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
+  );
+  return (store: store, local: local);
 }
 
 /// A fresh Safety Kit on the in-process stand-in server.
@@ -151,5 +193,24 @@ void main() {
       RideCheckOpenResult.shown,
     );
     expect(rideCheck.session!.trigger, RideCheckTrigger.longStop);
+  });
+
+  test('rider-u207: Kit audio starts offline and keeps one entry', () async {
+    resetSafetyMockForProcess();
+    final online = _store();
+    await online.store.load();
+    await SafetyAudioService(
+      recorder: _Recorder(),
+      store: online.store,
+    ).start(rideId: 'ride_a');
+    expect((await online.local.load()).recordings, hasLength(1));
+
+    final offline = _store(offline: true);
+    final audio = SafetyAudioService(
+      recorder: _Recorder(),
+      store: offline.store,
+    );
+    await audio.start(rideId: 'ride_a');
+    expect(audio.isRecording, isTrue);
   });
 }

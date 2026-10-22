@@ -593,21 +593,32 @@ class SafetyStore {
     return next;
   }
 
-  Future<AudioRecording> initAudio(String rideId) {
+  /// rider-u207: the take is registered on this phone first, so the
+  /// microphone starts offline too; the server is told best effort. Its
+  /// confirmed recording (with the server's id) replaces the local entry,
+  /// which used to stay behind with endedAt null.
+  Future<AudioRecording> initAudio(String rideId) async {
+    await _ensure();
     final rec = AudioRecording(
       id: 'aud_${newRequestId()}',
       rideId: rideId,
       createdAt: DateTime.now().toUtc(),
       uploadStatus: AudioUploadStatus.localOnly,
     );
-    return _write(
-      () => _remote.initAudio(rideId: rideId),
-      rec,
-      (value) {
-        _cache.recordings = [..._cache.recordings.where((r) => r.id != value.id), value];
-      },
-      keep: () => _keepRecording(rec.id),
-    );
+    _cache.recordings = [..._cache.recordings, rec];
+    await _local.save(_cache);
+    try {
+      final confirmed = await _remote.initAudio(rideId: rideId);
+      _putRecording(rec.id, confirmed);
+      await _local.save(_cache);
+      return confirmed;
+    } catch (error) {
+      AppLog.warning(
+        'safety.audio.init_unconfirmed',
+        extra: {'error': '$error'},
+      );
+      return rec;
+    }
   }
 
   Future<AudioRecording> completeAudio(AudioRecording recording) {
@@ -640,6 +651,21 @@ class SafetyStore {
           durationMs: recording.durationMs,
           endedAt: recording.endedAt,
         ));
+  }
+
+  /// Replaces the recording kept as [id] with [next] (its id may differ).
+  void _putRecording(String id, AudioRecording next) {
+    final kept = [
+      for (final item in _cache.recordings)
+        if (item.id != next.id || item.id == id) item,
+    ];
+    final at = kept.indexWhere((item) => item.id == id);
+    if (at < 0) {
+      kept.add(next);
+    } else {
+      kept[at] = next;
+    }
+    _cache.recordings = kept;
   }
 
   Future<void> deleteAudio(AudioRecording recording) async {
