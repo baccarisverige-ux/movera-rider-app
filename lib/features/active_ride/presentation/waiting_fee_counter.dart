@@ -15,7 +15,8 @@ class WaitingFeeState {
   });
 
   /// The waiting clock at [now] for a driver waiting since [since], with
-  /// [freeWaitMin] free minutes and then [perMin] for each whole minute.
+  /// [freeWaitMin] free minutes and then [perMin] a minute, counted by the
+  /// second as the driver app charges it (rider-r5-1).
   factory WaitingFeeState.at({
     required DateTime since,
     required DateTime now,
@@ -37,7 +38,10 @@ class WaitingFeeState {
     return WaitingFeeState._(
       freeLeft: Duration.zero,
       over: over,
-      fee: Money(perMin.amountMinor * over.inMinutes, perMin.currency),
+      fee: Money(
+        (perMin.amountMinor * over.inSeconds / 60).round(),
+        perMin.currency,
+      ),
     );
   }
 
@@ -55,7 +59,7 @@ class WaitingFeeState {
   /// How long past the free wait.
   final Duration over;
 
-  /// The waiting fee so far: [over]'s whole minutes at the per-minute rate.
+  /// The waiting fee so far: [over]'s seconds at the per-minute rate.
   final Money fee;
 
   bool get charging => freeLeft == Duration.zero;

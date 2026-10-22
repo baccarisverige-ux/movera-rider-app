@@ -1,4 +1,3 @@
-import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
@@ -46,7 +45,7 @@ class ScheduledRideBooking {
   static DateTime pickupInstant(DateTime wall, String? timeZone) =>
       timeZone == null
       ? DateTime(wall.year, wall.month, wall.day, wall.hour, wall.minute)
-      : ZoneClock.toUtc(wall, timeZone);
+      : PickupSchedule(timeZone).toUtc(wall);
 
   static Future<Reservation> confirm({
     required ReservationController reservations,

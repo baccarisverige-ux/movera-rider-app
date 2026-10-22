@@ -67,6 +67,9 @@ class SyncedProfileRepository
   /// True when the last saved profile has not reached the server yet.
   bool get syncPending => _syncPending;
 
+  /// True once the server copy of this rider's profile has been read.
+  bool get serverKnown => _serverKnown;
+
   @override
   RiderProfileData get current => _cache.current;
 

@@ -80,6 +80,7 @@ class SelectRide extends StatefulWidget {
     required this.pickupPosition,
     required this.destinationPosition,
     this.stops = const <String>[],
+    this.stopPoints = const <GeoPoint?>[],
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
     this.initialScheduledFor,
@@ -152,6 +153,11 @@ class SelectRide extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final List<String> stops;
+
+  /// rider-r5-36: the point of each of [stops] the rider picked (a
+  /// suggestion or a map pin), same order; null where it must be located
+  /// from its address.
+  final List<GeoPoint?> stopPoints;
   final BookingMode bookingMode;
   final bool lockBookingMode;
   final DateTime? initialScheduledFor;
@@ -1562,9 +1568,20 @@ class _SelectRideState extends State<SelectRide>
     final located = <RouteStop>[];
     final notFound = <String>[];
     final failed = <String>[];
-    for (final address in widget.stops) {
-      final clean = address.trim();
+    for (var i = 0; i < widget.stops.length; i++) {
+      final clean = widget.stops[i].trim();
       if (clean.isEmpty) continue;
+      final point = i < widget.stopPoints.length ? widget.stopPoints[i] : null;
+      if (point != null) {
+        located.add(
+          RouteStop(
+            address: clean,
+            latitude: point.latitude,
+            longitude: point.longitude,
+          ),
+        );
+        continue;
+      }
       try {
         final found = await (widget.geocoding ?? AppScope.instance.geocoding)
             .forward(clean);

@@ -78,7 +78,7 @@ class PickupSchedule {
     // spring-forward night) moves forward by the gap (03:30), the instant
     // it is booked as, so what the rider sees is what the driver is sent
     // for; the picker says it moved.
-    return ZoneClock.wallTime(timeZone, toUtc(slot));
+    return ZoneClock.wallTime(timeZone, toUtc(slot, now));
   }
 
   bool isLegalPickup(DateTime dt, [DateTime? now]) =>
@@ -92,8 +92,14 @@ class PickupSchedule {
     return day;
   }
 
-  /// The UTC instant of the wall-clock pickup [wall] in [timeZone].
-  DateTime toUtc(DateTime wall) => ZoneClock.toUtc(wall, timeZone);
+  /// The UTC instant of the wall-clock pickup [wall] in [timeZone]; a wall
+  /// time the zone has twice is the copy still to come at [now]
+  /// (rider-r5-7).
+  DateTime toUtc(DateTime wall, [DateTime? now]) => ZoneClock.toUtc(
+    wall,
+    timeZone,
+    notBefore: now ?? StockholmSchedule.clock(),
+  );
 }
 
 /// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps); the

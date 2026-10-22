@@ -187,6 +187,8 @@ class FirebasePushService implements PushService {
   StreamSubscription<PushPayload>? _openedSub;
   String? _registeredToken;
   PushPayload? _initialMessage;
+  bool _initialRead = false;
+  bool _initialTaken = false;
 
   @override
   Stream<PushPayload> get foregroundMessages => _foreground.stream;
@@ -268,11 +270,23 @@ class FirebasePushService implements PushService {
         );
       },
     );
-    _initialMessage = await _gateway.getInitialMessage();
+    // rider-r5-40: the launch notification is read once. At cold start the
+    // coordinator already asked for it before register() ran, so a late one
+    // is routed as a tap instead of waiting for a read that never comes.
+    if (_initialRead) return;
+    _initialRead = true;
+    final initial = await _gateway.getInitialMessage();
+    if (initial == null) return;
+    if (_initialTaken) {
+      _opened.add(initial);
+    } else {
+      _initialMessage = initial;
+    }
   }
 
   @override
   Future<PushPayload?> takeInitialMessage() async {
+    _initialTaken = true;
     final initial = _initialMessage;
     _initialMessage = null;
     return initial;

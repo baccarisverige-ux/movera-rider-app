@@ -250,6 +250,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _modalHandoffInProgress = false;
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
+
+  /// rider-r5-26: which arrived sheet [_arrivedSheetShowing] is about. A
+  /// replaced driver's sheet closes after the new one opened; its close
+  /// must not clear the new one's state.
+  int _arrivedSheetToken = 0;
   bool _cancelling = false;
 
   /// rider-29: the cancel or end-early request is out. Back must not pop
@@ -585,13 +590,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _arrivalAnnounced = true;
     unawaited(_saveArrivalAnnounced(true));
     _arrivedSheetShowing = true;
+    final token = ++_arrivedSheetToken;
     unawaited(
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
-        onRoute: (route) => _arrivedSheetRoute = route,
+        // The builder runs again while a closed sheet animates out.
+        onRoute: (route) {
+          if (token == _arrivedSheetToken) _arrivedSheetRoute = route;
+        },
       ).whenComplete(() {
+        if (token != _arrivedSheetToken) return;
         _arrivedSheetShowing = false;
         _arrivedSheetRoute = null;
       }),
@@ -1145,6 +1155,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       RideCancelOutcome.rejected => context.l10n.cancelNoLonger,
       // R-O2 (owner's words): the trip changed just before the tap.
       RideCancelOutcome.stale => rideJustChangedMessage,
+      // rider-r5-21: neither sent nor queued; nothing will retry it.
+      RideCancelOutcome.unsent => context.l10n.cancelFailedTryAgain,
       _ =>
         context.l10n.cancelUnconfirmedOffline,
     };
@@ -1170,10 +1182,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     try {
       outcome = await _ride.cancelUntrackedRide(rideId: _rideId);
     } catch (_) {
-      // cancelUntrackedRide already logs; a transient failure stays queued
-      // in the pending-cancel outbox. Leaving is still what the rider chose.
+      // rider-r5-21: nothing is known to be sent or queued.
+      outcome = RideCancelOutcome.unsent;
     }
     if (!mounted) return;
+    // rider-r5-21: a cancel neither sent nor queued would leave the server
+    // ride and the driver going with nothing to retry it: stay and say so.
+    if (outcome == RideCancelOutcome.unsent) {
+      setState(() {
+        _leaving = false;
+        _cancelling = false;
+      });
+      _showCancelProblem(outcome!);
+      return;
+    }
     // rider-r4-25: a refused cancel is not queued; say so rather than
     // going Home as if the ride had been cancelled.
     if (outcome == RideCancelOutcome.rejected ||
