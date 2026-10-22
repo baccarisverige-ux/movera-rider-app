@@ -327,6 +327,33 @@ class InProcessMockClient extends http.BaseClient {
       }
       final endedEarly = saved['endedEarly'];
       if (endedEarly is List) _endedEarly.addAll(endedEarly.whereType<String>());
+      // rider-r5-2: the on-board distance (R-O1) and the accepted pickup
+      // (rider-u13) are server state too; a reload must not reset them.
+      final driven = saved['driven'];
+      if (driven is Map) {
+        for (final entry in driven.entries) {
+          final v = entry.value;
+          if (v is Map && v['lat'] is num && v['lng'] is num && v['meters'] is num) {
+            _driven.putIfAbsent('${entry.key}', () => (
+                  lat: (v['lat'] as num).toDouble(),
+                  lng: (v['lng'] as num).toDouble(),
+                  meters: (v['meters'] as num).toDouble(),
+                ));
+          }
+        }
+      }
+      final pickups = saved['acceptedPickup'];
+      if (pickups is Map) {
+        for (final entry in pickups.entries) {
+          final v = entry.value;
+          if (v is Map && v['lat'] is num && v['lng'] is num) {
+            _acceptedPickup.putIfAbsent('${entry.key}', () => (
+                  lat: (v['lat'] as num).toDouble(),
+                  lng: (v['lng'] as num).toDouble(),
+                ));
+          }
+        }
+      }
       _savedRides = raw;
     } catch (error) {
       AppLog.warning('mock.rides_restore_failed', extra: {'error': '$error'});
@@ -347,6 +374,16 @@ class InProcessMockClient extends http.BaseClient {
             if (_acceptedAt[id] case final at?) id: WireTime.format(at),
         },
         'endedEarly': [for (final id in recent) if (_endedEarly.contains(id)) id],
+        'driven': {
+          for (final id in recent)
+            if (_driven[id] case final d?)
+              id: {'lat': d.lat, 'lng': d.lng, 'meters': d.meters},
+        },
+        'acceptedPickup': {
+          for (final id in recent)
+            if (_acceptedPickup[id] case final p?)
+              id: {'lat': p.lat, 'lng': p.lng},
+        },
       });
       if (encoded == _savedRides) return;
       _savedRides = encoded;
