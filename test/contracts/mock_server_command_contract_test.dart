@@ -297,7 +297,13 @@ void main() {
     final second =
         realtime.subscribe('ride-x').listen((e) => seen.add(e.status));
     addTearDown(second.cancel);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Waits on the assignment itself (10 ms steps, 5 s at most), so a
+    // loaded machine does not fail it before the 50 ms timer has run.
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (!seen.contains(RideStatus.driverAssigned) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
     expect(seen, contains(RideStatus.driverAssigned));
   });
 }
