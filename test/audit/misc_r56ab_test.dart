@@ -6,9 +6,11 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
+import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -120,5 +122,25 @@ void main() {
       await routing.roadLine(from: GeoPoint(59.30 + i * 0.0001, 18.06), to: pickup);
     }
     expect(roadCacheLengthOf(routing), roadCacheLimit);
+  });
+
+  test('rider-20: the home puck glides to a new fix over the window', () {
+    final engine = MotionEngine();
+    final t0 = DateTime(2026, 10, 22, 12);
+    LocationPoint fix(double lat, DateTime at) => LocationPoint(
+      point: GeoPoint(lat, 18.06),
+      timestamp: at,
+      accuracyMeters: 5,
+    );
+    engine.ingest(fix(59.3300, t0), now: t0);
+    // The next fix arrives a second later (1 Hz GPS).
+    final t1 = t0.add(const Duration(seconds: 1));
+    final start = engine.ingest(fix(59.3310, t1), now: t1)!;
+    final half = engine.poseAt(t1.add(MotionEngine.window ~/ 2))!;
+    final end = engine.poseAt(t1.add(MotionEngine.window))!;
+    expect(start.position.latitude, closeTo(59.3300, 1e-9));
+    expect(half.position.latitude, closeTo(59.3305, 1e-9));
+    expect(end.position.latitude, closeTo(59.3310, 1e-9));
+    expect(end.progress, 1);
   });
 }
