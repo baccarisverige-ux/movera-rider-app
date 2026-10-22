@@ -988,6 +988,44 @@
   "tripDetailsUnavailable": "Trip details unavailable",
   "tripDetailsUnavailableBody": "Your route, payment method and price will appear here when the ride record is available.",
   "pickupLocation": "Pickup location",
+  "droppedPinLabel": "Dropped pin · {lat}° {latSide} {lng}° {lngSide}",
+  "@droppedPinLabel": {
+    "description": "Pickup label for a map pin with no street address: the point's coordinates. No comma, so short place labels keep it whole.",
+    "placeholders": {
+      "lat": {
+        "type": "String",
+        "example": "59.32930"
+      },
+      "latSide": {
+        "type": "String",
+        "example": "N"
+      },
+      "lng": {
+        "type": "String",
+        "example": "18.06860"
+      },
+      "lngSide": {
+        "type": "String",
+        "example": "E"
+      }
+    }
+  },
+  "compassNorth": "N",
+  "@compassNorth": {
+    "description": "Abbreviation for north after a latitude."
+  },
+  "compassSouth": "S",
+  "@compassSouth": {
+    "description": "Abbreviation for south after a latitude."
+  },
+  "compassEast": "E",
+  "@compassEast": {
+    "description": "Abbreviation for east after a longitude."
+  },
+  "compassWest": "W",
+  "@compassWest": {
+    "description": "Abbreviation for west after a longitude."
+  },
   "destination": "Destination",
   "endedEarly": "Ended early",
   "totalPayment": "Total payment",

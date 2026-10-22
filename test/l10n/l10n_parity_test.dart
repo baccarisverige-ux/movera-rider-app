@@ -26,6 +26,8 @@ void main() {
       // Round 4 finish: names and words French shares with English.
       'rideCheckTitle', 'safetyContactsCount', 'rcHeadAccident',
       'supportMessages', 'polPromotionsTitle',
+      // R5.1: compass letters French shares with English.
+      'compassNorth', 'compassSouth', 'compassEast',
     },
     'sv': {
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',
@@ -33,6 +35,8 @@ void main() {
       'minLineBreak', 'genderMan', 'durMin', 'durH', 'durHMin',
       // Round 4 finish: names and words Swedish shares with English.
       'rideCheckTitle', 'relationshipPartner', 'supportEmailSubject',
+      // R5.1: compass letters Swedish shares with English.
+      'compassNorth', 'compassSouth',
     },
   };
 

@@ -508,6 +508,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
+  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'compassNorth': l.compassNorth,
+  'compassSouth': l.compassSouth,
+  'compassEast': l.compassEast,
+  'compassWest': l.compassWest,
   'destination': l.destination,
   'endedEarly': l.endedEarly,
   'totalPayment': l.totalPayment,
@@ -1412,6 +1417,7 @@ const messagePlaceholders = <String, List<String>>{
   'routePickupTooFar': ['meters'],
   'endedEarlyBodyAmount': ['amount'],
   'youPayAmount': ['amount'],
+  'droppedPinLabel': ['lat', 'latSide', 'lng', 'lngSide'],
   'kmDriven': ['km'],
   'tipName': ['name'],
   'tipSelected': ['amount'],
@@ -2534,6 +2540,16 @@ class _Exhaustive implements AppLocalizations {
   String get tripDetailsUnavailableBody => '';
   @override
   String get pickupLocation => '';
+  @override
+  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  @override
+  String get compassNorth => '';
+  @override
+  String get compassSouth => '';
+  @override
+  String get compassEast => '';
+  @override
+  String get compassWest => '';
   @override
   String get destination => '';
   @override

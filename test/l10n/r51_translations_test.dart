@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
@@ -20,6 +21,7 @@ import 'package:movera_rider/features/notifications/data/notifications_repositor
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -368,6 +370,16 @@ void main() {
         await tester.pump();
         expect(find.text(L10n.current.cardCheckDetails), findsOneWidget);
         expect(find.text(CardInput.brandError), findsNothing);
+      });
+
+      test('rider-54: the dropped pin pickup label is translated', () {
+        L10n.use(code);
+        expect(
+          droppedPinPickupAddress(const LatLng(59.3293, -18.0686)),
+          code == 'fr'
+              ? 'Repère placé · 59.32930° N 18.06860° O'
+              : 'Placerad nål · 59.32930° N 18.06860° V',
+        );
       });
     });
   }
