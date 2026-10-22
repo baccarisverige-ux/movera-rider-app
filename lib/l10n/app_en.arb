@@ -1402,6 +1402,17 @@
       }
     }
   },
+  "resWasScheduledFor": "This ride was scheduled for {date} at {time}",
+  "@resWasScheduledFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "resKeepReady": "We'll keep your reservation ready for {date} at {time}.",
   "@resKeepReady": {
     "placeholders": {
@@ -2571,6 +2582,7 @@
   "scheduleHeaderCaps": "SCHEDULE",
   "resCancelledReservation": "Cancelled reservation",
   "resUpcomingRide": "Upcoming ride",
+  "resCompletedRide": "Completed ride",
   "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",
   "@resSeatsPayment": {
     "placeholders": {

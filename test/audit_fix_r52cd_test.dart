@@ -18,6 +18,7 @@ import 'package:movera_rider/features/reservations/data/local_reservation_reposi
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
+import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -263,5 +264,32 @@ void main() {
 
     expect(find.text('Maintenant'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+  });
+
+  testWidgets('rider-j8-2: a completed reservation is not headed "Upcoming '
+      'ride" or "reserved for"', (tester) async {
+    clock = DateTime(2026, 10, 22, 8);
+    final controller = reservations();
+    final ride = await book(controller, DateTime(2026, 10, 22, 10));
+    await controller.applyDriverAssignment(
+      ride.reservationId,
+      driver: const ReservationDriver(firstName: 'Amina', rating: 4.9),
+    );
+    await controller.update(
+      ride.reservationId,
+      const ReservationPatch(status: ReservationStatus.completed),
+    );
+
+    await pumpPage(
+      tester,
+      UpcomingReservationPage(
+        reservationId: ride.reservationId,
+        controller: controller,
+      ),
+    );
+
+    expect(find.text('Upcoming ride'), findsNothing);
+    expect(find.textContaining('Your ride is reserved for'), findsNothing);
+    expect(find.text('Completed ride'), findsOneWidget);
   });
 }

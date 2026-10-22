@@ -717,6 +717,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'reasonDriverEnded': l.reasonDriverEnded,
   'reasonRiderCancelledLive': l.reasonRiderCancelledLive,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
+  'resWasScheduledFor': l.resWasScheduledFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
   'now': l.now,
@@ -1288,6 +1289,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'scheduleHeaderCaps': l.scheduleHeaderCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
+  'resCompletedRide': l.resCompletedRide,
   'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
   'resDriverOnTheWay': l.resDriverOnTheWay,
   'resScheduledFor': l.resScheduledFor,
@@ -1457,6 +1459,7 @@ const messagePlaceholders = <String, List<String>>{
   'thisSession': ['place'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
+  'resWasScheduledFor': ['date', 'time'],
   'resKeepReady': ['date', 'time'],
   'durDaysHours': ['days', 'hours'],
   'durDays': ['days'],
@@ -2985,6 +2988,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String resReservedFor(String date, String time) => '';
   @override
+  String resWasScheduledFor(String date, String time) => '';
+  @override
   String resKeepReady(String date, String time) => '';
   @override
   String get resNotifyAssigned => '';
@@ -4126,6 +4131,8 @@ class _Exhaustive implements AppLocalizations {
   String get resCancelledReservation => '';
   @override
   String get resUpcomingRide => '';
+  @override
+  String get resCompletedRide => '';
   @override
   String resSeatsPayment(int count, String payment) => '';
   @override

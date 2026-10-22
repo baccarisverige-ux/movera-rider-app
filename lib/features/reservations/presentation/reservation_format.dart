@@ -104,6 +104,12 @@ abstract final class ReservationFormat {
     return L10n.current.resReservedFor(weekdayDate(when), time(when));
   }
 
+  /// rider-j8-2: a completed or cancelled reservation is no longer
+  /// "reserved for" anything.
+  static String pastHeadline(DateTime when) {
+    return L10n.current.resWasScheduledFor(weekdayDate(when), time(when));
+  }
+
   static String scheduledReady(DateTime when) {
     return L10n.current.resKeepReady(weekdayDate(when), time(when));
   }

@@ -235,9 +235,12 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                // rider-j8-2: History opens past rides here too.
                 Text(
                   ride.status.isCancelled
                       ? context.l10n.resCancelledReservation
+                      : ride.status.isCompleted
+                      ? context.l10n.resCompletedRide
                       : context.l10n.resUpcomingRide,
                   style: reservationText(
                     28,
@@ -247,7 +250,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ReservationFormat.reservedHeadline(ride.pickupWallTime),
+                  ride.status.isUpcoming
+                      ? ReservationFormat.reservedHeadline(ride.pickupWallTime)
+                      : ReservationFormat.pastHeadline(ride.pickupWallTime),
                   style: reservationText(
                     13.5,
                     color: kReservationMuted,
@@ -336,7 +341,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 if (showDriver) ...[
                   const SizedBox(height: 14),
                   ReservationDriverCard(driver: ride.driver!),
-                ] else if (ride.driverAssigned) ...[
+                ] else if (ride.driverAssigned && ride.status.isUpcoming) ...[
                   const SizedBox(height: 14),
                   Text(
                     context.l10n.resDriverOnTheWay,
