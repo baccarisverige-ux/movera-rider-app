@@ -54,10 +54,16 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   /// rider-u222: an address was returned; a second lookup never pops too.
   bool _done = false;
 
-  void _finish(String address) {
+  void _finish(String address) => _leave(address);
+
+  /// rider-r5-35: every way out (an address, a saved chip, Close) leaves
+  /// once, and only while this picker is the top route. A lookup answering
+  /// after Close otherwise popped the screen under it (Add place).
+  void _leave([String? address]) {
     if (_done) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
     _done = true;
-    Navigator.maybePop(context, address);
+    Navigator.of(context).pop(address);
   }
 
   @override
@@ -164,9 +170,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   // rider-u224: a named 44 px target around the 26 px circle.
                   MoveraHitArea(
                     label: context.l10n.close,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                    },
+                    onTap: _leave,
                     child: Container(
                       height: ResSize.h * 26,
                       width: ResSize.w * 26,
@@ -366,7 +370,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
 
   void _onShortcutTap({required String subtitle}) {
     if (_isSaved(subtitle)) {
-      Navigator.maybePop(context, subtitle);
+      _leave(subtitle);
       return;
     }
     if (!widget.allowCreateShortcut) return;
