@@ -11,6 +11,11 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -125,6 +130,38 @@ class _CountingAnimation extends Animation<double> {
   AnimationStatus get status => AnimationStatus.forward;
   @override
   double get value => 0.5;
+}
+
+/// Books a ride on the in-process stand-in server and returns its id.
+Future<String> _book(ApiClient api) async {
+  const at = {
+    'pickupLat': 59.3293,
+    'pickupLng': 18.0686,
+    'destinationLat': 59.3326,
+    'destinationLng': 18.0649,
+  };
+  final quote =
+      (await api.post(
+            '/api/v1/quotes',
+            body: {'rideType': 'economy', ...at},
+          ))['quote']
+          as Map;
+  final created = await api.post(
+    '/api/v1/rides',
+    body: {
+      'categoryId': 'economy',
+      'fare': {'amountMinor': quote['totalMinor'], 'currency': 'SEK'},
+      'paymentMethodId': 'card',
+      'pickupAddress': 'Pickup',
+      'destinationAddress': 'Destination',
+      ...at,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+    },
+  );
+  return (created['ride'] as Map)['id'] as String;
 }
 
 /// Lets queued async work run until [done] holds (no real-time wait).
@@ -417,5 +454,39 @@ void main() {
     expect(animation.statusListeners, lessThanOrEqualTo(1));
     await tester.pumpWidget(const SizedBox());
     expect(animation.statusListeners, 0);
+  });
+
+  test('rider-r4-13: waiting.freeUntil / noShowAt are read and used', () async {
+    final server = InProcessMockClient();
+    final api = ApiClient(client: server);
+    final id = await _book(api);
+    await api.post('/api/v1/rides/$id/status', body: {'status': 'arrived'});
+    final realtime = ApiRideRealtime(
+      api: api,
+      pollInterval: const Duration(days: 1),
+    );
+    addTearDown(realtime.dispose);
+    final events = <RideRealtimeEvent>[];
+    final sub = realtime.subscribe(id).listen(events.add);
+    addTearDown(sub.cancel);
+    await realtime.reconnectAndResync(id);
+    await _until(() => events.isNotEmpty);
+    final waiting = server.rides[id]!['waiting'] as Map;
+    expect(
+      events.last.waitingFreeUntil,
+      WireTime.tryParse(waiting['freeUntil']),
+    );
+    expect(events.last.waitingNoShowAt, WireTime.tryParse(waiting['noShowAt']));
+
+    // The server's end of the free wait wins over the zone's minutes.
+    final since = DateTime.utc(2026, 10, 1, 9);
+    final state = WaitingFeeState.at(
+      since: since,
+      now: since.add(const Duration(minutes: 4)),
+      freeWaitMin: 5,
+      perMin: const Money(500),
+      freeUntil: since.add(const Duration(minutes: 3)),
+    );
+    expect(state.charging, isTrue);
   });
 }

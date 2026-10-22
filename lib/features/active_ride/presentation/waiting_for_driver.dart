@@ -384,6 +384,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           _tracking.waitingSince ?? (_waitingSinceFallback ??= DateTime.now()),
       freeWaitMin: terms.freeWaitMin,
       perMin: terms.perMin,
+      // rider-r4-13: the server's end of the free wait, when it says.
+      freeUntil: _tracking.waitingFreeUntil,
     );
   }
 
