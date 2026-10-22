@@ -157,6 +157,14 @@ String placeIconAssetFor(String type) {
   }
 }
 
+/// rider-42: what a custom place is called on screen. A place saved from
+/// Home without a name stores its type key as the title ("gym"); that is
+/// shown as the type's label in the app language.
+String savedPlaceTitle(String title, String type) {
+  final clean = title.trim();
+  return clean.isEmpty || clean == type ? placeLabelFor(type) : clean;
+}
+
 /// Label for a custom saved place type ("gym" → "Gym").
 String placeLabelFor(String type) {
   switch (type) {
@@ -245,7 +253,7 @@ class _CustomPlaceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: place.title,
+                      text: savedPlaceTitle(place.title, place.type),
                       color: _premiumInk,
                       fontSize: 10.5,
                       fontWeight: fwSemiBold,

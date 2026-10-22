@@ -8,7 +8,9 @@ import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_in
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -217,6 +219,32 @@ void main() {
           find.text(L10n.current.paymentMethodLine(L10n.current.moveraWallet)),
           findsOneWidget,
         );
+      });
+
+      testWidgets('rider-42: a place added from Home is named in the language', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          Scaffold(
+            body: SavedPlacesRow(
+              homeAddress: null,
+              workAddress: null,
+              savedPlaces: const [
+                SavedPlaceData(
+                  title: 'restaurant',
+                  type: 'restaurant',
+                  address: 'Sveavägen 1',
+                ),
+              ],
+              onUseSavedPlace: (address, {required target, customType}) {},
+              onAddPlace: noop,
+            ),
+          ),
+        );
+        expect(find.text(L10n.current.placeRestaurant), findsOneWidget);
+        expect(find.text('restaurant'), findsNothing);
       });
     });
   }
