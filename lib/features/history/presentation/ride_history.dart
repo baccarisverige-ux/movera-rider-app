@@ -110,6 +110,15 @@ class _RideHistoryState extends State<RideHistory> {
   }
 
   void _openSchedule() {
+    // rider-u124: Book for later is off in this build; say so at once.
+    if (!AppScope.instance.bookLaterAvailable) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(context.l10n.resErrUnavailable)),
+        );
+      return;
+    }
     Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
   }
 

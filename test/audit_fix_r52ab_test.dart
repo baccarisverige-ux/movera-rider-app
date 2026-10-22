@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -15,7 +16,6 @@ import 'package:movera_rider/features/finding_driver/data/finding_driver_reposit
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/destination_search/data/place_suggestion_repository.dart';
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -251,5 +251,19 @@ void main() {
 
     // Finding shows driverAlreadyAccepted only for driverAccepted.
     expect(await finding.cancelSearch(), SearchCancelResult.rejected);
+  });
+
+  test('rider-u124: a build without Book for later says so up front',
+      () async {
+    // As phase109_reservation_lifecycle_test: the real composition roots.
+    final staging = AppScope.composeForEnvironment(const AppEnv(
+      flavor: AppFlavor.staging,
+      apiBaseUrl: 'https://api.staging.movera.example',
+    ));
+    addTearDown(staging.disposeForTest);
+    // Home's and History's schedule entry points read this before they
+    // open the flow that could only end in 'isn't available yet'.
+    expect(staging.bookLaterAvailable, isFalse);
+    expect(AppScope.instance.bookLaterAvailable, isTrue, reason: 'demo');
   });
 }

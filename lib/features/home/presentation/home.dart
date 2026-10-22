@@ -1944,9 +1944,22 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// Book for later: the same Where to as Book now, then the date and time,
   /// then the categories in scheduled mode (Set pickup comes after Schedule).
-  Future<void> _openSchedule() => _runRouteFlow(
-    () => _showRouteAddressPicker(initialField: 'destination', scheduled: true),
-  );
+  Future<void> _openSchedule() async {
+    // rider-u124: switched off in this build: say so before the rider
+    // picks a destination, a date, a category and a pickup for nothing.
+    if (!AppScope.instance.bookLaterAvailable) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(context.l10n.resErrUnavailable)),
+        );
+      return;
+    }
+    await _runRouteFlow(
+      () =>
+          _showRouteAddressPicker(initialField: 'destination', scheduled: true),
+    );
+  }
 
   void _openPayment() => _openTab(HomeTabs.payment);
 
