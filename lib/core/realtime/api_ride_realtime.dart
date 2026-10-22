@@ -279,8 +279,12 @@ class ApiRideRealtime implements RideRealtime {
           // Contract v0.4.0: when the driver accepted (Q12) and when the
           // waiting clock started (Q42), as the server stamped them.
           if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],
-          if (_waitingArrivedAt(ride) case final String at)
+          if (_waiting(ride, 'arrivedAt') case final String at)
             waitingArrivedAtKey: at,
+          if (_waiting(ride, 'freeUntil') case final String at)
+            waitingFreeUntilKey: at,
+          if (_waiting(ride, 'noShowAt') case final String at)
+            waitingNoShowAtKey: at,
           if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
@@ -307,10 +311,11 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
-  /// `TripProjection.waiting.arrivedAt`, when the projection has one.
-  static String? _waitingArrivedAt(Map<String, dynamic> ride) {
+  /// `TripProjection.waiting.<field>` (arrivedAt, freeUntil, noShowAt),
+  /// when the projection has it.
+  static String? _waiting(Map<String, dynamic> ride, String field) {
     final waiting = ride['waiting'];
-    final at = waiting is Map ? waiting['arrivedAt'] : null;
+    final at = waiting is Map ? waiting[field] : null;
     return at is String ? at : null;
   }
 

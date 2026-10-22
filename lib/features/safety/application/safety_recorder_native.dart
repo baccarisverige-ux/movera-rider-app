@@ -91,7 +91,10 @@ class NativeSafetyRecorder
     _capturing = false;
     _background.release();
     final path = await recorder.stop();
-    if (path == null || !await File(path).exists() || await File(path).length() == 0) {
+    if (path == null || !await File(path).exists()) return null;
+    if (await File(path).length() == 0) {
+      // rider-u200: an empty take is not kept on the phone.
+      await File(path).delete();
       return null;
     }
     return path;

@@ -49,6 +49,12 @@ class DriverTrackingController {
   /// `waiting.arrivedAt`, else when this app first saw the driver waiting.
   DateTime? waitingSince;
 
+  /// rider-r4-13: the projection's `waiting.freeUntil` and
+  /// `waiting.noShowAt`, on the device clock; null when the server has not
+  /// said (the zone's free-wait minutes from [waitingSince] apply then).
+  DateTime? waitingFreeUntil;
+  DateTime? waitingNoShowAt;
+
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
@@ -109,6 +115,16 @@ class DriverTrackingController {
   static DateTime? _onDevice(DateTime? server) =>
       server == null ? null : ServerClock.toDevice(server);
 
+  void _takeWaitingDeadlines(RideRealtimeEvent event) {
+    waitingFreeUntil = _onDevice(event.waitingFreeUntil);
+    waitingNoShowAt = _onDevice(event.waitingNoShowAt);
+  }
+
+  void _clearWaitingDeadlines() {
+    waitingFreeUntil = null;
+    waitingNoShowAt = null;
+  }
+
   void start({
     required String rideId,
     MatchedDriver? initial,
@@ -160,6 +176,7 @@ class DriverTrackingController {
             // Back in dispatch: the next accept starts new clocks.
             acceptedAt = null;
             waitingSince = null;
+            _clearWaitingDeadlines();
           } else if (event.kind == RealtimeKind.driverCancelled &&
               event.status.isMatched) {
             // rider-u23: another driver already took the dropped trip; the
@@ -167,10 +184,12 @@ class DriverTrackingController {
             _replacedDriver = driver;
             acceptedAt = null;
             waitingSince = null;
+            _clearWaitingDeadlines();
           }
           acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
             waitingSince = _onDevice(event.waitingArrivedAt);
+            _takeWaitingDeadlines(event);
           } else if (event.status == RideStatus.driverWaiting) {
             waitingSince ??= DateTime.now();
           }
@@ -184,6 +203,7 @@ class DriverTrackingController {
           acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
             waitingSince = _onDevice(event.waitingArrivedAt);
+            _takeWaitingDeadlines(event);
           }
         }
         if (event.driver != null) driver = event.driver;

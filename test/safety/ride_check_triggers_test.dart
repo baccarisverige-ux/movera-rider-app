@@ -345,8 +345,9 @@ void main() {
         isNull,
       );
       final far = GeoPoint(_pickup.latitude + 0.02, _pickup.longitude + 0.045);
+      // 850 m in 30 s: driving (rider-r3-4: in 3 s it is a GPS jump).
       final hit = monitor.addSample(
-        RideCheckSample(point: far, at: _t0.add(const Duration(seconds: 3))),
+        RideCheckSample(point: far, at: _t0.add(const Duration(seconds: 30))),
       );
       expect(hit?.trigger, RideCheckTrigger.offRoute);
       expect(hit!.reason.distanceMeters, greaterThan(2000));

@@ -8,11 +8,13 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -70,7 +72,16 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   }
 
   Future<void> _onTick() async {
-    await _reservations.startLiveIfDue(now: _now);
+    try {
+      await _reservations.startLiveIfDue(now: _now);
+    } catch (error, stack) {
+      // rider-j8-6: same unguarded unawaited path; the next tick retries.
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        operation: 'reservation.start_live',
+      );
+    }
     if (mounted) setState(() {});
     _openLiveIfNeeded();
     _promptNoDriverIfNeeded();
@@ -128,7 +139,24 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
       final current = _reservations.byId(ride.reservationId);
       // A driver may have been assigned while the sheet was open.
       if (current == null || !_isNoDriverFound(current)) return;
-      await _reservations.resolveNoDriverFound(ride.reservationId);
+      try {
+        await _reservations.resolveNoDriverFound(ride.reservationId);
+      } catch (error, stack) {
+        // rider-j8-6: a failed save must not escape as an unhandled async
+        // error with nothing on screen; say so, like Upcoming's cancel.
+        AppScope.instance.crashes.record(
+          error,
+          stack,
+          operation: 'reservation.no_driver_resolve',
+        );
+        if (mounted) {
+          MoveraToast.show(
+            context,
+            reservationErrorMessage(error, ReservationAction.cancel),
+          );
+        }
+        return;
+      }
       if (!mounted) return;
       if (choice == _NoDriverChoice.rebook) widget.onRebook?.call();
     } finally {

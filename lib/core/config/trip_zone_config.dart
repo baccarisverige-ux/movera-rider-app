@@ -42,6 +42,22 @@ extension TripZoneConfig on RiderConfigRepository {
   /// Q9: the IANA time zone the pickup zone's config names
   /// (`RiderAppConfig.timeZone`); the built-in zone's when none can be
   /// read. Never throws.
+  /// rider-r4-10: the pickup zone's time zone and reservation horizon
+  /// (`booking.bookingHorizonDays`), from one document; the zone's
+  /// built-in seed when none can be read. Never throws.
+  Future<({String timeZone, int horizonDays})> bookingWindowAt(
+    double? lat,
+    double? lng,
+  ) async {
+    RiderAppConfig config;
+    try {
+      config = await forPickup(lat, lng);
+    } catch (_) {
+      config = SeedRiderConfigRepository.seedFor(RiderZones.at(lat, lng).id);
+    }
+    return (timeZone: config.timeZone, horizonDays: config.bookingHorizonDays);
+  }
+
   Future<String> timeZoneAt(double? lat, double? lng) async {
     try {
       return (await forPickup(lat, lng)).timeZone;

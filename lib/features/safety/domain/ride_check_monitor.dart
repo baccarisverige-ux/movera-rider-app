@@ -118,6 +118,15 @@ class RideCheckMonitor {
   RideCheckDetection? addSample(RideCheckSample sample) {
     final previous = _previous;
     if (previous != null && !sample.at.isAfter(previous.at)) return null;
+    // rider-r3-4: a fix faster than a car can go from the last one is a
+    // GPS jump. It is dropped whole (no stop-clock reset, no off-route
+    // hit). After two dropped in a row the kept fix is taken to be the odd
+    // one, so the next fix stands.
+    if (previous != null && _isJump(previous, sample) && _jumps < 2) {
+      _jumps++;
+      return null;
+    }
+    _jumps = 0;
     _previous = sample;
     _tripStartedAt ??= sample.at;
     _budget(sample);
@@ -269,6 +278,14 @@ class RideCheckMonitor {
       meters += _meters(stops[i - 1], stops[i]);
     }
     return GeoDistance.urbanSecondsForDistance(meters);
+  }
+
+  int _jumps = 0;
+
+  bool _isJump(RideCheckSample previous, RideCheckSample sample) {
+    final seconds = sample.at.difference(previous.at).inMilliseconds / 1000;
+    if (seconds < 0.5) return false;
+    return _meters(previous.point, sample.point) / seconds > plausibleSpeedMps;
   }
 
   bool _canFire(RideCheckTrigger trigger) =>

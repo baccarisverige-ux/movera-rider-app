@@ -25,19 +25,19 @@ class TopToBottomTransition<T> extends PageRouteBuilder<T> {
           reverseTransitionDuration: MoveraDurations.normal,
           transitionsBuilder: (context, animation, secondary, child) {
             if (MoveraMotion.reduced(context)) return child;
-            final curved = CurvedAnimation(
-              parent: animation,
+            return _Curved(
+              animation: animation,
               curve: MoveraCurves.open,
               reverseCurve: MoveraCurves.close,
-            );
-            return FadeTransition(
-              opacity: curved,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, -0.06),
-                  end: Offset.zero,
-                ).animate(curved),
-                child: child,
+              builder: (curved) => FadeTransition(
+                opacity: curved,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, -0.06),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                ),
               ),
             );
           },
@@ -58,14 +58,6 @@ class RideStageTransition<T> extends PageRouteBuilder<T> {
           reverseTransitionDuration: Duration.zero,
           transitionsBuilder: (context, animation, secondary, child) {
             if (MoveraMotion.reduced(context)) return child;
-            final curved = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            );
-            final veil = Tween<double>(
-              begin: 0.12,
-              end: 0,
-            ).animate(curved);
             // Never fade the incoming ride stage itself. Fading the whole
             // child exposes the previous stage underneath for a few frames,
             // which is especially visible after that stage has already parked
@@ -77,9 +69,13 @@ class RideStageTransition<T> extends PageRouteBuilder<T> {
                 const ColoredBox(color: Color(0xFFF6F5F1)),
                 child,
                 IgnorePointer(
-                  child: FadeTransition(
-                    opacity: veil,
-                    child: const ColoredBox(color: Color(0xFFF6F5F1)),
+                  child: _Curved(
+                    animation: animation,
+                    curve: Curves.easeOutCubic,
+                    builder: (curved) => FadeTransition(
+                      opacity: Tween<double>(begin: 0.12, end: 0).animate(curved),
+                      child: const ColoredBox(color: Color(0xFFF6F5F1)),
+                    ),
                   ),
                 ),
               ],
@@ -96,12 +92,12 @@ class SwitchTransition<T> extends PageRouteBuilder<T> {
           reverseTransitionDuration: MoveraDurations.micro,
           transitionsBuilder: (context, animation, secondary, child) {
             if (MoveraMotion.reduced(context)) return child;
-            final curved = CurvedAnimation(
-              parent: animation,
+            return _Curved(
+              animation: animation,
               curve: MoveraCurves.open,
               reverseCurve: MoveraCurves.close,
+              builder: (curved) => FadeTransition(opacity: curved, child: child),
             );
-            return FadeTransition(opacity: curved, child: child);
           },
         );
 }
@@ -166,19 +162,19 @@ class RightToLeftTransition<T> extends PageRouteBuilder<T> {
 
 Widget _sheetCover(BuildContext context, Animation<double> animation, Widget child) {
   if (MoveraMotion.reduced(context)) return child;
-  final curved = CurvedAnimation(
-    parent: animation,
+  return _Curved(
+    animation: animation,
     curve: MoveraCurves.open,
     reverseCurve: MoveraCurves.close,
-  );
-  return FadeTransition(
-    opacity: curved,
-    child: SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, 0.08),
-        end: Offset.zero,
-      ).animate(curved),
-      child: child,
+    builder: (curved) => FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
     ),
   );
 }
@@ -190,18 +186,70 @@ Widget _sideCover(
   Offset begin,
 ) {
   if (MoveraMotion.reduced(context)) return child;
-  final curved = CurvedAnimation(
-    parent: animation,
+  return _Curved(
+    animation: animation,
     curve: MoveraCurves.open,
     reverseCurve: MoveraCurves.close,
-  );
-  return FadeTransition(
-    opacity: curved,
-    child: SlideTransition(
-      position: Tween<Offset>(begin: begin, end: Offset.zero).animate(curved),
-      child: child,
+    builder: (curved) => FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: begin, end: Offset.zero).animate(curved),
+        child: child,
+      ),
     ),
   );
+}
+
+/// rider-j8-14: one [CurvedAnimation] per transition, owned and disposed
+/// here. A transitions builder runs on every frame of the route's own
+/// animation and of every route above it; a CurvedAnimation made there
+/// added a status listener to the route's controller each frame that was
+/// never removed, and lost its curve direction on a mid-push pop.
+class _Curved extends StatefulWidget {
+  const _Curved({
+    required this.animation,
+    required this.curve,
+    this.reverseCurve,
+    required this.builder,
+  });
+
+  final Animation<double> animation;
+  final Curve curve;
+  final Curve? reverseCurve;
+  final Widget Function(Animation<double> curved) builder;
+
+  @override
+  State<_Curved> createState() => _CurvedState();
+}
+
+class _CurvedState extends State<_Curved> {
+  late CurvedAnimation _curved = _make();
+
+  CurvedAnimation _make() => CurvedAnimation(
+    parent: widget.animation,
+    curve: widget.curve,
+    reverseCurve: widget.reverseCurve,
+  );
+
+  @override
+  void didUpdateWidget(_Curved old) {
+    super.didUpdateWidget(old);
+    if (old.animation != widget.animation ||
+        old.curve != widget.curve ||
+        old.reverseCurve != widget.reverseCurve) {
+      _curved.dispose();
+      _curved = _make();
+    }
+  }
+
+  @override
+  void dispose() {
+    _curved.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_curved);
 }
 
 

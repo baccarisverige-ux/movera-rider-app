@@ -383,7 +383,13 @@ class ActiveRideController {
     EndedEarlyTrip? endedEarly,
     Money? cancellationFee,
   }) async {
-    final snapshot = await _store.historyCandidate();
+    final candidate = await _store.historyCandidate();
+    // rider-r4-8: an ended-early receipt's "Date and time" is when the trip
+    // ended, not the snapshot's last save (savedAt), as markCompleted does
+    // for a finished trip (rider-25).
+    final snapshot = endedEarly != null && candidate?.completedAt == null
+        ? candidate?.copyWith(completedAt: DateTime.now())
+        : candidate;
     final ride = AppScope.instance.ride;
     if (ride.status != RideStatus.cancelledByRider && !ride.status.isTerminal) {
       ride.localTransition(RideStatus.cancelledByRider);
@@ -666,9 +672,13 @@ class ActiveRideController {
   /// saved here. Best effort, never blocks the ride flow.
   /// rider-u35: [keepRideCheck] on completion, whose summary still shows
   /// an open Ride check card and its Stop control.
+  /// rider-u205: the ride's live trip share stops here too.
   void _stopSafetyRecording({bool keepRideCheck = false}) {
     unawaited(
       SafetyController.stopRecordingForRideEnd(keepRideCheck: keepRideCheck),
+    );
+    unawaited(
+      SafetyController.stopShareForRideEnd(AppScope.instance.ride.rideId),
     );
   }
 }

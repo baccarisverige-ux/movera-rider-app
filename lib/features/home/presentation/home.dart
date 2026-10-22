@@ -967,15 +967,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (scheduled) {
       if (!mounted) return null;
       // Q9: times are the pickup zone's local time, in the time zone its
-      // config names.
-      final timeZone = await AppScope.instance.riderConfig.timeZoneAt(
+      // config names; rider-r4-10: up to the zone's reservation horizon,
+      // as on the schedule screen.
+      final window = await AppScope.instance.riderConfig.bookingWindowAt(
         pickup.position.latitude,
         pickup.position.longitude,
       );
       if (!mounted) return null;
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
-        timeZone: timeZone,
+        timeZone: window.timeZone,
+        horizonDays: window.horizonDays,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,
