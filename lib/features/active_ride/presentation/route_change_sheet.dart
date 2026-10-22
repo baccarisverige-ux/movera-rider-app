@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// True for "Cash": the price is only shown, nothing is charged now.
@@ -129,9 +130,12 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           ? context.l10n.moreCash(_kr(diff))
           : context.l10n.lessCash(_kr(-diff));
     } else if (diff > 0) {
-      priceNote = context.l10n.moreCharged(_kr(diff), paymentMethod);
+      // rider-u231: the method's name in the app language.
+      priceNote =
+          context.l10n.moreCharged(_kr(diff), paymentLabelFor(paymentMethod));
     } else {
-      priceNote = context.l10n.lessReturned(_kr(-diff), paymentMethod);
+      priceNote =
+          context.l10n.lessReturned(_kr(-diff), paymentLabelFor(paymentMethod));
     }
     return _step(
       key: const ValueKey('route-change-step-route'),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -234,6 +236,59 @@ void main() {
           await tester.pump(const Duration(seconds: 2));
           debugDefaultTargetPlatformOverride = null;
         }
+      });
+
+      testWidgets('rider-u231: Waiting card names the method translated', (
+        tester,
+      ) async {
+        for (final (stored, shown) in [
+          ('Cash', () => L10n.current.payCash),
+          ('cash', () => L10n.current.payCash),
+          ('card:c_1', () => L10n.current.payCard),
+        ]) {
+          await pumpIn(
+            tester,
+            code,
+            Scaffold(
+              body: WaitingRideDetailsCard(
+                rideType: 'Movera',
+                pickupAddress: 'Sveavägen 1',
+                paymentMethod: stored,
+                price: 259,
+                onMore: () {},
+              ),
+            ),
+          );
+          expect(find.textContaining('${shown()} · '), findsOneWidget);
+          expect(find.textContaining('$stored · '), findsNothing);
+        }
+      });
+
+      testWidgets('rider-u231: route change note names the method translated', (
+        tester,
+      ) async {
+        late BuildContext context;
+        await pumpIn(
+          tester,
+          code,
+          Scaffold(
+            body: Builder(
+              builder: (c) {
+                context = c;
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        );
+        showRouteUpdated(
+          context,
+          driverAssigned: false,
+          paymentMethod: 'Movera Wallet',
+          differenceKr: 30,
+        );
+        await tester.pump();
+        expect(find.textContaining(L10n.current.moveraWallet), findsOneWidget);
+        expect(find.textContaining('Movera Wallet'), findsNothing);
       });
     });
   }
