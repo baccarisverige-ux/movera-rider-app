@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/contracts/money.dart';
@@ -837,15 +838,22 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   String _shortPlace(String value) => shortenPlace(value);
 
+  /// rider-u110: the sheet never rises over the top bar (Cancel and Safety
+  /// Kit sit at padding.top + 8, 48 px tall) or past the screen top; on a
+  /// short viewport the panel body scrolls instead.
+  double _sheetCeiling(MediaQueryData media) =>
+      media.size.height - media.padding.top - 64;
+
   double _minSheet(MediaQueryData media) {
     final base = _match.showPriceBump ? 520.0 : 332.0;
-    return base + media.padding.bottom;
+    return math.min(base + media.padding.bottom, _sheetCeiling(media));
   }
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
-    return maxH < minH + 48 ? minH + 48 : maxH;
+    final wanted = maxH < minH + 48 ? minH + 48 : maxH;
+    return math.max(minH, math.min(wanted, _sheetCeiling(media)));
   }
 
   @override

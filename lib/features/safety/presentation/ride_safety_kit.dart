@@ -268,104 +268,108 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
     return PointerInterceptor(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: _ink),
-                  tooltip: context.l10n.close,
-                ),
-                Expanded(
-                  child: Text(
-                    context.l10n.accountSafety,
-                    textAlign: TextAlign.center,
-                    style: _text(17, weight: FontWeight.w600),
+      // rider-u216: at large text the sheet scrolls instead of clipping
+      // its last rows (Safety preferences).
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, color: _ink),
+                    tooltip: context.l10n.close,
                   ),
-                ),
-                const SizedBox(width: 48),
+                  Expanded(
+                    child: Text(
+                      context.l10n.accountSafety,
+                      textAlign: TextAlign.center,
+                      style: _text(17, weight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.call_outlined,
+                      label: context.l10n.contact112,
+                      onTap: _call112,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _Tool(
+                      icon: recording
+                          ? Icons.stop_circle_outlined
+                          : Icons.mic_outlined,
+                      label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
+                      onTap: _toggleAudio,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.ios_share_outlined,
+                      label: context.l10n.shareTrip,
+                      onTap: _shareTrip,
+                    ),
+                  ),
+                ],
+              ),
+              if (_audioNote != null) ...[
+                const SizedBox(height: 12),
+                Text(_audioNote!, style: _text(12, color: _muted)),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _Tool(
-                    icon: Icons.call_outlined,
-                    label: context.l10n.contact112,
-                    onTap: _call112,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tool(
-                    icon: recording
-                        ? Icons.stop_circle_outlined
-                        : Icons.mic_outlined,
-                    label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
-                    onTap: _toggleAudio,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tool(
-                    icon: Icons.ios_share_outlined,
-                    label: context.l10n.shareTrip,
-                    onTap: _shareTrip,
-                  ),
-                ),
-              ],
-            ),
-            if (_audioNote != null) ...[
-              const SizedBox(height: 12),
-              Text(_audioNote!, style: _text(12, color: _muted)),
-            ],
-            const SizedBox(height: 14),
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              child: InkWell(
-                onTap: _openHub,
+              const SizedBox(height: 14),
+              Material(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _line),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.shield_outlined, size: 22, color: _icon),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.safetyPreferences,
-                              style: _text(14, weight: FontWeight.w600),
-                            ),
-                            Text(
-                              context.l10n.safetyPreferencesBody,
-                              style: _text(12, color: _muted),
-                            ),
-                          ],
+                child: InkWell(
+                  onTap: _openHub,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _line),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, size: 22, color: _icon),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.safetyPreferences,
+                                style: _text(14, weight: FontWeight.w600),
+                              ),
+                              Text(
+                                context.l10n.safetyPreferencesBody,
+                                style: _text(12, color: _muted),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded, color: _muted),
-                    ],
+                        const Icon(Icons.chevron_right_rounded, color: _muted),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

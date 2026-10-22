@@ -48,24 +48,29 @@ class MoveraEmptyState extends StatelessWidget {
                 child: Icon(icon, color: _accent, size: compact ? 24 : 30),
               ),
               SizedBox(height: compact ? 12 : 18),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: compact ? 15 : 19,
-                  fontWeight: FontWeight.w700,
-                  color: _ink,
+              // rider-j8-16: the container label reads title and message once.
+              ExcludeSemantics(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: compact ? 15 : 19,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: compact ? 12 : 13.5,
-                  fontWeight: FontWeight.w500,
-                  color: _muted,
-                  height: 1.45,
+              ExcludeSemantics(
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: compact ? 12 : 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: _muted,
+                    height: 1.45,
+                  ),
                 ),
               ),
               if (actionLabel != null && onAction != null) ...[

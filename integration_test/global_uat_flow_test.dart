@@ -7,7 +7,9 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
-import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Global UAT gate: drives booking, wallet, reservations, and profile
@@ -48,26 +50,37 @@ void main() {
     );
     expect(rideId, isNotEmpty);
 
-    // Wallet: top-up credit then a ride debit settle to the right balance.
-    final wallet = AppScope.instance.wallet;
-    final startingBalance = wallet.balanceMinor;
-    wallet.add(
-      WalletEntry(
-        id: 'uat-topup',
-        kind: WalletEntryKind.credit,
-        amountMinor: 20000,
-        at: DateTime.now(),
-      ),
+    // Wallet: a top-up through WalletController (mock gateway create and
+    // confirm, then the balance repository the UI reads), then the debit
+    // for the Wallet-paid ride booked above once it completes.
+    final walletController = AppScope.instance.walletController;
+    final startingBalance = await walletController.loadBalance();
+    final topUp = await walletController.topUp(
+      previous: startingBalance,
+      amount: 200,
+      idempotencyKey: 'uat-topup',
     );
-    wallet.add(
-      WalletEntry(
-        id: 'uat-ride-debit',
-        kind: WalletEntryKind.ride,
-        amountMinor: -34900,
-        at: DateTime.now(),
+    expect(topUp, isA<TopUpCredited>());
+    expect(await walletController.loadBalance(), startingBalance + 200);
+    final charged = await walletController.chargeCompletedRide(
+      RideSnapshot(
+        status: RideStatus.tripCompleted,
+        savedAt: DateTime.now(),
+        pickupAddress: 'Home',
+        destinationAddress: 'Arlanda Airport',
+        pickupLat: 59.3,
+        pickupLng: 18.0,
+        destinationLat: 59.65,
+        destinationLng: 17.92,
+        rideType: 'Movera',
+        price: 349,
+        paymentMethod: 'Wallet',
+        rideId: rideId,
       ),
+      rideId: rideId,
     );
-    expect(wallet.balanceMinor, startingBalance + 20000 - 34900);
+    expect(charged, startingBalance + 200 - 349);
+    expect(await walletController.loadBalance(), startingBalance + 200 - 349);
 
     // Reservations: create a scheduled reservation, then cancel it.
     final reservations = AppScope.instance.reservations;

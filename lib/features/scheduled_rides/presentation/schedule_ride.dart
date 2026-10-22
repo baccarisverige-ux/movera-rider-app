@@ -315,13 +315,18 @@ class _ScheduleRideState extends State<ScheduleRide> {
                           child: InkWell(
                             onTap: goToPreviousStep,
                             customBorder: const CircleBorder(),
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                size: 23,
-                                color: _scheduleInk,
+                            // rider-u167: the button has a name.
+                            child: Semantics(
+                              button: true,
+                              label: context.l10n.back,
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(
+                                  Icons.arrow_back_rounded,
+                                  size: 23,
+                                  color: _scheduleInk,
+                                ),
                               ),
                             ),
                           ),

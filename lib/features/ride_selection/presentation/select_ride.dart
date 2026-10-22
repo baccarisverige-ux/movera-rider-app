@@ -66,6 +66,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -2273,31 +2274,39 @@ class _SelectRideState extends State<SelectRide>
     required VoidCallback onTap,
     IconData? icon,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? _accentSoft : _field,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? _accent : _line, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: selected ? _accent : _muted),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              label,
-              style: _text(
-                13,
-                weight: selected ? FontWeight.w600 : FontWeight.w500,
+    // rider-u191: the active filter is announced, and the chip is at
+    // least 44 px tall.
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          constraints: const BoxConstraints(minHeight: A11y.minTapIOS),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? _accentSoft : _field,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: selected ? _accent : _line, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: selected ? _accent : _muted),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: _text(
+                  13,
+                  weight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2360,221 +2369,226 @@ class _SelectRideState extends State<SelectRide>
     final selected = ride.id == _selection.selectedRideId;
     final price = _priceFor(ride);
     final discount = _discountFor(ride);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _selectRide(ride.id),
-          borderRadius: BorderRadius.circular(20),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: _rowHeight - 4),
-            padding: const EdgeInsets.fromLTRB(8, 10, 14, 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: selected ? _accent : Colors.transparent,
-                width: 1.2,
-              ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF162C36).withValues(alpha: 0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 96,
-                  height: 58,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: Image.asset(
-                          excludeFromSemantics: true,
-                          ride.image,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                          cacheWidth: 216,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.directions_car_filled_rounded,
-                            color: _muted,
-                            size: 36,
-                          ),
-                        ),
-                      ),
-                      if (ride.glyph != null)
-                        Positioned(
-                          left: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: const BoxDecoration(
-                              color: _accentSoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(ride.glyph, size: 14, color: _accent),
-                          ),
-                        ),
-                    ],
-                  ),
+    // rider-u191: the category that will be booked is announced.
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _selectRide(ride.id),
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: _rowHeight - 4),
+              padding: const EdgeInsets.fromLTRB(8, 10, 14, 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: selected ? _accent : Colors.transparent,
+                  width: 1.2,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(
-                                  flex: 5,
-                                  child: Text(
-                                    ride.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: _text(16, weight: FontWeight.w600),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Icon(
-                                  Icons.person_outline_rounded,
-                                  size: 14,
-                                  color: _muted,
-                                ),
-                                Flexible(
-                                  child: Text(
-                                    '${ride.seats}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.clip,
-                                    style: _text(12.5, color: _muted),
-                                  ),
-                                ),
-                              ],
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF162C36).withValues(alpha: 0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 96,
+                    height: 58,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            excludeFromSemantics: true,
+                            ride.image,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            cacheWidth: 216,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.directions_car_filled_rounded,
+                              color: _muted,
+                              size: 36,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          if (discount > 0) ...[
-                            const Padding(
-                              padding: EdgeInsets.only(top: 3),
-                              child: Icon(
-                                Icons.local_offer_rounded,
-                                size: 14,
-                                color: _accent,
+                        ),
+                        if (ride.glyph != null)
+                          Positioned(
+                            left: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: const BoxDecoration(
+                                color: _accentSoft,
+                                shape: BoxShape.circle,
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          _fitPrice(
-                            context,
-                            Text(
-                              // No quote yet for a pickup outside the
-                              // list's currency: no price, not a wrong one.
-                              _hasPrice(ride) ? _kr(price) : '…',
-                              style: _text(16, weight: FontWeight.w600),
+                              child: Icon(ride.glyph, size: 14, color: _accent),
                             ),
                           ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _timesFor(ride),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _text(12.5, color: _muted),
-                            ),
-                          ),
-                          if (discount > 0)
-                            _fitPrice(
-                              context,
-                              Text(
-                                _kr(price + discount),
-                                // UI-6: was 0xFF8A9399 (3.13:1 on white).
-                                style: _text(12, color: MoveraTokens.subtleOnFill)
-                                    .copyWith(
-                                      decoration: TextDecoration.lineThrough,
-                                    ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (selected &&
-                          _selection
-                              .walletSplitFor(
-                                _selection.moneyOf(price).amountMinor,
-                              )
-                              .usesWallet)
-                        _walletLine(price),
-                      if (selected && _walletOtherCurrency)
-                        _walletCurrencyNote(),
-                      // Description and badge come in as the sheet opens fully.
-                      ClipRect(
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          heightFactor: detail,
-                          child: Opacity(
-                            opacity: detail,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 2),
-                                Text(
-                                  ride.note,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _text(
-                                    12.5,
-                                    color: _muted,
-                                    weight: FontWeight.w400,
-                                  ),
-                                ),
-                                if (ride.badge != null) ...[
-                                  const SizedBox(height: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: selected ? _accent : _accentSoft,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    flex: 5,
                                     child: Text(
-                                      ride.badge!,
-                                      style: _text(
-                                        9.5,
-                                        weight: FontWeight.w700,
-                                        color: selected
-                                            ? Colors.white
-                                            : _accent,
-                                        letterSpacing: 0.4,
-                                      ),
+                                      ride.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _text(16, weight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 14,
+                                    color: _muted,
+                                  ),
+                                  Flexible(
+                                    child: Text(
+                                      '${ride.seats}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                      style: _text(12.5, color: _muted),
                                     ),
                                   ),
                                 ],
-                              ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            if (discount > 0) ...[
+                              const Padding(
+                                padding: EdgeInsets.only(top: 3),
+                                child: Icon(
+                                  Icons.local_offer_rounded,
+                                  size: 14,
+                                  color: _accent,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            _fitPrice(
+                              context,
+                              Text(
+                                // No quote yet for a pickup outside the
+                                // list's currency: no price, not a wrong one.
+                                _hasPrice(ride) ? _kr(price) : '…',
+                                style: _text(16, weight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _timesFor(ride),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _text(12.5, color: _muted),
+                              ),
+                            ),
+                            if (discount > 0)
+                              _fitPrice(
+                                context,
+                                Text(
+                                  _kr(price + discount),
+                                  // UI-6: was 0xFF8A9399 (3.13:1 on white).
+                                  style: _text(12, color: MoveraTokens.subtleOnFill)
+                                      .copyWith(
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (selected &&
+                            _selection
+                                .walletSplitFor(
+                                  _selection.moneyOf(price).amountMinor,
+                                )
+                                .usesWallet)
+                          _walletLine(price),
+                        if (selected && _walletOtherCurrency)
+                          _walletCurrencyNote(),
+                        // Description and badge come in as the sheet opens fully.
+                        ClipRect(
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            heightFactor: detail,
+                            child: Opacity(
+                              opacity: detail,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    ride.note,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _text(
+                                      12.5,
+                                      color: _muted,
+                                      weight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  if (ride.badge != null) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: selected ? _accent : _accentSoft,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        ride.badge!,
+                                        style: _text(
+                                          9.5,
+                                          weight: FontWeight.w700,
+                                          color: selected
+                                              ? Colors.white
+                                              : _accent,
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

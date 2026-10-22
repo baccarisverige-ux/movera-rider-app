@@ -403,6 +403,10 @@ Future<String?> showAccountChoice(
             ),
             for (final option in options)
               ListTile(
+                // rider-u151: the current option is selected for screen
+                // readers too, not only marked with the check.
+                selected: option == selected,
+                selectedColor: kAccountAccent,
                 title: Text(
                   labelOf?.call(option) ?? option,
                   style: accountText(15.5, weight: FontWeight.w600),

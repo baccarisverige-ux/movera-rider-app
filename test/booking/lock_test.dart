@@ -16,11 +16,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 class RecordingMockClient extends InProcessMockClient {
   final List<String?> idempotencyKeys = <String?>[];
 
+  /// rider-99: fails this many of the next `POST /api/v1/rides` only
+  /// (after recording each key). [failNext] fails the next request of any
+  /// path, which for a live booking is the quote, so the ride POST was
+  /// never reached. Two, because a 5xx is sent once more with the same key
+  /// before the booking fails (RC-09).
+  int failRides = 0;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     if (request.method.toUpperCase() == 'POST' &&
         request.url.path == '/api/v1/rides') {
       idempotencyKeys.add(request.headers['Idempotency-Key']);
+      if (failRides > 0) {
+        failRides -= 1;
+        failNext = true;
+      }
     }
     return super.send(request);
   }
@@ -103,7 +114,7 @@ void main() {
   });
 
   test('failed finding retry reuses the same logical booking key', () async {
-    final mock = RecordingMockClient()..failNext = true;
+    final mock = RecordingMockClient()..failRides = 2;
     final booking = BookingCoordinator(api: ApiClient(client: mock));
 
     Future<String> submit({double price = 259}) => booking.submitFinding(
@@ -121,12 +132,14 @@ void main() {
     await expectLater(submit(), throwsA(isA<ApiError>()));
     await submit();
 
-    expect(mock.idempotencyKeys, hasLength(1));
-    expect(mock.idempotencyKeys.single, isNotNull);
+    // The failed send, its RC-09 replay, then the rider's retry.
+    expect(mock.idempotencyKeys, hasLength(3));
+    expect(mock.idempotencyKeys.first, isNotNull);
+    expect(mock.idempotencyKeys.toSet(), hasLength(1));
   });
 
   test('changed finding intent receives a new booking key', () async {
-    final mock = RecordingMockClient()..failNext = true;
+    final mock = RecordingMockClient()..failRides = 2;
     final booking = BookingCoordinator(api: ApiClient(client: mock));
 
     await expectLater(
@@ -152,12 +165,16 @@ void main() {
       destinationLat: 59.4,
       destinationLng: 18.1,
       rideType: 'Movera',
-      price: 269,
-      paymentMethod: 'Apple Pay',
+      price: 259,
+      // The server prices the trip, so a price is not part of the intent
+      // (RIDE-3); another payment method is.
+      paymentMethod: 'Card',
     );
 
-    expect(mock.idempotencyKeys, hasLength(1));
-    expect(mock.idempotencyKeys.single, isNotNull);
+    expect(mock.idempotencyKeys, hasLength(3));
+    expect(mock.idempotencyKeys, everyElement(isNotNull));
+    expect(mock.idempotencyKeys[1], mock.idempotencyKeys.first);
+    expect(mock.idempotencyKeys[2], isNot(mock.idempotencyKeys.first));
   });
 
   test('failed scheduled retry reuses the same logical booking key', () async {

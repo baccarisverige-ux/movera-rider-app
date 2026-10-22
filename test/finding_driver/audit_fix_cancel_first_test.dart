@@ -356,16 +356,29 @@ void main() {
   );
 
   testWidgets(
-    'AUD-3: with the sheet collapsed the chevron never opens Cancel ride?',
+    'AUD-3: the chevron only collapses the sheet, never opens Cancel ride?',
     (tester) async {
       await openFinding(tester, 'cf-chevron');
       final chevron = find.bySemanticsLabel('Collapse');
-      if (chevron.evaluate().isNotEmpty) {
-        await tester.tap(chevron);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
-      }
+      // rider-u234: the chevron exists only while the sheet is pulled up,
+      // so pull it up by its handle first and require the chevron.
+      expect(chevron, findsNothing);
+      final handle = find.byWidgetPredicate(
+        (w) =>
+            w is DecoratedBox &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color == const Color(0xFFE7EBEE),
+      );
+      await tester.drag(handle.first, const Offset(0, -400));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(chevron, findsOneWidget);
+
+      await tester.tap(chevron);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Cancel ride?'), findsNothing);
+      expect(chevron, findsNothing, reason: 'the sheet collapsed');
       expect(AppScope.instance.ride.status, RideStatus.findingDriver);
 
       // Cancelling has its own labelled control.

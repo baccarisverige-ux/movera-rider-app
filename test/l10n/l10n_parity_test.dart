@@ -75,6 +75,32 @@ void main() {
             );
           }
         }
+        // rider-u236: counts too (rendered as 37, a plural's `other`).
+        for (final MapEntry(:key, value: names) in messageCounts.entries) {
+          expect(
+            other[key],
+            contains('37'),
+            reason: '$code $key lost {${names.join(', ')}}',
+          );
+        }
+      });
+
+      test('each count message is translated for one as well', () {
+        // A plural's `=1` branch is only rendered with 1.
+        final enOne = allMessagesWithOne(
+          lookupAppLocalizations(const Locale('en')),
+        );
+        final otherOne = allMessagesWithOne(lookupAppLocalizations(Locale(code)));
+        expect(otherOne.keys.toSet(), messageCounts.keys.toSet());
+        for (final key in otherOne.keys) {
+          expect(otherOne[key]!.trim(), isNotEmpty, reason: '$code $key (1)');
+          if (sameAsEnglish[code]!.contains(key)) continue;
+          expect(
+            otherOne[key],
+            isNot(enOne[key]),
+            reason: '$code $key (1) falls back to English',
+          );
+        }
       });
     });
   }

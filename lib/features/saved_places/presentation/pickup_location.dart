@@ -11,6 +11,7 @@ import 'package:movera_rider/features/saved_places/application/current_address.d
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -145,7 +146,9 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  InkWell(
+                  // rider-u224: a named 44 px target around the 26 px circle.
+                  MoveraHitArea(
+                    label: context.l10n.close,
                     onTap: () {
                       Navigator.of(context).pop();
                     },

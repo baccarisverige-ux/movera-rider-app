@@ -23,11 +23,19 @@ def params(key):
     return list(meta.get('placeholders', {}).items())
 
 
-def sample(name, spec):
+NUMERIC = ('int', 'num', 'double')
+
+
+def sample(name, spec, number='37'):
     # Distinct, easy to find values: a placeholder must survive translation.
-    if spec.get('type') in ('int', 'num', 'double'):
-        return '3'
+    # 37 is a number no message spells out and selects a plural's `other`.
+    if spec.get('type') in NUMERIC:
+        return number
     return f"'<{name}>'"
+
+
+def numeric(ps):
+    return [n for n, s in ps if s.get('type') in NUMERIC]
 
 
 def dart_type(spec):
@@ -41,7 +49,7 @@ lines = [
     "import 'package:movera_rider/l10n/l10n.dart';",
     '',
     '/// Every message of [l], by key. Placeholders get `<name>` (strings)',
-    '/// or 3 (counts), so a test can check they survive translation.',
+    '/// or 37 (counts), so a test can check they survive translation.',
     'Map<String, String> allMessages(AppLocalizations l) => {',
 ]
 for k in keys:
@@ -52,12 +60,29 @@ for k in keys:
     else:
         lines.append(f"  '{k}': l.{k},")
 lines += ['};', '',
-          '/// The placeholders of each message, by key.',
+          '/// The messages with a count, rendered with 1 for every count, so',
+          '/// a plural\'s `=1` branch is checked too.',
+          'Map<String, String> allMessagesWithOne(AppLocalizations l) => {']
+for k in keys:
+    ps = params(k)
+    if numeric(ps):
+        args = ', '.join(sample(n, s, '1') for n, s in ps)
+        lines.append(f"  '{k}': l.{k}({args}),")
+lines += ['};', '',
+          '/// The String placeholders of each message, by key.',
           'const messagePlaceholders = <String, List<String>>{']
 for k in keys:
     ps = params(k)
     if ps:
         names = ', '.join(f"'{n}'" for n, s in ps if dart_type(s) == 'String')
+        lines.append(f"  '{k}': [{names}],")
+lines += ['};', '',
+          '/// The count placeholders (rendered as 37) of each message, by key.',
+          'const messageCounts = <String, List<String>>{']
+for k in keys:
+    ps = params(k)
+    if numeric(ps):
+        names = ', '.join(f"'{n}'" for n in numeric(ps))
         lines.append(f"  '{k}': [{names}],")
 lines += ['};', '',
           '// Compile-time completeness: implements every member of the',

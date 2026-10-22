@@ -35,66 +35,69 @@ class RealtimeConnectionBanner extends StatelessWidget {
                   key: ValueKey('realtime-${state.name}'),
                   liveRegion: true,
                   label: spec.semantics,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xF71D252C),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1F162C36),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 11,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(spec.icon, size: 18, color: Colors.white),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  spec.title,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  spec.subtitle,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFFD9E0E4),
-                                    height: 1.25,
-                                  ),
-                                ),
-                              ],
-                            ),
+                  // rider-j8-16: the label above says it once.
+                  child: ExcludeSemantics(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xF71D252C),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1F162C36),
+                            blurRadius: 18,
+                            offset: Offset(0, 8),
                           ),
-                          if (state == RealtimeState.connecting ||
-                              state == RealtimeState.reconnecting) ...[
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 11,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(spec.icon, size: 18, color: Colors.white),
                             const SizedBox(width: 10),
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    spec.title,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    spec.subtitle,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFFD9E0E4),
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            if (state == RealtimeState.connecting ||
+                                state == RealtimeState.reconnecting) ...[
+                              const SizedBox(width: 10),
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),

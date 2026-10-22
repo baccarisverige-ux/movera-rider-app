@@ -12,6 +12,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 
 class RideScheduledPage extends StatefulWidget {
   const RideScheduledPage({
@@ -128,13 +129,18 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 child: InkWell(
                   onTap: _goBack,
                   customBorder: const CircleBorder(),
-                  child: const SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.close_rounded,
-                      color: kReservationInk,
-                      size: 22,
+                  // rider-u167: named, and the 44 px floor.
+                  child: Semantics(
+                    button: true,
+                    label: context.l10n.close,
+                    child: const SizedBox(
+                      width: A11y.minTapIOS,
+                      height: A11y.minTapIOS,
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: kReservationInk,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
@@ -666,7 +667,8 @@ class _RideRecoveryBarrier extends StatelessWidget {
       color: const Color(0xFFF6F5F1),
       child: Center(
         child: Semantics(
-          label: 'Restoring active ride',
+          // rider-68: in the app language.
+          label: L10n.current.restoringRide,
           child: const CircularProgressIndicator(),
         ),
       ),

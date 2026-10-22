@@ -4,7 +4,7 @@
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Every message of [l], by key. Placeholders get `<name>` (strings)
-/// or 3 (counts), so a test can check they survive translation.
+/// or 37 (counts), so a test can check they survive translation.
 Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'whereTo': l.whereTo,
@@ -122,7 +122,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'noAddressFoundBody': l.noAddressFoundBody,
   'tryTheMap': l.tryTheMap,
   'seePrices': l.seePrices,
-  'homeRideCount': l.homeRideCount(3),
+  'homeRideCount': l.homeRideCount(37),
   'homeStartYourJourney': l.homeStartYourJourney,
   'homeCatchFlight': l.homeCatchFlight,
   'homeComfortCar': l.homeComfortCar,
@@ -235,7 +235,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentMethods': l.paymentMethods,
   'addPaymentMethod': l.addPaymentMethod,
   'vouchers': l.vouchers,
-  'ridesLeft': l.ridesLeft(3),
+  'ridesLeft': l.ridesLeft(37),
   'addVoucherCode': l.addVoucherCode,
   'voucherSoon': l.voucherSoon,
   'addCardDemoNote': l.addCardDemoNote,
@@ -531,7 +531,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'howWasTrip': l.howWasTrip,
   'rateYourDriver': l.rateYourDriver,
   'ratingNotRated': l.ratingNotRated,
-  'ratingStarsValue': l.ratingStarsValue(3),
+  'ratingStarsValue': l.ratingStarsValue(37),
   'topUpUnconfirmed': l.topUpUnconfirmed,
   'topUpDeclined': l.topUpDeclined,
   'topUpOffline': l.topUpOffline,
@@ -810,7 +810,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errProvider': l.errProvider('<provider>'),
   'thatAccount': l.thatAccount,
   'pickupTimeUpdated': l.pickupTimeUpdated,
-  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(3),
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(37),
   'selectDate': l.selectDate,
   'selectTime': l.selectTime,
   'whenPickUp': l.whenPickUp,
@@ -833,7 +833,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'noEndDate': l.noEndDate,
   'expiredOn': l.expiredOn('<date>'),
   'endsToday': l.endsToday,
-  'validUntilDays': l.validUntilDays('<date>', 3),
+  'validUntilDays': l.validUntilDays('<date>', 37),
   'promoOffLeftOf': l.promoOffLeftOf('<percent>', '<left>', '<total>'),
   'expired': l.expired,
   'allUsed': l.allUsed,
@@ -848,7 +848,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notification': l.notification,
   'allCaughtUp': l.allCaughtUp,
   'notificationsEmptyBody': l.notificationsEmptyBody,
-  'driverTripCount': l.driverTripCount(3),
+  'notificationUnread': l.notificationUnread,
+  'driverTripCount': l.driverTripCount(37),
   'safetyKit': l.safetyKit,
   'safetyKitRecording': l.safetyKitRecording,
   'sosRegistered': l.sosRegistered,
@@ -857,7 +858,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'sosRegisteredNoDialer': l.sosRegisteredNoDialer,
   'recordingSavedLocal': l.recordingSavedLocal,
   'recordingFailed': l.recordingFailed,
-  'tripSharingStarted': l.tripSharingStarted(3),
+  'tripSharingStarted': l.tripSharingStarted(37),
   'tripSharingNotStarted': l.tripSharingNotStarted,
   'tripSharingFailed': l.tripSharingFailed,
   'safetyTools': l.safetyTools,
@@ -901,7 +902,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'safetyProtectsTitle': l.safetyProtectsTitle,
   'safetyProtectsSubtitle': l.safetyProtectsSubtitle,
   'safetyContactsNone': l.safetyContactsNone,
-  'safetyContactsCount': l.safetyContactsCount(3),
+  'safetyContactsCount': l.safetyContactsCount(37),
   'safetyShareEveryRide': l.safetyShareEveryRide,
   'safetyShareManual': l.safetyShareManual,
   'safetyLoadFailed': l.safetyLoadFailed,
@@ -1224,7 +1225,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrEditUnknown': l.resErrEditUnknown,
   'retryInAMoment': l.retryInAMoment,
   'retryIn': l.retryIn('<wait>'),
-  'retrySeconds': l.retrySeconds(3),
+  'retrySeconds': l.retrySeconds(37),
   'rideJustChanged': l.rideJustChanged,
   'apiUnreachable': l.apiUnreachable,
   'polPricingDisclaimer': l.polPricingDisclaimer,
@@ -1255,7 +1256,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resScheduleCaps': l.resScheduleCaps,
   'resCancelledReservation': l.resCancelledReservation,
   'resUpcomingRide': l.resUpcomingRide,
-  'resSeatsPayment': l.resSeatsPayment(3, '<payment>'),
+  'resSeatsPayment': l.resSeatsPayment(37, '<payment>'),
   'resDriverOnTheWay': l.resDriverOnTheWay,
   'resScheduledFor': l.resScheduledFor,
   'resPickupAt': l.resPickupAt,
@@ -1268,6 +1269,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resThingsToKnow': l.resThingsToKnow,
   'resViewTerms': l.resViewTerms,
   'resYourDriverName': l.resYourDriverName('<name>'),
+  'resPlateLabel': l.resPlateLabel('<plate>'),
+  'restoringRide': l.restoringRide,
   'resYourDriverCaps': l.resYourDriverCaps,
   'resWaitingTime': l.resWaitingTime,
   'resCancellation': l.resCancellation,
@@ -1322,7 +1325,22 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'notifYesterday': l.notifYesterday('<clock>'),
 };
 
-/// The placeholders of each message, by key.
+/// The messages with a count, rendered with 1 for every count, so
+/// a plural's `=1` branch is checked too.
+Map<String, String> allMessagesWithOne(AppLocalizations l) => {
+  'homeRideCount': l.homeRideCount(1),
+  'ridesLeft': l.ridesLeft(1),
+  'ratingStarsValue': l.ratingStarsValue(1),
+  'pickupTimeWithinHorizon': l.pickupTimeWithinHorizon(1),
+  'validUntilDays': l.validUntilDays('<date>', 1),
+  'driverTripCount': l.driverTripCount(1),
+  'tripSharingStarted': l.tripSharingStarted(1),
+  'safetyContactsCount': l.safetyContactsCount(1),
+  'retrySeconds': l.retrySeconds(1),
+  'resSeatsPayment': l.resSeatsPayment(1, '<payment>'),
+};
+
+/// The String placeholders of each message, by key.
 const messagePlaceholders = <String, List<String>>{
   'setPlaceAddress': ['place'],
   'destinationLabel': ['address'],
@@ -1477,11 +1495,26 @@ const messagePlaceholders = <String, List<String>>{
   'retrySeconds': [],
   'resSeatsPayment': ['payment'],
   'resYourDriverName': ['name'],
+  'resPlateLabel': ['plate'],
   'resCostsMore': ['amount'],
   'resCostsLess': ['amount'],
   'resCancelBody': ['date', 'time'],
   'resTermsOtherFees': ['rule'],
   'notifYesterday': ['clock'],
+};
+
+/// The count placeholders (rendered as 37) of each message, by key.
+const messageCounts = <String, List<String>>{
+  'homeRideCount': ['count'],
+  'ridesLeft': ['count'],
+  'ratingStarsValue': ['count'],
+  'pickupTimeWithinHorizon': ['days'],
+  'validUntilDays': ['days'],
+  'driverTripCount': ['count'],
+  'tripSharingStarted': ['count'],
+  'safetyContactsCount': ['count'],
+  'retrySeconds': ['count'],
+  'resSeatsPayment': ['count'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -3175,6 +3208,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get notificationsEmptyBody => '';
   @override
+  String get notificationUnread => '';
+  @override
   String driverTripCount(int count) => '';
   @override
   String get safetyKit => '';
@@ -4014,6 +4049,10 @@ class _Exhaustive implements AppLocalizations {
   String get resViewTerms => '';
   @override
   String resYourDriverName(String name) => '';
+  @override
+  String resPlateLabel(String plate) => '';
+  @override
+  String get restoringRide => '';
   @override
   String get resYourDriverCaps => '';
   @override
