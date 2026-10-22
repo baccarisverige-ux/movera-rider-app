@@ -61,10 +61,8 @@ void main() {
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, __) => MaterialApp(
-          home: child,
-          navigatorObservers: [_Pushes(pushed)],
-        ),
+        builder: (_, __) =>
+            MaterialApp(home: child, navigatorObservers: [_Pushes(pushed)]),
       ),
     );
     await tester.pump(const Duration(milliseconds: 50));
@@ -78,11 +76,15 @@ void main() {
   }
 
   /// PhoneVerification runs a countdown timer; unmount before the test ends.
-  Future<void> unmount(WidgetTester tester) => tester.pumpWidget(const SizedBox());
+  Future<void> unmount(WidgetTester tester) =>
+      tester.pumpWidget(const SizedBox());
 
   Future<void> typePhone(WidgetTester tester, String number) async {
     await tester.enterText(
-      find.descendant(of: find.byType(AuthPhoneField), matching: find.byType(EditableText)),
+      find.descendant(
+        of: find.byType(AuthPhoneField),
+        matching: find.byType(EditableText),
+      ),
       number,
     );
     await tester.pump();
@@ -91,7 +93,10 @@ void main() {
   Future<void> typeCode(WidgetTester tester, String code) async {
     await tester.tap(find.byType(Pinput));
     await tester.enterText(
-      find.descendant(of: find.byType(Pinput), matching: find.byType(EditableText)),
+      find.descendant(
+        of: find.byType(Pinput),
+        matching: find.byType(EditableText),
+      ),
       code,
     );
     await tester.pump();
@@ -101,31 +106,50 @@ void main() {
   /// named "/", so it is skipped.
   bool enteredApp() => pushed.skip(1).contains(AppRoutes.home);
 
+  /// Owner round 3: Sign in waits for the terms box; tick it once, as a
+  /// rider would, before Continue, Apple or Google.
+  Future<void> agree(WidgetTester tester) async {
+    final consent = find.byKey(const ValueKey('auth-consent'));
+    if (consent.evaluate().isEmpty) return;
+    if (tester.widget<Semantics>(consent).properties.checked ?? false) return;
+    await tester.ensureVisible(consent);
+    await tester.pump();
+    await tester.tap(consent);
+    await tester.pump();
+  }
+
   /// Scrolls a control into view first, as a rider would.
   Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await agree(tester);
     await tester.ensureVisible(finder);
     await tester.pump();
     await tester.tap(finder);
   }
 
-  testWidgets('failed code request stays on the phone step with a clear reason', (tester) async {
-    client = InProcessMockClient()..failNext = true;
-    await pump(tester, SignIn(controller: controllerFor(client)));
+  testWidgets(
+    'failed code request stays on the phone step with a clear reason',
+    (tester) async {
+      client = InProcessMockClient()..failNext = true;
+      await pump(tester, SignIn(controller: controllerFor(client)));
 
-    await typePhone(tester, '701234567');
-    await tapVisible(tester, find.text('Continue'));
-    await settle(tester);
+      await typePhone(tester, '701234567');
+      await tapVisible(tester, find.text('Continue'));
+      await settle(tester);
 
-    expect(find.byType(SignIn), findsOneWidget);
-    expect(find.byType(PhoneVerification), findsNothing);
-    expect(find.textContaining('having trouble'), findsOneWidget);
-  });
+      expect(find.byType(SignIn), findsOneWidget);
+      expect(find.byType(PhoneVerification), findsNothing);
+      expect(find.textContaining('having trouble'), findsOneWidget);
+    },
+  );
 
   testWidgets('wrong code says so and cannot reveal Home', (tester) async {
     client = InProcessMockClient();
     final controller = controllerFor(client);
     final challenge = await controller.requestOtp(phone: '+46701234567');
-    await pump(tester, PhoneVerification(challenge: challenge, controller: controller));
+    await pump(
+      tester,
+      PhoneVerification(challenge: challenge, controller: controller),
+    );
 
     await typeCode(tester, '9999');
     await tapVisible(tester, find.text('Verify'));
@@ -187,14 +211,19 @@ void main() {
       await settle(tester);
 
       expect(find.byType(PhoneVerification), findsOneWidget);
-      expect(find.textContaining('+46 70 123 45 67', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('+46 70 123 45 67', findRichText: true),
+        findsOneWidget,
+      );
       final session = client.otpSessions.values.single;
       expect(session['phone'], '+46701234567');
       await unmount(tester);
     },
   );
 
-  testWidgets('auth-required start shows the phone step, never Home', (tester) async {
+  testWidgets('auth-required start shows the phone step, never Home', (
+    tester,
+  ) async {
     client = InProcessMockClient();
     await pump(tester, SignIn(controller: controllerFor(client)));
 
@@ -204,7 +233,9 @@ void main() {
     expect(find.byType(Home, skipOffstage: false), findsNothing);
   });
 
-  testWidgets('a new rider goes phone -> code -> name, then into the app', (tester) async {
+  testWidgets('a new rider goes phone -> code -> name, then into the app', (
+    tester,
+  ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     client = InProcessMockClient();
     final controller = controllerFor(client);
@@ -293,7 +324,9 @@ void main() {
     },
   );
 
-  testWidgets('leaving the Apple phone step half-way leaves no session', (tester) async {
+  testWidgets('leaving the Apple phone step half-way leaves no session', (
+    tester,
+  ) async {
     client = InProcessMockClient();
     await pump(tester, SignIn(controller: controllerFor(client)));
 
@@ -309,23 +342,28 @@ void main() {
     expect(await tokens.readRefresh(), isNull);
   });
 
-  testWidgets('a returning Google rider with a verified phone goes straight in', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-    client = InProcessMockClient()..linkedProviders.add('google');
-    await pump(tester, SignIn(controller: controllerFor(client)));
+  testWidgets(
+    'a returning Google rider with a verified phone goes straight in',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      client = InProcessMockClient()..linkedProviders.add('google');
+      await pump(tester, SignIn(controller: controllerFor(client)));
 
-    await tapVisible(tester, find.bySemanticsLabel('Continue with Google'));
-    await tester.pump();
-    await tester.pump();
+      await tapVisible(tester, find.bySemanticsLabel('Continue with Google'));
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.byType(AddPhoneNumber, skipOffstage: false), findsNothing);
-    expect(enteredApp(), isTrue);
-    expect(await tokens.readAccess(), 'mock-access-google');
-    await unmount(tester);
-    debugDefaultTargetPlatformOverride = null;
-  });
+      expect(find.byType(AddPhoneNumber, skipOffstage: false), findsNothing);
+      expect(enteredApp(), isTrue);
+      expect(await tokens.readAccess(), 'mock-access-google');
+      await unmount(tester);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 
-  testWidgets('a failed Apple sign-in explains why and stays put', (tester) async {
+  testWidgets('a failed Apple sign-in explains why and stays put', (
+    tester,
+  ) async {
     client = InProcessMockClient()..failNext = true;
     await pump(tester, SignIn(controller: controllerFor(client)));
 
