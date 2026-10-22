@@ -691,6 +691,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'reasonPayment': l.reasonPayment,
   'reasonZoneClosed': l.reasonZoneClosed,
   'reasonError': l.reasonError,
+  'reasonRequestExpired': l.reasonRequestExpired,
+  'reasonCancelledBySystem': l.reasonCancelledBySystem,
+  'reasonRideFailed': l.reasonRideFailed,
+  'reasonDriverEnded': l.reasonDriverEnded,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
@@ -2894,6 +2898,14 @@ class _Exhaustive implements AppLocalizations {
   String get reasonZoneClosed => '';
   @override
   String get reasonError => '';
+  @override
+  String get reasonRequestExpired => '';
+  @override
+  String get reasonCancelledBySystem => '';
+  @override
+  String get reasonRideFailed => '';
+  @override
+  String get reasonDriverEnded => '';
   @override
   String resReservedFor(String date, String time) => '';
   @override

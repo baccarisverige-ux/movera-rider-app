@@ -6,7 +6,13 @@ import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_pan
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +45,45 @@ void main() {
       locale: Locale(code),
     );
     await tester.pump();
+  }
+
+  RideSnapshot snapshot(String id, {String payment = 'Cash'}) => RideSnapshot(
+    status: RideStatus.tripInProgress,
+    savedAt: DateTime.now().subtract(const Duration(minutes: 12)),
+    pickupAddress: 'Sveavägen 1',
+    destinationAddress: 'Arlanda Airport',
+    pickupLat: 59.3293,
+    pickupLng: 18.0686,
+    destinationLat: 59.65,
+    destinationLng: 17.93,
+    rideType: 'Movera',
+    price: 259,
+    paymentMethod: payment,
+    rideId: id,
+  );
+
+  /// Opens [ride]'s History detail sheet from its [tab].
+  Future<void> openHistoryDetail(
+    WidgetTester tester,
+    String code,
+    Reservation ride,
+    String tab,
+  ) async {
+    await pumpIn(
+      tester,
+      code,
+      RideHistory(
+        reservations: ReservationController(
+          store: LocalReservationRepository(storage: MemoryReservationStorage()),
+        ),
+        onDemandReader: () async => [ride],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(tab).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Arlanda Airport').first);
+    await tester.pumpAndSettle();
   }
 
   for (final code in ['fr', 'sv']) {
@@ -142,6 +187,21 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('0,0 kg'), findsOneWidget);
         expect(formatDistanceKm(1.24), '1,2 km');
+      });
+
+      testWidgets('rider-u112: a server-ended ride shows its reason translated', (
+        tester,
+      ) async {
+        final ride = OnDemandRideHistoryStore.recordFor(
+          snapshot('r51-no-driver'),
+          terminalStatus: RideStatus.noDriverFound,
+        )!;
+        L10n.use(code);
+        await openHistoryDetail(tester, code, ride, L10n.current.resCancelled);
+        expect(
+          find.text(L10n.current.reasonLine(L10n.current.termNoDriverFound)),
+          findsOneWidget,
+        );
       });
     });
   }

@@ -1273,6 +1273,22 @@
   "reasonPayment": "Payment problem",
   "reasonZoneClosed": "Service area closed",
   "reasonError": "Something went wrong",
+  "reasonRequestExpired": "Request expired",
+  "@reasonRequestExpired": {
+    "description": "History cancel reason: the ride request expired before a driver was found."
+  },
+  "reasonCancelledBySystem": "Cancelled by the system",
+  "@reasonCancelledBySystem": {
+    "description": "History cancel reason: the platform cancelled the ride."
+  },
+  "reasonRideFailed": "Ride failed",
+  "@reasonRideFailed": {
+    "description": "History cancel reason: the trip could not continue."
+  },
+  "reasonDriverEnded": "Driver ended the ride",
+  "@reasonDriverEnded": {
+    "description": "History cancel reason: the driver ended the ride."
+  },
   "resReservedFor": "Your ride is reserved for {date} at {time}",
   "@resReservedFor": {
     "placeholders": {
