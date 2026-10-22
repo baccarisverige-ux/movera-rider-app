@@ -593,6 +593,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'profileBusiness': l.profileBusiness,
   'defaultForRides': l.defaultForRides,
   'accountAddYourName': l.accountAddYourName,
+  'menuWelcomeNoName': l.menuWelcomeNoName,
   'serverEmailUnavailable': l.serverEmailUnavailable,
   'emailNotAdded': l.emailNotAdded,
   'valueVerified': l.valueVerified('<value>'),
@@ -2724,6 +2725,8 @@ class _Exhaustive implements AppLocalizations {
   String get defaultForRides => '';
   @override
   String get accountAddYourName => '';
+  @override
+  String get menuWelcomeNoName => '';
   @override
   String get serverEmailUnavailable => '';
   @override

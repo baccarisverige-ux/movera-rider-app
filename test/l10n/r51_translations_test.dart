@@ -14,6 +14,7 @@ import 'package:movera_rider/features/destination_search/domain/place_suggestion
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
@@ -487,6 +488,15 @@ void main() {
           find.text('Account security is unavailable right now.'),
           findsNothing,
         );
+      });
+
+      testWidgets('rider-u147: the menu greets a rider with no name in the language', (
+        tester,
+      ) async {
+        await pumpIn(tester, code, const RiderMenuPage());
+        await tester.pumpAndSettle();
+        expect(find.text(L10n.current.menuWelcomeNoName), findsOneWidget);
+        expect(find.text('Welcome to Movera'), findsNothing);
       });
     });
   }

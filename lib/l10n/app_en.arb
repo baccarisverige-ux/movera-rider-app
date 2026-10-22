@@ -1212,6 +1212,10 @@
   "profileBusiness": "Business",
   "defaultForRides": "Default for rides",
   "accountAddYourName": "Add your name",
+  "menuWelcomeNoName": "Welcome to Movera",
+  "@menuWelcomeNoName": {
+    "description": "Menu greeting for a rider who has not saved a name."
+  },
   "serverEmailUnavailable": "Server email unavailable",
   "emailNotAdded": "Email not added",
   "valueVerified": "{value} · Verified",

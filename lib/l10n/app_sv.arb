@@ -587,6 +587,7 @@
   "profileBusiness": "Företag",
   "defaultForRides": "Standard för resor",
   "accountAddYourName": "Lägg till ditt namn",
+  "menuWelcomeNoName": "Välkommen till Movera",
   "serverEmailUnavailable": "E-post från servern är inte tillgänglig",
   "emailNotAdded": "Ingen e-post tillagd",
   "valueVerified": "{value} · Verifierad",

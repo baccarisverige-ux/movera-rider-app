@@ -587,6 +587,7 @@
   "profileBusiness": "Professionnel",
   "defaultForRides": "Par défaut pour les courses",
   "accountAddYourName": "Ajoutez votre nom",
+  "menuWelcomeNoName": "Bienvenue sur Movera",
   "serverEmailUnavailable": "E-mail du serveur indisponible",
   "emailNotAdded": "E-mail non ajouté",
   "valueVerified": "{value} · Vérifié",
