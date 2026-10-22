@@ -854,11 +854,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = _schedule.isLegalPickup(
-      _pickupAt,
-      widget.now?.call(),
-    );
-    final enabled = legal && !_continuing;
+    // rider-u227: a time that went stale while the screen was open is not
+    // a grey button; Continue moves it to the next slot and says so.
+    final enabled = !_continuing;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
       child: Container(

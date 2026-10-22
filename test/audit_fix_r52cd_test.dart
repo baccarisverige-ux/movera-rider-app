@@ -44,6 +44,7 @@ import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -547,5 +548,29 @@ void main() {
 
     expect(find.text('Pickup time updated to the next available slot.'),
         findsOneWidget);
+  });
+
+  testWidgets('rider-u227: a pickup time that went stale on screen is '
+      'corrected on Continue, not greyed out', (tester) async {
+    var now = DateTime.now();
+    var confirmed = 0;
+    final session = ScheduledRideSession();
+    Widget picker() => ScheduleDateTimeSelector(
+          body: const SizedBox.shrink(),
+          session: session,
+          now: () => now,
+          onConfirm: () => confirmed++,
+        );
+    await pumpPage(tester, picker());
+
+    // The rider waits past the earliest slot; something rebuilds the page.
+    now = now.add(const Duration(hours: 2));
+    await tester.pumpWidget(MaterialApp(home: picker()));
+    await tester.tap(find.byKey(const Key('schedule-continue')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pickup time updated to the next available slot.'),
+        findsOneWidget);
+    expect(confirmed, 0, reason: 'the corrected time is shown first');
   });
 }
