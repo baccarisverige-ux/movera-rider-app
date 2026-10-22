@@ -108,7 +108,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
     this.walletAmountMinor = 0,
     required this.price,
     this.currency = Money.defaultCurrency,
-    required this.onMore,
+    this.onMore,
   });
 
   final String rideType;
@@ -123,7 +123,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
 
   /// ISO-4217 code of [price] (the trip's zone).
   final String currency;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55): no ⋯ button.
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -176,11 +177,12 @@ class WaitingRideDetailsCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            onPressed: onMore,
-            icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: context.l10n.rideDetails,
-          ),
+          if (onMore != null)
+            IconButton(
+              onPressed: onMore,
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: context.l10n.rideDetails,
+            ),
         ],
       ),
     );
@@ -194,14 +196,15 @@ class WaitingDriverCard extends StatefulWidget {
     this.rideId,
     required this.onOpenProfile,
     required this.onCall,
-    required this.onMore,
+    this.onMore,
   });
 
   final MatchedDriver? driver;
   final String? rideId;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
-  final VoidCallback onMore;
+  /// Null where the route cannot change (rider-u55): no ⋯ button.
+  final VoidCallback? onMore;
 
   @override
   State<WaitingDriverCard> createState() => _WaitingDriverCardState();
@@ -449,12 +452,14 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                 onTap: onCall,
                 semanticLabel: context.l10n.callDriver,
               ),
-              const SizedBox(width: 8),
-              _IconChip(
-                icon: Icons.more_horiz_rounded,
-                onTap: onMore,
-                semanticLabel: context.l10n.moreOptions,
-              ),
+              if (onMore != null) ...[
+                const SizedBox(width: 8),
+                _IconChip(
+                  icon: Icons.more_horiz_rounded,
+                  onTap: onMore,
+                  semanticLabel: context.l10n.moreOptions,
+                ),
+              ],
             ],
           ),
         ],

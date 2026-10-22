@@ -154,6 +154,7 @@ class WaitingForDriver extends StatefulWidget {
     this.rideId,
     this.categoryId,
     this.persistRideSnapshot = true,
+    this.routeChangeSupported = true,
     this.onTerminal,
     this.onDriverCancelled,
     this.onCompleted,
@@ -193,6 +194,11 @@ class WaitingForDriver extends StatefulWidget {
   /// booked category of [rideId], else the stored snapshot's.
   final String? categoryId;
   final bool persistRideSnapshot;
+
+  /// rider-u55: false for a scheduled ride's live page. Its ride id is the
+  /// device-local reservation id the server has no route quote for, so
+  /// Change route and "change destination instead" can never succeed.
+  final bool routeChangeSupported;
   final Future<void> Function(BuildContext context, RideStatus status)?
   onTerminal;
   final Future<void> Function(BuildContext context)? onDriverCancelled;
@@ -1186,7 +1192,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       !_isInTrip &&
       _tracking.status != RideStatus.driverWaiting &&
       !_tracking.status.isTerminal;
-  bool get _routeEditable => !_tracking.status.isTerminal && !_completedOpened;
+  bool get _routeEditable =>
+      widget.routeChangeSupported &&
+      !_tracking.status.isTerminal &&
+      !_completedOpened;
 
   /// The three dots on the ride card: the route screen with the current
   /// addresses. The pickup can move until the driver is there; the
@@ -2099,7 +2108,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: _callDriverUnavailable,
-        onMore: _openDetails,
+        onMore: widget.routeChangeSupported ? _openDetails : null,
         onCancel: _confirmCancel,
       );
     }
@@ -2114,7 +2123,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             rideId: _rideId,
             onOpenProfile: _openProfile,
             onCall: _callDriverUnavailable,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           const SizedBox(height: 12),
           if (_waitingFeeCounter() case final counter?) ...[
@@ -2130,7 +2139,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             currency: widget.currency,
-            onMore: _openDetails,
+            onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],

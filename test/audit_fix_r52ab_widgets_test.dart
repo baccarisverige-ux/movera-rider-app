@@ -9,6 +9,11 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
@@ -217,6 +222,48 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 250));
 
     expect(find.byType(DriverArrivedSheet), findsNothing);
+  });
+
+  testWidgets('rider-u55: a scheduled ride\'s live page offers no route '
+      'change it can never apply', (tester) async {
+    // As audit_fix_live_cancel_terms_test: a reservation whose driver is
+    // on the way.
+    final now = DateTime(2026, 10, 21, 23, 20);
+    final controller = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv-r52',
+      ),
+      clock: () => now,
+    );
+    addTearDown(controller.dispose);
+    final created = await controller.create(ReservationDraft(
+      scheduledPickupAt: DateTime(2026, 10, 21, 23, 50),
+      pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
+      destination:
+          const ReservationPlace(label: 'Arlanda', lat: 59.65, lng: 17.93),
+      categoryId: 'comfort',
+      categoryName: 'Comfort',
+      categoryImage: 'assets/images/rides/comfort.webp',
+      price: 450,
+      paymentMethod: 'Cash',
+    ));
+    await controller.assignMockDriver(
+      created.reservationId,
+      driver: const ReservationDriver(firstName: 'Amina', rating: 4.9),
+    );
+    final live = await controller.update(
+      created.reservationId,
+      const ReservationPatch(status: ReservationStatus.driverEnRoute),
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: ReservationLiveRide.pageFor(live, controller: controller),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(WaitingForDriver), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
   });
 
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '
