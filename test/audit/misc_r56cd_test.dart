@@ -11,6 +11,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
@@ -164,6 +166,22 @@ Future<String> _book(ApiClient api) async {
     },
   );
   return (created['ride'] as Map)['id'] as String;
+}
+
+/// A zone config server that takes reservations [horizonDays] ahead.
+class _ZoneConfigs implements RiderConfigRepository {
+  _ZoneConfigs(int horizonDays)
+    : _config = RiderAppConfig.fromJson({
+        ...SeedRiderConfigRepository.seedDocument,
+        'booking': {'maxStops': 3, 'bookingHorizonDays': horizonDays},
+      })!;
+
+  final RiderAppConfig _config;
+
+  @override
+  Future<RiderAppConfig> current() async => _config;
+  @override
+  Future<RiderAppConfig> forZone(String zoneId) async => _config;
 }
 
 /// Lets queued async work run until [done] holds (no real-time wait).
@@ -540,4 +558,10 @@ void main() {
       expect(DateTime.now().difference(endedAt).inSeconds.abs(), lessThan(5));
     },
   );
+
+  test("rider-r4-10: Home's Book for later reads the zone's horizon", () async {
+    final window = await _ZoneConfigs(30).bookingWindowAt(59.33, 18.06);
+    expect(window.horizonDays, 30);
+    expect(window.timeZone, 'Europe/Stockholm');
+  });
 }
