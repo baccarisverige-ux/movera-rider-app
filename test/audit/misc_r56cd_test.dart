@@ -24,7 +24,9 @@ import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -300,5 +302,26 @@ void main() {
     expect(SwedishPhone.toE164('+46 070 123 45 67'), '+46701234567');
     expect(SwedishPhone.toE164('070-123 45 67'), '+46701234567');
     expect(SwedishPhone.toE164('+46 00 123 45 67'), isNull);
+  });
+
+  test('rider-r3-4: one GPS jump is not an off-route ride', () {
+    const a = GeoPoint(59.3303, 18.0586);
+    const b = GeoPoint(59.3600, 18.0000);
+    final monitor = RideCheckMonitor(
+      settings: const RideCheckTriggerSettings(),
+      plan: const RideCheckPlan(pickup: a, destination: b),
+    )..setPlannedRoute(const [a, b]);
+    final t0 = DateTime.utc(2026, 10, 1, 12);
+    RideCheckDetection? at(double east, int seconds) => monitor.addSample(
+      RideCheckSample(
+        point: GeoPoint(a.latitude, a.longitude + east),
+        at: t0.add(Duration(seconds: seconds)),
+      ),
+    );
+    expect(at(0, 0), isNull);
+    expect(at(0.0001, 3), isNull);
+    expect(at(0.09, 6), isNull); // ~5 km in 3 s
+    expect(at(0.0002, 9), isNull);
+    expect(monitor.hasFired(RideCheckTrigger.offRoute), isFalse);
   });
 }
