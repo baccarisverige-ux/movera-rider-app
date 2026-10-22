@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
+import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/auth/presentation/add_phone.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
@@ -54,6 +58,25 @@ class _SignInState extends State<SignIn>
   final _phone = TextEditingController();
   final _phoneFocus = FocusNode();
 
+  /// Owner decision 7: the device's region at first, then the country of
+  /// the app's saved location or zone, until the rider picks one.
+  PhoneCountry _country = initialPhoneCountry();
+  bool _countryPicked = false;
+
+  Future<void> _loadDefaultCountry() async {
+    final country = await defaultPhoneCountry();
+    if (!mounted || _countryPicked) return;
+    setState(() => _country = country);
+  }
+
+  void _pickCountry(PhoneCountry country) {
+    setState(() {
+      _countryPicked = true;
+      _country = country;
+      _phoneError = null;
+    });
+  }
+
   /// FLOW-16: the consent line names the Terms and the Privacy Policy, so
   /// both open them.
   late final _termsTap = TapGestureRecognizer()
@@ -73,6 +96,7 @@ class _SignInState extends State<SignIn>
   @override
   void initState() {
     super.initState();
+    unawaited(_loadDefaultCountry());
     _auth = widget.controller ?? AppScope.instance.auth;
     _phone.addListener(_clearPhoneError);
   }
@@ -93,9 +117,9 @@ class _SignInState extends State<SignIn>
 
   Future<void> _continue() async {
     if (_busy != null) return;
-    final number = swedishNumberFromField(_phone.text);
+    final number = phoneNumberFromField(_phone.text, _country);
     if (number == null) {
-      setState(() => _phoneError = context.l10n.invalidSwedishMobile);
+      setState(() => _phoneError = context.l10n.invalidMobileNumber);
       return;
     }
     setState(() {
@@ -173,6 +197,8 @@ class _SignInState extends State<SignIn>
           AuthPhoneField(
             controller: _phone,
             focusNode: _phoneFocus,
+            country: _country,
+            onCountryChanged: _pickCountry,
             hasError: _phoneError != null,
             onSubmitted: (_) => _continue(),
           ),
