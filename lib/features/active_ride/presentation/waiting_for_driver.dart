@@ -1145,6 +1145,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       RideCancelOutcome.rejected => context.l10n.cancelNoLonger,
       // R-O2 (owner's words): the trip changed just before the tap.
       RideCancelOutcome.stale => rideJustChangedMessage,
+      // rider-r5-21: neither sent nor queued; nothing will retry it.
+      RideCancelOutcome.unsent => context.l10n.cancelFailedTryAgain,
       _ =>
         context.l10n.cancelUnconfirmedOffline,
     };
@@ -1170,10 +1172,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     try {
       outcome = await _ride.cancelUntrackedRide(rideId: _rideId);
     } catch (_) {
-      // cancelUntrackedRide already logs; a transient failure stays queued
-      // in the pending-cancel outbox. Leaving is still what the rider chose.
+      // rider-r5-21: nothing is known to be sent or queued.
+      outcome = RideCancelOutcome.unsent;
     }
     if (!mounted) return;
+    // rider-r5-21: a cancel neither sent nor queued would leave the server
+    // ride and the driver going with nothing to retry it: stay and say so.
+    if (outcome == RideCancelOutcome.unsent) {
+      setState(() {
+        _leaving = false;
+        _cancelling = false;
+      });
+      _showCancelProblem(outcome!);
+      return;
+    }
     // rider-r4-25: a refused cancel is not queued; say so rather than
     // going Home as if the ride had been cancelled.
     if (outcome == RideCancelOutcome.rejected ||

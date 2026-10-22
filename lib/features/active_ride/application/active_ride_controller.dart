@@ -5,6 +5,7 @@ import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
@@ -36,6 +37,11 @@ enum RideCancelOutcome {
   /// since it was read. Nothing was committed or re-sent; the screen
   /// refreshes the ride and the rider decides again.
   stale,
+
+  /// rider-r5-21: the server could not be reached and the request could
+  /// not be written to the outbox either (storage refused it), so nothing
+  /// will retry it. Nothing was committed; the rider can try again.
+  unsent,
 }
 
 /// UI-01: an on-board "cancel" is the contract's `end_early` — the trip
@@ -266,6 +272,19 @@ class ActiveRideController {
     return outcome;
   }
 
+  /// Drops [id]'s outbox entry; a storage failure does not undo the
+  /// server's answer.
+  static Future<void> _forgetOutboxEntry(String id) async {
+    try {
+      await PendingCancelStore.remove(id);
+    } catch (error) {
+      AppLog.warning(
+        'ride.cancel.outbox_remove_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
+  }
+
   static String? _clean(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -291,12 +310,32 @@ class ActiveRideController {
     final session = AppScope.instance.ride;
     // R-O2: the trip version this screen last saw. The outbox keeps it, so
     // a retry sends the same request (same key, same body).
-    final entry = await PendingCancelStore.enqueue(
-      rideId: id,
-      reasonId: reasonId,
-      command: command,
-      expectedVersion: session.projectionVersionOf(id),
-    );
+    PendingCancel entry;
+    var outboxed = true;
+    try {
+      entry = await PendingCancelStore.enqueue(
+        rideId: id,
+        reasonId: reasonId,
+        command: command,
+        expectedVersion: session.projectionVersionOf(id),
+      );
+    } catch (error) {
+      // rider-r5-21 (as rider-u98 in Finding): storage refused the entry
+      // (e.g. a full web localStorage). The server is still asked, with a
+      // key for this attempt only.
+      AppLog.warning(
+        'ride.cancel.outbox_write_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+      outboxed = false;
+      entry = PendingCancel(
+        rideId: id,
+        reasonId: reasonId,
+        idempotencyKey: newIdempotencyKey('ride-cancel'),
+        command: command,
+        expectedVersion: session.projectionVersionOf(id),
+      );
+    }
     // One in-session retry, only for an unreachable server: a refusal is
     // final and is never sent again (no automatic retry).
     for (var attempt = 1; attempt <= 2; attempt += 1) {
@@ -306,7 +345,7 @@ class ActiveRideController {
           body: entry.body(reasonId),
           idempotencyKey: entry.idempotencyKey,
         );
-        await PendingCancelStore.remove(id);
+        await _forgetOutboxEntry(id);
         session.observeProjection(response);
         return (
           outcome: RideCancelOutcome.confirmed,
@@ -320,7 +359,7 @@ class ActiveRideController {
           extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
         );
         if (isPermanentCancelFailure(error)) {
-          await PendingCancelStore.remove(id);
+          await _forgetOutboxEntry(id);
           final apiError = error as ApiError;
           session.observeProjection(apiError.projection);
           // R-O3: the trip is already cancelled by the rider (a repeat
@@ -354,7 +393,9 @@ class ActiveRideController {
       }
     }
     return (
-      outcome: RideCancelOutcome.pendingRetry,
+      outcome: outboxed
+          ? RideCancelOutcome.pendingRetry
+          : RideCancelOutcome.unsent,
       command: entry.command,
       charged: null,
       fee: null,
