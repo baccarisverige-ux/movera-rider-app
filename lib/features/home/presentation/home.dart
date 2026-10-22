@@ -46,6 +46,7 @@ import 'package:movera_rider/features/home/presentation/widgets/home_journey_sec
 import 'package:movera_rider/features/home/presentation/widgets/home_location_notice.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_edge.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/liquid_glass_nav.dart';
@@ -2405,14 +2406,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // UI-4: the toggle handle's target is 12 px taller than the 32 px it
     // used to be; half comes out of the padding above, half out of the gap.
     final handleLift = math.min(6.0, ResSize.h * 11);
+    // Owner round 4: square corners, raised over the map by an upward
+    // shadow (HomeSheetEdge), like the sign-in card over its scene.
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(34),
-          topRight: Radius.circular(34),
-        ),
-      ),
+      key: const ValueKey('home-sheet-surface'),
+      decoration: HomeSheetEdge.decoration,
       child: HorizontalSwipe(
         onSwipeLeft: _openPayment,
         child: SafeArea(
