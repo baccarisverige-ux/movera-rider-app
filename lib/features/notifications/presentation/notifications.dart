@@ -74,8 +74,11 @@ class NotificationScreen extends StatelessWidget {
               child: StreamBuilder<List<AppNotification>>(
                 stream: notificationController.watch(),
                 initialData: notificationController.feed(),
-                builder: (context, snapshot) {
-                  final items = snapshot.data ?? const <AppNotification>[];
+                // rider-r5-45: the stream only says when to rebuild; the
+                // feed is read on every build, so its time labels follow a
+                // language switch instead of the last emitted copy.
+                builder: (context, _) {
+                  final items = notificationController.feed();
                   if (items.isEmpty) {
                     return MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
