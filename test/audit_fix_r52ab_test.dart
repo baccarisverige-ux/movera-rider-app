@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
@@ -12,6 +13,7 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -265,5 +267,17 @@ void main() {
     // open the flow that could only end in 'isn't available yet'.
     expect(staging.bookLaterAvailable, isFalse);
     expect(AppScope.instance.bookLaterAvailable, isTrue, reason: 'demo');
+  });
+
+  test('rider-u133: a late fix books the real street, not "Location off"',
+      () async {
+    // Home still holds the placeholder from when location was off; the
+    // booking now has a real point for it.
+    final label = await bookingPickupAddress(
+      label: 'Location off, set pickup',
+      position: const LatLng(59.3346, 18.0632),
+      reverse: (_) async => 'Sveavägen 1, Stockholm',
+    );
+    expect(label, 'Sveavägen 1, Stockholm');
   });
 }

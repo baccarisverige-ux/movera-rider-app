@@ -12,9 +12,14 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show locationOffPickupLabel;
 import 'package:movera_rider/core/location/location_access_issue.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
+
+export 'package:movera_rider/features/pickup/application/pickup_address.dart'
+    show locationOffPickupLabel;
 
 /// U7: Home used to re-rasterise the puck (toImage, PNG encode, new
 /// BitmapDescriptor) on every heading sample and pulse tick. Headings are
@@ -55,9 +60,6 @@ class RotatedPuckCache {
   void clear() => _icons.clear();
 }
 
-/// Label for the pickup when no GPS fix exists. A fallback map point must
-/// never be called "Current location" (U2 / D-002).
-const String locationOffPickupLabel = 'Location off, set pickup';
 
 /// Whether [label] is a placeholder rather than a real address, so it must
 /// not be forward-geocoded or saved.
