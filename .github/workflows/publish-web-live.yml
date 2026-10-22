@@ -42,10 +42,14 @@ jobs:
             echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
             exit 1
           fi
+          # rider-u18: telemetry reports the pubspec version, not 'dev'.
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          test -n "$app_version"
           flutter build web --release \
             -t lib/main_demo.dart \
             --dart-define=MOVERA_FLAVOR=demo \
             --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid \
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
             --dart-define=MOVERA_GOOGLE_MAP_ID=${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
           printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
 
