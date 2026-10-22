@@ -629,6 +629,7 @@
   "securityBody": "Hur du loggar in på Movera.",
   "securityUnavailable": "Säkerhetsinställningar är inte tillgängliga",
   "securityUnavailableBody": "Movera kunde inte verifiera kontots säkerhet med servern.",
+  "securitySessionsUpdateFailed": "Det gick inte att uppdatera aktiva sessioner.",
   "passkeys": "Lösennycklar",
   "passkeyReady": "Klar på den här enheten",
   "noPasskey": "Ingen lösennyckel inställd",

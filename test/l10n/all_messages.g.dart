@@ -635,6 +635,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'securityBody': l.securityBody,
   'securityUnavailable': l.securityUnavailable,
   'securityUnavailableBody': l.securityUnavailableBody,
+  'securitySessionsUpdateFailed': l.securitySessionsUpdateFailed,
   'passkeys': l.passkeys,
   'passkeyReady': l.passkeyReady,
   'noPasskey': l.noPasskey,
@@ -2807,6 +2808,8 @@ class _Exhaustive implements AppLocalizations {
   String get securityUnavailable => '';
   @override
   String get securityUnavailableBody => '';
+  @override
+  String get securitySessionsUpdateFailed => '';
   @override
   String get passkeys => '';
   @override

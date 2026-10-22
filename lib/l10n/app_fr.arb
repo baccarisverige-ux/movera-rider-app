@@ -629,6 +629,7 @@
   "securityBody": "Comment vous vous connectez à Movera.",
   "securityUnavailable": "Réglages de sécurité indisponibles",
   "securityUnavailableBody": "Movera n’a pas pu vérifier la sécurité du compte auprès du serveur.",
+  "securitySessionsUpdateFailed": "Impossible de mettre à jour les sessions actives.",
   "passkeys": "Clés d’accès",
   "passkeyReady": "Prête sur cet appareil",
   "noPasskey": "Aucune clé d’accès configurée",

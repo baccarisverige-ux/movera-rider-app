@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
@@ -25,6 +28,10 @@ import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
+import 'package:movera_rider/features/profile/data/account_security_repository.dart';
+import 'package:movera_rider/features/profile/domain/account_security.dart';
+import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -463,6 +470,24 @@ void main() {
         expect(find.text(L10n.current.payDriverCash), findsOneWidget);
         expect(find.text('Pay the driver in cash'), findsNothing);
       });
+
+      testWidgets('rider-59: Security load failure reads in the language', (
+        tester,
+      ) async {
+        L10n.use(code);
+        final security = AccountSecurityController(
+          repository: _FailingSecurity(),
+        );
+        await tester.runAsync(security.load);
+        await pumpIn(tester, code, SecurityPage(securityController: security));
+        await tester.pumpAndSettle();
+        expect(security.errorMessage, L10n.current.securityUnavailableBody);
+        expect(find.text(L10n.current.securityUnavailableBody), findsWidgets);
+        expect(
+          find.text('Account security is unavailable right now.'),
+          findsNothing,
+        );
+      });
     });
   }
 }
@@ -486,4 +511,22 @@ class _RefusingCards extends SavedCardsController {
     DateTime? now,
     String? id,
   }) async => throw ArgumentError(CardInput.brandError);
+}
+
+/// The security endpoint is down.
+class _FailingSecurity extends AccountSecurityRepository {
+  _FailingSecurity()
+    : super(
+        api: ApiClient(
+          env: const AppEnv(
+            flavor: AppFlavor.test,
+            apiBaseUrl: 'https://api.test.movera.invalid',
+          ),
+          client: InProcessMockClient(),
+        ),
+      );
+
+  @override
+  Future<AccountSecurityState> load() async =>
+      throw StateError('security endpoint down');
 }

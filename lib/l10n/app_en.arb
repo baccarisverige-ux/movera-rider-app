@@ -1275,6 +1275,10 @@
   "securityBody": "How you sign in to Movera.",
   "securityUnavailable": "Security controls unavailable",
   "securityUnavailableBody": "Movera could not verify account security with the server.",
+  "securitySessionsUpdateFailed": "Could not update active sessions.",
+  "@securitySessionsUpdateFailed": {
+    "description": "Security screen error when signing out other devices fails."
+  },
   "passkeys": "Passkeys",
   "passkeyReady": "Ready on this device",
   "noPasskey": "No passkey configured",
