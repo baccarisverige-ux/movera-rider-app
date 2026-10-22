@@ -411,6 +411,14 @@ class ActiveRideController {
       if (charged != null && _clean(snapshot.rideId) == id) {
         await _chargeWallet(snapshot, fare: charged);
       }
+    } else if (snapshot != null &&
+        cancellationFee != null &&
+        cancellationFee.amountMinor > 0 &&
+        _clean(snapshot.rideId) == id) {
+      // rider-r5-12: History says the cancel fee was paid with the ride's
+      // method; a wallet ride (or its wallet part) is debited it here,
+      // once per ride like a completed trip.
+      await _chargeWallet(snapshot, fare: cancellationFee);
     }
     await _archive(
       snapshot,
