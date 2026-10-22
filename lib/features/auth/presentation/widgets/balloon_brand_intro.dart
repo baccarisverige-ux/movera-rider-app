@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart';
@@ -8,8 +6,9 @@ import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// The first screen's hero: the wordmark and the tagline. The wordmark is
-/// complete from the first frame; during the intro story the balloon from
-/// the scene flies in and settles onto its pin ([BalloonFlight]).
+/// complete from the first frame; only the small dot inside its pin waits
+/// for the balloon that flies in from the scene and becomes it
+/// ([BalloonFlight]).
 class BalloonBrandIntro extends StatelessWidget {
   const BalloonBrandIntro({
     super.key,
@@ -28,6 +27,7 @@ class BalloonBrandIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
     return Semantics(
       // rider-31: the slogan in the app language, as Rider name shows it.
       label: 'Movera. ${context.l10n.brandTaglineSentence}',
@@ -41,10 +41,20 @@ class BalloonBrandIntro extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: 34),
-                  // Owner round 3: the wordmark always reads "Movera", pin
-                  // included; the balloon lands onto that pin and ends up
-                  // identical to it.
-                  MoveraWordmark(key: wordmarkKey, size: wordmarkSize),
+                  AnimatedBuilder(
+                    animation: progress,
+                    builder: (context, _) {
+                      final time = reducedMotion ? 1.0 : progress.value;
+                      // Owner round 4: "Movera" is whole from the start; the
+                      // dot in the "o" appears when the balloon lands and
+                      // pops once (AnimatedScale in the wordmark).
+                      return MoveraWordmark(
+                        key: wordmarkKey,
+                        size: wordmarkSize,
+                        showDot: BalloonFlight.landed(time),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 14),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -71,14 +81,13 @@ class BalloonBrandIntro extends StatelessWidget {
   }
 }
 
-/// One continuous flight: the balloon leaves the person's hand in the scene,
-/// rises in a single curve to the hero wordmark and settles onto its pin,
-/// darkening into the same black on the way.
+/// One continuous flight: the green balloon leaves the person's hand in the
+/// scene, rises in a single arc to the hero wordmark, shrinks over the last
+/// part of the way and settles inside the pin's hole as its small green dot.
 ///
 /// Painted on a layer over the whole page, so there is no hand-over between
-/// two painters half-way (the old intro drew the first half in the scene and
-/// the second in the hero, in different coordinates and speeds, which showed
-/// as a stall and a jump in the middle).
+/// two painters half-way. When it lands the layer stops and the wordmark's
+/// own dot takes over at the same spot and size, with a short pop.
 class BalloonFlight extends StatelessWidget {
   const BalloonFlight({
     super.key,
@@ -96,8 +105,11 @@ class BalloonFlight extends StatelessWidget {
   /// Story time when the balloon leaves the hand.
   static const releaseAt = 0.44;
 
-  /// Story time when it has become the pin.
+  /// Story time when it has settled in the "o".
   static const landAt = 0.86;
+
+  /// Share of the flight after which the balloon starts shrinking.
+  static const shrinkFrom = 0.55;
 
   static bool released(double time) => time >= releaseAt;
   static bool landed(double time) => time >= landAt;
@@ -109,9 +121,21 @@ class BalloonFlight extends StatelessWidget {
   static double travel(double time) =>
       Curves.easeInOutCubic.transform(_phase(time, releaseAt, landAt));
 
-  /// How much balloon has turned into pin at [time], 0..1.
-  static double morph(double time) =>
-      Curves.easeOut.transform(_phase(time, 0.68, landAt));
+  /// How far the balloon has shrunk to the dot, 0..1, over the last part
+  /// of the flight ([shrinkFrom]..1 of [travel]).
+  static double shrink(double time) =>
+      Curves.easeInOutCubic.transform(_phase(travel(time), shrinkFrom, 1));
+
+  /// The balloon's centre at [travel] on a soft arc from [from] to [to]: it
+  /// rises first, then drifts across to the wordmark.
+  static Offset along(Offset from, Offset to, double travel) {
+    final control = Offset(
+      from.dx + (to.dx - from.dx) * 0.15,
+      from.dy + (to.dy - from.dy) * 0.75,
+    );
+    final u = 1 - travel;
+    return from * (u * u) + control * (2 * u * travel) + to * (travel * travel);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,19 +164,25 @@ class BalloonFlight extends StatelessWidget {
             ancestor: overlay,
           );
           final layout = MoveraWordmark.layout(wordmarkSize);
-          final pinScale = layout.pinRect.height / MoveraPin.designSize.height;
           final to = wordmark.localToGlobal(
-            layout.pinRect.topLeft + MoveraPin.headCentre * pinScale,
+            layout.dotRect.center,
             ancestor: overlay,
           );
+          // Same size as the balloon the scene drew, then the dot's size.
+          final startRadius =
+              AuthScene.balloonRadius *
+              scene.size.width /
+              AuthScene.designSize.width;
+          final endRadius = layout.dotRect.width / 2;
           return CustomPaint(
             size: Size.infinite,
             painter: _FlightPainter(
               from: from,
               to: to,
-              scale: pinScale,
+              startRadius: startRadius,
+              endRadius: endRadius,
               travel: travel(time),
-              morph: morph(time),
+              shrink: shrink(time),
             ),
           );
         },
@@ -165,60 +195,71 @@ class _FlightPainter extends CustomPainter {
   const _FlightPainter({
     required this.from,
     required this.to,
-    required this.scale,
+    required this.startRadius,
+    required this.endRadius,
     required this.travel,
-    required this.morph,
+    required this.shrink,
   });
 
   final Offset from;
   final Offset to;
-  final double scale;
+  final double startRadius;
+  final double endRadius;
   final double travel;
-  final double morph;
+  final double shrink;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // A gentle arc: the balloon drifts a little sideways on the way up.
-    final drift = Offset(18 * math.sin(math.pi * travel), 0);
-    final centre = Offset.lerp(from, to, travel)! + drift;
-    canvas.save();
-    canvas.translate(centre.dx, centre.dy);
-    canvas.scale(scale);
-    canvas.translate(-MoveraPin.headCentre.dx, -MoveraPin.headCentre.dy);
-    // Colour follows the whole flight, form only the last part: no sudden
-    // change of colour on landing.
-    paintBalloon(canvas, morph, tone: travel);
-    canvas.restore();
+    final centre = BalloonFlight.along(from, to, travel);
+    final radius = startRadius + (endRadius - startRadius) * shrink;
+    paintBalloon(
+      canvas,
+      centre,
+      radius,
+      // The string lets go early, the tail and the shine go as it shrinks.
+      string: 1 - ((travel - 0.0) / 0.3).clamp(0.0, 1.0),
+      body: 1 - shrink,
+    );
   }
 
-  /// The balloon on [MoveraPin.designSize]: round and all green when it
-  /// leaves the hand; over the flight ([tone] 0..1) its head darkens into
-  /// the pin's ink while the tip stays green, so it arrives already in the
-  /// pin's colours; [shape] 0..1 is the form, balloon to pin with its hole.
-  static void paintBalloon(Canvas canvas, double shape, {double? tone}) {
-    final t = tone ?? shape;
-    final tip = 31 + 11 * shape;
-    final head = Color.lerp(MoveraPin.bottomColor, MoveraPin.topColor, t)!;
-    canvas.drawPath(
-      MoveraPin.withHole(tip: tip, hole: MoveraPin.holeRadius * shape),
-      MoveraPin.fill(top: head),
-    );
-    if (t < 1) {
-      canvas.drawCircle(
-        const Offset(11, 10),
-        4.5,
-        Paint()..color = Colors.white.withValues(alpha: 0.38 * (1 - t)),
+  /// A green balloon of [radius] at [centre]: a round body, a small tail
+  /// below it and a shine, both fading with [body] (1 full, 0 a plain dot),
+  /// and a short string fading with [string].
+  static void paintBalloon(
+    Canvas canvas,
+    Offset centre,
+    double radius, {
+    required double string,
+    required double body,
+  }) {
+    final green = Paint()..color = MoveraPin.dotColor;
+    if (string > 0) {
+      canvas.drawLine(
+        centre + Offset(0, radius),
+        centre + Offset(radius * 0.25, radius * 2.6),
+        Paint()
+          ..color = AuthColors.ink.withValues(alpha: string)
+          ..strokeWidth = 1.1
+          ..strokeCap = StrokeCap.round,
       );
     }
-    if (shape < 1) {
+    if (body > 0) {
+      final tail = radius * 0.28 * body;
       canvas.drawPath(
         Path()
-          ..moveTo(16, tip)
-          ..quadraticBezierTo(19, 37, 16, 42),
-        Paint()
-          ..color = AuthColors.ink.withValues(alpha: 1 - shape)
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke,
+          ..moveTo(centre.dx - tail, centre.dy + radius * 0.92)
+          ..lineTo(centre.dx, centre.dy + radius + tail)
+          ..lineTo(centre.dx + tail, centre.dy + radius * 0.92)
+          ..close(),
+        green,
+      );
+    }
+    canvas.drawCircle(centre, radius, green);
+    if (body > 0) {
+      canvas.drawCircle(
+        centre + Offset(-radius * 0.32, -radius * 0.38),
+        radius * 0.3,
+        Paint()..color = Colors.white.withValues(alpha: 0.38 * body),
       );
     }
   }
@@ -227,7 +268,8 @@ class _FlightPainter extends CustomPainter {
   bool shouldRepaint(_FlightPainter oldDelegate) =>
       oldDelegate.from != from ||
       oldDelegate.to != to ||
-      oldDelegate.scale != scale ||
+      oldDelegate.startRadius != startRadius ||
+      oldDelegate.endRadius != endRadius ||
       oldDelegate.travel != travel ||
-      oldDelegate.morph != morph;
+      oldDelegate.shrink != shrink;
 }

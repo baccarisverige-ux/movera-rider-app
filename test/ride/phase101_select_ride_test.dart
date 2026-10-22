@@ -52,7 +52,10 @@ void main() {
     addTearDown(selection.dispose);
     final nav = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(navigatorKey: nav, home: const Scaffold(body: Text('home'))),
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('home')),
+      ),
     );
     nav.currentState!.push(
       MaterialPageRoute<void>(
@@ -91,10 +94,7 @@ void main() {
     // The only read of widget.pickupPosition is seeding _pickupPosition in
     // initState; markers, route, initial camera and fitBounds must all follow
     // _pickupPosition so a re-confirmed pickup is what the rider sees.
-    expect(
-      RegExp(r'widget\.pickupPosition').allMatches(src).length,
-      1,
-    );
+    expect(RegExp(r'widget\.pickupPosition').allMatches(src).length, 1);
     expect(src, contains('_pickupPosition = widget.pickupPosition;'));
   });
 
@@ -133,6 +133,59 @@ void main() {
         fit.southwest.latitude,
         closeTo(destination.latitude - span * full / usable, 1e-9),
       );
+    });
+  });
+
+  group('owner round 4: the camera frames the road and the bubbles', () {
+    const pickup = GeoPoint(59.3293, 18.0686);
+    const destination = GeoPoint(59.3429, 18.0496);
+
+    test('the road route widens the bounds past the straight line', () {
+      final fit = selectRideCameraFit(
+        pickup: pickup,
+        destination: destination,
+        mapHeight: 496,
+        bottomObstruction: 0,
+        route: const [
+          pickup,
+          GeoPoint(59.3300, 18.0900), // a detour east of both pins
+          GeoPoint(59.3500, 18.0600), // and north of the destination
+          destination,
+        ],
+      );
+      expect(fit.northeast.longitude, 18.0900);
+      expect(fit.northeast.latitude, 59.3500);
+      expect(fit.southwest.longitude, destination.longitude);
+      expect(fit.southwest.latitude, pickup.latitude);
+    });
+
+    test('the search bar at the top stretches the bounds north', () {
+      final fit = selectRideCameraFit(
+        pickup: pickup,
+        destination: destination,
+        mapHeight: 496,
+        bottomObstruction: 0,
+        topObstruction: 100,
+      );
+      final span = destination.latitude - pickup.latitude;
+      final usable = 496 - 100 - 2 * fit.padding;
+      expect(
+        fit.northeast.latitude,
+        closeTo(destination.latitude + span * (100 / usable), 1e-9),
+      );
+      expect(fit.southwest.latitude, pickup.latitude);
+    });
+
+    test('the padding leaves room for a time bubble beside the edge', () {
+      final fit = selectRideCameraFit(
+        pickup: pickup,
+        destination: destination,
+        mapHeight: 496,
+        bottomObstruction: 0,
+      );
+      // Half of a ~110 px bubble plus a margin.
+      expect(fit.padding, greaterThanOrEqualTo(70));
+      expect(fit.padding, selectRideEdgePadding);
     });
   });
 }
