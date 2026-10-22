@@ -11,6 +11,9 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_gate.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 
 /// Wave 5 R5.4 parts a + b: state and time (low). One test per bug.
@@ -44,6 +47,14 @@ Future<String> _book(ApiClient api) async {
     },
   );
   return (created['ride'] as Map)['id'] as String;
+}
+
+/// Waits (on the event loop, no fixed delay) until [done] holds.
+Future<void> _until(bool Function() done, {int turns = 500}) async {
+  for (var i = 0; i < turns && !done(); i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(done(), isTrue, reason: 'condition never held');
 }
 
 /// A map controller that only records camera moves.
@@ -119,5 +130,31 @@ void main() {
     expect(view.easing, isTrue);
     view.touching = true; // the tap stops the flight
     expect(view.pose, midway);
+  });
+
+  test('rider-u26: a driver drop re-offered within one poll is still the '
+      'driver-cancelled notice', () async {
+    final server = InProcessMockClient();
+    final api = ApiClient(client: server);
+    final id = await _book(api);
+    Future<void> simulate(Map<String, dynamic> body) =>
+        api.post('/api/v1/rides/$id/status', body: body);
+    await simulate({'status': 'driver_to_pickup'});
+    final realtime = ApiRideRealtime(
+      api: api,
+      pollInterval: const Duration(days: 1),
+    );
+    addTearDown(realtime.dispose);
+    final events = <RideRealtimeEvent>[];
+    final sub = realtime.subscribe(id).listen(events.add);
+    addTearDown(sub.cancel);
+    await _until(() => events.isNotEmpty);
+    await simulate({'command': 'cancel', 'actor': 'driver'});
+    await simulate({'command': 'send_offer', 'actor': 'system'});
+    final seen = events.length;
+    await realtime.reconnectAndResync(id);
+    await _until(() => events.length > seen);
+    expect(events.last.isAdminReassign, isFalse);
+    expect(events.last.kind, RealtimeKind.driverCancelled);
   });
 }

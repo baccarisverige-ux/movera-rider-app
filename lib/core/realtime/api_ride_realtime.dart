@@ -318,6 +318,12 @@ class ApiRideRealtime implements RideRealtime {
   /// admin: the projection's `cancellation.actor` says so, or the server
   /// named the change with a kind other than `driver_cancelled` (a driver
   /// drop always carries that kind).
+  ///
+  /// rider-u26: the kind is the newest event's. It names the change that
+  /// ended the match only while the trip still sits where that change put
+  /// it (`searching`). Once dispatch has moved on (re-offered, another
+  /// driver accepted) within one poll, the kind is that later step's, so
+  /// without an actor the rider is told the driver cancelled.
   static bool _reassignedByAdmin(
     Map<String, dynamic> ride,
     RealtimeKind? explicitKind,
@@ -328,6 +334,7 @@ class ApiRideRealtime implements RideRealtime {
       if (actor == 'admin') return true;
       if (actor == 'driver') return false;
     }
+    if (ride['status'] != TripStatus.searching.wireName) return false;
     return explicitKind != null && explicitKind != RealtimeKind.driverCancelled;
   }
 
