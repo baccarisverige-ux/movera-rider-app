@@ -203,6 +203,21 @@ void main() {
           findsOneWidget,
         );
       });
+
+      testWidgets('rider-38: History detail names the Wallet in the language', (
+        tester,
+      ) async {
+        final ride = OnDemandRideHistoryStore.recordFor(
+          snapshot('r51-wallet', payment: 'Movera Wallet'),
+          terminalStatus: RideStatus.tripCompleted,
+        )!;
+        L10n.use(code);
+        await openHistoryDetail(tester, code, ride, L10n.current.resCompleted);
+        expect(
+          find.text(L10n.current.paymentMethodLine(L10n.current.moveraWallet)),
+          findsOneWidget,
+        );
+      });
     });
   }
 }
