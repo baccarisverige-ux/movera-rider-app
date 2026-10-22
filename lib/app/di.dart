@@ -73,6 +73,7 @@ import 'package:movera_rider/features/ride_complete/application/ride_complete_co
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
@@ -109,6 +110,8 @@ class AppScope {
         // different one does, AuthController wipes it first
         // (UserDataWipe.enterSessionAs). Sign-out wipes everything.
         await LocationRepository.clearLastGoodFix();
+        // rider-u201: the microphone does not stay on behind Sign in.
+        await SafetyController.stopRecordingForSessionExpiry();
         // Sign in becomes the root gate's child so the gate survives. The
         // screen is registered from app.dart so DI never imports
         // presentation (ARCH-17).

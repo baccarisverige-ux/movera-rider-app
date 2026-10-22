@@ -87,6 +87,13 @@ class SafetyController extends ChangeNotifier {
     await audio!.stopIfRecording(reason: 'ride_ended');
   }
 
+  /// rider-u201: the session expired and Sign in replaced the trip screen,
+  /// so no Stop control is left on screen. A running recording (the Safety
+  /// Kit's or a Ride check card's) stops and is saved for the rider.
+  static Future<void> stopRecordingForSessionExpiry() async {
+    await _shared?.audio.stopIfRecording(reason: 'session_expired');
+  }
+
   @visibleForTesting
   static set sharedForTest(SafetyController? controller) =>
       _shared = controller;

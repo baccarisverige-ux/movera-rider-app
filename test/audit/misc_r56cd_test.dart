@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -231,5 +234,34 @@ void main() {
     );
     await audio.start(rideId: 'ride_a');
     expect(audio.isRecording, isTrue);
+  });
+
+  test('rider-u201: session expiry turns the microphone off', () async {
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
+    SharedPreferences.setMockInitialValues({});
+    resetSafetyMockForProcess();
+    final (:store, local: _) = _store();
+    final recorder = _Recorder();
+    final safety = SafetyController(
+      session: store,
+      audio: SafetyAudioService(recorder: recorder, store: store),
+    );
+    SafetyController.sharedForTest = safety;
+    addTearDown(() => SafetyController.sharedForTest = null);
+    await safety.audio.start(rideId: 'ride_a', deviceOnly: true);
+
+    await AppScope.instance.tokens.save(
+      access: 'u201-expired-access',
+      refresh: 'u201-rejected-refresh',
+    );
+    await expectLater(
+      AppScope.instance.api.post(
+        '/api/v1/auth/refresh',
+        body: {'refreshToken': 'u201-rejected-refresh'},
+      ),
+      throwsA(isA<ApiError>()),
+    );
+    expect(recorder.live, isFalse);
+    expect(safety.audio.isRecording, isFalse);
   });
 }
