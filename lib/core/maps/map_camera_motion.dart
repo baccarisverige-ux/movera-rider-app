@@ -61,7 +61,7 @@ class MapView {
   /// camera. A recenter takes the map back at once.
   static const Duration followHold = Duration(seconds: 12);
 
-  /// Clock for [followHold] (tests replace it).
+  /// Clock for [followHold] and the glide's frame times (tests replace it).
   static DateTime Function() now = DateTime.now;
 
   /// Whether a follow update must leave the map alone.
@@ -438,13 +438,13 @@ Future<void> _glide(
       }
       await _send(controller, view, next);
       if (last || view.generation != generation) return;
-      final started = DateTime.now();
+      final started = MapView.now();
       await Future<void>.delayed(cameraEaseFrame);
       // Real time, but never less than one frame, so a glide also ends
       // where the clock barely moves (tests, fast frames).
       dt = math.max(
         cameraEaseFrame.inMicroseconds,
-        DateTime.now().difference(started).inMicroseconds,
+        MapView.now().difference(started).inMicroseconds,
       );
     }
   } catch (_) {
