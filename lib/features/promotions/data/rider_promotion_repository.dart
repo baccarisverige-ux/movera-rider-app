@@ -7,13 +7,10 @@ class RiderPromotionRepository {
 
   final ApiClient _api;
 
-  /// The active promotion, or null when the server has none (or is unreachable).
+  /// The active promotion, or null when the server has none. Throws when
+  /// the lookup fails (rider-r5-22: that is not "no promotion").
   Future<RiderPromotion?> fetchActive() async {
-    try {
-      final body = await _api.get('/api/v1/rider/promotions/active');
-      return RiderPromotion.fromJson(body['promotion']);
-    } catch (_) {
-      return null;
-    }
+    final body = await _api.get('/api/v1/rider/promotions/active');
+    return RiderPromotion.fromJson(body['promotion']);
   }
 }
