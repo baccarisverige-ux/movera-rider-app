@@ -2250,6 +2250,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   @override
   void initState() {
     super.initState();
+    // rider-u59: a map rebuilt mid-ride (after a route change) starts from
+    // the driver's last known fix instead of waiting for the next one,
+    // which a driver standing at the pickup may not send for a while.
+    _updateDriverAnimation();
     _markers = _buildMarkers();
     unawaited(_prepareMapVisuals());
   }

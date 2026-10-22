@@ -9,6 +9,8 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -264,6 +266,33 @@ void main() {
 
     expect(find.byType(WaitingForDriver), findsOneWidget);
     expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
+  });
+
+  testWidgets('rider-u59: the map rebuilt after Change route shows the car '
+      'at its last fix', (tester) async {
+    final realtime = await openWaiting(tester);
+    realtime.emit(
+      RideStatus.driverArriving,
+      latitude: 59.3340,
+      longitude: 18.0600,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    Iterable<Marker> cars() => tester
+        .widget<CustomGoogleMap>(find.byKey(const ValueKey('waiting-map')))
+        .markers!
+        .where((marker) => marker.markerId.value == 'driver');
+
+    // Change route parks the map; backing out of it builds a new one, and
+    // the driver (standing still) sends no new fix.
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+    expect(find.byType(RoutePickerPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(RoutePickerPage))).pop();
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
+
+    expect(cars(), hasLength(1));
+    expect(cars().single.position, const LatLng(59.3340, 18.0600));
   });
 
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '
