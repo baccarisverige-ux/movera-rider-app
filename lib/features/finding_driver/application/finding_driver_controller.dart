@@ -553,6 +553,15 @@ class FindingDriverController {
       // what it means everywhere: no driver found).
       final status = RideStatusWire.fromProjection(raw);
       if (status == null || status.isSearching) return;
+      // rider-u95: the rider's own queued cancel landed. A restore can ask
+      // before the outbox entry is adopted, so the outbox is read here too.
+      if (status == RideStatus.cancelledByRider &&
+          await _adoptCancelThatLanded(id)) {
+        _realtime.unsubscribe();
+        await _confirmQueuedCancel();
+        return;
+      }
+      if (_cancelled || _terminated || _disposed) return;
       final version = (raw['version'] as num?)?.toInt();
       final updatedAt = raw['updatedAt'] is String
           ? DateTime.tryParse(raw['updatedAt'] as String)
@@ -586,6 +595,29 @@ class FindingDriverController {
     } finally {
       _serverCheckInFlight = false;
     }
+  }
+
+  /// True when the rider's cancel of [id] is queued (adopted now from the
+  /// outbox if the restore has not done it yet), so a server status of
+  /// cancelled by rider is that cancel landing.
+  Future<bool> _adoptCancelThatLanded(String id) async {
+    if (_cancelQueued) return true;
+    PendingCancel? queued;
+    try {
+      queued = await PendingCancelStore.find(id);
+    } catch (_) {
+      return false;
+    }
+    if (queued == null ||
+        queued.command != PendingCancelCommand.cancel ||
+        _cancelled ||
+        _terminated ||
+        _disposed) {
+      return _cancelQueued;
+    }
+    _cancelQueued = true;
+    _queuedReasonId ??= queued.reasonId;
+    return true;
   }
 
   /// The stored snapshot of [rideId] (the session's ride when null), or
