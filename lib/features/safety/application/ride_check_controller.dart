@@ -776,14 +776,23 @@ class RideCheckController extends ChangeNotifier {
     );
     _changed();
     unawaited(_audio.stopIfRecording(reason: 'ride_check_closed'));
+    final submission = _submission(
+      closing,
+      alert: closing.alertState != RideCheckAlertState.none,
+      isFinal: true,
+    );
+    // rider-u197: saved on the device now. Queued behind a slow alert, a
+    // reload before it ran brought the closed card back without its answer.
+    unawaited(
+      _service.keepAnswers(submission).catchError((Object error) {
+        AppLog.warning(
+          'safety.ridecheck.keep.failed',
+          extra: {'error': '$error'},
+        );
+      }),
+    );
     _enqueue('close', () async {
-      await _service.submitAnswers(
-        _submission(
-          closing,
-          alert: closing.alertState != RideCheckAlertState.none,
-          isFinal: true,
-        ),
-      );
+      await _service.submitAnswers(submission);
       try {
         await _service.resolve(
           RideCheckEvent(

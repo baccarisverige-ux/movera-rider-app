@@ -532,4 +532,30 @@ void main() {
       isNotEmpty,
     );
   });
+
+  test('rider-u197: a card closed behind a slow alert stays closed after a '
+      'reload', () async {
+    SharedPreferences.setMockInitialValues({});
+    resetSafetyMockForProcess();
+    final client = _SlowAnswers();
+    addTearDown(client.release);
+    final (store, first) = await _launchSafety(client);
+    await first.open(RideCheckTrigger.longStop, rideId: 'ride_u197');
+    final red = first.session!.rows.firstWhere((row) => row.red);
+    first.chooseRow(red.id);
+    first.done();
+    expect(first.session, isNull);
+    expect(
+      await _eventually(
+        () async => (await store.cachedRideCheckEvents(
+          'ride_u197',
+        )).any((e) => e.status == RideCheckStatus.resolved),
+      ),
+      isTrue,
+    );
+    // The page reloads while the alert is still on its way.
+    final (_, second) = await _launchSafety(client);
+    await second.resume('ride_u197');
+    expect(second.session, isNull);
+  });
 }

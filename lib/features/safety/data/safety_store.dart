@@ -401,7 +401,18 @@ class SafetyStore {
       () => _remote.postSafetyEvent(event),
       event,
       (value) {
-        _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), value];
+        // rider-u197: a card closed while its open was being sent stays
+        // closed, with the answers saved on this device.
+        final local = _cache.events
+            .where((e) => e.eventId == value.eventId)
+            .lastOrNull;
+        final kept = local?.status == RideCheckStatus.resolved
+            ? value.copyWith(
+                status: RideCheckStatus.resolved,
+                payload: {...value.payload, ...local!.payload},
+              )
+            : value;
+        _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), kept];
       },
       keep: () => _keepEvent(event.eventId),
     );
@@ -475,10 +486,39 @@ class SafetyStore {
   Future<RideCheckReceipt> submitRideCheckAnswers(
     RideCheckSubmission submission,
   ) async {
+    await keepRideCheckAnswers(submission);
+    final receipt = await _remote.postRideCheckAnswers(submission);
+    final alertId = receipt.alertId;
+    if (alertId != null) {
+      // The event as it is now: a close saved while this was sent stays
+      // resolved with its own answers.
+      final now = _cache.events
+          .where((event) => event.eventId == submission.checkId)
+          .lastOrNull;
+      if (now != null) {
+        _cache.events = [
+          for (final event in _cache.events)
+            if (event.eventId != now.eventId) event,
+          now.copyWith(payload: {...now.payload, 'alertId': alertId}),
+        ];
+        await _local.save(_cache);
+      }
+    }
+    return receipt;
+  }
+
+  /// [submission]'s answers on the trip's Ride check event on this device
+  /// only (rider-u197: a close is saved at once, not after the sends queued
+  /// before it).
+  Future<void> keepRideCheckAnswers(RideCheckSubmission submission) async {
     await _ensure();
     RideCheckEvent? current;
     for (final event in _cache.events) {
       if (event.eventId == submission.checkId) current = event;
+    }
+    // A closed card's answers are final; an earlier send never reopens it.
+    if (!submission.isFinal && current?.status == RideCheckStatus.resolved) {
+      return;
     }
     final base = current ??
         RideCheckEvent(
@@ -521,12 +561,6 @@ class SafetyStore {
       submission.alertId ?? (existingAlert is String ? existingAlert : null),
     ));
     await _local.save(_cache);
-    final receipt = await _remote.postRideCheckAnswers(submission);
-    if (receipt.alertId != null) {
-      keep(withAnswers(receipt.alertId));
-      await _local.save(_cache);
-    }
-    return receipt;
   }
 
   /// RC5: a Ride check recording is kept on this device only. No server
