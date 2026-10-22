@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
@@ -80,7 +81,9 @@ class FindingDriverController {
     Duration? priceBumpAfter,
     this.searchTimeout = const Duration(minutes: 3),
     this.serverCheckEvery = const Duration(seconds: 15),
-  }) : priceBumpAfter =
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       priceBumpAfter =
            priceBumpAfter ??
            (AppScope.instance.environment.allowsMockTransport
                ? SearchCopy.demoPriceBumpAfter
@@ -98,6 +101,9 @@ class FindingDriverController {
   final RideSession? _ride;
   final ApiClient? _api;
   final OnDemandArchiveWriter? _historyArchiveWriter;
+
+  /// The wall clock the search's elapsed time is read from.
+  final DateTime Function() _now;
   final Duration delayedAfter;
 
   /// When the "raise your offer" card appears, if no driver has accepted.
@@ -348,8 +354,7 @@ class FindingDriverController {
     _editRacedByCancel = null;
     // ARCH-3 / RIDE-5: elapsed counts from when this search started, not
     // from when this screen mounted, so a reload does not restart it.
-    final sinceStart = DateTime.now().difference(snapshot.searchStart);
-    elapsedSeconds = sinceStart.isNegative ? 0 : sinceStart.inSeconds;
+    elapsedSeconds = _sinceSearchStart();
     timeoutLogs = 0;
     offerConfirmation = null;
     editFeedback = null;
@@ -433,11 +438,25 @@ class FindingDriverController {
         timer.cancel();
         return;
       }
-      elapsedSeconds += 1;
+      // rider-u94: timers stop while the app is in the background (and
+      // browsers throttle hidden tabs), so each tick reads the clock: a
+      // resumed tick catches up at once instead of counting from where the
+      // timer was paused.
+      final next = math.max(elapsedSeconds + 1, _sinceSearchStart());
+      final step = next - elapsedSeconds;
+      elapsedSeconds = next;
       _evaluatePhase();
-      _afterElapsed(1);
+      _afterElapsed(step);
       _onTick?.call(elapsedSeconds);
     });
+  }
+
+  /// Whole seconds since this search started (ARCH-3 / RIDE-5).
+  int _sinceSearchStart() {
+    final start = _snapshot?.searchStart;
+    if (start == null) return 0;
+    final since = _now().difference(start);
+    return since.isNegative ? 0 : since.inSeconds;
   }
 
   void debugAdvance(int seconds) {
