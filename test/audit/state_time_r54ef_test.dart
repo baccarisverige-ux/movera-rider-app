@@ -325,6 +325,27 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('rider-u189: a ride tapped while the booking is under way does '
+      'not change the selection', (tester) async {
+    final quotes = _Quotes(slowPin: true);
+    final selection = _selection(quotes);
+    final booking = _Booking();
+    await _pumpSelectRide(tester, selection, booking);
+    await _openSetPickupAndMovePin(tester);
+    await _confirmPickup(tester);
+    // Select Ride waits for the pin's price; the rider taps Comfort.
+    expect(find.byType(SetPickupPage), findsNothing);
+    await tester.tap(find.text('Comfort').first);
+    await tester.pump();
+    expect(selection.selectedRideId, 'economy');
+    quotes.pin!.complete();
+    await _settle(tester);
+    await tester.tap(find.byKey(const ValueKey('select-ride-price-accept')));
+    await _settle(tester, 20);
+    expect(booking.booked.single.ride, 'economy');
+    await _close(tester);
+  });
+
   testWidgets('rider-u155: Last changed is the rider\'s local day', (
     tester,
   ) async {

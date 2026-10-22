@@ -709,6 +709,8 @@ class _SelectRideState extends State<SelectRide>
       _selection.hasPriceFor(ride.id, catalogCurrency: ride.currency);
 
   void _selectRide(String id) {
+    // rider-u189: the booking under way has captured its ride.
+    if (_bookingInFlight) return;
     _RideOption? selected;
     for (final ride in _allRides) {
       if (ride.id == id) {
@@ -1018,6 +1020,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showBookingPicker() async {
+    if (_bookingInFlight) return;
     if (widget.lockBookingMode) {
       await _chooseLater();
       return;
@@ -1395,14 +1398,14 @@ class _SelectRideState extends State<SelectRide>
 
   void _releaseRouteWork() {
     _bookingInFlight = false;
-    _expiryRequote?.cancel();
-    _expiryRequote = null;
-    _selection.cancelPendingQuotes();
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
       unawaited(_loadQuotes());
       return;
     }
+    _expiryRequote?.cancel();
+    _expiryRequote = null;
+    _selection.cancelPendingQuotes();
   }
 
   void _onRoutePop(bool didPop, Object? _) {
@@ -2766,7 +2769,8 @@ class _SelectRideState extends State<SelectRide>
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: _showPaymentPicker,
+        // rider-u189: Set pickup changes the method of a booking under way.
+        onTap: _bookingInFlight ? null : _showPaymentPicker,
         borderRadius: BorderRadius.circular(14),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 52),
