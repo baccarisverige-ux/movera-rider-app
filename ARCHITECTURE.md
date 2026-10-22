@@ -87,4 +87,4 @@ architecture guard test enforces this.
 
 ## Live
 
-https://baccarisverige-ux.github.io/-movera-rider/
+https://baccarisverige-ux.github.io/movera-rider-app/
