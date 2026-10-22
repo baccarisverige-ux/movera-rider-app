@@ -38,6 +38,14 @@ class ScheduledRideSession {
     this.timezone = timezone;
   }
 
+  /// Q9, owner decision 9: the wall-clock pickup in the pickup zone
+  /// [timezone], sent as its UTC instant (contract: `scheduledAt` RFC 3339
+  /// UTC), whatever the phone's own time zone.
+  String? get scheduledAtWire => switch (scheduledAt) {
+    final at? => WireTime.format(PickupSchedule(timezone).toUtc(at)),
+    null => null,
+  };
+
   void captureNote(String value) {
     note = value;
   }
@@ -58,12 +66,7 @@ class ScheduledRideSession {
             () => AppScope.instance.booking.requestBooking(
               rideType: rideType,
               paymentMethod: paymentMethod,
-              // Q9: the wall-clock pickup in the pickup zone, sent as its
-              // UTC instant (contract: `scheduledAt` UTC).
-              scheduledAt: switch (scheduledAt) {
-                final at? => WireTime.format(PickupSchedule(timezone).toUtc(at)),
-                null => null,
-              },
+              scheduledAt: scheduledAtWire,
               // RIDE-22: the route is part of the booking and its key.
               pickupAddress: pickup,
               pickupLat: pickupLat,

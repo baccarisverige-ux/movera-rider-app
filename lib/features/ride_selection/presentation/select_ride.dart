@@ -47,6 +47,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_filter.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
@@ -1179,7 +1180,7 @@ class _SelectRideState extends State<SelectRide>
         (!_pickupSchedule.isLegalPickup(when) ||
             !StockholmSchedule.isOnGrid(when) ||
             // rider-r4-10: nor past the zone's reservation horizon.
-            when.isAfter(
+            ZoneClock.wall(when).isAfter(
               _pickupSchedule.latestPickup(_pickupSchedule.horizonDays),
             ));
   }

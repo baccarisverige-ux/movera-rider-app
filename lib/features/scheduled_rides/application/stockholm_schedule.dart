@@ -4,8 +4,10 @@ import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 
 /// Book-later pickup rules in one zone's wall-clock time (Q9: the pickup
-/// zone's local time). Times in and out are plain wall-clock [DateTime]s
-/// of [timeZone].
+/// zone's local time). Times in and out are wall-clock times of [timeZone]
+/// as [ZoneClock.wallTime] carries them (UTC-tagged fields, so the phone's
+/// own time zone never moves them; owner decision 9). A device-local value
+/// passed in is read by its fields.
 class PickupSchedule {
   const PickupSchedule(
     this.timeZone, {
@@ -54,7 +56,7 @@ class PickupSchedule {
     final latest = zoneNow(
       (now ?? StockholmSchedule.clock()).add(Duration(days: days)),
     );
-    return DateTime(
+    return DateTime.utc(
       latest.year,
       latest.month,
       latest.day,
@@ -65,26 +67,22 @@ class PickupSchedule {
 
   DateTime clampPickup(DateTime dt, [DateTime? now]) {
     final min = minimumPickup(now);
-    if (dt.isBefore(min)) return min;
-    final slot = StockholmSchedule.roundToFive(
-      DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute),
-    );
+    if (ZoneClock.wall(dt).isBefore(min)) return min;
+    final slot = StockholmSchedule.roundToFive(dt);
     // rider-r4-12: a wall time the zone skips (02:30 on the EU
-    // spring-forward night) is booked as the instant it resolves to, so
-    // what the rider sees is what the driver is sent for.
-    final real = ZoneClock.wallTime(timeZone, toUtc(slot));
-    return real == slot
-        ? slot
-        : DateTime(real.year, real.month, real.day, real.hour, real.minute);
+    // spring-forward night) moves forward by the gap (03:30), the instant
+    // it is booked as, so what the rider sees is what the driver is sent
+    // for; the picker says it moved.
+    return ZoneClock.wallTime(timeZone, toUtc(slot));
   }
 
   bool isLegalPickup(DateTime dt, [DateTime? now]) =>
-      !dt.isBefore(minimumPickup(now));
+      !ZoneClock.wall(dt).isBefore(minimumPickup(now));
 
   DateTime timePickerMinFor(DateTime date, [DateTime? now]) {
     final min = minimumPickup(now);
-    final day = DateTime(date.year, date.month, date.day);
-    final minDay = DateTime(min.year, min.month, min.day);
+    final day = DateTime.utc(date.year, date.month, date.day);
+    final minDay = DateTime.utc(min.year, min.month, min.day);
     if (!day.isAfter(minDay)) return min;
     return day;
   }
@@ -118,12 +116,14 @@ class StockholmSchedule {
   static DateTime defaultPickup([DateTime? now]) => minimumPickup(now);
 
   /// Round up to the next 5-minute slot; keep an exact 5-minute wall time.
+  /// Wall-clock arithmetic on [dt]'s fields (a [ZoneClock.wallTime]).
   static DateTime roundToFive(DateTime dt) {
-    final remainder = dt.minute % slotMinutes;
-    final shifted = dt.add(
+    final wall = ZoneClock.wall(dt);
+    final remainder = wall.minute % slotMinutes;
+    final shifted = wall.add(
       Duration(minutes: remainder == 0 ? 0 : slotMinutes - remainder),
     );
-    return DateTime(
+    return DateTime.utc(
       shifted.year,
       shifted.month,
       shifted.day,

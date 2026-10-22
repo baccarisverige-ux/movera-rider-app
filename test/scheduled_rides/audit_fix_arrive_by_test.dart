@@ -44,7 +44,7 @@ void main() {
               onPressed: () async {
                 picked = await ScheduleDateTimeSelector.choose(
                   context,
-                  initial: DateTime(2026, 9, 26, 14),
+                  initial: DateTime.utc(2026, 9, 26, 14),
                   now: () => now,
                   tripMinutes: 20,
                 );
@@ -64,7 +64,7 @@ void main() {
       expect(find.text('13:40'), findsOneWidget);
 
       await tapContinue(tester);
-      expect(picked, DateTime(2026, 9, 26, 13, 40));
+      expect(picked, DateTime.utc(2026, 9, 26, 13, 40));
     });
 
     testWidgets('an off-slot pickup is rounded earlier, never late', (
@@ -79,7 +79,7 @@ void main() {
               onPressed: () async {
                 picked = await ScheduleDateTimeSelector.choose(
                   context,
-                  initial: DateTime(2026, 9, 26, 14),
+                  initial: DateTime.utc(2026, 9, 26, 14),
                   now: () => now,
                   tripMinutes: 22,
                 );
@@ -97,7 +97,7 @@ void main() {
       // 14:00 - 22 min = 13:38, booked on the 13:35 slot.
       expect(find.text('13:35'), findsOneWidget);
       await tapContinue(tester);
-      expect(picked, DateTime(2026, 9, 26, 13, 35));
+      expect(picked, DateTime.utc(2026, 9, 26, 13, 35));
     });
 
     testWidgets('the embedded flow stores the pickup in the session', (
@@ -105,7 +105,7 @@ void main() {
     ) async {
       phone(tester);
       final session = ScheduledRideSession()
-        ..captureSchedule(DateTime(2026, 9, 26, 14));
+        ..captureSchedule(DateTime.utc(2026, 9, 26, 14));
       var confirms = 0;
       await tester.pumpWidget(
         MaterialApp(
@@ -123,7 +123,7 @@ void main() {
       await tester.pumpAndSettle();
       await tapContinue(tester);
       expect(confirms, 1);
-      expect(session.scheduledAt, DateTime(2026, 9, 26, 13, 40));
+      expect(session.scheduledAt, DateTime.utc(2026, 9, 26, 13, 40));
     });
 
     testWidgets('an arrival too soon for the trip moves to the first one', (
@@ -161,7 +161,7 @@ void main() {
         findsOneWidget,
       );
       await tapContinue(tester);
-      expect(picked, DateTime(2026, 9, 26, 12, 30));
+      expect(picked, DateTime.utc(2026, 9, 26, 12, 30));
     });
 
     testWidgets('without a trip estimate the time stays a pickup time', (
@@ -176,7 +176,7 @@ void main() {
               onPressed: () async {
                 picked = await ScheduleDateTimeSelector.choose(
                   context,
-                  initial: DateTime(2026, 9, 26, 14),
+                  initial: DateTime.utc(2026, 9, 26, 14),
                   now: () => now,
                 );
               },
@@ -195,7 +195,7 @@ void main() {
       expect(weight('Pickup at'), FontWeight.w600);
       expect(weight('Arrive by'), FontWeight.w500);
       await tapContinue(tester);
-      expect(picked, DateTime(2026, 9, 26, 14));
+      expect(picked, DateTime.utc(2026, 9, 26, 14));
     });
   });
 
@@ -265,7 +265,7 @@ void main() {
         home: ScheduleDateTimeSelector(
           body: const SizedBox.shrink(),
           session: ScheduledRideSession()
-            ..captureSchedule(DateTime(2026, 9, 26, 14)),
+            ..captureSchedule(DateTime.utc(2026, 9, 26, 14)),
           now: () => now,
           onConfirm: () {},
         ),
