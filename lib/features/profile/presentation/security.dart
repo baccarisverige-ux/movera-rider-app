@@ -43,7 +43,8 @@ class _SecurityPageState extends State<SecurityPage> {
   String _passwordLine(DateTime? when, bool supported) {
     if (!supported) return context.l10n.comingSoon;
     if (when == null) return context.l10n.notSet;
-    return context.l10n.lastChanged(L10n.formatDate(when, 'yMd'));
+    // rider-u155: the stamp is UTC; the rider's day is the local one.
+    return context.l10n.lastChanged(L10n.formatDate(when.toLocal(), 'yMd'));
   }
 
   @override
