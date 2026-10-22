@@ -25,6 +25,8 @@ class AuthScaffold extends StatelessWidget {
     this.lede,
     this.hero,
     this.sceneProgress,
+    this.sceneKey,
+    this.overlay,
     this.showCar = true,
     required this.card,
   });
@@ -42,6 +44,12 @@ class AuthScaffold extends StatelessWidget {
   final Widget? lede;
   final Widget? hero;
   final Animation<double>? sceneProgress;
+
+  /// Put on the scene, so an [overlay] can find it (the balloon flight).
+  final Key? sceneKey;
+
+  /// Painted over the whole page, above the card; never takes touches.
+  final Widget? overlay;
   final bool showCar;
   final Widget card;
 
@@ -56,7 +64,22 @@ class AuthScaffold extends StatelessWidget {
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false,
-              child: Column(
+              child: Stack(
+                children: [
+                  _page(context, bottomInset),
+                  if (overlay != null)
+                    Positioned.fill(child: IgnorePointer(child: overlay)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _page(BuildContext context, double bottomInset) {
+    return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
@@ -113,21 +136,54 @@ class AuthScaffold extends StatelessWidget {
                   Expanded(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 96),
-                      child: AuthScene(showCar: showCar, storyProgress: sceneProgress),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          AuthScene(
+                            key: sceneKey,
+                            showCar: showCar,
+                            storyProgress: sceneProgress,
+                          ),
+                          // Owner round 3: the scene darkens a little just
+                          // above the card, part of the raised edge.
+                          const Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            height: 64,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0x00000000), Color(0x1A000000)],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  // Owner round 3: a white, square card edge to edge, raised
+                  // over the scene by a shadow cast upward.
                   Container(
-                    margin: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-                    decoration: BoxDecoration(
+                    key: const ValueKey('auth-card'),
+                    padding: EdgeInsets.fromLTRB(20, 22, 20, 18 + bottomInset),
+                    decoration: const BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: const Color(0xFFE4EAE5)),
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x12281E14),
-                          blurRadius: 30,
-                          offset: Offset(0, -4),
+                          color: Color(0x26000000),
+                          blurRadius: 36,
+                          offset: Offset(0, -14),
+                        ),
+                        BoxShadow(
+                          color: Color(0x12000000),
+                          blurRadius: 6,
+                          offset: Offset(0, -2),
                         ),
                       ],
                     ),
@@ -140,7 +196,7 @@ class AuthScaffold extends StatelessWidget {
                           const SizedBox(height: 12),
                           TextButton(
                             style: TextButton.styleFrom(
-                              foregroundColor: AuthColors.deepGreen,
+                              foregroundColor: AuthColors.ink,
                             ),
                             onPressed: () => enterMoveraApp(context),
                             child: Text(context.l10n.skipDemo),
@@ -150,11 +206,6 @@ class AuthScaffold extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -214,7 +265,7 @@ class _TopBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
                         color: i == step
-                            ? AuthColors.deepGreen
+                            ? AuthColors.ink
                             : i < step
                                 ? AuthColors.stepDone
                                 : AuthColors.stepIdle,
@@ -230,7 +281,7 @@ class _TopBar extends StatelessWidget {
             child: Text(
               '$step / $totalSteps',
               textAlign: TextAlign.right,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.urbanist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 // UI-6: was 0xFF738078 (4.13:1 on white).

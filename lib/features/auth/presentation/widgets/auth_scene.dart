@@ -18,6 +18,17 @@ class AuthScene extends StatefulWidget {
 
   static const designSize = Size(390, 230);
 
+  /// Where a point of the design canvas lands in a scene of [size]: the
+  /// canvas is scaled to the width and anchored to the bottom, as painted.
+  static Offset designToLocal(Size size, Offset design) {
+    final s = size.width / designSize.width;
+    return Offset(design.dx * s, size.height - designSize.height * s + design.dy * s);
+  }
+
+  /// The centre of the balloon in the person's hand, in a scene of [size].
+  static Offset balloonCentre(Size size) =>
+      designToLocal(size, _ScenePainter._balloon);
+
   @override
   State<AuthScene> createState() => _AuthSceneState();
 }
@@ -334,37 +345,29 @@ class _ScenePainter extends CustomPainter {
       canvas.restore();
     }
 
-    final released = phase(0.44, 0.56);
-    if (time >= 0.58) {
-      return;
-    }
-    final balloon = Offset(304, 141 - released * 149);
-    const colors = [
-      Color(0xFF4285F4),
-      Color(0xFFEA4335),
-      Color(0xFFFBBC05),
-      Color(0xFF34A853),
-    ];
-    final rect = Rect.fromCircle(center: balloon, radius: 11);
-    for (var i = 0; i < 4; i++) {
-      canvas.drawArc(
-        rect,
-        -1.57079632679 + i * 1.57079632679,
-        1.585,
-        true,
-        Paint()..color = colors[i],
-      );
-    }
-    if (released < 1) {
-      canvas.drawLine(
-        const Offset(297, 169),
-        balloon + const Offset(0, 11),
-        Paint()
-          ..color = AuthColors.muted.withValues(alpha: 1 - released)
-          ..strokeWidth = 1,
-      );
-    }
+    // The balloon waits in the hand until BalloonFlight takes it over at
+    // the very same spot (owner round 3: one continuous flight).
+    if (time >= _balloonRelease) return;
+    canvas.drawLine(
+      const Offset(297, 169),
+      _balloon + const Offset(0, 11),
+      Paint()
+        ..color = AuthColors.ink
+        ..strokeWidth = 1,
+    );
+    canvas.drawCircle(_balloon, 11, Paint()..color = AuthColors.green);
+    canvas.drawCircle(
+      _balloon + const Offset(-3.5, -3.5),
+      3,
+      Paint()..color = Colors.white.withValues(alpha: 0.38),
+    );
   }
+
+  /// Story time when the balloon leaves the hand (BalloonFlight.releaseAt).
+  static const _balloonRelease = 0.44;
+
+  /// The balloon's centre on the design canvas while it is in the hand.
+  static const _balloon = Offset(304, 141);
 
   void _paintCar(Canvas canvas, double progress) {
     // Arrive at the person, pause for boarding, then continue to the right.

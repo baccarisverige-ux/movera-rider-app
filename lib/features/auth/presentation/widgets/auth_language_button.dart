@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/profile/application/app_language_controller.dart';
@@ -8,6 +7,10 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 /// Owner decision 7: the globe in the sign-in screens' top corner. Opens
 /// a small sheet of the app languages, each in its own name.
+///
+/// Owner round 3: an ink outline globe with the current language as two
+/// letters beside it and a small chevron underneath, so it reads as a
+/// control. Redraws when the language changes.
 ///
 /// It changes the language through the app's [AppLanguageController], the
 /// same choice and device storage Account > Language uses, so the screen
@@ -23,18 +26,84 @@ class AuthLanguageButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = language ?? AppScope.instance.language;
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: IconButton(
-        key: const ValueKey('auth-language'),
-        tooltip: context.l10n.changeLanguage,
-        padding: EdgeInsets.zero,
-        icon: const Icon(Icons.language_rounded, color: AuthColors.ink, size: 22),
-        onPressed: () => showAuthLanguageSheet(context, language: controller),
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => Tooltip(
+        message: context.l10n.changeLanguage,
+        child: Semantics(
+          button: true,
+          label: context.l10n.changeLanguage,
+          value: controller.language.name,
+          onTap: () => showAuthLanguageSheet(context, language: controller),
+          excludeSemantics: true,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => showAuthLanguageSheet(context, language: controller),
+              child: SizedBox(
+                key: const ValueKey('auth-language'),
+                width: 56,
+                height: 48,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CustomPaint(
+                          size: Size(20, 20),
+                          painter: _GlobePainter(),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          controller.code.toUpperCase(),
+                          style: AuthText.body(size: 12, weight: FontWeight.w700)
+                              .copyWith(height: 1),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    const Icon(
+                      Icons.expand_more_rounded,
+                      size: 13,
+                      color: AuthColors.ink,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
+}
+
+/// A plain ink globe: circle, equator, meridian and one ellipse.
+class _GlobePainter extends CustomPainter {
+  const _GlobePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.width / 2;
+    final c = Offset(r, r);
+    final ink = Paint()
+      ..color = AuthColors.ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(c, r - 0.75, ink);
+    canvas.drawLine(Offset(0.75, r), Offset(size.width - 0.75, r), ink);
+    canvas.drawLine(Offset(r, 0.75), Offset(r, size.height - 0.75), ink);
+    canvas.drawOval(
+      Rect.fromCenter(center: c, width: r * 0.95, height: size.height - 1.5),
+      ink,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GlobePainter oldDelegate) => false;
 }
 
 Future<void> showAuthLanguageSheet(
@@ -128,9 +197,9 @@ class _LanguageRow extends StatelessWidget {
                 ),
                 child: Text(
                   code.toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: AuthText.body(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: AuthColors.muted,
                   ),
                 ),
@@ -139,10 +208,9 @@ class _LanguageRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: AuthColors.ink,
+                  style: AuthText.body(
+                    size: 15,
+                    weight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ),

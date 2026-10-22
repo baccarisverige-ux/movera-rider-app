@@ -40,6 +40,8 @@ class _SignInState extends State<SignIn>
     duration: const Duration(milliseconds: 5200),
   );
   bool _storyStarted = false;
+  final _sceneKey = GlobalKey();
+  final _wordmarkKey = GlobalKey();
 
   @override
   void didChangeDependencies() {
@@ -185,8 +187,14 @@ class _SignInState extends State<SignIn>
       step: 1,
       headline: '',
       headlineAccent: '',
-      hero: BalloonBrandIntro(progress: _story),
+      hero: BalloonBrandIntro(progress: _story, wordmarkKey: _wordmarkKey),
       sceneProgress: _story,
+      sceneKey: _sceneKey,
+      overlay: BalloonFlight(
+        progress: _story,
+        sceneKey: _sceneKey,
+        wordmarkKey: _wordmarkKey,
+      ),
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -242,7 +250,7 @@ class _SignInState extends State<SignIn>
                 TextSpan(
                   text: context.l10n.termsLink,
                   recognizer: _termsTap,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.urbanist(
                     fontWeight: FontWeight.w600,
                     color: AuthColors.ink,
                   ),
@@ -251,7 +259,7 @@ class _SignInState extends State<SignIn>
                 TextSpan(
                   text: context.l10n.privacyPolicy,
                   recognizer: _privacyTap,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.urbanist(
                     fontWeight: FontWeight.w600,
                     color: AuthColors.ink,
                   ),

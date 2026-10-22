@@ -112,7 +112,7 @@ class _PhoneCountrySheetState extends State<PhoneCountrySheet> {
                       focusNode: _focus,
                       textInputAction: TextInputAction.search,
                       style: AuthText.input().copyWith(fontSize: 15),
-                      cursorColor: AuthColors.deepGreen,
+                      cursorColor: AuthColors.ink,
                       decoration: InputDecoration(
                         isCollapsed: true,
                         border: InputBorder.none,
@@ -200,7 +200,7 @@ class _CountryRow extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.urbanist(
                     fontSize: 15,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     color: AuthColors.ink,
@@ -210,7 +210,7 @@ class _CountryRow extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 country.dialLabel,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.urbanist(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AuthColors.muted,

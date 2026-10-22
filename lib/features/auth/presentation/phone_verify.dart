@@ -215,10 +215,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             forceErrorState: _error != null,
             onCompleted: (_) => setState(() {}),
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            defaultPinTheme: _box(AuthColors.field, Colors.transparent),
-            focusedPinTheme: _box(Colors.white, AuthColors.deepGreen, ring: true),
-            submittedPinTheme: _box(AuthColors.field, Colors.transparent),
-            errorPinTheme: _box(Colors.white, AuthColors.error),
+            defaultPinTheme: _box(),
+            focusedPinTheme: _box(focused: true),
+            submittedPinTheme: _box(),
+            errorPinTheme: _box(error: true),
           ),
           if (_error != null) AuthErrorText(_error!),
           if (_info != null && _error == null)
@@ -259,22 +259,23 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     );
   }
 
-  PinTheme _box(Color fill, Color border, {bool ring = false}) {
+  /// Owner round 3: each digit on its own underline, ink while focused.
+  PinTheme _box({bool focused = false, bool error = false}) {
     return PinTheme(
       width: 68,
       height: 66,
-      textStyle: GoogleFonts.poppins(
+      textStyle: GoogleFonts.urbanist(
         fontSize: 26,
         fontWeight: FontWeight.w700,
         color: AuthColors.ink,
       ),
       decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border, width: 1.5),
-        boxShadow: ring
-            ? const [BoxShadow(color: Color(0x1A12804F), spreadRadius: 4)]
-            : null,
+        border: Border(
+          bottom: BorderSide(
+            color: authUnderlineColor(focused: focused, error: error),
+            width: focused ? 2 : 1.2,
+          ),
+        ),
       ),
     );
   }
@@ -286,7 +287,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       return const SizedBox(
         height: 20,
         width: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.deepGreen),
+        child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.ink),
       );
     }
     if (wait > 0) {
@@ -325,7 +326,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       ),
       child: Text(
         context.l10n.resendCode,
-        style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600),
+        style: GoogleFonts.urbanist(fontSize: 13.5, fontWeight: FontWeight.w600),
       ),
     );
   }
