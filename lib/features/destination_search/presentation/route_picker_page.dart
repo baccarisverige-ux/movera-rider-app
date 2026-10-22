@@ -263,8 +263,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         : _active == 'stop'
         ? _stopFocus[_activeStop]
         : _destinationFocus;
-    widget.capture.attach(_activeController, focus);
+    // rider-r5-33: set before attach, which applies the letters typed while
+    // the sheet opened, so they start a search like any other typing.
     widget.capture.onChanged = _onTyped;
+    widget.capture.attach(_activeController, focus);
     // Opened on a field that already has an address (changing the route of a
     // live ride): typing replaces it instead of adding to its end.
     final prefilled = _activeController;
