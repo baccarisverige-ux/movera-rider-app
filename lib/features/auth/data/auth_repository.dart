@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
@@ -73,7 +74,15 @@ class AuthRepository {
       },
     );
     await _persistTokens(response);
-    return OtpVerifyResult(isNewRider: response['isNewRider'] == true);
+    final isNewRider = response['isNewRider'] == true;
+    // rider-u74: right after the session exists, so a reload on the name
+    // step still asks for the name.
+    if (isNewRider) {
+      await PendingRiderName.mark(challenge.link?.name);
+    } else {
+      await PendingRiderName.clear();
+    }
+    return OtpVerifyResult(isNewRider: isNewRider);
   }
 
   /// Signs in with Apple or Google.

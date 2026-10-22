@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
@@ -68,6 +69,7 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
       await profile.update(
         profile.profile.copyWith(name: last.isEmpty ? first : '$first $last'),
       );
+      await PendingRiderName.clear();
       if (!mounted) return;
       enterMoveraApp(context);
     } catch (_) {

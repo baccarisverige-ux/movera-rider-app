@@ -14,6 +14,8 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
@@ -451,7 +453,7 @@ class RideRestoreCoordinator {
           AppEnv.current.authPreview && snapshot == null) {
         return const SignIn();
       }
-      return const Home();
+      return await _nameStepOr(const Home());
     }
     try {
       final snapshot = await _dropIfCancelQueued(await _reader());
@@ -468,6 +470,15 @@ class RideRestoreCoordinator {
         reportRestoreSurface('signInPreview');
         return const SignIn();
       }
+      if (snapshot == null) {
+        final initialName = await PendingRiderName.read();
+        if (initialName != null) {
+          // rider-u74: signed in, but the new rider's name step never
+          // finished (reload or kill on it).
+          reportRestoreSurface('riderName');
+          return RiderNameScreen(initialName: initialName);
+        }
+      }
       return pageFor(snapshot ?? await _serverTripForColdStart());
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
@@ -479,6 +490,14 @@ class RideRestoreCoordinator {
       }
       return const Home();
     }
+  }
+
+  /// [fallback], unless a new rider still owes their name (rider-u74).
+  Future<Widget> _nameStepOr(Widget fallback) async {
+    final initialName = await PendingRiderName.read();
+    return initialName == null
+        ? fallback
+        : RiderNameScreen(initialName: initialName);
   }
 
   /// The server's active trip when it answers within [serverTripWait];

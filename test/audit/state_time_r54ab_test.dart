@@ -22,6 +22,10 @@ import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/features/auth/data/auth_repository.dart';
+import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -303,5 +307,43 @@ void main() {
     await flush;
     expect(await PendingCancelStore.all(), isEmpty);
     expect(posts, 0);
+  });
+
+  test('rider-u74: a reload on the new-rider name step asks for the name '
+      'again', () async {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    final auth = AuthRepository(
+      tokens: MemoryTokenStore(),
+      api: ApiClient(
+        env: _env,
+        client: MockClient((_) async => http.Response(
+          jsonEncode({
+            'accessToken': 'a',
+            'refreshToken': 'r',
+            'isNewRider': true,
+          }),
+          200,
+        )),
+      ),
+    );
+    final result = await auth.verifyOtp(
+      challenge: OtpChallenge(
+        phone: '+46700000000',
+        requestId: 'q',
+        sessionId: 's',
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        retryAfter: Duration.zero,
+      ),
+      code: '1234',
+    );
+    expect(result.isNewRider, isTrue);
+    // The page reloads before the rider types a name.
+    final page = await RideRestoreCoordinator(
+      skipRestore: () => false,
+      authRequired: () => false,
+      serverActiveTrip: () async => null,
+    ).root();
+    expect(page, isA<RiderNameScreen>());
   });
 }

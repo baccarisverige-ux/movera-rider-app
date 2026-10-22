@@ -34,7 +34,8 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   ([FreshInstallReset], rider-u17).
 ///
 /// Removed (per user):
-/// - `movera_profile_v1` (name, photo, settings), `movera_rider_fingerprint`
+/// - `movera_profile_v1` (name, photo, settings), `movera_rider_name_pending`
+///   (a new rider's name step not done yet), `movera_rider_fingerprint`
 ///   (who was signed in, see [enterSessionAs]).
 /// - `movera_home_address`, `movera_work_address`, `movera_saved_places`,
 ///   `movera_recent_addresses`, `movera_previous_pickups_v1`.
