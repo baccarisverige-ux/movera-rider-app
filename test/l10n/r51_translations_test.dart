@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
-import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,6 +101,22 @@ void main() {
         );
         expect(errors, isEmpty);
         expect(find.text(L10n.current.message), findsOneWidget);
+      });
+
+      testWidgets('rider-31: Sign in hero tagline is translated', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          const Scaffold(
+            body: BalloonBrandIntro(progress: AlwaysStoppedAnimation(1)),
+          ),
+        );
+        final tagline = L10n.current.brandTaglineSentence;
+        expect(tagline, isNot('Moving to a new era.'));
+        expect(find.text(tagline), findsOneWidget);
+        expect(find.bySemanticsLabel('Movera. $tagline'), findsOneWidget);
       });
     });
   }

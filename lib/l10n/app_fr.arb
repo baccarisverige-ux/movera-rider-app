@@ -781,6 +781,7 @@
   "lastName": "Nom",
   "letsRide": "C’est parti",
   "brandTagline": " · Vers une nouvelle ère",
+  "brandTaglineSentence": "Vers une nouvelle ère.",
   "signedInWith": "Connecté avec {provider}",
   "signedInAs": "Connecté en tant que {name}",
   "oneNumberHead": "Un numéro.\n",

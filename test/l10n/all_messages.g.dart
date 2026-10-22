@@ -787,6 +787,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'lastName': l.lastName,
   'letsRide': l.letsRide,
   'brandTagline': l.brandTagline,
+  'brandTaglineSentence': l.brandTaglineSentence,
   'signedInWith': l.signedInWith('<provider>'),
   'signedInAs': l.signedInAs('<name>'),
   'oneNumberHead': l.oneNumberHead,
@@ -3085,6 +3086,8 @@ class _Exhaustive implements AppLocalizations {
   String get letsRide => '';
   @override
   String get brandTagline => '';
+  @override
+  String get brandTaglineSentence => '';
   @override
   String signedInWith(String provider) => '';
   @override

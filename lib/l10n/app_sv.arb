@@ -781,6 +781,7 @@
   "lastName": "Efternamn",
   "letsRide": "Nu åker vi",
   "brandTagline": " · På väg mot en ny era",
+  "brandTaglineSentence": "På väg mot en ny era.",
   "signedInWith": "Inloggad med {provider}",
   "signedInAs": "Inloggad som {name}",
   "oneNumberHead": "Ett nummer.\n",

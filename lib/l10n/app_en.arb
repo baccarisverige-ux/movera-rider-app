@@ -1620,6 +1620,10 @@
   "lastName": "Last name",
   "letsRide": "Let's ride",
   "brandTagline": " · Moving to a new era",
+  "brandTaglineSentence": "Moving to a new era.",
+  "@brandTaglineSentence": {
+    "description": "The slogan under the Movera wordmark on Sign in, as a sentence."
+  },
   "signedInWith": "Signed in with {provider}",
   "@signedInWith": {
     "placeholders": {
