@@ -92,8 +92,11 @@ class NotificationsRepository {
     final minute = time.minute.toString().padLeft(2, '0');
     final clock = '$hour:$minute';
     final now = _now().toLocal();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(time.year, time.month, time.day);
+    // rider-50: calendar days, counted on UTC midnights. Local midnights
+    // are 23 or 25 hours apart across a DST change, so inDays came out one
+    // short (yesterday read as today on the day after spring-forward).
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final day = DateTime.utc(time.year, time.month, time.day);
     final daysAgo = today.difference(day).inDays;
     if (daysAgo <= 0) return clock;
     if (daysAgo == 1) return L10n.current.notifYesterday(clock);

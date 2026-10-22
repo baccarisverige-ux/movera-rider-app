@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
@@ -351,5 +353,29 @@ void main() {
     reads[0].complete(const []);
     await tester.pump();
     expect(find.text('1 ride · 200 kr'), findsOneWidget);
+  });
+
+  test('rider-50: a push from the evening before a spring-forward morning '
+      'says Yesterday', () {
+    // The day after this zone's spring-forward (a 23-hour day), if any.
+    var day = DateTime(2026, 1, 2);
+    while (day.year == 2026 &&
+        day.difference(DateTime(day.year, day.month, day.day - 1)) ==
+            const Duration(days: 1)) {
+      day = DateTime(day.year, day.month, day.day + 1);
+    }
+    if (day.year != 2026) day = DateTime(2026, 3, 30);
+    final feed = NotificationsRepository(
+      now: () => DateTime(day.year, day.month, day.day, 9),
+    );
+    feed.ingest(
+      PushPayload(
+        type: 'ride.driver_arrived',
+        title: 'Driver arrived',
+        sentAt: DateTime(day.year, day.month, day.day - 1, 23, 10),
+      ),
+      read: false,
+    );
+    expect(feed.all().single.time, L10n.current.notifYesterday('23:10'));
   });
 }
