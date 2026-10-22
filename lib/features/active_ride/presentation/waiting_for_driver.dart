@@ -250,6 +250,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _modalHandoffInProgress = false;
   bool _arrivedSheetShowing = false;
   Route<Object?>? _arrivedSheetRoute;
+
+  /// rider-r5-26: which arrived sheet [_arrivedSheetShowing] is about. A
+  /// replaced driver's sheet closes after the new one opened; its close
+  /// must not clear the new one's state.
+  int _arrivedSheetToken = 0;
   bool _cancelling = false;
 
   /// rider-29: the cancel or end-early request is out. Back must not pop
@@ -585,13 +590,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _arrivalAnnounced = true;
     unawaited(_saveArrivalAnnounced(true));
     _arrivedSheetShowing = true;
+    final token = ++_arrivedSheetToken;
     unawaited(
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
-        onRoute: (route) => _arrivedSheetRoute = route,
+        // The builder runs again while a closed sheet animates out.
+        onRoute: (route) {
+          if (token == _arrivedSheetToken) _arrivedSheetRoute = route;
+        },
       ).whenComplete(() {
+        if (token != _arrivedSheetToken) return;
         _arrivedSheetShowing = false;
         _arrivedSheetRoute = null;
       }),
