@@ -176,13 +176,15 @@ class NotificationScreen extends StatelessWidget {
                   fontWeight: fwMedium,
                   color: AppColor.primary,
                 ),
-                2.height,
-                TextWidget(
-                  text: notification.subtitle,
-                  fontSize: 14,
-                  fontWeight: fwNormal,
-                  color: AppColor.subtitle,
-                ),
+                if (notification.subtitle.isNotEmpty) ...[
+                  2.height,
+                  TextWidget(
+                    text: notification.subtitle,
+                    fontSize: 14,
+                    fontWeight: fwNormal,
+                    color: AppColor.subtitle,
+                  ),
+                ],
               ],
             ),
           ),

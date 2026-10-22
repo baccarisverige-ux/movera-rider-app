@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
@@ -14,6 +15,9 @@ import 'package:movera_rider/features/home/presentation/widgets/saved_places_row
 import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
+import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -294,6 +298,28 @@ void main() {
         expect(find.text(L10n.current.notificationRideEnded), findsOneWidget);
         expect(find.text('This ride has ended.'), findsNothing);
         await tester.pump(const Duration(seconds: 5));
+      });
+
+      testWidgets('rider-u128: a title-only push shows no wire type', (
+        tester,
+      ) async {
+        final store = NotificationsRepository()
+          ..ingest(
+            const PushPayload(
+              type: 'ride.driver_arrived',
+              title: 'Movera',
+              messageId: 'r51-push',
+              rideId: 'r51-ride',
+            ),
+            read: false,
+          );
+        await pumpIn(
+          tester,
+          code,
+          NotificationScreen(controller: NotificationsController(store: store)),
+        );
+        expect(find.text('Movera'), findsWidgets);
+        expect(find.text('ride.driver_arrived'), findsNothing);
       });
     });
   }
