@@ -2527,7 +2527,10 @@ class _SelectRideState extends State<SelectRide>
                               ),
                           ],
                         ),
+                        // rider-80: no split worked out from a list price
+                        // the tile itself does not show ('…').
                         if (selected &&
+                            _hasPrice(ride) &&
                             _selection
                                 .walletSplitFor(
                                   _selection.moneyOf(price).amountMinor,

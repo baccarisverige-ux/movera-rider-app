@@ -31,6 +31,7 @@ import 'package:movera_rider/features/reservations/presentation/upcoming_reserva
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Quotes [totalMinor] for each ride type, at once (as
@@ -414,5 +415,26 @@ void main() {
             .first)
         .dy;
     expect(top('priority'), lessThan(top('economy')));
+  });
+
+  testWidgets('rider-80: no wallet split from a kronor list price on a euro '
+      'pickup before its quote', (tester) async {
+    // As currency_by_zone_test: a 50 € wallet in Paris; no quote yet.
+    SharedPreferences.setMockInitialValues({
+      WalletStore.balanceKeyFor('EUR'): 50.0,
+    });
+    final selection = await openSelectRide(
+      tester,
+      _Quotes((_) => null),
+      pickup: const LatLng(48.8606, 2.3376),
+      destination: const LatLng(48.8809, 2.3553),
+    );
+    expect(selection.currency, 'EUR');
+    expect(selection.walletBalance, 50);
+
+    expect(find.byKey(const ValueKey('select-ride-wallet-line')), findsNothing);
+    // Let Select Ride's pending quote timers run out.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 1));
   });
 }
