@@ -106,7 +106,13 @@ class LocalReservationRepository implements ReservationRepository {
           : const [];
       _items
         ..clear()
-        ..addAll(list.map(Reservation.tryParse).whereType<Reservation>());
+        ..addAll(
+          list
+              .map(Reservation.tryParse)
+              .whereType<Reservation>()
+              // Owner decision 9: older rides read with their pickup zone.
+              .map((ride) => ride.withPickupZone()),
+        );
     } catch (_) {
       // Ignore corrupt local data rather than crash on restore.
     }

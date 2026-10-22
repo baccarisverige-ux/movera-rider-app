@@ -231,8 +231,11 @@ abstract final class ReservationFormat {
     return L10n.current.driverPending;
   }
 
-  static String historyWhen(Reservation ride) {
-    return '${cardDate(ride.pickupWallTime)} · ${time(ride.pickupWallTime)}';
+  static String historyWhen(Reservation ride, {DateTime? now}) {
+    // Owner decision 9: "Today" is the pickup zone's today.
+    final zoneNow = zoneWallTime(now ?? DateTime.now(), ride.timeZone);
+    return '${cardDate(ride.pickupWallTime, now: zoneNow)} · '
+        '${time(ride.pickupWallTime)}';
   }
 
   /// "50 kr", "5 €": the app's one money format (UI-10).
@@ -257,19 +260,26 @@ abstract final class ReservationFormat {
     return sameDay ? time(when) : '${weekdayDate(when)}, ${time(when)}';
   }
 
+  /// [terms]' free-cancel end on the pickup zone's clock (owner decision
+  /// 9), with the day when it is not that zone's today.
+  static String _freeUntil(ReservationCancelTerms terms) => moment(
+    zoneWallTime(terms.freeUntil, terms.timeZone),
+    now: zoneWallTime(terms.at, terms.timeZone),
+  );
+
   /// Cancel sheet headline for [terms].
   static String cancelTermsTitle(ReservationCancelTerms terms) {
     final fee = terms.fee;
     if (fee != null) return L10n.current.cancelFee(money(fee));
     if (terms.freeForNow) {
-      return L10n.current.freeToCancelUntil(moment(terms.freeUntil, now: terms.at));
+      return L10n.current.freeToCancelUntil(_freeUntil(terms));
     }
     return L10n.current.freeCancellation;
   }
 
   /// Cancel sheet detail for [terms].
   static String cancelTermsBody(ReservationCancelTerms terms) {
-    final until = moment(terms.freeUntil, now: terms.at);
+    final until = _freeUntil(terms);
     final before = window(terms.window);
     final fee = terms.fee;
     if (fee != null) {
@@ -285,7 +295,7 @@ abstract final class ReservationFormat {
   static String cancellationSummary(ReservationCancelTerms terms) {
     if (!terms.lateFee.isPositive) return L10n.current.freeAnyTime;
     final before = window(terms.window);
-    final until = moment(terms.freeUntil, now: terms.at);
+    final until = _freeUntil(terms);
     if (terms.fee != null) {
       return L10n.current.freeEndedCostsNow(until, before, money(terms.fee!));
     }
