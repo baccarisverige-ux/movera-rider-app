@@ -19,6 +19,7 @@ class AppLanguageController extends ChangeNotifier {
 
   String? _choice;
   String _zoneDefault = L10n.fallbackCode;
+  List<String> _available = [for (final l in L10n.languages) l.code];
 
   /// The rider's saved choice, or null to follow the zone.
   String? get choice => _choice;
@@ -26,8 +27,19 @@ class AppLanguageController extends ChangeNotifier {
   /// The language the zone's config names for the rider app.
   String get zoneDefault => _zoneDefault;
 
-  /// The language in use: the rider's choice, else the zone's default.
-  String get code => _choice ?? _zoneDefault;
+  /// rider-u153: the languages the zone lets the rider pick
+  /// (`languages.available`), of those the app ships, in the app's order.
+  List<String> get available => List.unmodifiable(_available);
+
+  /// The language in use: the rider's choice when the zone offers it, else
+  /// the zone's default. A choice the zone does not offer is kept for
+  /// zones that do.
+  String get code {
+    final choice = _choice;
+    return choice != null && _available.contains(choice)
+        ? choice
+        : _zoneDefault;
+  }
 
   Locale get locale => Locale(code);
 
@@ -55,6 +67,15 @@ class AppLanguageController extends ChangeNotifier {
     try {
       final document = await config.forZone(zone.id);
       _zoneDefault = L10n.supported(document.languages.rider);
+      final offered = document.languages.available.toSet();
+      final available = [
+        for (final l in L10n.languages)
+          if (offered.contains(l.code)) l.code,
+      ];
+      _available = available.isEmpty
+          ? [for (final l in L10n.languages) l.code]
+          : available;
+      if (!_available.contains(_zoneDefault)) _available.add(_zoneDefault);
     } catch (error) {
       AppLog.warning('language.zone_failed', extra: {'error': '$error'});
     }

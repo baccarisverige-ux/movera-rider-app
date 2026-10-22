@@ -2,31 +2,22 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
-import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
-import 'package:movera_rider/core/location/app_geocoding.dart';
-import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
-import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
-import 'package:movera_rider/core/notifications/push_payload.dart';
-import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
-import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:movera_rider/features/pickup/application/pickup_address.dart';
-import 'package:movera_rider/features/home/application/home_controller.dart';
-import 'package:movera_rider/core/motion/motion_engine.dart';
-import 'package:movera_rider/core/maps/geo_point.dart';
-import 'package:movera_rider/core/location/location_repository.dart';
-import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
@@ -34,10 +25,22 @@ import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.d
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
+import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
+import 'package:movera_rider/features/profile/application/app_language_controller.dart';
+import 'package:movera_rider/features/profile/data/app_language_store.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wave 5 R5.4 parts c + d: state and time (low). One test per bug.
@@ -126,9 +129,11 @@ Future<FindingDriverController> _landedQueuedCancel(
     whileSearching: true,
   );
   // The restore's own flush gets no answer.
-  unawaited(FindingDriverController.flushPendingCancels(
-    api: _api((_) => Completer<http.Response>().future),
-  ));
+  unawaited(
+    FindingDriverController.flushPendingCancels(
+      api: _api((_) => Completer<http.Response>().future),
+    ),
+  );
   addTearDown(FindingDriverController.abandonPendingCancelFlush);
   final ended = <RideStatus>[];
   final controller = _finding(
@@ -195,34 +200,57 @@ Future<CustomGoogleMap Function()> _openSetPickup(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final navigator = GlobalKey<NavigatorState>();
-  await tester.pumpWidget(MaterialApp(
-    navigatorKey: navigator,
-    home: const SizedBox(),
-  ));
-  unawaited(navigator.currentState!.push(MaterialPageRoute<void>(
-    builder: (_) => SetPickupPage(
-      initialPosition: const LatLng(59.3293, 18.0686),
-      initialAddress: 'Klockarvägen 1',
-      destinationAddress: 'Arlanda',
-      destinationPosition: const LatLng(59.6519, 17.9186),
-      ride: const SetPickupRide(
-        name: 'Movera',
-        image: 'missing.png',
-        seats: 4,
-        etaMin: 5,
-        tripMinutes: 40,
+  await tester.pumpWidget(
+    MaterialApp(navigatorKey: navigator, home: const SizedBox()),
+  );
+  unawaited(
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => SetPickupPage(
+          initialPosition: const LatLng(59.3293, 18.0686),
+          initialAddress: 'Klockarvägen 1',
+          destinationAddress: 'Arlanda',
+          destinationPosition: const LatLng(59.6519, 17.9186),
+          ride: const SetPickupRide(
+            name: 'Movera',
+            image: 'missing.png',
+            seats: 4,
+            etaMin: 5,
+            tripMinutes: 40,
+          ),
+          fare: const SetPickupFare(totalKr: 259),
+          payment: const SetPickupPayment(
+            brand: 'cash',
+            name: 'Cash',
+            detail: '',
+          ),
+          brandMark: (_) => const SizedBox(),
+          geocoding: geocoder,
+        ),
       ),
-      fare: const SetPickupFare(totalKr: 259),
-      payment: const SetPickupPayment(brand: 'cash', name: 'Cash', detail: ''),
-      brandMark: (_) => const SizedBox(),
-      geocoding: geocoder,
     ),
-  )));
+  );
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
   final map = find.byKey(const ValueKey('set-pickup-map'));
   return () => tester.widget<CustomGoogleMap>(map);
+}
+
+/// Zone documents that offer French and English, French by default.
+class _FrenchZone implements RiderConfigRepository {
+  @override
+  Future<RiderAppConfig> current() => forZone(RiderZones.home.id);
+
+  @override
+  Future<RiderAppConfig> forZone(String zoneId) async =>
+      RiderAppConfig.fromJson({
+        ...SeedRiderConfigRepository.seedDocument,
+        'languages': {
+          'available': ['fr', 'en'],
+          'default': {'rider': 'fr', 'driver': 'fr', 'admin': 'fr'},
+        },
+      })!;
 }
 
 void main() {
@@ -279,13 +307,15 @@ void main() {
     expect(filed.cancellationReason, 'plans_changed');
   });
 
-  test('rider-u102: a reason given after a queued cancel landed is sent',
-      () async {
-    final posts = <String>[];
-    final controller = await _landedQueuedCancel('ride_u102', posts);
-    await controller.sendCancelReason('wait_too_long');
-    expect(posts, contains('/api/v1/trips/ride_u102/cancel-reason'));
-  });
+  test(
+    'rider-u102: a reason given after a queued cancel landed is sent',
+    () async {
+      final posts = <String>[];
+      final controller = await _landedQueuedCancel('ride_u102', posts);
+      await controller.sendCancelReason('wait_too_long');
+      expect(posts, contains('/api/v1/trips/ride_u102/cancel-reason'));
+    },
+  );
 
   test('rider-u98: a cancel the outbox cannot store is still sent and does '
       'not jam Finding', () async {
@@ -308,63 +338,69 @@ void main() {
     expect(controller.cancelInFlight, isFalse);
   });
 
-  test('rider-u104: a second cancel tap sends its own version and reason',
-      () async {
-    final first = await PendingCancelStore.enqueue(
-      rideId: 'ride_u104',
-      reasonId: 'plans_changed',
-      expectedVersion: 3,
-    );
-    final again = await PendingCancelStore.enqueue(
-      rideId: 'ride_u104',
-      reasonId: 'driver_not_suitable',
-      expectedVersion: 5,
-    );
-    expect(again.body(), {
-      'reasonCode': 'driver_not_suitable',
-      'reason': 'driver_not_suitable',
-      'expectedVersion': 5,
-    });
-    expect(again.idempotencyKey, isNot(first.idempotencyKey));
-    expect((await PendingCancelStore.find('ride_u104'))!.expectedVersion, 5);
-  });
+  test(
+    'rider-u104: a second cancel tap sends its own version and reason',
+    () async {
+      final first = await PendingCancelStore.enqueue(
+        rideId: 'ride_u104',
+        reasonId: 'plans_changed',
+        expectedVersion: 3,
+      );
+      final again = await PendingCancelStore.enqueue(
+        rideId: 'ride_u104',
+        reasonId: 'driver_not_suitable',
+        expectedVersion: 5,
+      );
+      expect(again.body(), {
+        'reasonCode': 'driver_not_suitable',
+        'reason': 'driver_not_suitable',
+        'expectedVersion': 5,
+      });
+      expect(again.idempotencyKey, isNot(first.idempotencyKey));
+      expect((await PendingCancelStore.find('ride_u104'))!.expectedVersion, 5);
+    },
+  );
 
   testWidgets('rider-u105: the reason sheet offers the reasons the zone '
       'publishes', (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
     final published = SeedRiderConfigRepository.seed.cancelReasons;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: CancelReasonSheet(
-          phase: CancelPhase.searching,
-          committed: true,
-          publishedReasons: published.map((r) => r.code),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CancelReasonSheet(
+            phase: CancelPhase.searching,
+            committed: true,
+            publishedReasons: published.map((r) => r.code),
+          ),
         ),
       ),
-    ));
+    );
     expect(find.text(L10n.current.cancelReasonPlansChanged), findsOneWidget);
     expect(find.text(L10n.current.cancelReasonWaitTooLong), findsNothing);
   });
 
-  test('rider-39: placeholder pickup labels are not forward-geocoded',
-      () async {
-    final geocoder = _RecordingGeocoder();
-    final home = HomeLocationController(
-      location: _NoLocation(),
-      geocoding: geocoder,
-      motion: MotionEngine(),
-    );
-    addTearDown(home.dispose);
-    final labels = [
-      pickupLocationFallbackLabel,
-      locationOffPickupLabel,
-      droppedPinPickupAddress(const LatLng(59.31, 18.0686)),
-    ];
-    for (final label in labels) {
-      expect(await home.normaliseAddress(label), label);
-    }
-    expect(geocoder.queries, isEmpty);
-  });
+  test(
+    'rider-39: placeholder pickup labels are not forward-geocoded',
+    () async {
+      final geocoder = _RecordingGeocoder();
+      final home = HomeLocationController(
+        location: _NoLocation(),
+        geocoding: geocoder,
+        motion: MotionEngine(),
+      );
+      addTearDown(home.dispose);
+      final labels = [
+        pickupLocationFallbackLabel,
+        locationOffPickupLabel,
+        droppedPinPickupAddress(const LatLng(59.31, 18.0686)),
+      ];
+      for (final label in labels) {
+        expect(await home.normaliseAddress(label), label);
+      }
+      expect(geocoder.queries, isEmpty);
+    },
+  );
 
   testWidgets('rider-u126: an older month read does not overwrite a newer '
       'one', (tester) async {
@@ -375,22 +411,24 @@ void main() {
     final reads = <Completer<List<Reservation>>>[];
     final changes = StreamController<void>.broadcast();
     addTearDown(changes.close);
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(390, 844),
-      builder: (_, _) => MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: HomeJourneySection(
-              onDestinationTap: () {},
-              onOpenSchedule: () {},
-              ridesLoader: () => (reads..add(Completer())).last.future,
-              clock: () => DateTime(2026, 10, 14, 12),
-              changes: changes.stream,
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, _) => MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HomeJourneySection(
+                onDestinationTap: () {},
+                onOpenSchedule: () {},
+                ridesLoader: () => (reads..add(Completer())).last.future,
+                clock: () => DateTime(2026, 10, 14, 12),
+                changes: changes.stream,
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     changes.add(null);
     await tester.pump();
     final ride = Reservation(
@@ -438,8 +476,7 @@ void main() {
     expect(feed.all().single.time, L10n.current.notifYesterday('23:10'));
   });
 
-  test('rider-51: a push from last night says Yesterday the next morning',
-      () {
+  test('rider-51: a push from last night says Yesterday the next morning', () {
     var clock = DateTime(2026, 5, 4, 23, 55);
     final feed = NotificationsRepository(now: () => clock);
     feed.ingest(
@@ -455,42 +492,47 @@ void main() {
     expect(feed.all().single.time, L10n.current.notifYesterday('23:50'));
   });
 
-  test('rider-u132: a default the server did not take is kept and sent again',
-      () async {
-    var patches = 0;
-    var serverDefault = 'cash';
-    final payments = ApiPaymentMethodRepository(
-      api: _api((request) async {
-        if (request.method == 'PATCH') {
-          // The first save is lost; the retry lands.
-          if (++patches == 1) return _json({'code': 'unavailable'}, 503);
-          serverDefault = (jsonDecode(request.body) as Map)['methodId'];
-          return _json({'code': 'OK'});
-        }
-        return _json({'methods': [], 'defaultMethodId': serverDefault});
-      }),
-    );
-    await payments.save('google_pay');
-    expect(await payments.read(), 'google_pay');
-    expect(serverDefault, 'google_pay');
-  });
+  test(
+    'rider-u132: a default the server did not take is kept and sent again',
+    () async {
+      var patches = 0;
+      var serverDefault = 'cash';
+      final payments = ApiPaymentMethodRepository(
+        api: _api((request) async {
+          if (request.method == 'PATCH') {
+            // The first save is lost; the retry lands.
+            if (++patches == 1) return _json({'code': 'unavailable'}, 503);
+            serverDefault = (jsonDecode(request.body) as Map)['methodId'];
+            return _json({'code': 'OK'});
+          }
+          return _json({'methods': [], 'defaultMethodId': serverDefault});
+        }),
+      );
+      await payments.save('google_pay');
+      expect(await payments.read(), 'google_pay');
+      expect(serverDefault, 'google_pay');
+    },
+  );
 
   testWidgets('rider-57: an older pin lookup answering last keeps the newer '
       'street', (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
     final geocoder = _HandGeocoder();
     final navigator = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(
-      navigatorKey: navigator,
-      home: const SizedBox(),
-    ));
-    unawaited(navigator.currentState!.push(MaterialPageRoute<void>(
-      builder: (_) => ConfirmPickupSpot(
-        initialPosition: const LatLng(59.19, 17.62),
-        initialAddress: 'Klockarvägen 1',
-        geocoding: geocoder,
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigator, home: const SizedBox()),
+    );
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => ConfirmPickupSpot(
+            initialPosition: const LatLng(59.19, 17.62),
+            initialAddress: 'Klockarvägen 1',
+            geocoding: geocoder,
+          ),
+        ),
       ),
-    )));
+    );
     await tester.pumpAndSettle();
     final map = tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap));
     for (final lat in [59.1950, 59.1952]) {
@@ -551,12 +593,21 @@ void main() {
     );
     map().onCameraIdle!();
     await tester.pump();
-    geocoder.searches.single.complete(const PlaceResult(
-      address: 'Storgatan 1',
-      point: GeoPoint(59.335, 18.08),
-    ));
+    geocoder.searches.single.complete(
+      const PlaceResult(address: 'Storgatan 1', point: GeoPoint(59.335, 18.08)),
+    );
     await tester.pump();
     await tester.pump();
     expect(find.text('Storgatan 1'), findsNothing);
+  });
+
+  test('rider-u153: a zone that offers French and English never speaks '
+      'Swedish', () async {
+    final language = AppLanguageController(store: MemoryAppLanguageStore());
+    addTearDown(() => L10n.use('en'));
+    await language.choose('sv');
+    await language.useZone(config: _FrenchZone(), zone: RiderZones.france);
+    expect(language.available, ['en', 'fr']);
+    expect(language.code, 'fr');
   });
 }
