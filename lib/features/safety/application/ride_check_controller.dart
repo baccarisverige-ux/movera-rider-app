@@ -391,7 +391,13 @@ class RideCheckController extends ChangeNotifier {
   }) async {
     final policy = _service.policy();
     final settings = policy.triggers;
-    final monitor = RideCheckMonitor(settings: settings, plan: demoPlan);
+    // rider-u193: the demo shows only the trigger it names; with the
+    // off-route check on, a long stop of 14+ minutes on the short demo trip
+    // first read as "longer than expected" and opened the off-route card.
+    final monitor = RideCheckMonitor(
+      settings: settings.copyWith(offRouteEnabled: false),
+      plan: demoPlan,
+    );
     RideCheckDetection? hit;
     switch (trigger) {
       case RideCheckTrigger.droppedFar:
