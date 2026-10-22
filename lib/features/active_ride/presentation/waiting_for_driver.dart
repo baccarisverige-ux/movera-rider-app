@@ -1455,6 +1455,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (realtime is MockRideRealtime) {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
+      realtime.movePickup(_pickupPosition.latitude, _pickupPosition.longitude);
     }
     final rideId = _rideId?.trim();
     if (rideId != null && rideId.isNotEmpty) {

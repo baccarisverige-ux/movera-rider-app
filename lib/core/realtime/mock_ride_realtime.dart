@@ -105,6 +105,19 @@ class MockRideRealtime implements RideRealtime {
   double? _resumePickupLat;
   double? _resumePickupLng;
 
+  /// rider-u30: the rider moved the pickup after the accept (Q40). The
+  /// demo driver turns towards the new point, and arrives there, instead
+  /// of the pickup it was first sent to. Ignored once the rider is aboard.
+  void movePickup(double lat, double lng) {
+    if (_onTripStatuses.contains(lastStatus) ||
+        lastStatus.isCompletedSurface ||
+        lastStatus.isTerminal) {
+      return;
+    }
+    _pickupLat = lat;
+    _pickupLng = lng;
+  }
+
   /// The stand-in pickup when neither the caller nor the server knows one.
   static const _fallbackPickup = (59.3293, 18.0686);
 

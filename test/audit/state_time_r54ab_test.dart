@@ -12,9 +12,12 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// Wave 5 R5.4 parts a + b: state and time (low). One test per bug.
 const _env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
@@ -55,6 +58,15 @@ Future<void> _until(bool Function() done, {int turns = 500}) async {
     await Future<void>.delayed(Duration.zero);
   }
   expect(done(), isTrue, reason: 'condition never held');
+}
+
+/// A demo transport resumed at [status] for a pickup at Stockholm city.
+(MockRideRealtime, List<RideRealtimeEvent>) _resumedDemo(RideStatus status) {
+  final rt = MockRideRealtime(tripTick: const Duration(seconds: 3));
+  rt.primeResume(status: status, pickupLat: 59.33, pickupLng: 18.06);
+  final events = <RideRealtimeEvent>[];
+  rt.subscribe('ride_demo').listen(events.add);
+  return (rt, events);
 }
 
 /// A map controller that only records camera moves.
@@ -156,5 +168,28 @@ void main() {
     await _until(() => events.length > seen);
     expect(events.last.isAdminReassign, isFalse);
     expect(events.last.kind, RealtimeKind.driverCancelled);
+  });
+
+  testWidgets('rider-u30: the demo driver drives to a pickup moved after the '
+      'accept', (tester) async {
+    final (rt, events) = _resumedDemo(RideStatus.driverArriving);
+    await tester.pump();
+    rt.movePickup(59.335, 18.07);
+    for (var i = 0; i < 100 && rt.lastStatus != RideStatus.driverWaiting; i++) {
+      await tester.pump(const Duration(seconds: 3));
+    }
+    final arrived = events.lastWhere(
+      (e) => e.signal == RideRealtimeSignal.driverArrived,
+    );
+    expect(
+      GeoDistance.metersBetween(
+        arrived.latitude!,
+        arrived.longitude!,
+        59.335,
+        18.07,
+      ),
+      lessThan(50),
+    );
+    rt.dispose();
   });
 }
