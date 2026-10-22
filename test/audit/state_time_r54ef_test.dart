@@ -26,14 +26,12 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
-import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
@@ -603,5 +601,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(searches, 0);
     expect(picked, 'Klockarvägen 37');
+  });
+
+  testWidgets('rider-93: a rebuild during a left drag still swipes left', (
+    tester,
+  ) async {
+    var lefts = 0;
+    var rights = 0;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return HorizontalSwipe(
+              onSwipeLeft: () => lefts++,
+              onSwipeRight: () => rights++,
+              child: const SizedBox.expand(),
+            );
+          },
+        ),
+      ),
+    );
+    final drag = await tester.startGesture(const Offset(300, 400));
+    await drag.moveBy(const Offset(-30, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+    rebuild(() {});
+    await tester.pump(const Duration(milliseconds: 100));
+    await drag.moveBy(const Offset(-70, 0));
+    await tester.pump(const Duration(milliseconds: 400));
+    await drag.up();
+    await tester.pump();
+    expect((lefts, rights), (1, 0));
   });
 }
