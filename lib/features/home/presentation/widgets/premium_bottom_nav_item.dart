@@ -16,6 +16,7 @@ class PremiumBottomNavItem extends StatelessWidget {
     this.active = false,
     this.floatingFraction = 0,
     this.hitSlop = 0,
+    this.drawActiveBackground = true,
   });
 
   static const Color _premiumInk = MoveraTokens.ink;
@@ -30,6 +31,10 @@ class PremiumBottomNavItem extends StatelessWidget {
   /// tap (the floating bar's own padding), so the target is taller than the
   /// drawn item.
   final double hitSlop;
+
+  /// False when a sliding selection (the liquid glass capsule) is drawn
+  /// behind the items instead of each active item's own grey pill.
+  final bool drawActiveBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +66,7 @@ class PremiumBottomNavItem extends StatelessWidget {
                 horizontal: ResSize.w * 2.5 * floatingFraction,
               ),
               decoration: BoxDecoration(
-                color: active
+                color: active && drawActiveBackground
                     ? Color.lerp(
                         Colors.transparent,
                         const Color(0xFFF2F2F2),

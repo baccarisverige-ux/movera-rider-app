@@ -48,7 +48,7 @@ import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.da
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
-import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
+import 'package:movera_rider/features/home/presentation/widgets/liquid_glass_nav.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
@@ -2484,46 +2484,33 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                         ),
                         SizedBox(height: ResSize.h * (9 * sheetProgress)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarHome,
-                                label: context.l10n.navHome,
-                                active: true,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: () => _animateHomeSheetTo(
-                                  SheetOffset.absolute(_sheetMinPixels),
-                                ),
+                        LiquidGlassNavRow(
+                          selectedIndex: HomeTabs.home,
+                          floatingFraction: 1 - sheetProgress,
+                          hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
+                          itemHeight: ResSize.h * 52,
+                          entries: [
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarHome,
+                              label: context.l10n.navHome,
+                              onTap: () => _animateHomeSheetTo(
+                                SheetOffset.absolute(_sheetMinPixels),
                               ),
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarWallet,
-                                label: context.l10n.navPayment,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openPayment,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarWallet,
+                              label: context.l10n.navPayment,
+                              onTap: _openPayment,
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarCalendar,
-                                label: context.l10n.navScheduleRide,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openSchedule,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarCalendar,
+                              label: context.l10n.navScheduleRide,
+                              onTap: () => unawaited(_openSchedule()),
                             ),
-                            Expanded(
-                              child: PremiumBottomNavItem(
-                                iconAsset: AppAssets.solarUser,
-                                label: context.l10n.navAccount,
-                                floatingFraction: 1 - sheetProgress,
-                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                                onTap: _openAccount,
-                              ),
+                            LiquidGlassNavEntry(
+                              iconAsset: AppAssets.solarUser,
+                              label: context.l10n.navAccount,
+                              onTap: _openAccount,
                             ),
                           ],
                         ),
