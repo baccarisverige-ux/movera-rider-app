@@ -58,7 +58,7 @@ class DriverRepository {
       plate: driver.plate ?? '',
       rideNumber: ride.rideId ?? '',
       ratingLabel: driver.rating?.toStringAsFixed(1) ?? '',
-      completedAt: _completedAtLabel(ride.savedAt),
+      completedAt: _completedAtLabel(ride.completedAt ?? ride.savedAt),
     );
   }
 

@@ -17,6 +17,11 @@ import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// Wave 5 R5.4 parts a + b: state and time (low). One test per bug.
@@ -211,5 +216,41 @@ void main() {
     expect(etas.length, greaterThan(2));
     expect(etas.last, lessThan(etas.first));
     rt.dispose();
+  });
+
+  test('rider-25: History keeps the completion time when Done comes later',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    final trip = RideSnapshot(
+      status: RideStatus.tripInProgress,
+      savedAt: DateTime.now(),
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.33,
+      pickupLng: 18.06,
+      destinationLat: 59.34,
+      destinationLng: 18.07,
+      rideType: 'Movera',
+      price: 259,
+      paymentMethod: 'Apple Pay',
+      rideId: 'ride_r25',
+    );
+    await RideSnapshotStore.save(trip);
+    AppScope.instance.ride
+      ..rideId = trip.rideId
+      ..status = RideStatus.tripInProgress;
+    final controller = ActiveRideController();
+    await controller.markCompleted(RideStatus.tripCompleted);
+    // The rider stayed on the summary for 40 minutes before Done.
+    final completedAt = DateTime.now().subtract(const Duration(minutes: 40));
+    final stored = (await RideSnapshotStore.read())!;
+    await RideSnapshotStore.save(stored.copyWith(completedAt: completedAt));
+    await controller.closeCompletedRide('ride_r25');
+    final record = (await OnDemandRideHistoryStore.read()).single;
+    expect(
+      record.scheduledPickupAt.difference(completedAt).inSeconds.abs(),
+      lessThan(2),
+    );
   });
 }
