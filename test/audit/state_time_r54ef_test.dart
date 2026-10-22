@@ -307,6 +307,24 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
+  testWidgets('rider-u187: a catalog answer while Set pickup is open keeps '
+      'the pin\'s price', (tester) async {
+    final catalog = _Catalog();
+    final quotes = _Quotes();
+    final selection = _selection(quotes, catalog: catalog);
+    final booking = _Booking();
+    await _pumpSelectRide(tester, selection, booking);
+    await _openSetPickupAndMovePin(tester);
+    await _settle(tester);
+    expect(selection.authoritativeQuotes['economy']!.id, endsWith('-NEW'));
+    // The server's category list lands with other ids.
+    catalog.serve = true;
+    await tester.runAsync(selection.refreshCatalog);
+    await _settle(tester);
+    expect(selection.authoritativeQuotes['economy']!.id, endsWith('-NEW'));
+    await _close(tester);
+  });
+
   testWidgets('rider-u155: Last changed is the rider\'s local day', (
     tester,
   ) async {

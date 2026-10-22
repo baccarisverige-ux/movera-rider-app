@@ -437,8 +437,18 @@ class _SelectRideState extends State<SelectRide>
       _catalogIds = ids;
       _selection.ensureCatalogSelection();
     });
-    if (!sameIds) unawaited(_loadQuotes());
+    if (sameIds) return;
+    // rider-u187: while a booking flow is open the list prices the
+    // unconfirmed pickup and would replace the pin's price; the lock's
+    // release prices the new ids.
+    if (_bookingInFlight) {
+      _catalogRequoteDeferred = true;
+      return;
+    }
+    unawaited(_loadQuotes());
   }
+
+  bool _catalogRequoteDeferred = false;
 
   @override
   void didChangeDependencies() {
@@ -1388,6 +1398,11 @@ class _SelectRideState extends State<SelectRide>
     _expiryRequote?.cancel();
     _expiryRequote = null;
     _selection.cancelPendingQuotes();
+    if (_catalogRequoteDeferred) {
+      _catalogRequoteDeferred = false;
+      unawaited(_loadQuotes());
+      return;
+    }
   }
 
   void _onRoutePop(bool didPop, Object? _) {
