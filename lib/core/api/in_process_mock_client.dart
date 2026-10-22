@@ -1144,6 +1144,18 @@ class InProcessMockClient extends http.BaseClient {
             ride['destinationLng'] = body['destinationLng'];
           }
           _withPlaces(ride);
+          // rider-8: a raise or a searching edit is a committed change like
+          // any other: new version, updatedAt and event.
+          final edited = (increase != null && fare != null) ||
+              const [
+                'pickupAddress',
+                'pickupLat',
+                'pickupLng',
+                'destinationAddress',
+                'destinationLat',
+                'destinationLng',
+              ].any((key) => body[key] != null);
+          if (edited) _touch(ride);
           payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
         }
       }

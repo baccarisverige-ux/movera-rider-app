@@ -6,10 +6,41 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 
 /// Wave 5 R5.4 parts a + b: state and time (low). One test per bug.
 const _env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
+
+/// Books a ride on the in-process stand-in server and returns its id.
+Future<String> _book(ApiClient api) async {
+  const at = {
+    'pickupLat': 59.3293,
+    'pickupLng': 18.0686,
+    'destinationLat': 59.3326,
+    'destinationLng': 18.0649,
+  };
+  final quote = (await api.post(
+    '/api/v1/quotes',
+    body: {'rideType': 'economy', ...at},
+  ))['quote'] as Map;
+  final created = await api.post(
+    '/api/v1/rides',
+    body: {
+      'categoryId': 'economy',
+      'fare': {'amountMinor': quote['totalMinor'], 'currency': 'SEK'},
+      'paymentMethodId': 'card',
+      'pickupAddress': 'Pickup',
+      'destinationAddress': 'Destination',
+      ...at,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
+    },
+  );
+  return (created['ride'] as Map)['id'] as String;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,5 +73,20 @@ void main() {
     expect(expired, 0);
     expect(refreshes, 0);
     expect(await tokens.readAccess(), 'old-access');
+  });
+
+  test('rider-8: an offer raise while searching is a committed change',
+      () async {
+    final server = InProcessMockClient();
+    final api = ApiClient(client: server);
+    final id = await _book(api);
+    final before = Map<String, dynamic>.of(server.rides[id]!);
+    await api.patch('/api/v1/rides/$id', body: {
+      'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
+    });
+    final after = server.rides[id]!;
+    expect(after['fare'], isNot(before['fare']));
+    expect(after['version'], (before['version'] as int) + 1);
+    expect(after['eventId'], isNot(before['eventId']));
   });
 }
