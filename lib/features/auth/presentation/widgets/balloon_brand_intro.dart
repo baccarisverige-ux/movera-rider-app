@@ -185,25 +185,32 @@ class _FlightPainter extends CustomPainter {
     canvas.translate(centre.dx, centre.dy);
     canvas.scale(scale);
     canvas.translate(-MoveraPin.headCentre.dx, -MoveraPin.headCentre.dy);
-    paintBalloon(canvas, morph);
+    // Colour follows the whole flight, form only the last part: no sudden
+    // change of colour on landing.
+    paintBalloon(canvas, morph, tone: travel);
     canvas.restore();
   }
 
-  /// The balloon on [MoveraPin.designSize]: round and green at [shape] 0,
-  /// the black pin with its hole at 1.
-  static void paintBalloon(Canvas canvas, double shape) {
+  /// The balloon on [MoveraPin.designSize]: round and all green when it
+  /// leaves the hand; over the flight ([tone] 0..1) its head darkens into
+  /// the pin's ink while the tip stays green, so it arrives already in the
+  /// pin's colours; [shape] 0..1 is the form, balloon to pin with its hole.
+  static void paintBalloon(Canvas canvas, double shape, {double? tone}) {
+    final t = tone ?? shape;
     final tip = 31 + 11 * shape;
-    final body = Color.lerp(AuthColors.green, AuthColors.ink, shape)!;
+    final head = Color.lerp(MoveraPin.bottomColor, MoveraPin.topColor, t)!;
     canvas.drawPath(
       MoveraPin.withHole(tip: tip, hole: MoveraPin.holeRadius * shape),
-      Paint()..color = body,
+      MoveraPin.fill(top: head),
     );
-    if (shape < 1) {
+    if (t < 1) {
       canvas.drawCircle(
         const Offset(11, 10),
         4.5,
-        Paint()..color = Colors.white.withValues(alpha: 0.38 * (1 - shape)),
+        Paint()..color = Colors.white.withValues(alpha: 0.38 * (1 - t)),
       );
+    }
+    if (shape < 1) {
       canvas.drawPath(
         Path()
           ..moveTo(16, tip)
