@@ -325,4 +325,22 @@ void main() {
     final local = L10n.formatDate(stamp.toLocal(), 'yMd');
     expect(find.text('Last changed $local'), findsOneWidget);
   });
+
+  test('rider-u158: days left counts calendar days across spring-forward', () {
+    final promotion = RiderPromotion(
+      id: 'p',
+      title: 'Spring',
+      percentOff: 10,
+      ridesLeft: 1,
+      ridesTotal: 1,
+      endsAt: DateTime(2026, 3, 30, 18),
+    );
+    expect(
+      PromotionDetailsSheet.validityText(promotion, DateTime(2026, 3, 29, 12)),
+      L10n.current.validUntilDays(
+        L10n.formatDate(DateTime(2026, 3, 30), 'd MMM y'),
+        1,
+      ),
+    );
+  });
 }

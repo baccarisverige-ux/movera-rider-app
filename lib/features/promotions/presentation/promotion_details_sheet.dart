@@ -113,8 +113,10 @@ class PromotionDetailsSheet extends StatelessWidget {
     final ends = promotion.endsAt?.toLocal();
     if (ends == null) return L10n.current.noEndDate;
     if (!now.isBefore(ends)) return L10n.current.expiredOn(_date(ends));
-    final today = DateTime(now.year, now.month, now.day);
-    final last = DateTime(ends.year, ends.month, ends.day);
+    // rider-u158: calendar days. Two local midnights are 23 h apart
+    // across spring-forward, and inDays rounded that down a day.
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final last = DateTime.utc(ends.year, ends.month, ends.day);
     final days = last.difference(today).inDays;
     if (days <= 0) return L10n.current.endsToday;
     return L10n.current.validUntilDays(_date(ends), days);
