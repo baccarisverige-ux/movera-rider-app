@@ -1366,6 +1366,64 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchCountry': l.searchCountry,
   'noCountryFound': l.noCountryFound,
   'changeLanguage': l.changeLanguage,
+  'consentPrefix': l.consentPrefix,
+  'consentTerms': l.consentTerms,
+  'consentPrivacy': l.consentPrivacy,
+  'consentLabel': l.consentLabel,
+  'consentTickFirst': l.consentTickFirst,
+  'legalUpdatedOn': l.legalUpdatedOn,
+  'legalTermsIntro': l.legalTermsIntro,
+  'legalPrivacyIntro': l.legalPrivacyIntro,
+  'termsS1Title': l.termsS1Title,
+  'termsS1Body': l.termsS1Body,
+  'termsS2Title': l.termsS2Title,
+  'termsS2Body': l.termsS2Body,
+  'termsS3Title': l.termsS3Title,
+  'termsS3Body': l.termsS3Body,
+  'termsS4Title': l.termsS4Title,
+  'termsS4Body': l.termsS4Body,
+  'termsS5Title': l.termsS5Title,
+  'termsS5Body': l.termsS5Body,
+  'termsS6Title': l.termsS6Title,
+  'termsS6Body': l.termsS6Body,
+  'termsS7Title': l.termsS7Title,
+  'termsS7Body': l.termsS7Body,
+  'termsS8Title': l.termsS8Title,
+  'termsS8Body': l.termsS8Body,
+  'termsS9Title': l.termsS9Title,
+  'termsS9Body': l.termsS9Body,
+  'termsS10Title': l.termsS10Title,
+  'termsS10Body': l.termsS10Body,
+  'termsS11Title': l.termsS11Title,
+  'termsS11Body': l.termsS11Body,
+  'termsS12Title': l.termsS12Title,
+  'termsS12Body': l.termsS12Body,
+  'termsS13Title': l.termsS13Title,
+  'termsS13Body': l.termsS13Body,
+  'privacyS1Title': l.privacyS1Title,
+  'privacyS1Body': l.privacyS1Body,
+  'privacyS2Title': l.privacyS2Title,
+  'privacyS2Body': l.privacyS2Body,
+  'privacyS3Title': l.privacyS3Title,
+  'privacyS3Body': l.privacyS3Body,
+  'privacyS4Title': l.privacyS4Title,
+  'privacyS4Body': l.privacyS4Body,
+  'privacyS5Title': l.privacyS5Title,
+  'privacyS5Body': l.privacyS5Body,
+  'privacyS6Title': l.privacyS6Title,
+  'privacyS6Body': l.privacyS6Body,
+  'privacyS7Title': l.privacyS7Title,
+  'privacyS7Body': l.privacyS7Body,
+  'privacyS8Title': l.privacyS8Title,
+  'privacyS8Body': l.privacyS8Body,
+  'privacyS9Title': l.privacyS9Title,
+  'privacyS9Body': l.privacyS9Body,
+  'privacyS10Title': l.privacyS10Title,
+  'privacyS10Body': l.privacyS10Body,
+  'privacyS11Title': l.privacyS11Title,
+  'privacyS11Body': l.privacyS11Body,
+  'privacyS12Title': l.privacyS12Title,
+  'privacyS12Body': l.privacyS12Body,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4295,4 +4353,120 @@ class _Exhaustive implements AppLocalizations {
   String get noCountryFound => '';
   @override
   String get changeLanguage => '';
+  @override
+  String get consentPrefix => '';
+  @override
+  String get consentTerms => '';
+  @override
+  String get consentPrivacy => '';
+  @override
+  String get consentLabel => '';
+  @override
+  String get consentTickFirst => '';
+  @override
+  String get legalUpdatedOn => '';
+  @override
+  String get legalTermsIntro => '';
+  @override
+  String get legalPrivacyIntro => '';
+  @override
+  String get termsS1Title => '';
+  @override
+  String get termsS1Body => '';
+  @override
+  String get termsS2Title => '';
+  @override
+  String get termsS2Body => '';
+  @override
+  String get termsS3Title => '';
+  @override
+  String get termsS3Body => '';
+  @override
+  String get termsS4Title => '';
+  @override
+  String get termsS4Body => '';
+  @override
+  String get termsS5Title => '';
+  @override
+  String get termsS5Body => '';
+  @override
+  String get termsS6Title => '';
+  @override
+  String get termsS6Body => '';
+  @override
+  String get termsS7Title => '';
+  @override
+  String get termsS7Body => '';
+  @override
+  String get termsS8Title => '';
+  @override
+  String get termsS8Body => '';
+  @override
+  String get termsS9Title => '';
+  @override
+  String get termsS9Body => '';
+  @override
+  String get termsS10Title => '';
+  @override
+  String get termsS10Body => '';
+  @override
+  String get termsS11Title => '';
+  @override
+  String get termsS11Body => '';
+  @override
+  String get termsS12Title => '';
+  @override
+  String get termsS12Body => '';
+  @override
+  String get termsS13Title => '';
+  @override
+  String get termsS13Body => '';
+  @override
+  String get privacyS1Title => '';
+  @override
+  String get privacyS1Body => '';
+  @override
+  String get privacyS2Title => '';
+  @override
+  String get privacyS2Body => '';
+  @override
+  String get privacyS3Title => '';
+  @override
+  String get privacyS3Body => '';
+  @override
+  String get privacyS4Title => '';
+  @override
+  String get privacyS4Body => '';
+  @override
+  String get privacyS5Title => '';
+  @override
+  String get privacyS5Body => '';
+  @override
+  String get privacyS6Title => '';
+  @override
+  String get privacyS6Body => '';
+  @override
+  String get privacyS7Title => '';
+  @override
+  String get privacyS7Body => '';
+  @override
+  String get privacyS8Title => '';
+  @override
+  String get privacyS8Body => '';
+  @override
+  String get privacyS9Title => '';
+  @override
+  String get privacyS9Body => '';
+  @override
+  String get privacyS10Title => '';
+  @override
+  String get privacyS10Body => '';
+  @override
+  String get privacyS11Title => '';
+  @override
+  String get privacyS11Body => '';
+  @override
+  String get privacyS12Title => '';
+  @override
+  String get privacyS12Body => '';
 }

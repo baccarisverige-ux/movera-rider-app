@@ -33,8 +33,7 @@ class SignIn extends StatefulWidget {
 
 enum _Busy { phone, apple, google }
 
-class _SignInState extends State<SignIn>
-    with SingleTickerProviderStateMixin {
+class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   late final AnimationController _story = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 5200),
@@ -87,12 +86,17 @@ class _SignInState extends State<SignIn>
     ..onTap = () => _openLegal('privacy');
 
   void _openLegal(String kind) {
-    Navigator.of(context).push(
-      RightToLeftTransition(AccountLegalPage(kind: kind)),
-    );
+    Navigator.of(
+      context,
+    ).push(RightToLeftTransition(AccountLegalPage(kind: kind)));
   }
+
   _Busy? _busy;
   String? _phoneError;
+
+  /// Owner round 3: the terms box must be ticked before any sign-in path.
+  bool _agreed = false;
+  bool _consentNudge = false;
   String? _providerError;
 
   @override
@@ -111,6 +115,16 @@ class _SignInState extends State<SignIn>
     _phone.dispose();
     _phoneFocus.dispose();
     super.dispose();
+  }
+
+  void _toggleAgreed() => setState(() {
+    _agreed = !_agreed;
+    if (_agreed) _consentNudge = false;
+  });
+
+  /// A tap on a waiting button: say why it waits.
+  void _nudgeConsent() {
+    if (!_agreed && !_consentNudge) setState(() => _consentNudge = true);
   }
 
   void _clearPhoneError() {
@@ -140,7 +154,9 @@ class _SignInState extends State<SignIn>
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _phoneError = authErrorMessage(error, AuthAction.sendCode));
+      setState(
+        () => _phoneError = authErrorMessage(error, AuthAction.sendCode),
+      );
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -163,7 +179,9 @@ class _SignInState extends State<SignIn>
         case ProviderPhoneRequired(:final link):
           await Navigator.push(
             context,
-            RightToLeftTransition(AddPhoneNumber(link: link, controller: _auth)),
+            RightToLeftTransition(
+              AddPhoneNumber(link: link, controller: _auth),
+            ),
           );
       }
     } catch (error) {
@@ -182,7 +200,7 @@ class _SignInState extends State<SignIn>
 
   @override
   Widget build(BuildContext context) {
-    final idle = _busy == null;
+    final idle = _busy == null && _agreed;
     return AuthScaffold(
       step: 1,
       headline: '',
@@ -211,65 +229,132 @@ class _SignInState extends State<SignIn>
             onSubmitted: (_) => _continue(),
           ),
           if (_phoneError != null) AuthErrorText(_phoneError!),
-          const SizedBox(height: 12),
-          AuthPrimaryButton(
-            label: context.l10n.continueLabel,
-            busy: _busy == _Busy.phone,
-            onPressed: idle ? _continue : null,
+          const SizedBox(height: 16),
+          // Owner round 3: the rider must tick the box before Continue,
+          // Apple or Google work (stores expect an explicit consent).
+          Semantics(
+            key: const ValueKey('auth-consent'),
+            checked: _agreed,
+            label: context.l10n.consentLabel,
+            onTap: _toggleAgreed,
+            excludeSemantics: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleAgreed,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: _agreed ? AuthColors.ink : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _agreed
+                            ? AuthColors.ink
+                            : const Color(0xFFB8C4BC),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: _agreed
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 17,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        text: context.l10n.consentPrefix,
+                        children: [
+                          TextSpan(
+                            text: context.l10n.consentTerms,
+                            recognizer: _termsTap,
+                            style: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                              color: AuthColors.ink,
+                            ),
+                          ),
+                          TextSpan(text: context.l10n.and),
+                          TextSpan(
+                            text: context.l10n.consentPrivacy,
+                            recognizer: _privacyTap,
+                            style: GoogleFonts.urbanist(
+                              fontWeight: FontWeight.w700,
+                              color: AuthColors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                      style: AuthText.small().copyWith(
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_consentNudge)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  context.l10n.consentTickFirst,
+                  style: AuthText.small().copyWith(color: AuthColors.error),
+                ),
+              ),
+            ),
+          const SizedBox(height: 18),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _agreed ? null : _nudgeConsent,
+            child: AuthPrimaryButton(
+              label: context.l10n.continueLabel,
+              busy: _busy == _Busy.phone,
+              onPressed: idle ? _continue : null,
+            ),
           ),
           const SizedBox(height: 14),
           const AuthOrDivider(),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: AuthProviderButton(
-                  label: 'Apple',
-                  leading: const Icon(Icons.apple, color: AuthColors.ink, size: 20),
-                  busy: _busy == _Busy.apple,
-                  onPressed: idle ? () => _provider('apple') : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AuthProviderButton(
-                  label: 'Google',
-                  leading: Image.asset('assets/images/google.png'),
-                  busy: _busy == _Busy.google,
-                  onPressed: idle ? () => _provider('google') : null,
-                ),
-              ),
-            ],
-          ),
-          if (_providerError != null) AuthErrorText(_providerError!),
-          const SizedBox(height: 12),
-          Text.rich(
-            TextSpan(
-              text: context.l10n.byContinuing,
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _agreed ? null : _nudgeConsent,
+            child: Row(
               children: [
-                TextSpan(
-                  text: context.l10n.termsLink,
-                  recognizer: _termsTap,
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w600,
-                    color: AuthColors.ink,
+                Expanded(
+                  child: AuthProviderButton(
+                    label: 'Apple',
+                    leading: const Icon(
+                      Icons.apple,
+                      color: AuthColors.ink,
+                      size: 20,
+                    ),
+                    busy: _busy == _Busy.apple,
+                    onPressed: idle ? () => _provider('apple') : null,
                   ),
                 ),
-                TextSpan(text: context.l10n.and),
-                TextSpan(
-                  text: context.l10n.privacyPolicy,
-                  recognizer: _privacyTap,
-                  style: GoogleFonts.urbanist(
-                    fontWeight: FontWeight.w600,
-                    color: AuthColors.ink,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AuthProviderButton(
+                    label: 'Google',
+                    leading: Image.asset('assets/images/google.png'),
+                    busy: _busy == _Busy.google,
+                    onPressed: idle ? () => _provider('google') : null,
                   ),
                 ),
-                const TextSpan(text: '.'),
               ],
             ),
-            textAlign: TextAlign.center,
-            style: AuthText.small(),
           ),
+          if (_providerError != null) AuthErrorText(_providerError!),
         ],
       ),
     );
