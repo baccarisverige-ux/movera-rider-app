@@ -547,7 +547,8 @@ void main() {
       );
       expect(
         authErrorMessage(phone, AuthAction.sendCode),
-        'Enter a valid Swedish mobile number.',
+        // Owner decision 7: every country is taken now.
+        'Enter a valid mobile number.',
       );
     });
 

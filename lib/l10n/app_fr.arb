@@ -778,7 +778,6 @@
   "paymentMethodLine": "Moyen de paiement : {method}",
   "reasonLine": "Motif : {reason}",
   "getHelpWithRide": "Obtenir de l’aide pour cette course",
-  "invalidSwedishMobile": "Saisissez un numéro de mobile suédois valide.",
   "enterPhone": "Saisissez votre numéro de téléphone",
   "textFourDigitCode": "Nous vous enverrons un code à 4 chiffres par SMS.",
   "byContinuing": "En continuant, vous acceptez nos ",
@@ -817,7 +816,6 @@
   "onlyOnceCode": "Une seule fois. Nous vous enverrons un code par SMS.",
   "sendCode": "Envoyer le code",
   "continueWith": "Continuer avec {provider}",
-  "sweden": "Suède",
   "orContinueWith": "ou continuer avec",
   "skipDemo": "Passer pour l’instant (démo)",
   "stepOf": "Étape {step} sur {total}",
@@ -1351,5 +1349,12 @@
   "locOpenSettings": "Ouvrir les réglages",
   "locAllow": "Autoriser la localisation",
   "dismiss": "Fermer",
-  "notifYesterday": "Hier {clock}"
+  "notifYesterday": "Hier {clock}",
+  "invalidMobileNumber": "Saisissez un numéro de mobile valide.",
+  "phoneCountryCode": "Indicatif : {country}, {dial}",
+  "changeCountryCode": "Changer de pays",
+  "chooseCountry": "Choisissez votre pays",
+  "searchCountry": "Rechercher un pays ou un indicatif",
+  "noCountryFound": "Aucun pays ne correspond à votre recherche.",
+  "changeLanguage": "Changer de langue"
 }

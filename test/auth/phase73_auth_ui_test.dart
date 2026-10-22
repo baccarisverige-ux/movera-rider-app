@@ -53,6 +53,10 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // Owner decision 7: the phone field starts in the device's country;
+    // these riders' phones are set to Sweden (+46).
+    tester.platformDispatcher.localeTestValue = const Locale('en', 'SE');
+    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     pushed = [];
     await tester.pumpWidget(
       ScreenUtilInit(
@@ -147,7 +151,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(PhoneVerification), findsNothing);
-      expect(find.textContaining('valid Swedish mobile number'), findsOneWidget);
+      expect(find.textContaining('valid mobile number'), findsOneWidget);
     },
   );
 
@@ -168,7 +172,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(PhoneVerification), findsNothing);
-      expect(find.textContaining('valid Swedish mobile number'), findsOneWidget);
+      expect(find.textContaining('valid mobile number'), findsOneWidget);
     },
   );
 

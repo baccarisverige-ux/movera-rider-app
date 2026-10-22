@@ -778,7 +778,6 @@
   "paymentMethodLine": "Betalsätt: {method}",
   "reasonLine": "Anledning: {reason}",
   "getHelpWithRide": "Få hjälp med resan",
-  "invalidSwedishMobile": "Ange ett giltigt svenskt mobilnummer.",
   "enterPhone": "Ange ditt telefonnummer",
   "textFourDigitCode": "Vi skickar en fyrsiffrig kod via sms.",
   "byContinuing": "Genom att fortsätta godkänner du våra ",
@@ -817,7 +816,6 @@
   "onlyOnceCode": "Behövs bara en gång. Vi skickar en kod via sms.",
   "sendCode": "Skicka kod",
   "continueWith": "Fortsätt med {provider}",
-  "sweden": "Sverige",
   "orContinueWith": "eller fortsätt med",
   "skipDemo": "Hoppa över nu (demo)",
   "stepOf": "Steg {step} av {total}",
@@ -1351,5 +1349,12 @@
   "locOpenSettings": "Öppna inställningar",
   "locAllow": "Tillåt plats",
   "dismiss": "Stäng",
-  "notifYesterday": "I går {clock}"
+  "notifYesterday": "I går {clock}",
+  "invalidMobileNumber": "Ange ett giltigt mobilnummer.",
+  "phoneCountryCode": "Landsnummer: {country}, {dial}",
+  "changeCountryCode": "Byt land",
+  "chooseCountry": "Välj ditt land",
+  "searchCountry": "Sök land eller landsnummer",
+  "noCountryFound": "Inget land matchar din sökning.",
+  "changeLanguage": "Byt språk"
 }

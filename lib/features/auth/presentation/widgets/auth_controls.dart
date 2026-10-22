@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/phone_country_picker.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -183,12 +187,17 @@ class AuthInputShell extends StatefulWidget {
     required this.child,
     this.leading,
     this.hasError = false,
+    this.leadingFlush = false,
   });
 
   final FocusNode focusNode;
   final Widget child;
   final Widget? leading;
   final bool hasError;
+
+  /// The [leading] widget runs to the shell's left edge (a tap target
+  /// with its own padding).
+  final bool leadingFlush;
 
   @override
   State<AuthInputShell> createState() => _AuthInputShellState();
@@ -229,7 +238,10 @@ class _AuthInputShellState extends State<AuthInputShell> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.only(
+        left: widget.leadingFlush && widget.leading != null ? 0 : 16,
+        right: 16,
+      ),
       decoration: BoxDecoration(
         color: focused || widget.hasError ? Colors.white : AuthColors.field,
         borderRadius: BorderRadius.circular(16),
@@ -248,17 +260,21 @@ class _AuthInputShellState extends State<AuthInputShell> {
   }
 }
 
-/// Phone number input fixed to Sweden (+46): the only numbers the app's
-/// phone check accepts today.
-/// rider-30: the field sits after a fixed "+46", so a number pasted in
-/// international form (+46 70 ..., 0046 70 ..., 46 70 ...) keeps only its
-/// national part. Before, the filter dropped the '+' and the 14-character
-/// limit cut the rest short, which then got a second +46.
-class NationalSwedishNumberFormatter extends TextInputFormatter {
-  const NationalSwedishNumberFormatter();
+/// Keeps only the national part of a number pasted in international form.
+///
+/// rider-30: the field sits after the country's dial code, so a number
+/// pasted as +46 70 ..., 0046 70 ... or (zone countries) 46 70 ... keeps
+/// only its national part instead of getting a second dial code.
+/// Owner decision 7: a pasted number of another country (+33 6 ...)
+/// switches the field to that country through [onCountry].
+class NationalNumberFormatter extends TextInputFormatter {
+  NationalNumberFormatter({PhoneCountry? country, this.onCountry})
+      : country = country ?? PhoneCountries.sweden;
 
-  static final _international = RegExp(r'^\s*(?:\+|00)\s*46\s*(?:\(0\)\s*)?');
-  static final _bareCountryCode = RegExp(r'^\s*4\s*6\s*');
+  final PhoneCountry country;
+  final ValueChanged<PhoneCountry>? onCountry;
+
+  static final _international = RegExp(r'^\s*(?:\+|00)');
 
   @override
   TextEditingValue formatEditUpdate(
@@ -266,29 +282,60 @@ class NationalSwedishNumberFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     final text = newValue.text;
-    final String national;
+    final digits = text.replaceAll(RegExp(r'\D'), '');
     final prefix = _international.firstMatch(text);
+    PhoneCountry? dialled;
+    String? national;
     if (prefix != null) {
-      national = text.substring(prefix.end);
+      final rest = digits.substring(text.trimLeft().startsWith('00') ? 2 : 0);
+      dialled = PhoneCountries.ofInternational(rest, preferred: country);
+      // Only once the whole number is there (a paste or autofill): a lone
+      // '+' being typed is dropped by the digit filter as before.
+      if (dialled == null || rest.length < dialled.dial.length + 4) {
+        return newValue;
+      }
+      national = _after(text, prefix.end, dialled.dial.length);
     } else {
-      // Without a trunk 0 a Swedish number has at most nine digits, so
-      // eleven or more starting with 46 carry the country code.
-      final digits = text.replaceAll(RegExp(r'\D'), '');
-      if (!digits.startsWith('46') || digits.length < 11) return newValue;
-      national = text.replaceFirst(_bareCountryCode, '');
+      final length = mobileLengthOf(country);
+      if (length == null ||
+          !digits.startsWith(country.dial) ||
+          digits.length < country.dial.length + length) {
+        return newValue;
+      }
+      national = _after(text, 0, country.dial.length);
+    }
+    if (dialled != null && dialled.iso != country.iso) {
+      final picked = dialled;
+      scheduleMicrotask(() => onCountry?.call(picked));
     }
     return TextEditingValue(
       text: national,
       selection: TextSelection.collapsed(offset: national.length),
     );
   }
+
+  /// [text] from [start] with the first [count] digits and a following
+  /// "(0)" removed.
+  static String _after(String text, int start, int count) {
+    var i = start;
+    var seen = 0;
+    while (i < text.length && seen < count) {
+      if (RegExp(r'\d').hasMatch(text[i])) seen++;
+      i++;
+    }
+    return text.substring(i).replaceFirst(RegExp(r'^\s*\(0\)\s*'), '').trimLeft();
+  }
 }
 
+/// The phone field: the country button (flag and dial code, opens the
+/// country sheet) and the national number.
 class AuthPhoneField extends StatelessWidget {
   const AuthPhoneField({
     super.key,
     required this.controller,
     required this.focusNode,
+    this.country,
+    this.onCountryChanged,
     this.onSubmitted,
     this.hasError = false,
     this.autofocus = false,
@@ -296,28 +343,37 @@ class AuthPhoneField extends StatelessWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
+
+  /// Null is Sweden.
+  final PhoneCountry? country;
+
+  /// Null shows the dial code without the picker.
+  final ValueChanged<PhoneCountry>? onCountryChanged;
   final ValueChanged<String>? onSubmitted;
   final bool hasError;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
+    final current = country ?? PhoneCountries.sweden;
+    final onChanged = onCountryChanged;
     return AuthInputShell(
       focusNode: focusNode,
       hasError: hasError,
-      leading: Container(
-        padding: const EdgeInsets.only(right: 12),
-        margin: const EdgeInsets.only(right: 12),
-        decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Color(0xFFDCE5DE))),
-        ),
-        child: Row(
-          children: [
-            const _SwedishFlag(),
-            const SizedBox(width: 8),
-            Text('+46', style: AuthText.input()),
-          ],
-        ),
+      leadingFlush: true,
+      leading: _CountryButton(
+        country: current,
+        onTap: onChanged == null
+            ? null
+            : () async {
+                final picked = await showPhoneCountryPicker(
+                  context,
+                  selected: current,
+                );
+                if (picked != null && picked.iso != current.iso) {
+                  onChanged(picked);
+                }
+              },
       ),
       child: TextField(
         controller: controller,
@@ -325,12 +381,12 @@ class AuthPhoneField extends StatelessWidget {
         autofocus: autofocus,
         keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.done,
-        autofillHints: const [AutofillHints.telephoneNumberNational],
+        autofillHints: const [AutofillHints.telephoneNumber],
         inputFormatters: [
           // rider-30: before the filter drops the '+'.
-          const NationalSwedishNumberFormatter(),
+          NationalNumberFormatter(country: current, onCountry: onChanged),
           FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
-          LengthLimitingTextInputFormatter(14),
+          LengthLimitingTextInputFormatter(18),
         ],
         onSubmitted: onSubmitted,
         style: AuthText.input().copyWith(
@@ -340,7 +396,7 @@ class AuthPhoneField extends StatelessWidget {
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,
-          hintText: '70 123 45 67',
+          hintText: phoneHintOf(current),
           hintStyle: AuthText.input().copyWith(
             color: const Color(0xFF9AA79F),
             fontWeight: FontWeight.w400,
@@ -352,38 +408,55 @@ class AuthPhoneField extends StatelessWidget {
   }
 }
 
-class _SwedishFlag extends StatelessWidget {
-  const _SwedishFlag();
+class _CountryButton extends StatelessWidget {
+  const _CountryButton({required this.country, required this.onTap});
+
+  final PhoneCountry country;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final name = country.nameIn(context.l10n.localeName);
     return Semantics(
-      label: context.l10n.sweden,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(2),
-        child: SizedBox(
-          width: 22,
-          height: 14,
-          child: CustomPaint(painter: _SwedishFlagPainter()),
+      button: onTap != null,
+      label: context.l10n.phoneCountryCode(name, country.dialLabel),
+      hint: onTap == null ? null : context.l10n.changeCountryCode,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: const ValueKey('auth-phone-country'),
+          onTap: onTap,
+          borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 53),
+            padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+            margin: const EdgeInsets.only(right: 12),
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Color(0xFFDCE5DE))),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(country.flag, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Text(country.dialLabel, style: AuthText.input()),
+                if (onTap != null) ...[
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.expand_more_rounded,
+                    size: 18,
+                    color: AuthColors.muted,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
-}
-
-class _SwedishFlagPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF006AA7));
-    final yellow = Paint()..color = const Color(0xFFFECC00);
-    canvas.drawRect(Rect.fromLTWH(w * 5 / 16, 0, w * 2 / 16, h), yellow);
-    canvas.drawRect(Rect.fromLTWH(0, h * 0.4, w, h * 0.2), yellow);
-  }
-
-  @override
-  bool shouldRepaint(_SwedishFlagPainter oldDelegate) => false;
 }
 
 /// Plain text input in the same shell (names).

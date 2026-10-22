@@ -1720,7 +1720,6 @@
     }
   },
   "getHelpWithRide": "Get help with this ride",
-  "invalidSwedishMobile": "Enter a valid Swedish mobile number.",
   "enterPhone": "Enter your phone number",
   "textFourDigitCode": "We'll text you a 4-digit code.",
   "byContinuing": "By continuing you agree to our ",
@@ -1783,7 +1782,6 @@
       }
     }
   },
-  "sweden": "Sweden",
   "orContinueWith": "or continue with",
   "skipDemo": "Skip for now (demo)",
   "stepOf": "Step {step} of {total}",
@@ -2716,5 +2714,19 @@
         "type": "String"
       }
     }
-  }
+  },
+  "invalidMobileNumber": "Enter a valid mobile number.",
+  "phoneCountryCode": "Country code: {country}, {dial}",
+  "@phoneCountryCode": {
+    "description": "Screen-reader label of the phone field's country button.",
+    "placeholders": {
+      "country": {"type": "String"},
+      "dial": {"type": "String"}
+    }
+  },
+  "changeCountryCode": "Change country",
+  "chooseCountry": "Choose your country",
+  "searchCountry": "Search country or code",
+  "noCountryFound": "No country matches your search.",
+  "changeLanguage": "Change language"
 }

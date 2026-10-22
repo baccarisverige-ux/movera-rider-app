@@ -784,7 +784,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentMethodLine': l.paymentMethodLine('<method>'),
   'reasonLine': l.reasonLine('<reason>'),
   'getHelpWithRide': l.getHelpWithRide,
-  'invalidSwedishMobile': l.invalidSwedishMobile,
   'enterPhone': l.enterPhone,
   'textFourDigitCode': l.textFourDigitCode,
   'byContinuing': l.byContinuing,
@@ -823,7 +822,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'onlyOnceCode': l.onlyOnceCode,
   'sendCode': l.sendCode,
   'continueWith': l.continueWith('<provider>'),
-  'sweden': l.sweden,
   'orContinueWith': l.orContinueWith,
   'skipDemo': l.skipDemo,
   'stepOf': l.stepOf('<step>', '<total>'),
@@ -1358,6 +1356,13 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'locAllow': l.locAllow,
   'dismiss': l.dismiss,
   'notifYesterday': l.notifYesterday('<clock>'),
+  'invalidMobileNumber': l.invalidMobileNumber,
+  'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
+  'changeCountryCode': l.changeCountryCode,
+  'chooseCountry': l.chooseCountry,
+  'searchCountry': l.searchCountry,
+  'noCountryFound': l.noCountryFound,
+  'changeLanguage': l.changeLanguage,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1542,6 +1547,7 @@ const messagePlaceholders = <String, List<String>>{
   'resCancelBody': ['date', 'time'],
   'resTermsOtherFees': ['rule'],
   'notifYesterday': ['clock'],
+  'phoneCountryCode': ['country', 'dial'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -3123,8 +3129,6 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get getHelpWithRide => '';
   @override
-  String get invalidSwedishMobile => '';
-  @override
   String get enterPhone => '';
   @override
   String get textFourDigitCode => '';
@@ -3200,8 +3204,6 @@ class _Exhaustive implements AppLocalizations {
   String get sendCode => '';
   @override
   String continueWith(String provider) => '';
-  @override
-  String get sweden => '';
   @override
   String get orContinueWith => '';
   @override
@@ -4270,4 +4272,18 @@ class _Exhaustive implements AppLocalizations {
   String get dismiss => '';
   @override
   String notifYesterday(String clock) => '';
+  @override
+  String get invalidMobileNumber => '';
+  @override
+  String phoneCountryCode(String country, String dial) => '';
+  @override
+  String get changeCountryCode => '';
+  @override
+  String get chooseCountry => '';
+  @override
+  String get searchCountry => '';
+  @override
+  String get noCountryFound => '';
+  @override
+  String get changeLanguage => '';
 }

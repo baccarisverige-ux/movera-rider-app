@@ -6,7 +6,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
-import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 
 /// Leaves the sign-in flow for the map, clearing it from the back stack.
@@ -65,34 +65,13 @@ bool showMoveraRoot(
 
 /// The +46 number a rider typed into the national-number field, or null.
 ///
-/// Accepts both "70 123 45 67" and the everyday "070 123 45 67". The old
-/// screens prefixed +46 to whatever was typed, turning "070..." into the
-/// invalid "+46070...".
+/// rider-30 / rider-r3-11: national ("070 123 45 67", "70 123 45 67") and
+/// international (+46, 0046, a bare 46 of full length) forms of a Swedish
+/// mobile (+46 7 and eight more digits); anything else is refused.
 ///
-/// rider-30: the international forms (+46 ..., 0046 ..., 46 ... pasted
-/// from Contacts) are the same number, not one to put a second +46 in
-/// front of. Without a trunk 0 a Swedish number has at most nine digits,
-/// so a longer one is refused instead of sent somewhere else.
-///
-/// rider-r3-11: the code goes out by SMS, so only a Swedish mobile number
-/// (+46 7 and eight more digits) is accepted here; a number with a digit
-/// missing or a landline is refused before a code is "sent" to it. Safety
-/// contacts keep the broader [SwedishPhone.toE164].
+/// Owner decision 7: the sign-in screens now take every country through
+/// [phoneNumberFromField]; this is its Sweden-only form.
 String? swedishNumberFromField(String typed) {
-  final digits = typed.replaceAll(RegExp(r'\s+'), '').trim();
-  if (digits.isEmpty) return null;
-  final String? number;
-  if (digits.startsWith('+') || digits.startsWith('0')) {
-    number = SwedishPhone.toE164(digits);
-  } else if (digits.startsWith('46') && digits.length >= 11) {
-    number = SwedishPhone.toE164('+$digits');
-  } else if (digits.length > 9) {
-    return null;
-  } else {
-    number = SwedishPhone.toE164('+46$digits');
-  }
-  if (number == null || !_swedishMobile.hasMatch(number)) return null;
-  return number;
+  final number = phoneNumberFromField(typed, PhoneCountries.sweden);
+  return number != null && number.startsWith('+46') ? number : null;
 }
-
-final RegExp _swedishMobile = RegExp(r'^\+467\d{8}$');

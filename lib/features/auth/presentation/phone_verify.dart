@@ -8,12 +8,12 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
-import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -194,7 +194,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 text: context.l10n.sentTo,
                 children: [
                   TextSpan(
-                    text: SwedishPhone.display(phone.trim()),
+                    text: displayPhoneNumber(phone.trim()),
                     style: const TextStyle(
                       color: AuthColors.ink,
                       fontWeight: FontWeight.w600,
