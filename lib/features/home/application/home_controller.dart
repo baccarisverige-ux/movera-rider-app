@@ -229,6 +229,9 @@ class HomeLocationController extends ChangeNotifier {
 
   /// rider-20: the scheduled frame of the running puck glide.
   int? _glideFrameId;
+
+  /// rider-u120: after [dispose], nothing starts GPS, compass or pulse.
+  bool _disposed = false;
   int _resubscribeAttempts = 0;
   bool Function()? _trackingMounted;
   void Function(LatLng latLng, double heading)? _trackingOnFix;
@@ -495,6 +498,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(LatLng latLng, double heading) onFix,
   }) {
+    if (_disposed) return;
     _positionSub?.cancel();
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
@@ -621,6 +625,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
   }) async {
+    if (_disposed) return false;
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();
@@ -714,6 +719,7 @@ class HomeLocationController extends ChangeNotifier {
     required bool Function() isMounted,
     required void Function() onTick,
   }) {
+    if (_disposed) return;
     _pulseTimer?.cancel();
     _pulseTimer = null;
     pulseExpanded = false;
@@ -732,6 +738,7 @@ class HomeLocationController extends ChangeNotifier {
     required void Function(double heading) onHeading,
     required void Function() onPulse,
   }) async {
+    if (_disposed) return;
     startTracking(isMounted: isMounted, onFix: onFix);
     startPulse(isMounted: isMounted, onTick: onPulse);
     await startHeading(isMounted: isMounted, onHeading: onHeading);
@@ -795,6 +802,7 @@ class HomeLocationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _positionSub?.cancel();
     _cancelGlide();
     _resubscribeTimer?.cancel();

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -11,7 +12,9 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_point.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
@@ -26,6 +29,7 @@ import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -67,6 +71,49 @@ class _SlowPush extends Fake implements PushService {
   @override
   Future<void> register() => slow ? answer.future : Future<void>.value();
 }
+
+/// A device location: permission as set, no fix needed by these tests.
+class _Location extends LocationRepository {
+  LocationPermission permission = LocationPermission.whileInUse;
+  int prompts = 0;
+  int subscriptions = 0;
+
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async => permission;
+
+  @override
+  Future<LocationPermission> requestPermission() async {
+    prompts += 1;
+    return permission;
+  }
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) {
+    subscriptions += 1;
+    return const Stream.empty();
+  }
+}
+
+class _NoGeocoding extends GeocodingRepository {
+  @override
+  Future<PlaceResult?> forward(String query) async => null;
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => null;
+}
+
+HomeLocationController _homeLocation(_Location location) =>
+    HomeLocationController(
+      location: location,
+      geocoding: _NoGeocoding(),
+      motion: MotionEngine(),
+      startCompass: () async => false,
+      readCompass: () => null,
+      stopCompass: () {},
+    );
 
 /// R5.6 parts a and b: small local fixes, one short test per bug.
 void main() {
@@ -338,5 +385,18 @@ void main() {
       upcoming.first.scheduledPickupAt.isBefore(upcoming.last.scheduledPickupAt),
       isTrue,
     );
+  });
+
+  test('rider-u120: a disposed Home location controller starts no GPS, '
+      'pulse or compass', () async {
+    final location = _Location();
+    final home = _homeLocation(location)..dispose();
+    await home.bindLiveLocation(
+      isMounted: () => true,
+      onFix: (_, _) {},
+      onHeading: (_) {},
+      onPulse: () {},
+    );
+    expect(location.subscriptions, 0);
   });
 }

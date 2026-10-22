@@ -426,6 +426,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
+      // rider-u120: Home may have been replaced while the icons were drawn.
+      if (!mounted) return;
       await _locationCtl.bindLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
