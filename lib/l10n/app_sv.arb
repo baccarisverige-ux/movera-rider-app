@@ -707,6 +707,7 @@
   "reasonCancelledBySystem": "Avbokad av systemet",
   "reasonRideFailed": "Resan misslyckades",
   "reasonDriverEnded": "Föraren avslutade resan",
+  "reasonRiderCancelledLive": "Du avbokade resan",
   "resReservedFor": "Din resa är bokad till {date} kl. {time}",
   "resKeepReady": "Vi håller din bokning redo till {date} kl. {time}.",
   "resNotifyAssigned": "Vi meddelar dig så fort en förare har tilldelats.",

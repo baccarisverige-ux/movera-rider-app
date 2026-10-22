@@ -713,6 +713,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'reasonCancelledBySystem': l.reasonCancelledBySystem,
   'reasonRideFailed': l.reasonRideFailed,
   'reasonDriverEnded': l.reasonDriverEnded,
+  'reasonRiderCancelledLive': l.reasonRiderCancelledLive,
   'resReservedFor': l.resReservedFor('<date>', '<time>'),
   'resKeepReady': l.resKeepReady('<date>', '<time>'),
   'resNotifyAssigned': l.resNotifyAssigned,
@@ -2965,6 +2966,8 @@ class _Exhaustive implements AppLocalizations {
   String get reasonRideFailed => '';
   @override
   String get reasonDriverEnded => '';
+  @override
+  String get reasonRiderCancelledLive => '';
   @override
   String resReservedFor(String date, String time) => '';
   @override

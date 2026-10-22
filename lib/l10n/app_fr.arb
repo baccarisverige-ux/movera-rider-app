@@ -707,6 +707,7 @@
   "reasonCancelledBySystem": "Annulée par le système",
   "reasonRideFailed": "La course a échoué",
   "reasonDriverEnded": "Le chauffeur a terminé la course",
+  "reasonRiderCancelledLive": "Vous avez annulé la course",
   "resReservedFor": "Votre course est réservée pour le {date} à {time}",
   "resKeepReady": "Nous gardons votre réservation prête pour le {date} à {time}.",
   "resNotifyAssigned": "Nous vous préviendrons dès qu’un chauffeur sera attribué.",

@@ -498,6 +498,24 @@ void main() {
         expect(find.text(L10n.current.menuWelcomeNoName), findsOneWidget);
         expect(find.text('Welcome to Movera'), findsNothing);
       });
+
+      for (final reason in ['no_driver_found', 'rider_cancelled_live']) {
+        testWidgets('rider-j8-3: reservation reason $reason is translated', (
+          tester,
+        ) async {
+          final ride = OnDemandRideHistoryStore.recordFor(
+            snapshot('r51-$reason'),
+            terminalStatus: RideStatus.cancelledByRider,
+            cancellationReason: reason,
+          )!;
+          L10n.use(code);
+          final label = reason == 'no_driver_found'
+              ? L10n.current.termNoDriverFound
+              : L10n.current.reasonRiderCancelledLive;
+          await openHistoryDetail(tester, code, ride, L10n.current.resCancelled);
+          expect(find.text(L10n.current.reasonLine(label)), findsOneWidget);
+        });
+      }
     });
   }
 }

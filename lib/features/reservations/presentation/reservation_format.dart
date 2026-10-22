@@ -49,6 +49,10 @@ abstract final class ReservationFormat {
     'system_cancelled': L10n.current.reasonCancelledBySystem,
     'system_trip_failed': L10n.current.reasonRideFailed,
     'driver_ended': L10n.current.reasonDriverEnded,
+    // rider-j8-3: the codes reservations record themselves
+    // (ReservationController.noDriverFoundReason, the live-ride cancel).
+    'no_driver_found': L10n.current.termNoDriverFound,
+    'rider_cancelled_live': L10n.current.reasonRiderCancelledLive,
     'No driver found': L10n.current.termNoDriverFound,
     'Request expired': L10n.current.reasonRequestExpired,
     'Cancelled by Movera': L10n.current.cancelledByMovera,

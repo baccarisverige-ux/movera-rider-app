@@ -1385,6 +1385,10 @@
   "@reasonDriverEnded": {
     "description": "History cancel reason: the driver ended the ride."
   },
+  "reasonRiderCancelledLive": "You cancelled the ride",
+  "@reasonRiderCancelledLive": {
+    "description": "Cancel reason of a reservation the rider cancelled once its live ride had started."
+  },
   "resReservedFor": "Your ride is reserved for {date} at {time}",
   "@resReservedFor": {
     "placeholders": {
