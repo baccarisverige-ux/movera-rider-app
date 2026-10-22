@@ -32,4 +32,13 @@ void main() {
     final server = await _signIn(language);
     expect(server.riderProfile?['language'], 'en');
   });
+
+  test('rider-r5-41: without a device choice the server profile takes the '
+      'language the app speaks', () async {
+    final language = AppLanguageController();
+    expect(language.choice, isNull);
+    expect(language.code, isNot('sv'));
+    final server = await _signIn(language);
+    expect(server.riderProfile?['language'], language.code);
+  });
 }

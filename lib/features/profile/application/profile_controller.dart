@@ -26,15 +26,15 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// [hydrate] at sign-in, then (rider-r5-42) a language the rider picked
-  /// on this device before signing in, which could not be saved without
-  /// a session, goes to the server profile: the server speaks to the rider
-  /// in the language the app speaks.
+  /// [hydrate] at sign-in, then the server profile takes the language the
+  /// app speaks, so the server speaks to the rider in it: a language picked
+  /// on Sign in, which could not be saved without a session (rider-r5-42),
+  /// or, without a choice on this device, the zone's default (rider-r5-41,
+  /// the device's language wins as in Account).
   Future<void> hydrateWithLanguage(AppLanguageController language) async {
     await hydrate();
     final store = _store;
     if (store is SyncedProfileRepository && !store.serverKnown) return;
-    if (language.choice == null) return;
     final code = language.code;
     if (profile.language == code) return;
     try {
