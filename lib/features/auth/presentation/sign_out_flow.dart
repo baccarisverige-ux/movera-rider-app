@@ -23,11 +23,11 @@ Future<void> confirmAndSignOut(
     builder: (dialogContext) => AlertDialog(
       title: Text(
         context.l10n.signOutQ,
-        style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        style: GoogleFonts.urbanist(fontWeight: FontWeight.w700),
       ),
       content: Text(
         context.l10n.signOutQBody,
-        style: GoogleFonts.poppins(fontSize: 13.5),
+        style: GoogleFonts.urbanist(fontSize: 13.5),
       ),
       actions: [
         TextButton(
@@ -84,7 +84,7 @@ class _SigningOut extends StatelessWidget {
             Expanded(
               child: Text(
                 context.l10n.signingOut,
-                style: GoogleFonts.poppins(fontSize: 14),
+                style: GoogleFonts.urbanist(fontSize: 14),
               ),
             ),
           ],

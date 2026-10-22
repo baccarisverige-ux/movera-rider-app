@@ -8,7 +8,8 @@ import 'package:movera_rider/features/auth/presentation/widgets/phone_country_pi
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Deep-green call to action. [onPressed] null shows the disabled state.
+/// Black call to action. [onPressed] null shows the disabled state: the same
+/// black, very light (owner round 3).
 class AuthPrimaryButton extends StatelessWidget {
   const AuthPrimaryButton({
     super.key,
@@ -44,14 +45,14 @@ class AuthPrimaryButton extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF13463A), AuthColors.deepGreen],
+                    colors: [Color(0xFF1C1C1E), Color(0xFF050506)],
                   )
                 : null,
             color: active ? null : AuthColors.disabled,
             boxShadow: active
                 ? const [
                     BoxShadow(
-                      color: Color(0x380F3B2D),
+                      color: Color(0x33000000),
                       blurRadius: 20,
                       offset: Offset(0, 10),
                     ),
@@ -78,7 +79,7 @@ class AuthPrimaryButton extends StatelessWidget {
                         children: [
                           Text(
                             label,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.urbanist(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: active ? Colors.white : AuthColors.disabledText,
@@ -146,7 +147,7 @@ class AuthProviderButton extends StatelessWidget {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
-                        color: AuthColors.deepGreen,
+                        color: AuthColors.ink,
                       ),
                     )
                   : Padding(
@@ -161,7 +162,7 @@ class AuthProviderButton extends StatelessWidget {
                               label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.urbanist(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: AuthColors.ink,
@@ -179,7 +180,8 @@ class AuthProviderButton extends StatelessWidget {
   }
 }
 
-/// Rounded input shell that turns white with a green ring while focused.
+/// Underlined input (owner round 3): a thin grey line that turns ink while
+/// focused and red on error. No box, no fill.
 class AuthInputShell extends StatefulWidget {
   const AuthInputShell({
     super.key,
@@ -230,25 +232,20 @@ class _AuthInputShellState extends State<AuthInputShell> {
   @override
   Widget build(BuildContext context) {
     final focused = widget.focusNode.hasFocus;
-    final borderColor = widget.hasError
-        ? AuthColors.error
-        : focused
-            ? AuthColors.deepGreen
-            : Colors.transparent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
-      height: 56,
+      height: 52,
       padding: EdgeInsets.only(
-        left: widget.leadingFlush && widget.leading != null ? 0 : 16,
-        right: 16,
+        left: widget.leadingFlush && widget.leading != null ? 0 : 2,
+        right: 2,
       ),
       decoration: BoxDecoration(
-        color: focused || widget.hasError ? Colors.white : AuthColors.field,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: focused
-            ? const [BoxShadow(color: Color(0x1A12804F), spreadRadius: 4)]
-            : null,
+        border: Border(
+          bottom: BorderSide(
+            color: authUnderlineColor(focused: focused, error: widget.hasError),
+            width: focused ? 1.6 : 1.2,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -259,6 +256,14 @@ class _AuthInputShellState extends State<AuthInputShell> {
     );
   }
 }
+
+/// The underline of an input: ink while focused, red on error, grey at rest.
+Color authUnderlineColor({required bool focused, required bool error}) =>
+    error
+        ? AuthColors.error
+        : focused
+            ? AuthColors.ink
+            : AuthColors.underline;
 
 /// Keeps only the national part of a number pasted in international form.
 ///
@@ -357,53 +362,94 @@ class AuthPhoneField extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = country ?? PhoneCountries.sweden;
     final onChanged = onCountryChanged;
-    return AuthInputShell(
-      focusNode: focusNode,
-      hasError: hasError,
-      leadingFlush: true,
-      leading: _CountryButton(
-        country: current,
-        onTap: onChanged == null
-            ? null
-            : () async {
-                final picked = await showPhoneCountryPicker(
-                  context,
-                  selected: current,
-                );
-                if (picked != null && picked.iso != current.iso) {
-                  onChanged(picked);
-                }
-              },
-      ),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        autofocus: autofocus,
-        keyboardType: TextInputType.phone,
-        textInputAction: TextInputAction.done,
-        autofillHints: const [AutofillHints.telephoneNumber],
-        inputFormatters: [
-          // rider-30: before the filter drops the '+'.
-          NationalNumberFormatter(country: current, onCountry: onChanged),
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
-          LengthLimitingTextInputFormatter(18),
-        ],
-        onSubmitted: onSubmitted,
-        style: AuthText.input().copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()],
+    // Owner round 3: three underlined parts, like the reference design:
+    // flag with a chevron, the dial code, the number.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _CountryButton(
+          country: current,
+          onTap: onChanged == null
+              ? null
+              : () async {
+                  final picked = await showPhoneCountryPicker(
+                    context,
+                    selected: current,
+                  );
+                  if (picked != null && picked.iso != current.iso) {
+                    onChanged(picked);
+                  }
+                },
         ),
-        cursorColor: AuthColors.deepGreen,
-        decoration: InputDecoration(
-          isCollapsed: true,
-          border: InputBorder.none,
-          hintText: phoneHintOf(current),
-          hintStyle: AuthText.input().copyWith(
-            color: const Color(0xFF9AA79F),
-            fontWeight: FontWeight.w400,
+        const SizedBox(width: 14),
+        _Underlined(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              current.dialLabel,
+              key: const ValueKey('auth-phone-dial'),
+              style: AuthText.input(),
+            ),
           ),
-          semanticCounterText: '',
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: AuthInputShell(
+            focusNode: focusNode,
+            hasError: hasError,
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              autofocus: autofocus,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              inputFormatters: [
+                // rider-30: before the filter drops the '+'.
+                NationalNumberFormatter(country: current, onCountry: onChanged),
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                LengthLimitingTextInputFormatter(18),
+              ],
+              onSubmitted: onSubmitted,
+              style: AuthText.input().copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              cursorColor: AuthColors.ink,
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                hintText: phoneHintOf(current),
+                hintStyle: AuthText.input().copyWith(
+                  color: const Color(0xFF9AA79F),
+                  fontWeight: FontWeight.w400,
+                ),
+                semanticCounterText: '',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A resting underline under a static part of the phone row.
+class _Underlined extends StatelessWidget {
+  const _Underlined({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AuthColors.underline, width: 1.2),
         ),
       ),
+      child: child,
     );
   }
 }
@@ -428,29 +474,24 @@ class _CountryButton extends StatelessWidget {
         child: InkWell(
           key: const ValueKey('auth-phone-country'),
           onTap: onTap,
-          borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 53),
-            padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
-            margin: const EdgeInsets.only(right: 12),
-            decoration: const BoxDecoration(
-              border: Border(right: BorderSide(color: Color(0xFFDCE5DE))),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(country.flag, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(country.dialLabel, style: AuthText.input()),
-                if (onTap != null) ...[
-                  const SizedBox(width: 2),
-                  const Icon(
-                    Icons.expand_more_rounded,
-                    size: 18,
-                    color: AuthColors.muted,
-                  ),
+          child: _Underlined(
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 48),
+              padding: const EdgeInsets.fromLTRB(2, 0, 6, 0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(country.flag, style: const TextStyle(fontSize: 22)),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.expand_more_rounded,
+                      size: 20,
+                      color: AuthColors.muted,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -493,7 +534,7 @@ class AuthTextField extends StatelessWidget {
         onSubmitted: onSubmitted,
         inputFormatters: [LengthLimitingTextInputFormatter(maxLength)],
         style: AuthText.input(),
-        cursorColor: AuthColors.deepGreen,
+        cursorColor: AuthColors.ink,
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,
@@ -508,7 +549,7 @@ class AuthTextField extends StatelessWidget {
   }
 }
 
-/// Soft green note with an icon, for reassurance copy.
+/// Quiet grey note with an icon, for reassurance copy.
 class AuthNote extends StatelessWidget {
   const AuthNote({super.key, required this.icon, required this.text});
 
@@ -525,12 +566,12 @@ class AuthNote extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AuthColors.green),
+          Icon(icon, size: 18, color: AuthColors.ink),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.urbanist(
                 fontSize: 12.5,
                 height: 1.4,
                 color: AuthColors.noteText,
@@ -566,7 +607,7 @@ class AuthErrorText extends StatelessWidget {
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.urbanist(
                   fontSize: 12.5,
                   height: 1.4,
                   color: AuthColors.error,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
 import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
@@ -153,17 +153,21 @@ class _Signature extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700);
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: 'Mov', style: brand.copyWith(color: AuthColors.ink)),
-          TextSpan(text: 'era', style: brand.copyWith(color: AuthColors.green)),
-          TextSpan(text: context.l10n.brandTagline),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: AuthText.small(),
+    // Owner round 3: the same wordmark widget as every other screen.
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const MoveraWordmark(size: 13),
+        Flexible(
+          child: Text(
+            context.l10n.brandTagline,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AuthText.small(),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,28 +1,33 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// The text stays in place. A released balloon rises into the existing "o"
-/// and becomes its multicolor location-pin form.
+/// The first screen's hero: the wordmark and the tagline. While the intro
+/// story runs, the wordmark's pin stays hidden until the balloon from the
+/// scene has flown in and become it ([BalloonFlight]).
 class BalloonBrandIntro extends StatelessWidget {
-  const BalloonBrandIntro({super.key, required this.progress});
+  const BalloonBrandIntro({
+    super.key,
+    required this.progress,
+    this.wordmarkKey,
+  });
 
   final Animation<double> progress;
 
-  static double _phase(double value, double start, double end) =>
-      ((value - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+  /// Put on the wordmark so [BalloonFlight] can aim at its pin.
+  final Key? wordmarkKey;
+
+  /// Font size of the hero wordmark.
+  static const wordmarkSize = 46.0;
 
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.of(context).disableAnimations;
-    final brandStyle = GoogleFonts.poppins(
-      fontSize: 37,
-      height: 1,
-      fontWeight: FontWeight.w800,
-      letterSpacing: -0.8,
-      color: const Color(0xFF438D6A),
-    );
     return Semantics(
       // rider-31: the slogan in the app language, as Rider name shows it.
       label: 'Movera. ${context.l10n.brandTaglineSentence}',
@@ -32,87 +37,38 @@ class BalloonBrandIntro extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 350),
-              child: LayoutBuilder(
-                builder: (context, constraints) => AnimatedBuilder(
-                  animation: progress,
-                  builder: (context, _) {
-                    final time = reducedMotion ? 1.0 : progress.value;
-                    final width = constraints.maxWidth;
-                    final center = width / 2;
-                    final rise = Curves.easeInOutCubic.transform(
-                      _phase(time, 0.54, 0.78),
-                    );
-                    final originX = width * 0.72 - 16;
-                    final targetX = center - 43;
-                    final balloonX = originX + (targetX - originX) * rise;
-                    final balloonY = 119 + (47 - 119) * rise;
-                    final balloonOpacity = _phase(time, 0.51, 0.56);
-                    final morph = Curves.easeOut.transform(
-                      _phase(time, 0.72, 0.86),
-                    );
-                    final originalOOpacity = 1 - _phase(time, 0.70, 0.78);
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned(
-                          left: center - 80,
-                          top: 43,
-                          child: Text('M', style: brandStyle),
-                        ),
-                        Positioned(
-                          left: center - 10,
-                          top: 43,
-                          child: Text('vera', style: brandStyle),
-                        ),
-                        Positioned(
-                          left: targetX,
-                          top: 47,
-                          child: Opacity(
-                            opacity: originalOOpacity,
-                            child: CustomPaint(
-                              size: const Size(32, 42),
-                              painter: const _PinBalloonPainter(
-                                shape: 1,
-                                placeholder: true,
-                              ),
-                            ),
+              child: AnimatedBuilder(
+                animation: progress,
+                builder: (context, _) {
+                  final time = reducedMotion ? 1.0 : progress.value;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 34),
+                      MoveraWordmark(
+                        key: wordmarkKey,
+                        size: wordmarkSize,
+                        pinOpacity: BalloonFlight.landed(time) ? 1 : 0,
+                      ),
+                      const SizedBox(height: 14),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          context.l10n.brandTaglineSentence,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: GoogleFonts.urbanist(
+                            // 0.41 of the wordmark, as in the approved mock-up.
+                            fontSize: 19,
+                            height: 1.2,
+                            fontWeight: FontWeight.w600,
+                            color: AuthColors.ink,
                           ),
                         ),
-                        Positioned(
-                          left: balloonX,
-                          top: balloonY,
-                          child: Opacity(
-                            opacity: balloonOpacity,
-                            child: CustomPaint(
-                              size: const Size(32, 42),
-                              painter: _PinBalloonPainter(shape: morph),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: 98,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              context.l10n.brandTaglineSentence,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              style: GoogleFonts.poppins(
-                                fontSize: 24,
-                                height: 1.2,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: -0.5,
-                                color: AuthColors.deepGreen,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -122,61 +78,143 @@ class BalloonBrandIntro extends StatelessWidget {
   }
 }
 
-class _PinBalloonPainter extends CustomPainter {
-  const _PinBalloonPainter({required this.shape, this.placeholder = false});
+/// One continuous flight: the balloon leaves the person's hand in the scene,
+/// rises in a single curve to the hero wordmark and darkens into its pin.
+///
+/// Painted on a layer over the whole page, so there is no hand-over between
+/// two painters half-way (the old intro drew the first half in the scene and
+/// the second in the hero, in different coordinates and speeds, which showed
+/// as a stall and a jump in the middle).
+class BalloonFlight extends StatelessWidget {
+  const BalloonFlight({
+    super.key,
+    required this.progress,
+    required this.sceneKey,
+    required this.wordmarkKey,
+    this.wordmarkSize = BalloonBrandIntro.wordmarkSize,
+  });
 
-  final double shape;
-  final bool placeholder;
+  final Animation<double> progress;
+  final GlobalKey sceneKey;
+  final GlobalKey wordmarkKey;
+  final double wordmarkSize;
 
-  static const _colors = [
-    Color(0xFF4285F4),
-    Color(0xFFEA4335),
-    Color(0xFFFBBC05),
-    Color(0xFF34A853),
-  ];
+  /// Story time when the balloon leaves the hand.
+  static const releaseAt = 0.44;
+
+  /// Story time when it has become the pin.
+  static const landAt = 0.86;
+
+  static bool released(double time) => time >= releaseAt;
+  static bool landed(double time) => time >= landAt;
+
+  static double _phase(double value, double start, double end) =>
+      ((value - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+
+  /// How far along the flight the balloon is at [time], 0..1, eased.
+  static double travel(double time) =>
+      Curves.easeInOutCubic.transform(_phase(time, releaseAt, landAt));
+
+  /// How much balloon has turned into pin at [time], 0..1.
+  static double morph(double time) =>
+      Curves.easeOut.transform(_phase(time, 0.68, landAt));
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: progress,
+        builder: (context, _) {
+          final time = reducedMotion ? 1.0 : progress.value;
+          if (!released(time) || landed(time)) return const SizedBox.shrink();
+          final overlay = context.findRenderObject() as RenderBox?;
+          final scene = sceneKey.currentContext?.findRenderObject() as RenderBox?;
+          final wordmark =
+              wordmarkKey.currentContext?.findRenderObject() as RenderBox?;
+          if (overlay == null ||
+              scene == null ||
+              wordmark == null ||
+              !overlay.hasSize ||
+              !scene.hasSize ||
+              !wordmark.hasSize) {
+            return const SizedBox.shrink();
+          }
+          final from = scene.localToGlobal(
+            AuthScene.balloonCentre(scene.size),
+            ancestor: overlay,
+          );
+          final layout = MoveraWordmark.layout(wordmarkSize);
+          final pinScale = layout.pinRect.height / MoveraPin.designSize.height;
+          final to = wordmark.localToGlobal(
+            layout.pinRect.topLeft + MoveraPin.headCentre * pinScale,
+            ancestor: overlay,
+          );
+          return CustomPaint(
+            size: Size.infinite,
+            painter: _FlightPainter(
+              from: from,
+              to: to,
+              scale: pinScale,
+              travel: travel(time),
+              morph: morph(time),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FlightPainter extends CustomPainter {
+  const _FlightPainter({
+    required this.from,
+    required this.to,
+    required this.scale,
+    required this.travel,
+    required this.morph,
+  });
+
+  final Offset from;
+  final Offset to;
+  final double scale;
+  final double travel;
+  final double morph;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const center = Offset(16, 16);
-    final tip = 31 + 11 * shape;
-    final outline = Path()
-      ..moveTo(16, tip)
-      ..cubicTo(8, 28, 1, 24, 1, 16)
-      ..arcToPoint(const Offset(31, 16), radius: const Radius.circular(15))
-      ..cubicTo(31, 24, 24, 28, 16, tip)
-      ..close();
+    // A gentle arc: the balloon drifts a little sideways on the way up.
+    final drift = Offset(18 * math.sin(math.pi * travel), 0);
+    final centre = Offset.lerp(from, to, travel)! + drift;
+    canvas.save();
+    canvas.translate(centre.dx, centre.dy);
+    canvas.scale(scale);
+    canvas.translate(-MoveraPin.headCentre.dx, -MoveraPin.headCentre.dy);
+    paintBalloon(canvas, morph);
+    canvas.restore();
+  }
 
-    if (placeholder) {
-      canvas.drawPath(
-        outline,
-        Paint()..color = const Color(0xFF72A98A),
-      );
-    } else {
-      canvas.save();
-      canvas.clipPath(outline);
-      for (var i = 0; i < 4; i++) {
-        canvas.drawRect(
-          Rect.fromLTWH((i.isOdd ? 16 : 0).toDouble(),
-              (i >= 2 ? 16 : 0).toDouble(), 16, 30),
-          Paint()..color = _colors[i],
-        );
-      }
-      canvas.restore();
-    }
-    if (shape > 0) {
+  /// The balloon on [MoveraPin.designSize]: round and green at [shape] 0,
+  /// the black pin with its hole at 1.
+  static void paintBalloon(Canvas canvas, double shape) {
+    final tip = 31 + 11 * shape;
+    final body = Color.lerp(AuthColors.green, AuthColors.ink, shape)!;
+    canvas.drawPath(
+      MoveraPin.withHole(tip: tip, hole: MoveraPin.holeRadius * shape),
+      Paint()..color = body,
+    );
+    if (shape < 1) {
       canvas.drawCircle(
-        center,
-        7.5 * shape,
-        Paint()..color = AuthColors.ground,
+        const Offset(11, 10),
+        4.5,
+        Paint()..color = Colors.white.withValues(alpha: 0.38 * (1 - shape)),
       );
-    }
-    if (!placeholder && shape < 1) {
       canvas.drawPath(
         Path()
           ..moveTo(16, tip)
           ..quadraticBezierTo(19, 37, 16, 42),
         Paint()
-          ..color = AuthColors.muted.withValues(alpha: 1 - shape)
+          ..color = AuthColors.ink.withValues(alpha: 1 - shape)
           ..strokeWidth = 1.2
           ..style = PaintingStyle.stroke,
       );
@@ -184,6 +222,10 @@ class _PinBalloonPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PinBalloonPainter oldDelegate) =>
-      oldDelegate.shape != shape || oldDelegate.placeholder != placeholder;
+  bool shouldRepaint(_FlightPainter oldDelegate) =>
+      oldDelegate.from != from ||
+      oldDelegate.to != to ||
+      oldDelegate.scale != scale ||
+      oldDelegate.travel != travel ||
+      oldDelegate.morph != morph;
 }

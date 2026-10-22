@@ -116,7 +116,7 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
             child: Container(
               padding: const EdgeInsets.fromLTRB(7, 6, 12, 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF6F0),
+                color: AuthColors.noteGround,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Row(
@@ -140,15 +140,15 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
                     child: Text(
                       who,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.urbanist(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F6B40),
+                        color: AuthColors.ink,
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.check_rounded, size: 15, color: Color(0xFF0F6B40)),
+                  const Icon(Icons.check_rounded, size: 15, color: AuthColors.ink),
                 ],
               ),
             ),
