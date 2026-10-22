@@ -24,6 +24,7 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -429,6 +430,39 @@ void main() {
           expect(find.text(stand), findsNothing);
         });
       }
+
+      testWidgets('rider-u142: Set pickup names the payment in the language', (
+        tester,
+      ) async {
+        await pumpIn(
+          tester,
+          code,
+          SetPickupPage(
+            initialPosition: const LatLng(59.3293, 18.0686),
+            initialAddress: 'Sveavägen 1',
+            destinationAddress: 'Arlanda Airport',
+            destinationPosition: const LatLng(59.65, 17.93),
+            ride: const SetPickupRide(
+              name: 'Movera',
+              image: 'missing.png',
+              seats: 4,
+              etaMin: 5,
+              tripMinutes: 12,
+            ),
+            fare: const SetPickupFare(totalKr: 259),
+            payment: const SetPickupPayment(
+              brand: 'cash',
+              name: 'Cash',
+              detail: 'Pay the driver in cash',
+            ),
+            brandMark: (_) => const SizedBox(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(L10n.current.payCash), findsOneWidget);
+        expect(find.text(L10n.current.payDriverCash), findsOneWidget);
+        expect(find.text('Pay the driver in cash'), findsNothing);
+      });
     });
   }
 }
