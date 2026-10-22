@@ -1766,11 +1766,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     image.dispose();
     if (data == null) return null;
     // The size given up front: the web plugin otherwise loads every new
-    // marker bitmap into an extra image just to measure it.
+    // marker bitmap into an extra image just to measure it. Logical size:
+    // the bitmap holds pixelRatio pixels per logical pixel (uat-r2).
     return BitmapDescriptor.bytes(
       data.buffer.asUint8List(),
-      width: src.width.toDouble(),
-      height: src.height.toDouble(),
+      width: src.width / MoveraRiderPuckMarker.pixelRatio,
+      height: src.height / MoveraRiderPuckMarker.pixelRatio,
     );
   }
 

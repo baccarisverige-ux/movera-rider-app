@@ -7,6 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 
+/// uat-r2: every marker bitmap holds this many pixels per logical pixel (a
+/// 3x phone screen); the descriptor keeps its logical size, so the map draws
+/// it sharp instead of stretching a 1x image.
+const double markerPixelRatio = 3;
+
 /// Compact Rider location puck matching the Home map visual language.
 class MoveraRiderPuckMarker {
   const MoveraRiderPuckMarker._();
@@ -14,13 +19,18 @@ class MoveraRiderPuckMarker {
   static final Map<bool, Future<BitmapDescriptor>> _iconCache =
       <bool, Future<BitmapDescriptor>>{};
 
+  /// uat-r2: the puck is painted at [markerPixelRatio], else the map
+  /// stretches a 1x bitmap and it looks blurred on a phone screen.
+  static const double pixelRatio = markerPixelRatio;
+
   static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
     bool expanded = false,
   }) async {
     const width = 65.9;
     const height = 75.3;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(0.588, 0.588);
+    final canvas = Canvas(recorder)
+      ..scale(0.588 * pixelRatio, 0.588 * pixelRatio);
     const center = Offset(56, 84);
 
     final beam = Path()
@@ -43,8 +53,8 @@ class MoveraRiderPuckMarker {
     canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
 
     final image = await recorder.endRecording().toImage(
-      width.toInt(),
-      height.toInt(),
+      (width * pixelRatio).toInt(),
+      (height * pixelRatio).toInt(),
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     // Never fall back to Google's default pin for the Rider location.
@@ -56,7 +66,10 @@ class MoveraRiderPuckMarker {
               'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
             ),
           )
-        : BitmapDescriptor.bytes(data.buffer.asUint8List());
+        : BitmapDescriptor.bytes(
+            data.buffer.asUint8List(),
+            imagePixelRatio: pixelRatio,
+          );
     return (icon: icon, image: image);
   }
 
@@ -125,7 +138,8 @@ class MoveraVehicleMarker {
     final outputSize = 48.0 * scale;
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
+    final canvas = Canvas(recorder)
+      ..scale(markerPixelRatio, markerPixelRatio);
     if (heading != 0) {
       final centre = outputSize / 2;
       canvas
@@ -207,8 +221,8 @@ class MoveraVehicleMarker {
     );
 
     final image = await recorder.endRecording().toImage(
-      outputSize.round(),
-      outputSize.round(),
+      (outputSize * markerPixelRatio).round(),
+      (outputSize * markerPixelRatio).round(),
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
@@ -237,7 +251,8 @@ class RouteEndpointMarker {
     return _cache.putIfAbsent(pickup, () async {
       const size = 30.0;
       final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
+      final canvas = Canvas(recorder)
+        ..scale(markerPixelRatio, markerPixelRatio);
       final color = pickup ? RiderRouteStyle.pickup : RiderRouteStyle.destination;
       const center = Offset(size / 2, size / 2);
       canvas.drawCircle(
@@ -263,8 +278,8 @@ class RouteEndpointMarker {
         );
       }
       final image = await recorder.endRecording().toImage(
-        size.toInt(),
-        size.toInt(),
+        (size * markerPixelRatio).toInt(),
+        (size * markerPixelRatio).toInt(),
       );
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
