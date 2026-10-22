@@ -16,6 +16,8 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
@@ -251,6 +253,20 @@ void main() {
     expect(
       record.scheduledPickupAt.difference(completedAt).inSeconds.abs(),
       lessThan(2),
+    );
+  });
+
+  test('rider-u60: a stop the rider added moves the pre-trip arrival '
+      'estimate', () {
+    const pickup = GeoPoint(59.33, 18.06);
+    const destination = GeoPoint(59.33, 18.16);
+    // About 5 km north of the direct line.
+    const stop = GeoPoint(59.375, 18.11);
+    final direct = estimatedRouteMinutes(pickup, const [], destination);
+    expect(direct, estimatedTripMinutes(pickup, destination));
+    expect(
+      estimatedRouteMinutes(pickup, const [stop], destination),
+      greaterThan(direct + 5),
     );
   });
 }

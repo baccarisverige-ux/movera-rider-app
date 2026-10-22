@@ -2466,11 +2466,15 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
             Duration(
               minutes:
                   toPickupMin +
-                  estimatedTripMinutes(
+                  estimatedRouteMinutes(
                     GeoPoint(
                       widget.pickupPosition.latitude,
                       widget.pickupPosition.longitude,
                     ),
+                    [
+                      for (final stop in widget.stops)
+                        GeoPoint(stop.latitude, stop.longitude),
+                    ],
                     GeoPoint(
                       widget.destinationPosition.latitude,
                       widget.destinationPosition.longitude,
