@@ -89,6 +89,45 @@ Future<void> _until(bool Function() done, {int turns = 500}) async {
   expect(done(), isTrue, reason: 'condition never held');
 }
 
+/// A restored search for [rideId] whose queued cancel (reason
+/// plans_changed) the server check finds landed; returns once Finding
+/// ended. Every POST path is added to [posts].
+Future<FindingDriverController> _landedQueuedCancel(
+  String rideId,
+  List<String> posts,
+) async {
+  await PendingCancelStore.enqueue(
+    rideId: rideId,
+    reasonId: 'plans_changed',
+    whileSearching: true,
+  );
+  // The restore's own flush gets no answer.
+  unawaited(FindingDriverController.flushPendingCancels(
+    api: _api((_) => Completer<http.Response>().future),
+  ));
+  addTearDown(FindingDriverController.abandonPendingCancelFlush);
+  final ended = <RideStatus>[];
+  final controller = _finding(
+    _api((request) async {
+      if (request.method == 'POST') posts.add(request.url.path);
+      return request.url.path.endsWith('/$rideId')
+          ? _json({
+              'ride': {
+                'id': rideId,
+                'status': 'cancelled_by_rider',
+                'version': 3,
+              },
+            })
+          : _json({'code': 'OK', 'vehicles': []});
+    }),
+    rideId,
+    DateTime.now().subtract(const Duration(minutes: 4)),
+    onTerminal: ended.add,
+  );
+  await _until(() => ended.isNotEmpty);
+  return controller;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -138,33 +177,16 @@ void main() {
 
   test('rider-u95: a restored cancel the server check finds landed is filed '
       'as the rider\'s cancel', () async {
-    await PendingCancelStore.enqueue(
-      rideId: 'ride_u95',
-      reasonId: 'plans_changed',
-      whileSearching: true,
-    );
-    // The restore's own flush gets no answer.
-    unawaited(FindingDriverController.flushPendingCancels(
-      api: _api((_) => Completer<http.Response>().future),
-    ));
-    addTearDown(FindingDriverController.abandonPendingCancelFlush);
-    final ended = <RideStatus>[];
-    _finding(
-      _api((request) async => request.url.path.endsWith('/ride_u95')
-          ? _json({
-              'ride': {
-                'id': 'ride_u95',
-                'status': 'cancelled_by_rider',
-                'version': 3,
-              },
-            })
-          : _json({'code': 'OK', 'vehicles': []})),
-      'ride_u95',
-      DateTime.now().subtract(const Duration(minutes: 4)),
-      onTerminal: ended.add,
-    );
-    await _until(() => ended.isNotEmpty);
+    await _landedQueuedCancel('ride_u95', []);
     final filed = (await OnDemandRideHistoryStore.read()).single;
     expect(filed.cancellationReason, 'plans_changed');
+  });
+
+  test('rider-u102: a reason given after a queued cancel landed is sent',
+      () async {
+    final posts = <String>[];
+    final controller = await _landedQueuedCancel('ride_u102', posts);
+    await controller.sendCancelReason('wait_too_long');
+    expect(posts, contains('/api/v1/trips/ride_u102/cancel-reason'));
   });
 }

@@ -1423,6 +1423,17 @@ class FindingDriverController {
     if (!_cancelQueued || _cancelled || _terminated || _disposed) return;
     _cancelQueued = false;
     await _commitCancelled(reasonId: _queuedReasonId);
+    // rider-u102: the entry is done. Left in the outbox, a reason the rider
+    // gives next would be attached to it and dropped unsent by the flush,
+    // which finds the trip already cancelled.
+    final id = ownedRideId;
+    if (id != null && id.isNotEmpty) {
+      try {
+        await PendingCancelStore.remove(id);
+      } catch (_) {
+        // The flush drops it once it reads the trip cancelled.
+      }
+    }
     if (_disposed) return;
     final callback = _onTerminal;
     if (callback != null) {
