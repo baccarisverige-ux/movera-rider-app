@@ -209,6 +209,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   /// longer query is on its way, so Enter checks they are for the text.
   String _resultsQuery = '';
   bool _searching = false;
+
+  /// rider-u82: the last lookup failed; say so instead of "No address found".
+  bool _lookupFailed = false;
   bool _showAll = false;
   bool _finishing = false;
 
@@ -314,6 +317,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       _query = value;
       _showAll = false;
       _searching = value.trim().isNotEmpty;
+      _lookupFailed = false;
       if (value.trim().isEmpty) _results = const [];
     });
     if (value.trim().isEmpty) return;
@@ -327,6 +331,16 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             _results = results;
             _resultsQuery = query;
             _searching = false;
+            _lookupFailed = false;
+          });
+        },
+        onFailed: (query) {
+          if (!mounted || query != _activeController.text) return;
+          setState(() {
+            _results = const [];
+            _resultsQuery = query;
+            _searching = false;
+            _lookupFailed = true;
           });
         },
       ),
@@ -1039,13 +1053,23 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           padding: const EdgeInsets.symmetric(vertical: 22),
           child: Column(
             children: [
-              Text(context.l10n.noAddressFound, style: _t(16, weight: FontWeight.w600)),
-              const SizedBox(height: 4),
+              // rider-u82: a failed lookup is a connection problem, not
+              // an address that does not exist.
               Text(
-                context.l10n.noAddressFoundBody,
+                _lookupFailed
+                    ? context.l10n.apiUnreachable
+                    : context.l10n.noAddressFound,
                 textAlign: TextAlign.center,
-                style: _t(13.5, weight: FontWeight.w400, color: _muted),
+                style: _t(16, weight: FontWeight.w600),
               ),
+              if (!_lookupFailed) ...[
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.noAddressFoundBody,
+                  textAlign: TextAlign.center,
+                  style: _t(13.5, weight: FontWeight.w400, color: _muted),
+                ),
+              ],
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _pickOnMap,

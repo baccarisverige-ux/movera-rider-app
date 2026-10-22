@@ -7,6 +7,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/destination_search/data/place_suggestion_repository.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
@@ -116,5 +117,15 @@ void main() {
     expect(rideCheck.recording, isTrue,
         reason: 'the card on the summary still offers Stop');
     expect(recorder.stops, 0);
+  });
+
+  test('rider-u82: a failed autocomplete is an error, not "no address"',
+      () async {
+    final offline = PlaceSuggestionRepository(ApiClient(
+      client: MockClient((_) async => throw http.ClientException('offline')),
+      env: AppEnv.current,
+    ));
+    // The picker shows "No address found" only for an empty answer.
+    await expectLater(offline.suggest('Kungsgatan 4'), throwsA(anything));
   });
 }
