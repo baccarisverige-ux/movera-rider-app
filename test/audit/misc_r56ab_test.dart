@@ -387,6 +387,20 @@ void main() {
     );
   });
 
+  test('rider-43: a detect that may not ask never shows the location '
+      'prompt again', () async {
+    final location = _Location()..permission = LocationPermission.denied;
+    final home = _homeLocation(location);
+    addTearDown(home.dispose);
+    final asked = await home.detectCurrent();
+    expect(location.prompts, 1);
+    expect(asked.failure, HomeLocationFailure.permissionDenied);
+    // The second try and an app resume do not ask again.
+    final again = await home.detectCurrent(askPermission: false);
+    expect(location.prompts, 1);
+    expect(again.failure, HomeLocationFailure.permissionDenied);
+  });
+
   test('rider-u120: a disposed Home location controller starts no GPS, '
       'pulse or compass', () async {
     final location = _Location();

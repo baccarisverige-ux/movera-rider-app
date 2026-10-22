@@ -401,7 +401,10 @@ class HomeLocationController extends ChangeNotifier {
     onGoodFix?.call(point);
   }
 
-  Future<DetectedLocation> detectCurrent() async {
+  /// rider-43: [askPermission] false never shows the system prompt (an app
+  /// resume, a second try right after the rider answered it); a denied
+  /// permission then reads as denied.
+  Future<DetectedLocation> detectCurrent({bool askPermission = true}) async {
     _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
@@ -414,7 +417,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       var permission = await location.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied && askPermission) {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {

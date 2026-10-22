@@ -267,7 +267,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // pending): run the whole first-fix path (puck, label, stream, camera).
     // Restarting only the stream tracked GPS but never drew the puck.
     if (_currentLatLng == null) {
-      unawaited(_detectCurrentAddress());
+      // rider-43: a resume never prompts again; a rider who allowed
+      // location in Settings meanwhile still gets the fix.
+      unawaited(_detectCurrentAddress(askPermission: false));
     } else if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
         isMounted: () => mounted,
@@ -363,8 +365,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// Detects the rider's location once; a second call while one is running
   /// joins it, so the booking flow can wait for the fix Home already asked
   /// for instead of asking again.
-  Future<void> _detectCurrentAddress() {
-    return _detectInFlight ??= _runDetectCurrentAddress().whenComplete(() {
+  Future<void> _detectCurrentAddress({bool askPermission = true}) {
+    return _detectInFlight ??= _runDetectCurrentAddress(
+      askPermission: askPermission,
+    ).whenComplete(() {
       _detectInFlight = null;
     });
   }
@@ -385,7 +389,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       for (var attempt = 0; attempt < 2; attempt++) {
         final left = deadline.difference(DateTime.now());
         if (left <= Duration.zero) break;
-        await _detectCurrentAddress().timeout(left, onTimeout: () {});
+        // rider-43: only the first try may show the permission prompt; the
+        // second never asks again right after a "Deny".
+        await _detectCurrentAddress(
+          askPermission: attempt == 0,
+        ).timeout(left, onTimeout: () {});
         if (!mounted) return null;
         final fix = _tripPickupLatLng ?? _currentLatLng;
         if (fix != null) return fix;
@@ -398,10 +406,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return _tripPickupLatLng ?? _currentLatLng;
   }
 
-  Future<void> _runDetectCurrentAddress() async {
+  Future<void> _runDetectCurrentAddress({bool askPermission = true}) async {
     if (mounted) setState(() {});
     try {
-      final detected = await _locationCtl.detectCurrent();
+      final detected = await _locationCtl.detectCurrent(
+        askPermission: askPermission,
+      );
       if (!mounted) return;
       final target = detected.target;
       if (detected.denied || target == null) {
