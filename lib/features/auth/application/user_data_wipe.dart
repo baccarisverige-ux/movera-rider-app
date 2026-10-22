@@ -36,7 +36,8 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 /// Removed (per user):
 /// - `movera_profile_v1` (name, photo, settings), `movera_rider_name_pending`
 ///   (a new rider's name step not done yet), `movera_rider_fingerprint`
-///   (who was signed in, see [enterSessionAs]).
+///   (who was signed in, see [enterSessionAs]),
+///   `movera_rider_session_started_at` (since when, rider-r5-44).
 /// - `movera_home_address`, `movera_work_address`, `movera_saved_places`,
 ///   `movera_recent_addresses`, `movera_previous_pickups_v1`.
 /// - `movera_saved_cards`, `movera_default_payment`, `movera_payment_methods`,
@@ -199,7 +200,29 @@ abstract final class UserDataWipe {
       await run();
     }
     await prefs.setString(riderFingerprintKey, fingerprint);
+    if (previous != fingerprint) {
+      // rider-r5-44: a new rider on this device. Notifications sent before
+      // now (still in the OS tray) belong to whoever was signed in before.
+      await prefs.setString(
+        sessionStartedKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
+    }
     return wipe;
+  }
+
+  /// When the signed-in rider first signed in on this device (a `movera_`
+  /// key, so sign-out drops it). See [enterSessionAs].
+  static const sessionStartedKey = 'movera_rider_session_started_at';
+
+  /// The [sessionStartedKey] time, or null when unknown.
+  static Future<DateTime?> sessionStartedAt() async {
+    try {
+      final raw = (await PreferencesStore.load()).getString(sessionStartedKey);
+      return raw == null ? null : DateTime.tryParse(raw);
+    } catch (_) {
+      return null;
+    }
   }
 
   static String? _subject(String? token) {
