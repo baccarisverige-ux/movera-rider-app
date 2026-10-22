@@ -26,6 +26,10 @@ import '../reservations/scheduled_quote_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+  // captureSchedule clamps against StockholmSchedule.clock, not the `now`
+  // the picker gets, so the file's fixed dates must drive that clock too.
+  setUp(() => StockholmSchedule.clock = () => DateTime.utc(2026, 10, 21, 10));
+  tearDown(() => StockholmSchedule.clock = DateTime.now);
 
   const tunisPickup = ReservationPlace(label: 'Avenue Habib Bourguiba', lat: 36.80, lng: 10.18);
   const tunisDrop = ReservationPlace(label: 'Tunis-Carthage', lat: 36.85, lng: 10.23);
