@@ -77,6 +77,27 @@ void _openNotificationsFromPush() {
   }());
 }
 
+/// uat-r1: a start-up step that reads or writes device storage must not
+/// take the whole boot down. On iOS Safari a localStorage write can be
+/// refused (Private Browsing on older iOS, a full origin, "Block All
+/// Cookies"), and one such refusal in a step awaited before runApp left the
+/// rider on the MOVERA boot screen for ever, which reads as "the app
+/// crashed". The step is logged and skipped; what it would have loaded
+/// keeps its defaults.
+@visibleForTesting
+Future<void> bootStep(String name, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (error, stackTrace) {
+    AppLog.error(
+      'boot.step_failed',
+      error: error,
+      stackTrace: stackTrace,
+      extra: {'step': name},
+    );
+  }
+}
+
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   // UI-15: bundled Poppins, when present, means no font download at start.
@@ -129,18 +150,30 @@ Future<void> bootstrap() async {
   // rider-u17: before anything writes a preference or reads the session,
   // drop a Keychain session a previous install of the app left behind.
   if (!kIsWeb) {
-    await FreshInstallReset.run(tokens: AppScope.instance.tokens);
+    await bootStep(
+      'fresh_install_reset',
+      () => FreshInstallReset.run(tokens: AppScope.instance.tokens),
+    );
   }
   if (AppEnv.current.flavor == AppFlavor.demo) {
-    await WalletStore.seedDemoBalance();
+    await bootStep('wallet.seed_demo', WalletStore.seedDemoBalance);
   }
-  await AppScope.instance.reservations.hydrate();
-  await AppScope.instance.profile.hydrateLocalThenServer();
+  await bootStep(
+    'reservations.hydrate',
+    AppScope.instance.reservations.hydrate,
+  );
+  await bootStep(
+    'profile.hydrate',
+    AppScope.instance.profile.hydrateLocalThenServer,
+  );
   // Q48: the saved language, else the default of the rider's zone; a
   // later good fix in another zone moves the default with it.
-  await AppScope.instance.language.load(
-    config: AppScope.instance.riderConfig,
-    zone: await currentRiderZone(),
+  await bootStep(
+    'language.load',
+    () async => AppScope.instance.language.load(
+      config: AppScope.instance.riderConfig,
+      zone: await currentRiderZone(),
+    ),
   );
   HomeLocationController.onGoodFix = (point) => unawaited(
     AppScope.instance.language.useZone(
