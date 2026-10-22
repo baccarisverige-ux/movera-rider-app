@@ -22,6 +22,7 @@ import 'package:movera_rider/features/active_ride/application/route_change_contr
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
+import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 /// A [Random] that always answers [value].
@@ -246,5 +247,11 @@ void main() {
         .verifyOtp(challenge: challenge, code: '1234')
         .timeout(const Duration(seconds: 5));
     push.answer.complete();
+  });
+
+  test('rider-r3-11: sign-in takes only a Swedish mobile number', () {
+    expect(swedishNumberFromField('70 123 45 67'), '+46701234567');
+    expect(swedishNumberFromField('70 123 45 6'), isNull, reason: 'a digit short');
+    expect(swedishNumberFromField('08 123 456 78'), isNull, reason: 'a landline');
   });
 }
