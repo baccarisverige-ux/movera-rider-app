@@ -26,6 +26,9 @@ import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -305,5 +308,35 @@ void main() {
     await tester.pump(RoutePickerPage.suggestDebounce);
     expect(search.suggestRequests - before, 1);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test('rider-u113: Upcoming lists the next pickup first', () async {
+    var ids = 0;
+    final reservations = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv_${ids++}',
+      ),
+    );
+    final today = DateTime.now();
+    ReservationDraft at(DateTime when) => ReservationDraft(
+      scheduledPickupAt: when,
+      pickup: const ReservationPlace(label: 'Klockarvägen 37'),
+      destination: const ReservationPlace(label: 'T-Centralen'),
+      categoryId: 'comfort',
+      categoryName: 'Comfort',
+      categoryImage: 'assets/images/rides/comfort.webp',
+      price: 339,
+      paymentMethod: 'Cash',
+    );
+    // Booked first: the later pickup.
+    await reservations.create(at(today.add(const Duration(days: 3))));
+    await reservations.create(at(today.add(const Duration(days: 2))));
+    final upcoming = reservations.upcoming();
+    expect(upcoming, hasLength(2));
+    expect(
+      upcoming.first.scheduledPickupAt.isBefore(upcoming.last.scheduledPickupAt),
+      isTrue,
+    );
   });
 }

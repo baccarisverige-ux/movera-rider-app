@@ -143,8 +143,11 @@ class ReservationController extends ChangeNotifier {
   /// accepts, or only once on the way when admin turned that off.
   bool showsDriverOf(Reservation ride) => _rules.showsDriverOf(ride);
 
+  /// rider-u113: next pickup first (the store keeps booking order, newest
+  /// booked first), as the Home chrono shows them.
   List<Reservation> upcoming() =>
-      _store.cached.where((item) => item.status.isUpcoming).toList();
+      _store.cached.where((item) => item.status.isUpcoming).toList()
+        ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
 
   List<Reservation> completed() =>
       _store.cached.where((item) => item.status.isCompleted).toList();
