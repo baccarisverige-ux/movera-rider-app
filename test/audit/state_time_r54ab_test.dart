@@ -38,6 +38,9 @@ import 'package:movera_rider/features/profile/domain/rider_profile_repository.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -456,5 +459,54 @@ void main() {
     expect(taps, 0);
     await tester.pumpWidget(const SizedBox());
     auth.finish.complete();
+  });
+
+  test('rider-u81: a failed duplicate-ride stand-down is queued for retry, '
+      'not lost', () async {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    final api = ApiClient(
+      env: _env,
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/cancel')) {
+          return http.Response('{"code":"DOWN"}', 503);
+        }
+        return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
+      }),
+    );
+    final owner = FindingDriverController(
+      realtime: MockRideRealtime(assignAfter: const Duration(days: 1)),
+      ride: RideSession()..rideId = 'ride_owner',
+      store: FindingDriverRepository(),
+      api: api,
+      delayedAfter: Duration.zero,
+    );
+    owner.start(
+      snapshot: RideSnapshot(
+        status: RideStatus.findingDriver,
+        savedAt: DateTime.now(),
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.33,
+        pickupLng: 18.06,
+        destinationLat: 59.34,
+        destinationLng: 18.07,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+        rideId: 'ride_owner',
+      ),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    FindingDriverController.active = owner;
+    addTearDown(() {
+      FindingDriverController.active = null;
+      owner.dispose();
+    });
+    final kept = await BookingCoordinator(api: api)
+        .reconcileCreatedFinding('ride_duplicate');
+    expect(kept, 'ride_owner');
+    expect(await PendingCancelStore.find('ride_duplicate'), isNotNull);
   });
 }
