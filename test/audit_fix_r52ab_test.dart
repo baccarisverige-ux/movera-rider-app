@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,12 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/destination_search/data/place_suggestion_repository.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -24,9 +31,33 @@ import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'safety/safety_test.dart' show TestSafetyRecorder;
+
+/// In front of the in-process backend: the next PATCH reaches the server,
+/// then its answer is lost (a client timeout), as in
+/// audit_fix_route_change_idempotency_test.
+class _LosesNextPatch extends http.BaseClient {
+  _LosesNextPatch(this.inner);
+  final InProcessMockClient inner;
+  bool loseNext = true;
+  int patches = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.method == 'PATCH') {
+      patches++;
+      if (loseNext) {
+        loseNext = false;
+        await (await inner.send(request)).stream.drain<void>();
+        throw TimeoutException('client gave up');
+      }
+    }
+    return inner.send(request);
+  }
+}
 
 /// Wave 5 R5.2 parts a+b: messages that claim success they did not get.
 void main() {
@@ -127,5 +158,66 @@ void main() {
     ));
     // The picker shows "No address found" only for an empty answer.
     await expectLater(offline.suggest('Kungsgatan 4'), throwsA(anything));
+  });
+
+  test('rider-u97: a raise whose answer was lost is adopted, not "failed"',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    final server = InProcessMockClient();
+    server.rides['r52-raise'] = {
+      'id': 'r52-raise',
+      'status': 'findingDriver',
+      'pickupAddress': 'Sergels torg 1',
+      'pickupLat': 59.3326,
+      'pickupLng': 18.0649,
+      'destinationAddress': 'Odenplan 2',
+      'destinationLat': 59.3426,
+      'destinationLng': 18.0498,
+      'price': 200.0,
+      'bookedPrice': 200.0,
+      'stops': <Map<String, dynamic>>[],
+      'version': 1,
+    };
+    final backend = _LosesNextPatch(server);
+    final api = ApiClient(client: backend);
+    final realtime = MockRideRealtime(
+      assignAfter: const Duration(days: 1),
+      api: api,
+    );
+    addTearDown(realtime.dispose);
+    final finding = FindingDriverController(
+      realtime: realtime,
+      ride: RideSession()..rideId = 'r52-raise',
+      store: FindingDriverRepository(),
+      priceBumpAfter: Duration.zero,
+      api: api,
+    );
+    addTearDown(finding.dispose);
+    finding.start(
+      snapshot: RideSnapshot(
+        status: RideStatus.findingDriver,
+        savedAt: DateTime.now(),
+        pickupAddress: 'Sergels torg 1',
+        destinationAddress: 'Odenplan 2',
+        pickupLat: 59.3326,
+        pickupLng: 18.0649,
+        destinationLat: 59.3426,
+        destinationLng: 18.0498,
+        rideType: 'Movera',
+        price: 200,
+        paymentMethod: 'Apple Pay',
+        rideId: 'r52-raise',
+      ),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+
+    final raised = await finding.confirmPriceIncreaseBy(const Money(2000));
+
+    expect(finding.editFeedback, isNot(L10n.current.editOfferFailed));
+    expect(raised, isTrue);
+    expect(finding.currentPrice, 220, reason: 'the fare the server applied');
+    expect(backend.patches, 2);
   });
 }

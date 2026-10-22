@@ -838,15 +838,27 @@ class FindingDriverController {
         intent,
         ride.projectionVersionOf(id),
       );
-      final response = await api.patch(
+      final key = _priceMutation.keyFor(intent);
+      Future<Map<String, dynamic>> raise() => api.patch(
         '/api/v1/rides/$id',
         // Contract v0.3.0: the raise as Money, not kronor.
         body: {
           'offerIncrease': increase.toJson(),
           'expectedVersion': ?version,
         },
-        idempotencyKey: _priceMutation.keyFor(intent),
+        idempotencyKey: key,
       );
+      Map<String, dynamic> response;
+      try {
+        response = await raise();
+      } catch (error) {
+        // rider-u97: a timeout or dropped connection says nothing about
+        // whether the server applied the raise. The same request again
+        // (same key) gets the server's answer and the fare it applied.
+        if (error is ApiError && !error.isRetryable) rethrow;
+        if (_appliedEditDropped(editToken)) return false;
+        response = await raise();
+      }
       _priceMutation.succeeded(intent);
       ride.observeProjection(response);
       if (_appliedEditDropped(editToken)) return false;
