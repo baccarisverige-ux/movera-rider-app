@@ -1768,7 +1768,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } else {
       await flight;
     }
-    if (mounted) setState(() => _showRecenterButton = false);
+    if (!mounted) return;
+    // rider-47: the glide may have been cut short by a finger on the map,
+    // or refused because the rider holds it. Hide the button only when the
+    // camera is where a recentre puts it; else the rider has no way back.
+    final user = _currentLatLng;
+    final target = _locationCtl.lastMapTarget;
+    final offRider = user != null &&
+        AppScope.instance.camera.showRecenter(
+          zoom: _locationCtl.lastMapZoom,
+          metersFromUser: AppScope.instance.location.distanceBetween(
+            target.latitude,
+            target.longitude,
+            user.latitude,
+            user.longitude,
+          ),
+        );
+    setState(() => _showRecenterButton = offRider);
   }
 
   /// A fresh fix closer than this to the known position does not steer a

@@ -219,4 +219,28 @@ void main() {
     expect(commands, isNot(contains(MapOwners.pickup)));
     await tearDownHome(tester);
   });
+
+  testWidgets('rider-47: a recenter that did not land on the rider keeps '
+      'the recenter button', (tester) async {
+    gps.failFirst = 0;
+    await pumpHome(tester);
+    await frames(tester, 10);
+    final recenter = find.byIcon(Icons.near_me_outlined);
+    // The rider pans the map away, as the map reports it to Home.
+    tester
+        .widget<CustomGoogleMap>(find.byType(CustomGoogleMap))
+        .onCameraMove!(
+      const CameraPosition(target: LatLng(59.40, 18.20), zoom: 15),
+    );
+    await frames(tester, 1);
+    expect(recenter, findsOneWidget);
+
+    // The glide is cut short (a finger on the map) or refused (the map is
+    // held): no camera move puts the map back on the rider.
+    await tester.tap(recenter);
+    await frames(tester, 30);
+
+    expect(recenter, findsOneWidget, reason: 'the map is still off the rider');
+    await tearDownHome(tester);
+  });
 }
