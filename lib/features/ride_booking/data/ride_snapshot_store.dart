@@ -408,19 +408,34 @@ class RideSnapshotStore {
     };
     final encoded = jsonEncode(payload);
 
-    final prefs = await PreferencesStore.load();
-    if (token != epoch) return;
+    try {
+      final prefs = await PreferencesStore.load();
+      if (token != epoch) return;
 
-    await prefs.setString(key, encoded);
+      await prefs.setString(key, encoded);
 
-    if (token != epoch) {
-      // Never perform an unconditional stale rollback. Read and compare without
-      // an await between the comparison and remove invocation, so a newer save
-      // cannot be mistaken for this write. The unique write id also makes two
-      // otherwise-identical snapshots distinguishable.
-      if (prefs.getString(key) == encoded) {
-        await prefs.remove(key);
+      if (token != epoch) {
+        // Never perform an unconditional stale rollback. Read and compare
+        // without an await between the comparison and remove invocation, so
+        // a newer save cannot be mistaken for this write. The unique write
+        // id also makes two otherwise-identical snapshots distinguishable.
+        if (prefs.getString(key) == encoded) {
+          await prefs.remove(key);
+        }
       }
+    } catch (error) {
+      // uat-r1: the reload snapshot is best effort. A refused write (iOS
+      // Safari: quota, Private Browsing on older iOS, "Block All Cookies")
+      // must not fail the booking it follows nor throw out of Finding's
+      // unawaited saves; the ride goes on server-side without it.
+      AppLog.warning(
+        'ride_snapshot.write_refused',
+        extra: {
+          'rideId': snapshot.rideId,
+          'status': snapshot.status.name,
+          'error': error.toString(),
+        },
+      );
     }
   }
 

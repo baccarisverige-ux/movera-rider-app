@@ -286,6 +286,10 @@ class _SelectRideState extends State<SelectRide>
         paymentStore: AppScope.instance.defaultPayment,
       );
   bool _mapReady = false;
+
+  /// uat-r1: the road for the pickup → destination leg, drawn in place of
+  /// the straight first-paint line once the routing seam answers.
+  List<LatLng>? _roadRoutePoints;
   Stopwatch? _nextMapReadyWatch;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
@@ -325,6 +329,7 @@ class _SelectRideState extends State<SelectRide>
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
+    unawaited(_refreshRoadRoute());
     _nextMapReadyWatch = Stopwatch()..start();
     _pickupConfirmed = widget.pickupAlreadyConfirmed;
     // Q7: the pickup's zone decides the currency of every price here.
@@ -472,6 +477,34 @@ class _SelectRideState extends State<SelectRide>
         unawaited(_mountMapWhenRouteSettles());
       });
     }
+  }
+
+  /// uat-r1 (owner's iPhone report): this map drew its own straight
+  /// pickup → destination line and never asked the routing seam for the
+  /// road. The straight line is only the first paint now; the road route
+  /// replaces it when the provider answers, also when it answers late. A
+  /// provider failure keeps the straight line and never reaches the
+  /// screen. With stops the straight line stays, as on Finding.
+  Future<void> _refreshRoadRoute() async {
+    if (_locatedStops.isNotEmpty) return;
+    final from = _pickupPosition;
+    final to = widget.destinationPosition;
+    final Polyline route;
+    try {
+      route = await roadRoutePolyline(
+        id: 'route',
+        from: from,
+        to: to,
+        color: RiderRouteStyle.color,
+      );
+    } catch (_) {
+      return;
+    }
+    if (!mounted || route.points.length < 2) return;
+    // The pickup moved (or stops arrived) while this answer was on its
+    // way: the newer request draws the line.
+    if (from != _pickupPosition || _locatedStops.isNotEmpty) return;
+    setState(() => _roadRoutePoints = route.points);
   }
 
   Future<void> _mountMapWhenRouteSettles() async {
@@ -1269,6 +1302,8 @@ class _SelectRideState extends State<SelectRide>
           }
           _pickupAddress = spot.address;
           _pickupPosition = spot.position;
+          _roadRoutePoints = null;
+          unawaited(_refreshRoadRoute());
           _pickupConfirmed = true;
           _notes = _notes.withBagLevel(spot.bagLevel);
           // rider-r3-6: Card may have been picked on Set pickup.
@@ -1604,6 +1639,9 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) {
       setState(() {
         _locatedStops = List.unmodifiable(located);
+        // uat-r1: with stops the line goes through them, not along the
+        // road from pickup straight to the destination.
+        if (located.isNotEmpty) _roadRoutePoints = null;
         _stopsNotice = _stopsLeftOutNotice(notFound: notFound, failed: failed);
         _stopsRetry = failed.isNotEmpty;
       });
@@ -1701,6 +1739,8 @@ class _SelectRideState extends State<SelectRide>
         }
         _pickupAddress = spot.address;
         _pickupPosition = spot.position;
+        _roadRoutePoints = null;
+        unawaited(_refreshRoadRoute());
         _pickupConfirmed = true;
         _notes = _notes.withBagLevel(spot.bagLevel);
         final chosen = _selection.selectedPaymentItem();
@@ -1920,12 +1960,18 @@ class _SelectRideState extends State<SelectRide>
                           ...routeStopMarkers(_locatedStops),
                         },
                         polylines: styledRoute(
-                          routePolyline(
-                            id: 'route',
-                            from: _pickupPosition,
-                            to: widget.destinationPosition,
-                            color: RiderRouteStyle.color,
-                          ),
+                          _roadRoutePoints != null
+                              ? resolvedRoutePolyline(
+                                  id: 'route',
+                                  points: _roadRoutePoints!,
+                                  color: RiderRouteStyle.color,
+                                )
+                              : routePolyline(
+                                  id: 'route',
+                                  from: _pickupPosition,
+                                  to: widget.destinationPosition,
+                                  color: RiderRouteStyle.color,
+                                ),
                         ),
                         myLocationEnabled: false,
                         myLocationButtonEnabled: false,
