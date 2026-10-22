@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
@@ -455,7 +457,16 @@ class _SetPickupPageState extends State<SetPickupPage>
   String get _arriveClock {
     final scheduled = widget.scheduledPickup;
     final at = scheduled != null
-        ? scheduled.add(Duration(minutes: widget.ride.tripMinutes))
+        // rider-r5-9: real trip time in the pickup zone, as the date picker
+        // estimates it, so a clock change between pickup and arrival holds.
+        ? ZoneClock.wallAfter(
+            RiderZones.at(
+              widget.initialPosition.latitude,
+              widget.initialPosition.longitude,
+            ).timeZone,
+            scheduled,
+            Duration(minutes: widget.ride.tripMinutes),
+          )
         : DateTime.now().add(
             Duration(minutes: widget.ride.etaMin + widget.ride.tripMinutes),
           );

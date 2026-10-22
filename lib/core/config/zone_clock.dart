@@ -66,6 +66,12 @@ abstract final class ZoneClock {
     return wall(utc.add(offsetAt(timeZone, utc)));
   }
 
+  /// The wall time in [timeZone] [elapsed] after the wall time [wall]: real
+  /// elapsed time, so it holds across a change of the zone's clock
+  /// (rider-r5-9: 01:50 + 30 min on spring-forward night is 03:20).
+  static DateTime wallAfter(String timeZone, DateTime wall, Duration elapsed) =>
+      wallTime(timeZone, toUtc(wall, timeZone).add(elapsed));
+
   /// [any]'s fields as a wall time (see [wallTime]): a device-local value
   /// built from picker fields reads as the same clock reading.
   static DateTime wall(DateTime any) => any.isUtc
