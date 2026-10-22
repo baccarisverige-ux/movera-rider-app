@@ -426,4 +426,23 @@ void main() {
       expect(seen, isNot(contains(RideStatus.findingDriver)));
     },
   );
+
+  test('rider-69: an illegal backend jump logs ride.restore.jump', () {
+    final printed = <String>[];
+    final previous = debugPrint;
+    debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+    addTearDown(() => debugPrint = previous);
+    final session = RideSession(rideId: 'ride_69')
+      ..status = RideStatus.driverArriving;
+    session.backendReconcile(
+      RideStatus.paymentFinalized,
+      id: 'ride_69',
+      version: 4,
+    );
+    expect(session.status, RideStatus.paymentFinalized);
+    expect(
+      printed.where((line) => line.contains('ride.restore.jump')),
+      isNotEmpty,
+    );
+  });
 }
