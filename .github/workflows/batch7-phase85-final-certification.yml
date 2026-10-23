@@ -158,10 +158,19 @@ jobs:
           grep -q "maps.googleapis.com/maps/api/js" build/web/index.html
 
       - name: Install Playwright browsers
+        # The system-dependency install inside `playwright install --with-deps`
+        # runs apt on the runner image; on 22 Oct it hung twice for 50+ minutes
+        # on the image's service-restart prompt (needrestart). Keep apt
+        # non-interactive, show the install output, and cap the step.
+        timeout-minutes: 12
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+          NEEDRESTART_SUSPEND: "1"
         run: |
           npm init -y >/dev/null 2>&1
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
-          npx playwright install --with-deps chromium webkit >/dev/null
+          npx playwright install --with-deps chromium webkit
 
       - name: Serve exact candidate
         run: |
