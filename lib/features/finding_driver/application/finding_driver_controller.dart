@@ -392,7 +392,11 @@ class FindingDriverController {
           tripId: event.tripId,
           sequence: event.sequence,
           kind: event.kind,
-          isTerminalStatus: event.status.isTerminal,
+          // rider-32: a driver drop is not the end of the trip (contract
+          // §3: the trip is back in `searching`), so it must not seal the
+          // gate against the next driver's acceptance.
+          isTerminalStatus: event.status.isTerminal &&
+              event.status != RideStatus.cancelledByDriver,
         );
         if (!disposition.passes) return;
       }
@@ -415,6 +419,15 @@ class FindingDriverController {
       );
       if (!accepted && event.status != ride.status) return;
 
+      if (event.status == RideStatus.cancelledByDriver) {
+        // rider-32: a driver who accepted and dropped the ride is a
+        // reversible dispatch event; the server trip is searching again.
+        // Once Waiting owns the ride it handles the drop and comes back
+        // here with the result; before that (a match deferred behind an
+        // edit or a cancel answer) the search simply goes on.
+        if (!_assigned) _backToSearching(event.tripId);
+        return;
+      }
       if (event.status.isTerminal) {
         unawaited(_completeTerminal(event.status));
         return;
@@ -1056,6 +1069,16 @@ class FindingDriverController {
     _bumpDismissed = true;
     _onTick?.call(elapsedSeconds);
     _reportQa();
+  }
+
+  /// rider-32: the driver who had accepted dropped the ride before Waiting
+  /// took over. Forget the deferred match and keep the same search going.
+  void _backToSearching(String id) {
+    _assignmentPending = false;
+    matchedDriver = null;
+    ride.backendReconcile(RideStatus.findingDriver, id: id);
+    _realtime.researchAfterDriverCancel();
+    _onTick?.call(elapsedSeconds);
   }
 
   void _completeAssigned() {

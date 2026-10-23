@@ -473,6 +473,23 @@ class ApiRideRealtime implements RideRealtime {
     connection.markDisconnected();
   }
 
+  /// rider-26: what a ride was last shown with before this transport saw
+  /// any of its projections. A reload between a driver drop and the next
+  /// accept restores Waiting with the dropped driver from the device copy;
+  /// without this the first poll's `searching` was a plain search status
+  /// (no drop to judge against) and Waiting kept showing that driver. Only
+  /// fills a gap: a ride this transport already followed keeps its own
+  /// record.
+  void primeShown({
+    required String rideId,
+    required RideStatus status,
+    String? driverId,
+  }) {
+    final id = rideId.trim();
+    if (id.isEmpty || !status.isMatched) return;
+    _shown.putIfAbsent(id, () => (status: status, driverId: driverId));
+  }
+
   @override
   void researchAfterDriverCancel() {
     for (final poll in _rides.values) {

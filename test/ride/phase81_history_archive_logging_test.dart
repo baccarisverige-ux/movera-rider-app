@@ -87,7 +87,9 @@ void main() {
       onMatched: () {},
     );
 
-    realtime.emit(RideStatus.cancelledByDriver, sequence: 5);
+    // rider-32: a driver drop no longer ends the search; a system cancel is
+    // the terminal end that archives.
+    realtime.emit(RideStatus.cancelledBySystem, sequence: 5);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     expect(archiveAttempts, 2);
@@ -97,7 +99,7 @@ void main() {
     expect(failures, hasLength(1));
     expect(failures.single.level, TelemetryLevel.warning);
     expect(failures.single.extra['rideId'], 'phase81-history-ride');
-    expect(failures.single.extra['status'], 'cancelledByDriver');
+    expect(failures.single.extra['status'], 'cancelledBySystem');
     expect(failures.single.extra['attempt'], 1);
     expect(await RideSnapshotStore.read(), isNull);
   });

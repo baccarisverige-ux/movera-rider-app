@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
@@ -143,6 +144,13 @@ class DriverTrackingController {
     // the screen fell back to "now" on every rebuild.
     if (status == RideStatus.driverWaiting) waitingSince ??= DateTime.now();
     this.onChange = onChange;
+    // rider-26: a restored matched ride tells the server feed what the
+    // rider last saw, so a first poll that says `searching` is read as the
+    // driver drop it is (and Waiting goes back to the search).
+    final realtime = _realtime;
+    if (realtime is ApiRideRealtime && status.isMatched) {
+      realtime.primeShown(rideId: rideId, status: status, driverId: driver?.id);
+    }
     // A fresh subscription is a fresh feed; only its own errors degrade it.
     connectionDegraded = false;
     _sub?.cancel();
