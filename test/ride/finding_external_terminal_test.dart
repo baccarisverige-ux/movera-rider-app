@@ -58,7 +58,11 @@ void main() {
     expect(await RideSnapshotStore.read(), isNull);
   });
 
-  test('driver cancellation during search archives once then clears snapshot', () async {
+  // Audit 2026-10-21 (rider-32): a driver drop is a reversible dispatch
+  // event (contract §3: the trip is back in `searching`), never the end of
+  // the ride. This test used to expect the search to file the ride as
+  // cancelled and clear the snapshot; that was the bug.
+  test('driver cancellation during search keeps the search going', () async {
     final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
     addTearDown(realtime.dispose);
     final ride = RideSession()..rideId = 'external-terminal-ride';
@@ -67,16 +71,25 @@ void main() {
 
     final controller = _controller(realtime, ride);
     addTearDown(controller.dispose);
-    controller.start(snapshot: snapshot, onTick: (_) {}, onMatched: () {});
+    var matched = 0;
+    controller.start(
+      snapshot: snapshot,
+      onTick: (_) {},
+      onMatched: () => matched += 1,
+    );
 
     realtime.emit(RideStatus.cancelledByDriver, sequence: 5);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    expect(ride.status, RideStatus.cancelledByDriver);
-    expect(await RideSnapshotStore.read(), isNull);
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history, hasLength(1));
-    expect(history.single.reservationId, 'ondemand-external-terminal-ride');
-    expect(history.single.status.name, 'cancelled');
+    expect(ride.status, RideStatus.findingDriver);
+    expect(await RideSnapshotStore.read(), isNotNull);
+    expect(await OnDemandRideHistoryStore.read(), isEmpty);
+    expect(identical(FindingDriverController.active, controller), isTrue);
+
+    // The next driver's acceptance still reaches the search (the mock's own
+    // re-opened search took sequence 6).
+    realtime.emit(RideStatus.driverAssigned);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(matched, 1);
   });
 }
