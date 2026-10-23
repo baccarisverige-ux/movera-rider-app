@@ -1,0 +1,636 @@
+{
+  "version": "0.5.0",
+  "note": "Driver pickup pay (CONTRACT.md §3.2). pay = sum over the ranges of half_up(km in range × perKm) + half_up(minutes × km share × perMin), then min(maxPerRide); 0 when the category, the offer kind or the trip kind gives no pickup pay. Each app's PickupPay maths must give the same pay.",
+  "cases": [
+    {
+      "id": "free_first_km",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "radar",
+      "pickupKm": 0.6,
+      "pickupMinutes": 2,
+      "pay": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "tiered_two_ranges",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "radar",
+      "pickupKm": 4.2,
+      "pickupMinutes": 9,
+      "pay": {
+        "amountMinor": 1349,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "tiered_three_ranges",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "exclusive",
+      "pickupKm": 14,
+      "pickupMinutes": 20,
+      "pay": {
+        "amountMinor": 5050,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "capped_at_max_per_ride",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "exclusive",
+      "pickupKm": 30,
+      "pickupMinutes": 40,
+      "pay": {
+        "amountMinor": 6000,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "exactly_on_a_boundary",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "assigned",
+      "pickupKm": 10,
+      "pickupMinutes": 15,
+      "pay": {
+        "amountMinor": 3330,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "scheduled_list_never",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "scheduled",
+      "pickupKm": 14,
+      "pickupMinutes": 20,
+      "pay": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "offer_kind_off",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": false
+      },
+      "offerKind": "nextTrip",
+      "pickupKm": 14,
+      "pickupMinutes": 20,
+      "pay": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "category_off",
+      "rate": {
+        "enabled": false,
+        "maxPerRide": {
+          "amountMinor": 6000,
+          "currency": "SEK"
+        },
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": 1,
+            "perKm": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 0,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 1,
+            "toKm": 10,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          },
+          {
+            "fromKm": 10,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": {
+            "amountMinor": 1500,
+            "currency": "SEK"
+          },
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "radar",
+      "pickupKm": 14,
+      "pickupMinutes": 20,
+      "pay": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "zero_km_minutes_in_first_range",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": null,
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 200,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": null,
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "exclusiveReservation",
+      "pickupKm": 0,
+      "pickupMinutes": 3,
+      "pay": {
+        "amountMinor": 300,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "negative_input_is_zero",
+      "rate": {
+        "enabled": true,
+        "maxPerRide": null,
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 200,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": null,
+          "reservation": null
+        }
+      },
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "offerKind": "radar",
+      "pickupKm": -2,
+      "pickupMinutes": -5,
+      "pay": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      }
+    }
+  ]
+}

@@ -1,11 +1,11 @@
-# Movera API v0.4.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.5.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.4.4
+  version: 0.5.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.4.4 in this folder; this file must agree with them.
+    v0.5.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -23,13 +23,16 @@ info:
 
 
     Auth: bearer JWT. Actor (rider|driver|admin), subject id, zone scope and admin role/permissions come from the token, never
-    from the body. Token issuance (OTP/refresh) is out of scope for v0.4.'
+    from the body. Token issuance: the Auth tag (v0.5.0, contract.json#auth): phone + SMS code, Apple / Google, refresh rotation;
+    test numbers accept a fixed code outside production.'
 servers:
 - url: https://api.dev.movera.invalid/api/v1
   description: Placeholder; no backend exists.
 security:
 - bearerAuth: []
 tags:
+- name: Auth
+  description: Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)
 - name: Rider · Booking
 - name: Trips
   description: Shared trip resource (rider, driver, admin)
@@ -55,9 +58,322 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.4.4
+  version: 0.5.0
   source: contract.json
 paths:
+  /auth/otp/request:
+    post:
+      operationId: requestOtp
+      summary: Start a phone sign-in (SMS code)
+      description: Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn,
+        outside production) gets no SMS and accepts the fixed code.
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallenge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /auth/otp/verify:
+    post:
+      operationId: verifyOtp
+      summary: Verify the code and sign in
+      description: Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session
+        → 400 invalid_request (reason invalid_otp_session); expired session → 410 otp_expired; too many attempts → 429. With
+        a linkToken the verified phone is linked to the provider account.
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '410':
+          description: 'otp_expired: the code or the session expired; request a new code.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /auth/provider:
+    post:
+      operationId: signInWithProvider
+      summary: Sign in with Apple or Google
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderSignInRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderSignInResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /auth/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Rotate the refresh token for new tokens
+      description: A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out.
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /auth/sign-out:
+    post:
+      operationId: signOut
+      summary: End this session (revokes the refresh token)
+      description: Idempotent; also unregister the push device.
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /push/devices:
+    post:
+      operationId: registerPushDevice
+      summary: Register this device's push token
+      description: Keyed by token and actor; registering again updates it.
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushDeviceRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushDeviceAck'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /push/devices/unregister:
+    post:
+      operationId: unregisterPushDevice
+      summary: Forget this device's push token
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushDeviceUnregister'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushDeviceAck'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /quotes:
     post:
       operationId: createQuotes
@@ -4154,6 +4470,146 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/surge:
+    get:
+      operationId: adminGetSurge
+      summary: The zone's current surge schedule
+      description: 204 when the zone has none (flat ×1.0).
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: pricing.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurgeSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '204':
+          description: No surge schedule
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+    put:
+      operationId: adminPutSurge
+      summary: Create or replace the zone's surge schedule (curve)
+      description: contract.json#surge, CONTRACT.md §3.4. Points above the zone's cap → 400 invalid_request. Above the role
+        limit → 202 pending_approval. New quotes price from it at once; quotes already given keep their multiplier.
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: pricing.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SurgeScheduleCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurgeSchedule'
+        '202':
+          $ref: '#/components/responses/PendingApproval'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/surge/end:
+    post:
+      operationId: adminEndSurge
+      summary: End the schedule now (back to ×1.0)
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: pricing.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigPublishCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurgeSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/audit:
     get:
       operationId: adminListAudit
@@ -4540,6 +4996,12 @@ components:
       schema:
         $ref: '#/components/schemas/Id'
       description: Deprecated alias of tripId.
+    ZoneId:
+      name: zoneId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
     ConfigDoc:
       name: doc
       in: path
@@ -4570,7 +5032,7 @@ components:
       required: false
       schema:
         type: string
-        const: '0.4'
+        const: '0.5'
     Cursor:
       name: cursor
       in: query
@@ -4886,6 +5348,14 @@ components:
           minimum: 0
           exclusiveMaximum: 360
           description: Degrees clockwise from north.
+        speedMps:
+          type: number
+          minimum: 0
+          description: Ground speed, metres per second (v0.5.0).
+        moving:
+          type: boolean
+          description: 'The driver app''s stopped / driving judgement (contract.json#driverMotion, v0.5.0): true after movingSpeedMps
+            for hysteresisSeconds. Drives the offer limits while driving.'
         measuredAt:
           $ref: '#/components/schemas/Timestamp'
     TripStatus:
@@ -5217,6 +5687,7 @@ components:
       - unauthenticated
       - forbidden
       - not_found
+      - otp_expired
       - conflict
       - invalid_transition
       - version_mismatch
@@ -5248,10 +5719,30 @@ components:
       - time
       - stops
       - waiting
-      - pickup_pay
+      - pickup_fee
       - surge
       - discount
       - cancel_fee
+      - pickup_pay
+      - driver_bonus
+      x-rider:
+      - base
+      - distance
+      - time
+      - stops
+      - waiting
+      - pickup_fee
+      - surge
+      - discount
+      - cancel_fee
+      x-driver-only:
+      - pickup_pay
+      - driver_bonus
+      x-aliases:
+        pickup_pay: pickup_fee
+      description: 'Fare line codes (contract.json#fareLines). x-rider lines make the rider''s fare; x-driver-only lines (pickup_pay,
+        driver_bonus) are shown to the driver and admin only and never paid by the rider. v0.4 documents named the rider''s
+        pickup line pickup_pay: x-aliases.'
     FareLine:
       type: object
       required:
@@ -5446,6 +5937,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: Movera-paid extra for the driver (admin / driver view only). Never part of the rider's fare.
+        pickupPay:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Driver pickup pay Movera pays for this trip (admin / driver view only, v0.5.0, contract.json#pickupPay).
+            Never part of the rider's fare; the rider's fixed pickup fee is the pickup_fee fare line.
         paymentMethod:
           $ref: '#/components/schemas/PaymentMethod'
         paymentMethodId:
@@ -5604,6 +6100,9 @@ components:
         surgeMultiplier:
           type: number
           minimum: 1
+          description: The multiplier this quote was priced with; it stays with the quote (contract.json#surge).
+        surge:
+          $ref: '#/components/schemas/QuoteSurge'
         etaSeconds:
           $ref: '#/components/schemas/DurationSeconds'
     RouteQuote:
@@ -5751,6 +6250,10 @@ components:
           $ref: '#/components/schemas/DriverAccountStatus'
         onlineStatus:
           $ref: '#/components/schemas/DriverOnlineStatus'
+        moving:
+          type: boolean
+          description: Mirror of the latest GeoFix.moving the driver app sent (contract.json#driverMotion, v0.5.0); decides
+            the offer limits while driving.
         firstName:
           type: string
         rating:
@@ -6857,6 +7360,521 @@ components:
               $ref: '#/components/schemas/ReservationRideType'
         lateEta:
           $ref: '#/components/schemas/LateEta'
+    PickupRange:
+      type: object
+      description: 'One pickup-distance range (contract.json#pickupPay.ranges): the first starts at 0, each next one where
+        the one before ends.'
+      required:
+      - fromKm
+      - toKm
+      - perKm
+      - perMin
+      properties:
+        fromKm:
+          type: number
+          minimum: 0
+        toKm:
+          type:
+          - number
+          - 'null'
+          description: null = and above (last range only).
+        perKm:
+          $ref: '#/components/schemas/Money'
+        perMin:
+          $ref: '#/components/schemas/Money'
+    RiderPickupFee:
+      type: object
+      description: 'The rider''s fixed pickup fee for one category: live rides (Radar and Exclusive) and reservations; null
+        = off. Goes into the quote as the pickup_fee line; Movera keeps it.'
+      required:
+      - live
+      - reservation
+      properties:
+        live:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        reservation:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+    PickupPayRate:
+      type: object
+      description: 'One category''s pickup pay (Admin Pricing › Pickup pay). PickupRange { fromKm, toKm: number|null, perKm:
+        Money, perMin: Money }. The first starts at 0, each next one starts where the one before ends, only the last may be
+        open (toKm null). A km is paid at the rate of the range it is in; a leg beyond a closed last range uses the last range.
+        The minutes are split across the ranges in proportion to the km in each (0 km: all in the first range). Rounding:
+        each range part: half_up(km × perKm) + half_up(minutes × perMin) in minor units; the parts add up; then min(total,
+        maxPerRide). Cases: fixtures/pickup_pay.json.'
+      required:
+      - enabled
+      - maxPerRide
+      - ranges
+      - riderFee
+      properties:
+        enabled:
+          type: boolean
+          description: Driver pickup pay on or off for the category.
+        maxPerRide:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+          description: The driver never gets more than this for one pickup; null = no maximum.
+        ranges:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupRange'
+          minItems: 1
+        riderFee:
+          $ref: '#/components/schemas/RiderPickupFee'
+    PickupPayOffers:
+      type: object
+      description: 'offers[kind] switches each kind on or off (Admin Pricing › Pickup pay). scheduled = a reservation the
+        driver took from the Scheduled rides list: never pickup pay. nextTrip = an offer while driving a rider: the leg is
+        from the current drop-off.'
+      required:
+      - radar
+      - exclusive
+      - exclusiveReservation
+      - assigned
+      - nextTrip
+      properties:
+        radar:
+          type: boolean
+        exclusive:
+          type: boolean
+        exclusiveReservation:
+          type: boolean
+        assigned:
+          type: boolean
+        nextTrip:
+          type: boolean
+    DriverPickupPay:
+      type: object
+      description: 'DriverAppConfig.pickupPay (v0.5.0, CONTRACT.md §3.2). v0.5.0 (CONTRACT.md §3.2). Two sides. Rider: a fixed
+        pickup fee per category, one amount for live rides (Radar and Exclusive), one for reservations, each on or off (null
+        = off), in the rider''s fare as the pickup_fee line; it never depends on the driver. Driver: Movera pays the drive
+        to the pickup from its share, per category: tiered km ranges and an optional maximum per ride; the driver sees the
+        total only (display total). The server works it out from the driver''s location when the offer is made and sends it
+        as Offer.pickupPay; the apps'' own maths (fixtures/pickup_pay.json) is for demo offers and checks.'
+      required:
+      - offers
+      - display
+      - byCategory
+      properties:
+        offers:
+          $ref: '#/components/schemas/PickupPayOffers'
+        display:
+          type: string
+          enum:
+          - total
+        byCategory:
+          type: object
+          description: PickupPayRate per categoryId; a category not listed has no pickup pay.
+          propertyNames:
+            $ref: '#/components/schemas/CategoryId'
+          additionalProperties:
+            $ref: '#/components/schemas/PickupPayRate'
+        perKm:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          deprecated: true
+          description: v0.4 shape of the headline category (first paid range); removed in v0.6.
+        perMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          deprecated: true
+        freeKm:
+          type: number
+          minimum: 0
+          deprecated: true
+        freeMin:
+          type: number
+          minimum: 0
+          deprecated: true
+        ranges:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupRange'
+          deprecated: true
+          description: 'v0.4 shape: the headline category''s ranges; use byCategory.'
+        maxPerRide:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+          deprecated: true
+    RiderPickupFees:
+      type: object
+      description: 'RiderAppConfig.pickupFee (v0.5.0): the fixed pickup fees the quote''s pickup_fee line carries, so the
+        app can name them; the server prices.'
+      required:
+      - byCategory
+      properties:
+        byCategory:
+          type: object
+          description: RiderPickupFee per categoryId.
+          propertyNames:
+            $ref: '#/components/schemas/CategoryId'
+          additionalProperties:
+            $ref: '#/components/schemas/RiderPickupFee'
+    RadarAppLimits:
+      type: object
+      description: 'Radar offers one driver sees at once (Admin Dispatch › Modes; contract.json#driverMotion, v0.5.0). Defaults:
+        {"fullOn": true, "full": 8, "fullLockWhileDriving": true, "popupOn": true, "popup": 2, "popupSplitByDriving": false,
+        "popupWhileDriving": 1}. No Radar offers while driving a rider.'
+      properties:
+        fullOn:
+          type: boolean
+          description: The full-screen Radar list is available.
+        full:
+          type: integer
+          minimum: 1
+          description: Most offers in the full-screen list.
+        fullLockWhileDriving:
+          type: boolean
+          description: The list cannot be opened while the car is moving; it opens again once stopped.
+        popupOn:
+          type: boolean
+          description: Offer cards over the map are shown.
+        popup:
+          type: integer
+          minimum: 1
+          description: Most cards at once while stopped.
+        popupSplitByDriving:
+          type: boolean
+          description: The cards have their own limit while driving (popupWhileDriving); false = popup all the time.
+        popupWhileDriving:
+          type: integer
+          minimum: 1
+          description: Most cards at once while moving, 1 to popup.
+    ExclusiveWhileDriving:
+      type: object
+      description: 'While driving a rider the driver gets Exclusive offers only, at most count at a time, never Radar (Q18).
+        Defaults: {"on": true, "count": 1}.'
+      properties:
+        'on':
+          type: boolean
+        count:
+          type: integer
+          minimum: 1
+          maximum: 5
+    SurgePoint:
+      type: object
+      required:
+      - atMin
+      - multiplier
+      properties:
+        atMin:
+          type: integer
+          minimum: 0
+          description: Minutes from startAt.
+        multiplier:
+          type: number
+          minimum: 1.0
+    SurgeSchedule:
+      type: object
+      description: 'A surge curve over time (v0.5.0, CONTRACT.md §3.4, contract.json#surge). value at minute m = curve value
+        at floor(m / stepMinutes) × stepMinutes, rounded half-up to roundTo, clamped to [minMultiplier, cap]; null before
+        startAt and from endAt on. Cases: fixtures/surge.json.'
+      required:
+      - scheduleId
+      - zoneId
+      - categoryIds
+      - startAt
+      - endAt
+      - stepMinutes
+      - cap
+      - points
+      - status
+      - version
+      properties:
+        scheduleId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        categoryIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          uniqueItems: true
+          description: Empty = every category of the zone.
+        startAt:
+          $ref: '#/components/schemas/Timestamp'
+        endAt:
+          $ref: '#/components/schemas/Timestamp'
+        stepMinutes:
+          type: integer
+          minimum: 1
+          default: 5
+        cap:
+          type: number
+          minimum: 1
+          description: No point and no step is above this (Admin surge cap).
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgePoint'
+          minItems: 2
+          description: Sorted by atMin; the first at 0, the last at the end; straight lines between.
+        status:
+          type: string
+          enum:
+          - scheduled
+          - active
+          - ended
+          - cancelled
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+    SurgeScheduleCommand:
+      type: object
+      description: Create or replace the zone's surge schedule. A flat manual surge is two points with the same multiplier.
+      required:
+      - expectedVersion
+      - startAt
+      - endAt
+      - points
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+          description: Version of the schedule being replaced; 0 when the zone has none.
+        categoryIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          uniqueItems: true
+        startAt:
+          $ref: '#/components/schemas/Timestamp'
+        endAt:
+          $ref: '#/components/schemas/Timestamp'
+        stepMinutes:
+          type: integer
+          minimum: 1
+          default: 5
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgePoint'
+          minItems: 2
+        note:
+          type: string
+          maxLength: 1000
+    QuoteSurge:
+      type: object
+      description: The surge step this quote was priced in (v0.5.0); display only, the quote total already includes it.
+      required:
+      - multiplier
+      properties:
+        multiplier:
+          type: number
+          minimum: 1
+        until:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: When the current step ends (the next step may differ); null for a flat surge.
+        scheduleId:
+          $ref: '#/components/schemas/Id'
+    PhoneE164:
+      type: string
+      pattern: ^\+[1-9][0-9]{6,14}$
+      description: E.164 phone number.
+    OtpRequest:
+      type: object
+      description: 'Start a phone sign-in: the server sends the code by sms (none to a test number, contract.json#auth.testSignIn).'
+      required:
+      - phone
+      - app
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        app:
+          type: string
+          enum:
+          - rider
+          - driver
+          description: Which app signs in; decides the actor of the tokens.
+        linkToken:
+          type: string
+          minLength: 1
+          description: 'From a PHONE_REQUIRED provider sign-in: links this phone to that account.'
+        locale:
+          $ref: '#/components/schemas/Language'
+    OtpChallenge:
+      type: object
+      description: The code is 4 digits and lives 300 s; at most 5 attempts.
+      required:
+      - requestId
+      - sessionId
+      - expiresAt
+      - retryAfterSeconds
+      properties:
+        requestId:
+          type: string
+        sessionId:
+          $ref: '#/components/schemas/Id'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        retryAfterSeconds:
+          type: integer
+          minimum: 0
+          default: 30
+    OtpVerifyRequest:
+      type: object
+      required:
+      - phone
+      - sessionId
+      - code
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        sessionId:
+          $ref: '#/components/schemas/Id'
+        code:
+          type: string
+          pattern: ^[0-9]{4}$
+        linkToken:
+          type: string
+          minLength: 1
+    AuthTokens:
+      type: object
+      description: Signed in. Actor, subject id and zone scope are inside the access token.
+      required:
+      - accessToken
+      - refreshToken
+      properties:
+        accessToken:
+          type: string
+          minLength: 1
+          description: JWT bearer token.
+        refreshToken:
+          type: string
+          minLength: 1
+          description: Opaque, rotated on every refresh.
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: Access token lifetime, seconds.
+          default: 900
+        actor:
+          type: string
+          enum:
+          - rider
+          - driver
+        isNewRider:
+          type: boolean
+          description: 'First sign-in: the app asks for the name.'
+        isNewDriver:
+          type: boolean
+          description: 'First sign-in: the app starts onboarding.'
+    ProviderSignInRequest:
+      type: object
+      required:
+      - provider
+      - idToken
+      - app
+      properties:
+        provider:
+          type: string
+          enum:
+          - apple
+          - google
+        idToken:
+          type: string
+          minLength: 1
+          description: The provider's identity token, verified server-side.
+        app:
+          type: string
+          enum:
+          - rider
+          - driver
+        name:
+          type: string
+          maxLength: 120
+    PhoneRequired:
+      type: object
+      description: 'No account is linked to this provider identity yet: verify a phone with this linkToken on the OTP calls
+        and the account is created linked.'
+      required:
+      - code
+      - linkToken
+      properties:
+        code:
+          type: string
+          const: PHONE_REQUIRED
+        linkToken:
+          type: string
+          minLength: 1
+        name:
+          type: string
+    ProviderSignInResult:
+      oneOf:
+      - $ref: '#/components/schemas/AuthTokens'
+      - $ref: '#/components/schemas/PhoneRequired'
+      description: 'POST /auth/provider { provider, idToken } signs in a linked account, or answers { code: PHONE_REQUIRED,
+        linkToken, name? } for a new one: the phone is then verified with the linkToken on the OTP calls, and the account
+        is created linked.'
+    RefreshRequest:
+      type: object
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+    PushDeviceRequest:
+      type: object
+      description: POST /push/devices { token, provider, platform, appVersion?, locale? } registers the device for push, keyed
+        by token and actor; POST /push/devices/unregister { token } on sign-out. The same for rider and driver.
+      required:
+      - token
+      - provider
+      - platform
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Push token from the provider.
+        provider:
+          type: string
+          enum:
+          - fcm
+          - apns
+        platform:
+          type: string
+          enum:
+          - ios
+          - android
+          - web
+        appVersion:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+        locale:
+          $ref: '#/components/schemas/Language'
+    PushDeviceAck:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - registered
+          - unregistered
+        requestId:
+          type: string
+    PushDeviceUnregister:
+      type: object
+      required:
+      - token
+      properties:
+        token:
+          type: string
+          minLength: 1
     RiderAppConfig:
       type: object
       description: Per-zone rider document built by Admin exporters. Unknown keys are ignored; missing keys fall back to the
@@ -6932,6 +7950,8 @@ components:
           - $ref: '#/components/schemas/Money'
           - type: 'null'
           description: Most a promotion may take off one trip in this country; null = no cap set.
+        pickupFee:
+          $ref: '#/components/schemas/RiderPickupFees'
         booking:
           type: object
           properties:
@@ -7037,6 +8057,20 @@ components:
             exclusiveSeconds:
               type: integer
               minimum: 1
+            radarOn:
+              type: boolean
+              description: Radar offers in this zone (v0.5.0).
+            exclusiveOn:
+              type: boolean
+              description: Exclusive offers in this zone (v0.5.0).
+            assignAcceptSeconds:
+              type: integer
+              minimum: 1
+              description: Time to accept a ride assigned by Movera (v0.5.0; also reservations.assignAcceptSeconds).
+            radarApp:
+              $ref: '#/components/schemas/RadarAppLimits'
+            exclusiveWhileDriving:
+              $ref: '#/components/schemas/ExclusiveWhileDriving'
             offerCard:
               type: object
               description: Which fields the offer card shows.
@@ -7078,38 +8112,7 @@ components:
                   type: number
                   minimum: 0
         pickupPay:
-          type: object
-          properties:
-            perKm:
-              $ref: '#/components/schemas/Money'
-            perMin:
-              $ref: '#/components/schemas/Money'
-            freeKm:
-              type: number
-              minimum: 0
-            freeMin:
-              type: number
-              minimum: 0
-            ranges:
-              type: array
-              items:
-                type: object
-                description: Distance band override (shape owned by Admin Pricing).
-                properties:
-                  fromKm:
-                    type: number
-                    minimum: 0
-                  toKm:
-                    type:
-                    - number
-                    - 'null'
-                  amount:
-                    $ref: '#/components/schemas/Money'
-            display:
-              type: string
-              enum:
-              - total
-              - breakdown
+          $ref: '#/components/schemas/DriverPickupPay'
         driverBonus:
           $ref: '#/components/schemas/DriverBonusLimits'
         cancelFees:
@@ -7310,6 +8313,11 @@ components:
           type: string
         retryable:
           type: boolean
+        reason:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+          description: optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code,
+            invalid_otp_session; never shown to users as is
         projection:
           description: Current authoritative resource. Always present for version_mismatch and invalid_transition (TripProjection
             for trip commands; Offer / Driver / Rider / Vehicle / ConfigDraft for their commands).
@@ -8181,6 +9189,9 @@ components:
           type: string
         onlineStatus:
           $ref: '#/components/schemas/DriverOnlineStatus'
+        moving:
+          type: boolean
+          description: Latest GeoFix.moving (v0.5.0).
         location:
           $ref: '#/components/schemas/GeoFix'
         distanceMeters:

@@ -12,8 +12,8 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
 class ApiClient {
-  /// `X-Api-Version` on every request: `contract.json#headers` (v0.4).
-  static const apiVersion = '0.4';
+  /// `X-Api-Version` on every request: `contract.json#headers` (v0.5).
+  static const apiVersion = '0.5';
 
   ApiClient({
     http.Client? client,

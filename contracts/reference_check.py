@@ -1,4 +1,4 @@
-"""Reference engine for contract.json: replays fixtures/scenarios.json and fixtures/events.json.
+"""Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json and surge.json.
 Each app's contract tests must give the same answers."""
 import json, sys
 c = json.load(open('contract.json'))
@@ -49,4 +49,42 @@ for f in json.load(open('fixtures/cancel_fees.json'))['cases']:
     if not free and r['min']: fee = max(fee, r['min']['amountMinor'])
     if not free and r['max']: fee = min(fee, r['max']['amountMinor'])
     if fee != f['fee']['amountMinor']: bad += 1; print('FEE', f['id'], fee)
+import math
+def _half_up(x): return int(math.floor(x + 0.5))
+def pickup_pay(rate, offers, kind, km, minutes):
+    """contract.json#pickupPay: tiered ranges, minutes split by km share, capped at maxPerRide; 0 when off."""
+    if kind == 'scheduled' or not offers.get(kind) or not rate['enabled'] or not rate['ranges']: return 0
+    km, minutes, total, rs = max(0.0, km), max(0.0, minutes), 0, rate['ranges']
+    for i, r in enumerate(rs):
+        end = math.inf if r['toKm'] is None or i == len(rs) - 1 else r['toKm']
+        inr = max(0.0, min(km, end) - r['fromKm'])
+        share = inr / km if km > 0 else (1.0 if i == 0 else 0.0)
+        if inr <= 0 and share <= 0: continue
+        total += _half_up(inr * r['perKm']['amountMinor']) + _half_up(minutes * share * r['perMin']['amountMinor'])
+    mx = rate['maxPerRide']
+    return min(total, mx['amountMinor']) if mx is not None else total
+for p in json.load(open('fixtures/pickup_pay.json'))['cases']:
+    got = pickup_pay(p['rate'], p['offers'], p['offerKind'], p['pickupKm'], p['pickupMinutes'])
+    if got != p['pay']['amountMinor']: bad += 1; print('PICKUP', p['id'], 'expected', p['pay']['amountMinor'], 'got', got)
+from datetime import datetime, timezone
+def _ts(t): return datetime.strptime(t, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+def _value_at(points, minute):
+    if minute <= points[0]['atMin']: return points[0]['multiplier']
+    for i in range(1, len(points)):
+        a, b = points[i - 1], points[i]
+        if minute <= b['atMin']:
+            span = b['atMin'] - a['atMin']
+            return b['multiplier'] if span <= 0 else a['multiplier'] + (b['multiplier'] - a['multiplier']) * (minute - a['atMin']) / span
+    return points[-1]['multiplier']
+def surge_at(s, at):
+    """contract.json#surge: the curve's value at the start of the current step slot, rounded half-up to 0.1, within [1, cap]; None outside the schedule."""
+    start, end, now = _ts(s['startAt']), _ts(s['endAt']), _ts(at)
+    if now < start or now >= end: return None
+    minute = int((now - start).total_seconds() // 60)
+    slot = (minute // s['stepMinutes']) * s['stepMinutes']
+    return min(s['cap'], max(1.0, math.floor(_value_at(s['points'], slot) * 10 + 0.5) / 10))
+sj = json.load(open('fixtures/surge.json'))
+for case in sj['cases']:
+    got = surge_at(sj['schedule'], case['at'])
+    if got != case['multiplier']: bad += 1; print('SURGE', case['at'], 'expected', case['multiplier'], 'got', got)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

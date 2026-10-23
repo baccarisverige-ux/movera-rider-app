@@ -66,21 +66,104 @@
     "autoOffline": {
       "missedExclusive": 3,
       "hiddenComesBackMin": 2
+    },
+    "radarOn": true,
+    "exclusiveOn": true,
+    "assignAcceptSeconds": 30,
+    "radarApp": {
+      "fullOn": true,
+      "full": 8,
+      "fullLockWhileDriving": true,
+      "popupOn": true,
+      "popup": 2,
+      "popupSplitByDriving": false,
+      "popupWhileDriving": 1
+    },
+    "exclusiveWhileDriving": {
+      "on": true,
+      "count": 1
     }
   },
   "pickupPay": {
     "perKm": {
-      "amountMinor": 500,
+      "amountMinor": 250,
       "currency": "SEK"
     },
     "perMin": {
-      "amountMinor": 100,
+      "amountMinor": 80,
       "currency": "SEK"
     },
-    "freeKm": 1,
-    "freeMin": 2,
-    "ranges": [],
-    "display": "total"
+    "freeKm": 0,
+    "freeMin": 0,
+    "ranges": [
+      {
+        "fromKm": 0,
+        "toKm": null,
+        "perKm": {
+          "amountMinor": 250,
+          "currency": "SEK"
+        },
+        "perMin": {
+          "amountMinor": 80,
+          "currency": "SEK"
+        }
+      }
+    ],
+    "maxPerRide": null,
+    "display": "total",
+    "offers": {
+      "radar": true,
+      "exclusive": true,
+      "exclusiveReservation": true,
+      "assigned": true,
+      "nextTrip": true
+    },
+    "byCategory": {
+      "economy": {
+        "enabled": true,
+        "maxPerRide": null,
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 250,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 80,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": null,
+          "reservation": null
+        }
+      },
+      "comfort": {
+        "enabled": true,
+        "maxPerRide": null,
+        "ranges": [
+          {
+            "fromKm": 0,
+            "toKm": null,
+            "perKm": {
+              "amountMinor": 300,
+              "currency": "SEK"
+            },
+            "perMin": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "riderFee": {
+          "live": null,
+          "reservation": null
+        }
+      }
+    }
   },
   "driverBonus": {
     "defaultLimit": {
