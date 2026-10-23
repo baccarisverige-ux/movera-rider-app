@@ -184,6 +184,6 @@ void main() {
     await settle();
     final headers = contract['headers'] as Map<String, dynamic>;
     expect(ApiClient.apiVersion, headers['X-Api-Version']);
-    expect(t.requests.single.headers['X-Api-Version'], '0.4');
+    expect(t.requests.single.headers['X-Api-Version'], '0.5');
   });
 }

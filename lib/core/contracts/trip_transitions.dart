@@ -61,14 +61,14 @@ class TripTransition {
 }
 
 /// The single trip state machine, a pure mirror of
-/// `contract.json#transitions` (v0.4.4). A contract test checks this table
+/// `contract.json#transitions` (v0.5.0). A contract test checks this table
 /// row by row against the shipped `contracts/contract.json` and replays
 /// `fixtures/scenarios.json` through [TripStateMachine.apply].
 ///
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.4.4';
+  static const contractVersion = '0.5.0';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;

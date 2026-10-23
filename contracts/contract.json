@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -13,7 +13,7 @@
     "money": "Money { amountMinor: integer, currency: ISO-4217 }. No major-unit floats, no display strings on the wire.",
     "location": {
       "Place": "{ address?: string, lat: number, lng: number } — pickup, dropoff, stops",
-      "GeoFix": "{ lat, lng, accuracy, heading?, measuredAt } — device GPS only"
+      "GeoFix": "{ lat, lng, accuracy, heading?, speedMps?, moving?, measuredAt } — device GPS only; moving is the app's stopped/driving judgement (v0.5.0)"
     },
     "case": "JSON keys camelCase; enum values snake_case."
   },
@@ -75,6 +75,28 @@
       "fr",
       "sv"
     ]
+  },
+  "fareLines": {
+    "note": "fareLines[].code. rider: lines of the rider's fare (TripProjection.fare, Quote.total). driverOnly: lines the rider never sees or pays; shown to the driver and admin only (Offer, admin trip money).",
+    "rider": [
+      "base",
+      "distance",
+      "time",
+      "stops",
+      "waiting",
+      "pickup_fee",
+      "surge",
+      "discount",
+      "cancel_fee"
+    ],
+    "driverOnly": [
+      "pickup_pay",
+      "driver_bonus"
+    ],
+    "aliases": {
+      "note": "v0.4 documents named the rider's pickup line pickup_pay; read it as pickup_fee for one release.",
+      "pickup_pay": "pickup_fee"
+    }
   },
   "ratings": {
     "note": "Owner Q38: whole stars only.",
@@ -645,8 +667,96 @@
       "driver_bonus_added"
     ]
   },
+  "pickupPay": {
+    "note": "v0.5.0 (CONTRACT.md §3.2). Two sides. Rider: a fixed pickup fee per category, one amount for live rides (Radar and Exclusive), one for reservations, each on or off (null = off), in the rider's fare as the pickup_fee line; it never depends on the driver. Driver: Movera pays the drive to the pickup from its share, per category: tiered km ranges and an optional maximum per ride; the driver sees the total only (display total). The server works it out from the driver's location when the offer is made and sends it as Offer.pickupPay; the apps' own maths (fixtures/pickup_pay.json) is for demo offers and checks.",
+    "offerKinds": [
+      "radar",
+      "exclusive",
+      "exclusiveReservation",
+      "assigned",
+      "nextTrip"
+    ],
+    "neverPaid": [
+      "scheduled"
+    ],
+    "offerKindNote": "offers[kind] switches each kind on or off (Admin Pricing › Pickup pay). scheduled = a reservation the driver took from the Scheduled rides list: never pickup pay. nextTrip = an offer while driving a rider: the leg is from the current drop-off.",
+    "ranges": {
+      "note": "PickupRange { fromKm, toKm: number|null, perKm: Money, perMin: Money }. The first starts at 0, each next one starts where the one before ends, only the last may be open (toKm null). A km is paid at the rate of the range it is in; a leg beyond a closed last range uses the last range. The minutes are split across the ranges in proportion to the km in each (0 km: all in the first range).",
+      "rounding": "each range part: half_up(km × perKm) + half_up(minutes × perMin) in minor units; the parts add up; then min(total, maxPerRide)"
+    },
+    "display": [
+      "total"
+    ],
+    "riderFee": {
+      "note": "PickupPayRate.riderFee { live: Money|null, reservation: Money|null }; null = off. Added to the quote as the pickup_fee line; Movera keeps it."
+    },
+    "moneySplit": "rider pays fare (pickup_fee inside); driver gets driverEarnings + pickupPay + driverBonus; Movera keeps fare − driverEarnings − pickupPay − driverBonus, and covers it when negative"
+  },
+  "driverMotion": {
+    "note": "v0.5.0 (CONTRACT.md §3.3). The driver app decides stopped / driving from the device: moving when the speed is at least movingSpeedMps for hysteresisSeconds, stopped when below it for hysteresisSeconds. It sends the judgement as GeoFix.moving (and speedMps) in POST /driver/location and applies the offer limits itself at once; the server mirrors the latest fix's moving in Driver.moving and holds offers above the limit.",
+    "movingSpeedMps": 1.0,
+    "hysteresisSeconds": 10,
+    "rules": [
+      "no rider on board, moving: the full-screen Radar list cannot be opened while offers.radarApp.fullLockWhileDriving (it opens again once stopped); at most offers.radarApp.popupWhileDriving offer cards over the map when popupSplitByDriving, else popup",
+      "no rider on board, stopped: at most offers.radarApp.full in the list, offers.radarApp.popup cards over the map",
+      "rider on board: Exclusive offers only, at most offers.exclusiveWhileDriving.count at a time, never Radar (Q18); cards never cover navigation",
+      "the server never sends more open offers than the limit of the driver's current state; a held offer is sent when a slot frees or dropped when it expires"
+    ]
+  },
+  "surge": {
+    "note": "v0.5.0 (CONTRACT.md §3.4). An admin surge may change over its time as a curve: points (atMin, multiplier) from 0 to the end, straight lines between them, applied in stepMinutes steps so the price never wobbles. The server prices new quotes from it; a quote keeps its multiplier (Quote.surgeMultiplier). Replaces nothing: a flat manual surge is a two-point curve.",
+    "stepMinutes": 5,
+    "minMultiplier": 1.0,
+    "roundTo": 0.1,
+    "minPoints": 2,
+    "capDefault": 3.0,
+    "valueAt": "value at minute m = curve value at floor(m / stepMinutes) × stepMinutes, rounded half-up to roundTo, clamped to [minMultiplier, cap]; null before startAt and from endAt on",
+    "scope": "zoneId plus categoryIds (empty = every category); one active schedule per zone and category; a new one replaces it"
+  },
+  "auth": {
+    "note": "v0.5.0 (CONTRACT.md §8). Token issuance for the rider and driver apps; the admin signs in with e-mail and password plus a second factor (out of this contract). Actor and ids come from the token.",
+    "otp": {
+      "codeLength": 4,
+      "expiresSeconds": 300,
+      "retryAfterSeconds": 30,
+      "maxAttempts": 5,
+      "channel": "sms",
+      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited."
+    },
+    "providers": [
+      "apple",
+      "google"
+    ],
+    "providerNote": "POST /auth/provider { provider, idToken } signs in a linked account, or answers { code: PHONE_REQUIRED, linkToken, name? } for a new one: the phone is then verified with the linkToken on the OTP calls, and the account is created linked.",
+    "tokens": {
+      "access": "JWT, short-lived (accessExpiresSeconds), bearer on every call",
+      "refresh": "opaque, rotated on every POST /auth/refresh; a used or revoked one is 401 unauthenticated",
+      "accessExpiresSeconds": 900,
+      "refreshExpiresDays": 30
+    },
+    "testSignIn": {
+      "note": "Outside production the server seed lists test phone numbers; an OTP request for one of them sends no SMS and the fixed code signs it in. Production has no test numbers. The code below is the placeholder until the owner sets one.",
+      "enabled": "staging and development only",
+      "code": "1234"
+    },
+    "devices": {
+      "note": "POST /push/devices { token, provider, platform, appVersion?, locale? } registers the device for push, keyed by token and actor; POST /push/devices/unregister { token } on sign-out. The same for rider and driver.",
+      "providers": [
+        "fcm",
+        "apns"
+      ],
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ]
+    }
+  },
+  "configVersion": {
+    "note": "v0.5.0. RiderAppConfig.version / DriverAppConfig.version is the admin's revision number of the zone's live document, strictly increasing per zone and document; publishedAt is when it was published. The server stores the published document as the admin built it and serves it unchanged from GET /rider/config and GET /driver/config; config_published carries the same version. Apps keep the last good document and ignore an older version."
+  },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency.",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge.",
     "maxStops": 3,
     "maxPickupMoveMeters": 500,
     "freeWaitMin": {
@@ -657,6 +767,155 @@
     "waitingDriverSharePct": 100,
     "noShowDriverSharePct": 80,
     "missedExclusiveBeforeOffline": 3,
+    "offers": {
+      "note": "DriverAppConfig.offers limits (v0.5.0, CONTRACT.md §3.3). Admin Dispatch › Modes; every field optional on read.",
+      "radarApp": {
+        "fullOn": true,
+        "full": 8,
+        "fullLockWhileDriving": true,
+        "popupOn": true,
+        "popup": 2,
+        "popupSplitByDriving": false,
+        "popupWhileDriving": 1
+      },
+      "exclusiveWhileDriving": {
+        "on": true,
+        "count": 1
+      }
+    },
+    "pickupPay": {
+      "note": "DriverAppConfig.pickupPay and RiderAppConfig.pickupFee defaults (v0.5.0, CONTRACT.md §3.2). Placeholder amounts until the owner sets the real ones in Admin Pricing › Pickup pay: the rider fee is off (null) with these suggested amounts, the driver gets the first km free then the headline category's rate; other categories come from Admin.",
+      "offers": {
+        "radar": true,
+        "exclusive": true,
+        "exclusiveReservation": true,
+        "assigned": true,
+        "nextTrip": true
+      },
+      "display": "total",
+      "maxPerRide": null,
+      "countries": {
+        "SE": {
+          "riderFeeSuggested": {
+            "live": {
+              "amountMinor": 1500,
+              "currency": "SEK"
+            },
+            "reservation": {
+              "amountMinor": 2000,
+              "currency": "SEK"
+            }
+          },
+          "ranges": [
+            {
+              "fromKm": 0,
+              "toKm": 1,
+              "perKm": {
+                "amountMinor": 0,
+                "currency": "SEK"
+              },
+              "perMin": {
+                "amountMinor": 0,
+                "currency": "SEK"
+              }
+            },
+            {
+              "fromKm": 1,
+              "toKm": null,
+              "perKm": {
+                "amountMinor": 250,
+                "currency": "SEK"
+              },
+              "perMin": {
+                "amountMinor": 80,
+                "currency": "SEK"
+              }
+            }
+          ]
+        },
+        "FR": {
+          "riderFeeSuggested": {
+            "live": {
+              "amountMinor": 150,
+              "currency": "EUR"
+            },
+            "reservation": {
+              "amountMinor": 200,
+              "currency": "EUR"
+            }
+          },
+          "ranges": [
+            {
+              "fromKm": 0,
+              "toKm": 1,
+              "perKm": {
+                "amountMinor": 0,
+                "currency": "EUR"
+              },
+              "perMin": {
+                "amountMinor": 0,
+                "currency": "EUR"
+              }
+            },
+            {
+              "fromKm": 1,
+              "toKm": null,
+              "perKm": {
+                "amountMinor": 25,
+                "currency": "EUR"
+              },
+              "perMin": {
+                "amountMinor": 8,
+                "currency": "EUR"
+              }
+            }
+          ]
+        },
+        "TN": {
+          "riderFeeSuggested": {
+            "live": {
+              "amountMinor": 1500,
+              "currency": "TND"
+            },
+            "reservation": {
+              "amountMinor": 2000,
+              "currency": "TND"
+            }
+          },
+          "ranges": [
+            {
+              "fromKm": 0,
+              "toKm": 1,
+              "perKm": {
+                "amountMinor": 0,
+                "currency": "TND"
+              },
+              "perMin": {
+                "amountMinor": 0,
+                "currency": "TND"
+              }
+            },
+            {
+              "fromKm": 1,
+              "toKm": null,
+              "perKm": {
+                "amountMinor": 250,
+                "currency": "TND"
+              },
+              "perMin": {
+                "amountMinor": 80,
+                "currency": "TND"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "surge": {
+      "note": "contract.json#surge defaults",
+      "stepMinutes": 5,
+      "cap": 3.0
+    },
     "reservations": {
       "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1.",
       "on": true,
@@ -918,23 +1177,25 @@
     ]
   },
   "errors": {
-    "shape": "{ code, message, requestId, retryable, projection? }",
+    "shape": "{ code, message, requestId, retryable, reason?, projection? }",
     "codes": [
       "invalid_request",
       "unauthenticated",
       "forbidden",
       "not_found",
+      "otp_expired",
       "conflict",
       "invalid_transition",
       "version_mismatch",
       "rate_limited",
       "unavailable",
       "internal"
-    ]
+    ],
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is"
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
     "X-Request-Id": "sent by clients, echoed by the server",
-    "X-Api-Version": "0.4"
+    "X-Api-Version": "0.5"
   }
 }

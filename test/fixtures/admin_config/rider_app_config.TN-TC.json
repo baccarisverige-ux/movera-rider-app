@@ -146,6 +146,42 @@
     }
   ],
   "promoCap": null,
+  "pickupFee": {
+    "byCategory": {
+      "economy": {
+        "live": null,
+        "reservation": null
+      },
+      "comfort": {
+        "live": null,
+        "reservation": null
+      },
+      "premium": {
+        "live": null,
+        "reservation": null
+      },
+      "priority": {
+        "live": null,
+        "reservation": null
+      },
+      "xl": {
+        "live": null,
+        "reservation": null
+      },
+      "electric": {
+        "live": null,
+        "reservation": null
+      },
+      "pet": {
+        "live": null,
+        "reservation": null
+      },
+      "child_seat": {
+        "live": null,
+        "reservation": null
+      }
+    }
+  },
   "booking": {
     "maxStops": 3,
     "maxPickupMoveMeters": 500,

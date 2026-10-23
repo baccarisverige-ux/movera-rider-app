@@ -68,6 +68,8 @@ S["Place"] = obj({"address": s(maxLength=512), "lat": n(minimum=-90, maximum=90)
 S["GeoFix"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180),
                    "accuracy": n("Horizontal accuracy, metres.", minimum=0),
                    "heading": n("Degrees clockwise from north.", minimum=0, exclusiveMaximum=360),
+                   "speedMps": n("Ground speed, metres per second (v0.5.0).", minimum=0),
+                   "moving": b("The driver app's stopped / driving judgement (contract.json#driverMotion, v0.5.0): true after movingSpeedMps for hysteresisSeconds. Drives the offer limits while driving."),
                    "measuredAt": ref("Timestamp")},
                   ["lat", "lng", "accuracy", "measuredAt"], "Device GPS fix (driver location only).")
 
@@ -103,7 +105,11 @@ for g, name in grp_names.items():
 S["ErrorCode"] = s(enum=C["errors"]["codes"])
 S["RealtimeKind"] = s("Trip event kinds. After a terminal status only x-after-terminal kinds pass the client gate.",
                       enum=C["realtime"]["kinds"], **{"x-after-terminal": C["realtime"]["afterTerminal"]})
-S["FareLineCode"] = s(enum=["base", "distance", "time", "stops", "waiting", "pickup_pay", "surge", "discount", "cancel_fee"])
+FL = C["fareLines"]
+S["FareLineCode"] = s("Fare line codes (contract.json#fareLines). x-rider lines make the rider's fare; x-driver-only lines (pickup_pay, driver_bonus) are "
+                      "shown to the driver and admin only and never paid by the rider. v0.4 documents named the rider's pickup line pickup_pay: x-aliases.",
+                      enum=FL["rider"] + FL["driverOnly"], **{"x-rider": FL["rider"], "x-driver-only": FL["driverOnly"],
+                                                               "x-aliases": {k: v for k, v in FL["aliases"].items() if k != "note"}})
 S["FareLine"] = obj({"code": ref("FareLineCode"), "amount": ref("Money")}, ["code", "amount"])
 
 # --- trip
@@ -138,6 +144,7 @@ S["TripProjection"] = obj(OrderedDict([
     ("fareLines", arr(ref("FareLine"))),
     ("driverEarnings", ref("Money")), ("commission", ref("Money")),
     ("driverBonus", {"allOf": [ref("Money")], "description": "Movera-paid extra for the driver (admin / driver view only). Never part of the rider's fare."}),
+    ("pickupPay", {"allOf": [ref("Money")], "description": "Driver pickup pay Movera pays for this trip (admin / driver view only, v0.5.0, contract.json#pickupPay). Never part of the rider's fare; the rider's fixed pickup fee is the pickup_fee fare line."}),
     ("paymentMethod", ref("PaymentMethod")), ("paymentMethodId", ref("Id")),
     ("paymentStatus", ref("PaymentStatus")), ("ratingStatus", ref("RatingStatus")),
     ("driver", ref("DriverSummary")), ("driverLocation", ref("GeoFix")), ("etaSeconds", ref("DurationSeconds")),
@@ -173,7 +180,8 @@ S["Offer"] = obj(OrderedDict([
 S["Quote"] = obj(OrderedDict([
     ("quoteId", ref("Id")), ("categoryId", ref("CategoryId")), ("total", ref("Money")), ("fareLines", arr(ref("FareLine"))),
     ("expiresAt", ref("Timestamp")), ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", arr(ref("Place"))),
-    ("surgeMultiplier", n(minimum=1)), ("etaSeconds", ref("DurationSeconds")),
+    ("surgeMultiplier", n("The multiplier this quote was priced with; it stays with the quote (contract.json#surge).", minimum=1)),
+    ("surge", ref("QuoteSurge")), ("etaSeconds", ref("DurationSeconds")),
 ]), ["quoteId", "categoryId", "total", "fareLines", "expiresAt", "pickup", "dropoff", "stops"])
 S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
                        "total": {"allOf": [ref("Money")], "description": "Booked fare + the rider's offer raises + distance price of "
@@ -200,6 +208,7 @@ S["Document"] = obj({"documentId": ref("Id"), "ownerId": {"allOf": [ref("Id")], 
                      "fileUrl": s(format="uri", readOnly=True), "reviewNote": s(), "version": {"type": "integer", "minimum": 1}},
                     ["documentId", "ownerId", "type", "status", "version"])
 S["Driver"] = obj({"driverId": ref("Id"), "accountStatus": ref("DriverAccountStatus"), "onlineStatus": ref("DriverOnlineStatus"),
+                   "moving": b("Mirror of the latest GeoFix.moving the driver app sent (contract.json#driverMotion, v0.5.0); decides the offer limits while driving."),
                    "firstName": s(), "rating": n(minimum=0, maximum=5), "zoneIds": arr(ref("Id")),
                    "categoryIds": arr(ref("CategoryId")), "vehicleId": ref("Id"), "documents": arr(ref("DocumentSummary")),
                    "activeTripId": ref("Id"), "scheduledRides": ref("DriverScheduledRides"), "version": i(minimum=1)},
@@ -382,6 +391,88 @@ CONFIG_HEAD = OrderedDict([("version", i("Only increases; apps keep the last goo
                                           examples=["Europe/Stockholm", "Europe/Paris", "Africa/Tunis"])),
                            ("country", ref("CountryCode")), ("languages", ref("Languages"))])
 ZONE_PM = ("paymentMethods", arr(ref("ZonePaymentMethod"), uniqueItems=True, description="Methods offered in the zone; the wallet is separate."))
+
+# --- v0.5.0: pickup pay, offer limits while driving, surge schedule, auth, push devices
+PP = C["pickupPay"]
+S["PickupRange"] = obj({"fromKm": n(minimum=0), "toKm": {"type": ["number", "null"], "description": "null = and above (last range only)."},
+                        "perKm": ref("Money"), "perMin": ref("Money")}, ["fromKm", "toKm", "perKm", "perMin"],
+                       "One pickup-distance range (contract.json#pickupPay.ranges): the first starts at 0, each next one where the one before ends.")
+S["RiderPickupFee"] = obj({"live": nullable("Money"), "reservation": nullable("Money")}, ["live", "reservation"],
+                          "The rider's fixed pickup fee for one category: live rides (Radar and Exclusive) and reservations; null = off. Goes into the quote as the pickup_fee line; Movera keeps it.")
+S["PickupPayRate"] = obj({"enabled": b("Driver pickup pay on or off for the category."),
+                          "maxPerRide": {"oneOf": [ref("Money"), {"type": "null"}], "description": "The driver never gets more than this for one pickup; null = no maximum."},
+                          "ranges": arr(ref("PickupRange"), minItems=1), "riderFee": ref("RiderPickupFee")},
+                         ["enabled", "maxPerRide", "ranges", "riderFee"],
+                         "One category's pickup pay (Admin Pricing › Pickup pay). " + PP["ranges"]["note"] + " Rounding: " + PP["ranges"]["rounding"] + ". Cases: fixtures/pickup_pay.json.")
+S["PickupPayOffers"] = obj({k: b() for k in PP["offerKinds"]}, PP["offerKinds"], PP["offerKindNote"])
+S["DriverPickupPay"] = obj(OrderedDict([
+    ("offers", ref("PickupPayOffers")), ("display", s(enum=PP["display"])),
+    ("byCategory", {"type": "object", "description": "PickupPayRate per categoryId; a category not listed has no pickup pay.", "propertyNames": ref("CategoryId"),
+                    "additionalProperties": ref("PickupPayRate")}),
+    ("perKm", {"allOf": [ref("Money")], "deprecated": True, "description": "v0.4 shape of the headline category (first paid range); removed in v0.6."}),
+    ("perMin", {"allOf": [ref("Money")], "deprecated": True}), ("freeKm", {**n(minimum=0), "deprecated": True}), ("freeMin", {**n(minimum=0), "deprecated": True}),
+    ("ranges", {**arr(ref("PickupRange")), "deprecated": True, "description": "v0.4 shape: the headline category's ranges; use byCategory."}),
+    ("maxPerRide", {"oneOf": [ref("Money"), {"type": "null"}], "deprecated": True}),
+]), ["offers", "display", "byCategory"], "DriverAppConfig.pickupPay (v0.5.0, CONTRACT.md §3.2). " + PP["note"])
+S["RiderPickupFees"] = obj({"byCategory": {"type": "object", "description": "RiderPickupFee per categoryId.", "propertyNames": ref("CategoryId"),
+                                           "additionalProperties": ref("RiderPickupFee")}}, ["byCategory"],
+                           "RiderAppConfig.pickupFee (v0.5.0): the fixed pickup fees the quote's pickup_fee line carries, so the app can name them; the server prices.")
+OD = C["configDefaults"]["offers"]
+S["RadarAppLimits"] = obj({"fullOn": b("The full-screen Radar list is available."), "full": i("Most offers in the full-screen list.", minimum=1),
+                           "fullLockWhileDriving": b("The list cannot be opened while the car is moving; it opens again once stopped."),
+                           "popupOn": b("Offer cards over the map are shown."), "popup": i("Most cards at once while stopped.", minimum=1),
+                           "popupSplitByDriving": b("The cards have their own limit while driving (popupWhileDriving); false = popup all the time."),
+                           "popupWhileDriving": i("Most cards at once while moving, 1 to popup.", minimum=1)},
+                          desc="Radar offers one driver sees at once (Admin Dispatch › Modes; contract.json#driverMotion, v0.5.0). Defaults: " + json.dumps(OD["radarApp"]) + ". No Radar offers while driving a rider.")
+S["ExclusiveWhileDriving"] = obj({"on": b(), "count": i(minimum=1, maximum=5)},
+                                 desc="While driving a rider the driver gets Exclusive offers only, at most count at a time, never Radar (Q18). Defaults: " + json.dumps(OD["exclusiveWhileDriving"]) + ".")
+SG = C["surge"]
+S["SurgePoint"] = obj({"atMin": i("Minutes from startAt.", minimum=0), "multiplier": n(minimum=SG["minMultiplier"])}, ["atMin", "multiplier"])
+S["SurgeSchedule"] = obj(OrderedDict([
+    ("scheduleId", ref("Id")), ("zoneId", ref("Id")),
+    ("categoryIds", arr(ref("CategoryId"), uniqueItems=True, description="Empty = every category of the zone.")),
+    ("startAt", ref("Timestamp")), ("endAt", ref("Timestamp")),
+    ("stepMinutes", {**i(minimum=1), "default": SG["stepMinutes"]}), ("cap", {**n(minimum=1), "description": "No point and no step is above this (Admin surge cap)."}),
+    ("points", arr(ref("SurgePoint"), minItems=SG["minPoints"], description="Sorted by atMin; the first at 0, the last at the end; straight lines between.")),
+    ("status", s(enum=["scheduled", "active", "ended", "cancelled"])), ("version", i(minimum=1)),
+    ("createdBy", ref("Id")), ("createdAt", ref("Timestamp")),
+]), ["scheduleId", "zoneId", "categoryIds", "startAt", "endAt", "stepMinutes", "cap", "points", "status", "version"],
+    "A surge curve over time (v0.5.0, CONTRACT.md §3.4, contract.json#surge). " + SG["valueAt"] + ". Cases: fixtures/surge.json.")
+S["SurgeScheduleCommand"] = obj(OrderedDict([
+    ("expectedVersion", i("Version of the schedule being replaced; 0 when the zone has none.", minimum=0)),
+    ("categoryIds", arr(ref("CategoryId"), uniqueItems=True)), ("startAt", ref("Timestamp")), ("endAt", ref("Timestamp")),
+    ("stepMinutes", {**i(minimum=1), "default": SG["stepMinutes"]}), ("points", arr(ref("SurgePoint"), minItems=SG["minPoints"])),
+    ("note", s(maxLength=1000)),
+]), ["expectedVersion", "startAt", "endAt", "points"], "Create or replace the zone's surge schedule. A flat manual surge is two points with the same multiplier.")
+S["QuoteSurge"] = obj({"multiplier": n(minimum=1), "until": {"allOf": [ref("Timestamp")], "description": "When the current step ends (the next step may differ); null for a flat surge."},
+                       "scheduleId": ref("Id")}, ["multiplier"], "The surge step this quote was priced in (v0.5.0); display only, the quote total already includes it.")
+AU = C["auth"]
+S["PhoneE164"] = s("E.164 phone number.", pattern=r"^\+[1-9][0-9]{6,14}$")
+S["OtpRequest"] = obj({"phone": ref("PhoneE164"), "app": s("Which app signs in; decides the actor of the tokens.", enum=["rider", "driver"]),
+                       "linkToken": s("From a PHONE_REQUIRED provider sign-in: links this phone to that account.", minLength=1),
+                       "locale": ref("Language")}, ["phone", "app"], "Start a phone sign-in: the server sends the code by " + AU["otp"]["channel"] + " (none to a test number, contract.json#auth.testSignIn).")
+S["OtpChallenge"] = obj({"requestId": s(), "sessionId": ref("Id"), "expiresAt": ref("Timestamp"),
+                         "retryAfterSeconds": {**i(minimum=0), "default": AU["otp"]["retryAfterSeconds"]}},
+                        ["requestId", "sessionId", "expiresAt", "retryAfterSeconds"],
+                        f"The code is {AU['otp']['codeLength']} digits and lives {AU['otp']['expiresSeconds']} s; at most {AU['otp']['maxAttempts']} attempts.")
+S["OtpVerifyRequest"] = obj({"phone": ref("PhoneE164"), "sessionId": ref("Id"), "code": s(pattern=r"^[0-9]{%d}$" % AU["otp"]["codeLength"]),
+                             "linkToken": s(minLength=1)}, ["phone", "sessionId", "code"])
+S["AuthTokens"] = obj({"accessToken": s("JWT bearer token.", minLength=1), "refreshToken": s("Opaque, rotated on every refresh.", minLength=1),
+                       "expiresIn": {**i(minimum=1), "description": "Access token lifetime, seconds.", "default": AU["tokens"]["accessExpiresSeconds"]},
+                       "actor": s(enum=["rider", "driver"]), "isNewRider": b("First sign-in: the app asks for the name."), "isNewDriver": b("First sign-in: the app starts onboarding.")},
+                      ["accessToken", "refreshToken"], "Signed in. Actor, subject id and zone scope are inside the access token.")
+S["ProviderSignInRequest"] = obj({"provider": s(enum=AU["providers"]), "idToken": s("The provider's identity token, verified server-side.", minLength=1),
+                                  "app": s(enum=["rider", "driver"]), "name": s(maxLength=120)}, ["provider", "idToken", "app"])
+S["PhoneRequired"] = obj({"code": s(const="PHONE_REQUIRED"), "linkToken": s(minLength=1), "name": s()}, ["code", "linkToken"],
+                         "No account is linked to this provider identity yet: verify a phone with this linkToken on the OTP calls and the account is created linked.")
+S["ProviderSignInResult"] = {"oneOf": [ref("AuthTokens"), ref("PhoneRequired")], "description": AU["providerNote"]}
+S["RefreshRequest"] = obj({"refreshToken": s(minLength=1)}, ["refreshToken"])
+S["PushDeviceRequest"] = obj({"token": s("Push token from the provider.", minLength=1), "provider": s(enum=AU["devices"]["providers"]),
+                              "platform": s(enum=AU["devices"]["platforms"]), "appVersion": s(pattern=r"^\d+\.\d+\.\d+$"), "locale": ref("Language")},
+                             ["token", "provider", "platform"], AU["devices"]["note"])
+S["PushDeviceAck"] = obj({"status": s(enum=["registered", "unregistered"]), "requestId": s()}, ["status"])
+S["PushDeviceUnregister"] = obj({"token": s(minLength=1)}, ["token"])
+
 S["RiderAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
     ("catalog", ref("CategoryCatalog")),
     ("features", {"type": "object", "properties": {"scheduledRides": b(), "wallet": b(), "pin": b(), "shareTrip": b()},
@@ -391,6 +482,7 @@ S["RiderAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
     ("tips", arr(ref("AmountOption"), description="Tip options in admin order.")),
     ("raiseSteps", arr(ref("AmountOption"), description="Raise-offer quick steps while searching, in admin order.")),
     ("promoCap", {"oneOf": [ref("Money"), {"type": "null"}], "description": "Most a promotion may take off one trip in this country; null = no cap set."}),
+    ("pickupFee", ref("RiderPickupFees")),
     ("booking", obj({"maxStops": i(minimum=0, maximum=10), "bookingHorizonDays": i(minimum=0),
                      "maxPickupMoveMeters": i("How far the rider may move the pickup after accept; further = cancel and rebook.", minimum=0)})),
     ("cancelFees", ref("CancelFees")),
@@ -408,17 +500,16 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
     ("booking", obj({"maxStops": i(minimum=0, maximum=10),
                      "maxPickupMoveMeters": i("Pickup move limit after accept; the driver is notified of a move.", minimum=0)})),
     ("offers", obj({"radarSeconds": i(minimum=1), "exclusiveSeconds": i(minimum=1),
+                    "radarOn": b("Radar offers in this zone (v0.5.0)."), "exclusiveOn": b("Exclusive offers in this zone (v0.5.0)."),
+                    "assignAcceptSeconds": i("Time to accept a ride assigned by Movera (v0.5.0; also reservations.assignAcceptSeconds).", minimum=1),
+                    "radarApp": ref("RadarAppLimits"), "exclusiveWhileDriving": ref("ExclusiveWhileDriving"),
                     "offerCard": {"type": "object", "description": "Which fields the offer card shows.",
                                   "properties": {"netFare": b(), "pickupAddress": b(), "dropoffAreaOnly": b(), "stops": b()},
                                   "additionalProperties": {"type": "boolean"}},
                     "exclusiveReasons": arr(obj({"id": s(pattern="^[a-z][a-z0-9_-]{0,63}$"), "text": s(), "on": b()}, ["id", "text", "on"])),
                     "autoOffline": obj({"missedExclusive": i("Missed or declined exclusive offers in a row before the driver is set offline (default 3).", minimum=0),
                                         "hiddenComesBackMin": n(minimum=0)})})),
-    ("pickupPay", obj({"perKm": ref("Money"), "perMin": ref("Money"), "freeKm": n(minimum=0), "freeMin": n(minimum=0),
-                       "ranges": arr({"type": "object", "description": "Distance band override (shape owned by Admin Pricing).",
-                                      "properties": {"fromKm": n(minimum=0), "toKm": {"type": ["number", "null"]},
-                                                     "amount": ref("Money")}}),
-                       "display": s(enum=["total", "breakdown"])})),
+    ("pickupPay", ref("DriverPickupPay")),
     ("driverBonus", ref("DriverBonusLimits")),
     ("cancelFees", ref("CancelFees")),
     ("waiting", ref("DriverWaiting")),
@@ -470,6 +561,7 @@ S["ConfigEvent"] = obj({"eventId": ref("Id"), "kind": s(const="config_published"
 
 # --- error
 S["Error"] = obj({"code": ref("ErrorCode"), "message": s(), "requestId": s(), "retryable": b(),
+                  "reason": s(C["errors"]["reason"], pattern="^[a-z][a-z0-9_]{0,63}$"),
                   "projection": {"description": "Current authoritative resource. Always present for version_mismatch and invalid_transition "
                                                  "(TripProjection for trip commands; Offer / Driver / Rider / Vehicle / ConfigDraft for their commands).",
                                  "anyOf": [ref("TripProjection"), ref("Offer"), ref("Driver"), ref("Rider"), ref("Vehicle"), ref("ConfigDraft")]}},
@@ -564,7 +656,7 @@ S["AdminRadarGroup"] = obj({"groupId": ref("Id"), "tripId": ref("Id"), "offers":
                             "projection": ref("TripProjection")}, ["groupId", "tripId", "offers", "expiresAt", "projection"])
 S["AdminDriverBonusCommand"] = obj(dict(EV, amount=ref("Money"), priority=b(), note=s(maxLength=1000)), ["expectedVersion", "amount"],
                                    "Add money to the trip for the driver (paid by Movera). Open offers are updated (offer_updated) with the new fare.")
-S["NearbyDriver"] = obj({"driverId": ref("Id"), "firstName": s(), "onlineStatus": ref("DriverOnlineStatus"),
+S["NearbyDriver"] = obj({"driverId": ref("Id"), "firstName": s(), "onlineStatus": ref("DriverOnlineStatus"), "moving": b("Latest GeoFix.moving (v0.5.0)."),
                          "location": ref("GeoFix"), "distanceMeters": i(minimum=0), "pickupEtaSeconds": ref("DurationSeconds"),
                          "zoneId": ref("Id"), "categoryIds": arr(ref("CategoryId")), "openOfferId": ref("Id")},
                         ["driverId", "firstName", "onlineStatus", "distanceMeters"])
@@ -607,6 +699,7 @@ for nm in ["tripId", "offerId", "paymentId", "paymentMethodId", "placeId", "noti
            "vehicleId", "documentId", "approvalId"]:
     PARAMS[nm[0].upper() + nm[1:]] = path_id(nm)
 PARAMS["RideId"] = path_id("rideId", "Deprecated alias of tripId.")
+PARAMS["ZoneId"] = path_id("zoneId")
 PARAMS["ConfigDoc"] = {"name": "doc", "in": "path", "required": True, "schema": ref("ConfigDocName")}
 PARAMS["IdempotencyKey"] = {"name": "Idempotency-Key", "in": "header", "required": True,
                             "description": "Required on every mutation. Bound to actor + route + body hash; the same key replays the committed response, a different body under the same key is 409 conflict.",
@@ -697,6 +790,29 @@ def sse(desc, data_schema, json_page=None):
 
 TP = "TripProjection"
 TID = [pref("TripId")]
+# ---- Auth and devices (v0.5.0, CONTRACT.md §8). No bearer token on the auth calls.
+for o in [
+    op("post", "/auth/otp/request", "requestOtp", "Start a phone sign-in (SMS code)", ["rider", "driver"], "Auth",
+       body="OtpRequest", ok=(200, "OtpChallenge"),
+       desc="Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn, outside production) gets no SMS and accepts the fixed code."),
+    op("post", "/auth/otp/verify", "verifyOtp", "Verify the code and sign in", ["rider", "driver"], "Auth",
+       body="OtpVerifyRequest", ok=(200, "AuthTokens"),
+       desc="Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session → 400 invalid_request (reason invalid_otp_session); "
+            "expired session → 410 otp_expired; too many attempts → 429. With a linkToken the verified phone is linked to the provider account."),
+    op("post", "/auth/provider", "signInWithProvider", "Sign in with Apple or Google", ["rider", "driver"], "Auth",
+       body="ProviderSignInRequest", ok=(200, "ProviderSignInResult")),
+    op("post", "/auth/refresh", "refreshTokens", "Rotate the refresh token for new tokens", ["rider", "driver"], "Auth",
+       body="RefreshRequest", ok=(200, "AuthTokens"), desc="A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out."),
+]:
+    o["security"] = []
+PATHS["/auth/otp/verify"]["post"]["responses"]["410"] = err("otp_expired: the code or the session expired; request a new code.")
+op("post", "/auth/sign-out", "signOut", "End this session (revokes the refresh token)", ["rider", "driver"], "Auth", ok=(204, None),
+   desc="Idempotent; also unregister the push device.")
+op("post", "/push/devices", "registerPushDevice", "Register this device's push token", ["rider", "driver"], "Auth",
+   body="PushDeviceRequest", ok=(200, "PushDeviceAck"), mutation=True, desc="Keyed by token and actor; registering again updates it.")
+op("post", "/push/devices/unregister", "unregisterPushDevice", "Forget this device's push token", ["rider", "driver"], "Auth",
+   body="PushDeviceUnregister", ok=(200, "PushDeviceAck"), mutation=True)
+
 # ---- Rider
 op("post", "/quotes", "createQuotes", "Quote every (or the given) category for a route", ["rider"], "Rider · Booking",
    body="QuoteRequest", ok=(201, "QuoteList"), mutation=True, desc="Quotes MUST include stops. Server owns the price; client never computes fares.")
@@ -910,6 +1026,14 @@ op("put", "/admin/config/{doc}", "adminPutConfigDraft", "Replace the config draf
 op("post", "/admin/config/{doc}/publish", "adminPublishConfig", "Publish the draft (two-person approval)", ["admin"], "Admin · Config",
    params=[pref("ConfigDoc")], body="ConfigPublishCommand", ok=(200, "ConfigPublication"), mutation=True, approval=True,
    permission="config.edit", desc="Normally 202 pending_approval; 200 when the approver publishes directly. Emits config_published.")
+op("get", "/admin/zones/{zoneId}/surge", "adminGetSurge", "The zone's current surge schedule", ["admin"], "Admin · Config",
+   params=[pref("ZoneId")], ok=(200, "SurgeSchedule"), permission="pricing.read", desc="204 when the zone has none (flat ×1.0).")
+PATHS["/admin/zones/{zoneId}/surge"]["get"]["responses"]["204"] = {"description": "No surge schedule", "headers": HDR_REQ}
+op("put", "/admin/zones/{zoneId}/surge", "adminPutSurge", "Create or replace the zone's surge schedule (curve)", ["admin"], "Admin · Config",
+   params=[pref("ZoneId")], body="SurgeScheduleCommand", ok=(200, "SurgeSchedule"), mutation=True, approval=True, permission="pricing.edit",
+   desc="contract.json#surge, CONTRACT.md §3.4. Points above the zone's cap → 400 invalid_request. Above the role limit → 202 pending_approval. New quotes price from it at once; quotes already given keep their multiplier.")
+op("post", "/admin/zones/{zoneId}/surge/end", "adminEndSurge", "End the schedule now (back to ×1.0)", ["admin"], "Admin · Config",
+   params=[pref("ZoneId")], body="ConfigPublishCommand", ok=(200, "SurgeSchedule"), mutation=True, permission="pricing.edit")
 op("get", "/admin/audit", "adminListAudit", "Server-written audit log", ["admin"], "Admin · Governance",
    params=AL + [q("actorId", ref("Id")), q("targetType", {"type": "string"}), q("targetId", ref("Id")), q("action", {"type": "string"}),
                 q("result", {"type": "string", "enum": ["committed", "rejected", "denied", "conflict", "pending_approval"]}), pref("From"), pref("To")],
@@ -929,17 +1053,17 @@ o = op("post", "/rides/{rideId}/cancel", "cancelRideDeprecated", "Deprecated ali
        params=[pref("RideId")], body="CancelCommand", ok=(200, TP), mutation=True, transition="cancel", deprecated=True)
 
 # ---------------------------------------------------------------- document
-TAG_DESC = {"Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
+TAG_DESC = {"Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
             "Deprecated": "Legacy /rides aliases kept for one release"}
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
     "title": "Movera API",
-    "version": "0.4.4",
+    "version": C["version"],
     "description": (
         "**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter) and "
         "Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + "
-        "`CONTRACT.md` v0.4.4 in this folder; this file must agree with them.\n\n"
+        "`CONTRACT.md` v" + C["version"] + " in this folder; this file must agree with them.\n\n"
         "Wire rules: ids match `" + ID_PATTERN + "`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is "
         "`Money {amountMinor, currency}`; keys camelCase, enum values snake_case. Success responses are the bare resource; errors are `Error`.\n\n"
         "Every mutation needs `Idempotency-Key`. Trip, offer, driver, rider, vehicle and config commands send `expectedVersion`; a stale "
@@ -948,7 +1072,7 @@ doc["info"] = {
         "Extensions: `x-actor` = actors allowed (derived from the token); `x-transition` = contract.json transition command; "
         "`x-permission` = admin permission; `x-terminal` on TripStatus = terminal set.\n\n"
         "Auth: bearer JWT. Actor (rider|driver|admin), subject id, zone scope and admin role/permissions come from the token, never from the body. "
-        "Token issuance (OTP/refresh) is out of scope for v0.4."),
+        "Token issuance: the Auth tag (v0.5.0, contract.json#auth): phone + SMS code, Apple / Google, refresh rotation; test numbers accept a fixed code outside production."),
 }
 doc["servers"] = [{"url": "https://api.dev.movera.invalid/api/v1", "description": "Placeholder; no backend exists."}]
 doc["security"] = [{"bearerAuth": []}]
@@ -967,7 +1091,7 @@ def to_plain(x):
 
 class D(yaml.SafeDumper):
     def ignore_aliases(self, data): return True
-header = "# Movera API v0.4.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
+header = f"# Movera API v{C['version']} — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.\n"
 with open(OUT, "w") as f:
     f.write(header)
     yaml.dump(to_plain(doc), f, Dumper=D, sort_keys=False, allow_unicode=True, width=120)
