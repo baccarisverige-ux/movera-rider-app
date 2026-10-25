@@ -115,7 +115,7 @@ class GoogleMapProvider implements MapProvider {
   }
 
   /// Frames both points. When the map's viewport is known the fit is one
-  /// continuous move to the fitted pose with its zoom's tilt (flat for wide
+  /// continuous move (a flight, or the follow glide when [follow]) to the fitted pose with its zoom's tilt (flat for wide
   /// route overviews, leaning for close ones); otherwise, and on maps that
   /// ignore tilt, it is the plain bounds fit.
   @override
@@ -147,7 +147,13 @@ class GoogleMapProvider implements MapProvider {
         tilted: view.tiltWithZoom,
       );
       if (fitted != null) {
-        await easeCameraTo(map, fitted);
+        // A requested fit (the route overview) is a flight that lands on
+        // time; a follow refit (the trip map) glides.
+        await easeCameraTo(
+          map,
+          fitted,
+          duration: follow ? cameraEaseDuration : cameraFlightDuration,
+        );
         return;
       }
     }

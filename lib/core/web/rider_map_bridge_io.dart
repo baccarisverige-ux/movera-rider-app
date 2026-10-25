@@ -6,6 +6,9 @@ void claim(int mapId) {}
 Future<bool>? flight(int mapId, double lat, double lng, double zoom,
         double heading, double tilt, int ms) =>
     null;
+Future<bool>? glide(int mapId, double lat, double lng, double zoom,
+        double heading, double tilt, int ms) =>
+    null;
 void retarget(int mapId, double lat, double lng, double zoom, double heading,
     double tilt) {}
 /// No web layer: nothing was flying.
