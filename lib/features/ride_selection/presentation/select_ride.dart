@@ -45,6 +45,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_filter.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_fit_scheduler.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
@@ -315,6 +316,12 @@ class _SelectRideState extends State<SelectRide>
       DraggableScrollableController();
   MediaQueryData? _media;
   double? _settledStop;
+
+  late final RouteFitScheduler _fits = RouteFitScheduler(plan: _routeFitPlan);
+
+  /// True while a finger moves the sheet; the web overlay waits for the
+  /// settle instead of toggling mid-drag.
+  bool _sheetDragging = false;
 
   /// The rider's promotion (admin panel), shown on top of the list.
   RiderPromotion? get _promotion => AppScope.instance.promotion.active;
@@ -721,6 +728,7 @@ class _SelectRideState extends State<SelectRide>
   @override
   void dispose() {
     _expiryRequote?.cancel();
+    _fits.dispose();
     _selection.catalogChanges?.removeListener(_onCatalogChanged);
     if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
@@ -734,7 +742,11 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _syncSheetOverlay() {
-    final cover = _sheetSlide.value > 0.05;
+    if (_sheetDragging) return;
+    // Hysteresis around the low stop, so a sheet resting near it does not
+    // flip the map's pointer events back and forth.
+    final v = _sheetSlide.value;
+    final cover = _overlayOn ? v > 0.02 : v > 0.05;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -888,6 +900,7 @@ class _SelectRideState extends State<SelectRide>
   /// hand and settle on the nearest stop (a fling moves one stop).
   void _onHeaderDragUpdate(DragUpdateDetails details, MediaQueryData media) {
     if (!_sheetController.isAttached) return;
+    _sheetDragging = true;
     final pixels = (_sheetController.pixels - details.primaryDelta!).clamp(
       _minSheet(media),
       _maxSheet(media),
@@ -896,6 +909,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _onHeaderDragEnd(DragEndDetails details, MediaQueryData media) {
+    _sheetDragging = false;
     final velocity = details.primaryVelocity ?? 0;
     final current = _sheetSlide.value;
     final stops = <double>[0, _midValue(media), 1];
@@ -919,7 +933,14 @@ class _SelectRideState extends State<SelectRide>
   /// A tick when the sheet lands on a new stop, and the route re-framed
   /// above it.
   bool _onSheetScroll(ScrollNotification n, MediaQueryData media) {
+    if (n is ScrollStartNotification && n.dragDetails != null) {
+      _sheetDragging = true;
+    }
     if (n is! ScrollEndNotification) return false;
+    if (_sheetDragging) {
+      _sheetDragging = false;
+      _syncSheetOverlay();
+    }
     final v = _sheetSlide.value;
     final stops = <double>[0, _midValue(media), 1];
     final nearest = stops.reduce(
@@ -928,7 +949,7 @@ class _SelectRideState extends State<SelectRide>
     if ((nearest - v).abs() > 0.02 || nearest == _settledStop) return false;
     _settledStop = nearest;
     HapticFeedback.selectionClick();
-    unawaited(_fitRoute());
+    _fits.settled();
     return false;
   }
 
@@ -1004,48 +1025,67 @@ class _SelectRideState extends State<SelectRide>
     }());
   }
 
-  Future<void> _fitRoute() async {
-    if (!mounted) return;
+  /// Frames the route above the sheet. [force] flies an unchanged framing
+  /// too (a newly created map starts from its own camera).
+  Future<void> _fitRoute({bool force = false}) => _fits.fit(force: force);
+
+  RouteFitPlan? _routeFitPlan() {
+    if (!mounted) return null;
     final pickup = _pickupPosition;
     final destination = widget.destinationPosition;
     final media = MediaQuery.of(context);
     final samePoint =
         (pickup.latitude - destination.latitude).abs() < 0.00008 &&
         (pickup.longitude - destination.longitude).abs() < 0.00008;
-    try {
-      if (samePoint) {
-        await AppScope.instance.maps.animateCamera(
+    if (samePoint) {
+      return (
+        key: 'point|${pickup.latitude}|${pickup.longitude}',
+        move: () => AppScope.instance.maps.animateCamera(
           GeoPoint(pickup.latitude, pickup.longitude),
           zoom: 14.4,
-        );
-        return;
-      }
-      // D-009: the map sits behind the (initially expanded) sheet, so frame
-      // both pins in the part of the map the sheet leaves visible.
-      final minSheet = _minSheet(media);
-      final sheetHeight =
-          minSheet + (_maxSheet(media) - minSheet) * _sheetSlide.value;
-      final fit = selectRideCameraFit(
-        pickup: GeoPoint(pickup.latitude, pickup.longitude),
-        destination: GeoPoint(destination.latitude, destination.longitude),
-        mapHeight: media.size.height - minSheet,
-        bottomObstruction: sheetHeight - minSheet,
-        // Owner round 4: the search bar at the top and the road's own
-        // points, so neither the line nor a time bubble is cut.
-        topObstruction: media.padding.top + _searchBarObstruction,
-        route: [
-          for (final p in _roadRoutePoints ?? const <LatLng>[])
-            GeoPoint(p.latitude, p.longitude),
-        ],
+        ),
       );
-      await AppScope.instance.maps.fitBounds(
+    }
+    // D-009: the map sits behind the (initially expanded) sheet, so frame
+    // both pins in the part of the map the sheet leaves visible.
+    final minSheet = _minSheet(media);
+    final sheetHeight =
+        minSheet + (_maxSheet(media) - minSheet) * _sheetSlide.value;
+    final fit = selectRideCameraFit(
+      pickup: GeoPoint(pickup.latitude, pickup.longitude),
+      destination: GeoPoint(destination.latitude, destination.longitude),
+      mapHeight: media.size.height - minSheet,
+      bottomObstruction: sheetHeight - minSheet,
+      // Owner round 4: the search bar at the top and the road's own
+      // points, so neither the line nor a time bubble is cut.
+      topObstruction: media.padding.top + _searchBarObstruction,
+      route: [
+        for (final p in _roadRoutePoints ?? const <LatLng>[])
+          GeoPoint(p.latitude, p.longitude),
+      ],
+    );
+    return (
+      // What decides the framing: the points, the road and the sheet's
+      // height to ~10 px (a settle lands within a few px of its stop).
+      key: [
+        pickup.latitude,
+        pickup.longitude,
+        destination.latitude,
+        destination.longitude,
+        identityHashCode(_roadRoutePoints),
+        media.size.width.round(),
+        media.size.height.round(),
+        media.padding.top.round(),
+        ((sheetHeight - minSheet) / 10).round(),
+      ].join('|'),
+      // The map may be gone or not laid out yet; the scheduler keeps the
+      // camera where it is and flies again on the next request.
+      move: () => AppScope.instance.maps.fitBounds(
         fit.southwest,
         fit.northeast,
         padding: fit.padding,
-      );
-    } catch (_) {
-      // The map may be gone or not laid out yet; the camera stays put.
-    }
+      ),
+    );
   }
 
   Future<void> _withParkedMap(Future<void> Function() action) async {
@@ -2036,7 +2076,7 @@ class _SelectRideState extends State<SelectRide>
                             ),
                           );
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) unawaited(_fitRoute());
+                            if (mounted) unawaited(_fitRoute(force: true));
                           });
                         },
                       )
