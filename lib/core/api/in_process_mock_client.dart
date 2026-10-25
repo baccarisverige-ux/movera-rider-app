@@ -289,7 +289,9 @@ class InProcessMockClient extends http.BaseClient {
     if (latency > Duration.zero) {
       await Future<void>.delayed(latency);
     }
-    if (persistRides) {
+    // The map's nearby cars are asked every few seconds and change nothing:
+    // no need to write the rides to storage for them.
+    if (persistRides && request.url.path != '/api/v1/rider/nearby-vehicles') {
       await _restoreRidesOnce();
       final response = await _handle(request);
       await _persistRides();
@@ -444,6 +446,22 @@ class InProcessMockClient extends http.BaseClient {
     var status = 200;
     final parts = path.split('/');
 
+    if (path == '/api/v1/rider/nearby-vehicles' && method == 'GET') {
+      final lat = double.tryParse(request.url.queryParameters['lat'] ?? '');
+      final lng = double.tryParse(request.url.queryParameters['lng'] ?? '');
+      if (lat == null || lng == null || lat.abs() > 90 || lng.abs() > 180) {
+        return _json(
+          400,
+          _error('invalid_request', requestId, reason: 'invalid_point'),
+          requestId,
+        );
+      }
+      return _json(200, {
+        'items': demoNearbyCars(lat, lng, _clock()),
+        'refreshSeconds': 5,
+        'radiusMeters': 3000,
+      }, requestId);
+    }
     if (path == '/api/v1/locations/reverse-geocode' && method == 'POST') {
       final latitude = body['latitude'];
       final longitude = body['longitude'];
@@ -2660,6 +2678,43 @@ class InProcessMockClient extends http.BaseClient {
     if (value == 'google' || value == 'google_pay') return 'google_pay';
     if (value == 'cash' || value == 'wallet') return value;
     return 'card';
+  }
+
+  /// Demo cars for `GET /rider/nearby-vehicles` (contract v0.5.2 §13): seven
+  /// cars driving back and forth on straight streets around the point, so
+  /// the map moves like a real city. Same keys all along, rounded positions.
+  static List<Map<String, dynamic>> demoNearbyCars(
+    double lat,
+    double lng,
+    DateTime now,
+  ) {
+    const count = 7;
+    final seconds = now.millisecondsSinceEpoch / 1000;
+    final cosLat = math.max(0.2, math.cos(lat * math.pi / 180));
+    final cars = <Map<String, dynamic>>[];
+    for (var i = 0; i < count; i++) {
+      // Where the car's street is and which way it runs.
+      final around = i * 2 * math.pi / count + 0.4;
+      final distance = 260.0 + 170.0 * i;
+      final streetLat = lat + distance * math.cos(around) / 111320;
+      final streetLng = lng + distance * math.sin(around) / (111320 * cosLat);
+      final street = (i * 47 + 20) % 180 * math.pi / 180;
+      // About 8 m/s, turning back at each end of a 500 m stretch.
+      const half = 250.0;
+      final phase = seconds * 8 / half + i * 1.7;
+      final along = half * math.sin(phase);
+      final forward = math.cos(phase) >= 0;
+      final carLat = streetLat + along * math.cos(street) / 111320;
+      final carLng = streetLng + along * math.sin(street) / (111320 * cosLat);
+      final heading = (street * 180 / math.pi + (forward ? 0 : 180)) % 360;
+      cars.add({
+        'key': 'demo-car-$i',
+        'lat': double.parse(carLat.toStringAsFixed(4)),
+        'lng': double.parse(carLng.toStringAsFixed(4)),
+        'heading': heading.roundToDouble(),
+      });
+    }
+    return cars;
   }
 
   List<Map<String, dynamic>> _nearby(Map<String, dynamic>? ride) {

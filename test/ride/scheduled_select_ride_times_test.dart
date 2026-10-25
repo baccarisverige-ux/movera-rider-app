@@ -76,7 +76,8 @@ void main() {
     final selection = RideSelectionController(quotes: _ImmediateQuotes());
     addTearDown(selection.dispose);
     await open(tester, selection);
-    expect(find.textContaining(' min · Arrive '), findsWidgets);
+    // Owner round 2, like the other ride apps: "07:14 · 8 min".
+    expect(find.textContaining(RegExp(r'^\d\d:\d\d · \d+ min$')), findsWidgets);
     expect(find.textContaining('Pickup '), findsNothing);
   });
 }

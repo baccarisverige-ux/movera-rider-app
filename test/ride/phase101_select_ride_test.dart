@@ -99,10 +99,15 @@ void main() {
   });
 
   group('D-009: the map is visible above the ride sheet', () {
-    test('the expanded sheet leaves at least a third of the screen', () {
-      const media = MediaQueryData(size: Size(390, 844));
+    test('owner round 2: fully up, the sheet goes near the top and leaves a '
+        'strip of map', () {
+      const media = MediaQueryData(
+        size: Size(390, 844),
+        padding: EdgeInsets.only(top: 47),
+      );
       final maxSheet = selectRideMaxSheetHeight(media);
-      expect(844 - maxSheet, greaterThanOrEqualTo(844 * 0.33));
+      expect(844 - 47 - maxSheet, selectRideFullTopGap);
+      expect(selectRideFullTopGap, inInclusiveRange(32, 80));
     });
 
     test('large text still gets the full height it needs', () {

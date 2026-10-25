@@ -1424,6 +1424,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'privacyS11Body': l.privacyS11Body,
   'privacyS12Title': l.privacyS12Title,
   'privacyS12Body': l.privacyS12Body,
+  'ridesForYou': l.ridesForYou,
+  'ridesPremium': l.ridesPremium,
+  'promotionApplied': l.promotionApplied('<percent>'),
+  'arriveEtaMin': l.arriveEtaMin('<arrive>', '<minutes>'),
+  'minutesShort': l.minutesShort,
+  'dropOffAt': l.dropOffAt('<time>'),
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1609,6 +1615,9 @@ const messagePlaceholders = <String, List<String>>{
   'resTermsOtherFees': ['rule'],
   'notifYesterday': ['clock'],
   'phoneCountryCode': ['country', 'dial'],
+  'promotionApplied': ['percent'],
+  'arriveEtaMin': ['arrive', 'minutes'],
+  'dropOffAt': ['time'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4469,4 +4478,16 @@ class _Exhaustive implements AppLocalizations {
   String get privacyS12Title => '';
   @override
   String get privacyS12Body => '';
+  @override
+  String get ridesForYou => '';
+  @override
+  String get ridesPremium => '';
+  @override
+  String promotionApplied(String percent) => '';
+  @override
+  String arriveEtaMin(String arrive, String minutes) => '';
+  @override
+  String get minutesShort => '';
+  @override
+  String dropOffAt(String time) => '';
 }

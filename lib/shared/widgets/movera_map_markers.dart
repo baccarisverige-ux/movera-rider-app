@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -389,5 +390,228 @@ class RouteTimeMarker {
         imagePixelRatio: scale,
       );
     });
+  }
+}
+
+/// Owner round 2: the labels over the route's ends on Select ride, like the
+/// other ride apps: a white box with the place and a line under it and an
+/// arrow (tap = change the route); the pickup's box starts with a dark
+/// square holding the minutes until the car is there (or the booked time).
+/// The point itself keeps its own pin; the label floats just above it.
+class RouteCalloutMarker {
+  const RouteCalloutMarker._();
+
+  static final Map<String, Future<BitmapDescriptor>> _cache =
+      <String, Future<BitmapDescriptor>>{};
+
+  /// The label's bottom centre sits on the point (its gap is in the image).
+  static const Offset anchor = Offset(0.5, 1);
+
+  static const double _scale = 3;
+  static const double _maxTextWidth = 150;
+
+  static Future<BitmapDescriptor> createIcon({
+    required String title,
+    required String subtitle,
+    String? boxTop,
+    String? boxBottom,
+  }) {
+    final cacheKey = [title, subtitle, boxTop, boxBottom].join('|');
+    return _cache.putIfAbsent(cacheKey, () async {
+      const s = _scale;
+      TextPainter painter(
+        String text,
+        double size,
+        FontWeight weight,
+        Color color, {
+        double? maxWidth,
+      }) {
+        return TextPainter(
+          text: TextSpan(
+            text: text,
+            style: TextStyle(
+              color: color,
+              fontSize: size * s,
+              fontWeight: weight,
+              height: 1.15,
+            ),
+          ),
+          maxLines: 1,
+          ellipsis: '…',
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: maxWidth == null ? double.infinity : maxWidth * s);
+      }
+
+      const ink = Color(0xFF111A22);
+      const muted = Color(0xFF4B555D);
+      final titleP = painter(
+        title,
+        13.5,
+        FontWeight.w700,
+        ink,
+        maxWidth: _maxTextWidth,
+      );
+      final subtitleP = painter(
+        subtitle,
+        11.5,
+        FontWeight.w500,
+        muted,
+        maxWidth: _maxTextWidth,
+      );
+      final arrowP = painter('›', 18, FontWeight.w600, ink);
+      final topP = boxTop == null
+          ? null
+          : painter(boxTop, 16, FontWeight.w700, Colors.white);
+      final bottomP = boxBottom == null
+          ? null
+          : painter(boxBottom, 9, FontWeight.w700, Colors.white);
+
+      final pad = 9 * s;
+      final textW = titleP.width > subtitleP.width
+          ? titleP.width
+          : subtitleP.width;
+      final textH = titleP.height + subtitleP.height;
+      final boxH = textH + 2 * 7 * s;
+      final minutesW = topP == null
+          ? 0.0
+          : [
+                  topP.width,
+                  bottomP?.width ?? 0,
+                  boxH * 0.86,
+                ].reduce((a, b) => a > b ? a : b) +
+                6 * s;
+      final labelW = minutesW + pad + textW + 8 * s + arrowP.width + pad * 0.8;
+      const gap = 12.0 * s;
+      const margin = 6.0 * s;
+      final width = labelW + 2 * margin;
+      final height = boxH + gap + 2 * margin;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final box = Rect.fromLTWH(margin, margin, labelW, boxH);
+      final shadow = Paint()
+        ..color = const Color(0x33000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4 * s);
+      canvas.drawRect(box.shift(const Offset(0, 1.5 * s)), shadow);
+      canvas.drawRect(box, Paint()..color = Colors.white);
+      if (topP != null) {
+        final minutes = Rect.fromLTWH(box.left, box.top, minutesW, boxH);
+        canvas.drawRect(minutes, Paint()..color = ink);
+        final innerH = topP.height + (bottomP?.height ?? 0);
+        var y = minutes.top + (boxH - innerH) / 2;
+        topP.paint(canvas, Offset(minutes.center.dx - topP.width / 2, y));
+        y += topP.height;
+        bottomP?.paint(
+          canvas,
+          Offset(minutes.center.dx - bottomP.width / 2, y),
+        );
+      }
+      final textX = box.left + minutesW + pad;
+      var y = box.top + (boxH - textH) / 2;
+      titleP.paint(canvas, Offset(textX, y));
+      y += titleP.height;
+      subtitleP.paint(canvas, Offset(textX, y));
+      arrowP.paint(
+        canvas,
+        Offset(
+          box.right - pad * 0.8 - arrowP.width,
+          box.top + (boxH - arrowP.height) / 2 - 1 * s,
+        ),
+      );
+      final image = await recorder.endRecording().toImage(
+        width.ceil(),
+        height.ceil(),
+      );
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) return BitmapDescriptor.defaultMarker;
+      return BitmapDescriptor.bytes(
+        data.buffer.asUint8List(),
+        imagePixelRatio: s,
+      );
+    });
+  }
+}
+
+/// Owner round 2: the free cars around the pickup, drawn with the same white
+/// car as the ride list. The picture faces right; a car heading west uses the
+/// mirrored one, and each is tilted a little toward its heading.
+class NearbyCarMarker {
+  const NearbyCarMarker._();
+
+  static const String asset = 'assets/images/rides/car_white.webp';
+  static const double logicalWidth = 32;
+  static const double _scale = 3;
+  static const double maxTilt = 25;
+
+  static Future<({BitmapDescriptor right, BitmapDescriptor left})>? _icons;
+
+  static Future<({BitmapDescriptor right, BitmapDescriptor left})> icons(
+    Future<Uint8List> Function(String asset) load,
+  ) {
+    return _icons ??= () async {
+      final bytes = await load(asset);
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: (logicalWidth * _scale).round(),
+      );
+      final frame = await codec.getNextFrame();
+      final car = frame.image;
+      Future<BitmapDescriptor> draw({required bool mirrored}) async {
+        final pad = 3 * _scale;
+        final w = car.width + 2 * pad;
+        final h = car.height + 2 * pad;
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawOval(
+          Rect.fromLTWH(
+            pad + car.width * 0.1,
+            pad + car.height * 0.72,
+            car.width * 0.8,
+            car.height * 0.3,
+          ),
+          Paint()
+            ..color = const Color(0x40000000)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2 * _scale),
+        );
+        if (mirrored) {
+          canvas.translate(w.toDouble(), 0);
+          canvas.scale(-1, 1);
+        }
+        canvas.drawImage(
+          car,
+          Offset(pad, pad),
+          Paint()..filterQuality = FilterQuality.high,
+        );
+        final image = await recorder.endRecording().toImage(w.ceil(), h.ceil());
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        image.dispose();
+        if (data == null) return BitmapDescriptor.defaultMarker;
+        return BitmapDescriptor.bytes(
+          data.buffer.asUint8List(),
+          imagePixelRatio: _scale,
+        );
+      }
+
+      final right = await draw(mirrored: false);
+      final left = await draw(mirrored: true);
+      car.dispose();
+      return (right: right, left: left);
+    }();
+  }
+
+  /// Which picture a [heading] uses (null: facing right), and how much to
+  /// turn it: the right-facing car is heading 90 (east), the mirrored one
+  /// 270 (west); the turn toward the real heading stays within [maxTilt].
+  static ({bool mirrored, double rotation}) pose(double? heading) {
+    if (heading == null || !heading.isFinite) {
+      return (mirrored: false, rotation: 0);
+    }
+    final h = heading % 360;
+    final mirrored = h >= 180;
+    final tilt = (h - (mirrored ? 270 : 90))
+        .clamp(-maxTilt, maxTilt)
+        .toDouble();
+    return (mirrored: mirrored, rotation: tilt);
   }
 }

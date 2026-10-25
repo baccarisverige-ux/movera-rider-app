@@ -2789,5 +2789,35 @@
   "privacyS11Title": "Notifications and marketing",
   "privacyS11Body": "We send notifications about your rides and reservations. News and offers are sent only if you have turned them on, and you can change this at any time in Account › Notifications.",
   "privacyS12Title": "Changes and contact",
-  "privacyS12Body": "We update this notice when our processing changes and show the date of the current version here. Questions: [support email], or Help in the app."
+  "privacyS12Body": "We update this notice when our processing changes and show the date of the current version here. Questions: [support email], or Help in the app.",
+  "ridesForYou": "Rides for you",
+  "ridesPremium": "Premium",
+  "promotionApplied": "{percent} % promotion applied",
+  "@promotionApplied": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "arriveEtaMin": "{arrive} · {minutes} min",
+  "@arriveEtaMin": {
+    "placeholders": {
+      "arrive": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "minutesShort": "MIN",
+  "dropOffAt": "Drop-off · {time}",
+  "@dropOffAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

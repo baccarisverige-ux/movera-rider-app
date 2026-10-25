@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'dart:math' as math;
 
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart' show HapticFeedback, rootBundle;
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
@@ -10,7 +10,6 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
-import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -44,7 +43,9 @@ import 'package:movera_rider/features/reservations/application/reservation_error
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
-import 'package:movera_rider/features/ride_selection/presentation/select_ride_filter.dart';
+import 'package:movera_rider/features/ride_selection/application/nearby_cars_controller.dart';
+import 'package:movera_rider/features/ride_selection/domain/nearby_car.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_picture.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_fit_scheduler.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart';
@@ -68,7 +69,6 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
-import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -98,6 +98,7 @@ class SelectRide extends StatefulWidget {
     this.pickupAlreadyConfirmed = false,
     this.pickupIsFallback = false,
     this.geocoding,
+    this.nearbyCars,
   });
 
   /// Whether [origin] has the exact points a return ride needs (CODE-5).
@@ -184,6 +185,10 @@ class SelectRide extends StatefulWidget {
   /// Looks the stops up; defaults to the app's geocoder.
   final GeocodingRepository? geocoding;
 
+  /// The free cars drawn around the pickup (contract v0.5.2 §13); defaults
+  /// to the server's `GET /rider/nearby-vehicles`.
+  final NearbyCarsSource? nearbyCars;
+
   @override
   State<SelectRide> createState() => _SelectRideState();
 }
@@ -200,6 +205,7 @@ class _RideOption {
     required this.seats,
     this.badge,
     this.glyph,
+    this.glyphKey,
     this.currency = Money.defaultCurrency,
   });
 
@@ -216,6 +222,9 @@ class _RideOption {
   final int seats;
   final String? badge;
   final IconData? glyph;
+
+  /// The catalog's glyph key ([RidePicture] picks what stands beside the car).
+  final String? glyphKey;
 }
 
 class _PaymentOption {
@@ -231,14 +240,16 @@ class _PaymentOption {
 }
 
 class _SelectRideState extends State<SelectRide>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _accentSoft = Color(0xFFEAF2F8);
-  static const Color _field = Color(0xFFF6F5F1);
-  static const Color _cta = Color(0xFF11181D);
+
+  /// Owner round 2: the chosen ride's strong outline and the teal button.
+  static const Color _selectedOutline = Color(0xFF0F1B2D);
+  static const Color _choose = Color(0xFF117C74);
 
   List<_RideOption> get _allRides {
     return _selection.rides().map((ride) {
@@ -255,6 +266,7 @@ class _SelectRideState extends State<SelectRide>
         seats: ride.seats,
         badge: ride.badge == null ? null : rideBadgeFor(ride.badge!),
         glyph: _glyphIcon(ride.glyph),
+        glyphKey: ride.glyph,
       );
     }).toList();
   }
@@ -275,7 +287,15 @@ class _SelectRideState extends State<SelectRide>
     _ => null,
   };
 
-  SelectRideFilter _filter = SelectRideFilter.recommended;
+  /// Owner round 2: the free cars around the pickup, gliding between the
+  /// server's answers.
+  late final NearbyCarsController _nearby = NearbyCarsController(
+    source: widget.nearbyCars ??
+        NearbyCarsController.apiSource(AppScope.instance.api),
+  );
+  Timer? _glideTicker;
+  ({BitmapDescriptor right, BitmapDescriptor left})? _carIcons;
+  bool _appInForeground = true;
   late final bool _ownsSelection = widget.selection == null;
   late final RideSelectionController _selection =
       widget.selection ??
@@ -350,6 +370,9 @@ class _SelectRideState extends State<SelectRide>
     _sheetSlide.addListener(_syncSheetOverlay);
     _sheetController.addListener(_syncSheetSlide);
     _syncSheetOverlay();
+    WidgetsBinding.instance.addObserver(this);
+    _nearby.addListener(_onNearbyCars);
+    unawaited(_loadCarIcons());
     if (widget.initialRideId != null) {
       final ride = _selection.rideByIdOrNull(widget.initialRideId!);
       if (ride != null) {
@@ -727,6 +750,11 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _glideTicker?.cancel();
+    _nearby.removeListener(_onNearbyCars);
+    _nearby.dispose();
+    _carTick.dispose();
     _expiryRequote?.cancel();
     _fits.dispose();
     _selection.catalogChanges?.removeListener(_onCatalogChanged);
@@ -739,6 +767,102 @@ class _SelectRideState extends State<SelectRide>
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.selectRide);
     super.dispose();
+  }
+
+  Future<void> _loadCarIcons() async {
+    try {
+      final icons = await NearbyCarMarker.icons(
+        (asset) async => (await rootBundle.load(asset)).buffer.asUint8List(),
+      );
+      if (mounted) setState(() => _carIcons = icons);
+    } catch (error) {
+      AppLog.warning(
+        'select_ride.car_icons_failed',
+        extra: {'error': '$error'},
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appInForeground = state == AppLifecycleState.resumed;
+    _syncNearbyWatch();
+  }
+
+  /// The cars are asked for while the live map shows this screen, the app is
+  /// in front and no booking step covers it; they follow the pickup.
+  void _syncNearbyWatch() {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    final visible =
+        _mapReady &&
+        !_mapParked &&
+        !_bookingInFlight &&
+        _appInForeground &&
+        (route?.isCurrent ?? true);
+    if (visible) {
+      _nearby.watch(
+        GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+      );
+    } else {
+      _nearby.pause();
+    }
+  }
+
+  bool _nearbySyncScheduled = false;
+
+  /// [_syncNearbyWatch] after this frame: build decides what shows, and the
+  /// controller must not notify while the tree builds.
+  void _scheduleNearbySync() {
+    if (_nearbySyncScheduled) return;
+    _nearbySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nearbySyncScheduled = false;
+      _syncNearbyWatch();
+    });
+  }
+
+  /// Ticks the map (only the map) to redraw the nearby cars.
+  final ValueNotifier<int> _carTick = ValueNotifier<int>(0);
+
+  /// A new answer: redraw, and keep redrawing while the cars glide.
+  void _onNearbyCars() {
+    if (!mounted) return;
+    _carTick.value++;
+    _glideTicker?.cancel();
+    _glideTicker = Timer.periodic(const Duration(milliseconds: 80), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final still = !_nearby.gliding();
+      _carTick.value++;
+      if (still) {
+        timer.cancel();
+        if (identical(_glideTicker, timer)) _glideTicker = null;
+      }
+    });
+  }
+
+  /// The nearby cars as map markers, under the route's pins.
+  Set<Marker> _nearbyCarMarkers() {
+    final icons = _carIcons;
+    if (icons == null) return const <Marker>{};
+    return {
+      for (final car in _nearby.frames())
+        () {
+          final pose = NearbyCarMarker.pose(car.heading);
+          return Marker(
+            markerId: MarkerId('nearby-car-${car.key}'),
+            position: LatLng(car.latitude, car.longitude),
+            icon: pose.mirrored ? icons.left : icons.right,
+            rotation: pose.rotation,
+            anchor: const Offset(0.5, 0.6),
+            zIndexInt: 1,
+            consumeTapEvents: true,
+          );
+        }(),
+    };
   }
 
   void _syncSheetOverlay() {
@@ -788,14 +912,40 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  List<_RideOption> get _visibleRides => orderRidesForFilter(
-    _allRides,
-    _filter,
-    etaMin: (ride) => ride.etaMin,
-    // rider-r3-7: the fare each row shows (the quote, promotion included),
-    // the list price only for a ride without one.
-    price: _priceFor,
-  );
+  /// Owner round 2: two groups like the other ride apps, each in catalog
+  /// order: the everyday rides first, then the premium and special ones.
+  static const _premiumGroup = {
+    'premium',
+    'business',
+    'electric',
+    'pet',
+    'kids',
+  };
+
+  List<_RideOption> get _visibleRides {
+    final rides = _allRides;
+    return [
+      for (final ride in rides)
+        if (!_premiumGroup.contains(ride.id)) ride,
+      for (final ride in rides)
+        if (_premiumGroup.contains(ride.id)) ride,
+    ];
+  }
+
+  /// The list as it is drawn: the two headings (only when both groups have
+  /// rides) and the rides under them.
+  List<({String? heading, _RideOption? ride})> get _listEntries {
+    final rides = _visibleRides;
+    final premium = rides.where((r) => _premiumGroup.contains(r.id)).toList();
+    final everyday = rides.where((r) => !_premiumGroup.contains(r.id)).toList();
+    final headed = premium.isNotEmpty && everyday.isNotEmpty;
+    return [
+      if (headed) (heading: context.l10n.ridesForYou, ride: null),
+      for (final ride in everyday) (heading: null, ride: ride),
+      if (headed) (heading: context.l10n.ridesPremium, ride: null),
+      for (final ride in premium) (heading: null, ride: ride),
+    ];
+  }
 
   TextStyle _text(
     double size, {
@@ -840,8 +990,13 @@ class _SelectRideState extends State<SelectRide>
 
   double _footerHeight(MediaQueryData media) => 134 + media.padding.bottom;
 
+  /// The sheet's fixed top: the handle (22), the promotion line or the
+  /// title, and the line under them.
+  static const double _titleHeight = 42;
+  static const double _promotionLineHeight = 44;
+
   double _headerHeight() =>
-      64 + (_promotion == null ? 0 : PromotionTicket.height + 10);
+      22 + (_promotion == null ? _titleHeight : _promotionLineHeight) + 1;
 
   /// Low stop: only the chosen ride above the payment block.
   double _minSheet(MediaQueryData media) =>
@@ -985,7 +1140,7 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
-  /// Row line under the ride name: "8 min · Arrive 23:48" now, or
+  /// Row line under the ride name: "23:48 · 8 min" now, or
   /// "Pickup 06:55 · Arrive 07:15" for a scheduled ride.
   String _timesFor(_RideOption ride) {
     final scheduled = _scheduledPickup;
@@ -995,26 +1150,48 @@ class _SelectRideState extends State<SelectRide>
         _arrivalFor(ride),
       );
     }
-    return context.l10n.etaMinArriveAt('${ride.etaMin}', _arrivalFor(ride));
+    // Owner round 2, like the other ride apps: "07:14 · 8 min" (when you
+    // arrive · how far the car is).
+    return context.l10n.arriveEtaMin(_arrivalFor(ride), '${ride.etaMin}');
   }
 
-  /// Pins carry the chosen ride's times; rebuilt when the choice changes.
+  /// The labels over the route's ends carry the chosen ride's times;
+  /// rebuilt when the choice, the times or the places change (owner round
+  /// 2: the pickup's label starts with the minutes until the car is there,
+  /// or the booked time; the destination's tells when the rider arrives).
   void _syncTimePins() {
     final ride = _selectedRideOrNull;
     if (ride == null) return;
     final scheduled = _scheduledPickup;
-    final pickupLabel = scheduled != null
-        ? clockTime(scheduled)
-        : '${ride.etaMin}\nmin';
-    final key = '${ride.id}|$pickupLabel|${_arrivalFor(ride)}';
+    final boxTop = scheduled != null ? clockTime(scheduled) : '${ride.etaMin}';
+    final boxBottom = scheduled != null ? null : context.l10n.minutesShort;
+    final pickupTitle = _compactAddress(_pickupAddress);
+    final destinationTitle = _compactAddress(widget.destinationAddress);
+    final arrival = _arrivalFor(ride);
+    final pickupLine = context.l10n.pickup;
+    final destinationLine = context.l10n.dropOffAt(arrival);
+    final key = [
+      ride.id,
+      boxTop,
+      boxBottom,
+      pickupTitle,
+      destinationTitle,
+      pickupLine,
+      destinationLine,
+    ].join('|');
     if (key == _timePinKey) return;
     _timePinKey = key;
     unawaited(() async {
       final pins = await Future.wait([
-        RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
-        RouteTimeMarker.createIcon(
-          pickup: false,
-          label: context.l10n.arriveBy(_arrivalFor(ride)),
+        RouteCalloutMarker.createIcon(
+          title: pickupTitle,
+          subtitle: pickupLine,
+          boxTop: boxTop,
+          boxBottom: boxBottom,
+        ),
+        RouteCalloutMarker.createIcon(
+          title: destinationTitle,
+          subtitle: destinationLine,
         ),
       ]);
       if (!mounted || key != _timePinKey) return;
@@ -1967,6 +2144,7 @@ class _SelectRideState extends State<SelectRide>
     _media = media;
     _settledStop ??= _midValue(media);
     _syncTimePins();
+    _scheduleNearbySync();
     final showLiveMap = _mapReady && !_mapParked;
     final minSheet = _minSheet(media);
     return PopScope(
@@ -1982,46 +2160,72 @@ class _SelectRideState extends State<SelectRide>
               bottom: minSheet,
               child: RepaintBoundary(
                 child: showLiveMap
-                    ? CustomGoogleMap(
+                    // The nearby cars redraw only the map while they glide.
+                    ? ValueListenableBuilder<int>(
+                        valueListenable: _carTick,
+                        builder: (context, _, __) => CustomGoogleMap(
                         key: const ValueKey('select-ride-map'),
                         initialPosition: CameraPosition(
                           target: _pickupPosition,
                           zoom: 13.2,
                         ),
                         markers: {
-                          if ((_pickupTimePin ?? _pickupPin) != null)
+                          // Owner round 2: the free cars around, under
+                          // everything else.
+                          ..._nearbyCarMarkers(),
+                          if (_pickupPin != null)
                             Marker(
                               markerId: const MarkerId('pickup'),
                               position: _pickupPosition,
-                              icon: (_pickupTimePin ?? _pickupPin)!,
-                              anchor: _pickupTimePin != null
-                                  ? RouteTimeMarker.anchor
-                                  : const Offset(0.5, 0.5),
+                              icon: _pickupPin!,
+                              anchor: const Offset(0.5, 0.5),
+                              zIndexInt: 2,
                             ),
-                          if ((_destinationTimePin ?? _destinationPin) != null)
+                          if (_destinationPin != null)
                             Marker(
                               markerId: const MarkerId('destination'),
                               position: widget.destinationPosition,
-                              icon: (_destinationTimePin ?? _destinationPin)!,
-                              anchor: _destinationTimePin != null
-                                  ? RouteTimeMarker.anchor
-                                  : const Offset(0.5, 0.5),
+                              icon: _destinationPin!,
+                              anchor: const Offset(0.5, 0.5),
+                              zIndexInt: 2,
+                            ),
+                          // The labels over both ends; tapping one goes
+                          // back to change the route, like Back.
+                          if (_pickupTimePin != null)
+                            Marker(
+                              markerId: const MarkerId('pickup-label'),
+                              position: _pickupPosition,
+                              icon: _pickupTimePin!,
+                              anchor: RouteCalloutMarker.anchor,
+                              zIndexInt: 3,
+                              onTap: _editRoute,
+                            ),
+                          if (_destinationTimePin != null)
+                            Marker(
+                              markerId: const MarkerId('destination-label'),
+                              position: widget.destinationPosition,
+                              icon: _destinationTimePin!,
+                              anchor: RouteCalloutMarker.anchor,
+                              zIndexInt: 3,
+                              onTap: _editRoute,
                             ),
                           // UI-08: the stops are on the map while booking.
                           ...routeStopMarkers(_locatedStops),
                         },
-                        polylines: styledRoute(
+                        // Owner round 2: one dark line, like the other
+                        // ride apps.
+                        polylines: darkRoute(
                           _roadRoutePoints != null
                               ? resolvedRoutePolyline(
                                   id: 'route',
                                   points: _roadRoutePoints!,
-                                  color: RiderRouteStyle.color,
+                                  color: _routeInk,
                                 )
                               : routePolyline(
                                   id: 'route',
                                   from: _pickupPosition,
                                   to: widget.destinationPosition,
-                                  color: RiderRouteStyle.color,
+                                  color: _routeInk,
                                 ),
                         ),
                         myLocationEnabled: false,
@@ -2079,14 +2283,27 @@ class _SelectRideState extends State<SelectRide>
                             if (mounted) unawaited(_fitRoute(force: true));
                           });
                         },
+                      ),
                       )
                     : const SelectRideRouteCanvas(),
               ),
             ),
-            Positioned(
-              top: media.padding.top + 8,
-              left: 16,
-              right: 16,
+            // Owner round 2: the address bar slides up out of the way when
+            // the sheet is fully up, and comes back as it goes down.
+            AnimatedBuilder(
+              animation: _sheetSlide,
+              builder: (context, child) {
+                final hide = ((_sheetSlide.value - 0.8) / 0.2).clamp(0.0, 1.0);
+                return Positioned(
+                  top: media.padding.top + 8 - hide * (media.padding.top + 90),
+                  left: 16,
+                  right: 16,
+                  child: IgnorePointer(
+                    ignoring: hide > 0.5,
+                    child: Opacity(opacity: 1 - hide, child: child),
+                  ),
+                );
+              },
               child: PointerInterceptor(child: _searchBar()),
             ),
             Positioned.fill(
@@ -2132,9 +2349,9 @@ class _SelectRideState extends State<SelectRide>
                               : Curves.easeOutCubic.transform(
                                   ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
                                 );
-                          final showFilters = v > 0.92;
                           final selectedRide = _selectedRideOrNull;
                           final promotion = _promotion;
+                          final entries = _listEntries;
                           return Column(
                             children: [
                               // Title, promotion and filters stay put while
@@ -2176,84 +2393,40 @@ class _SelectRideState extends State<SelectRide>
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        20,
-                                        4,
-                                        16,
-                                        8,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
+                                    // Owner round 2: a teal "promotion
+                                    // applied" line like the other ride
+                                    // apps; without one, the title.
+                                    if (promotion != null)
+                                      _promotionLine(promotion)
+                                    else
+                                      SizedBox(
+                                        height: _titleHeight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            20,
+                                            0,
+                                            16,
+                                            6,
+                                          ),
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
                                             child: Text(
                                               context.l10n.chooseYourRide,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: _text(
-                                                22,
+                                                20,
                                                 weight: FontWeight.w700,
                                                 letterSpacing: -0.4,
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (promotion != null)
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          0,
-                                          16,
-                                          10,
-                                        ),
-                                        child: PromotionTicket(
-                                          promotion: promotion,
-                                          onTap: () =>
-                                              _openPromotionDetails(promotion),
                                         ),
                                       ),
-                                    // Filters fade and slide in once the sheet
-                                    // is fully up, and away again as it leaves.
-                                    ClipRect(
-                                      child: AnimatedSize(
-                                        duration: const Duration(
-                                          milliseconds: 240,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                        alignment: Alignment.topCenter,
-                                        child: Align(
-                                          alignment: Alignment.topCenter,
-                                          heightFactor: showFilters ? 1 : 0,
-                                          child: AnimatedOpacity(
-                                            opacity: showFilters ? 1 : 0,
-                                            duration: const Duration(
-                                              milliseconds: 220,
-                                            ),
-                                            child: AnimatedSlide(
-                                              offset: showFilters
-                                                  ? Offset.zero
-                                                  : const Offset(0, -0.35),
-                                              duration: const Duration(
-                                                milliseconds: 240,
-                                              ),
-                                              curve: Curves.easeOutCubic,
-                                              child: IgnorePointer(
-                                                ignoring: !showFilters,
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.fromLTRB(
-                                                        20,
-                                                        2,
-                                                        20,
-                                                        8,
-                                                      ),
-                                                  child: _filterRow(),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                    const Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: _line,
                                     ),
                                   ],
                                 ),
@@ -2272,12 +2445,22 @@ class _SelectRideState extends State<SelectRide>
                                           14,
                                           _footerHeight(media) + 8,
                                         ),
-                                        itemCount: _visibleRides.length,
-                                        itemBuilder: (context, index) =>
-                                            _rideTile(
-                                              _visibleRides[index],
+                                        itemCount: entries.length,
+                                        itemBuilder: (context, index) {
+                                          final entry = entries[index];
+                                          final ride = entry.ride;
+                                          if (ride != null) {
+                                            return _rideTile(
+                                              ride,
                                               detail: detail,
-                                            ),
+                                            );
+                                          }
+                                          return _groupHeading(
+                                            entry.heading!,
+                                            detail: detail,
+                                            first: index == 0,
+                                          );
+                                        },
                                       ),
                                     ),
                                     // At the low stop only the chosen ride
@@ -2406,78 +2589,89 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
-  Widget _filterRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _filterChip(
-            label: context.l10n.filterRecommended,
-            selected: _filter == SelectRideFilter.recommended,
-            onTap: () => setState(() => _filter = SelectRideFilter.recommended),
-          ),
-          const SizedBox(width: 8),
-          _filterChip(
-            label: context.l10n.filterFaster,
-            icon: Icons.schedule_rounded,
-            selected: _filter == SelectRideFilter.faster,
-            onTap: () => setState(() => _filter = SelectRideFilter.faster),
-          ),
-          const SizedBox(width: 8),
-          _filterChip(
-            label: context.l10n.filterCheaper,
-            icon: Icons.payments_outlined,
-            selected: _filter == SelectRideFilter.cheaper,
-            onTap: () => setState(() => _filter = SelectRideFilter.cheaper),
-          ),
-        ],
-      ),
-    );
-  }
+  static const Color _teal = Color(0xFF1DA298);
 
-  Widget _filterChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    IconData? icon,
-  }) {
-    // rider-u191: the active filter is announced, and the chip is at
-    // least 44 px tall.
+  /// The promotion's text colour: teal dark enough to read on white.
+  static const Color _tealText = Color(0xFF117C74);
+
+  /// "30 % promotion applied ⓘ" in teal; tap for the details.
+  Widget _promotionLine(RiderPromotion promotion) {
     return Semantics(
       button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          constraints: const BoxConstraints(minHeight: A11y.minTapIOS),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? _accentSoft : _field,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: selected ? _accent : _line, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 15, color: selected ? _accent : _muted),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: _text(
-                  13,
-                  weight: selected ? FontWeight.w600 : FontWeight.w500,
+      child: InkWell(
+        key: const ValueKey('select-ride-promotion-line'),
+        onTap: () => _openPromotionDetails(promotion),
+        child: SizedBox(
+          height: _promotionLineHeight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.local_offer_rounded, size: 17, color: _teal),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    context.l10n.promotionApplied('${promotion.percentOff}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(
+                      15.5,
+                      weight: FontWeight.w600,
+                      color: _tealText,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 17,
+                  color: _tealText,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// "Rides for you" / "Premium": shown once the sheet is fully up.
+  Widget _groupHeading(
+    String text, {
+    required double detail,
+    required bool first,
+  }) {
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.topLeft,
+        heightFactor: detail,
+        child: Opacity(
+          opacity: detail,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(8, first ? 10 : 18, 8, 8),
+            child: Semantics(
+              header: true,
+              child: Text(
+                text,
+                key: ValueKey('select-ride-heading-$text'),
+                style: _text(19, weight: FontWeight.w700, letterSpacing: -0.3),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A tap on the route's labels: back to change the route, like Back.
+  void _editRoute() {
+    if (_bookingInFlight || !mounted) return;
+    unawaited(Navigator.maybePop(context));
+  }
+
+  /// Owner round 2: the route as one dark line with a thin white edge.
+  static const Color _routeInk = darkRouteInk;
 
   /// Add card for the generic Card row (no saved card yet): the new card
   /// becomes the chosen method. Null: no card was added.
@@ -2556,8 +2750,8 @@ class _SelectRideState extends State<SelectRide>
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: selected ? _accent : Colors.transparent,
-                  width: 1.2,
+                  color: selected ? _selectedOutline : Colors.transparent,
+                  width: 2,
                 ),
                 boxShadow: selected
                     ? [
@@ -2573,42 +2767,12 @@ class _SelectRideState extends State<SelectRide>
               ),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 96,
-                    height: 58,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: Image.asset(
-                            excludeFromSemantics: true,
-                            ride.image,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                            cacheWidth: 216,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.directions_car_filled_rounded,
-                              color: _muted,
-                              size: 36,
-                            ),
-                          ),
-                        ),
-                        if (ride.glyph != null)
-                          Positioned(
-                            left: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: const BoxDecoration(
-                                color: _accentSoft,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(ride.glyph, size: 14, color: _accent),
-                            ),
-                          ),
-                      ],
-                    ),
+                  // Owner round 2: the white car like the other ride
+                  // apps, with what tells the type apart beside it.
+                  RidePicture(
+                    rideId: ride.id,
+                    glyph: ride.glyphKey,
+                    glyphIcon: ride.glyph,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -2630,18 +2794,18 @@ class _SelectRideState extends State<SelectRide>
                                       style: _text(16, weight: FontWeight.w600),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 7),
                                   const Icon(
-                                    Icons.person_outline_rounded,
+                                    Icons.person_rounded,
                                     size: 14,
-                                    color: _muted,
+                                    color: _ink,
                                   ),
                                   Flexible(
                                     child: Text(
                                       '${ride.seats}',
                                       maxLines: 1,
                                       overflow: TextOverflow.clip,
-                                      style: _text(12.5, color: _muted),
+                                      style: _text(13, color: _ink),
                                     ),
                                   ),
                                 ],
@@ -2654,7 +2818,7 @@ class _SelectRideState extends State<SelectRide>
                                 child: Icon(
                                   Icons.local_offer_rounded,
                                   size: 14,
-                                  color: _accent,
+                                  color: _teal,
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -2677,7 +2841,11 @@ class _SelectRideState extends State<SelectRide>
                                 _timesFor(ride),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: _text(12.5, color: _muted),
+                                style: _text(
+                                  13.5,
+                                  color: _ink,
+                                  weight: FontWeight.w400,
+                                ),
                               ),
                             ),
                             if (discount > 0)
@@ -2858,7 +3026,7 @@ class _SelectRideState extends State<SelectRide>
             children: [
               Expanded(
                 child: Material(
-                  color: _cta,
+                  color: _choose,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     onTap: _bookingInFlight ? null : _book,
@@ -2889,19 +3057,16 @@ class _SelectRideState extends State<SelectRide>
                 button: true,
                 label: context.l10n.bookNowOrLater,
                 child: Material(
-                  color: _cta,
-                  shape: const CircleBorder(),
+                  color: const Color(0xFFEEF1F3),
+                  borderRadius: BorderRadius.circular(16),
                   child: InkWell(
-                    customBorder: const CircleBorder(),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: _showBookingPicker,
                     child: const SizedBox(
                       width: 54,
                       height: 54,
                       child: ExcludeSemantics(
-                        child: Icon(
-                          Icons.calendar_month_rounded,
-                          color: Colors.white,
-                        ),
+                        child: Icon(Icons.calendar_month_rounded, color: _ink),
                       ),
                     ),
                   ),
@@ -2952,11 +3117,6 @@ class _SelectRideState extends State<SelectRide>
                             style: _text(15, weight: FontWeight.w600),
                           ),
                         ),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: _ink,
-                          size: 20,
-                        ),
                       ],
                     ),
                     Text(
@@ -2972,6 +3132,8 @@ class _SelectRideState extends State<SelectRide>
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded, color: _ink, size: 22),
+              const SizedBox(width: 2),
             ],
           ),
         ),
