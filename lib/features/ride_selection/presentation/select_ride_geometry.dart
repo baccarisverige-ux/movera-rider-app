@@ -71,10 +71,9 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
   );
 }
 
-/// Room kept around the route on Select Ride: the label above a pin (owner
-/// round 2) is up to about 200 px wide and 60 px tall, so about half its
-/// width plus a margin.
-const double selectRideEdgePadding = 104;
+/// Room kept around the route on Select Ride: the time bubble above a pin
+/// is about 110 px wide and 56 px tall, so half its width plus a margin.
+const double selectRideEdgePadding = 76;
 
 /// Rough trip minutes from the straight-line distance, until the server sends
 /// the route duration (LATER_JOB B4): ×1.35 for roads, 40 km/h average.

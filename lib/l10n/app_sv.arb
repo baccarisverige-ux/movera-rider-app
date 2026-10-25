@@ -1421,7 +1421,5 @@
   "ridesForYou": "Resor för dig",
   "ridesPremium": "Premium",
   "promotionApplied": "{percent} % kampanj tillämpad",
-  "arriveEtaMin": "{arrive} · {minutes} min",
-  "minutesShort": "MIN",
-  "dropOffAt": "Avlämning · {time}"
+  "arriveEtaMin": "{arrive} · {minutes} min"
 }

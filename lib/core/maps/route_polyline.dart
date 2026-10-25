@@ -197,22 +197,3 @@ Set<Polyline> styledRoute(Polyline route) {
   }
   return pieces;
 }
-
-/// Owner round 2 (Select ride): the route's dark ink, like the other ride
-/// apps.
-const Color darkRouteInk = Color(0xFF0B1B2E);
-
-/// [route] drawn as one dark line ([darkRouteInk]) on a thin white edge.
-Set<Polyline> darkRoute(Polyline route) {
-  if (route.points.length < 2) return {route};
-  return {
-    Polyline(
-      polylineId: PolylineId('${route.polylineId.value}-casing'),
-      points: route.points,
-      color: Colors.white,
-      width: route.width + 3,
-      zIndex: 1,
-    ),
-    route.copyWith(colorParam: darkRouteInk, zIndexParam: 2),
-  };
-}
