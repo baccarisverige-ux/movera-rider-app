@@ -2810,14 +2810,5 @@
         "type": "String"
       }
     }
-  },
-  "minutesShort": "MIN",
-  "dropOffAt": "Drop-off · {time}",
-  "@dropOffAt": {
-    "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
   }
 }

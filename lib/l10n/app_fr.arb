@@ -1421,7 +1421,5 @@
   "ridesForYou": "Courses pour vous",
   "ridesPremium": "Premium",
   "promotionApplied": "Promotion de {percent} % appliquée",
-  "arriveEtaMin": "{arrive} · {minutes} min",
-  "minutesShort": "MIN",
-  "dropOffAt": "Dépose · {time}"
+  "arriveEtaMin": "{arrive} · {minutes} min"
 }

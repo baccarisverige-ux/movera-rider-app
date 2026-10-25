@@ -2286,6 +2286,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   void _openAccount() => _openTab(HomeTabs.account);
 
+  /// Owner round 3: how far the map rises with the sheet: a third of the
+  /// sheet's rise above its low stop, at most a quarter of the map.
+  double _mapLift(double mapHeight) {
+    if (!_homeSheetController.hasClient) return 0;
+    final offset = _homeSheetController.metrics?.offset;
+    if (offset == null || !offset.isFinite) return 0;
+    final rise = offset - _sheetMinPixels;
+    if (rise <= 0) return 0;
+    return (rise / 3).clamp(0.0, mapHeight / 4);
+  }
+
   /// The layout the map was sized for, see [_stableMapHeight].
   Size? _mapLayout;
 
@@ -2342,34 +2353,44 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         left: 0,
                         right: 0,
                         height: mapHeight,
-                        child: RepaintBoundary(
-                          child: HomeMapLayer(
-                            key: const ValueKey('home-map-layer'),
-                            location: _locationCtl,
-                            parked: _mapParked,
-                            padding: EdgeInsets.only(bottom: _sheetMinPixels),
-                            initialPosition: _initialPosition,
-                            mapStyle: homeMapStyle,
-                            onCameraMove: _handleMapCameraMove,
-                            onMapCreated: (GoogleMapController controller) {
-                              AppScope.instance.maps.attach(
-                                controller,
-                                owner: MapOwners.home,
-                              );
-                              final view = mapViewOf(controller);
-                              _locationCtl.mapBusy = () =>
-                                  view.touching || view.easing;
-                              AppScope.instance.mapLifecycle.created();
-                              final target = _currentLatLng ?? _cameraHint;
-                              if (target != null) {
-                                if (!_hasFix) _quickCameraAt = target;
-                                AppScope.instance.maps.animateCamera(
-                                  GeoPoint(target.latitude, target.longitude),
-                                  zoom: homeOpeningZoom,
-                                  follow: true,
+                        // Owner round 3: the map rises a little (a third of
+                        // the way) as the sheet goes up, like the other ride
+                        // apps, so the rider's spot stays above the sheet.
+                        child: AnimatedBuilder(
+                          animation: _homeSheetController,
+                          builder: (context, map) => Transform.translate(
+                            offset: Offset(0, -_mapLift(mapHeight)),
+                            child: map,
+                          ),
+                          child: RepaintBoundary(
+                            child: HomeMapLayer(
+                              key: const ValueKey('home-map-layer'),
+                              location: _locationCtl,
+                              parked: _mapParked,
+                              padding: EdgeInsets.only(bottom: _sheetMinPixels),
+                              initialPosition: _initialPosition,
+                              mapStyle: homeMapStyle,
+                              onCameraMove: _handleMapCameraMove,
+                              onMapCreated: (GoogleMapController controller) {
+                                AppScope.instance.maps.attach(
+                                  controller,
+                                  owner: MapOwners.home,
                                 );
-                              }
-                            },
+                                final view = mapViewOf(controller);
+                                _locationCtl.mapBusy = () =>
+                                    view.touching || view.easing;
+                                AppScope.instance.mapLifecycle.created();
+                                final target = _currentLatLng ?? _cameraHint;
+                                if (target != null) {
+                                  if (!_hasFix) _quickCameraAt = target;
+                                  AppScope.instance.maps.animateCamera(
+                                    GeoPoint(target.latitude, target.longitude),
+                                    zoom: homeOpeningZoom,
+                                    follow: true,
+                                  );
+                                }
+                              },
+                            ),
                           ),
                         ),
                       ),

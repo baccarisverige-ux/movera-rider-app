@@ -7,11 +7,12 @@ typedef RouteFitPlan = ({String key, Future<void> Function() move});
 /// Owner (iPhone PWA): every sheet settle started a new camera flight and
 /// tile load, and sliding many times made Safari reload the tab. Settles
 /// are debounced, an unchanged framing is skipped and only one flight runs
-/// at a time (a request during it runs once after it lands).
+/// at a time (a request during it runs once after it lands). Owner round 3:
+/// the rest before a fit is 150 ms (was 300), so the map follows faster.
 class RouteFitScheduler {
   RouteFitScheduler({
     required RouteFitPlan? Function() plan,
-    this.settleDelay = const Duration(milliseconds: 300),
+    this.settleDelay = const Duration(milliseconds: 150),
     this.flightLimit = const Duration(seconds: 4),
   }) : _plan = plan;
 

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'dart:math' as math;
 
-import 'package:flutter/services.dart' show HapticFeedback, rootBundle;
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
@@ -247,9 +247,10 @@ class _SelectRideState extends State<SelectRide>
   static const Color _accent = Color(0xFF2D5878);
   static const Color _accentSoft = Color(0xFFEAF2F8);
 
-  /// Owner round 2: the chosen ride's strong outline and the teal button.
+  static const Color _cta = Color(0xFF11181D);
+
+  /// Owner round 2: the chosen ride's strong outline.
   static const Color _selectedOutline = Color(0xFF0F1B2D);
-  static const Color _choose = Color(0xFF117C74);
 
   List<_RideOption> get _allRides {
     return _selection.rides().map((ride) {
@@ -771,9 +772,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadCarIcons() async {
     try {
-      final icons = await NearbyCarMarker.icons(
-        (asset) async => (await rootBundle.load(asset)).buffer.asUint8List(),
-      );
+      final icons = await NearbyCarMarker.icons();
       if (mounted) setState(() => _carIcons = icons);
     } catch (error) {
       AppLog.warning(
@@ -1037,9 +1036,16 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  /// Owner round 3: while the sheet snaps to a stop, the camera already
+  /// frames the route for that stop, so the map moves with the sheet
+  /// instead of after it.
+  double? _fitSlideTarget;
+
   void _snapSheetTo(double target) {
     final media = _media;
     if (media == null || !_sheetController.isAttached) return;
+    _fitSlideTarget = target;
+    unawaited(_fitRoute());
     final minSheet = _minSheet(media);
     final pixels = minSheet + (_maxSheet(media) - minSheet) * target;
     unawaited(
@@ -1103,6 +1109,7 @@ class _SelectRideState extends State<SelectRide>
     );
     if ((nearest - v).abs() > 0.02 || nearest == _settledStop) return false;
     _settledStop = nearest;
+    _fitSlideTarget = null;
     HapticFeedback.selectionClick();
     _fits.settled();
     return false;
@@ -1155,43 +1162,23 @@ class _SelectRideState extends State<SelectRide>
     return context.l10n.arriveEtaMin(_arrivalFor(ride), '${ride.etaMin}');
   }
 
-  /// The labels over the route's ends carry the chosen ride's times;
-  /// rebuilt when the choice, the times or the places change (owner round
-  /// 2: the pickup's label starts with the minutes until the car is there,
-  /// or the booked time; the destination's tells when the rider arrives).
+  /// Pins carry the chosen ride's times; rebuilt when the choice changes.
   void _syncTimePins() {
     final ride = _selectedRideOrNull;
     if (ride == null) return;
     final scheduled = _scheduledPickup;
-    final boxTop = scheduled != null ? clockTime(scheduled) : '${ride.etaMin}';
-    final boxBottom = scheduled != null ? null : context.l10n.minutesShort;
-    final pickupTitle = _compactAddress(_pickupAddress);
-    final destinationTitle = _compactAddress(widget.destinationAddress);
-    final arrival = _arrivalFor(ride);
-    final pickupLine = context.l10n.pickup;
-    final destinationLine = context.l10n.dropOffAt(arrival);
-    final key = [
-      ride.id,
-      boxTop,
-      boxBottom,
-      pickupTitle,
-      destinationTitle,
-      pickupLine,
-      destinationLine,
-    ].join('|');
+    final pickupLabel = scheduled != null
+        ? clockTime(scheduled)
+        : '${ride.etaMin}\nmin';
+    final key = '${ride.id}|$pickupLabel|${_arrivalFor(ride)}';
     if (key == _timePinKey) return;
     _timePinKey = key;
     unawaited(() async {
       final pins = await Future.wait([
-        RouteCalloutMarker.createIcon(
-          title: pickupTitle,
-          subtitle: pickupLine,
-          boxTop: boxTop,
-          boxBottom: boxBottom,
-        ),
-        RouteCalloutMarker.createIcon(
-          title: destinationTitle,
-          subtitle: destinationLine,
+        RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
+        RouteTimeMarker.createIcon(
+          pickup: false,
+          label: context.l10n.arriveBy(_arrivalFor(ride)),
         ),
       ]);
       if (!mounted || key != _timePinKey) return;
@@ -1226,8 +1213,8 @@ class _SelectRideState extends State<SelectRide>
     // D-009: the map sits behind the (initially expanded) sheet, so frame
     // both pins in the part of the map the sheet leaves visible.
     final minSheet = _minSheet(media);
-    final sheetHeight =
-        minSheet + (_maxSheet(media) - minSheet) * _sheetSlide.value;
+    final slide = _fitSlideTarget ?? _sheetSlide.value;
+    final sheetHeight = minSheet + (_maxSheet(media) - minSheet) * slide;
     final fit = selectRideCameraFit(
       pickup: GeoPoint(pickup.latitude, pickup.longitude),
       destination: GeoPoint(destination.latitude, destination.longitude),
@@ -2171,61 +2158,43 @@ class _SelectRideState extends State<SelectRide>
                         ),
                         markers: {
                           // Owner round 2: the free cars around, under
-                          // everything else.
+                          // the route's pins.
                           ..._nearbyCarMarkers(),
-                          if (_pickupPin != null)
+                          if ((_pickupTimePin ?? _pickupPin) != null)
                             Marker(
                               markerId: const MarkerId('pickup'),
                               position: _pickupPosition,
-                              icon: _pickupPin!,
-                              anchor: const Offset(0.5, 0.5),
+                              icon: (_pickupTimePin ?? _pickupPin)!,
+                              anchor: _pickupTimePin != null
+                                  ? RouteTimeMarker.anchor
+                                  : const Offset(0.5, 0.5),
                               zIndexInt: 2,
                             ),
-                          if (_destinationPin != null)
+                          if ((_destinationTimePin ?? _destinationPin) != null)
                             Marker(
                               markerId: const MarkerId('destination'),
                               position: widget.destinationPosition,
-                              icon: _destinationPin!,
-                              anchor: const Offset(0.5, 0.5),
+                              icon: (_destinationTimePin ?? _destinationPin)!,
+                              anchor: _destinationTimePin != null
+                                  ? RouteTimeMarker.anchor
+                                  : const Offset(0.5, 0.5),
                               zIndexInt: 2,
-                            ),
-                          // The labels over both ends; tapping one goes
-                          // back to change the route, like Back.
-                          if (_pickupTimePin != null)
-                            Marker(
-                              markerId: const MarkerId('pickup-label'),
-                              position: _pickupPosition,
-                              icon: _pickupTimePin!,
-                              anchor: RouteCalloutMarker.anchor,
-                              zIndexInt: 3,
-                              onTap: _editRoute,
-                            ),
-                          if (_destinationTimePin != null)
-                            Marker(
-                              markerId: const MarkerId('destination-label'),
-                              position: widget.destinationPosition,
-                              icon: _destinationTimePin!,
-                              anchor: RouteCalloutMarker.anchor,
-                              zIndexInt: 3,
-                              onTap: _editRoute,
                             ),
                           // UI-08: the stops are on the map while booking.
                           ...routeStopMarkers(_locatedStops),
                         },
-                        // Owner round 2: one dark line, like the other
-                        // ride apps.
-                        polylines: darkRoute(
+                        polylines: styledRoute(
                           _roadRoutePoints != null
                               ? resolvedRoutePolyline(
                                   id: 'route',
                                   points: _roadRoutePoints!,
-                                  color: _routeInk,
+                                  color: RiderRouteStyle.color,
                                 )
                               : routePolyline(
                                   id: 'route',
                                   from: _pickupPosition,
                                   to: widget.destinationPosition,
-                                  color: _routeInk,
+                                  color: RiderRouteStyle.color,
                                 ),
                         ),
                         myLocationEnabled: false,
@@ -2474,11 +2443,22 @@ class _SelectRideState extends State<SelectRide>
                                           ignoring: listReveal > 0.5,
                                           child: Opacity(
                                             opacity: 1 - listReveal,
-                                            child: ColoredBox(
-                                              color: Colors.white,
-                                              child: _rideTile(
-                                                selectedRide,
-                                                detail: 0,
+                                            // Owner round 3: a swipe on the
+                                            // chosen ride moves the sheet too.
+                                            child: GestureDetector(
+                                              key: const ValueKey(
+                                                'select-ride-low-row-drag',
+                                              ),
+                                              onVerticalDragUpdate: (d) =>
+                                                  _onHeaderDragUpdate(d, media),
+                                              onVerticalDragEnd: (d) =>
+                                                  _onHeaderDragEnd(d, media),
+                                              child: ColoredBox(
+                                                color: Colors.white,
+                                                child: _rideTile(
+                                                  selectedRide,
+                                                  detail: 0,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -2501,7 +2481,15 @@ class _SelectRideState extends State<SelectRide>
               left: 0,
               right: 0,
               bottom: 0,
-              child: PointerInterceptor(child: _footer(media.padding.bottom)),
+              // Owner round 3: the payment block moves the sheet too.
+              child: PointerInterceptor(
+                child: GestureDetector(
+                  key: const ValueKey('select-ride-footer-drag'),
+                  onVerticalDragUpdate: (d) => _onHeaderDragUpdate(d, media),
+                  onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
+                  child: _footer(media.padding.bottom),
+                ),
+              ),
             ),
           ],
         ),
@@ -2663,15 +2651,6 @@ class _SelectRideState extends State<SelectRide>
       ),
     );
   }
-
-  /// A tap on the route's labels: back to change the route, like Back.
-  void _editRoute() {
-    if (_bookingInFlight || !mounted) return;
-    unawaited(Navigator.maybePop(context));
-  }
-
-  /// Owner round 2: the route as one dark line with a thin white edge.
-  static const Color _routeInk = darkRouteInk;
 
   /// Add card for the generic Card row (no saved card yet): the new card
   /// becomes the chosen method. Null: no card was added.
@@ -3026,7 +3005,7 @@ class _SelectRideState extends State<SelectRide>
             children: [
               Expanded(
                 child: Material(
-                  color: _choose,
+                  color: _cta,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     onTap: _bookingInFlight ? null : _book,
@@ -3057,16 +3036,19 @@ class _SelectRideState extends State<SelectRide>
                 button: true,
                 label: context.l10n.bookNowOrLater,
                 child: Material(
-                  color: const Color(0xFFEEF1F3),
-                  borderRadius: BorderRadius.circular(16),
+                  color: _cta,
+                  shape: const CircleBorder(),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    customBorder: const CircleBorder(),
                     onTap: _showBookingPicker,
                     child: const SizedBox(
                       width: 54,
                       height: 54,
                       child: ExcludeSemantics(
-                        child: Icon(Icons.calendar_month_rounded, color: _ink),
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
