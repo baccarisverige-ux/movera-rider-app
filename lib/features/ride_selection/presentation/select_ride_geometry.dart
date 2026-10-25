@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 
-/// D-009: the expanded ride sheet used to reach 72 px below the status bar,
-/// hiding almost the whole map — including the destination pin — until
-/// Finding. Keep a real slice of map visible above it (large text still gets
-/// the full height it needs).
+/// The strip of map above the fully opened sheet, under the status bar.
+const double selectRideFullTopGap = 52;
+
+/// The expanded ride sheet's height. D-009 kept a third of the map above it;
+/// owner round 2 asked for it near the top instead, with the address bar
+/// sliding away (large text still gets the full height it needs).
 double selectRideMaxSheetHeight(MediaQueryData media) {
   // UI-1: the upper bound must never fall below the lower one, or clamp
   // throws on screens shorter than 625 px.
@@ -15,9 +17,10 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
     math.max(300.0, media.size.height * 0.48),
   );
   final largeText = media.textScaler.scale(1) >= 1.6;
-  final topClearance = largeText
-      ? 0.0
-      : math.max(72.0, media.size.height * 0.34 - media.padding.top);
+  // Owner round 2 (replaces D-009's third of the screen): fully up, the
+  // sheet goes near the top like the other ride apps and the address bar
+  // slides away; a strip of map stays above it.
+  final topClearance = largeText ? 0.0 : selectRideFullTopGap;
   final maxH = media.size.height - media.padding.top - topClearance;
   return maxH < minH + 64 ? minH + 64 : maxH;
 }
@@ -68,9 +71,10 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
   );
 }
 
-/// Room kept around the route on Select Ride: the time bubble above a pin
-/// is about 110 px wide and 56 px tall, so half its width plus a margin.
-const double selectRideEdgePadding = 76;
+/// Room kept around the route on Select Ride: the label above a pin (owner
+/// round 2) is up to about 200 px wide and 60 px tall, so about half its
+/// width plus a margin.
+const double selectRideEdgePadding = 104;
 
 /// Rough trip minutes from the straight-line distance, until the server sends
 /// the route duration (LATER_JOB B4): ×1.35 for roads, 40 km/h average.

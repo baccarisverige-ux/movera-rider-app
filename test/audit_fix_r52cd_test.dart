@@ -445,8 +445,8 @@ void main() {
     expect(find.text(cancellation()), findsOneWidget);
   });
 
-  testWidgets('rider-r3-7: "Cheaper" orders by the fare each row shows',
-      (tester) async {
+  testWidgets('rider-r3-7: each row shows the fare it was quoted (the '
+      'filter chips are gone since owner round 2)', (tester) async {
     // Priority lists dearer than Movera but is quoted cheapest.
     final selection = await openSelectRide(
       tester,
@@ -456,20 +456,14 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.ensureVisible(find.text('Cheaper'));
-    await tester.pump();
-    await tester.tap(find.text('Cheaper'));
-    await tester.pump(const Duration(milliseconds: 400));
-
+    expect(find.text('Cheaper'), findsNothing);
     final list = find.byKey(const ValueKey('select-ride-list'));
-    double top(String id) => tester.getTopLeft(find
-            .descendant(
-              of: list,
-              matching: find.text(selection.rideByIdOrNull(id)!.name),
-            )
-            .first)
-        .dy;
-    expect(top('priority'), lessThan(top('economy')));
+    final priority = selection.rideByIdOrNull('priority')!;
+    expect(priority.price, isNot(100));
+    expect(
+      find.descendant(of: list, matching: find.text('100 kr')),
+      findsWidgets,
+    );
   });
 
   testWidgets('rider-80: no wallet split from a kronor list price on a euro '

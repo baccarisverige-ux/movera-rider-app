@@ -1417,5 +1417,11 @@
   "privacyS11Title": "Notifications et marketing",
   "privacyS11Body": "Nous envoyons des notifications sur vos courses et réservations. Les nouveautés et offres ne sont envoyées que si vous les avez activées, et vous pouvez changer cela à tout moment dans Compte › Notifications.",
   "privacyS12Title": "Modifications et contact",
-  "privacyS12Body": "Nous mettons cette notice à jour lorsque nos traitements changent et affichons ici la date de la version en vigueur. Questions : [e-mail du support], ou Aide dans l’application."
+  "privacyS12Body": "Nous mettons cette notice à jour lorsque nos traitements changent et affichons ici la date de la version en vigueur. Questions : [e-mail du support], ou Aide dans l’application.",
+  "ridesForYou": "Courses pour vous",
+  "ridesPremium": "Premium",
+  "promotionApplied": "Promotion de {percent} % appliquée",
+  "arriveEtaMin": "{arrive} · {minutes} min",
+  "minutesShort": "MIN",
+  "dropOffAt": "Dépose · {time}"
 }

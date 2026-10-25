@@ -10,9 +10,9 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
-/// Phase 139 moved Select Ride's filter ordering and pre-map placeholder out
-/// of select_ride.dart. These pin the behaviour the rider sees so the move -
-/// and any later change - cannot silently alter it.
+/// Phase 139 moved Select Ride's pre-map placeholder out of select_ride.dart.
+/// These pin the behaviour the rider sees (the list order, owner round 2,
+/// replaced the filter chips) so a later change cannot silently alter it.
 class _ImmediateQuotes implements QuoteRepository {
   @override
   Future<RideQuote> quote({
@@ -93,72 +93,57 @@ void main() {
     return [for (final p in positioned) p.$1];
   }
 
-  /// Stable sort, independent of production code: ties keep catalog order.
-  List<String> expectedOrder<T>(
-    List<T> catalog,
-    String Function(T) name,
-    num Function(T)? key,
-  ) {
-    final indexed = [for (var i = 0; i < catalog.length; i++) (i, catalog[i])];
-    if (key != null) {
-      indexed.sort((a, b) {
-        final byKey = key(a.$2).compareTo(key(b.$2));
-        return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
-      });
-    }
-    return [for (final e in indexed) name(e.$2)];
-  }
-
   testWidgets(
-    'filter chips order the list: Faster by ETA, Cheaper by shown fare, '
-    'Recommended back to catalog order',
+    'owner round 2: everyday rides first, then the premium ones, each in '
+    'catalog order; the two headings show once the sheet is fully up',
     (tester) async {
       // Tall enough that the lazily built list shows every ride at once.
       final selection = await openSelectRide(tester, height: 2400);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pump(const Duration(seconds: 1));
-      // Opens at the middle stop; the filters show once the sheet is fully up.
-      await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
 
       final catalog = selection.rides().toList();
       final names = catalog.map((r) => r.name).toList();
       expect(names.toSet().length, names.length, reason: 'names must be unique');
-      expect(find.text('Faster'), findsOneWidget);
+      const premium = {'premium', 'business', 'electric', 'pet', 'kids'};
+      final expected = [
+        for (final r in catalog)
+          if (!premium.contains(r.id)) r.name,
+        for (final r in catalog)
+          if (premium.contains(r.id)) r.name,
+      ];
+      expect(catalog.any((r) => premium.contains(r.id)), isTrue);
+      expect(catalog.any((r) => !premium.contains(r.id)), isTrue);
 
-      Future<List<String>> after(String chip) async {
-        // The chip row scrolls sideways; Cheaper starts past the right edge.
-        await tester.ensureVisible(find.text(chip));
-        await tester.pump();
-        await tester.tap(find.text(chip));
-        await tester.pump(const Duration(milliseconds: 400));
-        return listedOrder(tester, names);
+      // No filter chips any more (owner round 2).
+      expect(find.text('Faster'), findsNothing);
+      expect(find.text('Cheaper'), findsNothing);
+
+      // Fully up: both headings, above their groups.
+      await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
       }
-
-      final faster = await after('Faster');
-      final cheaper = await after('Cheaper');
-      final recommended = await after('Recommended');
-
-      // Every ride must be on screen, or the comparison would be partial.
-      expect(faster, hasLength(names.length));
-      expect(
-        faster,
-        expectedOrder(catalog, (r) => r.name, (r) => r.etaMin),
+      final order = listedOrder(tester, names);
+      expect(order, hasLength(names.length));
+      expect(order, expected);
+      final list = find.byKey(const ValueKey('select-ride-list'));
+      final forYou = find.byKey(const ValueKey('select-ride-heading-Rides for you'));
+      final premiumHeading = find.byKey(const ValueKey('select-ride-heading-Premium'));
+      expect(forYou, findsOneWidget);
+      expect(premiumHeading, findsOneWidget);
+      final firstPremium = expected.firstWhere(
+        (name) => premium.contains(catalog.firstWhere((r) => r.name == name).id),
       );
-      // rider-r3-7 (a decision): the fare each tile shows, the live quote
-      // when there is one, no longer the catalog base price.
-      expect(
-        cheaper,
-        expectedOrder(
-          catalog,
-          (r) => r.name,
-          (r) => selection.priceFor(r.id, r.price),
-        ),
-      );
-      expect(recommended, expectedOrder(catalog, (r) => r.name, null));
+      final firstPremiumY = tester
+          .getTopLeft(
+            find.descendant(of: list, matching: find.text(firstPremium)).last,
+          )
+          .dy;
+      final headingY = tester.getTopLeft(premiumHeading.first).dy;
+      expect(headingY, lessThan(firstPremiumY));
+      expect(tester.getTopLeft(forYou).dy, lessThan(headingY));
     },
   );
 

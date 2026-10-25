@@ -1417,5 +1417,11 @@
   "privacyS11Title": "Aviseringar och marknadsföring",
   "privacyS11Body": "Vi skickar aviseringar om dina resor och bokningar. Nyheter och erbjudanden skickas bara om du har slagit på dem, och du kan ändra det när som helst under Konto › Aviseringar.",
   "privacyS12Title": "Ändringar och kontakt",
-  "privacyS12Body": "Vi uppdaterar den här informationen när vår behandling ändras och visar datumet för gällande version här. Frågor: [supportmejl], eller Hjälp i appen."
+  "privacyS12Body": "Vi uppdaterar den här informationen när vår behandling ändras och visar datumet för gällande version här. Frågor: [supportmejl], eller Hjälp i appen.",
+  "ridesForYou": "Resor för dig",
+  "ridesPremium": "Premium",
+  "promotionApplied": "{percent} % kampanj tillämpad",
+  "arriveEtaMin": "{arrive} · {minutes} min",
+  "minutesShort": "MIN",
+  "dropOffAt": "Avlämning · {time}"
 }

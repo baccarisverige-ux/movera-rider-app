@@ -30,6 +30,8 @@ void main() {
       'compassNorth', 'compassSouth', 'compassEast',
       // R5.1: a pickup spot named with the word French shares.
       'pickupSpotParking',
+      // Owner round 2: words French shares with English on Select ride.
+      'ridesPremium', 'minutesShort', 'arriveEtaMin',
     },
     'sv': {
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',
@@ -39,6 +41,8 @@ void main() {
       'rideCheckTitle', 'relationshipPartner', 'supportEmailSubject',
       // R5.1: compass letters Swedish shares with English.
       'compassNorth', 'compassSouth',
+      // Owner round 2: words Swedish shares with English on Select ride.
+      'ridesPremium', 'minutesShort', 'arriveEtaMin',
     },
   };
 

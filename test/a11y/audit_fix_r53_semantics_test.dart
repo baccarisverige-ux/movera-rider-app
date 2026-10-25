@@ -338,7 +338,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('rider-u191: Select ride filters and tiles announce selection',
+  testWidgets('rider-u191: Select ride tiles announce selection, headings are headings',
       (tester) async {
     final selection = RideSelectionController(
       catalog: RideCatalogController(
@@ -373,20 +373,16 @@ void main() {
     }
     SemanticsNode nodeOf(Finder text) => tester.getSemantics(text.first);
 
-    // The filters show on the fully open sheet.
+    // Fully open (owner round 2: no filter chips any more; the two
+    // group headings are announced as headings).
     await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-
-    final recommended = find.text('Recommended');
-    final faster = find.text('Faster');
-    expect(nodeOf(recommended), isSemantics(isButton: true, isSelected: true));
-    expect(nodeOf(faster), isSemantics(isButton: true, isSelected: false));
-    expect(nodeOf(faster).rect.height, greaterThanOrEqualTo(44));
-    await tester.tap(faster);
-    await tester.pump();
-    expect(nodeOf(faster), isSemantics(isButton: true, isSelected: true));
+    expect(find.text('Faster'), findsNothing);
+    final heading = find.byKey(const ValueKey('select-ride-heading-Rides for you'));
+    expect(heading, findsOneWidget);
+    expect(nodeOf(heading), isSemantics(isHeader: true));
 
     // The chosen category's tile is selected; another one is not.
     final chosen = selection.rideById(selection.selectedRideId).name;

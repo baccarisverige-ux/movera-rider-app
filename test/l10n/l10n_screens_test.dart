@@ -80,7 +80,9 @@ void main() {
         pickupPosition: pickup,
         destinationPosition: destination,
       ),
-      (l) => l.chooseYourRide,
+      // The Choose button is always there; the title gives way to the
+      // promotion line when the rider has one (owner round 2).
+      (l) => l.ctaSelect('').trim(),
     ),
     'Set pickup': (
       () => SetPickupPage(
