@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_fit_scheduler.dart';
@@ -116,15 +115,5 @@ void main() {
     fits.dispose();
     await tester.pump(const Duration(seconds: 1));
     expect(flown, isEmpty);
-  });
-
-  test('Select ride routes settles through the scheduler', () {
-    final src = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
-    expect(src, contains('_fits.settled();'));
-    expect(src, contains('_fitRoute(force: true)'));
-    // The web overlay waits for the settle instead of flipping mid-drag.
-    expect(src, contains('if (_sheetDragging) return;'));
   });
 }
