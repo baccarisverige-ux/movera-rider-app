@@ -323,10 +323,15 @@ void main() {
           .pickupAddress;
       expect(usedPickup, contains('Stockholm Central'));
 
-      // The rider backs out to Home, then walks on with the app open.
+      // The rider backs out to Home (owner round 1: through the address
+      // screen, which Back reopens), then walks on with the app open.
       moveraNavigatorKey.currentState!.pop();
       await frames(tester, 15);
       expect(find.byType(SelectRide), findsNothing);
+      expect(find.byType(RoutePickerPage), findsOneWidget);
+      moveraNavigatorKey.currentState!.pop();
+      await frames(tester, 15);
+      expect(find.byType(RoutePickerPage), findsNothing);
       // About 130 m north, a fix a second.
       for (var i = 1; i <= 10; i++) {
         gps.moveTo(59.3293 + i * 0.00012, 18.0686);

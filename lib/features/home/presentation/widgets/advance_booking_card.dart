@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_layout.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -21,7 +22,7 @@ class AdvanceBookingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onOpenSchedule,
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(HomeSheetLayout.cardRadius),
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.fromLTRB(
@@ -32,7 +33,7 @@ class AdvanceBookingCard extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFA),
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(HomeSheetLayout.cardRadius),
           border: Border.all(color: _premiumLine, width: 0.8),
           boxShadow: [
             BoxShadow(

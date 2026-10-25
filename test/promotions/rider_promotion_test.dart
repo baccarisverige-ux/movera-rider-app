@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
 
 void main() {
   const json = {
@@ -75,5 +76,77 @@ void main() {
     expect(find.text('30% off your next 5 rides'), findsOneWidget);
     expect(find.text('4 left'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsNothing);
+  });
+
+  Future<void> pumpTicket(WidgetTester tester, Widget ticket) =>
+      tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, __) => MaterialApp(
+            home: Scaffold(body: Center(child: ticket)),
+          ),
+        ),
+      );
+
+  Iterable<BoxDecoration> decorations(WidgetTester tester) => tester
+      .widgetList<Container>(
+        find.descendant(
+          of: find.byType(PromotionTicket),
+          matching: find.byType(Container),
+        ),
+      )
+      .map((c) => c.decoration)
+      .whereType<BoxDecoration>();
+
+  testWidgets('owner round 1: the Home row is flat, the same size, tap and '
+      'label', (tester) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await pumpTicket(
+      tester,
+      PromotionTicket(
+        promotion: RiderPromotion.fromJson(json)!,
+        flat: true,
+        onTap: () => taps++,
+      ),
+    );
+    expect(find.text('30% off your next 5 rides'), findsOneWidget);
+    expect(find.text('4 left'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget, reason: 'the car stays');
+    // No border, background, shadow or rounded box.
+    expect(decorations(tester), isEmpty);
+    expect(
+      find.descendant(
+        of: find.byType(PromotionTicket),
+        matching: find.byType(DecoratedBox),
+      ),
+      findsNothing,
+    );
+    final ink = tester.widget<InkWell>(find.byType(InkWell));
+    expect(ink.borderRadius, isNull);
+    expect(
+      tester.getSize(find.byType(PromotionTicket)).height,
+      greaterThanOrEqualTo(A11y.minTap),
+    );
+    expect(
+      find.bySemanticsLabel(RegExp(r'^30% off your next 5 rides\. ')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byType(PromotionTicket));
+    expect(taps, 1);
+    handle.dispose();
+  });
+
+  testWidgets('owner round 1: elsewhere the ticket keeps its box', (
+    tester,
+  ) async {
+    await pumpTicket(
+      tester,
+      PromotionTicket(promotion: RiderPromotion.fromJson(json)!),
+    );
+    final box = decorations(tester).single;
+    expect(box.border, isNotNull);
+    expect(box.boxShadow, isNotEmpty);
+    expect(box.borderRadius, BorderRadius.circular(15));
   });
 }

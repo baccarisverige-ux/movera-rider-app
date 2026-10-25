@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart'
+    show LocationPromptGate;
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/auth/domain/phone_country.dart';
@@ -17,6 +19,9 @@ import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 /// recovery had nowhere to draw. A live ride kept through a lost session is
 /// resumed once the rider is back in.
 void enterMoveraApp(BuildContext context) {
+  // Owner round 1: Home asks for location first; the push primer waits for
+  // that answer (see below).
+  LocationPromptGate.expect();
   final shown = showMoveraRoot(
     const Home(),
     navigator: Navigator.of(context),
@@ -32,12 +37,20 @@ void enterMoveraApp(BuildContext context) {
     AppScope.instance.profile.hydrateWithLanguage(AppScope.instance.language),
   );
   // UI-17: explain ride updates before the OS notification prompt.
+  // Owner round 1: never at the same time as the OS location prompt. The
+  // primer opens once Home's location request has been answered. A request
+  // still open keeps it away, and so does a page or sheet the rider opened
+  // above Home meanwhile: skipped for this session, not declined, so the
+  // next sign-in offers it again.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    final home = moveraNavigatorKey.currentContext;
-    if (home == null) return;
-    unawaited(
-      maybeShowPushPrimer(home, gate: AppScope.instance.pushPermission),
-    );
+    unawaited(() async {
+      await LocationPromptGate.answered();
+      final navigator = moveraNavigatorKey.currentState;
+      final home = moveraNavigatorKey.currentContext;
+      if (navigator == null || home == null || !home.mounted) return;
+      if (navigator.canPop()) return;
+      await maybeShowPushPrimer(home, gate: AppScope.instance.pushPermission);
+    }());
   });
 }
 

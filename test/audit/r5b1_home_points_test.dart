@@ -75,9 +75,19 @@ void main() {
     final select = tester.widget<SelectRide>(find.byType(SelectRide));
     expect(select.stopPoints, [_pin]);
 
-    // rider-r5-37: back on Home, Where to? opens on the same points.
+    // Owner round 1: Back first reopens Where to? on the same points.
     moveraNavigatorKey.currentState!.pop();
     await _frames(tester, 15);
+    final reopened = tester.widget<RoutePickerPage>(
+      find.byType(RoutePickerPage),
+    );
+    expect(reopened.destinationPoint?.latitude, _gate.latitude);
+    expect(reopened.stopPoints.single?.latitude, _pin.latitude);
+    moveraNavigatorKey.currentState!.pop();
+    await _frames(tester, 15);
+    expect(find.byType(RoutePickerPage), findsNothing);
+
+    // rider-r5-37: back on Home, Where to? opens on the same points.
     await tester.tap(
       find.descendant(
         of: find.byType(WhereToCard),

@@ -47,6 +47,7 @@ import 'package:movera_rider/features/home/presentation/widgets/home_location_no
 import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_edge.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_layout.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/liquid_glass_nav.dart';
@@ -148,7 +149,24 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// approximate location is allowed: that fix centres the map and draws
   /// the puck, but the rider sets the pickup pin themselves.
   LatLng? get _gpsPickup =>
-      _locationCtl.preciseLocationOff ? null : _currentLatLng;
+      _locationCtl.preciseLocationOff || _roughFix ? null : _currentLatLng;
+
+  /// Owner round 1: [_currentLatLng] is only the quick first position (the
+  /// OS's cached fix or a coarse one). It draws the puck and centres the
+  /// camera, but it is never the pickup and is not the first fix: retries
+  /// and an app resume still wait for the accurate one.
+  bool _roughFix = false;
+
+  /// Whether the accurate first fix has landed.
+  bool get _hasFix => _currentLatLng != null && !_roughFix;
+
+  /// Where a quick position last put the camera; an accurate fix within
+  /// [HomeLocationController.quickFixRefineMeters] of it leaves it there.
+  LatLng? _quickCameraAt;
+
+  /// Completes when the running detection has its accurate point (before
+  /// the address), so the booking flow need not wait for the geocode.
+  Completer<void>? _locatedSignal;
   LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
   set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
   List<String> get _recentAddresses => _places.recentAddresses;
@@ -262,6 +280,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _parkHomeMap() {
     if (_mapParked.value) return;
     setWebOverlayOpen(false);
+    _webOverlayCovering = null;
     _mapParked.value = true;
     _locationCtl.pauseLiveUpdates();
     AppScope.instance.mapLifecycle.park();
@@ -273,6 +292,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     AppScope.instance.mapLifecycle.resume();
     _locationCtl.resumeLiveUpdates();
     _mapParked.value = false;
+    // The sheet may rest open over the map again without moving.
+    final offset = _homeSheetController.hasClient
+        ? _homeSheetController.metrics?.offset
+        : null;
+    if (offset != null) _syncWebOverlay(offset);
   }
 
   @override
@@ -291,7 +315,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // rider-u118: no first fix was ever bound (it failed or is still
     // pending): run the whole first-fix path (puck, label, stream, camera).
     // Restarting only the stream tracked GPS but never drew the puck.
-    if (_currentLatLng == null) {
+    if (!_hasFix) {
       // rider-43: a resume never prompts again; a rider who allowed
       // location in Settings meanwhile still gets the fix.
       unawaited(_detectCurrentAddress(askPermission: false));
@@ -356,6 +380,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final maps = AppScope.instance.maps;
     // Map not created yet: onMapCreated picks the hint up.
     if (maps.activeOwner != MapOwners.home) return;
+    _quickCameraAt = hint;
     await maps.moveCamera(
       GeoPoint(hint.latitude, hint.longitude),
       zoom: homeOpeningZoom,
@@ -379,7 +404,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _detectRetries += 1;
     _detectRetryTimer = Timer(delay, () {
       _detectRetryTimer = null;
-      if (!mounted || _currentLatLng != null) return;
+      if (!mounted || _hasFix) return;
       // Parked under a ride screen or in the background: keep waiting (the
       // booking flow and an app resume ask for their own fix).
       final lifecycle = WidgetsBinding.instance.lifecycleState;
@@ -415,7 +440,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final wasOff = _locationCtl.preciseLocationOff;
     await _locationCtl.requestPreciseLocation();
     if (!mounted) return;
-    if (_currentLatLng == null) {
+    if (!_hasFix) {
       await _detectCurrentAddress(askPermission: false);
     } else if (wasOff != _locationCtl.preciseLocationOff) {
       _applyPrecisionChange();
@@ -453,9 +478,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (left <= Duration.zero) break;
         // rider-43: only the first try may show the permission prompt; the
         // second never asks again right after a "Deny".
-        await _detectCurrentAddress(
-          askPermission: attempt == 0,
-        ).timeout(left, onTimeout: () {});
+        final detecting = _detectCurrentAddress(askPermission: attempt == 0);
+        // Owner round 1: the accurate point is enough; the address it is
+        // still being named with fills in on its own.
+        final located = _locatedSignal?.future;
+        await (located == null
+                ? detecting
+                : Future.any<void>([detecting, located]))
+            .timeout(left, onTimeout: () {});
         if (!mounted) return null;
         final fix = _tripPickupLatLng ?? _gpsPickup;
         if (fix != null) return fix;
@@ -469,10 +499,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void> _runDetectCurrentAddress({bool askPermission = true}) async {
+    final located = _locatedSignal = Completer<void>();
     if (mounted) setState(() {});
     try {
+      Future<void>? binding;
       final detected = await _locationCtl.detectCurrent(
         askPermission: askPermission,
+        onQuickFix: (point) => unawaited(_showQuickFix(point)),
+        // Owner round 1: puck, pickup point and camera before the address.
+        onLocated: (fix) => binding ??= _bindFirstFix(fix),
       );
       if (!mounted) return;
       final target = detected.target;
@@ -482,21 +517,83 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           setState(() => _pickupAddress = locationOffPickupLabel);
         }
         if (detected.failure == HomeLocationFailure.unavailable &&
-            _currentLatLng == null) {
+            !_hasFix) {
           _scheduleDetectRetry();
         }
         return;
       }
-      _detectRetryTimer?.cancel();
-      _detectRetryTimer = null;
-      _detectRetries = 0;
-      setState(() {
-        _pickupAddress = detected.address;
-        _pickupLabelAt = target;
-        _currentLatLng = target;
-        _locationCtl.clearOverlays();
-        _locationHeading = detected.heading;
-      });
+      // An approximate fix is named no address; it is bound here.
+      await (binding ??= _bindFirstFix(detected));
+      if (!mounted) return;
+      // The address, once the reverse geocode answers. Never over a pickup
+      // set meanwhile (a flow, a dropped pin).
+      if (!detected.approximate &&
+          _tripPickupLatLng == null &&
+          isPlaceholderPickupLabel(_pickupAddress) &&
+          detected.address != _pickupAddress) {
+        setState(() => _pickupAddress = detected.address);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      if (isPlaceholderPickupLabel(_pickupAddress)) {
+        setState(() => _pickupAddress = locationOffPickupLabel);
+      }
+    } finally {
+      if (!located.isCompleted) located.complete();
+    }
+  }
+
+  /// Owner round 1: the quick first position. Puck and camera at once; the
+  /// accurate fix ([_bindFirstFix]) takes over when it lands.
+  Future<void> _showQuickFix(LatLng point) async {
+    if (!mounted || _hasFix) return;
+    setState(() {
+      _currentLatLng = point;
+      _roughFix = true;
+    });
+    await _prepareLocationPuckIcons();
+    if (!mounted || !_roughFix) return;
+    _updateLocationVisuals();
+    _cameraHint = point;
+    final maps = AppScope.instance.maps;
+    // Map not created yet: onMapCreated centres on [_currentLatLng].
+    if (_mapParked.value || maps.activeOwner != MapOwners.home) return;
+    _quickCameraAt = point;
+    await maps.moveCamera(
+      GeoPoint(point.latitude, point.longitude),
+      zoom: homeOpeningZoom,
+    );
+  }
+
+  /// The accurate first fix: the pickup point, the puck, live tracking and
+  /// the camera. Runs before the address is known.
+  Future<void> _bindFirstFix(DetectedLocation detected) async {
+    final target = detected.target;
+    if (!mounted || target == null) return;
+    final wasRough = _roughFix;
+    _detectRetryTimer?.cancel();
+    _detectRetryTimer = null;
+    _detectRetries = 0;
+    setState(() {
+      // rider-u114: an approximate fix names no pickup ('set pickup');
+      // a precise one is the current location until its address comes.
+      _pickupAddress = detected.approximate
+          ? detected.address
+          : (isPlaceholderPickupLabel(detected.address)
+                ? 'Current location'
+                : detected.address);
+      _pickupLabelAt = target;
+      _currentLatLng = target;
+      _roughFix = false;
+      _locationCtl.clearOverlays();
+      _locationHeading = detected.heading;
+    });
+    final located = _locatedSignal;
+    if (located != null && !located.isCompleted) located.complete();
+    // The quick puck moves to the accurate point instead of blinking out.
+    if (wasRough) _updateLocationVisuals();
+    // Called while the geocode still runs: it handles its own errors.
+    try {
       await _prepareLocationPuckIcons();
       // rider-u120: Home may have been replaced while the icons were drawn.
       if (!mounted) return;
@@ -522,6 +619,20 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (!mounted ||
           _mapParked.value ||
           maps.activeOwner != MapOwners.home) {
+        return;
+      }
+      // Owner round 1: the camera already sits on a quick position this
+      // close: no jump for a few metres of refinement.
+      final quick = _quickCameraAt;
+      _quickCameraAt = null;
+      if (quick != null &&
+          AppScope.instance.location.distanceBetween(
+                quick.latitude,
+                quick.longitude,
+                target.latitude,
+                target.longitude,
+              ) <=
+              HomeLocationController.quickFixRefineMeters) {
         return;
       }
       await maps.animateCamera(
@@ -1076,13 +1187,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     EarlyInputCapture? capture,
     bool scheduled = false,
     String? initialRideId,
+    GeoPoint? pickupPoint,
   }) async {
     // Either the capture the caller started at tap time, or a fresh one for
     // entry points that open the picker directly.
     final routeCapture = capture ?? (EarlyInputCapture()..start());
     final ownsCapture = capture == null;
     final gps = _gpsPickup;
-    final here = gps == null ? null : GeoPoint(gps.latitude, gps.longitude);
+    // Owner round 1: reopened from the categories screen, the picker starts
+    // from the pickup the rider had confirmed, not from GPS.
+    final here =
+        pickupPoint ??
+        (gps == null ? null : GeoPoint(gps.latitude, gps.longitude));
     Map<String, dynamic>? draft;
     try {
       draft = await Navigator.of(context).push<Map<String, dynamic>>(
@@ -1222,10 +1338,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final scheduledAt = DateTime.tryParse(
         draft['scheduledAt'] as String? ?? '',
       );
+      // Owner round 1: what tells a plain Back on the categories screen from
+      // a booking or a schedule, which leave it another way.
+      final rideBefore = AppScope.instance.ride.rideId;
+      final statusBefore = AppScope.instance.ride.status;
+      var scheduledHere = false;
       // Park the Home map before opening categories. Two Google Maps at once
       // crashes the browser tab on Flutter web.
-      await _withParkedHomeMap(() {
-        return Navigator.of(context).push(
+      final result = await _withParkedHomeMap(() {
+        return Navigator.of(context).push<Object?>(
           RideStageTransition(
             SelectRide(
               pickupAddress: pickup.isNotEmpty
@@ -1244,17 +1365,42 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               initialScheduledFor: scheduledAt,
               // NAV-11: a Home card asked for this category.
               initialRideId: initialRideId,
-              onScheduled: (context, id) => RideScheduledPage.open(
-                context,
-                reservationId: id,
-                replace: scheduledAt == null,
-                untilHome: scheduledAt != null,
-              ),
+              onScheduled: (context, id) {
+                scheduledHere = true;
+                return RideScheduledPage.open(
+                  context,
+                  reservationId: id,
+                  replace: scheduledAt == null,
+                  untilHome: scheduledAt != null,
+                );
+              },
             ),
             settings: const RouteSettings(name: AppRoutes.selectRide),
           ),
         );
       });
+      // Owner round 1: Back (the arrow or the system back) on the
+      // categories screen returns to the address screen, filled with the
+      // same route, instead of Home. Only for a plain Back: Home on top
+      // again, no result, nothing booked or scheduled. Each reopen waits
+      // for the rider, so this cannot loop.
+      final ride = AppScope.instance.ride;
+      final backedOut =
+          mounted &&
+          result == null &&
+          !scheduledHere &&
+          _homeIsCurrent &&
+          ride.rideId == rideBefore &&
+          ride.status == statusBefore;
+      if (!backedOut) return;
+      await _showRouteAddressPicker(
+        initialField: 'destination',
+        scheduled: scheduled,
+        initialRideId: initialRideId,
+        pickupPoint: pickupIsFallback
+            ? null
+            : GeoPoint(pickupPosition.latitude, pickupPosition.longitude),
+      );
     }
   }
 
@@ -1941,10 +2087,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final offset = _homeSheetController.hasClient
         ? _homeSheetController.metrics?.offset
         : null;
+    // Owner round 1: resting, not passing. A sheet that left its last stop
+    // (a drag, a fling) has no settled snap; it gets the promotion when it
+    // settles low again (_trackSettledSnap). Before the very first seat the
+    // sheet rests at its initial low offset.
+    final restingLow = offset != null &&
+        (previousLow != null
+            ? offset <= previousLow + 1.5
+            : !_hadFirstSeat && (offset - _sheetMinPixels).abs() <= 1.5);
     final wasLow =
         !_destinationSheetOpen &&
-        offset != null &&
-        offset <= (previousLow ?? offset) + 1.5 &&
+        restingLow &&
         offset < _sheetMidPixels - ResSize.h * 20;
     if (!wasLow && _homeSheetController.hasClient) return;
     final firstSeat = _lastSettledSnap == null;
@@ -2020,14 +2173,29 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _settleTimer = Timer(const Duration(milliseconds: 140), () {
       if (!mounted || !_homeSheetController.hasClient) return;
       final settled = _homeSheetController.metrics?.offset;
-      if (settled != null) _trackSettledSnap(settled);
+      if (settled == null) return;
+      _trackSettledSnap(settled);
+      _syncWebOverlay(settled);
     });
 
     final expanded = offset > _sheetMidPixels + ResSize.h * 8;
     if (expanded != _destinationSheetOpen) {
       setState(() => _destinationSheetOpen = expanded);
     }
+  }
+
+  /// What [setWebOverlayOpen] was last told; null after the map was parked.
+  bool? _webOverlayCovering;
+
+  /// Owner round 1: the web map ignores pointers while the sheet covers it.
+  /// Told once the sheet settles, not on every drag offset (each call
+  /// reaches the platform view and could nudge the map mid-drag); the
+  /// sheet itself never lets a pointer through to the map meanwhile.
+  void _syncWebOverlay(double offset) {
+    if (_mapParked.value) return;
     final covering = offset > _sheetMinPixels + 12;
+    if (covering == _webOverlayCovering) return;
+    _webOverlayCovering = covering;
     setWebOverlayOpen(covering);
   }
 
@@ -2118,9 +2286,29 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   void _openAccount() => _openTab(HomeTabs.account);
 
+  /// The layout the map was sized for, see [_stableMapHeight].
+  Size? _mapLayout;
+
+  /// Owner round 1: the map's height is read once per layout (a new width:
+  /// a rotation, a resized window), not per frame. Within one layout it
+  /// keeps the tallest height seen, so a viewport that shrinks and grows
+  /// again for a moment (a mobile browser's bars during a sheet drag) never
+  /// resizes the map, and the map never moves under the rider's finger.
+  /// The part below a shorter viewport is simply clipped.
+  double _stableMapHeight(Size viewport) {
+    final last = _mapLayout;
+    if (last == null ||
+        last.width != viewport.width ||
+        viewport.height > last.height) {
+      _mapLayout = viewport;
+    }
+    return _mapLayout!.height;
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewportHeight = MediaQuery.of(context).size.height;
+    final mapHeight = _stableMapHeight(MediaQuery.of(context).size);
     final topInset = MediaQuery.of(context).padding.top + ResSize.h * 8;
     final fullSheetPixels = viewportHeight - topInset;
 
@@ -2149,9 +2337,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   width: double.infinity,
                   child: Stack(
                     children: [
-                      Positioned.fill(
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: mapHeight,
                         child: RepaintBoundary(
                           child: HomeMapLayer(
+                            key: const ValueKey('home-map-layer'),
                             location: _locationCtl,
                             parked: _mapParked,
                             padding: EdgeInsets.only(bottom: _sheetMinPixels),
@@ -2169,6 +2362,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng ?? _cameraHint;
                               if (target != null) {
+                                if (!_hasFix) _quickCameraAt = target;
                                 AppScope.instance.maps.animateCamera(
                                   GeoPoint(target.latitude, target.longitude),
                                   zoom: homeOpeningZoom,
@@ -2297,9 +2491,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         onDestinationTap: _handleDestinationTap,
                         onOpenSchedule: _openSchedule,
                       );
+                      // Owner round 1: one gap between every section of
+                      // the expanded sheet (HomeSheetLayout).
                       Widget premiumSavedPlacesContent(double reveal) => Column(
                         children: [
-                          15.height,
+                          SizedBox(height: HomeSheetLayout.sectionGap),
                           SavedPlacesRow(
                             homeAddress: _placeOrNull(_homeAddress),
                             workAddress: _placeOrNull(_workAddress),
@@ -2315,7 +2511,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       final premiumDetailContent = Column(
                         children: [
                           AdvanceBookingCard(onOpenSchedule: _openSchedule),
-                          12.height,
+                          SizedBox(height: HomeSheetLayout.sectionGap),
                           HomeJourneySection(
                             onDestinationTap: _handleDestinationTap,
                             onOpenSchedule: _openSchedule,
@@ -2420,9 +2616,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             children: [
               HomeSheetScroll(child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                  ResSize.w * 18,
+                  HomeSheetLayout.sideMargin,
                   ResSize.h * 11 - handleLift,
-                  ResSize.w * 18,
+                  HomeSheetLayout.sideMargin,
                   ResSize.h * 7,
                 ),
                 child: Column(
@@ -2445,7 +2641,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 padding: EdgeInsets.only(
                                   bottom: ResSize.h * 10,
                                 ),
-                                child: PromotionTicket(promotion: promotion),
+                                // Owner round 1: the "simple row" here;
+                                // the ride list keeps the ticket.
+                                child: PromotionTicket(
+                                  promotion: promotion,
+                                  flat: true,
+                                ),
                               ),
                             ),
                           ),
@@ -2470,7 +2671,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           child: Transform.translate(
                             offset: Offset(0, 12 * (1 - detailReveal)),
                             child: Padding(
-                              padding: EdgeInsets.only(top: ResSize.h * 24),
+                              padding: EdgeInsets.only(
+                                top: HomeSheetLayout.sectionGap,
+                              ),
                               child: detailContent,
                             ),
                           ),

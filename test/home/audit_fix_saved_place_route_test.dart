@@ -176,10 +176,15 @@ void main() {
       isNotEmpty,
     ]);
 
-    // The rider looks at prices, backs out, and later taps Work.
+    // The rider looks at prices, backs out (owner round 1: Back lands on
+    // the address screen first), closes it too, and later taps Work.
     moveraNavigatorKey.currentState!.pop();
     await frames(tester, 15);
     expect(find.byType(SelectRide), findsNothing);
+    expect(find.byType(RoutePickerPage), findsOneWidget);
+    moveraNavigatorKey.currentState!.pop();
+    await frames(tester, 15);
+    expect(find.byType(RoutePickerPage), findsNothing);
     await tester.drag(find.byType(WhereToCard), const Offset(0, -400));
     await frames(tester, 10);
     await tester.tap(find.text('Work').first);

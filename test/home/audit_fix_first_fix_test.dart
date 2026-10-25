@@ -73,6 +73,11 @@ class _SlowGeolocator extends GeolocatorPlatform {
   Future<Position> getCurrentPosition({
     LocationSettings? locationSettings,
   }) async {
+    // Owner round 1: Home's quick coarse fix. A cold GPS has none either;
+    // only the accurate one-shot fixes are counted here.
+    if (locationSettings?.accuracy == LocationAccuracy.low) {
+      throw TimeoutException('no quick fix');
+    }
     currentPositionCalls += 1;
     if (currentPositionCalls <= failFirst) {
       throw TimeoutException('cold fix');

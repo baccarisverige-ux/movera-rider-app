@@ -10,9 +10,8 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_layout.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -26,6 +25,9 @@ const _card = Color(0xFFF3F4F5);
 const _line = Color(0xFFE7EBEE);
 const _teal = Color(0xFF2A7A84);
 const _art = 'assets/images/menu';
+
+/// The height of a "Start your journey" card, in design px.
+const double journeyCardHeightDesign = 104;
 
 /// Rides this device completed in one calendar month, grouped for the
 /// "Your month" card. The backend will later own these figures.
@@ -124,8 +126,9 @@ class MonthRideStats {
   }
 }
 
-/// "Your month" stats card + "Start your journey" strip + Help centre row
-/// shown under "Plan ahead" on Home's expanded sheet.
+/// "Your month" stats card + "Start your journey" strip shown under "Plan
+/// ahead" on Home's expanded sheet. Owner round 1: the Help centre row is
+/// gone from here; Help stays in Account and the side menu.
 class HomeJourneySection extends StatefulWidget {
   const HomeJourneySection({
     super.key,
@@ -236,7 +239,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _MonthCard(stats: _stats, known: _known),
-        SizedBox(height: ResSize.h * 10),
+        SizedBox(height: HomeSheetLayout.sectionGap),
         Padding(
           padding: EdgeInsets.only(left: ResSize.w * 2, bottom: ResSize.h * 7),
           child: TextWidget(
@@ -274,13 +277,6 @@ class _HomeJourneySectionState extends State<HomeJourneySection>
             ),
           ],
         ),
-        SizedBox(height: ResSize.h * 8),
-        _HelpRow(
-          onTap: () => Navigator.push(
-            context,
-            RightToLeftTransition(const SupportHome()),
-          ),
-        ),
       ],
     );
   }
@@ -310,7 +306,7 @@ class _MonthCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: _card,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(HomeSheetLayout.cardRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,9 +496,11 @@ class _JourneyCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(HomeSheetLayout.cardRadius),
         child: Container(
-          height: ResSize.h * 88,
+          // Owner round 1: taller (was 88) now that Help centre is gone,
+          // so the expanded sheet fills.
+          height: ResSize.h * journeyCardHeightDesign,
           padding: EdgeInsets.fromLTRB(
             ResSize.w * 9,
             ResSize.h * 8,
@@ -511,7 +509,7 @@ class _JourneyCard extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: AppColor.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(HomeSheetLayout.cardRadius),
             border: Border.all(color: _line, width: 0.8),
             boxShadow: [
               BoxShadow(
@@ -543,63 +541,6 @@ class _JourneyCard extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HelpRow extends StatelessWidget {
-  const _HelpRow({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          // UI-2: grows with large text instead of clipping it.
-          constraints: BoxConstraints(minHeight: ResSize.h * 52),
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 12),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: ResSize.w * 54,
-                height: ResSize.h * 42,
-                child: SvgPicture.asset('$_art/faq.svg', fit: BoxFit.contain),
-              ),
-              SizedBox(width: ResSize.w * 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: context.l10n.helpCentre,
-                      color: _ink,
-                      fontSize: 12.5,
-                      fontWeight: fwSemiBold,
-                    ),
-                    TextWidget(
-                      text: context.l10n.helpCentreBody,
-                      color: _muted,
-                      fontSize: 10,
-                      fontWeight: fwNormal,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFFB8C0C7)),
             ],
           ),
         ),
