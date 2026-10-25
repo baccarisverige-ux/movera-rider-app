@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_layout.dart';
+import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,6 +108,77 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 ride · 200 kr'), findsOneWidget);
     expect(find.text('0.4 kg'), findsOneWidget);
+  });
+
+  testWidgets('owner round 1: no Help centre on the sheet; even gaps, one '
+      'radius and taller journey cards', (tester) async {
+    await _pump(
+      tester,
+      HomeJourneySection(
+        onDestinationTap: () {},
+        onOpenSchedule: () {},
+        ridesLoader: () async => const [],
+        clock: () => _now,
+        changes: const Stream<void>.empty(),
+      ),
+    );
+    expect(find.text('Help centre'), findsNothing);
+    final cards = [
+      for (final title in [
+        'Catch your flight',
+        'Comfort car',
+        'Highly rated chauffeur',
+      ])
+        find
+            .ancestor(of: find.text(title), matching: find.byType(InkWell))
+            .first,
+    ];
+    for (final card in cards) {
+      expect(
+        tester.getSize(card).height,
+        closeTo(ResSize.h * journeyCardHeightDesign, 0.01),
+      );
+      expect(
+        tester.widget<InkWell>(card).borderRadius,
+        BorderRadius.circular(HomeSheetLayout.cardRadius),
+      );
+    }
+    // The month card and the "Start your journey" heading are one section
+    // gap apart.
+    final month = tester.getRect(
+      find
+          .ancestor(
+            of: find.textContaining('Your'),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration! as BoxDecoration).color ==
+                      const Color(0xFFF3F4F5),
+            ),
+          )
+          .first,
+    );
+    final heading = tester.getRect(find.text('START YOUR JOURNEY'));
+    expect(
+      heading.top - month.bottom,
+      closeTo(HomeSheetLayout.sectionGap, 0.01),
+    );
+  });
+
+  test('help stays reachable from Account and the side menu', () {
+    // Owner round 1: the Home sheet no longer links Help centre; these two
+    // entry points must stay.
+    for (final path in [
+      'lib/features/profile/presentation/account_home.dart',
+      'lib/features/home/presentation/side_menu.dart',
+    ]) {
+      expect(
+        File(path).readAsStringSync(),
+        contains('SupportHome()'),
+        reason: path,
+      );
+    }
   });
 
   testWidgets('NAV-11: Comfort and top-rated cards preselect their category', (

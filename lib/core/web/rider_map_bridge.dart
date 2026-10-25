@@ -65,7 +65,35 @@ abstract final class RiderMapBridge {
   )?
   debugFlight;
 
-  /// A running flight turns towards [to] on its own clock.
+  /// Glides the camera to [to] on the browser's frame clock: the follow
+  /// glide of map_camera_motion.dart ([duration] is its span), one camera
+  /// move per painted frame. Completes with true when it lands, false when
+  /// cancelled; null when the layer is not there (the Dart loop steps).
+  static Future<bool>? glide(int mapId, CameraPosition to, Duration duration) {
+    final fake = debugGlide;
+    if (fake != null) return fake(mapId, to, duration);
+    return impl.glide(
+      mapId,
+      to.target.latitude,
+      to.target.longitude,
+      to.zoom,
+      to.bearing,
+      to.tilt,
+      duration.inMilliseconds,
+    );
+  }
+
+  /// Tests stand in for the web layer's [glide].
+  @visibleForTesting
+  static Future<bool>? Function(
+    int mapId,
+    CameraPosition to,
+    Duration duration,
+  )?
+  debugGlide;
+
+  /// A running flight or glide turns towards [to]: a flight on its own
+  /// clock, a glide at the speed it has.
   static void retarget(int mapId, CameraPosition to) => impl.retarget(
         mapId,
         to.target.latitude,
@@ -75,8 +103,8 @@ abstract final class RiderMapBridge {
         to.tilt,
       );
 
-  /// Stops a running flight where it is, and returns where that is (null
-  /// when nothing was flying or the layer cannot tell).
+  /// Stops a running flight or glide where it is, and returns where that
+  /// is (null when nothing was moving or the layer cannot tell).
   static CameraPosition? cancelFlight(int mapId) {
     final fake = debugCancelFlight;
     if (fake != null) return fake(mapId);

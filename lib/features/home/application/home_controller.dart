@@ -106,6 +106,33 @@ bool isRawCoordinateLabel(String? text) => RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
 ).hasMatch(text ?? '');
 
+/// Owner round 1: the location question comes before the push primer.
+/// Signing in [expect]s Home's first location request; the primer waits
+/// for [answered]. A request that is never answered keeps the primer away
+/// for the session. With nothing expected, [answered] resolves at once.
+abstract final class LocationPromptGate {
+  static Completer<void>? _pending;
+
+  /// A location request is about to be made (Home opens after sign-in).
+  static void expect() {
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) return;
+    _pending = Completer<void>();
+  }
+
+  /// The location request was answered, or needed no prompt.
+  static void markAnswered() {
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) pending.complete();
+  }
+
+  /// Completes once the expected location request has been answered.
+  static Future<void> answered() => _pending?.future ?? Future<void>.value();
+
+  @visibleForTesting
+  static void reset() => _pending = null;
+}
+
 enum HomeLocationFailure {
   servicesDisabled,
   permissionDenied,
@@ -248,6 +275,15 @@ class HomeLocationController extends ChangeNotifier {
 
   static const detectFixTimeout = Duration(seconds: 16);
   static const latestFixTimeout = Duration(seconds: 9);
+
+  /// Owner round 1: how long [detectCurrent] waits for a quick coarse fix
+  /// (when the OS has no cached one) before it leaves the first position to
+  /// the accurate fix alone.
+  static const quickFixTimeout = Duration(seconds: 3);
+
+  /// Owner round 1: an accurate fix this close to where the quick fix put
+  /// the camera does not move the camera again.
+  static const quickFixRefineMeters = 30.0;
 
   /// Backoff before re-subscribing after a transient stream failure.
   @visibleForTesting
@@ -435,13 +471,55 @@ class HomeLocationController extends ChangeNotifier {
     onGoodFix?.call(point);
   }
 
+  /// Owner round 1: the first position Home can show at once, while the
+  /// accurate fix is still coming. The OS's cached last position, else a
+  /// quick low-accuracy fix within [quickFixTimeout]. Null when neither
+  /// answers in time. Puck and camera only, never a pickup.
+  Future<LatLng?> _quickPosition() async {
+    try {
+      final cached = await location.lastKnownFix();
+      if (cached != null && cached.isValid) {
+        return LatLng(cached.latitude, cached.longitude);
+      }
+    } catch (_) {
+      // No cached fix: ask for a quick one below.
+    }
+    try {
+      // D-003: the Dart-side timeout bounds the web plugin as well.
+      final position = await location
+          .getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.low,
+              timeLimit: quickFixTimeout,
+            ),
+          )
+          .timeout(quickFixTimeout);
+      final point = GeoPoint(position.latitude, position.longitude);
+      return point.isValid ? LatLng(point.latitude, point.longitude) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// rider-43: [askPermission] false never shows the system prompt (an app
   /// resume, a second try right after the rider answered it); a denied
   /// permission then reads as denied.
-  Future<DetectedLocation> detectCurrent({bool askPermission = true}) async {
+  ///
+  /// Owner round 1: [onQuickFix] gets a fast first position (see
+  /// [_quickPosition]) while the accurate fix is fetched; it is not called
+  /// once the accurate fix has landed or failed. [onLocated] gets a precise
+  /// accurate fix as soon as it lands, before the reverse geocode, so the
+  /// puck and the pickup point never wait for the address; the returned
+  /// location then carries the address too.
+  Future<DetectedLocation> detectCurrent({
+    bool askPermission = true,
+    void Function(LatLng point)? onQuickFix,
+    void Function(DetectedLocation located)? onLocated,
+  }) async {
     _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
+        LocationPromptGate.markAnswered();
         _setState(HomeLocationState.servicesDisabled);
         return const DetectedLocation(
           target: null,
@@ -454,6 +532,9 @@ class HomeLocationController extends ChangeNotifier {
       if (permission == LocationPermission.denied && askPermission) {
         permission = await location.requestPermission();
       }
+      // Owner round 1: the location question is answered (or needed no
+      // prompt); the push primer may follow now.
+      LocationPromptGate.markAnswered();
       if (permission == LocationPermission.deniedForever) {
         _permissionBlocked = true;
         _setState(HomeLocationState.permissionRequired);
@@ -478,7 +559,7 @@ class HomeLocationController extends ChangeNotifier {
       // D-003: geolocator_web passes timeLimit in microseconds to a JS API
       // that expects milliseconds (15 s becomes ~4 h). The Dart-side
       // timeout guarantees the fallback path still runs.
-      final position = await location
+      final accurate = location
           .getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.high,
@@ -486,6 +567,21 @@ class HomeLocationController extends ChangeNotifier {
             ),
           )
           .timeout(detectFixTimeout);
+      var accurateSettled = false;
+      if (onQuickFix != null) {
+        unawaited(
+          _quickPosition().then((point) {
+            if (point == null || accurateSettled || _disposed) return;
+            onQuickFix(point);
+          }),
+        );
+      }
+      final Position position;
+      try {
+        position = await accurate;
+      } finally {
+        accurateSettled = true;
+      }
       _accurateFixSeen = true;
       final generation = _detectGuard.next();
       // rider-u114: read after the fix, so the fix's own timeout still
@@ -509,6 +605,16 @@ class HomeLocationController extends ChangeNotifier {
       }
       _setPreciseOff(false);
       _rememberGoodFix(position);
+      // Owner round 1: the point first, the address when it comes.
+      onLocated?.call(
+        DetectedLocation(
+          target: LatLng(position.latitude, position.longitude),
+          address: 'Current location',
+          heading: position.heading.isFinite && position.heading >= 0
+              ? position.heading
+              : 0,
+        ),
+      );
       String? detected;
       try {
         detected = await geocoding.reverse(
@@ -541,6 +647,7 @@ class HomeLocationController extends ChangeNotifier {
         heading: heading,
       );
     } catch (_) {
+      LocationPromptGate.markAnswered();
       _setState(HomeLocationState.temporarilyUnavailable);
       return const DetectedLocation(
         target: null,

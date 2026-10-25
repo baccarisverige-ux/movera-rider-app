@@ -106,7 +106,9 @@ class LocationRepository {
   ///
   /// Web: always null — geolocator_web throws `UnsupportedError` for this
   /// call. Any plugin error also yields null. Coarse and possibly old: a
-  /// camera hint, never a pickup.
+  /// camera hint, never a pickup. Owner round 1: Home also draws its first
+  /// puck here until the accurate fix lands (the app's own saved fix is
+  /// still wiped on sign-out, see [clearLastGoodFix]).
   Future<GeoPoint?> lastKnownFix() async {
     if (kIsWeb) return null;
     try {

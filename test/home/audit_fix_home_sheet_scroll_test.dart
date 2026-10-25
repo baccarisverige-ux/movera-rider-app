@@ -13,7 +13,8 @@ import '../responsive/responsive_harness.dart';
 
 /// UI-2: on short phones the expanded Home sheet used to cut off its bottom
 /// content (Help centre) behind the bottom navigation, with no way to reach
-/// it. The content now scrolls inside the sheet.
+/// it. The content now scrolls inside the sheet. Owner round 1: Help centre
+/// left the sheet; its last content is now the "Start your journey" cards.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -31,7 +32,7 @@ void main() {
     (Size(375, 667), 1.0),
     (Size(390, 844), 2.0),
   ]) {
-    testWidgets('Help centre can be reached at $viewport text x$scale', (
+    testWidgets('the last card can be reached at $viewport text x$scale', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -65,13 +66,21 @@ void main() {
         final navTop = tester
             .getRect(find.byType(PremiumBottomNavItem).first)
             .top;
-        final help = tester.getRect(find.text('Help centre'));
-        expect(
-          help.bottom,
-          lessThanOrEqualTo(navTop),
-          reason: 'Help centre ($help) must scroll above the nav ($navTop)',
+        expect(find.text('Help centre'), findsNothing);
+        final last = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('Highly rated chauffeur'),
+                matching: find.byType(InkWell),
+              )
+              .first,
         );
-        expect(help.top, greaterThanOrEqualTo(0));
+        expect(
+          last.bottom,
+          lessThanOrEqualTo(navTop),
+          reason: 'the last card ($last) must scroll above the nav ($navTop)',
+        );
+        expect(last.top, greaterThanOrEqualTo(0));
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());

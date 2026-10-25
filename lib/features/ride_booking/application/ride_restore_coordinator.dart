@@ -36,6 +36,7 @@ class RideRestoreCoordinator {
     bool Function()? skipRestore,
     RideRealtimeResync? resync,
     bool Function()? authRequired,
+    bool Function()? authPreview,
     Future<bool> Function()? hasSession,
     SearchInterruptedNotice? interruptedNotice,
     Future<PendingCancel?> Function(String rideId)? pendingCancel,
@@ -48,6 +49,7 @@ class RideRestoreCoordinator {
        _skipRestore = skipRestore ?? defaultSkipRestore,
        _resync = resync ?? _defaultResync,
        _authRequired = authRequired ?? _defaultAuthRequired,
+       _authPreview = authPreview ?? _defaultAuthPreview,
        _hasSession = hasSession ?? _defaultHasSession,
        _interruptedNotice = interruptedNotice ?? SearchInterruptedNotice();
 
@@ -55,6 +57,7 @@ class RideRestoreCoordinator {
   final bool Function() _skipRestore;
   final RideRealtimeResync _resync;
   final bool Function() _authRequired;
+  final bool Function() _authPreview;
   final Future<bool> Function() _hasSession;
   final SearchInterruptedNotice _interruptedNotice;
   final Future<PendingCancel?> Function(String rideId) _pendingCancel;
@@ -185,6 +188,8 @@ class RideRestoreCoordinator {
 
   static bool _defaultAuthRequired() => AppEnv.current.authRequired;
 
+  static bool _defaultAuthPreview() => AppEnv.current.authPreview;
+
   static Future<bool> _defaultHasSession() async {
     final access = await AppScope.instance.tokens.readAccess();
     final refresh = await AppScope.instance.tokens.readRefresh();
@@ -201,6 +206,26 @@ class RideRestoreCoordinator {
     // ride is re-read from the server, which owns it. Wiping a previous
     // rider's data on sign-out / account switch belongs to the sign-out flow.
     return true;
+  }
+
+  /// The demo's sign-in preview (installed PWA, `?auth_preview=1`) is for a
+  /// tester who has not signed in yet. A signed-in rider whose tab reloads
+  /// (iOS Safari drops PWA tabs under memory pressure) keeps the session and
+  /// restores normally.
+  Future<bool> _showsAuthPreview(RideSnapshot? snapshot) async {
+    if (snapshot != null || !_authPreview()) return false;
+    if (await _hasSession()) {
+      AppLog.info('auth.root', extra: {'cause': 'preview_session_kept'});
+      return false;
+    }
+    return true;
+  }
+
+  /// No PII: only why the root is Sign in, so a reload that lost the
+  /// session can be told apart from a real sign-out.
+  static Widget _signInRoot(String cause) {
+    AppLog.info('auth.root', extra: {'cause': cause, 'surface': 'signIn'});
+    return const SignIn();
   }
 
   Widget _gatedHome() {
@@ -458,9 +483,11 @@ class RideRestoreCoordinator {
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
-      if (await _shouldRequireSignIn(snapshot) ||
-          AppEnv.current.authPreview && snapshot == null) {
-        return const SignIn();
+      if (await _shouldRequireSignIn(snapshot)) {
+        return _signInRoot('no_session');
+      }
+      if (await _showsAuthPreview(snapshot)) {
+        return _signInRoot('cold_boot_preview');
       }
       return await _nameStepOr(const Home());
     }
@@ -473,11 +500,11 @@ class RideRestoreCoordinator {
       if (await _shouldRequireSignIn(snapshot)) {
         showing = RestoredSurface.home;
         reportRestoreSurface('signIn');
-        return const SignIn();
+        return _signInRoot('no_session');
       }
-      if (snapshot == null && AppEnv.current.authPreview) {
+      if (await _showsAuthPreview(snapshot)) {
         reportRestoreSurface('signInPreview');
-        return const SignIn();
+        return _signInRoot('cold_boot_preview');
       }
       if (snapshot == null) {
         final initialName = await PendingRiderName.read();
@@ -493,9 +520,8 @@ class RideRestoreCoordinator {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
-      if ((_authRequired() && !await _hasSession()) ||
-          AppEnv.current.authPreview) {
-        return const SignIn();
+      if ((_authRequired() || _authPreview()) && !await _hasSession()) {
+        return _signInRoot('restore_failed');
       }
       return const Home();
     }
