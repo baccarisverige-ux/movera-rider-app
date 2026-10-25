@@ -51,8 +51,20 @@ void claim(int mapId) {
 }
 
 Future<bool>? flight(int mapId, double lat, double lng, double zoom,
-    double heading, double tilt, int ms) {
-  final promise = _forMap(mapId)?.callMethodVarArgs<JSAny?>('flight'.toJS, [
+        double heading, double tilt, int ms) =>
+    _move('flight', mapId, lat, lng, zoom, heading, tilt, ms);
+
+Future<bool>? glide(int mapId, double lat, double lng, double zoom,
+        double heading, double tilt, int ms) =>
+    _move('glide', mapId, lat, lng, zoom, heading, tilt, ms);
+
+/// Runs the layer's [method] (a flight or a glide); null when the layer, or
+/// an older cached copy of it without that method, cannot.
+Future<bool>? _move(String method, int mapId, double lat, double lng,
+    double zoom, double heading, double tilt, int ms) {
+  final layer = _forMap(mapId);
+  if (layer == null || !layer.has(method)) return null;
+  final promise = layer.callMethodVarArgs<JSAny?>(method.toJS, [
     mapId.toJS,
     lat.toJS,
     lng.toJS,

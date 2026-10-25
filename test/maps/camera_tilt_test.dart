@@ -277,6 +277,10 @@ void main() {
       expect(done, isTrue);
       final poses = fake.poses;
       expect(poses.length, greaterThan(20), reason: 'small steps, no cut');
+      // rider-cam-1: 3.3 zoom levels settle in about 0.65 s (they crept on
+      // for 2-3 s), so the fastest frame steps ~0.27 levels (was ~0.1);
+      // the glide still gains speed over several frames, never in one.
+      expect(poses.length, lessThan(45), reason: 'settles well under 1 s');
       var lastZoom = 11.7;
       for (final pose in poses) {
         expect(
@@ -285,7 +289,7 @@ void main() {
           reason: 'tilt rides with the zoom at ${_zoom(pose)}',
         );
         expect(_zoom(pose), greaterThanOrEqualTo(lastZoom));
-        expect(_zoom(pose) - lastZoom, lessThan(0.15), reason: 'no jump');
+        expect(_zoom(pose) - lastZoom, lessThan(0.3), reason: 'no jump');
         lastZoom = _zoom(pose);
       }
       expect(_zoom(poses.last), 15);
@@ -297,7 +301,9 @@ void main() {
     ) async {
       final fake = _FakeMap();
       mapViewOf(fake).pose = const CameraPosition(target: _stockholm, zoom: 13);
-      // The trip map refits on every driver position, ~every 400 ms.
+      // The trip map refits on every driver position. rider-cam-1: the
+      // glide now settles in well under a second, so the goals here come
+      // every 100 ms (6 frames), 0.002° (~23 px) apart, to keep it moving.
       var target = 59.33;
       Future<void> fit() => easeCameraTo(
         fake,
@@ -305,24 +311,25 @@ void main() {
       );
       unawaited(fit());
       for (var fix = 0; fix < 6; fix++) {
-        await _frames(tester, limit: 25);
-        target += 0.0004;
+        await _frames(tester, limit: 6);
+        target += 0.002;
         unawaited(fit());
       }
-      await _frames(tester, limit: 30);
+      await _frames(tester, limit: 40);
       final lats = [for (final p in fake.poses) _target(p)[0]];
+      expect(lats.last, target, reason: 'it lands on the newest goal');
       final steps = [
         for (var i = 1; i < lats.length; i++) lats[i] - lats[i - 1],
       ];
       // Moving towards the newest goal the whole time: the camera never
       // stops and re-accelerates from rest at a new command.
-      for (var i = 0; i < 25 * 6; i++) {
+      for (var i = 0; i < 6 * 6; i++) {
         expect(steps[i], greaterThan(0), reason: 'frame $i stalled');
       }
       // One glide, retargeted: a restart would show a step falling back to
       // a near-zero start after every fix.
       for (var fix = 1; fix < 6; fix++) {
-        final at = fix * 25;
+        final at = fix * 6;
         expect(
           steps[at],
           greaterThan(steps[at - 1] * 0.5),
@@ -333,7 +340,7 @@ void main() {
       await tester.pump(cameraEaseFrame);
     });
 
-    testWidgets('a recenter flight lands in about 1 s, smoothly', (
+    testWidgets('a recenter flight lands in about half a second, smoothly', (
       tester,
     ) async {
       _stillClock();
@@ -355,9 +362,14 @@ void main() {
       await _frames(tester, done: () => done);
       expect(done, isTrue);
       final poses = fake.poses;
-      final frames = cameraFlightDuration.inMicroseconds ~/
-          cameraEaseFrame.inMicroseconds;
-      // It used to creep on to the 240-frame cap (about 4-5 s).
+      // rider-cam-1: its length scales with the way (it was a fixed 1 s;
+      // before that it crept on to the 240-frame cap, about 4-5 s).
+      final length = flightDurationFor(
+        const CameraPosition(target: _stockholm, zoom: 11.7),
+        const CameraPosition(target: LatLng(59.345, 18.09), zoom: 15),
+      );
+      expect(length.inMilliseconds, inInclusiveRange(450, 600));
+      final frames = length.inMicroseconds ~/ cameraEaseFrame.inMicroseconds;
       expect(poses.length, inInclusiveRange(frames - 2, frames + 2));
       final zooms = [for (final p in poses) _zoom(p)];
       for (var i = 1; i < zooms.length; i++) {
@@ -375,7 +387,10 @@ void main() {
       // Three phases: the first and last steps run at 80 % of the middle
       // ones (owner), and the camera keeps moving right up to the goal.
       expect(steps[2], closeTo(fastest * slowPhaseSpeed, fastest * .05));
-      expect(steps[steps.length - 4], closeTo(fastest * slowPhaseSpeed, fastest * .05));
+      expect(
+        steps[steps.length - 4],
+        closeTo(fastest * slowPhaseSpeed, fastest * .05),
+      );
       expect(zooms.last, 15);
       expect(view.easing, isFalse);
     });
@@ -385,7 +400,8 @@ void main() {
       expect(flightEase(0), 0);
       expect(flightEase(1), 1);
       // Speed (progress per unit time) sampled finely.
-      double speed(double t) => (flightEase(t + .0005) - flightEase(t - .0005)) / .001;
+      double speed(double t) =>
+          (flightEase(t + .0005) - flightEase(t - .0005)) / .001;
       final slow = speed(.12), fast = speed(.5), end = speed(.88);
       expect(slow, closeTo(fast * slowPhaseSpeed, 1e-6));
       expect(end, closeTo(slow, 1e-6));
@@ -416,8 +432,10 @@ void main() {
     ) async {
       _stillClock();
       final fake = _FakeMap();
-      mapViewOf(fake).pose =
-          const CameraPosition(target: _stockholm, zoom: 11.7);
+      mapViewOf(fake).pose = const CameraPosition(
+        target: _stockholm,
+        zoom: 11.7,
+      );
       var done = false;
       unawaited(
         easeCameraTo(
@@ -437,12 +455,15 @@ void main() {
       for (var i = 1; i < poses.length; i++) {
         final a = _target(poses[i - 1]), b = _target(poses[i]);
         final ground = math.sqrt(
-            math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1], 2));
+          math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1], 2),
+        );
         speeds.add(ground * math.pow(2, _zoom(poses[i])));
       }
       // The even middle of the flight (between the ramps).
       final middle = speeds.sublist(
-          (speeds.length * .3).round(), (speeds.length * .7).round());
+        (speeds.length * .3).round(),
+        (speeds.length * .7).round(),
+      );
       final ratio = middle.reduce(math.max) / middle.reduce(math.min);
       // It used to move 10x faster on screen at the end than at the start.
       expect(ratio, lessThan(1.6));
@@ -461,6 +482,194 @@ void main() {
       await _frames(tester, limit: 60);
       expect(fake.calls.length, count);
       expect(view.easing, isFalse);
+    });
+  });
+
+  group('rider-cam-1: a fast camera', () {
+    /// [px] screen pixels east of [_stockholm] at [zoom].
+    LatLng east(double px, double zoom) => LatLng(
+      _stockholm.latitude,
+      _stockholm.longitude + px / (256 * math.pow(2, zoom) / 360),
+    );
+
+    test('a flight takes as long as its way: hops ~300 ms, a recenter or fit '
+        '~500-600 ms, never more than 700 ms', () {
+      Duration flight(LatLng to, double fromZoom, double toZoom) =>
+          flightDurationFor(
+            CameraPosition(target: _stockholm, zoom: fromZoom),
+            CameraPosition(target: to, zoom: toZoom),
+          );
+      final hop = flight(east(60, 15), 15, 15);
+      expect(hop.inMilliseconds, inInclusiveRange(250, 350));
+      expect(
+        flight(east(150, 15), 15, 15).inMilliseconds,
+        inInclusiveRange(300, 400),
+      );
+      // A recenter after the rider panned the map away, or a route fit.
+      expect(
+        flight(east(800, 14), 14, 15).inMilliseconds,
+        inInclusiveRange(500, 600),
+      );
+      expect(
+        flight(east(100, 11.7), 11.7, 15).inMilliseconds,
+        inInclusiveRange(450, 600),
+      );
+      // Across the region: capped.
+      expect(flight(east(20000, 15), 15, 10), cameraFlightDuration);
+      expect(cameraFlightDuration.inMilliseconds, 700);
+      // Longer the further it goes.
+      var last = Duration.zero;
+      for (final px in <double>[0, 20, 60, 150, 400, 1000, 3000, 10000]) {
+        final d = flight(east(px, 15), 15, 15);
+        expect(d, greaterThanOrEqualTo(last), reason: '$px px');
+        expect(d.inMilliseconds, inInclusiveRange(250, 700));
+        last = d;
+      }
+    });
+
+    testWidgets('a short recenter lands in ~300 ms, on its goal', (
+      tester,
+    ) async {
+      _stillClock();
+      final fake = _FakeMap();
+      mapViewOf(fake).pose = const CameraPosition(target: _stockholm, zoom: 15);
+      final goal = CameraPosition(target: east(80, 15), zoom: 15);
+      var done = false;
+      unawaited(
+        easeCameraTo(
+          fake,
+          goal,
+          duration: cameraFlightDuration,
+        ).then((_) => done = true),
+      );
+      await _frames(tester, done: () => done);
+      expect(fake.poses.length, inInclusiveRange(15, 22));
+      expect(_target(fake.poses.last), [
+        goal.target.latitude,
+        goal.target.longitude,
+      ]);
+    });
+
+    testWidgets('a goal the camera already shows moves nothing', (
+      tester,
+    ) async {
+      _stillClock();
+      final flights = <CameraPosition>[];
+      RiderMapBridge.debugFlight = (_, to, _) {
+        flights.add(to);
+        return Future.value(true);
+      };
+      addTearDown(() => RiderMapBridge.debugFlight = null);
+      final fake = _FakeMap();
+      final view = mapViewOf(fake)
+        ..pose = const CameraPosition(target: _stockholm, zoom: 15);
+      // Half a pixel away, a hair of zoom and heading: the same on screen.
+      final same = CameraPosition(
+        target: east(.5, 15),
+        zoom: 15.001,
+        bearing: .1,
+      );
+      final generation = view.generation;
+      await easeCameraTo(fake, same, duration: cameraFlightDuration);
+      await easeCameraTo(fake, same);
+      view.mapId = 1;
+      await easeCameraTo(fake, same, duration: cameraFlightDuration);
+      expect(fake.calls, isEmpty);
+      expect(flights, isEmpty);
+      expect(view.easing, isFalse);
+      expect(view.generation, generation, reason: 'nothing was interrupted');
+      // Three pixels away is a move.
+      view.mapId = null;
+      unawaited(
+        easeCameraTo(fake, CameraPosition(target: east(3, 15), zoom: 15)),
+      );
+      await _frames(tester, limit: 30);
+      expect(fake.calls, isNotEmpty);
+    });
+
+    testWidgets('a follow glide settles well under 1 s, zoom and heading '
+        'with the pan, exactly on its goal', (tester) async {
+      _stillClock();
+      final fake = _FakeMap();
+      final view = mapViewOf(fake)
+        ..tiltWithZoom = false
+        ..pose = const CameraPosition(target: _stockholm, zoom: 14);
+      final goal = CameraPosition(target: east(300, 15), zoom: 15, bearing: 30);
+      var done = false;
+      unawaited(easeCameraTo(fake, goal).then((_) => done = true));
+      await _frames(tester, done: () => done);
+      expect(done, isTrue);
+      final poses = fake.poses;
+      // It crept on for 2-3 s (time constants of 315-720 ms and settle
+      // thresholds far below a pixel).
+      expect(poses.length * 16, lessThan(700), reason: 'ms to settle');
+      expect(poses.last['bearing'], 30);
+      expect(_zoom(poses.last), 15);
+      expect(_target(poses.last), [
+        goal.target.latitude,
+        goal.target.longitude,
+      ]);
+      // Halfway through, zoom and heading are as far along as the pan.
+      final mid = poses[poses.length ~/ 2];
+      final pan =
+          (_target(mid)[1] - _stockholm.longitude) /
+          (goal.target.longitude - _stockholm.longitude);
+      expect(_zoom(mid) - 14, greaterThan(.5));
+      expect((mid['bearing']! as num) / 30, greaterThan(.5));
+      expect(pan, greaterThan(.5));
+      // It leaves gently: the first frame is a small part of its fastest.
+      final lngs = [for (final p in poses) _target(p)[1]];
+      final steps = [
+        lngs[0] - _stockholm.longitude,
+        for (var i = 1; i < lngs.length; i++) lngs[i] - lngs[i - 1],
+      ];
+      expect(steps.first, lessThan(steps.reduce(math.max) * .5));
+      expect(view.easing, isFalse);
+    });
+
+    testWidgets('on the web the follow glide runs on the browser frame clock; '
+        'newer goals retarget it and a finger stops it', (tester) async {
+      final glides = <(CameraPosition, Duration)>[];
+      final landing = Completer<bool>();
+      RiderMapBridge.debugGlide = (_, to, duration) {
+        glides.add((to, duration));
+        return landing.future;
+      };
+      const midway = CameraPosition(target: LatLng(59.331, 18.06), zoom: 13);
+      RiderMapBridge.debugCancelFlight = (_) => midway;
+      addTearDown(() {
+        RiderMapBridge.debugGlide = null;
+        RiderMapBridge.debugCancelFlight = null;
+      });
+      final fake = _FakeMap();
+      final view = mapViewOf(fake)
+        ..mapId = 1
+        ..pose = const CameraPosition(target: _stockholm, zoom: 13);
+      const first = CameraPosition(target: LatLng(59.332, 18.06), zoom: 13);
+      const second = CameraPosition(target: LatLng(59.334, 18.06), zoom: 13);
+      unawaited(easeCameraTo(fake, first));
+      await tester.pump(cameraEaseFrame);
+      expect(glides.single.$1, first);
+      expect(glides.single.$2, cameraEaseDuration);
+      expect(fake.calls, isEmpty, reason: 'no Dart timer steps on the web');
+      expect(view.easing, isTrue);
+      // The trip map refits: the same glide turns to the newer goal.
+      unawaited(easeCameraTo(fake, second));
+      expect(glides, hasLength(1));
+      // A finger stops it where it is.
+      view.touching = true;
+      expect(view.pose, midway);
+      expect(view.easing, isFalse);
+      view.touching = false;
+      // Landing: the goal becomes the pose, and late echoes are ignored.
+      glides.clear();
+      unawaited(easeCameraTo(fake, second));
+      landing.complete(true);
+      await tester.pump(cameraEaseFrame);
+      expect(glides.single.$1, second);
+      expect(view.pose, second);
+      expect(view.easing, isFalse);
+      expect(view.isLateEcho(midway), isTrue);
     });
   });
 
@@ -564,7 +773,12 @@ void main() {
       await b.moveBy(const Offset(60, 0));
       map.onCameraMoveStarted!();
       map.onCameraMove!(
-        CameraPosition(target: _stockholm, zoom: toZoom, bearing: 20, tilt: tilt),
+        CameraPosition(
+          target: _stockholm,
+          zoom: toZoom,
+          bearing: 20,
+          tilt: tilt,
+        ),
       );
       return (a, b);
     }
