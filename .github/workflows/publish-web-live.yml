@@ -33,6 +33,47 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      # The live rider (the test week's server) next to the demo, once the repository variable
+      # MOVERA_LIVE_API_URL names the server (e.g. https://movera-server-xxxx.onrender.com).
+      # Built first: the demo build below reuses build/web.
+      - name: Build the live rider web
+        if: ${{ vars.MOVERA_LIVE_API_URL != '' }}
+        env:
+          LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
+          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          case "$LIVE_API" in https://*) ;; *) echo "::error::MOVERA_LIVE_API_URL must start with https://"; exit 1 ;; esac
+          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
+            exit 1
+          fi
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          flutter build web --release \
+            -t lib/main_staging.dart \
+            --dart-define=MOVERA_FLAVOR=staging \
+            --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
+            --dart-define=MOVERA_AUTH_REQUIRED=true \
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+          printf '%s\n' '{"flavor":"staging","production":false}' > build/web/movera-environment.json
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          key = os.environ.get('MAPS_WEB_API_KEY', '')
+          if key and bootstrap in s and 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, f'  <script src="https://maps.googleapis.com/maps/api/js?key={key}" async defer></script>\n' + bootstrap)
+          s = s.replace('<base href="/">', '<base href="/movera-rider-app/live/">')
+          p.write_text(s)
+          PY
+          rm -rf /tmp/movera-live
+          cp -a build/web /tmp/movera-live
+          git checkout -- .
+
       - name: Build explicit demo Flutter web
         env:
           # Same Google Cloud Map ID (cloud-based styling) as the driver app.
@@ -127,6 +168,7 @@ jobs:
           s = s.replace('<base href="/">', '<base href="/movera-rider-app/">')
           p.write_text(s)
           PY
+          if [ -d /tmp/movera-live ]; then cp -a /tmp/movera-live /tmp/movera-pages/live; fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

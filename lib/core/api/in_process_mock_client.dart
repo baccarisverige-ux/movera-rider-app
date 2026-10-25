@@ -1349,7 +1349,8 @@ class InProcessMockClient extends http.BaseClient {
     } else if (path == '/api/v1/rider/profile' && method == 'PATCH') {
       // FLOW-7 / C-12 (PROPOSED): name, language and consents. A field left
       // out keeps the value the server holds (rider-u148).
-      final name = body['name'];
+      // The contract's RiderProfileUpdate says firstName; older callers name.
+      final name = body['firstName'] ?? body['name'];
       final consents = body['consents'];
       if ((name != null && (name is! String || name.trim().length > 80)) ||
           (consents != null && consents is! Map)) {

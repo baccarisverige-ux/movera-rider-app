@@ -27,6 +27,8 @@ class AuthRepository {
       '/api/v1/auth/otp/request',
       body: {
         'phone': normalized,
+        // Contract §8 OtpRequest: which app signs in decides the tokens' actor.
+        'app': 'rider',
         if (link != null) 'linkToken': link.linkToken,
       },
     );

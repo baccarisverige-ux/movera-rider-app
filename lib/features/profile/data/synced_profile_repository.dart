@@ -11,13 +11,17 @@ import 'package:movera_rider/features/profile/domain/rider_profile_repository.da
 /// The profile the server knows (FLOW-7). The device copy stays as a cache
 /// so screens read it synchronously. The server copy is read with
 ///
-/// `GET /api/v1/rider/profile` → `{profile}` (null for a rider with none)
+/// `GET /api/v1/rider/profile` → the contract's `Rider` (`firstName`,
+/// `language`, `consents`, `version`); the device-only mock still answers
+/// the older `{profile}` (null for a rider with none)
 ///
 /// on [hydrate] (launch and sign-in) and before the first save, and every
 /// save is sent as
 ///
-/// `PATCH /api/v1/rider/profile`
-/// `{name, language, consents: {rideUpdates, emailUpdates, promotions}}`
+/// `PATCH /api/v1/rider/profile` (contract `RiderProfileUpdate`)
+/// `{expectedVersion, firstName, language, consents: {rideUpdates, emailUpdates, promotions}}`
+/// with the `version` last read; a `409 version_mismatch` re-reads it and
+/// sends once more.
 ///
 /// PROPOSED, needs agreement with Driver, Admin and backend (contract C-12):
 /// the driver app shows the rider's first name from it, and the consents are
@@ -48,6 +52,9 @@ class SyncedProfileRepository
 
   /// True once the server copy of this rider's profile has been read.
   bool _serverKnown = false;
+
+  /// The server's `Rider.version`, sent back as `expectedVersion`.
+  int _version = 1;
 
   /// The fields the rider changed that the server does not have yet.
   final Set<_Field> _changed = {};
@@ -156,9 +163,13 @@ class SyncedProfileRepository
     return _cache.current;
   }
 
-  static Map<String, dynamic> body(RiderProfileData profile) => {
+  static Map<String, dynamic> body(
+    RiderProfileData profile, {
+    int expectedVersion = 1,
+  }) => {
+    'expectedVersion': expectedVersion,
     // rider-u148: a blank name is never sent over the one the server has.
-    if (profile.name.trim().isNotEmpty) 'name': profile.name.trim(),
+    if (profile.name.trim().isNotEmpty) 'firstName': profile.name.trim(),
     'language': profile.language,
     'consents': {
       'rideUpdates': profile.rideUpdates,
@@ -227,8 +238,12 @@ class SyncedProfileRepository
       AppLog.info('profile.read_dropped', extra: {'reason': 'signed_out'});
       return;
     }
-    final server = response['profile'];
+    // The server answers the bare Rider; the device-only mock {profile}.
+    final server = response.containsKey('riderId')
+        ? response
+        : response['profile'];
     if (server is Map) {
+      _version = _versionOf(server) ?? _version;
       final local = _cache.current;
       var merged = _fromServer(local, Map<String, dynamic>.from(server));
       for (final field in _changed) {
@@ -241,11 +256,16 @@ class SyncedProfileRepository
     _serverKnown = true;
   }
 
+  static int? _versionOf(Map<dynamic, dynamic> server) {
+    final version = server['version'];
+    return version is int && version >= 1 ? version : null;
+  }
+
   static RiderProfileData _fromServer(
     RiderProfileData base,
     Map<String, dynamic> server,
   ) {
-    final name = server['name'];
+    final name = server['firstName'] ?? server['name'];
     final language = server['language'];
     final raw = server['consents'];
     final consents = raw is Map ? raw : const {};
@@ -273,11 +293,22 @@ class SyncedProfileRepository
     bool rethrowRefusal = false,
   }) async {
     try {
-      await _api.patch(
-        path,
-        body: body(profile),
-        idempotencyKey: newIdempotencyKey('profile'),
-      );
+      final Map<String, dynamic> saved;
+      try {
+        saved = await _patch(profile);
+      } on ApiError catch (error) {
+        if (error.statusCode != 409) rethrow;
+        // Changed elsewhere since the last read: take the new version and
+        // send the rider's change once more.
+        final current = await _api.get(path);
+        _version = _versionOf(current) ?? _version;
+        _version = _versionOf(await _patch(profile)) ?? _version;
+        _syncPending = false;
+        _changed.clear();
+        await _storePending();
+        return;
+      }
+      _version = _versionOf(saved) ?? _version;
       _syncPending = false;
       _changed.clear();
       await _storePending();
@@ -290,6 +321,12 @@ class SyncedProfileRepository
       AppLog.warning('profile.sync_failed', extra: {'error': '$error'});
     }
   }
+
+  Future<Map<String, dynamic>> _patch(RiderProfileData profile) => _api.patch(
+    path,
+    body: body(profile, expectedVersion: _version),
+    idempotencyKey: newIdempotencyKey('profile'),
+  );
 
   static bool _isRefusal(ApiError error) =>
       error.statusCode == 400 || error.statusCode == 422;

@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -44,6 +48,35 @@ void main() {
     expect(challenge.retryAfter, greaterThan(Duration.zero));
     expect(await tokens.readAccess(), isNull);
     expect(await tokens.readRefresh(), isNull);
+  });
+
+  test('the code request names the rider app (contract OtpRequest.app)', () async {
+    Map<String, dynamic>? sent;
+    final tokens = MemoryTokenStore();
+    final auth = AuthRepository(
+      api: ApiClient(
+        env: testEnv,
+        client: MockClient((request) async {
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'requestId': 'req-1',
+              'sessionId': 'ses-1',
+              'expiresAt': DateTime.now().toUtc().add(const Duration(minutes: 5)).toIso8601String(),
+              'retryAfterSeconds': 30,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        tokens: tokens,
+      ),
+      tokens: tokens,
+    );
+
+    await auth.requestOtp(phone: '+46 70 123 45 67');
+
+    expect(sent, {'phone': '+46701234567', 'app': 'rider'});
   });
 
   test('wrong OTP never authenticates or persists tokens', () async {
