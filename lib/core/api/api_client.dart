@@ -121,7 +121,10 @@ class ApiClient {
           }, body);
         }
         if (replacement == null || response.statusCode == 401) {
-          await _expireSession(replacement ?? access);
+          await _expireSession(
+            replacement ?? access,
+            cause: replacement == null ? refresh.cause : 'retry_401',
+          );
         }
       }
       // rider-r4-32: how far this device's clock is from the server's.
@@ -198,7 +201,9 @@ class ApiClient {
       return _Refresh.refreshed(current);
     }
     final refresh = await _tokens?.readRefresh();
-    if (refresh == null || refresh.isEmpty) return const _Refresh.rejected();
+    if (refresh == null || refresh.isEmpty) {
+      return const _Refresh.rejected('no_refresh_token');
+    }
     try {
       final response = await _client.post(
         Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
@@ -207,7 +212,7 @@ class ApiClient {
       ).timeout(_timeout);
       final status = response.statusCode;
       if (status == 400 || status == 401 || status == 403) {
-        return const _Refresh.rejected();
+        return _Refresh.rejected('refresh_$status');
       }
       if (status != 200) return const _Refresh.unavailable();
       final payload = jsonDecode(response.body);
@@ -233,9 +238,15 @@ class ApiClient {
 
   /// Runs once per rejected access token, so a burst of concurrent 401s
   /// does not clear the session and open Sign in several times.
-  Future<void> _expireSession(String failedAccess) async {
+  Future<void> _expireSession(
+    String failedAccess, {
+    required String? cause,
+  }) async {
     if (_expiredAccess == failedAccess) return;
     _expiredAccess = failedAccess;
+    // Why the rider was signed out (never the tokens), so a real expiry can
+    // be told apart from a reload that only lost the session.
+    AppLog.warning('auth.session_expired', extra: {'cause': cause ?? 'unknown'});
     await _tokens?.clear();
     await _onSessionExpired?.call();
   }
@@ -297,11 +308,21 @@ class ApiClient {
 }
 
 class _Refresh {
-  const _Refresh.refreshed(String this.access) : unavailable = false;
-  const _Refresh.rejected() : access = null, unavailable = false;
-  const _Refresh.unavailable() : access = null, unavailable = true;
+  const _Refresh.refreshed(String this.access)
+    : unavailable = false,
+      cause = null;
+  const _Refresh.rejected(String this.cause)
+    : access = null,
+      unavailable = false;
+  const _Refresh.unavailable()
+    : access = null,
+      unavailable = true,
+      cause = null;
 
   final String? access;
+
+  /// Why the refresh was refused (`refresh_401`, `no_refresh_token`, ...).
+  final String? cause;
 
   /// The refresh endpoint could not answer; the tokens are kept.
   final bool unavailable;

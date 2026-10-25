@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -15,6 +17,10 @@ class SecureTokenStore implements TokenStore {
   final TokenStore? _override;
   final MemoryTokenStore _memory = MemoryTokenStore();
   late final TokenStore? _web = kIsWeb ? webSessionTokenStore() : null;
+  /// One entry holding both tokens as JSON (native).
+  static const sessionKey = 'movera_session';
+
+  /// Two-key format of older builds; still read, deleted on the next save.
   static const accessKey = 'movera_access_token';
   static const refreshKey = 'movera_refresh_token';
 
@@ -35,9 +41,11 @@ class SecureTokenStore implements TokenStore {
     final web = _web;
     if (web != null) return web;
     if (!_nativeSecure) return _memory;
-    return _NativeSecureStore(
-      const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    return NativeSecureTokenStore(
+      const _FlutterSecureKeyValue(
+        FlutterSecureStorage(
+          aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        ),
       ),
     );
   }
@@ -89,27 +97,91 @@ class SecureTokenStore implements TokenStore {
   }
 }
 
-class _NativeSecureStore implements TokenStore {
-  _NativeSecureStore(this._storage);
+/// The few calls [NativeSecureTokenStore] makes on Keychain/Keystore.
+abstract class SecureKeyValue {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+class _FlutterSecureKeyValue implements SecureKeyValue {
+  const _FlutterSecureKeyValue(this._storage);
   final FlutterSecureStorage _storage;
 
   @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
+/// Both tokens live in one entry ([SecureTokenStore.sessionKey]), so a kill
+/// between two writes can no longer pair a new access token with the
+/// refresh token the server just rotated away. Sessions saved by older
+/// builds under two keys are still read; the next save moves them over.
+/// Reads never write, so a read racing a rotation cannot put old tokens
+/// back.
+class NativeSecureTokenStore implements TokenStore {
+  NativeSecureTokenStore(this._storage);
+  final SecureKeyValue _storage;
+
+  @override
   Future<void> save({required String access, required String refresh}) async {
-    await _storage.write(key: SecureTokenStore.accessKey, value: access);
-    await _storage.write(key: SecureTokenStore.refreshKey, value: refresh);
+    await _storage.write(
+      SecureTokenStore.sessionKey,
+      jsonEncode({'access': access, 'refresh': refresh}),
+    );
+    await _dropLegacy();
   }
 
   @override
-  Future<String?> readAccess() =>
-      _storage.read(key: SecureTokenStore.accessKey);
+  Future<String?> readAccess() async => (await _read())?.access;
 
   @override
-  Future<String?> readRefresh() =>
-      _storage.read(key: SecureTokenStore.refreshKey);
+  Future<String?> readRefresh() async => (await _read())?.refresh;
 
   @override
   Future<void> clear() async {
-    await _storage.delete(key: SecureTokenStore.accessKey);
-    await _storage.delete(key: SecureTokenStore.refreshKey);
+    await _storage.delete(SecureTokenStore.sessionKey);
+    await _dropLegacy();
+  }
+
+  Future<({String access, String refresh})?> _read() async {
+    final raw = await _storage.read(SecureTokenStore.sessionKey);
+    if (raw != null) return _decode(raw);
+    final access = await _storage.read(SecureTokenStore.accessKey);
+    final refresh = await _storage.read(SecureTokenStore.refreshKey);
+    if (access != null && refresh != null) {
+      return (access: access, refresh: refresh);
+    }
+    // A save may have moved the old pair over between the reads above.
+    final moved = await _storage.read(SecureTokenStore.sessionKey);
+    return moved == null ? null : _decode(moved);
+  }
+
+  static ({String access, String refresh})? _decode(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map &&
+          decoded['access'] is String &&
+          decoded['refresh'] is String) {
+        return (
+          access: decoded['access'] as String,
+          refresh: decoded['refresh'] as String,
+        );
+      }
+    } on FormatException {
+      // Unreadable entry: treated as no session, like a missing one.
+    }
+    return null;
+  }
+
+  Future<void> _dropLegacy() async {
+    await _storage.delete(SecureTokenStore.accessKey);
+    await _storage.delete(SecureTokenStore.refreshKey);
   }
 }
