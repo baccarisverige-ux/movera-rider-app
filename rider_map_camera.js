@@ -90,7 +90,11 @@
     if (target) state.map.moveCamera({center: target});
   }
   function install(map, div, id) {
-    const state = {map, div, callbacks: new Set(), claim: false,
+    // [div] is the element Google draws into for the life of this Map (its
+    // container); a reused map is carried inside a later plugin element,
+    // which state.div then names (see reuse below).
+    const container = div;
+    const state = {map, div, container, id, callbacks: new Set(), claim: false,
       gesturesEnabled: true, scroll: true, zoom: true, rotate: true, tilt: true,
       tiltFollowsZoom: true};
     const supports3D = () => map.getRenderingType?.() === sdk.RenderingType.VECTOR;
@@ -264,10 +268,10 @@
       }
       map.moveCamera({...camera, zoom: next});
       let panX = state.scroll ? gestureX : 0, panY = state.scroll ? gestureY : 0;
-      const width = div.clientWidth, height = div.clientHeight;
+      const width = container.clientWidth, height = container.clientHeight;
       if (width > 0 && height > 0 && Number.isFinite(x) &&
           Number.isFinite(y) && next !== current) {
-        const rect = div.getBoundingClientRect?.() || {left: 0, top: 0};
+        const rect = container.getBoundingClientRect?.() || {left: 0, top: 0};
         const scale = 2 ** (next - current);
         const localX = clamp(x - rect.left, 0, width);
         const localY = clamp(y - rect.top, 0, height);
@@ -276,15 +280,15 @@
       }
       if (panX || panY) pan(state, panX, panY);
     };
-    div.style.touchAction = 'none';
-    div.addEventListener('pointerdown', event => {
+    container.style.touchAction = 'none';
+    container.addEventListener('pointerdown', event => {
       if (!state.gesturesEnabled) return;
       if (nativeCameraControl(event.target)) { release(); pointerOrigin = null; return; }
       if (event.pointerType === 'touch') return;
       pointerOrigin = {x: event.clientX, y: event.clientY};
       pointerReleased = false;
     }, {capture: true});
-    div.addEventListener('pointermove', event => {
+    container.addEventListener('pointermove', event => {
       if (!state.gesturesEnabled || !pointerOrigin || pointerReleased) return;
       if (Math.hypot(event.clientX - pointerOrigin.x,
           event.clientY - pointerOrigin.y) >= 6) {
@@ -293,9 +297,9 @@
       }
     }, {capture: true});
     const clearPointer = () => { pointerOrigin = null; pointerReleased = false; };
-    div.addEventListener('pointerup', clearPointer, {capture: true});
-    div.addEventListener('pointercancel', clearPointer, {capture: true});
-    div.addEventListener('dblclick', release, {capture: true});
+    container.addEventListener('pointerup', clearPointer, {capture: true});
+    container.addEventListener('pointercancel', clearPointer, {capture: true});
+    container.addEventListener('dblclick', release, {capture: true});
     // Wheel / trackpad zoom on a vector map: Google's wheel animation would
     // zoom with a fixed tilt, so this layer glides toward the wheel's goal,
     // about the cursor, with the tilt bound to the zoom on every frame.
@@ -321,7 +325,7 @@
       if (Math.abs(left) < .01) { stopWheel(); return; }
       wheelFrame = globalThis.requestAnimationFrame(wheelTick);
     };
-    div.addEventListener('wheel', event => {
+    container.addEventListener('wheel', event => {
       if (!state.gesturesEnabled || !state.zoom) return;
       release();
       if (!supports3D() || typeof globalThis.requestAnimationFrame !== 'function') return;
@@ -339,7 +343,7 @@
     }, {capture: true, passive: false});
     // Own touch geometry so zoom, tilt and rotation happen in one gesture.
     // Mouse and keyboard gestures stay with Google Maps.
-    div.addEventListener('touchstart', event => {
+    container.addEventListener('touchstart', event => {
       if (!state.gesturesEnabled || cancelledTouchSequence) return;
       // Let the browser synthesize clicks for Maps' own +/- controls.
       if (nativeCameraControl(event.target)) {
@@ -360,7 +364,7 @@
       previous = {...touchPose(event.touches), count: event.touches.length};
       if (previous.count > 1) lastTwoFingerPoint = {x: previous.x, y: previous.y};
     }, {capture: true, passive: false});
-    div.addEventListener('touchmove', event => {
+    container.addEventListener('touchmove', event => {
       if (!state.gesturesEnabled || touchOnControl || cancelledTouchSequence) return;
       event.preventDefault(); event.stopImmediatePropagation();
       const next = {...touchPose(event.touches), count: event.touches.length};
@@ -460,32 +464,237 @@
       previous = null; touchReleased = false; multiTouchMoved = false;
       lastTwoFingerPoint = null;
     };
-    div.addEventListener('touchend', end, {capture: true, passive: false});
-    div.addEventListener('touchcancel', end, {capture: true, passive: false});
-    // Flutter removes the platform view at dispose: release JS state.
-    let wasConnected = div.isConnected;
-    const observer = new MutationObserver(() => {
-      wasConnected ||= div.isConnected;
-      if (wasConnected && !div.isConnected) {
-        overlay.setMap(null); state.callbacks.clear();
-        if (states.get(id) === state) states.delete(id);
-        observer.disconnect();
-      }
-    });
-    observer.observe(document.body, {childList: true, subtree: true});
+    container.addEventListener('touchend', end, {capture: true, passive: false});
+    container.addEventListener('touchcancel', end, {capture: true, passive: false});
+    // Flutter removes the platform view at dispose. The map is then taken
+    // back for the next screen (see reuse below): its listeners and
+    // overlays are cleared, its container leaves the dead plugin element,
+    // and the gesture state waits in the pool. Dart asks first
+    // (riderMapCamera.release from CustomGoogleMap.dispose); the observer
+    // is the fallback, and either way the element must be out of the DOM,
+    // a frame later, before anything is touched.
+    let observer = null;
+    let parked = false;
+    const stopWatching = () => {
+      try { observer?.disconnect(); } catch (_) { /* best effort */ }
+      observer = null;
+    };
+    const park = () => {
+      if (parked) return;
+      parked = true;
+      stopWatching();
+      if (states.get(state.id) === state) states.delete(state.id);
+      state.callbacks.clear();
+      try { endFlight(false); } catch (_) { /* best effort */ }
+      try { stopWheel(); } catch (_) { /* best effort */ }
+      state.claim = false;
+      state.setGesturesEnabled(true);
+      Object.assign(state, {scroll: true, zoom: true, rotate: true, tilt: true,
+        tiltFollowsZoom: true});
+      poolMap(state);
+    };
+    const parkOnceRemoved = () => {
+      if (parked || state.div.isConnected) return;
+      // Maps may still be finishing a frame for this element: a short
+      // pause, then a last check that Flutter has not put it back.
+      const div = state.div;
+      setTimeout(() => {
+        if (!parked && state.div === div && !div.isConnected) park();
+      }, 250);
+    };
+    const watch = () => {
+      stopWatching();
+      // Any DOM change while the element is out of the document counts: a
+      // map mounted and parked again within a frame (Home between Plan
+      // your ride and the categories screen) is never seen connected by a
+      // callback.
+      observer = new MutationObserver(() => {
+        if (!state.div.isConnected) parkOnceRemoved();
+      });
+      observer.observe(document.body, {childList: true, subtree: true});
+    };
+    state.release = parkOnceRemoved;
+    // A pooled map is given to the next plugin element: same Map, same
+    // container and gesture listeners, a new element around it and a new id.
+    state.reattach = (nextDiv, nextId) => {
+      parked = false;
+      state.div = nextDiv;
+      state.id = nextId;
+      states.set(nextId, state);
+      watch();
+    };
+    watch();
   }
+  // Reuse. google.maps.Map has no destroy(), and the Maps script keeps an
+  // internal list of every map's container (a heap snapshot after dispose
+  // shows the Map object held through that list), while google_maps_flutter_web
+  // keeps every map's element in the platform view registry for the life of
+  // the page. Measured before this: each booking left 5-6 whole maps behind
+  // (about 1,400 DOM nodes, 900 listeners and 8 MB of heap a booking, and
+  // on a vector map a WebGL context each), until the page was killed. So a
+  // map Flutter has removed is not thrown away: its listeners and overlays
+  // are cleared and it waits in a small pool; the next plugin element gets
+  // the same Map with its container moved inside, as Google itself advises
+  // (create a map once, reuse it). Beyond the pool a map is gutted instead.
+  const pool = [];
+  const POOL_MAX = 2;
+  let created = 0, recycled = 0, pooledTotal = 0;
+  const overlaysOf = map => (map.__moveraOverlays ||= new Set());
+  function clearMapForReuse(state) {
+    const {map, container} = state;
+    try { sdk.event.clearInstanceListeners(map); } catch (_) { /* best effort */ }
+    for (const overlayItem of [...overlaysOf(map)]) {
+      try { overlayItem.setMap(null); } catch (_) { /* best effort */ }
+    }
+    overlaysOf(map).clear();
+    try { container.remove(); } catch (_) { /* best effort */ }
+  }
+  function poolMap(state) {
+    clearMapForReuse(state);
+    if (pool.length >= POOL_MAX) {
+      releaseMapResources(state.map, state.container);
+      return;
+    }
+    pool.push(state);
+    pooledTotal += 1;
+  }
+  function reuseMap(state, div, options, id) {
+    const {map, container} = state;
+    container.style.position = 'absolute';
+    container.style.inset = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    div.appendChild(container);
+    // mapId cannot change after the first render (every rider map uses the
+    // same one); the rest of the options are applied afresh.
+    const {mapId, ...rest} = options || {};
+    map.setOptions({...rest, isFractionalZoomEnabled: true});
+    if (rest.center) map.setCenter(rest.center);
+    if (rest.zoom != null) map.setZoom(rest.zoom);
+    map.setHeading(rest.heading || 0);
+    map.setTilt(rest.tilt || 0);
+    state.reattach(div, id);
+    recycled += 1;
+    return map;
+  }
+  // Markers, lines, shapes and layers are tracked per map, so a reused map
+  // starts empty: the plugin removes them only when told, and a disposed
+  // controller never is.
+  function trackOverlays() {
+    const hook = instance => {
+      if (!instance || instance.__moveraTracked) return;
+      instance.__moveraTracked = true;
+      const nativeSetMap = instance.setMap;
+      if (typeof nativeSetMap !== 'function') return;
+      instance.setMap = function(next) {
+        try {
+          const previous = this.getMap?.();
+          if (previous) overlaysOf(previous).delete(this);
+          if (next) overlaysOf(next).add(this);
+        } catch (_) { /* best effort */ }
+        return nativeSetMap.call(this, next);
+      };
+    };
+    for (const name of ['Marker', 'Polyline', 'Polygon', 'Circle', 'Rectangle',
+        'TrafficLayer', 'TransitLayer', 'BicyclingLayer', 'GroundOverlay']) {
+      const Native = sdk[name];
+      if (typeof Native !== 'function') continue;
+      sdk[name] = new Proxy(Native, {
+        construct(target, args) {
+          const instance = Reflect.construct(target, args);
+          hook(instance);
+          try {
+            const map = instance.getMap?.();
+            if (map) overlaysOf(map).add(instance);
+          } catch (_) { /* best effort */ }
+          return instance;
+        }
+      });
+    }
+    // The plugin's traffic layer is attached with set('map', map).
+    const Layer = sdk.TrafficLayer;
+    if (typeof Layer === 'function' && Layer.prototype && !Layer.prototype.__moveraSetHooked) {
+      Layer.prototype.__moveraSetHooked = true;
+      const nativeSet = Layer.prototype.set;
+      if (typeof nativeSet === 'function') {
+        Layer.prototype.set = function(key, value) {
+          if (key === 'map') {
+            try {
+              const previous = this.getMap?.();
+              if (previous) overlaysOf(previous).delete(this);
+              if (value) overlaysOf(value).add(this);
+            } catch (_) { /* best effort */ }
+          }
+          return nativeSet.call(this, key, value);
+        };
+      }
+    }
+  }
+  // google.maps.Map has no destroy(). A map whose <div> Flutter has removed
+  // keeps its tiles, its listeners and, on a vector map, its WebGL context
+  // for as long as the <div> is referenced, and google_maps_flutter_web
+  // keeps every map's <div> in the platform view registry for the life of
+  // the page: measured, each booking left 5-6 whole maps behind (about
+  // 1,700 DOM nodes, 1,000 listeners and 20 MB of heap per booking). Safari
+  // allows about 16 WebGL contexts per page and evicts the oldest (often
+  // Flutter's own) once there are more, which blanks the screen until
+  // Flutter rebuilds its surface. So the WebGL contexts a removed map owns
+  // are given back explicitly and the DOM under its <div> is dropped; the
+  // empty <div> and the Map object the registry keeps are small.
+  let released = 0, contextsReleased = 0;
+  function releaseMapResources(map, div) {
+    try { sdk.event.clearInstanceListeners(map); } catch (_) { /* best effort */ }
+    try {
+      div.querySelectorAll('canvas').forEach(canvas => {
+        const kind = canvas.__moveraContext;
+        if (kind === 'webgl' || kind === 'webgl2') {
+          try {
+            const gl = canvas.getContext(kind);
+            const ext = gl && gl.getExtension('WEBGL_lose_context');
+            if (ext && !gl.isContextLost()) { ext.loseContext(); contextsReleased += 1; }
+          } catch (_) { /* best effort */ }
+        }
+        try { canvas.width = 0; canvas.height = 0; } catch (_) { /* best effort */ }
+      });
+    } catch (_) { /* best effort */ }
+    try { div.replaceChildren(); } catch (_) { /* best effort */ }
+    released += 1;
+  }
+  // Which context each canvas was given, so a removed map's WebGL contexts
+  // can be found without creating one on a canvas that had none.
+  try {
+    const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(kind, ...rest) {
+      const context = nativeGetContext.call(this, kind, ...rest);
+      if (context && !this.__moveraContext) this.__moveraContext = String(kind);
+      return context;
+    };
+  } catch (_) { /* best effort: the release then only drops the DOM */ }
   function installSdk() {
     sdk = globalThis.google.maps;
+    trackOverlays();
     const NativeMap = sdk.Map;
     sdk.Map = new Proxy(NativeMap, {
       construct(target, args) {
         const [div, options = {}] = args;
         const match = /^plugins\.flutter\.io\/google_maps_(\d+)$/.exec(div?.id || '');
+        if (!match) return Reflect.construct(target, args);
+        const id = Number(match[1]);
+        while (pool.length) {
+          const state = pool.pop();
+          try {
+            return reuseMap(state, div, options, id);
+          } catch (error) {
+            // A map that cannot be taken back is dropped; a new one is made.
+            try { releaseMapResources(state.map, state.container); } catch (_) { /* best effort */ }
+            console.warn('rider_map_camera: map reuse failed', error);
+          }
+        }
         // Fractional zoom: pinch and app eases move in small steps (raster
         // tiles default to whole levels, so 11.7 would snap to 12).
-        const map = Reflect.construct(target, [div,
-          match ? {...options, isFractionalZoomEnabled: true} : options]);
-        if (match) install(map, div, Number(match[1]));
+        const map = Reflect.construct(target, [div, {...options, isFractionalZoomEnabled: true}]);
+        created += 1;
+        install(map, div, id);
         return map;
       }
     });
@@ -500,6 +709,7 @@
       installSdk();
     }, 25);
   }
+  const div_isConnected = div => { try { return !!div.isConnected; } catch (_) { return false; } };
   globalThis.riderMapCamera = {
     ready() { return sdk !== null; },
     has(id) { return states.has(id); },
@@ -522,6 +732,28 @@
     listen(id, callback) {
       const state = states.get(id); state?.callbacks.add(callback);
       return () => state?.callbacks.delete(callback);
+    },
+    // Dart disposed this map's widget: release it once Flutter has taken
+    // its <div> out of the DOM (the observer above does the same).
+    release(id) {
+      const state = states.get(id);
+      if (!state) return;
+      if (div_isConnected(state.div)) {
+        // Flutter removes the element on its next frame; wait for it.
+        setTimeout(() => state.release?.(), 50);
+        setTimeout(() => state.release?.(), 600);
+        return;
+      }
+      state.release?.();
+    },
+    // Live maps, maps created and reused, maps waiting in the pool and
+    // what was given back: evidence for the lifecycle probe and the app's
+    // own log.
+    stats() {
+      const ids = [...states.entries()].map(([key, state]) =>
+        `${key}${div_isConnected(state.div) ? '' : ':detached'}`);
+      return {live: states.size, created, recycled, pooled: pool.length,
+        pooledTotal, released, contextsReleased, ids};
     },
     claim(id) {
       const state = states.get(id); if (state) state.claim = true;
