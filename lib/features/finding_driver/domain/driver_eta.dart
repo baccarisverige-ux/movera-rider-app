@@ -99,8 +99,9 @@ class DriverEta {
     if (isInTrip(status)) {
       return L10n.current.etaRideInProgress;
     }
-    if (status == RideStatus.driverWaiting)
+    if (status == RideStatus.driverWaiting) {
       return L10n.current.etaDriverArrived;
+    }
     if (stale) return L10n.current.etaUpdatingLocation;
     final distance = distanceMeters;
     if (distance != null && distance < 180) return L10n.current.etaAlmostThere;

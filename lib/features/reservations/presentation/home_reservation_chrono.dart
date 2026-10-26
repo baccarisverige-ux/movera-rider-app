@@ -178,8 +178,11 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   }
 
   Future<void> _openLiveRide(Reservation snapshot) async {
-    if (!mounted || !_routeIsCurrent || _openedLiveId == snapshot.reservationId)
+    if (!mounted ||
+        !_routeIsCurrent ||
+        _openedLiveId == snapshot.reservationId) {
       return;
+    }
     // The snapshot can be a frame old (post-frame callback, stale tap). Only
     // open a ride that is still genuinely upcoming and still reveals its
     // driver — never one that has completed or been cancelled meanwhile.

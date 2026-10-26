@@ -435,8 +435,9 @@ class InProcessMockClient extends http.BaseClient {
         }
       }
       final endedEarly = saved['endedEarly'];
-      if (endedEarly is List)
+      if (endedEarly is List) {
         _endedEarly.addAll(endedEarly.whereType<String>());
+      }
       // rider-r5-2: the on-board distance (R-O1) and the accepted pickup
       // (rider-u13) are server state too; a reload must not reset them.
       final driven = saved['driven'];

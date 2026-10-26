@@ -159,8 +159,9 @@ class RouteChangeController {
     int? maxPickupMoveMeters,
   }) async {
     final id = ride.rideId;
-    if (id == null)
+    if (id == null) {
       throw const RouteChangeException(RouteChangeFailure.network);
+    }
     final pickup = pickupAddress?.trim().isNotEmpty == true
         ? pickupAddress!.trim()
         : ride.pickupAddress;
@@ -260,8 +261,9 @@ class RouteChangeController {
     Object? refundTo,
   }) async {
     final id = ride.rideId;
-    if (id == null)
+    if (id == null) {
       throw const RouteChangeException(RouteChangeFailure.network);
+    }
     final refund = refundTo?.toString().split('.').last;
     final body = <String, dynamic>{
       ...quote.toRequest(),

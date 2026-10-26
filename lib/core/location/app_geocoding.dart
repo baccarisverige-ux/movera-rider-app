@@ -90,8 +90,9 @@ class AppGeocoding implements GeocodingRepository {
       _forwardCache[key] = _CachedValue(result);
       return result;
     } finally {
-      if (identical(_forwardInFlight[key], future))
+      if (identical(_forwardInFlight[key], future)) {
         _forwardInFlight.remove(key);
+      }
     }
   }
 
@@ -120,8 +121,9 @@ class AppGeocoding implements GeocodingRepository {
       }
       return result;
     } finally {
-      if (identical(_reverseInFlight[key], future))
+      if (identical(_reverseInFlight[key], future)) {
         _reverseInFlight.remove(key);
+      }
     }
   }
 

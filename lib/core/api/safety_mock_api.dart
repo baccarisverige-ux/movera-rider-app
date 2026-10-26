@@ -63,8 +63,9 @@ class SafetyMockApi {
       final saved = jsonDecode(raw);
       if (saved is! Map) return;
       final prefsMap = saved['preferences'];
-      if (prefsMap is Map)
+      if (prefsMap is Map) {
         preferences.addAll(Map<String, dynamic>.from(prefsMap));
+      }
       final pinMap = saved['pin'];
       if (pinMap is Map) pin = Map<String, dynamic>.from(pinMap);
       final rideCheckMap = saved['rideCheck'];

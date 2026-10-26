@@ -266,8 +266,9 @@ class MockRideRealtime implements RideRealtime {
       _adoptPickup(ride);
       _acceptedAt = WireTime.tryParse(ride['acceptedAt']);
       final waiting = ride['waiting'];
-      if (waiting is Map)
+      if (waiting is Map) {
         _waitingSince = WireTime.tryParse(waiting['arrivedAt']);
+      }
     }
     _pickupLat ??= _fallbackPickup.$1;
     _pickupLng ??= _fallbackPickup.$2;

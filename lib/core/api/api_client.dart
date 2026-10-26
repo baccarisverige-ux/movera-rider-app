@@ -313,8 +313,9 @@ class ApiClient {
         final rawCode = decoded['code'] ?? decoded['error'];
         final rawMessage = decoded['message'];
         final rawReason = decoded['reason'];
-        if (rawCode is String && rawCode.trim().isNotEmpty)
+        if (rawCode is String && rawCode.trim().isNotEmpty) {
           code = rawCode.trim();
+        }
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
         }
