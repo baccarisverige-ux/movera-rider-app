@@ -21,11 +21,25 @@ class ApiClient {
     AppEnv? env,
     TokenStore? tokens,
     Future<void> Function()? onSessionExpired,
+    Duration? requestTimeout,
   })
       : _env = env ?? AppEnv.current,
         _client = client ?? _defaultClient(env ?? AppEnv.current),
         _tokens = tokens,
-        _onSessionExpired = onSessionExpired;
+        _onSessionExpired = onSessionExpired,
+        requestTimeout = requestTimeout ??
+            ((env ?? AppEnv.current).allowsMockTransport
+                ? mockTransportTimeout
+                : liveServerTimeout);
+
+  /// How long one request to the in-process mock may take (demo, dev, test).
+  static const mockTransportTimeout = Duration(seconds: 15);
+
+  /// How long one request to movera-server may take on the contract wire.
+  /// The live test week runs on a small instance that sleeps when idle and
+  /// answers its first request after it wakes in 30-50 s; a 15 s limit
+  /// turned that wake into "Couldn't reach Movera" on every screen.
+  static const liveServerTimeout = Duration(seconds: 30);
 
   static http.Client _defaultClient(AppEnv env) {
     return env.allowsMockTransport
@@ -57,7 +71,10 @@ class ApiClient {
   final Future<void> Function()? _onSessionExpired;
   Future<_Refresh>? _refreshInFlight;
   String? _expiredAccess;
-  static const _timeout = Duration(seconds: 15);
+
+  /// The limit for one request (a GET is tried twice on a timeout).
+  final Duration requestTimeout;
+  Duration get _timeout => requestTimeout;
 
   /// Sign-in calls: their 401 means wrong credentials, never an expired
   /// session, whatever token the request happened to carry.

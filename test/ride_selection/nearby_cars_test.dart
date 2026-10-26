@@ -86,6 +86,22 @@ void main() {
       );
       expect(NearbyCarsRepository.parse({}).cars, isEmpty);
     });
+
+    test('live stability: the cars are asked for at most every 5 s', () {
+      // The live server is small; the cars are decoration and must not
+      // compete with the trip calls. Whatever the server says, the app
+      // keeps to 5-8 s between requests.
+      expect(NearbyCarsRepository.minRefresh, const Duration(seconds: 5));
+      expect(NearbyCarsRepository.defaultRefresh.inSeconds, inInclusiveRange(5, 8));
+      expect(
+        NearbyCarsRepository.parse({'refreshSeconds': 1}).refresh,
+        const Duration(seconds: 5),
+      );
+      expect(
+        NearbyCarsRepository.parse({'refreshSeconds': 0.3}).refresh,
+        const Duration(seconds: 5),
+      );
+    });
   });
 
   group('the controller', () {

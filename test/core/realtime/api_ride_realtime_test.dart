@@ -98,20 +98,30 @@ void main() {
     expect(events.single.serverTime, t2);
   });
 
-  test('failed poll raises connection banner state and recovery clears it',
-      () async {
+  test('failed poll shows reconnecting first, failed after a run, and '
+      'recovery clears it', () async {
     var calls = 0;
+    var down = true;
     final connection = RealtimeConnection();
     addTearDown(connection.dispose);
-    final rt = transport((_) async => ++calls == 1
-        ? http.Response('error', 503)
-        : http.Response(jsonEncode(projection('findingDriver', 1, t1)), 200),
-      connection: connection);
+    final rt = transport((_) async {
+      calls++;
+      return down
+          ? http.Response('error', 503)
+          : http.Response(jsonEncode(projection('findingDriver', 1, t1)), 200);
+    }, connection: connection);
     addTearDown(rt.dispose);
     final sub = rt.subscribe('ride-123').listen((_) {});
     addTearDown(sub.cancel);
     await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(connection.state, RealtimeState.failed);
+    // Live stability: one refused answer from a slow server is a blip.
+    expect(connection.state, RealtimeState.reconnecting);
+    await rt.reconnectAndResync('ride-123');
+    expect(connection.state, RealtimeState.reconnecting);
+    await rt.reconnectAndResync('ride-123');
+    expect(connection.state, RealtimeState.failed, reason: 'third in a row');
+    expect(calls, 3);
+    down = false;
     await rt.reconnectAndResync('ride-123');
     expect(connection.state, RealtimeState.connected);
   });

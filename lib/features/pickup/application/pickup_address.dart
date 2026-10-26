@@ -71,6 +71,10 @@ String confirmedPickupAddress(String label, LatLng position) {
 /// The UI may show "Current location", but the booking should name a place
 /// when one can be resolved; otherwise it uses [pickupLocationFallbackLabel]
 /// (the booking's coordinates identify the point).
+/// How long the booking waits for the street at the pickup point before it
+/// books with the fallback label (the live server can take a while).
+const bookingPickupReverseWait = Duration(seconds: 20);
+
 Future<String> bookingPickupAddress({
   required String label,
   required LatLng position,
@@ -79,9 +83,7 @@ Future<String> bookingPickupAddress({
   final clean = label.trim();
   if (!isUnusablePickupLabel(clean)) return clean;
   try {
-    final resolved = await reverse(
-      position,
-    ).timeout(const Duration(seconds: 8));
+    final resolved = await reverse(position).timeout(bookingPickupReverseWait);
     if (!isUnusablePickupLabel(resolved)) return resolved!.trim();
   } catch (_) {
     // Fall through to the rider-facing fallback label.
