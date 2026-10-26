@@ -275,7 +275,7 @@ jobs:
         run: |
           curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             | tar -xz -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner --exit-code 1
+          "$RUNNER_TEMP/gitleaks" dir . --redact --verbose --no-banner --exit-code 1
 
   gate:
     name: gate
