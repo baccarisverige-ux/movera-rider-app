@@ -19,6 +19,7 @@ class RideCompleteController {
     RideDisputeRepository? disputes,
     RideFeedbackRepository? feedback,
     RiderConfigRepository? config,
+    this.tipsOnServer = true,
   }) : _config = config,
        _ride = ride ?? ActiveRideController(),
        _drivers = drivers ?? const DriverRepository(),
@@ -34,6 +35,11 @@ class RideCompleteController {
   final RideDisputeRepository _disputes;
   final RideFeedbackRepository _feedback;
   final RiderConfigRepository? _config;
+
+  /// False against movera-server, which has no tips yet
+  /// (`tips_not_available`): the screen then offers none (its honest
+  /// "Tips unavailable" state) instead of amounts that are never sent.
+  final bool tipsOnServer;
 
   void close() => _ride.markClosed();
   Future<void> closeCompletedRide(String rideId) =>
@@ -71,15 +77,17 @@ class RideCompleteController {
   /// The tip options to show before the zone's config is read: the fixed
   /// catalog when one was given, else the built-in seed of the trip's
   /// currency (owner Q5: 10/20/30 kr, 1/2/5 €, 1/2/3 DT).
-  List<Money> initialTips({String? rideId}) =>
-      _tips.fixed ??
-      seedConfigForTrip(_tripCurrency(rideId))?.enabledTips ??
-      const <Money>[];
+  List<Money> initialTips({String? rideId}) => !tipsOnServer
+      ? const <Money>[]
+      : _tips.fixed ??
+            seedConfigForTrip(_tripCurrency(rideId))?.enabledTips ??
+            const <Money>[];
 
   /// The tip options of the trip's zone (Q5): its enabled `tips`, in its
   /// currency. Falls back to [initialTips] when no config of that currency
   /// can be read.
   Future<List<Money>> tips({String? rideId}) async {
+    if (!tipsOnServer) return const <Money>[];
     final fixed = _tips.fixed;
     if (fixed != null) return fixed;
     final ride = LastCompletedRide.forRide(rideId);
