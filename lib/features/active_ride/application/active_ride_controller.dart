@@ -341,7 +341,7 @@ class ActiveRideController {
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
         final response = await api.post(
-          '/api/v1/rides/$id/${entry.command.pathSegment}',
+          api.tripPath(id, entry.command.pathSegment),
           body: entry.body(reasonId),
           idempotencyKey: entry.idempotencyKey,
         );
@@ -402,10 +402,16 @@ class ActiveRideController {
     );
   }
 
-  /// The projection's `fare` in a command response (`projection`, or the
-  /// pre-v0.3 `ride` alias).
+  /// The trip in a command answer: the contract's bare `TripProjection`,
+  /// or the `{projection}` / pre-v0.3 `{ride}` envelope.
+  static Object? _commandProjection(Map<String, dynamic> response) =>
+      response['projection'] ??
+      response['ride'] ??
+      (response['tripId'] != null ? response : null);
+
+  /// The projection's `fare` in a command response.
   static Money? _chargedFare(Map<String, dynamic> response) {
-    final ride = response['projection'] ?? response['ride'];
+    final ride = _commandProjection(response);
     return ride is Map ? Money.fromWire(ride['fare']) : null;
   }
 
@@ -413,7 +419,7 @@ class ActiveRideController {
   /// `cancellation.fee`) in a command response (`projection`, or the
   /// pre-v0.3 `ride` alias). Null when free or absent.
   static Money? _cancellationFee(Map<String, dynamic> response) {
-    final ride = response['projection'] ?? response['ride'];
+    final ride = _commandProjection(response);
     return ride is Map
         ? RideProjection.cancellationFee(Map<String, dynamic>.from(ride))
         : null;

@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 /// Sends optional post-trip feedback through the same API transport as the ride.
 /// An acknowledgement is required before the completion screen closes.
@@ -25,6 +26,24 @@ class RideFeedbackRepository {
     }
     if (tipMinor != null && (tipMinor <= 0 || tipMinor > 999900)) {
       throw ArgumentError.value(tipMinor, 'tipMinor');
+    }
+    if (_api.contractWire) {
+      // Contract `POST /trips/{tripId}/rating` (`RatingRequest`): whole
+      // stars; the server answers 201 with the `Rating`. Tips are not
+      // available on the server yet (`tips_not_available`), so a tip is
+      // never sent with the rating and a tip alone is refused here.
+      if (rating == null) {
+        throw StateError('Tips are not available yet.');
+      }
+      if (tipMinor != null) {
+        AppLog.warning('ride.feedback.tip_not_sent', extra: {'rideId': rideId});
+      }
+      await _api.post(
+        _api.tripPath(rideId, 'rating'),
+        body: {'stars': rating.round()},
+        idempotencyKey: idempotencyKey,
+      );
+      return;
     }
     final response = await _api.post(
       '/api/v1/rides/${Uri.encodeComponent(rideId)}/feedback',

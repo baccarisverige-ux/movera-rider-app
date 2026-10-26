@@ -34,9 +34,10 @@ class ApiPaymentMethodRepository
   Future<List<PaymentMethod>> listMethods() async {
     final json = await _api.get(path);
     if (_unsaved == null) {
-      _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+      _defaultId = _defaultOf(json) ?? _defaultId;
     }
-    final raw = json['methods'];
+    // Contract `SavedPaymentMethodPage {items}`; `methods` is the older key.
+    final raw = json['items'] ?? json['methods'];
     if (raw is! List) return const [];
     return [
       for (final item in raw)
@@ -55,7 +56,7 @@ class ApiPaymentMethodRepository
     try {
       final json = await _api.get(path);
       if (saves == _saves && _unsaved == null) {
-        _defaultId = _string(json['defaultMethodId']) ?? _defaultId;
+        _defaultId = _defaultOf(json) ?? _defaultId;
       }
     } catch (error) {
       // The last known choice (or the caller's Cash fallback) stands.
@@ -76,11 +77,23 @@ class ApiPaymentMethodRepository
 
   Future<void> _send(String brand) async {
     try {
-      await _api.patch(
-        '$path/default',
-        body: {'methodId': brand},
-        idempotencyKey: newIdempotencyKey('payment-default'),
-      );
+      if (_api.contractWire) {
+        // Contract `POST /payment-methods/default` `{method, paymentMethodId?}`.
+        await _api.post(
+          '$path/default',
+          body: {
+            'method': _contractMethod(brand),
+            if (brand.startsWith('card:')) 'paymentMethodId': brand.substring(5),
+          },
+          idempotencyKey: newIdempotencyKey('payment-default'),
+        );
+      } else {
+        await _api.patch(
+          '$path/default',
+          body: {'methodId': brand},
+          idempotencyKey: newIdempotencyKey('payment-default'),
+        );
+      }
       // rider-r5-28: the rider's latest choice saved; an older one that
       // did not is no longer theirs to send again.
       if (_unsaved == brand || _defaultId == brand) _unsaved = null;
@@ -99,10 +112,35 @@ class ApiPaymentMethodRepository
     _unsaved = null;
   }
 
+  /// The default method: `defaultMethodId`, else the contract item that
+  /// says `isDefault`.
+  static String? _defaultOf(Map<String, dynamic> json) {
+    final named = _string(json['defaultMethodId']);
+    if (named != null) return named;
+    final items = json['items'];
+    if (items is! List) return null;
+    for (final item in items) {
+      if (item is Map && item['isDefault'] == true) {
+        return _string(item['paymentMethodId']) ?? _string(item['method']);
+      }
+    }
+    return null;
+  }
+
+  static String _contractMethod(String brand) => switch (brand) {
+    'apple' => 'apple_pay',
+    'google' => 'google_pay',
+    'cards' => 'card',
+    _ when brand.startsWith('card:') => 'card',
+    _ => brand,
+  };
+
   static PaymentMethod? _method(Map<String, dynamic> json) {
-    final id = _string(json['id']);
-    final label = _string(json['label']);
-    final kind = switch (json['kind']) {
+    // Contract `SavedPaymentMethod`: `paymentMethodId` + `method`, no label.
+    final id = _string(json['id']) ?? _string(json['paymentMethodId']);
+    final kindRaw = json['kind'] ?? json['method'];
+    final label = _string(json['label']) ?? _labelOf(kindRaw);
+    final kind = switch (kindRaw) {
       'wallet' => PaymentMethodKind.wallet,
       'applePay' || 'apple_pay' => PaymentMethodKind.applePay,
       'googlePay' || 'google_pay' => PaymentMethodKind.googlePay,
@@ -118,6 +156,15 @@ class ApiPaymentMethodRepository
       detail: _string(json['detail']),
     );
   }
+
+  static String? _labelOf(Object? method) => switch (method) {
+    'cash' => 'Cash',
+    'card' => 'Card',
+    'apple_pay' => 'Apple Pay',
+    'google_pay' => 'Google Pay',
+    'wallet' => 'Movera Wallet',
+    _ => null,
+  };
 
   static String? _string(Object? raw) {
     if (raw is! String) return null;

@@ -1907,8 +1907,7 @@ class _SelectRideState extends State<SelectRide>
     final quote = _selection.quoteForBooking(selected.id);
     if (quote == null ||
         _selection.authoritativePriceFor(selected.id) == null ||
-        quote.signedPayload == null ||
-        quote.signedPayload!.trim().isEmpty) {
+        !quote.bookable) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.fareChangedRefreshing)),
       );
