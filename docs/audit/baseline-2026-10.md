@@ -9,7 +9,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 ## Progress
 - [x] 1. Structure and architecture
 - [ ] 2. Dependencies
-- [ ] 3. CI
+- [x] 3. CI
 - [ ] 4. Baseline run
 - [ ] 5. Coverage of critical logic
 - [ ] 6. Screen inventory
@@ -58,3 +58,49 @@ Size: 491 Dart files / 92 952 lines in `lib/`; 560 `*_test.dart` files in `test/
   `rider-l10n.yml` workflow and `tool/gen_l10n_messages.py`.
 - Also in repo: `backend/` (frozen unused Node mock, still booted by phase74/78/80 workflows per ARCHITECTURE.md),
   `contracts/` (synced contract copy, `tool/sync_contract.sh`), `integration_test/`.
+
+
+## 3. CI
+
+25 workflows in `.github/workflows/`. Run times below are from `gh run list -L 100` (runs created 2026-10-26 10:44Z onward;
+created→updated wall time, includes queueing). Workflows with no run in that window show "–".
+
+| Workflow | Trigger | What it runs | timeout | median / max min |
+|---|---|---|---|---|
+| architecture-gates | push main, PR | `flutter analyze` (not `--fatal-infos`), **full `flutter test`**, TZ (Stockholm / New York) reruns of zone tests | **none** | 10.6 / 11.1 |
+| backend-readiness-gate | PR | `analyze --no-fatal-infos --no-fatal-warnings`, ~10 contract/arch test files | 60 | 13.8 / 21.8 |
+| batch4-final-runtime-certification | PR | analyze, **full `flutter test`**, ride tests, linux integration_test `ride_flow_test` (xvfb) | 60 | 13.0 / 19.4 |
+| batch5-phase69-test-integrity | push main, PR | `flutter test test/journeys` + integrity scripts | none | 1.2 / 1.7 |
+| batch6-phase72/73/74/78/79/80 | PR (path-filtered) | analyze, a few test files, `flutter build web --release` (production flavor, fake defines) or `build apk --debug` | 35 | 2.5–2.8 |
+| batch7-phase81/82/83/84 | PR (path-filtered) | analyze + 2–5 test files | 30–35 | 1.4–1.6 |
+| batch7-phase85-final-certification | PR | analyze, matrices, **full `flutter test`**, 2 linux integration tests | 55 (each of 2 jobs) | 12.7 / 29.4 |
+| deep-safe-recertification | PR | analyze, **full `flutter test`**, ride/perf files, linux integration test | 60 | 12.7 / 23.5 |
+| global-e2e-uat | push main, PR | **full `flutter test`**, 4 linux integration tests | none | 12.1 / 19.6 |
+| rider-l10n | push main, PR | `flutter test test/l10n` | none | 1.1 / 1.5 |
+| publish-web-live | push main, dispatch | build web (demo + `/live/` against `MOVERA_LIVE_API_URL`), deploy to gh-pages | none | 2.8 |
+| qa-critical-rider-flow / qa-live-rider-flow / qa-book-now-e2e / qa-device-pwa-responsive | push main (critical also PR) | wait for the Pages deploy, then Chromium/WebKit browser scripts against the **published** site | none | 4.8 / 3.2 / 5.5 / 9.5 |
+| live-rider-browser-audit | dispatch, PR, push main | browser audit | none | last run 2026-10-20 |
+| android-release-signing | dispatch | signed `build apk --release` | none | – |
+
+**Current state (verified, `gh run list -w <file> -b main -L 5`):** all four `qa-*` workflows **fail on `main`** at `c1063fb8`.
+`qa-live-rider-flow`, `qa-book-now-e2e` and `qa-device-pwa-responsive` failed on all 5 latest `main` pushes; `qa-critical-rider-flow`
+passed at `7e3f1aa6` and has failed since `39677d69` (#411, map reuse). Failing steps: "Payment, Finding to Waiting, standalone
+Cancel, and standalone Wallet"; "Exercise actual live Rider flow"; "Book now with GPS on and GPS off"; "Certify responsive,
+keyboard, touch, standalone, resume and WebKit". Failure messages: **NOT VERIFIED** — `gh run view --log-failed` returns 403
+from the log host through this machine's proxy. The red QA runs did not stop merges, so they are not required checks.
+
+**Gaps vs AUDIT_PLAN Phase 2 table:**
+- Lockfile: **no** workflow uses `pub get --enforce-lockfile` (0 matches).
+- Format: no `dart format --set-exit-if-changed` anywhere (and 519 files would change, §4).
+- Static analysis: everywhere `flutter analyze` without `--fatal-infos`; backend-readiness-gate even passes `--no-fatal-warnings`.
+- Coverage: none collected or reported.
+- Security: no secret scan, no `pub outdated`/advisory step.
+- Caching: `subosito/flutter-action` `cache: true` is used; no pub-cache key on the lockfile. Flutter is `channel: stable`
+  with **no pinned `flutter-version`** (architecture-gates.yml:26), so CI's SDK drifts.
+- Timeouts: 11 of 25 workflows have no `timeout-minutes` (default 360 min): android-release-signing, architecture-gates,
+  batch5-phase69, global-e2e-uat, live-rider-browser-audit, publish-web-live, the 4 qa-*, rider-l10n.
+- Duplication: the full `flutter test` suite runs **5 times per PR** (architecture-gates, batch4, batch7-phase85, deep-safe,
+  global-e2e), ~10–13 min each; `ride_flow_test` integration runs in 4 workflows.
+- Required checks / branch protection: **NOT VERIFIED** (no admin API access checked); the red qa-* on main suggest none of
+  those is required.
+- No iOS no-codesign build; APK release only on manual dispatch.
