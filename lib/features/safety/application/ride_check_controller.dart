@@ -350,6 +350,33 @@ class RideCheckController extends ChangeNotifier {
     return _openDetected(rideId, hit);
   }
 
+  /// The trip ended and where it ended is known only in a moment: the live
+  /// wire carried no driver position, so the trip screen asks the rider's
+  /// own phone. [end] is asked only when the answer will be used (no GPS
+  /// read for a trip Ride check does not watch); the monitor stays for it
+  /// even when that screen closes meanwhile ([detachTrip]); null from
+  /// [end] is no position, no check.
+  Future<RideCheckOpenResult> tripEndedAt(
+    String rideId,
+    Future<GeoPoint?> Function() end,
+  ) async {
+    if (!tripMonitoring) return RideCheckOpenResult.notMonitoring;
+    final monitor = _monitor;
+    if (monitor == null || _trip?.rideId != rideId) {
+      return RideCheckOpenResult.noTrip;
+    }
+    if (!_service.policy().enabled) return RideCheckOpenResult.riderOff;
+    final point = await end();
+    if (_trip?.rideId != rideId) return RideCheckOpenResult.noTrip;
+    if (point == null) return RideCheckOpenResult.noTrigger;
+    final policy = _service.policy();
+    if (!policy.enabled) return RideCheckOpenResult.riderOff;
+    monitor.settings = policy.triggers;
+    final hit = monitor.tripEnded(point);
+    if (hit == null) return RideCheckOpenResult.noTrigger;
+    return _openDetected(rideId, hit);
+  }
+
   /// Opens a trigger the monitor detected. When another card is up it waits
   /// for that card to close (rider-u192).
   Future<RideCheckOpenResult> _openDetected(
