@@ -60,4 +60,19 @@ class RideFeedbackRepository {
       throw StateError('Ride feedback was not accepted.');
     }
   }
+
+  /// The rider closed the finished-trip screen without rating: contract
+  /// `RatingRequest {skip: true}` (ratingStatus → skipped), so no device
+  /// shows that screen again. The demo's mock has no skip.
+  Future<void> skip({
+    required String rideId,
+    required String idempotencyKey,
+  }) async {
+    if (rideId.trim().isEmpty || !_api.contractWire) return;
+    await _api.post(
+      _api.tripPath(rideId, 'rating'),
+      body: {'skip': true},
+      idempotencyKey: idempotencyKey,
+    );
+  }
 }

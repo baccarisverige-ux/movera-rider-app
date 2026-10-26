@@ -100,6 +100,7 @@ class _RideCompletedState extends State<RideCompleted> {
   int? _tipMinor;
   String? _submitError;
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
+  final MutationAttempt _skipMutation = MutationAttempt('ride-rating-skip');
   String? _acceptedFeedbackIntent;
   bool _walletChargeRequested = false;
   Timer? _autoClose;
@@ -335,6 +336,7 @@ class _RideCompletedState extends State<RideCompleted> {
       return;
     }
     if (!mounted) return;
+    _skipRatingIfNotRated();
     try {
       final customClose = widget.onClose;
       if (customClose != null) {
@@ -356,6 +358,30 @@ class _RideCompletedState extends State<RideCompleted> {
     }
     if (!mounted) return;
     RideNavigator.home(context, status: RideStatus.closed);
+  }
+
+  /// Leaving without a rating tells the server the rider skipped it, so the
+  /// finished-trip screen is not offered again on any phone. Best effort:
+  /// the rider is not held here for it.
+  void _skipRatingIfNotRated() {
+    final id = widget.rideId?.trim();
+    if (id == null ||
+        id.isEmpty ||
+        widget.onClose != null ||
+        !widget.persistOnDemandState ||
+        _acceptedFeedbackIntent != null) {
+      return;
+    }
+    unawaited(
+      _controller
+          .skipRating(rideId: id, idempotencyKey: _skipMutation.keyFor(id))
+          .catchError((Object error) {
+        AppLog.warning(
+          'ride.complete.skip_failed',
+          extra: {'rideId': id, 'error': '$error'},
+        );
+      }),
+    );
   }
 
   void _stayWithError() {

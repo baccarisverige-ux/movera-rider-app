@@ -50,6 +50,10 @@ class RideCompleteController {
     tipCurrency: _tripCurrency(rideId),
     idempotencyKey: idempotencyKey,
   );
+  Future<void> skipRating({
+    required String rideId,
+    required String idempotencyKey,
+  }) => _feedback.skip(rideId: rideId, idempotencyKey: idempotencyKey);
   Future<void> chargeCompletedWallet(String rideId) =>
       _ride.chargeCompletedWallet(rideId);
   Future<void> markCompletedPaymentFailed(String rideId) =>
