@@ -143,7 +143,7 @@ class ApiClient {
         // An OTP rejection is not an expired session. Only requests that
         // carried an access token enter the refresh/retry path. rider-6: a
         // sign-in call can carry an earlier session's token (web keeps it in
-        // sessionStorage across a reload), so its 401 is still a wrong code.
+        // localStorage across a reload), so its 401 is still a wrong code.
         final refresh = await _refreshAccess(access!);
         final replacement = refresh.access;
         if (refresh.unavailable) {

@@ -1,29 +1,27 @@
+import 'package:movera_rider/core/auth/browser_token_store.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:web/web.dart' as web;
 
-TokenStore? createWebSessionTokenStore() => _SessionStorageTokenStore();
+/// The sign-in lives in localStorage; sessionStorage is only read to move
+/// over a session saved by an earlier build (see `web_session_token_store.dart`).
+TokenStore? createWebSessionTokenStore() => BrowserTokenStore(
+  persistent: _WebStorage(() => web.window.localStorage),
+  legacy: _WebStorage(() => web.window.sessionStorage),
+);
 
-class _SessionStorageTokenStore implements TokenStore {
-  static const _accessKey = 'movera_access_token';
-  static const _refreshKey = 'movera_refresh_token';
+class _WebStorage implements BrowserStorage {
+  const _WebStorage(this._storage);
 
-  web.Storage get _storage => web.window.sessionStorage;
-
-  @override
-  Future<void> save({required String access, required String refresh}) async {
-    _storage.setItem(_accessKey, access);
-    _storage.setItem(_refreshKey, refresh);
-  }
-
-  @override
-  Future<String?> readAccess() async => _storage.getItem(_accessKey);
+  /// Looked up on each call: reaching a blocked storage throws, and the
+  /// throw belongs inside the caller's error handling.
+  final web.Storage Function() _storage;
 
   @override
-  Future<String?> readRefresh() async => _storage.getItem(_refreshKey);
+  String? getItem(String key) => _storage().getItem(key);
 
   @override
-  Future<void> clear() async {
-    _storage.removeItem(_accessKey);
-    _storage.removeItem(_refreshKey);
-  }
+  void setItem(String key, String value) => _storage().setItem(key, value);
+
+  @override
+  void removeItem(String key) => _storage().removeItem(key);
 }

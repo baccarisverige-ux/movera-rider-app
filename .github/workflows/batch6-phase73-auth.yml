@@ -39,6 +39,7 @@ jobs:
           flutter test test/auth/phase73_auth_ui_test.dart
           flutter test test/auth/phone_verification_copy_test.dart
           flutter test test/auth/token_store_test.dart
+          flutter test test/auth/browser_token_store_test.dart
 
       - name: Active ride restore remains stronger than auth gate
         run: |

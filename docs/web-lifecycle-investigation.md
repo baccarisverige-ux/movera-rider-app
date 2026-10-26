@@ -284,10 +284,12 @@ start). Ruled out as a cause of "back on Home"; what it does explain is that
 a page the system reloaded shows Home when no fresh ride snapshot exists and
 the trip screen when one does (`RideRestoreCoordinator.surfaceFor`).
 
-Note on sign-in: on the web the session tokens live in `sessionStorage`
-(`web_session_token_store_web.dart`), which survives a reload of the same
-page but not a fresh launch of the home-screen app. A rider who lands on
-Sign in after a crash was relaunched; one who lands on Home was reloaded.
+Note on sign-in: since 2026-10-26 the web session tokens live in
+`localStorage` (`browser_token_store.dart`), which survives both a reload
+and a fresh launch of the home-screen app, until sign-out. Before that they
+lived in `sessionStorage`, which a fresh launch lost: a rider who landed on
+Sign in after a crash had been relaunched; one who landed on Home had been
+reloaded.
 
 ### Browser back / edge swipe
 
