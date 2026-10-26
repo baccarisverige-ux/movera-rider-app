@@ -65,8 +65,9 @@ void main() {
       owner.dispose();
     });
 
-    final kept = await BookingCoordinator(api: api)
-        .reconcileCreatedFinding('ride_duplicate');
+    final kept = await BookingCoordinator(
+      api: api,
+    ).reconcileCreatedFinding('ride_duplicate');
 
     expect(kept, 'ride_owner');
     expect(cancels, 1);

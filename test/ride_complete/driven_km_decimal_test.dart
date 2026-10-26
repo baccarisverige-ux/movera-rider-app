@@ -43,22 +43,24 @@ void main() {
       endedEarly: true,
       drivenMeters: 4200,
     );
-    await tester.pumpWidget(MoveraScreenUtilInit(
-      builder: (_, __) => MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: RideCompletedTripDetail(
-              rideId: 'r5-53',
-              controller: RideCompleteController(
-                feedback: RideFeedbackRepository(
-                  api: ApiClient(client: InProcessMockClient()),
+    await tester.pumpWidget(
+      MoveraScreenUtilInit(
+        builder: (_, __) => MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RideCompletedTripDetail(
+                rideId: 'r5-53',
+                controller: RideCompleteController(
+                  feedback: RideFeedbackRepository(
+                    api: ApiClient(client: InProcessMockClient()),
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
     expect(find.textContaining('4,2 km'), findsOneWidget);
   });

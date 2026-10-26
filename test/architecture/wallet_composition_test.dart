@@ -49,13 +49,16 @@ void main() {
     );
   });
 
-  test('a real server-backed balance source would pass release composition', () {
-    expect(
-      () => WalletComposition.validate(
-        environment: production,
-        usesLocalBalanceSource: false,
-      ),
-      returnsNormally,
-    );
-  });
+  test(
+    'a real server-backed balance source would pass release composition',
+    () {
+      expect(
+        () => WalletComposition.validate(
+          environment: production,
+          usesLocalBalanceSource: false,
+        ),
+        returnsNormally,
+      );
+    },
+  );
 }

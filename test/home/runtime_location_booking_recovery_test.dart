@@ -10,17 +10,20 @@ import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 
 void main() {
-  test('Pages mock implements forward and reverse geocoding contracts', () async {
-    final api = ApiClient(client: InProcessMockClient());
-    final geocoding = AppGeocoding(api: api);
+  test(
+    'Pages mock implements forward and reverse geocoding contracts',
+    () async {
+      final api = ApiClient(client: InProcessMockClient());
+      final geocoding = AppGeocoding(api: api);
 
-    final place = await geocoding.forward('Stockholm Central');
-    expect(place, isNotNull);
-    expect(place!.address, 'Stockholm Central');
+      final place = await geocoding.forward('Stockholm Central');
+      expect(place, isNotNull);
+      expect(place!.address, 'Stockholm Central');
 
-    final address = await geocoding.reverse(const GeoPoint(59.33, 18.07));
-    expect(address, 'Current location');
-  });
+      final address = await geocoding.reverse(const GeoPoint(59.33, 18.07));
+      expect(address, 'Current location');
+    },
+  );
 
   test('GPS fix survives reverse-geocoder failure', () async {
     final controller = HomeLocationController(
@@ -59,25 +62,28 @@ class _Location implements LocationRepository {
   Future<bool> isLocationServiceEnabled() async => true;
 
   @override
-  Future<LocationPermission> checkPermission() async => LocationPermission.always;
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.always;
 
   @override
-  Future<LocationPermission> requestPermission() async => LocationPermission.always;
+  Future<LocationPermission> requestPermission() async =>
+      LocationPermission.always;
 
   @override
-  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) async =>
-      Position(
-        latitude: 59.35,
-        longitude: 18.05,
-        timestamp: DateTime.now(),
-        accuracy: 4,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 12,
-        headingAccuracy: 2,
-        speed: 0,
-        speedAccuracy: 0,
-      );
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async => Position(
+    latitude: 59.35,
+    longitude: 18.05,
+    timestamp: DateTime.now(),
+    accuracy: 4,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 12,
+    headingAccuracy: 2,
+    speed: 0,
+    speedAccuracy: 0,
+  );
 
   @override
   Future<GeoPoint?> lastKnownFix() async => null;

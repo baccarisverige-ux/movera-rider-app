@@ -52,6 +52,4 @@ void main() {
     // A stale extra cleanup cannot trigger a second Home resume.
     expect(guard.exit(), isFalse);
   });
-
-
 }

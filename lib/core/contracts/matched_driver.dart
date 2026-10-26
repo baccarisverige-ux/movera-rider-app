@@ -34,8 +34,7 @@ class MatchedDriver {
 
   bool get hasFirstName => normalizedFirstName.isNotEmpty;
 
-  String get displayFirstName =>
-      hasFirstName ? normalizedFirstName : 'Driver';
+  String get displayFirstName => hasFirstName ? normalizedFirstName : 'Driver';
 
   String get initial => initialFromName(normalizedFirstName);
 
@@ -95,14 +94,12 @@ class MatchedDriver {
       firstName: firstName,
       rating: (json['rating'] as num?)?.toDouble(),
       tripCount: (json['tripCount'] as num?)?.toInt(),
-      vehicleMake:
-          vehicle['make'] as String? ?? json['vehicleMake'] as String?,
+      vehicleMake: vehicle['make'] as String? ?? json['vehicleMake'] as String?,
       vehicleModel:
           vehicle['model'] as String? ?? json['vehicleModel'] as String?,
       vehicleColor:
           vehicle['color'] as String? ?? json['vehicleColor'] as String?,
-      plate:
-          vehicle['plate'] as String? ?? json['plate'] as String?,
+      plate: vehicle['plate'] as String? ?? json['plate'] as String?,
       photoAsset: json['photoAsset'] as String?,
       vehicleImageAsset: json['vehicleImageAsset'] as String?,
       languages: langs is List

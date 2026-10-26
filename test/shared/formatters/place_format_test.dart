@@ -55,48 +55,42 @@ void main() {
     },
   );
 
-  test(
-    'Phase 132 cluster 6 improvement: a space-formatted Swedish postcode '
-    '("123 45") is now stripped, unlike the plainer regex the old '
-    '_compactAddress/_shortPlace used',
-    () {
-      const input = 'Main St, 123 45, Stockholm';
-      expect(
-        oldCompactAddressOrShortPlace(input),
-        'Main St, 123 45',
-        reason: 'old regex only matched all-digit tokens, missing this one',
-      );
-      expect(shortenPlace(input), 'Main St, Stockholm');
-    },
-  );
+  test('Phase 132 cluster 6 improvement: a space-formatted Swedish postcode '
+      '("123 45") is now stripped, unlike the plainer regex the old '
+      '_compactAddress/_shortPlace used', () {
+    const input = 'Main St, 123 45, Stockholm';
+    expect(
+      oldCompactAddressOrShortPlace(input),
+      'Main St, 123 45',
+      reason: 'old regex only matched all-digit tokens, missing this one',
+    );
+    expect(shortenPlace(input), 'Main St, Stockholm');
+  });
 
-  test(
-    'Phase 132 fix: unlike the old buggy reservation_format.shortPlace, a '
-    'postcode is stripped instead of displacing the real place name',
-    () {
-      const input = 'Main St, 12345, Stockholm';
-      // Old shortPlace never filtered numerics: 3 raw comma groups, not
-      // <=2, so it joined the first two unfiltered groups verbatim.
-      String oldReservationFormatShortPlace(String raw) {
-        final clean = raw.trim();
-        if (clean.isEmpty) return clean;
-        final parts = clean
-            .split(',')
-            .map((part) => part.trim())
-            .where((part) => part.isNotEmpty)
-            .toList();
-        if (parts.length <= 2) return clean;
-        return '${parts[0]}, ${parts[1]}';
-      }
+  test('Phase 132 fix: unlike the old buggy reservation_format.shortPlace, a '
+      'postcode is stripped instead of displacing the real place name', () {
+    const input = 'Main St, 12345, Stockholm';
+    // Old shortPlace never filtered numerics: 3 raw comma groups, not
+    // <=2, so it joined the first two unfiltered groups verbatim.
+    String oldReservationFormatShortPlace(String raw) {
+      final clean = raw.trim();
+      if (clean.isEmpty) return clean;
+      final parts = clean
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .toList();
+      if (parts.length <= 2) return clean;
+      return '${parts[0]}, ${parts[1]}';
+    }
 
-      expect(
-        oldReservationFormatShortPlace(input),
-        'Main St, 12345',
-        reason: 'the old bug: the postcode displaced the city entirely',
-      );
-      expect(shortenPlace(input), 'Main St, Stockholm');
-    },
-  );
+    expect(
+      oldReservationFormatShortPlace(input),
+      'Main St, 12345',
+      reason: 'the old bug: the postcode displaced the city entirely',
+    );
+    expect(shortenPlace(input), 'Main St, Stockholm');
+  });
 
   test('empty and single-part inputs', () {
     expect(shortenPlace(''), '');

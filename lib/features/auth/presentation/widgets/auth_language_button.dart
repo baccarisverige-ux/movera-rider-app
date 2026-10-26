@@ -58,8 +58,10 @@ class AuthLanguageButton extends StatelessWidget {
                         const SizedBox(width: 5),
                         Text(
                           controller.code.toUpperCase(),
-                          style: AuthText.body(size: 12, weight: FontWeight.w700)
-                              .copyWith(height: 1),
+                          style: AuthText.body(
+                            size: 12,
+                            weight: FontWeight.w700,
+                          ).copyWith(height: 1),
                         ),
                       ],
                     ),
@@ -215,7 +217,11 @@ class _LanguageRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(Icons.check_rounded, size: 20, color: AuthColors.green),
+                const Icon(
+                  Icons.check_rounded,
+                  size: 20,
+                  color: AuthColors.green,
+                ),
             ],
           ),
         ),

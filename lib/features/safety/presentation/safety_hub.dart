@@ -67,7 +67,11 @@ class _SafetyHubState extends State<SafetyHub> {
           Text(
             context.l10n.safetyTitle,
             textAlign: TextAlign.center,
-            style: SafetyUi.text(30, weight: FontWeight.w600, letterSpacing: -0.6),
+            style: SafetyUi.text(
+              30,
+              weight: FontWeight.w600,
+              letterSpacing: -0.6,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -76,7 +80,15 @@ class _SafetyHubState extends State<SafetyHub> {
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.4),
           ),
           const SizedBox(height: 32),
-          Text(context.l10n.safetyPreferences, style: SafetyUi.text(13, weight: FontWeight.w600, letterSpacing: 0.4, color: SafetyUi.muted)),
+          Text(
+            context.l10n.safetyPreferences,
+            style: SafetyUi.text(
+              13,
+              weight: FontWeight.w600,
+              letterSpacing: 0.4,
+              color: SafetyUi.muted,
+            ),
+          ),
           const SizedBox(height: 10),
           Container(
             decoration: SafetyUi.cardDecoration(),
@@ -115,7 +127,15 @@ class _SafetyHubState extends State<SafetyHub> {
             ),
           ),
           const SizedBox(height: 28),
-          Text(context.l10n.safetyResources, style: SafetyUi.text(13, weight: FontWeight.w600, letterSpacing: 0.4, color: SafetyUi.muted)),
+          Text(
+            context.l10n.safetyResources,
+            style: SafetyUi.text(
+              13,
+              weight: FontWeight.w600,
+              letterSpacing: 0.4,
+              color: SafetyUi.muted,
+            ),
+          ),
           const SizedBox(height: 10),
           Container(
             decoration: SafetyUi.cardDecoration(),

@@ -16,10 +16,7 @@ abstract final class MoveraMotion {
     return reduced(context) ? MoveraDurations.reduced : normal;
   }
 
-  static Widget selection({
-    required bool selected,
-    required Widget child,
-  }) {
+  static Widget selection({required bool selected, required Widget child}) {
     return AnimatedScale(
       scale: selected ? 1.03 : 1,
       duration: MoveraDurations.micro,

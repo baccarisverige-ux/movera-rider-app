@@ -85,28 +85,30 @@ void main() {
     List<Widget>? replaced,
     bool atRoot = true,
     Future<PendingCancel?> Function(String rideId)? pendingCancel,
-  }) => RideRestoreCoordinator(
-    resync: (_) async {},
-    authRequired: () => false,
-    serverActiveTrip: server,
-    pendingCancel: pendingCancel ?? (_) async => null,
-  )
-    ..debugAtRoot = (() => atRoot)
-    ..onReplaceRoot = replaced?.add;
+  }) =>
+      RideRestoreCoordinator(
+          resync: (_) async {},
+          authRequired: () => false,
+          serverActiveTrip: server,
+          pendingCancel: pendingCancel ?? (_) async => null,
+        )
+        ..debugAtRoot = (() => atRoot)
+        ..onReplaceRoot = replaced?.add;
 
   test('slow server at start: the ride opens even after the rider moved on '
       'to Where to', () async {
     final lookup = Completer<RideSnapshot?>();
     final replaced = <Widget>[];
     var atRoot = true;
-    final restore = RideRestoreCoordinator(
-      resync: (_) async {},
-      authRequired: () => false,
-      serverActiveTrip: () => lookup.future,
-      pendingCancel: (_) async => null,
-    )
-      ..debugAtRoot = (() => atRoot)
-      ..onReplaceRoot = replaced.add;
+    final restore =
+        RideRestoreCoordinator(
+            resync: (_) async {},
+            authRequired: () => false,
+            serverActiveTrip: () => lookup.future,
+            pendingCancel: (_) async => null,
+          )
+          ..debugAtRoot = (() => atRoot)
+          ..onReplaceRoot = replaced.add;
     expect(await restore.root(), isA<Home>());
     atRoot = false; // Where to / Select ride is on top of Home.
     lookup.complete(await serverTrip('ride_live', 'findingDriver'));
@@ -126,33 +128,37 @@ void main() {
     expect(AppScope.instance.ride.rideId, 'ride_live');
   });
 
-  test('a stale stored search gives way to the live trip on the server',
-      () async {
-    await RideSnapshotStore.save(
-      stored(
-        RideStatus.findingDriver,
-        savedAt: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-    );
-    final restore = coordinator(
-      () => serverTrip('ride_live', 'driver_to_pickup'),
-    );
-    expect(await restore.root(), isA<WaitingForDriver>());
-    expect((await RideSnapshotStore.read())?.rideId, 'ride_live');
-  });
+  test(
+    'a stale stored search gives way to the live trip on the server',
+    () async {
+      await RideSnapshotStore.save(
+        stored(
+          RideStatus.findingDriver,
+          savedAt: DateTime.now().subtract(const Duration(hours: 1)),
+        ),
+      );
+      final restore = coordinator(
+        () => serverTrip('ride_live', 'driver_to_pickup'),
+      );
+      expect(await restore.root(), isA<WaitingForDriver>());
+      expect((await RideSnapshotStore.read())?.rideId, 'ride_live');
+    },
+  );
 
-  test('back in the app on Home, the live trip on the server is shown',
-      () async {
-    final replaced = <Widget>[];
-    final restore = coordinator(
-      () => serverTrip('ride_live', 'findingDriver'),
-      replaced: replaced,
-    );
-    expect(restore.showing, RestoredSurface.home);
-    expect(await restore.resumeIfNeeded(), isA<FindingDrivers>());
-    expect(replaced.single, isA<FindingDrivers>());
-    expect(restore.showing, RestoredSurface.finding);
-  });
+  test(
+    'back in the app on Home, the live trip on the server is shown',
+    () async {
+      final replaced = <Widget>[];
+      final restore = coordinator(
+        () => serverTrip('ride_live', 'findingDriver'),
+        replaced: replaced,
+      );
+      expect(restore.showing, RestoredSurface.home);
+      expect(await restore.resumeIfNeeded(), isA<FindingDrivers>());
+      expect(replaced.single, isA<FindingDrivers>());
+      expect(restore.showing, RestoredSurface.finding);
+    },
+  );
 
   test('back in the app on Where to or Select ride, the live trip still '
       'replaces it', () async {
@@ -174,8 +180,7 @@ void main() {
     expect(await restore.root(), isA<Home>());
   });
 
-  test('a trip whose cancel is still on its way is not brought back',
-      () async {
+  test('a trip whose cancel is still on its way is not brought back', () async {
     final replaced = <Widget>[];
     final restore = coordinator(
       () => serverTrip('ride_live', 'findingDriver'),

@@ -19,7 +19,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     L10n.use('en');
-    final store = NotificationsRepository(now: () => DateTime(2026, 10, 22, 13));
+    final store = NotificationsRepository(
+      now: () => DateTime(2026, 10, 22, 13),
+    );
     store.ingest(
       PushPayload(
         type: 'promo',

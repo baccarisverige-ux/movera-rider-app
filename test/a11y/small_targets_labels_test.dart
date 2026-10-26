@@ -49,9 +49,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
-          MoveraScreenUtilInit(
-            builder: (_, __) => MaterialApp(home: build()),
-          ),
+          MoveraScreenUtilInit(builder: (_, __) => MaterialApp(home: build())),
         );
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
@@ -62,7 +60,11 @@ void main() {
         expect(node.flagsCollection.isButton, isTrue);
         final rect = _globalRect(node);
         expect(rect.width, greaterThanOrEqualTo(43.99), reason: "$label width");
-        expect(rect.height, greaterThanOrEqualTo(43.99), reason: "$label height");
+        expect(
+          rect.height,
+          greaterThanOrEqualTo(43.99),
+          reason: "$label height",
+        );
       } finally {
         semantics.dispose();
       }

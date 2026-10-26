@@ -165,7 +165,11 @@ class WalletController {
     _topUpKeys.add(key);
     final gateway = _gateway ?? AppScope.instance.paymentGateway;
 
-    TopUpOutcome failed(TopUpOutcome outcome, Object? error, StackTrace? stack) {
+    TopUpOutcome failed(
+      TopUpOutcome outcome,
+      Object? error,
+      StackTrace? stack,
+    ) {
       // Not credited: a retry with this key must reach the provider again
       // (its idempotency makes that safe) instead of being skipped here.
       _topUpKeys.remove(key);

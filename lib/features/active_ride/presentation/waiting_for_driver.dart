@@ -558,7 +558,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }) {
     final headline = eta?.headline(status: status) ?? context.l10n.driverFound;
     final subtitle =
-        eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
+        eta?.subtitle(firstName: driver?.displayFirstName, status: status) ??
+        '';
     // rider-u48: in the trip the sheet's "Arrive by HH:MM" comes from the
     // live ETA, not from the constant in-trip headline, so it is part of
     // the signature too (else the sheet keeps the first arrival time).
@@ -660,9 +661,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         content: Text(context.l10n.sentOnTheWay),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -737,7 +736,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // A driver dropping the ride before pickup does not end the rider's trip.
     // Dispatch looks again, so say what happened and go back to searching
     // rather than sending them Home to rebook from scratch.
-    if (status == RideStatus.cancelledByDriver && !_tracking.status.isCompletedSurface) {
+    if (status == RideStatus.cancelledByDriver &&
+        !_tracking.status.isCompletedSurface) {
       await _researchAfterDriverCancel();
       return;
     }
@@ -746,8 +746,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // "Search again" after a driver's end starts where the car stopped
     // (the server's last position on the trip), so read it before the
     // tracker lets go.
-    final carStop = _tracking.eta?.latitude != null &&
-            _tracking.eta?.longitude != null
+    final carStop =
+        _tracking.eta?.latitude != null && _tracking.eta?.longitude != null
         ? GeoPoint(_tracking.eta!.latitude!, _tracking.eta!.longitude!)
         : null;
     _tracking.dispose();
@@ -780,7 +780,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // commit it locally instead of treating it as an external terminal.
     if (status == RideStatus.cancelledByRider && widget.onTerminal == null) {
       await _ride.completeServerConfirmedCancel(
-        drivenMeters: _tracking.drivenMeters > 0 ? _tracking.drivenMeters : null,
+        drivenMeters: _tracking.drivenMeters > 0
+            ? _tracking.drivenMeters
+            : null,
       );
       if (!mounted) return;
       await _parkMapForStageChange();
@@ -862,14 +864,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// when it did not happen; the caller then goes Home.
   Future<bool> _searchAgain(_SearchAgainTrip trip) async {
     final booking = BookingController();
-    final navigator = moveraNavigatorKey.currentState ??
+    final navigator =
+        moveraNavigatorKey.currentState ??
         Navigator.of(context, rootNavigator: true);
     try {
       final pickupAddress = await bookingPickupAddress(
         label: trip.pickupAddress,
         position: trip.pickup,
-        reverse: (p) => AppScope.instance.geocoding
-            .reverse(GeoPoint(p.latitude, p.longitude)),
+        reverse: (p) => AppScope.instance.geocoding.reverse(
+          GeoPoint(p.latitude, p.longitude),
+        ),
       );
       final quote = await booking.freshQuote(
         rideType: trip.categoryId,
@@ -932,12 +936,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         return true;
       }
       SheetCoordinator.instance.open(RideSheet.finding);
-      unawaited(navigator
-          .push(RideStageTransition(
-            finding,
-            settings: const RouteSettings(name: AppRoutes.findingDriver),
-          ))
-          .whenComplete(() => SheetCoordinator.instance.close(RideSheet.finding)));
+      unawaited(
+        navigator
+            .push(
+              RideStageTransition(
+                finding,
+                settings: const RouteSettings(name: AppRoutes.findingDriver),
+              ),
+            )
+            .whenComplete(
+              () => SheetCoordinator.instance.close(RideSheet.finding),
+            ),
+      );
       return true;
     } catch (error) {
       AppLog.warning('ride.search_again_failed', extra: {'error': '$error'});
@@ -1096,10 +1106,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // longer reveal Home. Swap only the gate child in that topology.
     if (!navigator.canPop()) {
       final coordinator = RideRestoreCoordinator.instance;
-      if (coordinator.replaceRootSurface(
-        completed,
-        RestoredSurface.complete,
-      )) {
+      if (coordinator.replaceRootSurface(completed, RestoredSurface.complete)) {
         return;
       }
     }
@@ -1136,7 +1143,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_isInTrip) {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
-      return context.l10n.bookedPriceWholeTrip(formatMoney(Money.fromLegacyMajor(_price, widget.currency), whole: true));
+      return context.l10n.bookedPriceWholeTrip(
+        formatMoney(
+          Money.fromLegacyMajor(_price, widget.currency),
+          whole: true,
+        ),
+      );
     }
     final ownNote = widget.cancelFeeNote;
     if (ownNote != null) {
@@ -1150,7 +1162,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       final category = await _tripCategoryId();
       if (category == null) return null;
       // Q7: the fee rules of the trip's own zone, in its currency.
-      final zone = RiderZones.byCurrency(widget.currency) ??
+      final zone =
+          RiderZones.byCurrency(widget.currency) ??
           RiderZones.at(_pickupPosition.latitude, _pickupPosition.longitude);
       final config = await AppScope.instance.riderConfig.forZone(zone.id);
       // Never a fee from another currency's rules.
@@ -1346,8 +1359,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       RideCancelOutcome.stale => rideJustChangedMessage,
       // rider-r5-21: neither sent nor queued; nothing will retry it.
       RideCancelOutcome.unsent => context.l10n.cancelFailedTryAgain,
-      _ =>
-        context.l10n.cancelUnconfirmedOffline,
+      _ => context.l10n.cancelUnconfirmedOffline,
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1405,15 +1417,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   void _callDriverUnavailable() {
     final driver = _tracking.driver ?? widget.driver;
-    SafetyController.shared.record(
-      SafetyKind.maskedCall,
-      rideId: _rideId,
-    );
+    SafetyController.shared.record(SafetyKind.maskedCall, rideId: _rideId);
     unawaited(
-      showDriverCallUnavailable(
-        context,
-        driverName: driver?.displayFirstName,
-      ),
+      showDriverCallUnavailable(context, driverName: driver?.displayFirstName),
     );
   }
 
@@ -1433,7 +1439,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// The three dots on the ride card: the route screen with the current
   /// addresses. The pickup can move until the driver is there; the
   /// destination and the stops can change until the trip ends.
-  Future<void> _openDetails() => _changeRoute(null, RouteChangeEntry.destination);
+  Future<void> _openDetails() =>
+      _changeRoute(null, RouteChangeEntry.destination);
 
   double? _changedPrice;
   double get _price => _changedPrice ?? widget.price;
@@ -1621,7 +1628,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       riderName: riderName,
       riderPhone: riderPhone,
       driverId: driver?.id,
-      driverName: driver?.hasFirstName == true ? driver!.displayFirstName : null,
+      driverName: driver?.hasFirstName == true
+          ? driver!.displayFirstName
+          : null,
       driverPlate: driver?.plate,
       driverVehicle: driver == null || driver.vehicleLabel.isEmpty
           ? null
@@ -1653,7 +1662,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       (trip) => trip.copyWith(
         status: status.name,
         driverId: driver?.id,
-        driverName: driver?.hasFirstName == true ? driver!.displayFirstName : null,
+        driverName: driver?.hasFirstName == true
+            ? driver!.displayFirstName
+            : null,
         driverPlate: driver?.plate,
         driverVehicle: driver == null || driver.vehicleLabel.isEmpty
             ? null
@@ -1678,7 +1689,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (lat == null || lng == null || at == null) return;
     rideCheck.addSample(
       rideId,
-      RideCheckSample(point: GeoPoint(lat, lng), at: at, etaSeconds: eta?.seconds),
+      RideCheckSample(
+        point: GeoPoint(lat, lng),
+        at: at,
+        etaSeconds: eta?.seconds,
+      ),
     );
   }
 
@@ -1742,7 +1757,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _pickupAddress = updated.pickupAddress;
     _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
     _destinationAddress = updated.destinationAddress;
-    _destinationPosition = LatLng(updated.destinationLat, updated.destinationLng);
+    _destinationPosition = LatLng(
+      updated.destinationLat,
+      updated.destinationLng,
+    );
     _stops = List<RouteStop>.from(updated.stops);
     _changedPrice = updated.price;
     _tracking
@@ -1934,15 +1952,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   MoveraEmptyState(
                     icon: Icons.error_outline_rounded,
                     title: context.l10n.cantTrackRide,
-                    message:
-                        context.l10n.cantTrackRideBody,
+                    message: context.l10n.cantTrackRideBody,
                     actionLabel: context.l10n.retry,
                     onAction: _retryTracking,
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _cancelling ? null : _leaveUntrackedRide,
-                    child: Text(_cancelling ? context.l10n.leaving : context.l10n.goHome),
+                    child: Text(
+                      _cancelling ? context.l10n.leaving : context.l10n.goHome,
+                    ),
                   ),
                 ],
               ),
@@ -1955,7 +1974,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final eta = _tracking.eta;
     final headline = _headlineFor(eta, _tracking.status);
     final subtitle =
-        eta?.subtitle(firstName: driver?.displayFirstName, status: _tracking.status) ??
+        eta?.subtitle(
+          firstName: driver?.displayFirstName,
+          status: _tracking.status,
+        ) ??
         (driver == null
             ? context.l10n.driverDetailsLater
             : context.l10n.etaLeaveNowName(driver.displayFirstName));
@@ -2020,7 +2042,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
                       // UI-01: on board this ends the trip early.
-                      label: _isInTrip ? context.l10n.endTrip : context.l10n.cancelRide,
+                      label: _isInTrip
+                          ? context.l10n.endTrip
+                          : context.l10n.cancelRide,
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
@@ -2109,53 +2133,53 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       child: Stack(
                         children: [
                           Column(
-                        children: [
-                          const SizedBox(
-                            width: double.infinity,
-                            height: _handleHeight,
-                            child: Center(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFE7EBEE),
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(99),
+                            children: [
+                              const SizedBox(
+                                width: double.infinity,
+                                height: _handleHeight,
+                                child: Center(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFE7EBEE),
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(99),
+                                      ),
+                                    ),
+                                    child: SizedBox(width: 36, height: 4),
                                   ),
                                 ),
-                                child: SizedBox(width: 36, height: 4),
                               ),
-                            ),
-                          ),
-                          KeyedSubtree(
-                            key: ValueKey<String>(
-                              'waiting-stage-${_tracking.status.name}',
-                            ),
-                            child: const SizedBox.shrink(),
-                          ),
-                          if (!_isInTrip)
-                            _reveal(
-                              media,
-                              start: 0.15,
-                              child: KeyedSubtree(
-                                key: _headerKey,
-                                child: _fixedPickupHeader(
-                                  driver,
-                                  headline,
-                                  subtitle,
+                              KeyedSubtree(
+                                key: ValueKey<String>(
+                                  'waiting-stage-${_tracking.status.name}',
+                                ),
+                                child: const SizedBox.shrink(),
+                              ),
+                              if (!_isInTrip)
+                                _reveal(
+                                  media,
+                                  start: 0.15,
+                                  child: KeyedSubtree(
+                                    key: _headerKey,
+                                    child: _fixedPickupHeader(
+                                      driver,
+                                      headline,
+                                      subtitle,
+                                    ),
+                                  ),
+                                ),
+                              Expanded(
+                                child: KeyedSubtree(
+                                  key: _panelKey,
+                                  child: _reveal(
+                                    media,
+                                    start: 0.3,
+                                    child: _panel(driver),
+                                  ),
                                 ),
                               ),
-                            ),
-                          Expanded(
-                            child: KeyedSubtree(
-                              key: _panelKey,
-                              child: _reveal(
-                                media,
-                                start: 0.3,
-                                child: _panel(driver),
-                              ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
                           _compactRow(media, driver, headline),
                         ],
                       ),
@@ -2190,7 +2214,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   String? _tripHeadline(DriverEta? eta, RideStatus status) {
     final seconds = eta?.seconds;
     if (!DriverEta.isInTrip(status) || seconds == null) return null;
-    return context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(seconds: seconds))));
+    return context.l10n.arriveBy(
+      clockTime(DateTime.now().add(Duration(seconds: seconds))),
+    );
   }
 
   /// Headline for the sheet: the arrival time during the trip, the stage
@@ -2242,12 +2268,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           child: ExcludeSemantics(
             excluding: open < 0.5,
             child: Opacity(
-            opacity: t,
-            child: Transform.translate(
-              offset: Offset(0, 14 * (1 - t)),
-              child: child,
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, 14 * (1 - t)),
+                child: child,
+              ),
             ),
-          ),
           ),
         );
       },
@@ -2382,10 +2408,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  headline,
-                  style: waitingText(22, weight: FontWeight.w700),
-                ),
+                Text(headline, style: waitingText(22, weight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
@@ -2495,11 +2518,13 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   // U7: the markers live in a notifier so the moving driver only updates the
   // map's marker set. It used to setState + drop the cached map leaf on
   // every animation tick, rebuilding the whole map subtree each frame.
-  final ValueNotifier<Set<Marker>> _markerSet =
-      ValueNotifier<Set<Marker>>(const <Marker>{});
+  final ValueNotifier<Set<Marker>> _markerSet = ValueNotifier<Set<Marker>>(
+    const <Marker>{},
+  );
   Set<Marker> get _markers => _markerSet.value;
   set _markers(Set<Marker> next) => _markerSet.value = next;
   Set<Polyline> _polylines = const <Polyline>{};
+
   /// Green pickup pin (the rider waits there).
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _destinationPin;
@@ -2523,24 +2548,23 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   // D-016: the ease used to be a fixed 900 ms while fixes arrive every ~2–3 s,
   // so the car moved for under a second and then stood still. The duration
   // now follows the observed interval between fixes (see driverEaseDuration).
-  late final AnimationController _driverAnim = AnimationController(
-    vsync: this,
-    duration: driverEaseDuration(null),
-  )..addListener(() {
-      if (!mounted) return;
-      // The ease now spans most of each fix interval, so cap marker updates
-      // at ~20 fps rather than on every frame for that whole time.
-      final now = DateTime.now();
-      final last = _lastAnimRebuild;
-      if (_driverAnim.isAnimating &&
-          last != null &&
-          now.difference(last) < const Duration(milliseconds: 50)) {
-        return;
-      }
-      _lastAnimRebuild = now;
-      // U7: markers only; the map leaf and the rest of the stack stay put.
-      _markers = _buildMarkers();
-    });
+  late final AnimationController _driverAnim =
+      AnimationController(vsync: this, duration: driverEaseDuration(null))
+        ..addListener(() {
+          if (!mounted) return;
+          // The ease now spans most of each fix interval, so cap marker updates
+          // at ~20 fps rather than on every frame for that whole time.
+          final now = DateTime.now();
+          final last = _lastAnimRebuild;
+          if (_driverAnim.isAnimating &&
+              last != null &&
+              now.difference(last) < const Duration(milliseconds: 50)) {
+            return;
+          }
+          _lastAnimRebuild = now;
+          // U7: markers only; the map leaf and the rest of the stack stay put.
+          _markers = _buildMarkers();
+        });
   DateTime? _lastAnimRebuild;
   DateTime? _lastFixArrivedAt;
   LatLng? _driverAnimFrom;
@@ -2709,7 +2733,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     final lat2 = to.latitude * math.pi / 180;
     final dLng = (to.longitude - from.longitude) * math.pi / 180;
     final y = math.sin(dLng) * math.cos(lat2);
-    final x = math.cos(lat1) * math.sin(lat2) -
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
         math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
     return normalizeHeading(math.atan2(y, x) * 180 / math.pi);
   }
@@ -2718,7 +2743,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     final driver = _currentDriverPosition();
     if (driver == null) return;
     final target = _inTrip ? widget.destinationPosition : widget.pickupPosition;
-    final samePoint = _lastFitDriverPoint != null &&
+    final samePoint =
+        _lastFitDriverPoint != null &&
         _lastFitInTrip == _inTrip &&
         _lastFitDriverPoint!.latitude == driver.latitude &&
         _lastFitDriverPoint!.longitude == driver.longitude;
@@ -2975,8 +3001,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
       via: [
-        for (final stop in endpoints.via)
-          LatLng(stop.latitude, stop.longitude),
+        for (final stop in endpoints.via) LatLng(stop.latitude, stop.longitude),
       ],
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
       color: RiderRouteStyle.color,
@@ -3024,10 +3049,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       mapType: MapType.normal,
       onMapCreated: (controller) {
         _mapReady = true;
-        AppScope.instance.maps.attach(
-          controller,
-          owner: MapOwners.waiting,
-        );
+        AppScope.instance.maps.attach(controller, owner: MapOwners.waiting);
         unawaited(_refreshRoadRoute(force: true));
       },
     );

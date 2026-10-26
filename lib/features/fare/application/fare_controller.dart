@@ -9,10 +9,6 @@ class FareController {
     required double catalog,
     required int delta,
   }) {
-    return _fares.nudge(
-      current: current,
-      catalog: catalog,
-      delta: delta,
-    );
+    return _fares.nudge(current: current, catalog: catalog, delta: delta);
   }
 }

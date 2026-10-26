@@ -1,0 +1,292 @@
+# The one required gate for main (audit Phase 2). Every check runs once per
+# change; the jobs below replace architecture-gates, global-e2e-uat,
+# deep-safe-recertification, batch4-final-runtime-certification,
+# backend-readiness-gate, batch5-phase69-test-integrity and rider-l10n, which
+# each ran the same `flutter test` suite (or a subset of it) again.
+# Branch protection should require the single check "CI gate / gate".
+name: CI gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-gate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.7'
+  # lib/core line coverage measured 92.90% (4725/5086 lines) on 2026-10-26
+  # (audit Phase 2); floor 0.1 below for run-to-run noise. Raise it,
+  # never lower it.
+  CORE_COVERAGE_FLOOR: '92.8'
+
+jobs:
+  static:
+    name: Lockfile, format, analyze, repo gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+      - name: Dependencies from the lockfile
+        run: flutter pub get --enforce-lockfile
+      - name: Format
+        # test/l10n/all_messages.g.dart is written by tool/gen_l10n_messages.py
+        # and checked against it below, so it is not formatted.
+        run: dart format --output=none --set-exit-if-changed $(git ls-files '*.dart' | grep -v '\.g\.dart$')
+      - name: Static analysis
+        run: flutter analyze --fatal-infos
+
+      - name: Source guards (from backend-readiness-gate)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R --line-number --fixed-strings 'ApiSafetyRemoteDataSource(ApiClient())' lib; then
+            echo '::error::Safety networking bypasses authenticated AppScope.api'
+            exit 1
+          fi
+          # Owner decision 11 (2026-10-22): the demo build may ask the public
+          # road router from one web-only file. Release flavors never reach it.
+          if grep -R --line-number --fixed-strings 'router.project-osrm.org' lib web \
+            | grep -v '^lib/core/maps/web_road_route.dart:'; then
+            echo '::error::Rider still calls uncontrolled public routing provider'
+            exit 1
+          fi
+          if grep -R --line-number --fixed-strings \
+            'package:flutter_sliding_up_panel/' lib test integration_test 2>/dev/null; then
+            echo '::error::Removed duplicate panel dependency is still imported'
+            exit 1
+          fi
+          test -f lib/features/trips/domain/trip_status.dart
+          test -f lib/features/trips/domain/trip.dart
+          test -f lib/core/observability/observability.dart
+          test -f lib/app/config/transport_composition.dart
+
+      - name: Test integrity (from batch5-phase69)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in book_to_home catalog_failure driver_cancel_research \
+                      reservation_journey resume_mid_ride rider_cancel; do
+            test -f "test/journeys/${file}_test.dart" || {
+              echo "::error::Missing required Phase 69 journey: test/journeys/${file}_test.dart"
+              exit 1
+            }
+          done
+          test ! -e test/ride/ride_navigation_topology_test.dart || {
+            echo "::error::Legacy ride_navigation_topology_test.dart must stay deleted."
+            exit 1
+          }
+          if grep -R -nE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test/journeys --include='*.dart'; then
+            echo "::error::Journey tests must exercise behavior, not read implementation source."
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+          test_decl = re.compile(r'\btest(?:Widgets)?\s*\(')
+          source_read = re.compile(r'readAsStringSync\s*\(|readAsLinesSync\s*\(')
+          total = 0
+          for path in sorted(Path('test').rglob('*.dart')):
+              text = path.read_text(encoding='utf-8')
+              starts = [m.start() for m in test_decl.finditer(text)]
+              for i, start in enumerate(starts):
+                  end = starts[i + 1] if i + 1 < len(starts) else len(text)
+                  if source_read.search(text[start:end]):
+                      total += 1
+          print(f'Legacy grep-style test cases: {total}')
+          if total >= 40:
+              sys.exit(f'::error::Phase 69 requires fewer than 40 legacy grep-style test cases; found {total}.')
+          PY
+
+      - name: Same keys in every ARB, generated test list up to date (from rider-l10n)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, sys
+          arbs = {p.stem.split('_')[-1]: json.loads(p.read_text(encoding='utf-8'))
+                  for p in sorted(pathlib.Path('lib/l10n').glob('app_*.arb'))}
+          if set(arbs) != {'en', 'fr', 'sv'}:
+              sys.exit(f'::error::expected app_en/fr/sv.arb, found {sorted(arbs)}')
+          keys = {l: {k for k in d if not k.startswith('@')} for l, d in arbs.items()}
+          for lang in ('fr', 'sv'):
+              missing, extra = keys['en'] - keys[lang], keys[lang] - keys['en']
+              if missing or extra:
+                  sys.exit(f'::error::{lang}: missing {sorted(missing)} extra {sorted(extra)}')
+          print(f"{len(keys['en'])} messages in en, fr and sv")
+          PY
+          cp test/l10n/all_messages.g.dart "$RUNNER_TEMP/all_messages.g.dart"
+          python3 tool/gen_l10n_messages.py
+          diff -u "$RUNNER_TEMP/all_messages.g.dart" test/l10n/all_messages.g.dart || {
+            echo "::error::Run python3 tool/gen_l10n_messages.py and commit the result."
+            exit 1
+          }
+
+      - name: Contract copy matches its CHECKSUMS
+        run: cd contracts && sha256sum --quiet -c CHECKSUMS
+
+  test:
+    name: Unit and widget tests (once) + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+      - run: flutter pub get --enforce-lockfile
+      - name: Full unit + widget suite with coverage
+        run: flutter test --coverage
+      # The zone tests depend on the machine's time zone, so they run again
+      # under a zone with daylight saving on each side of UTC (from
+      # architecture-gates).
+      - name: Time-zone reruns (Europe/Stockholm, America/New_York)
+        run: |
+          for tz in Europe/Stockholm America/New_York; do
+            TZ=$tz flutter test \
+              test/scheduled_rides \
+              test/core/audit_fix_r4_device_zone_test.dart \
+              test/audit/owner9_zone_pickup_time_test.dart
+          done
+      - name: lib/core coverage floor
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          hit = found = 0
+          current = None
+          for line in open('coverage/lcov.info', encoding='utf-8'):
+              line = line.strip()
+              if line.startswith('SF:'):
+                  current = line[3:]
+              elif line.startswith('DA:') and current and current.startswith('lib/core/'):
+                  found += 1
+                  if int(line.split(',')[1]) > 0:
+                      hit += 1
+          pct = 100.0 * hit / found if found else 0.0
+          floor = float(os.environ['CORE_COVERAGE_FLOOR'])
+          print(f'lib/core line coverage: {hit}/{found} = {pct:.2f}% (floor {floor}%)')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as s:
+              s.write(f'lib/core line coverage: **{pct:.2f}%** ({hit}/{found}), floor {floor}%\n')
+          if pct < floor:
+              sys.exit(f'::error::lib/core coverage {pct:.2f}% is below the floor {floor}%')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn
+
+  integration:
+    name: Linux integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+      - name: Install Linux desktop + display dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev xvfb
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter config --enable-linux-desktop
+      - name: Ride booking, full lifecycle, all lifecycle paths, cross-feature UAT
+        run: |
+          xvfb-run -a flutter test -d linux integration_test/ride_flow_test.dart
+          xvfb-run -a flutter test -d linux integration_test/rider_full_uat_test.dart
+          xvfb-run -a flutter test -d linux integration_test/pre15_all_lifecycle_paths_test.dart
+          xvfb-run -a flutter test -d linux integration_test/global_uat_flow_test.dart
+
+  web-build:
+    name: Web release builds (production + staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+      - run: flutter pub get --enforce-lockfile
+      - name: Production
+        run: |
+          flutter build web --release --pwa-strategy=none \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
+          test -f build/web/main.dart.js
+      - name: Staging
+        run: |
+          rm -rf build/web
+          flutter build web --release \
+            -t lib/main_staging.dart \
+            --dart-define=MOVERA_FLAVOR=staging \
+            --dart-define=MOVERA_API_BASE_URL=https://api.staging.movera.example
+          test -f build/web/main.dart.js
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: gitleaks (working tree)
+        # The tree is scanned, not the history: history holds a Google Maps
+        # browser key removed in 72e4bb7a (audit baseline §7), which is
+        # tracked as an owner action (restrict or rotate), not a CI failure.
+        env:
+          GITLEAKS_VERSION: '8.28.0'
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" dir . --redact --verbose --no-banner --exit-code 1
+
+  gate:
+    name: gate
+    if: always()
+    needs: [static, test, integration, web-build, secret-scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed on this commit
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r and all(x=="success" for x in r) else 1)'

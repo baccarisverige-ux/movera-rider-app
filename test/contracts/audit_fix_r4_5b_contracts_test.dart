@@ -17,7 +17,10 @@ import 'package:movera_rider/features/history/data/ride_history_repositories.dar
 import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Map<String, dynamic> _sek(int minor) => {'amountMinor': minor, 'currency': 'SEK'};
+Map<String, dynamic> _sek(int minor) => {
+  'amountMinor': minor,
+  'currency': 'SEK',
+};
 
 /// openapi `TripProjection.required`, read from the shipped contract copy.
 List<String> _tripProjectionRequired() {
@@ -64,8 +67,7 @@ void main() {
   });
 
   group('rider config', () {
-    test('rider-r4-3: a waiting block missing one field keeps the others',
-        () {
+    test('rider-r4-3: a waiting block missing one field keeps the others', () {
       final waiting = RiderAppConfig.fromJson({
         'version': 14,
         'currency': 'SEK',
@@ -103,15 +105,17 @@ void main() {
       expect(preview.freeMinutesLeft, 0);
     });
 
-    test('rider-r4-41: the zone outlives sign-out (no position kept)',
-        () async {
-      await const LocationRepository().saveLastGoodFix(
-        const GeoPoint(36.8065, 10.1815),
-      );
-      await UserDataWipe.run();
-      expect(await const LocationRepository().readLastGoodFix(), isNull);
-      expect((await currentRiderZone()).id, RiderZones.tunisia.id);
-    });
+    test(
+      'rider-r4-41: the zone outlives sign-out (no position kept)',
+      () async {
+        await const LocationRepository().saveLastGoodFix(
+          const GeoPoint(36.8065, 10.1815),
+        );
+        await UserDataWipe.run();
+        expect(await const LocationRepository().readLastGoodFix(), isNull);
+        expect((await currentRiderZone()).id, RiderZones.tunisia.id);
+      },
+    );
   });
 
   group('trip projection', () {
@@ -121,59 +125,78 @@ void main() {
       expect(snapshot.destinationLat, 59.6498);
     });
 
-    test('rider-r4-7: History titles a server trip with the catalog label',
-        () async {
-      final mock = InProcessMockClient()..rides['t1'] = _contractTrip('t1');
-      final record = (await ApiRideHistoryRepository(
-        api: ApiClient(
-          client: mock,
-          env: const AppEnv(
-            flavor: AppFlavor.demo,
-            apiBaseUrl: 'https://api.demo.movera.invalid',
+    test(
+      'rider-r4-7: History titles a server trip with the catalog label',
+      () async {
+        final mock = InProcessMockClient()..rides['t1'] = _contractTrip('t1');
+        final record = (await ApiRideHistoryRepository(
+          api: ApiClient(
+            client: mock,
+            env: const AppEnv(
+              flavor: AppFlavor.demo,
+              apiBaseUrl: 'https://api.demo.movera.invalid',
+            ),
           ),
-        ),
-      ).loadOnDemand()).single;
-      expect(record.categoryName, 'Movera XL');
-    });
+        ).loadOnDemand()).single;
+        expect(record.categoryName, 'Movera XL');
+      },
+    );
 
-    test('rider-r4-5: the stand-in server answers an openapi TripProjection',
-        () async {
-      final api = ApiClient(client: InProcessMockClient());
-      final quote = (await api.post('/api/v1/quotes', body: {
-        'rideType': 'economy',
-        'pickupLat': 59.3293,
-        'pickupLng': 18.0686,
-        'destinationLat': 59.3326,
-        'destinationLng': 18.0649,
-      }))['quote'] as Map;
-      final ride = Map<String, dynamic>.from((await api.post(
-        '/api/v1/rides',
-        body: {
-          'categoryId': 'economy',
-          'fare': _sek(quote['totalMinor'] as int),
-          'paymentMethodId': 'card_visa_4242',
-          'pickupAddress': 'A',
-          'pickupLat': 59.3293,
-          'pickupLng': 18.0686,
-          'destinationAddress': 'B',
-          'destinationLat': 59.3326,
-          'destinationLng': 18.0649,
-          'quoteId': quote['id'],
-          'quoteSignedPayload': quote['signedPayload'],
-          'quoteExpiresAt': quote['expiresAt'],
-          'quoteTotalMinor': quote['totalMinor'],
-        },
-      ))['ride'] as Map);
-      final required = _tripProjectionRequired();
-      expect(required, containsAll(['dropoff', 'riderId', 'pinRequired']));
-      expect(required.where((key) => !ride.containsKey(key)), isEmpty);
-      expect(ride['dropoff'], {'address': 'B', 'lat': 59.3326, 'lng': 18.0649});
-      expect(ride['paymentMethod'], 'card');
-      expect(ride['paymentMethodId'], 'card_visa_4242');
-      // The app reads it with the legacy flat keys gone.
-      final contractOnly = {...ride}
-        ..removeWhere((key, _) => key.startsWith('destination'));
-      expect(RideProjection.toSnapshot(contractOnly)?.destinationAddress, 'B');
-    });
+    test(
+      'rider-r4-5: the stand-in server answers an openapi TripProjection',
+      () async {
+        final api = ApiClient(client: InProcessMockClient());
+        final quote =
+            (await api.post(
+                  '/api/v1/quotes',
+                  body: {
+                    'rideType': 'economy',
+                    'pickupLat': 59.3293,
+                    'pickupLng': 18.0686,
+                    'destinationLat': 59.3326,
+                    'destinationLng': 18.0649,
+                  },
+                ))['quote']
+                as Map;
+        final ride = Map<String, dynamic>.from(
+          (await api.post(
+                '/api/v1/rides',
+                body: {
+                  'categoryId': 'economy',
+                  'fare': _sek(quote['totalMinor'] as int),
+                  'paymentMethodId': 'card_visa_4242',
+                  'pickupAddress': 'A',
+                  'pickupLat': 59.3293,
+                  'pickupLng': 18.0686,
+                  'destinationAddress': 'B',
+                  'destinationLat': 59.3326,
+                  'destinationLng': 18.0649,
+                  'quoteId': quote['id'],
+                  'quoteSignedPayload': quote['signedPayload'],
+                  'quoteExpiresAt': quote['expiresAt'],
+                  'quoteTotalMinor': quote['totalMinor'],
+                },
+              ))['ride']
+              as Map,
+        );
+        final required = _tripProjectionRequired();
+        expect(required, containsAll(['dropoff', 'riderId', 'pinRequired']));
+        expect(required.where((key) => !ride.containsKey(key)), isEmpty);
+        expect(ride['dropoff'], {
+          'address': 'B',
+          'lat': 59.3326,
+          'lng': 18.0649,
+        });
+        expect(ride['paymentMethod'], 'card');
+        expect(ride['paymentMethodId'], 'card_visa_4242');
+        // The app reads it with the legacy flat keys gone.
+        final contractOnly = {...ride}
+          ..removeWhere((key, _) => key.startsWith('destination'));
+        expect(
+          RideProjection.toSnapshot(contractOnly)?.destinationAddress,
+          'B',
+        );
+      },
+    );
   });
 }

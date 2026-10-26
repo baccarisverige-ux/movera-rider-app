@@ -7,8 +7,11 @@ import 'package:movera_rider/features/messages/domain/trip_messages_transport.da
 /// `sendTripMessage` / `listTripMessages`). Composed only where
 /// [ApiClient.contractWire] is true.
 class ApiTripMessages implements TripMessagesTransport {
-  ApiTripMessages({required ApiClient api, this.pageSize = 50, this.maxPages = 4})
-      : _api = api;
+  ApiTripMessages({
+    required ApiClient api,
+    this.pageSize = 50,
+    this.maxPages = 4,
+  }) : _api = api;
 
   final ApiClient _api;
 
@@ -55,8 +58,9 @@ class ApiTripMessages implements TripMessagesTransport {
       if (items is List) {
         for (final raw in items) {
           if (raw is! Map) continue;
-          final message =
-              ChatMessageWire.fromJson(Map<String, dynamic>.from(raw));
+          final message = ChatMessageWire.fromJson(
+            Map<String, dynamic>.from(raw),
+          );
           if (message?.messageId case final id?) byId[id] = message!;
         }
       }
@@ -83,7 +87,10 @@ abstract final class ChatMessageWire {
       'support' => ChatMessageSender.support,
       _ => null,
     };
-    if (id is! String || id.isEmpty || text is! String || at == null ||
+    if (id is! String ||
+        id.isEmpty ||
+        text is! String ||
+        at == null ||
         sender == null) {
       return null;
     }

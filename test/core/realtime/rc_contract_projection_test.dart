@@ -67,9 +67,7 @@ void main() {
   Future<void> settle() =>
       Future<void>.delayed(const Duration(milliseconds: 20));
 
-  Future<List<RideRealtimeEvent>> run(
-    List<Map<String, Object?>> script,
-  ) async {
+  Future<List<RideRealtimeEvent>> run(List<Map<String, Object?>> script) async {
     final t = build(script);
     final seen = <RideRealtimeEvent>[];
     final sub = t.rt.subscribe('ride-1').listen(seen.add);
@@ -150,32 +148,37 @@ void main() {
     expect(seen.first.sequence, 0);
   });
 
-  test('X6: a bare projection is read, with the driverLocation GeoFix',
-      () async {
-    final t = build([
-      projection(
-        status: 'driver_to_pickup',
-        version: 4,
-        sequence: 4,
-        driverLocation: {
-          'lat': 59.3301,
-          'lng': 18.0602,
-          'accuracy': 8,
-          'measuredAt': '2026-10-19T09:00:03Z',
-        },
-      ),
-    ]);
-    final seen = <RideRealtimeEvent>[];
-    final sub = t.rt.subscribe('ride-1').listen(seen.add);
-    addTearDown(sub.cancel);
-    await settle();
-    expect(seen, hasLength(1));
-    expect(seen.single.status, RideStatus.driverArriving);
-    expect(seen.single.latitude, 59.3301);
-    expect(seen.single.longitude, 18.0602);
-    expect(seen.single.payload['serverLocationAt'], '2026-10-19T09:00:03.000Z');
-    expect(t.conn.state, RealtimeState.connected);
-  });
+  test(
+    'X6: a bare projection is read, with the driverLocation GeoFix',
+    () async {
+      final t = build([
+        projection(
+          status: 'driver_to_pickup',
+          version: 4,
+          sequence: 4,
+          driverLocation: {
+            'lat': 59.3301,
+            'lng': 18.0602,
+            'accuracy': 8,
+            'measuredAt': '2026-10-19T09:00:03Z',
+          },
+        ),
+      ]);
+      final seen = <RideRealtimeEvent>[];
+      final sub = t.rt.subscribe('ride-1').listen(seen.add);
+      addTearDown(sub.cancel);
+      await settle();
+      expect(seen, hasLength(1));
+      expect(seen.single.status, RideStatus.driverArriving);
+      expect(seen.single.latitude, 59.3301);
+      expect(seen.single.longitude, 18.0602);
+      expect(
+        seen.single.payload['serverLocationAt'],
+        '2026-10-19T09:00:03.000Z',
+      );
+      expect(t.conn.state, RealtimeState.connected);
+    },
+  );
 
   test('RC-06: every request sends the contract X-Api-Version', () async {
     final t = build([projection(status: 'searching', version: 1, sequence: 1)]);

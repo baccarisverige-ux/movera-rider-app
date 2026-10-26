@@ -1,4 +1,3 @@
-
 class FareBreakdown {
   const FareBreakdown({
     required this.baseMinor,

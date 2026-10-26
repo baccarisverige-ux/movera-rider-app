@@ -101,8 +101,8 @@ abstract final class L10n {
   static bool isCashLabel(String label) {
     final value = label.trim().toLowerCase();
     return languages.any(
-      (l) => lookupAppLocalizations(Locale(l.code)).payCash.toLowerCase() ==
-          value,
+      (l) =>
+          lookupAppLocalizations(Locale(l.code)).payCash.toLowerCase() == value,
     );
   }
 

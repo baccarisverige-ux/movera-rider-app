@@ -36,7 +36,10 @@ void main() {
   }
 
   test('suggestions understand partial and misspelled input', () async {
-    expect((await suggest('klockarvagen')).first.title, startsWith('Klockarvägen'));
+    expect(
+      (await suggest('klockarvagen')).first.title,
+      startsWith('Klockarvägen'),
+    );
     final drottn = await suggest('drottn 5');
     expect(drottn.map((s) => s.title), contains('Drottninggatan 5'));
     final arlanda = await suggest('arlanda');

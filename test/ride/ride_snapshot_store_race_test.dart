@@ -3,7 +3,10 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-RideSnapshot snapshot(String rideId, {RideStatus status = RideStatus.findingDriver}) {
+RideSnapshot snapshot(
+  String rideId, {
+  RideStatus status = RideStatus.findingDriver,
+}) {
   return RideSnapshot(
     status: status,
     savedAt: DateTime.now(),
@@ -56,16 +59,19 @@ void main() {
     expect(restored?.rideId, 'ride-fresh');
   });
 
-  test('concurrent saves resolve in invocation order without deleting the last write', () async {
-    final first = RideSnapshotStore.save(snapshot('ride-1'));
-    final second = RideSnapshotStore.save(snapshot('ride-2'));
-    final third = RideSnapshotStore.save(snapshot('ride-3'));
+  test(
+    'concurrent saves resolve in invocation order without deleting the last write',
+    () async {
+      final first = RideSnapshotStore.save(snapshot('ride-1'));
+      final second = RideSnapshotStore.save(snapshot('ride-2'));
+      final third = RideSnapshotStore.save(snapshot('ride-3'));
 
-    await Future.wait(<Future<void>>[first, second, third]);
+      await Future.wait(<Future<void>>[first, second, third]);
 
-    final restored = await RideSnapshotStore.read();
-    expect(restored?.rideId, 'ride-3');
-  });
+      final restored = await RideSnapshotStore.read();
+      expect(restored?.rideId, 'ride-3');
+    },
+  );
 
   test('terminal save never overwrites an active ride', () async {
     await RideSnapshotStore.save(snapshot('ride-active'));
@@ -78,15 +84,17 @@ void main() {
     expect(restored?.status, RideStatus.findingDriver);
   });
 
+  test(
+    'lifecycle touch after clear cannot resurrect a cancelled ride',
+    () async {
+      await RideSnapshotStore.save(snapshot('ride-cancelled'));
+      await RideSnapshotStore.clear();
 
-  test('lifecycle touch after clear cannot resurrect a cancelled ride', () async {
-    await RideSnapshotStore.save(snapshot('ride-cancelled'));
-    await RideSnapshotStore.clear();
+      await RideSnapshotStore.touchCurrent();
 
-    await RideSnapshotStore.touchCurrent();
-
-    expect(await RideSnapshotStore.read(), isNull);
-  });
+      expect(await RideSnapshotStore.read(), isNull);
+    },
+  );
 
   test('lifecycle touch keeps the same active ride identity', () async {
     await RideSnapshotStore.save(snapshot('ride-active'));
@@ -101,28 +109,34 @@ void main() {
     expect(after!.savedAt.isAfter(before!.savedAt), isTrue);
   });
 
-  test('clear then rebook then lifecycle touch preserves only the new ride', () async {
-    await RideSnapshotStore.save(snapshot('ride-old'));
+  test(
+    'clear then rebook then lifecycle touch preserves only the new ride',
+    () async {
+      await RideSnapshotStore.save(snapshot('ride-old'));
 
-    final clearing = RideSnapshotStore.clear();
-    final rebooking = RideSnapshotStore.save(snapshot('ride-new'));
-    final touching = RideSnapshotStore.touchCurrent();
+      final clearing = RideSnapshotStore.clear();
+      final rebooking = RideSnapshotStore.save(snapshot('ride-new'));
+      final touching = RideSnapshotStore.touchCurrent();
 
-    await Future.wait(<Future<void>>[clearing, rebooking, touching]);
+      await Future.wait(<Future<void>>[clearing, rebooking, touching]);
 
-    final restored = await RideSnapshotStore.read();
-    expect(restored?.rideId, 'ride-new');
-  });
+      final restored = await RideSnapshotStore.read();
+      expect(restored?.rideId, 'ride-new');
+    },
+  );
 
-  test('explicit newer save invalidates an older lifecycle touch intent', () async {
-    await RideSnapshotStore.save(snapshot('ride-old'));
+  test(
+    'explicit newer save invalidates an older lifecycle touch intent',
+    () async {
+      await RideSnapshotStore.save(snapshot('ride-old'));
 
-    final touching = RideSnapshotStore.touchCurrent();
-    final newerSave = RideSnapshotStore.save(snapshot('ride-new'));
+      final touching = RideSnapshotStore.touchCurrent();
+      final newerSave = RideSnapshotStore.save(snapshot('ride-new'));
 
-    await Future.wait(<Future<void>>[touching, newerSave]);
+      await Future.wait(<Future<void>>[touching, newerSave]);
 
-    final restored = await RideSnapshotStore.read();
-    expect(restored?.rideId, 'ride-new');
-  });
+      final restored = await RideSnapshotStore.read();
+      expect(restored?.rideId, 'ride-new');
+    },
+  );
 }

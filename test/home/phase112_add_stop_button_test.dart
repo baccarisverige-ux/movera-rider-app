@@ -99,23 +99,29 @@ void main() {
       )
       .color!;
 
-  testWidgets('button renders inside the bordered box, pinned to its top-right', (
+  testWidgets(
+    'button renders inside the bordered box, pinned to its top-right',
+    (tester) async {
+      await pump(tester);
+      expect(button, findsOneWidget);
+      final b = tester.getRect(button);
+      final r = tester.getRect(box);
+      expect(
+        r.contains(b.topLeft) && r.contains(b.bottomRight),
+        isTrue,
+        reason: 'button $b must sit inside box $r',
+      );
+      expect(b.top - r.top, lessThan(16), reason: 'pinned to the top');
+      expect(r.right - b.right, lessThan(16), reason: 'at the right edge');
+      // Top half of the box, level with the pickup row.
+      final pickup = tester.getRect(find.byKey(const Key('pickup')));
+      expect(b.center.dy, lessThan(pickup.bottom + 8));
+    },
+  );
+
+  testWidgets('circular, with a red plus (AppColor.red #E31E37)', (
     tester,
   ) async {
-    await pump(tester);
-    expect(button, findsOneWidget);
-    final b = tester.getRect(button);
-    final r = tester.getRect(box);
-    expect(r.contains(b.topLeft) && r.contains(b.bottomRight), isTrue,
-        reason: 'button $b must sit inside box $r');
-    expect(b.top - r.top, lessThan(16), reason: 'pinned to the top');
-    expect(r.right - b.right, lessThan(16), reason: 'at the right edge');
-    // Top half of the box, level with the pickup row.
-    final pickup = tester.getRect(find.byKey(const Key('pickup')));
-    expect(b.center.dy, lessThan(pickup.bottom + 8));
-  });
-
-  testWidgets('circular, with a red plus (AppColor.red #E31E37)', (tester) async {
     await pump(tester);
     final material = tester.widget<Material>(button);
     expect(material.shape, isA<CircleBorder>());
@@ -125,26 +131,27 @@ void main() {
     expect(PlanRideAddressBox.addStopColor, red);
   });
 
-  testWidgets('tap adds a stop via the same callback; disabled and dimmed at 3', (
-    tester,
-  ) async {
-    await pump(tester, stops: 2);
-    expect(find.byKey(const Key('stop1')), findsOneWidget);
-    await tester.tap(button);
-    await tester.pump();
-    expect(find.byKey(const Key('stop2')), findsOneWidget);
+  testWidgets(
+    'tap adds a stop via the same callback; disabled and dimmed at 3',
+    (tester) async {
+      await pump(tester, stops: 2);
+      expect(find.byKey(const Key('stop1')), findsOneWidget);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.byKey(const Key('stop2')), findsOneWidget);
 
-    // Now at 3 stops: disabled, not red, tapping does nothing.
-    final ink = tester.widget<InkWell>(
-      find.descendant(of: button, matching: find.byType(InkWell)),
-    );
-    expect(ink.onTap, isNull);
-    expect(iconColor(tester), PlanRideAddressBox.addStopDisabledColor);
-    expect(iconColor(tester), isNot(red));
-    await tester.tap(button, warnIfMissed: false);
-    await tester.pump();
-    expect(find.byKey(const Key('stop3')), findsNothing);
-  });
+      // Now at 3 stops: disabled, not red, tapping does nothing.
+      final ink = tester.widget<InkWell>(
+        find.descendant(of: button, matching: find.byType(InkWell)),
+      );
+      expect(ink.onTap, isNull);
+      expect(iconColor(tester), PlanRideAddressBox.addStopDisabledColor);
+      expect(iconColor(tester), isNot(red));
+      await tester.tap(button, warnIfMissed: false);
+      await tester.pump();
+      expect(find.byKey(const Key('stop3')), findsNothing);
+    },
+  );
 
   for (final width in const [320.0, 390.0]) {
     for (final stops in const [0, 3]) {

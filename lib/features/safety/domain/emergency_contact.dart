@@ -60,17 +60,17 @@ class EmergencyContact {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'userId': userId,
-        'name': name,
-        'phoneE164': phoneE164,
-        'relationship': relationship,
-        'isPrimary': isPrimary,
-        'shareTrips': shareTrips,
-        'isEnabled': isEnabled,
-        'createdAt': createdAt?.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-      };
+    'id': id,
+    'userId': userId,
+    'name': name,
+    'phoneE164': phoneE164,
+    'relationship': relationship,
+    'isPrimary': isPrimary,
+    'shareTrips': shareTrips,
+    'isEnabled': isEnabled,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
+  };
 
   factory EmergencyContact.fromJson(Map<String, dynamic> json) {
     return EmergencyContact(

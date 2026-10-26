@@ -5,10 +5,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 void main() {
   test('RideStatus.driverArriving maps to driver_to_pickup', () {
-    expect(
-      RideStatus.driverArriving.tripStatus,
-      TripStatus.driverToPickup,
-    );
+    expect(RideStatus.driverArriving.tripStatus, TripStatus.driverToPickup);
     expect(TripStatus.driverToPickup.wireName, 'driver_to_pickup');
   });
 

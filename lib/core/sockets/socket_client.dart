@@ -1,4 +1,3 @@
-
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 
 class SocketClient {

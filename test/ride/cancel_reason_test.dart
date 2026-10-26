@@ -149,7 +149,6 @@ void main() {
     expect(outcome?.cancelled, isFalse);
   });
 
-
   testWidgets('backing out of matched cancel reasons keeps the ride', (
     tester,
   ) async {

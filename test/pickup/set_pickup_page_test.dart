@@ -94,7 +94,11 @@ void main() {
   ) async {
     await openPage(
       tester,
-      fare: const SetPickupFare(totalKr: 237, discountKr: 102, promotionPercent: 30),
+      fare: const SetPickupFare(
+        totalKr: 237,
+        discountKr: 102,
+        promotionPercent: 30,
+      ),
     )();
     expect(find.byType(SetPickupPage), findsOneWidget);
     expect(find.text('Alby Centrum, Norsborg'), findsOneWidget);
@@ -278,7 +282,9 @@ void main() {
     expect(find.text('Front of the building'), findsOneWidget);
     final chipKey = const ValueKey('set-pickup-spot-entrance-main');
     final chip = tester.widget<Material>(
-      find.descendant(of: find.byKey(chipKey), matching: find.byType(Material)).first,
+      find
+          .descendant(of: find.byKey(chipKey), matching: find.byType(Material))
+          .first,
     );
     expect(chip.color, const Color(0xFF11181D));
     final parkingChip = tester.widget<Material>(
@@ -342,7 +348,10 @@ void main() {
     );
     final firstChip = row.children.first;
     expect(
-      find.descendant(of: find.byWidget(firstChip), matching: find.text('Previously used')),
+      find.descendant(
+        of: find.byWidget(firstChip),
+        matching: find.text('Previously used'),
+      ),
       findsOneWidget,
     );
     await tester.tap(find.text('Previously used'));

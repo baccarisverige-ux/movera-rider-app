@@ -56,13 +56,17 @@ void main() {
     return result;
   }
 
-  testWidgets('Cash: the price is shown and one confirm is enough',
-      (tester) async {
+  testWidgets('Cash: the price is shown and one confirm is enough', (
+    tester,
+  ) async {
     final result = await pump(
       tester,
       paymentMethod: 'Cash',
       act: () async {
-        expect(find.byKey(const ValueKey('route-change-price')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('route-change-price')),
+          findsOneWidget,
+        );
         expect(find.text('369 kr'), findsOneWidget);
         expect(find.textContaining('in the car'), findsOneWidget);
         expect(find.text('Confirm change'), findsOneWidget);
@@ -82,7 +86,10 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('route-change-confirm')));
         await tester.pumpAndSettle();
         expect(find.text('Confirm payment'), findsOneWidget);
-        expect(find.byKey(const ValueKey('route-change-payment')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('route-change-payment')),
+          findsOneWidget,
+        );
         expect(find.text('+110 kr'), findsOneWidget);
         expect(find.text('Confirm and pay 110 kr'), findsOneWidget);
         // A charge never asks where the money goes.
@@ -94,31 +101,40 @@ void main() {
     expect(result?.refundTo, isNull);
   });
 
-  testWidgets('a cheaper route on a card asks where the refund goes; wallet by default',
-      (tester) async {
-    final result = await pump(
-      tester,
-      paymentMethod: 'Visa •••• 4242',
-      newPrice: 130,
-      act: () async {
-        await tester.tap(find.byKey(const ValueKey('route-change-confirm')));
-        await tester.pumpAndSettle();
-        expect(find.text('Choose your refund'), findsOneWidget);
-        expect(find.text('Refund amount'), findsOneWidget);
-        expect(find.text('129 kr'), findsOneWidget);
-        expect(find.byKey(const ValueKey('refund-to-wallet')), findsOneWidget);
-        expect(find.byKey(const ValueKey('refund-to-original')), findsOneWidget);
-        expect(find.textContaining('2 to 3 business days'), findsOneWidget);
-        expect(find.text('Confirm refund to Movera Wallet'), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('route-change-pay')));
-      },
-    );
-    expect(result?.confirmed, isTrue);
-    expect(result?.refundTo, RefundDestination.wallet);
-  });
+  testWidgets(
+    'a cheaper route on a card asks where the refund goes; wallet by default',
+    (tester) async {
+      final result = await pump(
+        tester,
+        paymentMethod: 'Visa •••• 4242',
+        newPrice: 130,
+        act: () async {
+          await tester.tap(find.byKey(const ValueKey('route-change-confirm')));
+          await tester.pumpAndSettle();
+          expect(find.text('Choose your refund'), findsOneWidget);
+          expect(find.text('Refund amount'), findsOneWidget);
+          expect(find.text('129 kr'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('refund-to-wallet')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('refund-to-original')),
+            findsOneWidget,
+          );
+          expect(find.textContaining('2 to 3 business days'), findsOneWidget);
+          expect(find.text('Confirm refund to Movera Wallet'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('route-change-pay')));
+        },
+      );
+      expect(result?.confirmed, isTrue);
+      expect(result?.refundTo, RefundDestination.wallet);
+    },
+  );
 
-  testWidgets('the rider can choose the original payment method instead',
-      (tester) async {
+  testWidgets('the rider can choose the original payment method instead', (
+    tester,
+  ) async {
     final result = await pump(
       tester,
       paymentMethod: 'Apple Pay',

@@ -16,22 +16,25 @@ void main() {
   });
 
   const stop = {'address': 'Stop', 'lat': 59.35, 'lng': 18.10};
-  Map<String, dynamic> route({List<Map<String, Object>> stops = const [stop]}) =>
-      {
-        'pickupAddress': 'Pickup',
-        'pickupLat': 59.3293,
-        'pickupLng': 18.0686,
-        'destinationAddress': 'Destination',
-        'destinationLat': 59.3326,
-        'destinationLng': 18.0649,
-        'stops': stops,
-      };
+  Map<String, dynamic> route({
+    List<Map<String, Object>> stops = const [stop],
+  }) => {
+    'pickupAddress': 'Pickup',
+    'pickupLat': 59.3293,
+    'pickupLng': 18.0686,
+    'destinationAddress': 'Destination',
+    'destinationLat': 59.3326,
+    'destinationLng': 18.0649,
+    'stops': stops,
+  };
 
   Future<String> book() async {
-    final quote = (await api.post(
-      '/api/v1/quotes',
-      body: {'rideType': 'economy', ...route()},
-    ))['quote'] as Map;
+    final quote =
+        (await api.post(
+              '/api/v1/quotes',
+              body: {'rideType': 'economy', ...route()},
+            ))['quote']
+            as Map;
     final created = await api.post(
       '/api/v1/rides',
       body: {
@@ -53,7 +56,8 @@ void main() {
     List<Map<String, Object>> stops = const [stop],
   }) => api.post('/api/v1/rides/$id/route-quote', body: route(stops: stops));
 
-  int fareOf(String id) => (server.rides[id]!['fare'] as Map)['amountMinor'] as int;
+  int fareOf(String id) =>
+      (server.rides[id]!['fare'] as Map)['amountMinor'] as int;
 
   test('rider-9: re-quoting the booked multi-stop route costs nothing more; '
       'only a new stop pays the stop fee', () async {
@@ -63,34 +67,45 @@ void main() {
     expect(same['newTotalMinor'], fareOf(id));
 
     // A second stop next to the booked one: the stop fee once, for it alone.
-    final more = await requote(id, stops: [
-      stop,
-      {'address': 'Next door', 'lat': 59.3501, 'lng': 18.1001},
-    ]);
+    final more = await requote(
+      id,
+      stops: [
+        stop,
+        {'address': 'Next door', 'lat': 59.3501, 'lng': 18.1001},
+      ],
+    );
     expect(more['differenceMinor'], inInclusiveRange(2500, 2600));
   });
 
-  test('rider-u14: a route change keeps the offer raise the rider paid',
-      () async {
-    final id = await book();
-    final booked = fareOf(id);
-    await api.patch('/api/v1/rides/$id', body: {
-      'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
-    });
-    await api.patch('/api/v1/rides/$id', body: {
-      'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
-    });
-    await api.post('/api/v1/rides/$id/status', body: {'status': 'accepted'});
-    final same = await requote(id);
-    expect(same['newTotalMinor'], booked + 7000);
-    expect(same['differenceMinor'], 0);
+  test(
+    'rider-u14: a route change keeps the offer raise the rider paid',
+    () async {
+      final id = await book();
+      final booked = fareOf(id);
+      await api.patch(
+        '/api/v1/rides/$id',
+        body: {
+          'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+      );
+      await api.patch(
+        '/api/v1/rides/$id',
+        body: {
+          'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
+        },
+      );
+      await api.post('/api/v1/rides/$id/status', body: {'status': 'accepted'});
+      final same = await requote(id);
+      expect(same['newTotalMinor'], booked + 7000);
+      expect(same['differenceMinor'], 0);
 
-    // Dropping the booked stop gives back distance only, never the raise.
-    final shorter = await requote(id, stops: const []);
-    expect(
-      shorter['newTotalMinor'] as int,
-      greaterThanOrEqualTo((booked + 7000) ~/ 2),
-    );
-    expect(shorter['differenceMinor'] as int, isNegative);
-  });
+      // Dropping the booked stop gives back distance only, never the raise.
+      final shorter = await requote(id, stops: const []);
+      expect(
+        shorter['newTotalMinor'] as int,
+        greaterThanOrEqualTo((booked + 7000) ~/ 2),
+      );
+      expect(shorter['differenceMinor'] as int, isNegative);
+    },
+  );
 }

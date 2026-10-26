@@ -13,11 +13,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
-  const RideCompletedTripDetail({
-    super.key,
-    this.controller,
-    this.rideId,
-  });
+  const RideCompletedTripDetail({super.key, this.controller, this.rideId});
 
   final RideCompleteController? controller;
   final String? rideId;
@@ -55,8 +51,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                   MoveraEmptyState(
                     icon: Icons.receipt_long_outlined,
                     title: context.l10n.tripDetailsUnavailable,
-                    message:
-                        context.l10n.tripDetailsUnavailableBody,
+                    message: context.l10n.tripDetailsUnavailableBody,
                     compact: true,
                   ),
                 ] else ...[
@@ -67,11 +62,16 @@ class RideCompletedTripDetail extends StatelessWidget {
                   if (trip.endedEarly) ...[
                     // R-O6: the waybill says the trip ended early and how
                     // far it went; the total below is for that distance.
-                    _detailRow(context.l10n.endedEarly, _drivenLabel(trip.drivenMeters)),
+                    _detailRow(
+                      context.l10n.endedEarly,
+                      _drivenLabel(trip.drivenMeters),
+                    ),
                     8.height,
                   ],
                   _detailRow(
-                    trip.isFinal ? context.l10n.totalPayment : context.l10n.bookedPrice,
+                    trip.isFinal
+                        ? context.l10n.totalPayment
+                        : context.l10n.bookedPrice,
                     trip.total,
                   ),
                   8.height,
@@ -105,7 +105,6 @@ class RideCompletedTripDetail extends StatelessWidget {
       ),
     );
   }
-
 
   Future<void> _openDispute(BuildContext context) async {
     final id = rideId?.trim();
@@ -186,7 +185,11 @@ class RideCompletedTripDetail extends StatelessWidget {
                   child: FilledButton(
                     key: const ValueKey<String>('receipt-dispute-submit'),
                     onPressed: submitting ? null : submit,
-                    child: Text(submitting ? context.l10n.submitting : context.l10n.submitIssue),
+                    child: Text(
+                      submitting
+                          ? context.l10n.submitting
+                          : context.l10n.submitIssue,
+                    ),
                   ),
                 ),
               ],

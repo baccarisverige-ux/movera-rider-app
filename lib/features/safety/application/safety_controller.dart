@@ -24,12 +24,13 @@ class SafetyController extends ChangeNotifier {
     EmergencyCallService? emergency,
     SafetyAudioService? audio,
     RideCheckService? rideCheck,
-  })  : _events = store ?? SafetyRepository.shared,
-        _session = session ?? SafetyStore.shared,
-        emergency = emergency ?? EmergencyCallService.shared,
-        audio = audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
-        rideCheck = rideCheck ??
-            RideCheckService(store: session ?? SafetyStore.shared) {
+  }) : _events = store ?? SafetyRepository.shared,
+       _session = session ?? SafetyStore.shared,
+       emergency = emergency ?? EmergencyCallService.shared,
+       audio =
+           audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
+       rideCheck =
+           rideCheck ?? RideCheckService(store: session ?? SafetyStore.shared) {
     // rider-u199: an interrupted recording ends; the Kit redraws.
     this.audio.addListener(notifyListeners);
   }
@@ -47,7 +48,8 @@ class SafetyController extends ChangeNotifier {
     SafetyAudioService? audio,
     RideCheckService? rideCheck,
   }) {
-    final injected = store != null ||
+    final injected =
+        store != null ||
         session != null ||
         emergency != null ||
         audio != null ||
@@ -63,8 +65,7 @@ class SafetyController extends ChangeNotifier {
   }
 
   static SafetyController? _shared;
-  static SafetyController get shared =>
-      _shared ??= SafetyController._();
+  static SafetyController get shared => _shared ??= SafetyController._();
 
   /// FLOW-6: the ride is over, so a recording the rider started in the
   /// Safety Kit stops and is saved. Looks only at a controller that already
@@ -156,13 +157,18 @@ class SafetyController extends ChangeNotifier {
         : L10n.current.safetyShareManual;
   }
 
-  String rideCheckStatusLabel() => rideCheckPolicy.enabled ? L10n.current.on : L10n.current.off;
+  String rideCheckStatusLabel() =>
+      rideCheckPolicy.enabled ? L10n.current.on : L10n.current.off;
 
-  List<RideCheckEvent> pendingRideCheckEvents(String rideId) =>
-      rideCheck.events().where((event) =>
-          event.rideId == rideId &&
-          event.status == RideCheckStatus.pending &&
-          event.payload['kind'] != 'sos').toList();
+  List<RideCheckEvent> pendingRideCheckEvents(String rideId) => rideCheck
+      .events()
+      .where(
+        (event) =>
+            event.rideId == rideId &&
+            event.status == RideCheckStatus.pending &&
+            event.payload['kind'] != 'sos',
+      )
+      .toList();
 
   Future<void> refreshRideCheckEvents(String rideId) async {
     await rideCheck.refresh(rideId);
@@ -219,10 +225,13 @@ class SafetyController extends ChangeNotifier {
     notifyListeners();
     try {
       await _session.load();
-      AppLog.info('safety.loaded', extra: {
-        'contacts': contacts.length,
-        'pinRequired': preferences.pinRequired,
-      });
+      AppLog.info(
+        'safety.loaded',
+        extra: {
+          'contacts': contacts.length,
+          'pinRequired': preferences.pinRequired,
+        },
+      );
       _publishSnapshot();
       // A check queued by `moveraSimulateRideCheck` opens on the ride's own
       // screen (RideCheckController), not here.
@@ -314,10 +323,7 @@ class SafetyController extends ChangeNotifier {
       );
     } catch (err) {
       // Not sent the trip either way: startShare reads the contact.
-      AppLog.warning(
-        'safety.share.unselect_failed',
-        extra: {'error': '$err'},
-      );
+      AppLog.warning('safety.share.unselect_failed', extra: {'error': '$err'});
     }
     notifyListeners();
   }

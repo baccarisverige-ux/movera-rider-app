@@ -5,13 +5,14 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 class AccountSecurityController extends ChangeNotifier {
   AccountSecurityController({required AccountSecurityRepository repository})
-      : _repository = repository;
+    : _repository = repository;
 
   final AccountSecurityRepository _repository;
 
   AccountSecurityState? state;
   bool loading = false;
   bool available = true;
+
   /// rider-r5-46: what went wrong, put into words when it is shown, so
   /// the line follows a language switch.
   _SecurityError? _error;

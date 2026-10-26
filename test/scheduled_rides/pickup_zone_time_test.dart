@@ -16,17 +16,38 @@ void main() {
   final winter = DateTime.utc(2026, 1, 20, 10);
 
   test('each zone has its own wall clock', () {
-    expect(ZoneClock.wallTime(ZoneClock.stockholm, summer), DateTime.utc(2026, 10, 20, 12));
-    expect(ZoneClock.wallTime(ZoneClock.paris, summer), DateTime.utc(2026, 10, 20, 12));
-    expect(ZoneClock.wallTime(ZoneClock.tunis, summer), DateTime.utc(2026, 10, 20, 11));
-    expect(ZoneClock.wallTime(ZoneClock.tunis, winter), DateTime.utc(2026, 1, 20, 11));
-    expect(ZoneClock.wallTime(ZoneClock.paris, winter), DateTime.utc(2026, 1, 20, 11));
+    expect(
+      ZoneClock.wallTime(ZoneClock.stockholm, summer),
+      DateTime.utc(2026, 10, 20, 12),
+    );
+    expect(
+      ZoneClock.wallTime(ZoneClock.paris, summer),
+      DateTime.utc(2026, 10, 20, 12),
+    );
+    expect(
+      ZoneClock.wallTime(ZoneClock.tunis, summer),
+      DateTime.utc(2026, 10, 20, 11),
+    );
+    expect(
+      ZoneClock.wallTime(ZoneClock.tunis, winter),
+      DateTime.utc(2026, 1, 20, 11),
+    );
+    expect(
+      ZoneClock.wallTime(ZoneClock.paris, winter),
+      DateTime.utc(2026, 1, 20, 11),
+    );
   });
 
   test('a booked wall time is the right instant in its zone', () {
     final wall = DateTime.utc(2026, 10, 20, 18, 30);
-    expect(ZoneClock.toUtc(wall, ZoneClock.stockholm), DateTime.utc(2026, 10, 20, 16, 30));
-    expect(ZoneClock.toUtc(wall, ZoneClock.tunis), DateTime.utc(2026, 10, 20, 17, 30));
+    expect(
+      ZoneClock.toUtc(wall, ZoneClock.stockholm),
+      DateTime.utc(2026, 10, 20, 16, 30),
+    );
+    expect(
+      ZoneClock.toUtc(wall, ZoneClock.tunis),
+      DateTime.utc(2026, 10, 20, 17, 30),
+    );
     // Across the October change (25 Oct 2026, 01:00 UTC).
     expect(
       ZoneClock.toUtc(DateTime.utc(2026, 10, 26, 9), ZoneClock.paris),
@@ -45,7 +66,10 @@ void main() {
     );
     // 11:45 in Tunis is bookable now; in Stockholm it is the past.
     final tunisLater = DateTime.utc(2026, 10, 20, 11, 45);
-    expect(const PickupSchedule(ZoneClock.tunis).isLegalPickup(tunisLater, summer), isTrue);
+    expect(
+      const PickupSchedule(ZoneClock.tunis).isLegalPickup(tunisLater, summer),
+      isTrue,
+    );
     expect(StockholmSchedule.isLegalPickup(tunisLater, summer), isFalse);
   });
 

@@ -155,16 +155,18 @@ void main() {
     double destinationLat = 59.40,
     double destinationLng = 18.10,
   }) async {
-    final quote = (await api.post(
-      '/api/v1/quotes',
-      body: {
-        'rideType': category,
-        'pickupLat': _pickup.lat,
-        'pickupLng': _pickup.lng,
-        'destinationLat': destinationLat,
-        'destinationLng': destinationLng,
-      },
-    ))['quote'] as Map;
+    final quote =
+        (await api.post(
+              '/api/v1/quotes',
+              body: {
+                'rideType': category,
+                'pickupLat': _pickup.lat,
+                'pickupLng': _pickup.lng,
+                'destinationLat': destinationLat,
+                'destinationLng': destinationLng,
+              },
+            ))['quote']
+            as Map;
     final created = await api.post(
       '/api/v1/rides',
       body: {
@@ -216,46 +218,52 @@ void main() {
   }
 
   group('R-O1 / R-O7: the end-early price in the stand-in server', () {
-    test('base fare + km driven × the category per-km rate, as Money',
-        () async {
-      final id = await book();
-      final booked = server.rides[id]!['fare'] as Map;
-      await drive(id, 2);
-      final meters = server.drivenMetersOf(id);
-      expect(meters, closeTo(2000, 10));
+    test(
+      'base fare + km driven × the category per-km rate, as Money',
+      () async {
+        final id = await book();
+        final booked = server.rides[id]!['fare'] as Map;
+        await drive(id, 2);
+        final meters = server.drivenMetersOf(id);
+        expect(meters, closeTo(2000, 10));
 
-      final ended = (await api.post(
-        '/api/v1/rides/$id/end-early',
-        body: {'expectedVersion': server.rides[id]!['version']},
-      ))['ride'] as Map;
+        final ended =
+            (await api.post(
+                  '/api/v1/rides/$id/end-early',
+                  body: {'expectedVersion': server.rides[id]!['version']},
+                ))['ride']
+                as Map;
 
-      // economy lists at 259 kr for 3 km at 12 kr/km: base 223 kr.
-      final rates = MockCategoryRates(catalogMajor: mockCatalogPricesKr['economy']!);
-      expect(rates.baseMajor, 223);
-      final expected = 22300 + (meters * 1200 + 500) ~/ 1000;
-      expect(ended['status'], 'cancelled_by_rider');
-      expect(ended['fare'], {'amountMinor': expected, 'currency': 'SEK'});
-      expect(expected, lessThan(booked['amountMinor'] as int));
-      expect(ended['fareLines'], [
-        {
-          'code': 'base',
-          'amount': {'amountMinor': 22300, 'currency': 'SEK'},
-        },
-        {
-          'code': 'distance',
-          'amount': {'amountMinor': expected - 22300, 'currency': 'SEK'},
-        },
-      ]);
-      // End-early is not a cancel fee.
-      expect((ended['cancellation'] as Map)['fee'], isNull);
-    });
+        // economy lists at 259 kr for 3 km at 12 kr/km: base 223 kr.
+        final rates = MockCategoryRates(
+          catalogMajor: mockCatalogPricesKr['economy']!,
+        );
+        expect(rates.baseMajor, 223);
+        final expected = 22300 + (meters * 1200 + 500) ~/ 1000;
+        expect(ended['status'], 'cancelled_by_rider');
+        expect(ended['fare'], {'amountMinor': expected, 'currency': 'SEK'});
+        expect(expected, lessThan(booked['amountMinor'] as int));
+        expect(ended['fareLines'], [
+          {
+            'code': 'base',
+            'amount': {'amountMinor': 22300, 'currency': 'SEK'},
+          },
+          {
+            'code': 'distance',
+            'amount': {'amountMinor': expected - 22300, 'currency': 'SEK'},
+          },
+        ]);
+        // End-early is not a cancel fee.
+        expect((ended['cancellation'] as Map)['fee'], isNull);
+      },
+    );
 
     test('a pricier category has its own base fare', () async {
       final id = await book(category: 'premium');
       await drive(id, 1);
       final meters = server.drivenMetersOf(id);
-      final ended = (await api.post('/api/v1/rides/$id/end-early'))['ride']
-          as Map;
+      final ended =
+          (await api.post('/api/v1/rides/$id/end-early'))['ride'] as Map;
       // premium lists at 369 kr: base 333 kr.
       expect(
         (ended['fare'] as Map)['amountMinor'],
@@ -265,7 +273,11 @@ void main() {
 
     test('fixes before boarding are not driven distance', () async {
       final id = await book();
-      await simulate(id, {'status': 'driver_to_pickup', 'lat': 59.30, 'lng': 18.0});
+      await simulate(id, {
+        'status': 'driver_to_pickup',
+        'lat': 59.30,
+        'lng': 18.0,
+      });
       await simulate(id, {'lat': 59.31, 'lng': 18.0});
       expect(server.drivenMetersOf(id), 0);
     });
@@ -274,8 +286,8 @@ void main() {
       final id = await book(destinationLat: 59.335, destinationLng: 18.07);
       final booked = (server.rides[id]!['fare'] as Map)['amountMinor'] as int;
       await drive(id, 20);
-      final ended = (await api.post('/api/v1/rides/$id/end-early'))['ride']
-          as Map;
+      final ended =
+          (await api.post('/api/v1/rides/$id/end-early'))['ride'] as Map;
       expect((ended['fare'] as Map)['amountMinor'], booked);
     });
 
@@ -295,23 +307,25 @@ void main() {
   });
 
   group('R-O6: the ended-early trip is rated on the normal screen', () {
-    test('the server accepts a rating for it, not for a plain cancel',
-        () async {
-      final ended = await book();
-      await drive(ended, 1);
-      await api.post('/api/v1/rides/$ended/end-early');
-      expect(server.rides[ended]!['ratingStatus'], 'pending');
-      final feedback = RideFeedbackRepository(api: api);
-      await feedback.submit(rideId: ended, rating: 4, idempotencyKey: 'fb-1');
-      expect(server.rides[ended]!['ratingStatus'], 'submitted');
+    test(
+      'the server accepts a rating for it, not for a plain cancel',
+      () async {
+        final ended = await book();
+        await drive(ended, 1);
+        await api.post('/api/v1/rides/$ended/end-early');
+        expect(server.rides[ended]!['ratingStatus'], 'pending');
+        final feedback = RideFeedbackRepository(api: api);
+        await feedback.submit(rideId: ended, rating: 4, idempotencyKey: 'fb-1');
+        expect(server.rides[ended]!['ratingStatus'], 'submitted');
 
-      final cancelled = await book();
-      await api.post('/api/v1/rides/$cancelled/cancel', body: _reason);
-      final error = await refused(
-        feedback.submit(rideId: cancelled, rating: 4, idempotencyKey: 'fb-2'),
-      );
-      expect(error.code, 'invalid_transition');
-    });
+        final cancelled = await book();
+        await api.post('/api/v1/rides/$cancelled/cancel', body: _reason);
+        final error = await refused(
+          feedback.submit(rideId: cancelled, rating: 4, idempotencyKey: 'fb-2'),
+        );
+        expect(error.code, 'invalid_transition');
+      },
+    );
 
     testWidgets('rating on, waybill says Ended early with the km driven', (
       tester,
@@ -326,7 +340,11 @@ void main() {
         await api.post('/api/v1/rides/$id/end-early');
       });
       final fare = Money.fromWire(server.rides[id]!['fare'])!;
-      final trip = EndedEarlyTrip(rideId: id, charged: fare, drivenMeters: 2400);
+      final trip = EndedEarlyTrip(
+        rideId: id,
+        charged: fare,
+        drivenMeters: 2400,
+      );
       LastCompletedRide.remember(
         RideSnapshot(
           status: RideStatus.tripInProgress,
@@ -398,18 +416,22 @@ void main() {
     test('the server: 409 with the projection, nothing changes', () async {
       final id = await book();
       await simulate(id, {'status': 'accepted'});
-      final first = (await api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {'reasonCode': 'plans_changed'},
-      ))['ride'] as Map;
+      final first =
+          (await api.post(
+                '/api/v1/rides/$id/cancel',
+                body: {'reasonCode': 'plans_changed'},
+              ))['ride']
+              as Map;
       final version = first['version'];
       final fee = (first['cancellation'] as Map)['fee'];
 
       // Even with the version the rider's stale screen still had.
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {'expectedVersion': 1, 'reasonCode': 'plans_changed'},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {'expectedVersion': 1, 'reasonCode': 'plans_changed'},
+        ),
+      );
       expect(error.code, 'invalid_transition');
       final again = error.projection!;
       expect(again['status'], 'cancelled_by_rider');
@@ -418,45 +440,50 @@ void main() {
       expect(server.rides[id]!['cancellation'], first['cancellation']);
     });
 
-    test('the app shows it as cancelled, also after a 409 that says so',
-        () async {
-      final id = await book();
-      await simulate(id, {'status': 'accepted'});
-      await api.post('/api/v1/rides/$id/cancel', body: _reason);
-      final ride = AppScope.instance.ride
-        ..rideId = null
-        ..suppressRestore = false
-        ..restoreFromBackend(RideStatus.driverArriving, id: id);
-      ride.observeProjectionVersion(id, 2);
-      expect(
-        await ActiveRideController(api: api).markCancelled(),
-        RideCancelOutcome.confirmed,
-      );
-      expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
+    test(
+      'the app shows it as cancelled, also after a 409 that says so',
+      () async {
+        final id = await book();
+        await simulate(id, {'status': 'accepted'});
+        await api.post('/api/v1/rides/$id/cancel', body: _reason);
+        final ride = AppScope.instance.ride
+          ..rideId = null
+          ..suppressRestore = false
+          ..restoreFromBackend(RideStatus.driverArriving, id: id);
+        ride.observeProjectionVersion(id, 2);
+        expect(
+          await ActiveRideController(api: api).markCancelled(),
+          RideCancelOutcome.confirmed,
+        );
+        expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
 
-      // A server that answers a second cancel with 409 and the cancelled
-      // trip: still just cancelled, sent once.
-      final seen = <_Seen>[];
-      AppScope.instance.ride
-        ..rideId = null
-        ..suppressRestore = false
-        ..restoreFromBackend(RideStatus.driverArriving, id: 'twice');
-      final outcome = await ActiveRideController(
-        api: _scripted(seen, (_) => _json(409, {
-          'code': 'invalid_transition',
-          'message': 'cancel is not allowed',
-          'retryable': false,
-          'projection': {
-            'tripId': 'twice',
-            'status': 'cancelled_by_rider',
-            'version': 9,
-          },
-        })),
-      ).markCancelled();
-      expect(outcome, RideCancelOutcome.confirmed);
-      expect(seen, hasLength(1));
-      expect(await PendingCancelStore.all(), isEmpty);
-    });
+        // A server that answers a second cancel with 409 and the cancelled
+        // trip: still just cancelled, sent once.
+        final seen = <_Seen>[];
+        AppScope.instance.ride
+          ..rideId = null
+          ..suppressRestore = false
+          ..restoreFromBackend(RideStatus.driverArriving, id: 'twice');
+        final outcome = await ActiveRideController(
+          api: _scripted(
+            seen,
+            (_) => _json(409, {
+              'code': 'invalid_transition',
+              'message': 'cancel is not allowed',
+              'retryable': false,
+              'projection': {
+                'tripId': 'twice',
+                'status': 'cancelled_by_rider',
+                'version': 9,
+              },
+            }),
+          ),
+        ).markCancelled();
+        expect(outcome, RideCancelOutcome.confirmed);
+        expect(seen, hasLength(1));
+        expect(await PendingCancelStore.all(), isEmpty);
+      },
+    );
 
     test('Finding: a second cancel is confirmed', () async {
       final id = await book();
@@ -498,28 +525,35 @@ void main() {
   });
 
   group('R-O4: contract error codes', () {
-    test('every refusal of the stand-in server uses a contract code',
-        () async {
+    test('every refusal of the stand-in server uses a contract code', () async {
       final id = await book();
       final errors = <ApiError>[
         await refused(api.get('/api/v1/rides/nope')),
         await refused(api.post('/api/v1/rides/nope/cancel')),
-        await refused(api.post('/api/v1/rides/$id/feedback', body: {'rating': 5})),
+        await refused(
+          api.post('/api/v1/rides/$id/feedback', body: {'rating': 5}),
+        ),
         await refused(api.post('/api/v1/payments', body: {'amountMinor': -1})),
         await refused(api.get('/api/v1/no-such-route')),
-        await refused(api.post(
-          '/api/v1/auth/otp/verify',
-          body: {'sessionId': 'x', 'phone': '+46701234567', 'code': '1'},
-        )),
+        await refused(
+          api.post(
+            '/api/v1/auth/otp/verify',
+            body: {'sessionId': 'x', 'phone': '+46701234567', 'code': '1'},
+          ),
+        ),
         await refused(api.post('/api/v1/auth/otp/request', body: {})),
-        await refused(api.post(
-          '/api/v1/rides/$id/cancel',
-          body: {'reasonCode': 'admin_fraud'},
-        )),
-        await refused(api.post(
-          '/api/v1/rides',
-          body: {'pickupAddress': 'A', 'quoteId': 'missing'},
-        )),
+        await refused(
+          api.post(
+            '/api/v1/rides/$id/cancel',
+            body: {'reasonCode': 'admin_fraud'},
+          ),
+        ),
+        await refused(
+          api.post(
+            '/api/v1/rides',
+            body: {'pickupAddress': 'A', 'quoteId': 'missing'},
+          ),
+        ),
       ];
       for (final error in errors) {
         expect(_contractCodes, contains(error.code), reason: '$error');
@@ -534,10 +568,12 @@ void main() {
     });
 
     test('the app still tells the specific sign-in problem', () async {
-      final error = await refused(api.post(
-        '/api/v1/auth/otp/verify',
-        body: {'sessionId': 'gone', 'phone': '+46701234567', 'code': '1234'},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/auth/otp/verify',
+          body: {'sessionId': 'gone', 'phone': '+46701234567', 'code': '1234'},
+        ),
+      );
       expect(
         authErrorMessage(error, AuthAction.verifyCode),
         'This code has expired. Tap Resend code for a new one.',
@@ -555,39 +591,49 @@ void main() {
     test('a route change the stage no longer allows', () async {
       final id = await book();
       await simulate(id, {'status': 'completed'});
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/route-quote',
-        body: {'destinationAddress': 'X', 'stops': []},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/rides/$id/route-quote',
+          body: {'destinationAddress': 'X', 'stops': []},
+        ),
+      );
       expect(error.code, 'invalid_transition');
       expect(error.reason, 'ride_finished');
     });
   });
 
   group('R-O2: expectedVersion', () {
-    test('cancel sends the projection version, not the realtime sequence',
-        () async {
-      final seen = <_Seen>[];
-      AppScope.instance.ride
-        ..rideId = null
-        ..suppressRestore = false
-        // Realtime ordering (sequence-based) far ahead of the version.
-        ..backendReconcile(RideStatus.driverArriving, id: 'v-seq', version: 41)
-        ..observeProjectionVersion('v-seq', 6);
-      await ActiveRideController(
-        api: _scripted(seen, (_) => _json(200, {
-          'tripId': 'v-seq',
-          'status': 'cancelled_by_rider',
-          'version': 7,
-        })),
-      ).markCancelled(reasonId: 'plans_changed');
-      expect(seen.single.path, '/api/v1/rides/v-seq/cancel');
-      expect(seen.single.body['expectedVersion'], 6);
-      expect(AppScope.instance.ride.projectionVersionOf('v-seq'), 7);
-    });
+    test(
+      'cancel sends the projection version, not the realtime sequence',
+      () async {
+        final seen = <_Seen>[];
+        AppScope.instance.ride
+          ..rideId = null
+          ..suppressRestore = false
+          // Realtime ordering (sequence-based) far ahead of the version.
+          ..backendReconcile(
+            RideStatus.driverArriving,
+            id: 'v-seq',
+            version: 41,
+          )
+          ..observeProjectionVersion('v-seq', 6);
+        await ActiveRideController(
+          api: _scripted(
+            seen,
+            (_) => _json(200, {
+              'tripId': 'v-seq',
+              'status': 'cancelled_by_rider',
+              'version': 7,
+            }),
+          ),
+        ).markCancelled(reasonId: 'plans_changed');
+        expect(seen.single.path, '/api/v1/rides/v-seq/cancel');
+        expect(seen.single.body['expectedVersion'], 6);
+        expect(AppScope.instance.ride.projectionVersionOf('v-seq'), 7);
+      },
+    );
 
-    test('end-early sends it too, and keeps the km the app tracked',
-        () async {
+    test('end-early sends it too, and keeps the km the app tracked', () async {
       final id = await book();
       await drive(id, 2);
       AppScope.instance.ride
@@ -640,54 +686,68 @@ void main() {
       );
     });
 
-    test('a route change priced on an old version is refused as stale',
-        () async {
-      final seen = <_Seen>[];
-      final session = RideSession()..observeProjectionVersion('rc1', 3);
-      final controller = RouteChangeController(
-        api: _scripted(seen, (request) => request.method == 'POST'
-            ? _json(201, {'code': 'OK', 'newTotalMinor': 30000})
-            : _json(409, {
-                'code': 'version_mismatch',
-                'message': 'stale',
-                'retryable': false,
-                'projection': {'tripId': 'rc1', 'status': 'arrived', 'version': 4},
-              })),
-        geocoding: _NoGeocoding(),
-        session: session,
-      );
-      final ride = RideSnapshot(
-        status: RideStatus.driverArriving,
-        savedAt: DateTime.now(),
-        pickupAddress: 'Pickup',
-        destinationAddress: 'Destination',
-        pickupLat: _pickup.lat,
-        pickupLng: _pickup.lng,
-        destinationLat: 59.40,
-        destinationLng: 18.10,
-        rideType: 'Movera',
-        price: 319,
-        paymentMethod: 'Cash',
-        rideId: 'rc1',
-      );
-      final quote = await controller.preview(
-        ride: ride,
-        destinationAddress: 'Destination',
-      );
-      expect(seen.single.body['expectedVersion'], 3);
-      session.observeProjectionVersion('rc1', 5);
-      await expectLater(
-        controller.apply(ride: ride, quote: quote),
-        throwsA(isA<RouteChangeException>().having(
-          (e) => e.message,
-          'message',
-          rideJustChangedMessage,
-        )),
-      );
-      expect(seen.last.body['expectedVersion'], 3,
-          reason: 'the version the price was asked for');
-      expect(seen.where((r) => r.method == 'PATCH'), hasLength(1));
-    });
+    test(
+      'a route change priced on an old version is refused as stale',
+      () async {
+        final seen = <_Seen>[];
+        final session = RideSession()..observeProjectionVersion('rc1', 3);
+        final controller = RouteChangeController(
+          api: _scripted(
+            seen,
+            (request) => request.method == 'POST'
+                ? _json(201, {'code': 'OK', 'newTotalMinor': 30000})
+                : _json(409, {
+                    'code': 'version_mismatch',
+                    'message': 'stale',
+                    'retryable': false,
+                    'projection': {
+                      'tripId': 'rc1',
+                      'status': 'arrived',
+                      'version': 4,
+                    },
+                  }),
+          ),
+          geocoding: _NoGeocoding(),
+          session: session,
+        );
+        final ride = RideSnapshot(
+          status: RideStatus.driverArriving,
+          savedAt: DateTime.now(),
+          pickupAddress: 'Pickup',
+          destinationAddress: 'Destination',
+          pickupLat: _pickup.lat,
+          pickupLng: _pickup.lng,
+          destinationLat: 59.40,
+          destinationLng: 18.10,
+          rideType: 'Movera',
+          price: 319,
+          paymentMethod: 'Cash',
+          rideId: 'rc1',
+        );
+        final quote = await controller.preview(
+          ride: ride,
+          destinationAddress: 'Destination',
+        );
+        expect(seen.single.body['expectedVersion'], 3);
+        session.observeProjectionVersion('rc1', 5);
+        await expectLater(
+          controller.apply(ride: ride, quote: quote),
+          throwsA(
+            isA<RouteChangeException>().having(
+              (e) => e.message,
+              'message',
+              rideJustChangedMessage,
+            ),
+          ),
+        );
+        expect(
+          seen.last.body['expectedVersion'],
+          3,
+          reason: 'the version the price was asked for',
+        );
+        expect(seen.where((r) => r.method == 'PATCH'), hasLength(1));
+      },
+    );
 
     test('the demo transport reports the server version, not its own '
         'numbering', () async {
@@ -715,13 +775,15 @@ void main() {
       final reported = <int>[];
       final realtime = ApiRideRealtime(
         api: ApiClient(
-          client: MockClient((_) async => _json(200, {
-            'tripId': 'live1',
-            'status': 'accepted',
-            'version': 4,
-            'sequence': 17,
-            'updatedAt': '2026-10-19T08:00:00Z',
-          })),
+          client: MockClient(
+            (_) async => _json(200, {
+              'tripId': 'live1',
+              'status': 'accepted',
+              'version': 4,
+              'sequence': 17,
+              'updatedAt': '2026-10-19T08:00:00Z',
+            }),
+          ),
         ),
         pollInterval: const Duration(hours: 1),
         onProjectionVersion: (_, version) => reported.add(version),
@@ -737,7 +799,9 @@ void main() {
       final session = RideSession()
         ..observeProjectionVersion('a', 5)
         ..observeProjectionVersion('a', 3)
-        ..observeProjection({'ride': {'tripId': 'b', 'version': 2}});
+        ..observeProjection({
+          'ride': {'tripId': 'b', 'version': 2},
+        });
       expect(session.projectionVersionOf('a'), 5);
       expect(session.projectionVersionOf('b'), 2);
       session.reset();
@@ -746,39 +810,50 @@ void main() {
   });
 
   group('R-O2: outbox replay after offline', () {
-    test('re-read first; still cancellable at a newer version: sent with it',
-        () async {
-      final id = await book();
-      final booked = server.rides[id]!['version'] as int;
-      await PendingCancelStore.enqueue(rideId: id, expectedVersion: booked);
-      final oldKey = (await PendingCancelStore.all()).single.idempotencyKey;
-      // Meanwhile a driver accepted (the version moved on).
-      await simulate(id, {'status': 'accepted'});
+    test(
+      're-read first; still cancellable at a newer version: sent with it',
+      () async {
+        final id = await book();
+        final booked = server.rides[id]!['version'] as int;
+        await PendingCancelStore.enqueue(rideId: id, expectedVersion: booked);
+        final oldKey = (await PendingCancelStore.all()).single.idempotencyKey;
+        // Meanwhile a driver accepted (the version moved on).
+        await simulate(id, {'status': 'accepted'});
 
-      final results = await FindingDriverController.flushPendingCancels(
-        api: api,
-      );
-      expect(results[id], PendingCancelResult.sent);
-      expect(server.rides[id]!['status'], 'cancelled_by_rider');
-      expect(await PendingCancelStore.all(), isEmpty);
-      expect(oldKey, isNotNull);
-    });
+        final results = await FindingDriverController.flushPendingCancels(
+          api: api,
+        );
+        expect(results[id], PendingCancelResult.sent);
+        expect(server.rides[id]!['status'], 'cancelled_by_rider');
+        expect(await PendingCancelStore.all(), isEmpty);
+        expect(oldKey, isNotNull);
+      },
+    );
 
     test('the request names the re-read version under a new key', () async {
       final seen = <_Seen>[];
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o1',
-        idempotencyKey: 'old-key-0000000001',
-        expectedVersion: 3,
-      ));
+      await PendingCancelStore.add(
+        const PendingCancel(
+          rideId: 'o1',
+          idempotencyKey: 'old-key-0000000001',
+          expectedVersion: 3,
+        ),
+      );
       final results = await FindingDriverController.flushPendingCancels(
-        api: _scripted(seen, (request) => request.method == 'GET'
-            ? _json(200, {'tripId': 'o1', 'status': 'searching', 'version': 5})
-            : _json(200, {
-                'tripId': 'o1',
-                'status': 'cancelled_by_rider',
-                'version': 6,
-              })),
+        api: _scripted(
+          seen,
+          (request) => request.method == 'GET'
+              ? _json(200, {
+                  'tripId': 'o1',
+                  'status': 'searching',
+                  'version': 5,
+                })
+              : _json(200, {
+                  'tripId': 'o1',
+                  'status': 'cancelled_by_rider',
+                  'version': 6,
+                }),
+        ),
       );
       expect(results['o1'], PendingCancelResult.sent);
       expect(seen.map((r) => '${r.method} ${r.path}'), [
@@ -789,93 +864,118 @@ void main() {
       expect(seen.last.key, isNot('old-key-0000000001'));
     });
 
-    test('an unchanged trip is replayed as queued (same key, same body)',
-        () async {
-      final seen = <_Seen>[];
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o2',
-        idempotencyKey: 'same-key-000000001',
-        expectedVersion: 5,
-      ));
-      await FindingDriverController.flushPendingCancels(
-        api: _scripted(seen, (request) => request.method == 'GET'
-            ? _json(200, {'tripId': 'o2', 'status': 'searching', 'version': 5})
-            : _json(200, {'tripId': 'o2', 'status': 'cancelled_by_rider'})),
-      );
-      expect(seen.last.key, 'same-key-000000001');
-      expect(seen.last.body['expectedVersion'], 5);
-    });
+    test(
+      'an unchanged trip is replayed as queued (same key, same body)',
+      () async {
+        final seen = <_Seen>[];
+        await PendingCancelStore.add(
+          const PendingCancel(
+            rideId: 'o2',
+            idempotencyKey: 'same-key-000000001',
+            expectedVersion: 5,
+          ),
+        );
+        await FindingDriverController.flushPendingCancels(
+          api: _scripted(
+            seen,
+            (request) => request.method == 'GET'
+                ? _json(200, {
+                    'tripId': 'o2',
+                    'status': 'searching',
+                    'version': 5,
+                  })
+                : _json(200, {'tripId': 'o2', 'status': 'cancelled_by_rider'}),
+          ),
+        );
+        expect(seen.last.key, 'same-key-000000001');
+        expect(seen.last.body['expectedVersion'], 5);
+      },
+    );
 
-    test('a queued cancel for a rider now on board is dropped and told',
-        () async {
-      final seen = <_Seen>[];
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o3',
-        idempotencyKey: 'k-o3-000000000001',
-        expectedVersion: 3,
-      ));
-      final reported = <({String rideId, bool stale})>[];
-      final sub = ActiveRideController.queuedCancelNotices.listen(reported.add);
-      addTearDown(sub.cancel);
-      final results = await FindingDriverController.flushPendingCancels(
-        api: _scripted(seen, (_) => _json(200, {
-          'tripId': 'o3',
-          'status': 'rider_onboard',
-          'version': 9,
-        })),
-      );
-      await Future<void>.delayed(Duration.zero);
-      expect(results['o3'], PendingCancelResult.stale);
-      expect(seen.map((r) => r.method), ['GET'], reason: 'nothing is sent');
-      expect(reported.single, (rideId: 'o3', stale: true));
-      expect(await PendingCancelStore.all(), isEmpty);
-      // A screen that opens later (cold restore) still tells the rider.
-      expect(ActiveRideController.takeQueuedCancelNotice('o3'), isTrue);
-      expect(ActiveRideController.takeQueuedCancelNotice('o3'), isNull);
-    });
+    test(
+      'a queued cancel for a rider now on board is dropped and told',
+      () async {
+        final seen = <_Seen>[];
+        await PendingCancelStore.add(
+          const PendingCancel(
+            rideId: 'o3',
+            idempotencyKey: 'k-o3-000000000001',
+            expectedVersion: 3,
+          ),
+        );
+        final reported = <({String rideId, bool stale})>[];
+        final sub = ActiveRideController.queuedCancelNotices.listen(
+          reported.add,
+        );
+        addTearDown(sub.cancel);
+        final results = await FindingDriverController.flushPendingCancels(
+          api: _scripted(
+            seen,
+            (_) => _json(200, {
+              'tripId': 'o3',
+              'status': 'rider_onboard',
+              'version': 9,
+            }),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(results['o3'], PendingCancelResult.stale);
+        expect(seen.map((r) => r.method), ['GET'], reason: 'nothing is sent');
+        expect(reported.single, (rideId: 'o3', stale: true));
+        expect(await PendingCancelStore.all(), isEmpty);
+        // A screen that opens later (cold restore) still tells the rider.
+        expect(ActiveRideController.takeQueuedCancelNotice('o3'), isTrue);
+        expect(ActiveRideController.takeQueuedCancelNotice('o3'), isNull);
+      },
+    );
 
     test('a queued end-early for a trip already over is not sent', () async {
       final seen = <_Seen>[];
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o4',
-        idempotencyKey: 'k-o4-000000000001',
-        command: PendingCancelCommand.endEarly,
-      ));
+      await PendingCancelStore.add(
+        const PendingCancel(
+          rideId: 'o4',
+          idempotencyKey: 'k-o4-000000000001',
+          command: PendingCancelCommand.endEarly,
+        ),
+      );
       final results = await FindingDriverController.flushPendingCancels(
-        api: _scripted(seen, (_) => _json(200, {
-          'tripId': 'o4',
-          'status': 'completed',
-          'version': 12,
-        })),
+        api: _scripted(
+          seen,
+          (_) => _json(200, {
+            'tripId': 'o4',
+            'status': 'completed',
+            'version': 12,
+          }),
+        ),
       );
       // rider-r4-24: the server closed it, so `ended` (was `gone`).
       expect(results['o4'], PendingCancelResult.ended);
       expect(seen.map((r) => r.method), ['GET']);
     });
 
-    test('already cancelled by the rider: done, nothing sent (R-O3)',
-        () async {
+    test('already cancelled by the rider: done, nothing sent (R-O3)', () async {
       final seen = <_Seen>[];
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o5',
-        idempotencyKey: 'k-o5-000000000001',
-      ));
+      await PendingCancelStore.add(
+        const PendingCancel(rideId: 'o5', idempotencyKey: 'k-o5-000000000001'),
+      );
       final results = await FindingDriverController.flushPendingCancels(
-        api: _scripted(seen, (_) => _json(200, {
-          'tripId': 'o5',
-          'status': 'cancelled_by_rider',
-          'version': 4,
-        })),
+        api: _scripted(
+          seen,
+          (_) => _json(200, {
+            'tripId': 'o5',
+            'status': 'cancelled_by_rider',
+            'version': 4,
+          }),
+        ),
       );
       expect(results['o5'], PendingCancelResult.sent);
       expect(seen.map((r) => r.method), ['GET']);
     });
 
     test('the re-read itself offline: the entry waits', () async {
-      await PendingCancelStore.add(const PendingCancel(
-        rideId: 'o6',
-        idempotencyKey: 'k-o6-000000000001',
-      ));
+      await PendingCancelStore.add(
+        const PendingCancel(rideId: 'o6', idempotencyKey: 'k-o6-000000000001'),
+      );
       final results = await FindingDriverController.flushPendingCancels(
         api: ApiClient(
           client: MockClient((_) async => throw http.ClientException('off')),
@@ -901,14 +1001,16 @@ void main() {
       var sequence = 0;
       Future<void> fix(RideStatus status, double lat) async {
         sequence += 1;
-        feed.events.add(RideRealtimeEvent(
-          tripId: 'd1',
-          status: status,
-          sequence: sequence,
-          latitude: lat,
-          longitude: _pickup.lng,
-          locationAt: DateTime.now().add(Duration(seconds: sequence)),
-        ));
+        feed.events.add(
+          RideRealtimeEvent(
+            tripId: 'd1',
+            status: status,
+            sequence: sequence,
+            latitude: lat,
+            longitude: _pickup.lng,
+            locationAt: DateTime.now().add(Duration(seconds: sequence)),
+          ),
+        );
         await Future<void>.delayed(Duration.zero);
       }
 

@@ -27,8 +27,9 @@ class UnsupportedSafetyRecorder implements SafetyRecorder {
   @override
   Future<bool> requestPermission() async => false;
   @override
-  Future<void> start(String recordingId) async =>
-      throw UnsupportedError('Audio recording is unavailable on this platform.');
+  Future<void> start(String recordingId) async => throw UnsupportedError(
+    'Audio recording is unavailable on this platform.',
+  );
   @override
   Future<String?> stop() async => null;
   @override

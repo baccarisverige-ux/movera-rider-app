@@ -93,8 +93,8 @@ void main() {
     });
 
     test('replays fixtures/scenarios.json identically', () {
-      final fixture = contractJson('fixtures/scenarios.json')!
-          as Map<String, dynamic>;
+      final fixture =
+          contractJson('fixtures/scenarios.json')! as Map<String, dynamic>;
       final scenarios = fixture['scenarios'] as List;
       expect(scenarios, isNotEmpty);
       for (final scenario in scenarios) {
@@ -111,7 +111,8 @@ void main() {
           expect(
             next?.wireName ?? 'invalid_transition',
             expected,
-            reason: '${scenario['id']}: $command by $actor from '
+            reason:
+                '${scenario['id']}: $command by $actor from '
                 '${status.wireName}',
           );
           if (next != null) status = next;
@@ -122,8 +123,11 @@ void main() {
     test('rating rules equal contract.json#ratingAllowed row by row', () {
       final rows = [
         for (final row in (contract['ratingAllowed'] as Map)['rules'] as List)
-          (row['rater'] as String, row['status'] as String,
-            row['command'] as String?),
+          (
+            row['rater'] as String,
+            row['status'] as String,
+            row['command'] as String?,
+          ),
       ];
       final ours = [
         for (final rule in TripRatingRules.rules)
@@ -133,8 +137,8 @@ void main() {
     });
 
     test('replays the rating cases of fixtures/scenarios.json', () {
-      final fixture = contractJson('fixtures/scenarios.json')!
-          as Map<String, dynamic>;
+      final fixture =
+          contractJson('fixtures/scenarios.json')! as Map<String, dynamic>;
       final cases = [
         for (final scenario in fixture['scenarios'] as List)
           if ((scenario as Map)['rating'] != null) scenario,
@@ -162,7 +166,8 @@ void main() {
         }
         for (final MapEntry(key: rater, value: expected)
             in (scenario['rating'] as Map).entries) {
-          final allowed = status.isTerminal &&
+          final allowed =
+              status.isTerminal &&
               TripRatingRules.allows(
                 TripActorWire.parse(rater)!,
                 status,
@@ -171,7 +176,8 @@ void main() {
           expect(
             allowed ? 'allowed' : 'invalid_transition',
             expected,
-            reason: '${scenario['id']}: $rater rates after '
+            reason:
+                '${scenario['id']}: $rater rates after '
                 '${status.wireName} by $endedBy',
           );
         }
@@ -204,7 +210,10 @@ void main() {
       );
       expect(RideStatusWire.parse('no_show'), RideStatus.noShow);
       expect(RideStatusWire.parse('failed'), RideStatus.tripFailed);
-      expect(RideStatusWire.parse('cancelled_by_driver'), RideStatus.endedByDriver);
+      expect(
+        RideStatusWire.parse('cancelled_by_driver'),
+        RideStatus.endedByDriver,
+      );
       for (final status in terminals) {
         expect(status.isTerminal, isTrue, reason: status.name);
         // And back to the same trip status: the round trip is lossless.
@@ -258,8 +267,14 @@ void main() {
 
   test('rider cancel reason registry equals contract.json rider codes', () {
     final reasons = contract['cancelReasons'] as Map<String, dynamic>;
-    expect(CancelReasonCodes.rider, List<String>.from(reasons['rider'] as List));
-    expect(CancelReasonCodes.admin, List<String>.from(reasons['admin'] as List));
+    expect(
+      CancelReasonCodes.rider,
+      List<String>.from(reasons['rider'] as List),
+    );
+    expect(
+      CancelReasonCodes.admin,
+      List<String>.from(reasons['admin'] as List),
+    );
     expect(
       CancelReasonCodes.system,
       List<String>.from(reasons['system'] as List),
@@ -270,7 +285,11 @@ void main() {
     );
     for (final phase in CancelPhase.values) {
       for (final reason in CancellationReason.forPhase(phase)) {
-        expect(CancelReasonCodes.isRiderCode(reason.id), isTrue, reason: reason.id);
+        expect(
+          CancelReasonCodes.isRiderCode(reason.id),
+          isTrue,
+          reason: reason.id,
+        );
       }
     }
   });

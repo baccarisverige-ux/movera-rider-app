@@ -26,9 +26,8 @@ Future<PhoneCountry> defaultPhoneCountry({
 
 /// The best guess before the saved fix is read: the device's region, else
 /// Sweden.
-PhoneCountry initialPhoneCountry() => PhoneCountries.defaultFor(
-      localeRegion: _deviceRegion(),
-    );
+PhoneCountry initialPhoneCountry() =>
+    PhoneCountries.defaultFor(localeRegion: _deviceRegion());
 
 /// The country of the device's locale ("SE" in sv-SE or en-SE), or null.
 String? _deviceRegion() {

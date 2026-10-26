@@ -29,10 +29,8 @@ void main() {
         designSize: const Size(390, 844),
         minTextAdapt: true,
         splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          navigatorKey: moveraNavigatorKey,
-          home: const Home(),
-        ),
+        builder: (_, __) =>
+            MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 800));

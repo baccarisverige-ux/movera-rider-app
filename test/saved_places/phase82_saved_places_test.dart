@@ -19,7 +19,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('AddPlace Save persists and returns the saved place', (tester) async {
+  testWidgets('AddPlace Save persists and returns the saved place', (
+    tester,
+  ) async {
     PlaceShortcut? returned;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -73,49 +75,47 @@ void main() {
     expect(restarted.shortcuts().single.subtitle, 'Sveavägen 1, Stockholm');
   });
 
-  test('edit and delete are visible from Saved Places and Home immediately',
-      () async {
-    final places = SavedPlacesController();
-    final home = HomePlacesController();
-    var changeCount = 0;
-    final sub = home.changes.listen((_) => changeCount += 1);
-    addTearDown(sub.cancel);
+  test(
+    'edit and delete are visible from Saved Places and Home immediately',
+    () async {
+      final places = SavedPlacesController();
+      final home = HomePlacesController();
+      var changeCount = 0;
+      final sub = home.changes.listen((_) => changeCount += 1);
+      addTearDown(sub.cancel);
 
-    await places.save(
-      const PlaceShortcut(
-        title: 'Gym',
-        subtitle: 'Old address',
-        kind: 'gym',
-      ),
-    );
-    await home.load();
-    expect(home.savedPlaces.single.title, 'Gym');
-    expect(home.savedPlaces.single.address, 'Old address');
+      await places.save(
+        const PlaceShortcut(title: 'Gym', subtitle: 'Old address', kind: 'gym'),
+      );
+      await home.load();
+      expect(home.savedPlaces.single.title, 'Gym');
+      expect(home.savedPlaces.single.address, 'Old address');
 
-    // Editing passes the place's id (FLOW-5: without one it is a new place).
-    await places.hydrate();
-    await places.save(
-      PlaceShortcut(
-        title: 'Training',
-        subtitle: 'New address',
-        kind: 'gym',
-        id: places.shortcuts().single.id,
-      ),
-    );
-    await home.load();
-    await places.hydrate();
-    expect(places.shortcuts().single.title, 'Training');
-    expect(places.shortcuts().single.subtitle, 'New address');
-    expect(home.savedPlaces.single.title, 'Training');
-    expect(home.savedPlaces.single.address, 'New address');
+      // Editing passes the place's id (FLOW-5: without one it is a new place).
+      await places.hydrate();
+      await places.save(
+        PlaceShortcut(
+          title: 'Training',
+          subtitle: 'New address',
+          kind: 'gym',
+          id: places.shortcuts().single.id,
+        ),
+      );
+      await home.load();
+      await places.hydrate();
+      expect(places.shortcuts().single.title, 'Training');
+      expect(places.shortcuts().single.subtitle, 'New address');
+      expect(home.savedPlaces.single.title, 'Training');
+      expect(home.savedPlaces.single.address, 'New address');
 
-    await places.remove(places.shortcuts().single);
-    await home.load();
-    await places.hydrate();
-    expect(places.shortcuts(), isEmpty);
-    expect(home.savedPlaces, isEmpty);
-    expect(changeCount, greaterThanOrEqualTo(3));
-  });
+      await places.remove(places.shortcuts().single);
+      await home.load();
+      await places.hydrate();
+      expect(places.shortcuts(), isEmpty);
+      expect(home.savedPlaces, isEmpty);
+      expect(changeCount, greaterThanOrEqualTo(3));
+    },
+  );
 
   test('fresh controller restores a previously saved place', () async {
     final first = SavedPlacesController();

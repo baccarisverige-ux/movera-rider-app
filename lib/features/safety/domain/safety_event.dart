@@ -14,11 +14,11 @@ class SafetyEvent {
   final String? id;
 
   Map<String, dynamic> toJson() => {
-        'kind': kind.name,
-        'at': at.toIso8601String(),
-        if (rideId != null) 'rideId': rideId,
-        if (id != null) 'id': id,
-      };
+    'kind': kind.name,
+    'at': at.toIso8601String(),
+    if (rideId != null) 'rideId': rideId,
+    if (id != null) 'id': id,
+  };
 
   factory SafetyEvent.fromJson(Map<String, dynamic> json) {
     return SafetyEvent(
@@ -26,7 +26,9 @@ class SafetyEvent {
         (value) => value.name == json['kind'],
         orElse: () => SafetyKind.incident,
       ),
-      at: DateTime.tryParse('${json['at']}') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      at:
+          DateTime.tryParse('${json['at']}') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       rideId: json['rideId'] as String?,
       id: json['id'] as String?,
     );

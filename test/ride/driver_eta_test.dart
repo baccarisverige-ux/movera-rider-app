@@ -44,7 +44,10 @@ void main() {
 
   test('arrived uses driverWaiting status', () {
     const eta = DriverEta(seconds: 20, stale: false);
-    expect(eta.headline(status: RideStatus.driverWaiting), 'Driver has arrived');
+    expect(
+      eta.headline(status: RideStatus.driverWaiting),
+      'Driver has arrived',
+    );
   });
 
   test('on-trip copy stays on the waiting surface', () {
@@ -59,9 +62,18 @@ void main() {
 
   test('close GPS does not declare arrived without driverWaiting', () {
     const eta = DriverEta(seconds: 30, distanceMeters: 40, stale: false);
-    expect(eta.headline(status: RideStatus.driverAssigned), 'Driver is almost there');
-    expect(eta.headline(status: RideStatus.driverArriving), 'Driver is almost there');
-    expect(eta.headline(status: RideStatus.driverWaiting), 'Driver has arrived');
+    expect(
+      eta.headline(status: RideStatus.driverAssigned),
+      'Driver is almost there',
+    );
+    expect(
+      eta.headline(status: RideStatus.driverArriving),
+      'Driver is almost there',
+    );
+    expect(
+      eta.headline(status: RideStatus.driverWaiting),
+      'Driver has arrived',
+    );
   });
 
   test('matched driver omits fields that are not supplied', () {

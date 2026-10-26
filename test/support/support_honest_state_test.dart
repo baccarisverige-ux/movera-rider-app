@@ -14,25 +14,27 @@ void main() {
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('support repository contains no seeded rides or live-agent claim',
-      () async {
-    final repository = SupportRepository();
-    final controller = SupportController(
-      store: repository,
-      onDemand: () async => const [],
-      scheduled: () => const [],
-    );
-    final script = controller.chat();
+  test(
+    'support repository contains no seeded rides or live-agent claim',
+    () async {
+      final repository = SupportRepository();
+      final controller = SupportController(
+        store: repository,
+        onDemand: () async => const [],
+        scheduled: () => const [],
+      );
+      final script = controller.chat();
 
-    // FLOW-8: rides come only from the rider's own history.
-    expect(await controller.loadRides(), isEmpty);
-    // UI-09: no build-state wording; UI-03: points to the ride list.
-    expect(script.welcome, contains('choose the ride'));
-    expect(script.welcome, isNot(contains('connected')));
-    expect(script.followUp, contains('Sent to Movera'));
-    expect(script.welcome, isNot(contains('Mira')));
-    expect(script.followUp, isNot(contains('agent will take it')));
-  });
+      // FLOW-8: rides come only from the rider's own history.
+      expect(await controller.loadRides(), isEmpty);
+      // UI-09: no build-state wording; UI-03: points to the ride list.
+      expect(script.welcome, contains('choose the ride'));
+      expect(script.welcome, isNot(contains('connected')));
+      expect(script.followUp, contains('Sent to Movera'));
+      expect(script.welcome, isNot(contains('Mira')));
+      expect(script.followUp, isNot(contains('agent will take it')));
+    },
+  );
 
   testWidgets('Support home shows an honest empty ride state', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -73,9 +75,14 @@ void main() {
 
     // rider-u229: nothing lists the rider's cases, so the screen does not
     // claim there are none.
-    expect(find.text("Your cases aren't listed in the app yet"), findsOneWidget);
     expect(
-      find.text('Messages you send about a ride go to the Movera team for review.'),
+      find.text("Your cases aren't listed in the app yet"),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Messages you send about a ride go to the Movera team for review.',
+      ),
       findsOneWidget,
     );
     expect(find.text('No active cases'), findsNothing);
@@ -147,7 +154,10 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Two charges on my card');
       await tester.tap(find.byKey(const ValueKey('support-message-send')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('support-message-error')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('support-message-error')),
+        findsOneWidget,
+      );
       expect(sent, isEmpty);
 
       await tester.tap(find.byKey(const ValueKey('support-message-send')));
@@ -159,7 +169,10 @@ void main() {
           'detail': 'I was charged twice\nTwo charges on my card',
         },
       ]);
-      expect(find.byKey(const ValueKey('support-message-sent')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('support-message-sent')),
+        findsOneWidget,
+      );
       expect(find.text('Done'), findsOneWidget);
     },
   );

@@ -6,7 +6,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 class NotificationsRepository {
   NotificationsRepository({DateTime Function()? now})
-      : _now = now ?? DateTime.now;
+    : _now = now ?? DateTime.now;
 
   static final NotificationsRepository shared = NotificationsRepository();
 
@@ -37,9 +37,7 @@ class NotificationsRepository {
 
     final messageId = payload.messageId?.trim();
     if (messageId != null && messageId.isNotEmpty) {
-      final existing = _items.indexWhere(
-        (item) => item.messageId == messageId,
-      );
+      final existing = _items.indexWhere((item) => item.messageId == messageId);
       if (existing >= 0) {
         if (read && !_items[existing].read) {
           _items[existing] = _items[existing].copyWith(read: true);

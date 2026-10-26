@@ -93,8 +93,7 @@ class RideCheckTriggerSettings {
       metersFromDropoff > finishFarFromDropoffKm * 1000;
 
   /// The car has stood still for [still]: is that more than admin's time?
-  bool isLongStop(Duration still) =>
-      still > Duration(minutes: longStopMinutes);
+  bool isLongStop(Duration still) => still > Duration(minutes: longStopMinutes);
 
   RideCheckTriggerSettings copyWith({
     bool? droppedFarEnabled,

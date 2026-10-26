@@ -4,10 +4,7 @@ import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
-enum RideRealtimeSignal {
-  driverArrived,
-  riderOnTheWay,
-}
+enum RideRealtimeSignal { driverArrived, riderOnTheWay }
 
 /// Payload key and value of a back-to-searching event an admin caused
 /// (Q13): the rider is not told "driver cancelled".
@@ -47,13 +44,11 @@ class RideRealtimeEvent {
     this.signal,
     this.message,
     RealtimeKind? kind,
-  })  : rideId = (tripId ?? rideId)!,
-        _kind = kind,
-        // ARCH-11: client-side stamps are UTC like server ones.
-        at = occurredAt ?? at ?? WireTime.now(),
-        eventId =
-            eventId ??
-            '${tripId ?? rideId}:$sequence:${status.name}';
+  }) : rideId = (tripId ?? rideId)!,
+       _kind = kind,
+       // ARCH-11: client-side stamps are UTC like server ones.
+       at = occurredAt ?? at ?? WireTime.now(),
+       eventId = eventId ?? '${tripId ?? rideId}:$sequence:${status.name}';
 
   /// Backwards-compatible Rider identifier. New platform code should use
   /// [tripId] so Rider, Driver and Admin speak the same contract.

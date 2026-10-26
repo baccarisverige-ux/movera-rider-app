@@ -25,12 +25,14 @@ class _Realtime implements RideRealtime {
     return _events.stream;
   }
 
-  void emit(RideStatus status) => _events.add(RideRealtimeEvent(
-        rideId: _rideId!,
-        status: status,
-        sequence: ++_sequence,
-        at: DateTime.now(),
-      ));
+  void emit(RideStatus status) => _events.add(
+    RideRealtimeEvent(
+      rideId: _rideId!,
+      status: status,
+      sequence: ++_sequence,
+      at: DateTime.now(),
+    ),
+  );
   @override
   Future<void> reconnectAndResync(String rideId) async {}
   @override
@@ -83,16 +85,18 @@ void main() {
       ..status = RideStatus.tripCompleted;
     final realtime = _Realtime();
     addTearDown(realtime.dispose);
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(1200, 1600),
-      builder: (_, __) => MaterialApp(
-        home: RideCompleted(
-          status: RideStatus.tripCompleted,
-          rideId: 'r5-3',
-          realtime: realtime,
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(1200, 1600),
+        builder: (_, __) => MaterialApp(
+          home: RideCompleted(
+            status: RideStatus.tripCompleted,
+            rideId: 'r5-3',
+            realtime: realtime,
+          ),
         ),
       ),
-    ));
+    );
     Future<void> settle() async {
       for (var i = 0; i < 3; i++) {
         await tester.runAsync(

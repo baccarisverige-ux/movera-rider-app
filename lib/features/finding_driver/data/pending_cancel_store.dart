@@ -362,7 +362,8 @@ class PendingCancelStore {
         existing.command == command &&
         existing.whileSearching == whileSearching &&
         existing.idempotencyKey != null) {
-      final newVersion = expectedVersion != null &&
+      final newVersion =
+          expectedVersion != null &&
           expectedVersion != existing.expectedVersion;
       final newReason = reasonId != null && reasonId != existing.reasonId;
       if (!newVersion && !newReason) return existing;
@@ -380,8 +381,7 @@ class PendingCancelStore {
     final entry = PendingCancel(
       rideId: rideId,
       reasonId: reasonId ?? existing?.reasonId,
-      idempotencyKey:
-          idempotencyKey ?? newIdempotencyKey('ride-cancel'),
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey('ride-cancel'),
       command: command,
       expectedVersion: expectedVersion,
       whileSearching: whileSearching,

@@ -103,9 +103,8 @@ void main() {
       destinationPosition: destination,
     ),
     'Support': () => const SupportHome(),
-    'History': () => RideHistory(
-      onDemandReader: () async => const <Reservation>[],
-    ),
+    'History': () =>
+        RideHistory(onDemandReader: () async => const <Reservation>[]),
   };
 
   for (final entry in screens.entries) {

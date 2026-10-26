@@ -15,14 +15,19 @@ String? topUpMessage(TopUpOutcome outcome) {
     case TopUpNotCharged(declined: true):
       return L10n.current.topUpDeclined;
     case TopUpNotCharged(:final error):
-      final kind =
-          error == null ? RiderErrorKind.unknown : riderErrorKind(error);
+      final kind = error == null
+          ? RiderErrorKind.unknown
+          : riderErrorKind(error);
       switch (kind) {
         case RiderErrorKind.offline:
           return L10n.current.topUpOffline;
         case RiderErrorKind.rateLimited:
           final wait = error == null ? null : riderRetryWait(error);
-          return L10n.current.topUpRateLimited(wait == null ? L10n.current.inAMoment : L10n.current.inDuration(wait));
+          return L10n.current.topUpRateLimited(
+            wait == null
+                ? L10n.current.inAMoment
+                : L10n.current.inDuration(wait),
+          );
         case RiderErrorKind.serverTrouble:
           return L10n.current.topUpServerTrouble;
         case RiderErrorKind.refused:

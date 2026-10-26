@@ -8,7 +8,9 @@ abstract final class PinComposition {
     required bool usesMockPinIssuance,
   }) {
     if (environment.isReleaseLike && usesMockPinIssuance) {
-      throw StateError('Mock PIN issuance is forbidden in ${environment.flavor.name}');
+      throw StateError(
+        'Mock PIN issuance is forbidden in ${environment.flavor.name}',
+      );
     }
   }
 }

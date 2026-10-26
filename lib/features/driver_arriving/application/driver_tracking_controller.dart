@@ -22,12 +22,13 @@ class DriverTrackingController {
     this.destinationLng,
     this.persistRideSnapshot = true,
     RideSession? ride,
-  })  : _realtime = realtime ?? AppScope.instance.rideRealtime,
-        _ride = ride;
+  }) : _realtime = realtime ?? AppScope.instance.rideRealtime,
+       _ride = ride;
 
   final RideRealtime _realtime;
   final RideSession? _ride;
   final bool persistRideSnapshot;
+
   /// Route ends; updated when the rider changes the route mid-ride so the
   /// next fix measures the distance to the new place.
   double pickupLat;
@@ -160,114 +161,120 @@ class DriverTrackingController {
     connectionDegraded = false;
     _sub?.cancel();
     _staleCheck?.cancel();
-    _sub = _realtime.subscribe(rideId).listen(
-      (event) {
-        // A location fix is independently useful even when the status it
-        // arrived with is rejected as stale by backendReconcile: dropping the
-        // whole event discarded a possibly-newer coordinate along with a
-        // status the app had already superseded. Only skip the status/signal
-        // side when the event is rejected; the position always applies if it
-        // is not itself older than what is already tracked.
-        final eventVersion = event.version ?? event.sequence;
-        final accepted = !persistRideSnapshot ||
-            (_ride ?? AppScope.instance.ride).backendReconcile(
-              event.status,
-              id: event.tripId,
-              version: eventVersion,
-              updatedAt: event.serverTime ?? event.occurredAt,
-            );
-        final statusChanged = accepted && event.status != status;
-        if (accepted) {
-          status = event.status;
-          lastSignal = event.signal;
-          signalMessage = event.message;
-          reassignedByAdmin = event.isAdminReassign;
-          _lastVersion = eventVersion;
-          _lastServerTime = event.serverTime ?? _lastServerTime;
-          if (event.status.isSearching ||
-              event.status == RideStatus.cancelledByDriver) {
-            // Back in dispatch: the next accept starts new clocks.
-            acceptedAt = null;
-            waitingSince = null;
-            _clearWaitingDeadlines();
-          } else if (event.kind == RealtimeKind.driverCancelled &&
-              event.status.isMatched) {
-            // rider-u23: another driver already took the dropped trip; the
-            // new accept starts new clocks too.
-            _replacedDriver = driver;
-            acceptedAt = null;
-            waitingSince = null;
-            _clearWaitingDeadlines();
-          }
-          fare = event.fare ?? fare;
-          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
-          if (event.waitingArrivedAt != null) {
-            waitingSince = _onDevice(event.waitingArrivedAt);
-            _takeWaitingDeadlines(event);
-          } else if (event.status == RideStatus.driverWaiting) {
-            waitingSince ??= DateTime.now();
-          }
-        } else if (_carriesCurrentClocks(event, eventVersion)) {
-          // rider-u45: the projection's `acceptedAt` and `waiting.arrivedAt`
-          // are server facts about this trip whatever the ordering verdict
-          // on its status. After a reload the first projection repeats the
-          // version the restore seeded and is rejected as a duplicate;
-          // dropping its stamps restarted the waiting clock and the
-          // free-cancel preview on the device clock.
-          acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
-          if (event.waitingArrivedAt != null) {
-            waitingSince = _onDevice(event.waitingArrivedAt);
-            _takeWaitingDeadlines(event);
-          }
-        }
-        if (event.driver != null) driver = event.driver;
-        final incomingLocationAt = event.locationAt ?? event.at;
-        final currentLocationAt = eta?.locationAt;
-        final isNewerFix = currentLocationAt == null ||
-            !incomingLocationAt.isBefore(currentLocationAt);
-        if (event.latitude != null && event.longitude != null && isNewerFix) {
-          _trackDriven(event.latitude!, event.longitude!);
-          eta = DriverEta.fromFix(
-            latitude: event.latitude!,
-            longitude: event.longitude!,
-            pickupLat: pickupLat,
-            pickupLng: pickupLng,
-            destinationLat: destinationLat,
-            destinationLng: destinationLng,
-            locationAt: incomingLocationAt,
-            etaSeconds: event.etaSeconds,
-            status: status,
-          );
-        } else if (eta != null && eta!.locationAt != null) {
-          eta = DriverEta.fromFix(
-            latitude: eta!.latitude ?? pickupLat,
-            longitude: eta!.longitude ?? pickupLng,
-            pickupLat: pickupLat,
-            pickupLng: pickupLng,
-            destinationLat: destinationLat,
-            destinationLng: destinationLng,
-            locationAt: eta!.locationAt!,
-            etaSeconds: event.etaSeconds ?? eta!.seconds,
-            status: status,
-          );
-        }
-        // Also persist an accepted event that confirms the current stage
-        // when that stage is not stored yet (start never stores a stage it
-        // could not prove, RIDE-7).
-        if (statusChanged || (accepted && _lastPersistedStatus != status)) {
-          unawaited(_persistLiveStatus());
-        }
-        this.onChange?.call();
-      },
-      onError: (Object error) {
-        connectionDegraded = true;
-        this.onChange?.call();
-      },
-      onDone: () {
-        connectionDegraded = true;
-        this.onChange?.call();
-      },
-    );
+    _sub = _realtime
+        .subscribe(rideId)
+        .listen(
+          (event) {
+            // A location fix is independently useful even when the status it
+            // arrived with is rejected as stale by backendReconcile: dropping the
+            // whole event discarded a possibly-newer coordinate along with a
+            // status the app had already superseded. Only skip the status/signal
+            // side when the event is rejected; the position always applies if it
+            // is not itself older than what is already tracked.
+            final eventVersion = event.version ?? event.sequence;
+            final accepted =
+                !persistRideSnapshot ||
+                (_ride ?? AppScope.instance.ride).backendReconcile(
+                  event.status,
+                  id: event.tripId,
+                  version: eventVersion,
+                  updatedAt: event.serverTime ?? event.occurredAt,
+                );
+            final statusChanged = accepted && event.status != status;
+            if (accepted) {
+              status = event.status;
+              lastSignal = event.signal;
+              signalMessage = event.message;
+              reassignedByAdmin = event.isAdminReassign;
+              _lastVersion = eventVersion;
+              _lastServerTime = event.serverTime ?? _lastServerTime;
+              if (event.status.isSearching ||
+                  event.status == RideStatus.cancelledByDriver) {
+                // Back in dispatch: the next accept starts new clocks.
+                acceptedAt = null;
+                waitingSince = null;
+                _clearWaitingDeadlines();
+              } else if (event.kind == RealtimeKind.driverCancelled &&
+                  event.status.isMatched) {
+                // rider-u23: another driver already took the dropped trip; the
+                // new accept starts new clocks too.
+                _replacedDriver = driver;
+                acceptedAt = null;
+                waitingSince = null;
+                _clearWaitingDeadlines();
+              }
+              fare = event.fare ?? fare;
+              acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
+              if (event.waitingArrivedAt != null) {
+                waitingSince = _onDevice(event.waitingArrivedAt);
+                _takeWaitingDeadlines(event);
+              } else if (event.status == RideStatus.driverWaiting) {
+                waitingSince ??= DateTime.now();
+              }
+            } else if (_carriesCurrentClocks(event, eventVersion)) {
+              // rider-u45: the projection's `acceptedAt` and `waiting.arrivedAt`
+              // are server facts about this trip whatever the ordering verdict
+              // on its status. After a reload the first projection repeats the
+              // version the restore seeded and is rejected as a duplicate;
+              // dropping its stamps restarted the waiting clock and the
+              // free-cancel preview on the device clock.
+              acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
+              if (event.waitingArrivedAt != null) {
+                waitingSince = _onDevice(event.waitingArrivedAt);
+                _takeWaitingDeadlines(event);
+              }
+            }
+            if (event.driver != null) driver = event.driver;
+            final incomingLocationAt = event.locationAt ?? event.at;
+            final currentLocationAt = eta?.locationAt;
+            final isNewerFix =
+                currentLocationAt == null ||
+                !incomingLocationAt.isBefore(currentLocationAt);
+            if (event.latitude != null &&
+                event.longitude != null &&
+                isNewerFix) {
+              _trackDriven(event.latitude!, event.longitude!);
+              eta = DriverEta.fromFix(
+                latitude: event.latitude!,
+                longitude: event.longitude!,
+                pickupLat: pickupLat,
+                pickupLng: pickupLng,
+                destinationLat: destinationLat,
+                destinationLng: destinationLng,
+                locationAt: incomingLocationAt,
+                etaSeconds: event.etaSeconds,
+                status: status,
+              );
+            } else if (eta != null && eta!.locationAt != null) {
+              eta = DriverEta.fromFix(
+                latitude: eta!.latitude ?? pickupLat,
+                longitude: eta!.longitude ?? pickupLng,
+                pickupLat: pickupLat,
+                pickupLng: pickupLng,
+                destinationLat: destinationLat,
+                destinationLng: destinationLng,
+                locationAt: eta!.locationAt!,
+                etaSeconds: event.etaSeconds ?? eta!.seconds,
+                status: status,
+              );
+            }
+            // Also persist an accepted event that confirms the current stage
+            // when that stage is not stored yet (start never stores a stage it
+            // could not prove, RIDE-7).
+            if (statusChanged || (accepted && _lastPersistedStatus != status)) {
+              unawaited(_persistLiveStatus());
+            }
+            this.onChange?.call();
+          },
+          onError: (Object error) {
+            connectionDegraded = true;
+            this.onChange?.call();
+          },
+          onDone: () {
+            connectionDegraded = true;
+            this.onChange?.call();
+          },
+        );
     unawaited(_persistLiveStatus());
     _staleCheck = Timer.periodic(_staleCheckInterval, (_) {
       final current = eta;

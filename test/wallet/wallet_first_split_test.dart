@@ -40,7 +40,11 @@ void main() {
     final store = WalletStore();
     expect((await store.loadPayments()).useWalletFirst, isTrue);
     await store.savePayments(
-      WalletPaymentSettings(defaultMethod: 'cash', business: false, useWalletFirst: false),
+      WalletPaymentSettings(
+        defaultMethod: 'cash',
+        business: false,
+        useWalletFirst: false,
+      ),
     );
     expect((await store.loadPayments()).useWalletFirst, isFalse);
   });

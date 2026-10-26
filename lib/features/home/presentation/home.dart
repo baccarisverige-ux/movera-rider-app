@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+
 import 'dart:math' as math;
 
 import 'dart:ui' as ui;
@@ -21,7 +23,8 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
-import 'package:movera_rider/core/maps/map_camera_controller.dart' show recenterZoom;
+import 'package:movera_rider/core/maps/map_camera_controller.dart'
+    show recenterZoom;
 import 'package:movera_rider/core/maps/map_camera_motion.dart' show mapViewOf;
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
@@ -141,6 +144,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         ? fixes.points
         : const <GeoPoint?>[];
   }
+
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
   set _currentLatLng(LatLng? value) => _places.currentLatLng = value;
@@ -475,11 +479,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// joins it, so the booking flow can wait for the fix Home already asked
   /// for instead of asking again.
   Future<void> _detectCurrentAddress({bool askPermission = true}) {
-    return _detectInFlight ??= _runDetectCurrentAddress(
-      askPermission: askPermission,
-    ).whenComplete(() {
-      _detectInFlight = null;
-    });
+    return _detectInFlight ??=
+        _runDetectCurrentAddress(askPermission: askPermission).whenComplete(() {
+          _detectInFlight = null;
+        });
   }
 
   /// Waits briefly for a location fix when none has landed yet (first fix
@@ -540,8 +543,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (isPlaceholderPickupLabel(_pickupAddress)) {
           setState(() => _pickupAddress = locationOffPickupLabel);
         }
-        if (detected.failure == HomeLocationFailure.unavailable &&
-            !_hasFix) {
+        if (detected.failure == HomeLocationFailure.unavailable && !_hasFix) {
           _scheduleDetectRetry();
         }
         return;
@@ -640,9 +642,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       // (pickup, Set pickup, Select ride). Home's own map re-centres on
       // [_currentLatLng] when it is created again.
       final maps = AppScope.instance.maps;
-      if (!mounted ||
-          _mapParked.value ||
-          maps.activeOwner != MapOwners.home) {
+      if (!mounted || _mapParked.value || maps.activeOwner != MapOwners.home) {
         return;
       }
       // Owner round 1: the camera already sits on a quick position this
@@ -768,8 +768,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleDestinationTap({String? initialRideId}) =>
-      _runRouteFlow(() async {
+  Future<void> _handleDestinationTap({
+    String? initialRideId,
+  }) => _runRouteFlow(() async {
     // Capture from the tap itself: the sheet sequencing below takes long enough
     // that anything typed in the meantime would otherwise be lost.
     final capture = EarlyInputCapture()..start();
@@ -1094,12 +1095,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         initialAddress: cleanAddress.isEmpty
             ? (_pickupAddress ?? 'Current location')
             : cleanAddress,
-        title: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickupSpot,
-        confirmLabel: isDestination ? context.l10n.confirmDestination : context.l10n.confirmPickup,
+        title: isDestination
+            ? context.l10n.confirmDestination
+            : context.l10n.confirmPickupSpot,
+        confirmLabel: isDestination
+            ? context.l10n.confirmDestination
+            : context.l10n.confirmPickup,
         positionIsFallback: positionIsFallback,
         // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
         // rider-u114: never re-seeded from an approximate fix.
-        refreshCurrentLocation: chosen == null && !_locationCtl.preciseLocationOff,
+        refreshCurrentLocation:
+            chosen == null && !_locationCtl.preciseLocationOff,
       );
       if (result == null) return null;
       return PickupMapResult(
@@ -1391,9 +1397,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       if (pickupPosition == null || destinationPosition == null || !mounted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.homeChooseValidRoute),
-            ),
+            SnackBar(content: Text(context.l10n.homeChooseValidRoute)),
           );
         }
         return;
@@ -1776,9 +1780,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   Future<void> _openAddPlacePicker() async {
     if (_savedPlaces.length >= _maxCustomPlaces) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.homeMaxCustomPlaces)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.homeMaxCustomPlaces)));
       return;
     }
     const placeTypes = <String>[
@@ -2090,7 +2094,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // camera is where a recentre puts it; else the rider has no way back.
     final user = _currentLatLng;
     final target = _locationCtl.lastMapTarget;
-    final offRider = user != null &&
+    final offRider =
+        user != null &&
         AppScope.instance.camera.showRecenter(
           zoom: _locationCtl.lastMapZoom,
           metersFromUser: AppScope.instance.location.distanceBetween(
@@ -2154,7 +2159,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // (a drag, a fling) has no settled snap; it gets the promotion when it
     // settles low again (_trackSettledSnap). Before the very first seat the
     // sheet rests at its initial low offset.
-    final restingLow = offset != null &&
+    final restingLow =
+        offset != null &&
         (previousLow != null
             ? offset <= previousLow + 1.5
             : !_hadFirstSeat && (offset - _sheetMinPixels).abs() <= 1.5);
@@ -2288,9 +2294,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (!AppScope.instance.bookLaterAvailable) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(context.l10n.resErrUnavailable)),
-        );
+        ..showSnackBar(SnackBar(content: Text(context.l10n.resErrUnavailable)));
       return;
     }
     await _runRouteFlow(
@@ -2307,23 +2311,27 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// booking flow, not a page, so the swipe skips it (NAV-5).
   void _openTab(int first) {
     unawaited(
-      _runRouteFlow(() => _withParkedHomeMap<void>(() async {
-        var current = HomeTabs.home;
-        int? next = first;
-        while (next != null && next != HomeTabs.home && mounted) {
-          final forward = next > current;
-          current = next;
-          final page = HomeTabPage(
-            tab: next,
-            child: next == HomeTabs.payment
-                ? const WalletAndPaymentsScreen(initialTab: 1)
-                : const AccountHomePage(),
-          );
-          next = await Navigator.of(context).push<int>(
-            forward ? RightToLeftTransition(page) : LeftToRightTransition(page),
-          );
-        }
-      })),
+      _runRouteFlow(
+        () => _withParkedHomeMap<void>(() async {
+          var current = HomeTabs.home;
+          int? next = first;
+          while (next != null && next != HomeTabs.home && mounted) {
+            final forward = next > current;
+            current = next;
+            final page = HomeTabPage(
+              tab: next,
+              child: next == HomeTabs.payment
+                  ? const WalletAndPaymentsScreen(initialTab: 1)
+                  : const AccountHomePage(),
+            );
+            next = await Navigator.of(context).push<int>(
+              forward
+                  ? RightToLeftTransition(page)
+                  : LeftToRightTransition(page),
+            );
+          }
+        }),
+      ),
     );
   }
 
@@ -2490,7 +2498,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress, onPrecise: _turnOnPreciseLocation),
+                      HomeLocationNotice(
+                        location: _locationCtl,
+                        bottom: _sheetMinPixels,
+                        onRetry: _detectCurrentAddress,
+                        onPrecise: _turnOnPreciseLocation,
+                      ),
                       if (_destinationSheetOpen)
                         Positioned.fill(
                           // UI-13: a plain 5% white wash. The 1.4 sigma
@@ -2698,75 +2711,77 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              HomeSheetScroll(child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  HomeSheetLayout.sideMargin,
-                  ResSize.h * 11 - handleLift,
-                  HomeSheetLayout.sideMargin,
-                  ResSize.h * 7,
-                ),
-                child: Column(
-                  children: [
-                    toggleHandle,
-                    SizedBox(
-                      height: math.max(0.0, ResSize.h * 12 + handleLift - 12),
-                    ),
-                    if (promotion != null)
+              HomeSheetScroll(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    HomeSheetLayout.sideMargin,
+                    ResSize.h * 11 - handleLift,
+                    HomeSheetLayout.sideMargin,
+                    ResSize.h * 7,
+                  ),
+                  child: Column(
+                    children: [
+                      toggleHandle,
+                      SizedBox(
+                        height: math.max(0.0, ResSize.h * 12 + handleLift - 12),
+                      ),
+                      if (promotion != null)
+                        IgnorePointer(
+                          ignoring: ticketVisible < 0.6,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            heightFactor: ticketVisible,
+                            child: Opacity(
+                              opacity: ticketVisible,
+                              child: Transform.translate(
+                                offset: Offset(0, -10 * (1 - ticketVisible)),
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: ResSize.h * 10,
+                                  ),
+                                  // Owner round 1: the "simple row" here;
+                                  // the ride list keeps the ticket.
+                                  child: PromotionTicket(
+                                    promotion: promotion,
+                                    flat: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      whereToCard,
                       IgnorePointer(
-                        ignoring: ticketVisible < 0.6,
+                        ignoring: sheetProgress < 0.92,
                         child: Align(
                           alignment: Alignment.topCenter,
-                          heightFactor: ticketVisible,
+                          heightFactor: sheetProgress,
+                          child: savedPlacesContent(placesReveal),
+                        ),
+                      ),
+                      IgnorePointer(
+                        ignoring: detailProgress < 0.92,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          heightFactor: detailProgress,
                           child: Opacity(
-                            opacity: ticketVisible,
+                            opacity: detailReveal,
                             child: Transform.translate(
-                              offset: Offset(0, -10 * (1 - ticketVisible)),
+                              offset: Offset(0, 12 * (1 - detailReveal)),
                               child: Padding(
                                 padding: EdgeInsets.only(
-                                  bottom: ResSize.h * 10,
+                                  top: HomeSheetLayout.sectionGap,
                                 ),
-                                // Owner round 1: the "simple row" here;
-                                // the ride list keeps the ticket.
-                                child: PromotionTicket(
-                                  promotion: promotion,
-                                  flat: true,
-                                ),
+                                child: detailContent,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    whereToCard,
-                    IgnorePointer(
-                      ignoring: sheetProgress < 0.92,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: sheetProgress,
-                        child: savedPlacesContent(placesReveal),
-                      ),
-                    ),
-                    IgnorePointer(
-                      ignoring: detailProgress < 0.92,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: detailProgress,
-                        child: Opacity(
-                          opacity: detailReveal,
-                          child: Transform.translate(
-                            offset: Offset(0, 12 * (1 - detailReveal)),
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                top: HomeSheetLayout.sectionGap,
-                              ),
-                              child: detailContent,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              )),
+              ),
               Positioned(
                 left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
                 right: ResSize.w * (18 + (12 * (1 - sheetProgress))),

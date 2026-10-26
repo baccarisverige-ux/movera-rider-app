@@ -101,7 +101,11 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    for (var i = 0; i < 40 && find.text('Keep waiting').evaluate().isEmpty; i++) {
+    for (
+      var i = 0;
+      i < 40 && find.text('Keep waiting').evaluate().isEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     // Let the sheet settle where the card put it.
@@ -143,12 +147,21 @@ void main() {
     await openFinding(tester);
     final before = tester.getRect(find.text('Want to improve your chances?'));
     // Pull the sheet down by its text (not the handle), then back up.
-    await tester.drag(find.text('Want to improve your chances?'), const Offset(0, 220));
+    await tester.drag(
+      find.text('Want to improve your chances?'),
+      const Offset(0, 220),
+    );
     await tester.pump(const Duration(milliseconds: 600));
     final down = tester.getRect(find.text('Want to improve your chances?'));
     expect(down.top, greaterThan(before.top + 100));
-    await tester.drag(find.text('Want to improve your chances?'), const Offset(0, -400));
+    await tester.drag(
+      find.text('Want to improve your chances?'),
+      const Offset(0, -400),
+    );
     await tester.pump(const Duration(milliseconds: 600));
-    expect(tester.getRect(find.text('Keep waiting')).bottom, lessThanOrEqualTo(844));
+    expect(
+      tester.getRect(find.text('Keep waiting')).bottom,
+      lessThanOrEqualTo(844),
+    );
   });
 }

@@ -92,65 +92,77 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('a successful high-accuracy detection is remembered for next start', () async {
-    final location = _Location();
-    final controller = _controller(location);
-    addTearDown(controller.dispose);
+  test(
+    'a successful high-accuracy detection is remembered for next start',
+    () async {
+      final location = _Location();
+      final controller = _controller(location);
+      addTearDown(controller.dispose);
 
-    final detected = await controller.detectCurrent();
-    expect(detected.failure, isNull);
+      final detected = await controller.detectCurrent();
+      expect(detected.failure, isNull);
 
-    final saved = await _saved();
-    expect(saved, isNotNull, reason: 'last good fix was not persisted');
-    expect(saved!['lat'], closeTo(59.3326, 1e-9));
-    expect(saved['lng'], closeTo(18.0649, 1e-9));
-  });
+      final saved = await _saved();
+      expect(saved, isNotNull, reason: 'last good fix was not persisted');
+      expect(saved!['lat'], closeTo(59.3326, 1e-9));
+      expect(saved['lng'], closeTo(18.0649, 1e-9));
+    },
+  );
 
-  test('a later successful latestFix (recenter) refreshes the saved fix', () async {
-    final location = _Location();
-    final controller = _controller(location);
-    addTearDown(controller.dispose);
-    await controller.detectCurrent();
+  test(
+    'a later successful latestFix (recenter) refreshes the saved fix',
+    () async {
+      final location = _Location();
+      final controller = _controller(location);
+      addTearDown(controller.dispose);
+      await controller.detectCurrent();
 
-    location.current = _position(59.35, 18.10);
-    await controller.latestFix();
+      location.current = _position(59.35, 18.10);
+      await controller.latestFix();
 
-    final saved = await _saved();
-    expect(saved, isNotNull);
-    expect(saved!['lat'], closeTo(59.35, 1e-9));
-    expect(saved['lng'], closeTo(18.10, 1e-9));
-  });
+      final saved = await _saved();
+      expect(saved, isNotNull);
+      expect(saved!['lat'], closeTo(59.35, 1e-9));
+      expect(saved['lng'], closeTo(18.10, 1e-9));
+    },
+  );
 
-  test('a failed detection saves nothing and fails exactly as before', () async {
-    final location = _Location()..fail = TimeoutException('no fix');
-    final controller = _controller(location);
-    addTearDown(controller.dispose);
+  test(
+    'a failed detection saves nothing and fails exactly as before',
+    () async {
+      final location = _Location()..fail = TimeoutException('no fix');
+      final controller = _controller(location);
+      addTearDown(controller.dispose);
 
-    final detected = await controller.detectCurrent();
-    expect(detected.failure, HomeLocationFailure.unavailable);
-    expect(detected.address, locationOffPickupLabel);
-    expect(controller.state, HomeLocationState.temporarilyUnavailable);
-    expect(await _saved(), isNull);
-  });
+      final detected = await controller.detectCurrent();
+      expect(detected.failure, HomeLocationFailure.unavailable);
+      expect(detected.address, locationOffPickupLabel);
+      expect(controller.state, HomeLocationState.temporarilyUnavailable);
+      expect(await _saved(), isNull);
+    },
+  );
 
-  test('denied permission / services off: same outcome as before, nothing saved', () async {
-    final denied = _Location()
-      ..permission = LocationPermission.denied
-      ..afterRequest = LocationPermission.denied;
-    final c1 = _controller(denied);
-    addTearDown(c1.dispose);
-    final r1 = await c1.detectCurrent();
-    expect(r1.failure, HomeLocationFailure.permissionDenied);
-    expect(denied.requests, 1);
-    expect(c1.state, HomeLocationState.permissionRequired);
+  test(
+    'denied permission / services off: same outcome as before, nothing saved',
+    () async {
+      final denied = _Location()
+        ..permission = LocationPermission.denied
+        ..afterRequest = LocationPermission.denied;
+      final c1 = _controller(denied);
+      addTearDown(c1.dispose);
+      final r1 = await c1.detectCurrent();
+      expect(r1.failure, HomeLocationFailure.permissionDenied);
+      expect(denied.requests, 1);
+      expect(c1.state, HomeLocationState.permissionRequired);
 
-    final off = _Location()..servicesOn = false;
-    final c2 = _controller(off);
-    addTearDown(c2.dispose);
-    final r2 = await c2.detectCurrent();
-    expect(r2.failure, HomeLocationFailure.servicesDisabled);
-    expect(off.requests, 0);
+      final off = _Location()..servicesOn = false;
+      final c2 = _controller(off);
+      addTearDown(c2.dispose);
+      final r2 = await c2.detectCurrent();
+      expect(r2.failure, HomeLocationFailure.servicesDisabled);
+      expect(off.requests, 0);
 
-    expect(await _saved(), isNull);
-  });
+      expect(await _saved(), isNull);
+    },
+  );
 }

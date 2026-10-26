@@ -27,8 +27,7 @@ class MessagesRepository extends ChangeNotifier {
 
   final List<ChatMessage> _messages = <ChatMessage>[];
 
-  List<ChatMessage> get messages =>
-      List<ChatMessage>.unmodifiable(_messages);
+  List<ChatMessage> get messages => List<ChatMessage>.unmodifiable(_messages);
 
   int get unreadCount =>
       _messages.where((message) => message.isUnreadForRider).length;
@@ -62,7 +61,9 @@ class MessagesRepository extends ChangeNotifier {
     for (final message in fromServer) {
       final id = message.messageId;
       if (id == null || _indexOfId(id) >= 0) continue;
-      final pending = message.fromRider ? _indexOfPendingText(message.text) : -1;
+      final pending = message.fromRider
+          ? _indexOfPendingText(message.text)
+          : -1;
       if (pending >= 0) {
         _messages[pending] = message.copyWith(
           localId: _messages[pending].localId,
@@ -119,12 +120,12 @@ class MessagesRepository extends ChangeNotifier {
       _messages.indexWhere((m) => m.localId == localId);
 
   int _indexOfPendingText(String text) => _messages.indexWhere(
-        (m) =>
-            m.fromRider &&
-            m.messageId == null &&
-            m.delivery != ChatDelivery.sent &&
-            m.text == text,
-      );
+    (m) =>
+        m.fromRider &&
+        m.messageId == null &&
+        m.delivery != ChatDelivery.sent &&
+        m.text == text,
+  );
 
   /// Server-timed messages in server order; the ones this device is still
   /// sending (no server time yet) stay after them, in the order written.

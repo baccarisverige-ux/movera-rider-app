@@ -23,16 +23,18 @@ void main() {
   });
 
   Future<Map<String, dynamic>> book({String category = 'economy'}) async {
-    final quote = (await api.post(
-      '/api/v1/quotes',
-      body: {
-        'rideType': category,
-        'pickupLat': 59.3293,
-        'pickupLng': 18.0686,
-        'destinationLat': 59.3326,
-        'destinationLng': 18.0649,
-      },
-    ))['quote'] as Map;
+    final quote =
+        (await api.post(
+              '/api/v1/quotes',
+              body: {
+                'rideType': category,
+                'pickupLat': 59.3293,
+                'pickupLng': 18.0686,
+                'destinationLat': 59.3326,
+                'destinationLng': 18.0649,
+              },
+            ))['quote']
+            as Map;
     final created = await api.post(
       '/api/v1/rides',
       body: {
@@ -54,10 +56,12 @@ void main() {
     return Map<String, dynamic>.from(created['ride'] as Map);
   }
 
-  Future<Map<String, dynamic>> simulate(String id, Map<String, dynamic> body) async =>
-      Map<String, dynamic>.from(
-        (await api.post('/api/v1/rides/$id/status', body: body))['ride'] as Map,
-      );
+  Future<Map<String, dynamic>> simulate(
+    String id,
+    Map<String, dynamic> body,
+  ) async => Map<String, dynamic>.from(
+    (await api.post('/api/v1/rides/$id/status', body: body))['ride'] as Map,
+  );
 
   Future<ApiError> refused(Future<Object?> call) async {
     try {
@@ -74,42 +78,53 @@ void main() {
     String id, {
     Map<String, dynamic>? body,
     String path = 'cancel',
-  }) async =>
-      Map<String, dynamic>.from(
-        (await api.post(
+  }) async => Map<String, dynamic>.from(
+    (await api.post(
           '/api/v1/rides/$id/$path',
-          body: body ??
+          body:
+              body ??
               (path == 'cancel' ? CancelReasonCodes.riderCancelBody(null) : {}),
-        ))['ride'] as Map,
-      );
+        ))['ride']
+        as Map,
+  );
 
   group('expectedVersion', () {
-    test('a stale version is 409 version_mismatch and changes nothing',
-        () async {
-      final ride = await book();
-      final id = ride['id'] as String;
-      final accepted = await simulate(id, {'status': 'accepted'});
-      final current = accepted['version'] as int;
+    test(
+      'a stale version is 409 version_mismatch and changes nothing',
+      () async {
+        final ride = await book();
+        final id = ride['id'] as String;
+        final accepted = await simulate(id, {'status': 'accepted'});
+        final current = accepted['version'] as int;
 
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {'expectedVersion': current - 2, 'reasonCode': 'plans_changed'},
-      ));
-      expect(error.statusCode, 409);
-      expect(error.code, 'version_mismatch');
-      expect(error.isVersionMismatch, isTrue);
-      final stored = server.rides[id]!;
-      expect(stored['status'], 'accepted');
-      expect(stored['version'], current);
-      expect(stored['cancellation'], isNull);
-    });
+        final error = await refused(
+          api.post(
+            '/api/v1/rides/$id/cancel',
+            body: {
+              'expectedVersion': current - 2,
+              'reasonCode': 'plans_changed',
+            },
+          ),
+        );
+        expect(error.statusCode, 409);
+        expect(error.code, 'version_mismatch');
+        expect(error.isVersionMismatch, isTrue);
+        final stored = server.rides[id]!;
+        expect(stored['status'], 'accepted');
+        expect(stored['version'], current);
+        expect(stored['cancellation'], isNull);
+      },
+    );
 
     test('the current version is accepted; none at all still is', () async {
       final first = await book();
       final firstId = first['id'] as String;
       final ok = await cancel(
         firstId,
-        body: {'expectedVersion': first['version'], 'reasonCode': 'plans_changed'},
+        body: {
+          'expectedVersion': first['version'],
+          'reasonCode': 'plans_changed',
+        },
       );
       expect(ok['status'], 'cancelled_by_rider');
 
@@ -123,10 +138,16 @@ void main() {
     test('a stale simulated driver command is refused too', () async {
       final ride = await book();
       final id = ride['id'] as String;
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/status',
-        body: {'command': 'send_offer', 'actor': 'system', 'expectedVersion': 99},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/rides/$id/status',
+          body: {
+            'command': 'send_offer',
+            'actor': 'system',
+            'expectedVersion': 99,
+          },
+        ),
+      );
       expect(error.code, 'version_mismatch');
       expect(server.rides[id]!['status'], 'searching');
     });
@@ -136,10 +157,12 @@ void main() {
     test('a rider cannot cancel with an admin code', () async {
       final ride = await book();
       final id = ride['id'] as String;
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {'reasonCode': 'admin_fraud'},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {'reasonCode': 'admin_fraud'},
+        ),
+      );
       expect(error.statusCode, 400);
       expect(error.code, 'invalid_request');
       expect(server.rides[id]!['status'], 'searching');
@@ -151,24 +174,27 @@ void main() {
       final id = ride['id'] as String;
       await cancel(id);
       // Owner decision 6 (v0.4.4): the late reason is its own command.
-      final error = await refused(api.post(
-        '/api/v1/trips/$id/cancel-reason',
-        body: {'reasonCode': 'system_error'},
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/trips/$id/cancel-reason',
+          body: {'reasonCode': 'system_error'},
+        ),
+      );
       expect(error.code, 'invalid_request');
       expect(
         (server.rides[id]!['cancellation'] as Map)['reasonCode'],
         CancelReasonCodes.unspecified,
       );
-      final late = (await api.post(
-        '/api/v1/trips/$id/cancel-reason',
-        body: {'reasonCode': 'wait_too_long'},
-      ))['ride'] as Map;
+      final late =
+          (await api.post(
+                '/api/v1/trips/$id/cancel-reason',
+                body: {'reasonCode': 'wait_too_long'},
+              ))['ride']
+              as Map;
       expect((late['cancellation'] as Map)['reasonCode'], 'wait_too_long');
     });
 
-    test('a legacy free-text reason is kept but is not a reasonCode',
-        () async {
+    test('a legacy free-text reason is kept but is not a reasonCode', () async {
       final ride = await book();
       final cancelled = await cancel(
         ride['id'] as String,
@@ -185,14 +211,16 @@ void main() {
       final ride = await book();
       final id = ride['id'] as String;
       await simulate(id, {'status': 'accepted'});
-      final error = await refused(api.post(
-        '/api/v1/rides/$id/status',
-        body: {
-          'command': 'cancel',
-          'actor': 'driver',
-          'reasonCode': 'plans_changed',
-        },
-      ));
+      final error = await refused(
+        api.post(
+          '/api/v1/rides/$id/status',
+          body: {
+            'command': 'cancel',
+            'actor': 'driver',
+            'reasonCode': 'plans_changed',
+          },
+        ),
+      );
       expect(error.code, 'invalid_request');
       expect(server.rides[id]!['status'], 'accepted');
 
@@ -251,8 +279,7 @@ void main() {
       expect(feeOf(await cancel(id)), isNull);
     });
 
-    test('end-early carries no cancel fee: the rider pays the fare',
-        () async {
+    test('end-early carries no cancel fee: the rider pays the fare', () async {
       final ride = await book();
       final id = ride['id'] as String;
       await simulate(id, {'status': 'in_trip'});
@@ -263,23 +290,25 @@ void main() {
       expect(ended['fare'], isNotNull);
     });
 
-    test('scheduled: the reservation rule of the category, to pickup',
-        () async {
-      final ride = await book(category: 'premium');
-      final id = ride['id'] as String;
-      final stored = server.rides[id]!;
-      final pickup = now.add(const Duration(minutes: 90));
-      stored['kind'] = 'scheduled';
-      stored['scheduledAt'] = pickup.toIso8601String();
-      stored['driver'] = {'name': 'Driver'};
-      final fare = (stored['fare'] as Map)['amountMinor'] as int;
-      final fee = feeOf(await cancel(id))!;
-      // Premium reservation: free until 120 min before, then 25%, 80–300 kr.
-      expect(
-        fee['amountMinor'],
-        ((fare * 25 * 2 + 100) ~/ 200).clamp(8000, 30000),
-      );
-    });
+    test(
+      'scheduled: the reservation rule of the category, to pickup',
+      () async {
+        final ride = await book(category: 'premium');
+        final id = ride['id'] as String;
+        final stored = server.rides[id]!;
+        final pickup = now.add(const Duration(minutes: 90));
+        stored['kind'] = 'scheduled';
+        stored['scheduledAt'] = pickup.toIso8601String();
+        stored['driver'] = {'name': 'Driver'};
+        final fare = (stored['fare'] as Map)['amountMinor'] as int;
+        final fee = feeOf(await cancel(id))!;
+        // Premium reservation: free until 120 min before, then 25%, 80–300 kr.
+        expect(
+          fee['amountMinor'],
+          ((fare * 25 * 2 + 100) ~/ 200).clamp(8000, 30000),
+        );
+      },
+    );
   });
 
   test('RC-08 a search that subscribes again still gets a driver', () async {
@@ -288,14 +317,18 @@ void main() {
     );
     addTearDown(realtime.dispose);
     final seen = <RideStatus>[];
-    final first = realtime.subscribe('ride-x').listen((e) => seen.add(e.status));
+    final first = realtime
+        .subscribe('ride-x')
+        .listen((e) => seen.add(e.status));
     await Future<void>.delayed(Duration.zero);
-    expect(seen, [RideStatus.findingDriver],
-        reason: 'the first status reaches the listener');
+    expect(seen, [
+      RideStatus.findingDriver,
+    ], reason: 'the first status reaches the listener');
     await first.cancel();
     realtime.unsubscribe();
-    final second =
-        realtime.subscribe('ride-x').listen((e) => seen.add(e.status));
+    final second = realtime
+        .subscribe('ride-x')
+        .listen((e) => seen.add(e.status));
     addTearDown(second.cancel);
     // Waits on the assignment itself (10 ms steps, 5 s at most), so a
     // loaded machine does not fail it before the 50 ms timer has run.

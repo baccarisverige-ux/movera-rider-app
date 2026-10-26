@@ -269,8 +269,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (position == null) {
       setState(() {
         _pickupError = switch (result.failure) {
-          PickupLocationFailure.servicesDisabled =>
-            context.l10n.locServicesOff,
+          PickupLocationFailure.servicesDisabled => context.l10n.locServicesOff,
           PickupLocationFailure.permissionDenied =>
             context.l10n.locPermissionNeeded,
           PickupLocationFailure.permissionDeniedForever =>

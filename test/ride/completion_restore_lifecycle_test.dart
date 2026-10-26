@@ -71,8 +71,4 @@ void main() {
       expect(coordinator.surfaceFor(snapshot), RestoredSurface.complete);
     }
   });
-
-  
-
-  
 }

@@ -9,21 +9,23 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('a step on 24,60 € keeps the field whole-unit', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: PriceBumpCard(
-            currentPrice: 24.6,
-            maxPrice: 44,
-            currency: 'EUR',
-            steps: const [1, 2, 4],
-            onConfirm: (_) {},
-            onConfirmIncrease: (_) {},
-            onKeepWaiting: () {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PriceBumpCard(
+              currentPrice: 24.6,
+              maxPrice: 44,
+              currency: 'EUR',
+              steps: const [1, 2, 4],
+              onConfirm: (_) {},
+              onConfirmIncrease: (_) {},
+              onKeepWaiting: () {},
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('+2 €'));
     await tester.pump();
 

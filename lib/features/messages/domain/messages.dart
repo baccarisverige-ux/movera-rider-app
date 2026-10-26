@@ -25,7 +25,8 @@ class ChatMessage {
          sender != null || fromRider != null,
          'A chat message needs an explicit sender.',
        ),
-       sender = sender ??
+       sender =
+           sender ??
            (fromRider == true
                ? ChatMessageSender.rider
                : ChatMessageSender.driver);

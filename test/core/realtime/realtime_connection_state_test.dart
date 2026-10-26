@@ -14,16 +14,13 @@ void main() {
     connection.markDisconnected();
     connection.markFailed();
 
-    expect(
-      seen,
-      <RealtimeState>[
-        RealtimeState.connecting,
-        RealtimeState.reconnecting,
-        RealtimeState.connected,
-        RealtimeState.disconnected,
-        RealtimeState.failed,
-      ],
-    );
+    expect(seen, <RealtimeState>[
+      RealtimeState.connecting,
+      RealtimeState.reconnecting,
+      RealtimeState.connected,
+      RealtimeState.disconnected,
+      RealtimeState.failed,
+    ]);
 
     await sub.cancel();
     connection.dispose();

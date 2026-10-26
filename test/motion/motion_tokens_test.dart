@@ -14,7 +14,10 @@ void main() {
       MoveraDurations.sheetOpen.inMilliseconds,
       inInclusiveRange(300, 420),
     );
-    expect(MoveraDurations.sheetClose.inMilliseconds, lessThan(MoveraDurations.sheetOpen.inMilliseconds));
+    expect(
+      MoveraDurations.sheetClose.inMilliseconds,
+      lessThan(MoveraDurations.sheetOpen.inMilliseconds),
+    );
   });
 
   test('sheet coordinator does not own ride matching', () {
@@ -27,11 +30,14 @@ void main() {
     expect(c.current, RideSheet.none);
   });
 
-  test('map coordinator throttles padding and does not rebuild on tiny drags', () {
-    final map = MapCoordinator();
-    expect(map.shouldPublishPadding(120), isTrue);
-    expect(map.shouldPublishPadding(121), isFalse);
-  });
+  test(
+    'map coordinator throttles padding and does not rebuild on tiny drags',
+    () {
+      final map = MapCoordinator();
+      expect(map.shouldPublishPadding(120), isTrue);
+      expect(map.shouldPublishPadding(121), isFalse);
+    },
+  );
 
   testWidgets('reduced motion collapses decorative duration', (tester) async {
     late Duration resolved;

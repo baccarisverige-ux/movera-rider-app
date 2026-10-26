@@ -128,7 +128,9 @@ void main() {
   });
 
   test('home does not own ride restoration', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
     // Phase 143: ride_restore_coordinator.dart builds Home, so Home must not
@@ -138,7 +140,9 @@ void main() {
   });
 
   test('home does not draw a trip polyline', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('Polyline('), isFalse);
     expect(home.contains('polylines:'), isFalse);
   });
@@ -238,8 +242,9 @@ void main() {
     for (final file in dartUnder('lib/features')) {
       final path = norm(file.path);
       if (!path.contains('/application/')) continue;
-      final hits = importsOf(file)
-          .where((uri) => uri.contains('/presentation/'));
+      final hits = importsOf(
+        file,
+      ).where((uri) => uri.contains('/presentation/'));
       if (hits.isNotEmpty) offenders.add(path);
     }
     expect(
@@ -260,12 +265,15 @@ void main() {
     for (final file in dartUnder('lib')) {
       final path = norm(file.path);
       final reachesPool = importsOf(file).any(
-        (uri) => uri == 'package:movera_rider/core/realtime/mock_driver_pool.dart',
+        (uri) =>
+            uri == 'package:movera_rider/core/realtime/mock_driver_pool.dart',
       );
       expect(
         !reachesPool ||
             path.startsWith('lib/core/') ||
-            RegExp(r'^lib/features/[^/]+/data/mock_[^/]+\.dart$').hasMatch(path),
+            RegExp(
+              r'^lib/features/[^/]+/data/mock_[^/]+\.dart$',
+            ).hasMatch(path),
         isTrue,
         reason: '$path reaches MockDriverPool outside the API boundary',
       );
@@ -293,13 +301,17 @@ void main() {
   });
 
   test('home does not import address repository', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('home_repository.dart'), isFalse);
     expect(home.contains('HomeAddressRepository'), isFalse);
   });
 
   test('select ride widget is not the source of ride/payment truth', () {
-    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final ui = selectRideScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(ui.contains("String _selectedRideId"), isFalse);
     expect(ui.contains('int _selectedPayment'), isFalse);
     expect(ui.contains('DateTime? _scheduledFor'), isFalse);
@@ -318,7 +330,9 @@ void main() {
   });
 
   test('home does not own map overlay set fields', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('Set<Marker> _markers ='), isFalse);
     expect(home.contains('Set<Circle> _locationCircles ='), isFalse);
     expect(home.contains('Set<Polygon> _locationDirection ='), isFalse);
@@ -411,16 +425,15 @@ void main() {
     expect(tracked.contains('driver-part-'), isFalse);
   });
 
-
   test('side menu lists only currently reachable production destinations', () {
     final source = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
     // Round 4: the labels live in l10n; check the English text the menu
     // shows next to its code.
-    final english = jsonDecode(
-      File('lib/l10n/app_en.arb').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final english =
+        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+            as Map<String, dynamic>;
     final menu = [
       source,
       for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
@@ -464,14 +477,18 @@ void main() {
   });
 
   test('home does not add a compass permission screen', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('Enable compass'), isFalse);
     expect(home.contains('Motion permission'), isFalse);
     expect(home.contains('Device orientation'), isFalse);
   });
 
   test('select ride does not keep parallel quote expiry state', () {
-    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final ui = selectRideScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
@@ -557,7 +574,9 @@ void main() {
     expect(src.contains('Anything we should know?'), isFalse);
     expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(home.contains('RideScheduledPage.open'), isTrue);
     expect(home.contains('FindingDrivers'), isFalse);
     expect(home.contains('WaitingForDriver'), isFalse);
@@ -576,31 +595,43 @@ void main() {
     expect(selectRide.contains('bookingMode: BookingMode.scheduled'), isTrue);
   });
 
-  test('history Schedule a ride still opens Plan your ride; Home Later uses Where to', () {
-    final history = File(
-      'lib/features/history/presentation/ride_history.dart',
-    ).readAsStringSync();
-    expect(history.contains('ScheduleRide()'), isTrue);
-    expect(history.contains('SelectRide('), isFalse);
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
-    expect(home.contains('bookingMode: BookingMode.now'), isTrue);
-    // Book for later follows the Book now screens: Where to → date & time →
-    // scheduled categories → Set pickup. The old Plan your ride screen is
-    // only for editing a reservation and the history entry.
-    expect(home.contains('const ScheduleRide()'), isFalse);
-    expect(home.contains("_showRouteAddressPicker(initialField: 'destination', scheduled: true)"), isTrue);
-    expect(home.contains('ScheduleDateTimeSelector.choose('), isTrue);
-    expect(home.contains('BookingMode.scheduled'), isTrue);
-    expect(home.contains('_handleDestinationTap'), isTrue);
-    expect(home.contains('HomeReservationChrono'), isTrue);
-    expect(home.contains('_PickupMapPickerPage'), isFalse);
-    expect(home.contains('ConfirmPickupSpot.open'), isTrue);
-    expect(home.contains('AccountHomePage'), isTrue);
-    expect(home.contains('Uber account'), isFalse);
-  });
+  test(
+    'history Schedule a ride still opens Plan your ride; Home Later uses Where to',
+    () {
+      final history = File(
+        'lib/features/history/presentation/ride_history.dart',
+      ).readAsStringSync();
+      expect(history.contains('ScheduleRide()'), isTrue);
+      expect(history.contains('SelectRide('), isFalse);
+      final home = homeScreenFiles
+          .map((p) => File(p).readAsStringSync())
+          .join('\n');
+      expect(home.contains('bookingMode: BookingMode.now'), isTrue);
+      // Book for later follows the Book now screens: Where to → date & time →
+      // scheduled categories → Set pickup. The old Plan your ride screen is
+      // only for editing a reservation and the history entry.
+      expect(home.contains('const ScheduleRide()'), isFalse);
+      expect(
+        home.contains(
+          "_showRouteAddressPicker(initialField: 'destination', scheduled: true)",
+        ),
+        isTrue,
+      );
+      expect(home.contains('ScheduleDateTimeSelector.choose('), isTrue);
+      expect(home.contains('BookingMode.scheduled'), isTrue);
+      expect(home.contains('_handleDestinationTap'), isTrue);
+      expect(home.contains('HomeReservationChrono'), isTrue);
+      expect(home.contains('_PickupMapPickerPage'), isFalse);
+      expect(home.contains('ConfirmPickupSpot.open'), isTrue);
+      expect(home.contains('AccountHomePage'), isTrue);
+      expect(home.contains('Uber account'), isFalse);
+    },
+  );
 
   test('book now always opens Confirm pickup; GPS only prefills', () {
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
     expect(
       home.contains('Book now always confirms pickup; GPS only prefills.'),
       isTrue,
@@ -622,7 +653,10 @@ void main() {
     expect(now.contains('FindingDrivers'), isTrue);
     // Set pickup opens after Book every time, before the search starts.
     expect(selectRide.contains('SetPickupPage.open('), isTrue);
-    expect(now.indexOf('_openSetPickup('), lessThan(now.indexOf('FindingDrivers(')));
+    expect(
+      now.indexOf('_openSetPickup('),
+      lessThan(now.indexOf('FindingDrivers(')),
+    );
     expect(now.contains('AddCardPage.open('), isTrue);
   });
 
@@ -631,9 +665,9 @@ void main() {
     () {
       // Round 4: screen copy lives in l10n; read each source with the
       // English text of the messages it uses.
-      final english = jsonDecode(
-        File('lib/l10n/app_en.arb').readAsStringSync(),
-      ) as Map<String, dynamic>;
+      final english =
+          jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+              as Map<String, dynamic>;
       String withEnglish(String path) {
         final source = File(path).readAsStringSync();
         return [

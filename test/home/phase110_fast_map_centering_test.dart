@@ -127,17 +127,20 @@ void main() {
     expect(hint?.longitude, 17.95);
   });
 
-  test('nothing cached: no hint, detection behaves exactly as before', () async {
-    final location = _Location();
-    final controller = _controller(location);
-    addTearDown(controller.dispose);
+  test(
+    'nothing cached: no hint, detection behaves exactly as before',
+    () async {
+      final location = _Location();
+      final controller = _controller(location);
+      addTearDown(controller.dispose);
 
-    expect(await controller.quickCameraFix(), isNull);
-    location.accurate.complete(_position(59.3326, 18.0649));
-    final detected = await controller.detectCurrent();
-    expect(detected.failure, isNull);
-    expect(detected.target!.latitude, 59.3326);
-  });
+      expect(await controller.quickCameraFix(), isNull);
+      location.accurate.complete(_position(59.3326, 18.0649));
+      final detected = await controller.detectCurrent();
+      expect(detected.failure, isNull);
+      expect(detected.target!.latitude, 59.3326);
+    },
+  );
 
   test('permission not yet granted / denied: no hint, no cache read, and the '
       'hint never prompts', () async {

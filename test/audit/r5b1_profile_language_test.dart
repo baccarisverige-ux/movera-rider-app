@@ -16,7 +16,9 @@ const _demo = AppEnv(
 Future<InProcessMockClient> _signIn(AppLanguageController language) async {
   final server = InProcessMockClient()..riderProfile = {'language': 'sv'};
   final profile = ProfileController(
-    store: SyncedProfileRepository(api: ApiClient(client: server, env: _demo)),
+    store: SyncedProfileRepository(
+      api: ApiClient(client: server, env: _demo),
+    ),
   );
   await profile.hydrateWithLanguage(language);
   return server;

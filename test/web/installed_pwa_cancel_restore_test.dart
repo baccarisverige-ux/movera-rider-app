@@ -43,11 +43,7 @@ void main() {
       store: store,
     );
 
-    controller.start(
-      snapshot: snapshot,
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snapshot, onTick: (_) {}, onMatched: () {});
     await controller.cancelSearch(reasonId: 'plans_changed');
 
     expect(ride.status, RideStatus.cancelledByRider);

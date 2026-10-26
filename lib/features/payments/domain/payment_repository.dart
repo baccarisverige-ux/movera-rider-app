@@ -1,10 +1,4 @@
-enum PaymentMethodKind {
-  wallet,
-  applePay,
-  googlePay,
-  card,
-  cash,
-}
+enum PaymentMethodKind { wallet, applePay, googlePay, card, cash }
 
 class PaymentMethod {
   const PaymentMethod({

@@ -80,10 +80,8 @@ void main() {
           designSize: const Size(390, 844),
           minTextAdapt: true,
           splitScreenMode: true,
-          builder: (_, __) => MaterialApp(
-            navigatorKey: moveraNavigatorKey,
-            home: const Home(),
-          ),
+          builder: (_, __) =>
+              MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
         ),
       );
       // Real frames, so Home can settle (the promotion ticket may seat the
@@ -96,9 +94,11 @@ void main() {
       expect(find.text('Where to?'), findsOneWidget);
 
       await tester.tap(find.text('Where to?'));
-      for (var i = 0;
-          i < 40 && find.byType(TextField).evaluate().length < 2;
-          i++) {
+      for (
+        var i = 0;
+        i < 40 && find.byType(TextField).evaluate().length < 2;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
 
@@ -124,12 +124,19 @@ void main() {
       }
       expect(find.text('Next'), findsNothing);
       expect(suggestion, findsNothing);
-      final pick = find.textContaining('Stockholm Arlanda Airport', findRichText: true);
+      final pick = find.textContaining(
+        'Stockholm Arlanda Airport',
+        findRichText: true,
+      );
       expect(pick, findsWidgets);
       await tester.tap(pick.first);
       // The route sheet closes, both addresses are normalized in parallel, and
       // the production category selector is pushed.
-      for (var i = 0; i < 30 && find.byType(SelectRide).evaluate().isEmpty; i++) {
+      for (
+        var i = 0;
+        i < 30 && find.byType(SelectRide).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(SelectRide), findsOneWidget);
@@ -146,9 +153,11 @@ void main() {
       await tester.tap(selectMovera);
 
       // Set pickup opens after Book, with the pickup preselected.
-      for (var i = 0;
-          i < 40 && find.byType(SetPickupPage).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 40 && find.byType(SetPickupPage).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(SetPickupPage), findsOneWidget);
@@ -156,9 +165,11 @@ void main() {
       expect(confirmSearch, findsOneWidget);
       await tester.tap(confirmSearch);
 
-      for (var i = 0;
-          i < 40 && find.byType(FindingDrivers).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 40 && find.byType(FindingDrivers).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(FindingDrivers), findsOneWidget);
@@ -169,9 +180,11 @@ void main() {
 
       final mock = realtime as MockRideRealtime;
       mock.assignNow();
-      for (var i = 0;
-          i < 50 && find.byType(WaitingForDriver).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 50 && find.byType(WaitingForDriver).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(WaitingForDriver), findsOneWidget);
@@ -187,9 +200,11 @@ void main() {
       // same "popup waits for a child route to return" contract certified
       // elsewhere for this screen. Acknowledge it here or the trip timers
       // below fire into a route that never drains them.
-      for (var i = 0;
-          i < 20 && find.byType(DriverArrivedSheet).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 20 && find.byType(DriverArrivedSheet).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(DriverArrivedSheet), findsOneWidget);
@@ -200,9 +215,11 @@ void main() {
       final onTheWay = find.text("I'm on the way");
       await tester.ensureVisible(onTheWay);
       await tester.tap(onTheWay);
-      for (var i = 0;
-          i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(DriverArrivedSheet), findsNothing);
@@ -213,18 +230,22 @@ void main() {
       }
       await tester.pump(const Duration(seconds: 2));
 
-      for (var i = 0;
-          i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(RideCompleted), findsOneWidget);
       expect(AppScope.instance.ride.rideId, rideId);
 
       // Let the backend-authored post-trip payment/rating statuses settle.
-      for (var i = 0;
-          i < 30 && find.text('How was your trip').evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 30 && find.text('How was your trip').evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.text('How was your trip'), findsOneWidget);
@@ -344,13 +365,17 @@ void main() {
     backend.failNext = true;
     await tester.tap(done);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('completion-submit-error')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('completion-submit-error')),
+      findsOneWidget,
+    );
     expect(backend.rides['journey-book-1']!['feedback'], isNull);
     expect(AppScope.instance.ride.status, RideStatus.ratingPending);
 
     await tester.tap(done);
     await tester.pumpAndSettle();
-    final feedback = backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
+    final feedback =
+        backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
     expect(feedback['rating'], isA<num>());
     expect(feedback['tipMinor'], 2000);
     expect(feedback['currency'], 'SEK');
@@ -429,7 +454,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(closeAttempts, 1);
-      expect(find.byKey(const ValueKey('completion-submit-error')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('completion-submit-error')),
+        findsOneWidget,
+      );
       final firstFeedback =
           backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
       expect(firstFeedback['tipMinor'], 2000);
@@ -461,5 +489,4 @@ void main() {
       await tester.pump();
     },
   );
-
 }

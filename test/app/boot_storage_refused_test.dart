@@ -16,20 +16,20 @@ void main() {
     // The device store refuses every write, as Safari's localStorage does.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/shared_preferences'),
-      (call) async {
-        if (call.method == 'getAll') return <String, Object>{};
-        throw PlatformException(code: 'QuotaExceededError');
-      },
-    );
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          (call) async {
+            if (call.method == 'getAll') return <String, Object>{};
+            throw PlatformException(code: 'QuotaExceededError');
+          },
+        );
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/shared_preferences'),
-      null,
-    );
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          null,
+        );
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
@@ -43,8 +43,7 @@ void main() {
     expect(continued, isTrue);
   });
 
-  test('a boot step that throws is logged, the next step still runs',
-      () async {
+  test('a boot step that throws is logged, the next step still runs', () async {
     final ran = <String>[];
     await bootStep('first', () async {
       ran.add('first');

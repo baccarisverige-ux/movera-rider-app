@@ -83,7 +83,8 @@ class ApiPaymentMethodRepository
           '$path/default',
           body: {
             'method': _contractMethod(brand),
-            if (brand.startsWith('card:')) 'paymentMethodId': brand.substring(5),
+            if (brand.startsWith('card:'))
+              'paymentMethodId': brand.substring(5),
           },
           idempotencyKey: newIdempotencyKey('payment-default'),
         );

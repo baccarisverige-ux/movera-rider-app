@@ -30,18 +30,23 @@ void main() {
     expect(selection.quoteIsFresh('economy', now: now), isTrue);
   });
 
-  test('expired quote is discarded instead of showing or submitting stale fare', () {
-    final selection = controller();
-    final now = DateTime(2026, 9, 16, 10);
-    selection.offeredPrices['economy'] = 199;
-    selection.quoteIds['economy'] = 'q-expired';
-    selection.quoteExpiresAt['economy'] = now.subtract(const Duration(seconds: 1));
+  test(
+    'expired quote is discarded instead of showing or submitting stale fare',
+    () {
+      final selection = controller();
+      final now = DateTime(2026, 9, 16, 10);
+      selection.offeredPrices['economy'] = 199;
+      selection.quoteIds['economy'] = 'q-expired';
+      selection.quoteExpiresAt['economy'] = now.subtract(
+        const Duration(seconds: 1),
+      );
 
-    expect(selection.priceFor('economy', 259, now: now), 259);
-    expect(selection.offeredPrices.containsKey('economy'), isFalse);
-    expect(selection.quoteIdFor('economy', now: now), isNull);
-    expect(selection.quoteExpiresAt.containsKey('economy'), isFalse);
-  });
+      expect(selection.priceFor('economy', 259, now: now), 259);
+      expect(selection.offeredPrices.containsKey('economy'), isFalse);
+      expect(selection.quoteIdFor('economy', now: now), isNull);
+      expect(selection.quoteExpiresAt.containsKey('economy'), isFalse);
+    },
+  );
 
   test('catalog selection without a server quote is not authoritative', () {
     final selection = controller();

@@ -25,9 +25,14 @@ Future<void> _frames(WidgetTester tester, int count) async {
 
 /// Opens Where to? from Home and finishes it with [selection], as the
 /// picker does.
-Future<void> _finish(WidgetTester tester, RoutePickerSelection selection) async {
+Future<void> _finish(
+  WidgetTester tester,
+  RoutePickerSelection selection,
+) async {
   final picker = find.byType(RoutePickerPage);
-  final draft = await tester.widget<RoutePickerPage>(picker).onFinish(selection);
+  final draft = await tester
+      .widget<RoutePickerPage>(picker)
+      .onFinish(selection);
   Navigator.of(tester.element(picker)).pop(draft);
   for (var i = 0; i < 40 && find.byType(SelectRide).evaluate().isEmpty; i++) {
     await tester.pump(const Duration(milliseconds: 100));

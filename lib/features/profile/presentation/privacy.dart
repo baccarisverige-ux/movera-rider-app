@@ -166,8 +166,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           MoveraEmptyState(
             icon: Icons.apps_outlined,
             title: context.l10n.noConnectedApps,
-            message:
-                context.l10n.noConnectedAppsBody,
+            message: context.l10n.noConnectedAppsBody,
             compact: true,
           ),
         ],

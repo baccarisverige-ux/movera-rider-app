@@ -69,7 +69,10 @@ void main() {
       expect(stack.children[1], isNot(isA<FadeTransition>()));
       expect(stack.children[2], isA<IgnorePointer>());
 
-      expect(route.transitionDuration, lessThanOrEqualTo(const Duration(milliseconds: 120)));
+      expect(
+        route.transitionDuration,
+        lessThanOrEqualTo(const Duration(milliseconds: 120)),
+      );
       expect(route.reverseTransitionDuration, Duration.zero);
       expect(tester.takeException(), isNull);
     },

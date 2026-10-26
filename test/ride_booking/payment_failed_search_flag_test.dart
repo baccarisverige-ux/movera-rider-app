@@ -23,20 +23,22 @@ void main() {
       ..rideId = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.paymentProcessing, id: id);
-    await RideSnapshotStore.save(RideSnapshot(
-      status: RideStatus.paymentProcessing,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.34,
-      pickupLng: 18.05,
-      destinationLat: 59.31,
-      destinationLng: 18.04,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: id,
-    ));
+    await RideSnapshotStore.save(
+      RideSnapshot(
+        status: RideStatus.paymentProcessing,
+        savedAt: DateTime.now(),
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.34,
+        pickupLng: 18.05,
+        destinationLat: 59.31,
+        destinationLng: 18.04,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+        rideId: id,
+      ),
+    );
     cleared = 0;
 
     await ActiveRideController().markCompletedPaymentFailed(id);

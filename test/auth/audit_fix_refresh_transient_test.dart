@@ -15,10 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// ARCH-2: only a definitive refresh rejection ends the session; a network
 /// failure keeps the tokens, and expiry keeps the live ride.
-const env = AppEnv(
-  flavor: AppFlavor.staging,
-  apiBaseUrl: 'https://x.invalid',
-);
+const env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
 
 Future<(ApiClient, MemoryTokenStore, List<int>)> _client(
   Future<http.Response> Function(http.Request request) refresh,

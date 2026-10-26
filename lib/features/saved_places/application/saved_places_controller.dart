@@ -7,7 +7,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 class SavedPlacesController {
   SavedPlacesController({HomeAddressRepository? store})
-      : _store = store ?? HomeAddressRepository();
+    : _store = store ?? HomeAddressRepository();
 
   final HomeAddressRepository _store;
   final List<PlaceShortcut> _shortcuts = <PlaceShortcut>[];
@@ -120,9 +120,9 @@ class SavedPlacesController {
     final kind = _normalizeKind(place.kind);
     final snapshot = await _store.load();
     final id = place.id;
-    final places = withPlaceIds(snapshot.places)
-        .where((item) => id == null || item['id'] != id)
-        .toList();
+    final places = withPlaceIds(
+      snapshot.places,
+    ).where((item) => id == null || item['id'] != id).toList();
 
     await _store.save(
       HomeAddressSnapshot(

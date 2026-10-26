@@ -13,7 +13,10 @@ import 'package:movera_rider/core/api/api_error.dart';
 /// (staging, production) waits 30 s per request; the in-process mock keeps
 /// its 15 s so the demo and the tests behave as before.
 void main() {
-  const live = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
+  const live = AppEnv(
+    flavor: AppFlavor.staging,
+    apiBaseUrl: 'https://x.invalid',
+  );
   const demo = AppEnv(flavor: AppFlavor.demo, apiBaseUrl: 'https://x.invalid');
 
   http.Client answersAfter(Duration wait) => MockClient(
@@ -41,9 +44,21 @@ void main() {
 
   test('a POST the live server answers after 20 s succeeds', () {
     fakeAsync((async) {
-      final api = ApiClient(client: answersAfter(const Duration(seconds: 20)), env: live);
+      final api = ApiClient(
+        client: answersAfter(const Duration(seconds: 20)),
+        env: live,
+      );
       Object? outcome;
-      api.post('/api/v1/quotes', body: {}).then((v) { outcome = v; }, onError: (Object e) { outcome = e; });
+      api
+          .post('/api/v1/quotes', body: {})
+          .then(
+            (v) {
+              outcome = v;
+            },
+            onError: (Object e) {
+              outcome = e;
+            },
+          );
       async.elapse(const Duration(seconds: 19));
       expect(outcome, isNull);
       async.elapse(const Duration(seconds: 2));
@@ -53,9 +68,21 @@ void main() {
 
   test('the same POST on the mock transport still times out at 15 s', () {
     fakeAsync((async) {
-      final api = ApiClient(client: answersAfter(const Duration(seconds: 20)), env: demo);
+      final api = ApiClient(
+        client: answersAfter(const Duration(seconds: 20)),
+        env: demo,
+      );
       Object? outcome;
-      api.post('/api/v1/quotes', body: {}).then((v) { outcome = v; }, onError: (Object e) { outcome = e; });
+      api
+          .post('/api/v1/quotes', body: {})
+          .then(
+            (v) {
+              outcome = v;
+            },
+            onError: (Object e) {
+              outcome = e;
+            },
+          );
       async.elapse(const Duration(seconds: 16));
       expect(outcome, isA<ApiError>());
       expect((outcome! as ApiError).code, 'TIMEOUT');
@@ -74,7 +101,16 @@ void main() {
         env: live,
       );
       Object? outcome;
-      api.get('/api/v1/rides/r').then((v) { outcome = v; }, onError: (Object e) { outcome = e; });
+      api
+          .get('/api/v1/rides/r')
+          .then(
+            (v) {
+              outcome = v;
+            },
+            onError: (Object e) {
+              outcome = e;
+            },
+          );
       async.elapse(const Duration(seconds: 31));
       expect(calls, 2);
       expect(outcome, isNull);

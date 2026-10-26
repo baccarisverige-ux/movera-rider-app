@@ -243,7 +243,8 @@ class RiderAppConfig {
       publishedAt: _time(raw['publishedAt']),
       timeZone:
           _string(raw['timeZone']) ?? fallback?.timeZone ?? defaultTimeZone,
-      categories: _categories(raw['catalog']) ?? fallback?.categories ?? const [],
+      categories:
+          _categories(raw['catalog']) ?? fallback?.categories ?? const [],
       features: _features(raw['features']) ?? fallback?.features ?? const {},
       paymentMethods:
           readZonePaymentMethods(raw['paymentMethods']) ??
@@ -291,8 +292,7 @@ class RiderAppConfig {
         'reservation',
         base?.reservationCancelFees ?? const {},
       ),
-      waiting:
-          _waiting(raw['waiting'], money, base?.waiting) ?? base?.waiting,
+      waiting: _waiting(raw['waiting'], money, base?.waiting) ?? base?.waiting,
       cancelReasons:
           _reasons(raw['cancelReasons']) ?? fallback?.cancelReasons ?? const [],
       rideCheck: _flat(raw['rideCheck']) ?? fallback?.rideCheck ?? const {},
@@ -367,7 +367,8 @@ class RiderAppConfig {
     RiderWaitingRules? base,
   ) {
     if (raw is! Map) return null;
-    final freeWait = _count(raw['freeWaitMin'], max: 120) ??
+    final freeWait =
+        _count(raw['freeWaitMin'], max: 120) ??
         base?.freeWaitMin ??
         ZoneDefaults.freeWaitMin;
     final noShowAfter = _count(raw['noShowAfterMin'], max: 120) ?? freeWait;
@@ -399,7 +400,8 @@ class RiderAppConfig {
       final row = entry.value;
       if (id == null || row is! Map) continue;
       final freeWait =
-          _count(row['freeWaitMin'], max: 120) ?? ZoneDefaults.freeWaitMinOf(id);
+          _count(row['freeWaitMin'], max: 120) ??
+          ZoneDefaults.freeWaitMinOf(id);
       out[id] = RiderCategoryWaiting(
         freeWaitMin: freeWait,
         perMin: money(row['perMin']) ?? perMin,
@@ -506,24 +508,120 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     },
     'cancelFees': {
       'live': {
-        'economy': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
-        'comfort': {'freeMin': 2, 'type': 'fixed', 'value': 430, 'min': null, 'max': null},
-        'premium': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 475, 'currency': 'EUR'}, 'max': {'amountMinor': 1425, 'currency': 'EUR'}},
-        'priority': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
-        'xl': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 475, 'currency': 'EUR'}, 'max': {'amountMinor': 1425, 'currency': 'EUR'}},
-        'electric': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
-        'pet': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
-        'child_seat': {'freeMin': 2, 'type': 'fixed', 'value': 335, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 335,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 430,
+          'min': null,
+          'max': null,
+        },
+        'premium': {
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
+          'min': {'amountMinor': 475, 'currency': 'EUR'},
+          'max': {'amountMinor': 1425, 'currency': 'EUR'},
+        },
+        'priority': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 335,
+          'min': null,
+          'max': null,
+        },
+        'xl': {
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
+          'min': {'amountMinor': 475, 'currency': 'EUR'},
+          'max': {'amountMinor': 1425, 'currency': 'EUR'},
+        },
+        'electric': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 335,
+          'min': null,
+          'max': null,
+        },
+        'pet': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 335,
+          'min': null,
+          'max': null,
+        },
+        'child_seat': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 335,
+          'min': null,
+          'max': null,
+        },
       },
       'reservation': {
-        'economy': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
-        'comfort': {'freeMin': 60, 'type': 'fixed', 'value': 570, 'min': null, 'max': null},
-        'premium': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 760, 'currency': 'EUR'}, 'max': {'amountMinor': 2850, 'currency': 'EUR'}},
-        'priority': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
-        'xl': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 760, 'currency': 'EUR'}, 'max': {'amountMinor': 2850, 'currency': 'EUR'}},
-        'electric': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
-        'pet': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
-        'child_seat': {'freeMin': 60, 'type': 'fixed', 'value': 475, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 475,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 570,
+          'min': null,
+          'max': null,
+        },
+        'premium': {
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
+          'min': {'amountMinor': 760, 'currency': 'EUR'},
+          'max': {'amountMinor': 2850, 'currency': 'EUR'},
+        },
+        'priority': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 475,
+          'min': null,
+          'max': null,
+        },
+        'xl': {
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
+          'min': {'amountMinor': 760, 'currency': 'EUR'},
+          'max': {'amountMinor': 2850, 'currency': 'EUR'},
+        },
+        'electric': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 475,
+          'min': null,
+          'max': null,
+        },
+        'pet': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 475,
+          'min': null,
+          'max': null,
+        },
+        'child_seat': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 475,
+          'min': null,
+          'max': null,
+        },
       },
     },
   };
@@ -545,28 +643,123 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     },
     'cancelFees': {
       'live': {
-        'economy': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
-        'comfort': {'freeMin': 2, 'type': 'fixed', 'value': 13500, 'min': null, 'max': null},
-        'premium': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 15000, 'currency': 'TND'}, 'max': {'amountMinor': 45000, 'currency': 'TND'}},
-        'priority': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
-        'xl': {'freeMin': 3, 'type': 'percent', 'value': 15, 'min': {'amountMinor': 15000, 'currency': 'TND'}, 'max': {'amountMinor': 45000, 'currency': 'TND'}},
-        'electric': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
-        'pet': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
-        'child_seat': {'freeMin': 2, 'type': 'fixed', 'value': 10500, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 10500,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 13500,
+          'min': null,
+          'max': null,
+        },
+        'premium': {
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
+          'min': {'amountMinor': 15000, 'currency': 'TND'},
+          'max': {'amountMinor': 45000, 'currency': 'TND'},
+        },
+        'priority': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 10500,
+          'min': null,
+          'max': null,
+        },
+        'xl': {
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
+          'min': {'amountMinor': 15000, 'currency': 'TND'},
+          'max': {'amountMinor': 45000, 'currency': 'TND'},
+        },
+        'electric': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 10500,
+          'min': null,
+          'max': null,
+        },
+        'pet': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 10500,
+          'min': null,
+          'max': null,
+        },
+        'child_seat': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 10500,
+          'min': null,
+          'max': null,
+        },
       },
       'reservation': {
-        'economy': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
-        'comfort': {'freeMin': 60, 'type': 'fixed', 'value': 18000, 'min': null, 'max': null},
-        'premium': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 24000, 'currency': 'TND'}, 'max': {'amountMinor': 90000, 'currency': 'TND'}},
-        'priority': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
-        'xl': {'freeMin': 120, 'type': 'percent', 'value': 25, 'min': {'amountMinor': 24000, 'currency': 'TND'}, 'max': {'amountMinor': 90000, 'currency': 'TND'}},
-        'electric': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
-        'pet': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
-        'child_seat': {'freeMin': 60, 'type': 'fixed', 'value': 15000, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 15000,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 18000,
+          'min': null,
+          'max': null,
+        },
+        'premium': {
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
+          'min': {'amountMinor': 24000, 'currency': 'TND'},
+          'max': {'amountMinor': 90000, 'currency': 'TND'},
+        },
+        'priority': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 15000,
+          'min': null,
+          'max': null,
+        },
+        'xl': {
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
+          'min': {'amountMinor': 24000, 'currency': 'TND'},
+          'max': {'amountMinor': 90000, 'currency': 'TND'},
+        },
+        'electric': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 15000,
+          'min': null,
+          'max': null,
+        },
+        'pet': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 15000,
+          'min': null,
+          'max': null,
+        },
+        'child_seat': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 15000,
+          'min': null,
+          'max': null,
+        },
       },
     },
   };
-
 
   static const Map<String, Object?> seedDocument = {
     'version': 12,
@@ -597,15 +790,36 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     'paymentMethods': ['cash', 'card', 'apple_pay', 'google_pay'],
     'wallet': {'usedFirst': true},
     'tips': [
-      {'amount': {'amountMinor': 1000, 'currency': 'SEK'}, 'enabled': true},
-      {'amount': {'amountMinor': 2000, 'currency': 'SEK'}, 'enabled': true},
-      {'amount': {'amountMinor': 3000, 'currency': 'SEK'}, 'enabled': true},
+      {
+        'amount': {'amountMinor': 1000, 'currency': 'SEK'},
+        'enabled': true,
+      },
+      {
+        'amount': {'amountMinor': 2000, 'currency': 'SEK'},
+        'enabled': true,
+      },
+      {
+        'amount': {'amountMinor': 3000, 'currency': 'SEK'},
+        'enabled': true,
+      },
     ],
     'raiseSteps': [
-      {'amount': {'amountMinor': 5000, 'currency': 'SEK'}, 'enabled': true},
-      {'amount': {'amountMinor': 10000, 'currency': 'SEK'}, 'enabled': true},
-      {'amount': {'amountMinor': 15000, 'currency': 'SEK'}, 'enabled': true},
-      {'amount': {'amountMinor': 20000, 'currency': 'SEK'}, 'enabled': true},
+      {
+        'amount': {'amountMinor': 5000, 'currency': 'SEK'},
+        'enabled': true,
+      },
+      {
+        'amount': {'amountMinor': 10000, 'currency': 'SEK'},
+        'enabled': true,
+      },
+      {
+        'amount': {'amountMinor': 15000, 'currency': 'SEK'},
+        'enabled': true,
+      },
+      {
+        'amount': {'amountMinor': 20000, 'currency': 'SEK'},
+        'enabled': true,
+      },
     ],
     'promoCap': null,
     'booking': {
@@ -660,34 +874,78 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     'appUpdate': {'minimumVersion': '1.0.0', 'latestVersion': '1.2.0'},
     'cancelFees': {
       'live': {
-        'economy': {'freeMin': 2, 'type': 'fixed', 'value': 3500, 'min': null, 'max': null},
-        'comfort': {'freeMin': 2, 'type': 'fixed', 'value': 4500, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 3500,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 4500,
+          'min': null,
+          'max': null,
+        },
         'premium': {
-          'freeMin': 3, 'type': 'percent', 'value': 15,
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
           'min': {'amountMinor': 5000, 'currency': 'SEK'},
           'max': {'amountMinor': 15000, 'currency': 'SEK'},
         },
         'xl': {
-          'freeMin': 3, 'type': 'percent', 'value': 15,
+          'freeMin': 3,
+          'type': 'percent',
+          'value': 15,
           'min': {'amountMinor': 5000, 'currency': 'SEK'},
           'max': {'amountMinor': 15000, 'currency': 'SEK'},
         },
-        'electric': {'freeMin': 2, 'type': 'fixed', 'value': 3500, 'min': null, 'max': null},
+        'electric': {
+          'freeMin': 2,
+          'type': 'fixed',
+          'value': 3500,
+          'min': null,
+          'max': null,
+        },
       },
       'reservation': {
-        'economy': {'freeMin': 60, 'type': 'fixed', 'value': 5000, 'min': null, 'max': null},
-        'comfort': {'freeMin': 60, 'type': 'fixed', 'value': 6000, 'min': null, 'max': null},
+        'economy': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 5000,
+          'min': null,
+          'max': null,
+        },
+        'comfort': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 6000,
+          'min': null,
+          'max': null,
+        },
         'premium': {
-          'freeMin': 120, 'type': 'percent', 'value': 25,
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
           'min': {'amountMinor': 8000, 'currency': 'SEK'},
           'max': {'amountMinor': 30000, 'currency': 'SEK'},
         },
         'xl': {
-          'freeMin': 120, 'type': 'percent', 'value': 25,
+          'freeMin': 120,
+          'type': 'percent',
+          'value': 25,
           'min': {'amountMinor': 8000, 'currency': 'SEK'},
           'max': {'amountMinor': 30000, 'currency': 'SEK'},
         },
-        'electric': {'freeMin': 60, 'type': 'fixed', 'value': 5000, 'min': null, 'max': null},
+        'electric': {
+          'freeMin': 60,
+          'type': 'fixed',
+          'value': 5000,
+          'min': null,
+          'max': null,
+        },
       },
     },
   };
@@ -697,7 +955,10 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
 /// the device only to show it before they confirm. The server charges what
 /// it decides (`cancellation.fee`).
 class LiveCancelFeePreview {
-  const LiveCancelFeePreview({required this.fee, required this.freeMinutesLeft});
+  const LiveCancelFeePreview({
+    required this.fee,
+    required this.freeMinutesLeft,
+  });
 
   final Money fee;
 

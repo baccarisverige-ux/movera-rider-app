@@ -82,34 +82,41 @@ void main() {
     expect(await const OnDemandHistoryController().load(), isEmpty);
   });
 
-  test('completed Book Now ride archives while completion snapshot stays restorable', () async {
-    final active = snapshot(
-      rideId: 'ride-completed',
-      savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
-    );
-    await RideSnapshotStore.save(active);
-    expect(await RideSnapshotStore.read(), isNotNull,
-        reason: 'a 45-minute trip in progress is a real ride, not a stale '
-            'search, so it still resumes');
-    AppScope.instance.ride
-      ..rideId = 'ride-completed'
-      ..status = RideStatus.tripInProgress;
+  test(
+    'completed Book Now ride archives while completion snapshot stays restorable',
+    () async {
+      final active = snapshot(
+        rideId: 'ride-completed',
+        savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
+      );
+      await RideSnapshotStore.save(active);
+      expect(
+        await RideSnapshotStore.read(),
+        isNotNull,
+        reason:
+            'a 45-minute trip in progress is a real ride, not a stale '
+            'search, so it still resumes',
+      );
+      AppScope.instance.ride
+        ..rideId = 'ride-completed'
+        ..status = RideStatus.tripInProgress;
 
-    await ActiveRideController().markCompleted(RideStatus.tripCompleted);
+      await ActiveRideController().markCompleted(RideStatus.tripCompleted);
 
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history, hasLength(1));
-    expect(history.single.reservationId, 'ondemand-ride-completed');
-    expect(history.single.status, ReservationStatus.completed);
-    expect(history.single.pickup.label, 'Current location');
-    expect(history.single.destination.label, 'Stockholm Central Station');
-    expect(history.single.price, 259);
-    final completionSnapshot = await RideSnapshotStore.readForArchive();
-    expect(completionSnapshot, isNotNull);
-    expect(completionSnapshot!.status, RideStatus.tripCompleted);
-    expect(completionSnapshot.rideId, 'ride-completed');
-    expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
-  });
+      final history = await OnDemandRideHistoryStore.read();
+      expect(history, hasLength(1));
+      expect(history.single.reservationId, 'ondemand-ride-completed');
+      expect(history.single.status, ReservationStatus.completed);
+      expect(history.single.pickup.label, 'Current location');
+      expect(history.single.destination.label, 'Stockholm Central Station');
+      expect(history.single.price, 259);
+      final completionSnapshot = await RideSnapshotStore.readForArchive();
+      expect(completionSnapshot, isNotNull);
+      expect(completionSnapshot!.status, RideStatus.tripCompleted);
+      expect(completionSnapshot.rideId, 'ride-completed');
+      expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
+    },
+  );
 
   test('cancelled Book Now ride is archived with its reason', () async {
     final active = snapshot(rideId: 'ride-cancelled');
@@ -250,11 +257,10 @@ void main() {
       'scheduled-1',
     ]);
 
-    final cancelledOnly = controller.combine(
-      const [],
-      [onDemand, cancelled],
-      completed: false,
-    );
+    final cancelledOnly = controller.combine(const [], [
+      onDemand,
+      cancelled,
+    ], completed: false);
     expect(cancelledOnly.map((ride) => ride.reservationId), [
       'ondemand-cancelled',
     ]);
@@ -290,37 +296,35 @@ void main() {
     expect(find.text('No cancelled rides'), findsOneWidget);
   });
 
-  test('Finding cancelSearch archives History then clears the snapshot',
-      () async {
-    final active = snapshot(
-      rideId: 'ride-search-cancel',
-      status: RideStatus.findingDriver,
-    );
-    await RideSnapshotStore.save(active);
-    AppScope.instance.ride
-      ..rideId = 'ride-search-cancel'
-      ..status = RideStatus.findingDriver;
-    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: AppScope.instance.ride,
-    );
-    controller.start(
-      snapshot: active,
-      onTick: (_) {},
-      onMatched: () {},
-    );
-    await controller.cancelSearch(reasonId: 'wait_too_long');
+  test(
+    'Finding cancelSearch archives History then clears the snapshot',
+    () async {
+      final active = snapshot(
+        rideId: 'ride-search-cancel',
+        status: RideStatus.findingDriver,
+      );
+      await RideSnapshotStore.save(active);
+      AppScope.instance.ride
+        ..rideId = 'ride-search-cancel'
+        ..status = RideStatus.findingDriver;
+      final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final controller = FindingDriverController(
+        realtime: rt,
+        ride: AppScope.instance.ride,
+      );
+      controller.start(snapshot: active, onTick: (_) {}, onMatched: () {});
+      await controller.cancelSearch(reasonId: 'wait_too_long');
 
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history, hasLength(1));
-    expect(history.single.reservationId, 'ondemand-ride-search-cancel');
-    expect(history.single.status, ReservationStatus.cancelled);
-    expect(history.single.cancellationReason, 'wait_too_long');
-    expect(await RideSnapshotStore.readForArchive(), isNull);
-    controller.dispose();
-    rt.dispose();
-  });
+      final history = await OnDemandRideHistoryStore.read();
+      expect(history, hasLength(1));
+      expect(history.single.reservationId, 'ondemand-ride-search-cancel');
+      expect(history.single.status, ReservationStatus.cancelled);
+      expect(history.single.cancellationReason, 'wait_too_long');
+      expect(await RideSnapshotStore.readForArchive(), isNull);
+      controller.dispose();
+      rt.dispose();
+    },
+  );
 
   test('Waiting cancel archives when Finding UI is not mounted', () async {
     final active = snapshot(rideId: 'ride-waiting-cancel');
@@ -341,8 +345,7 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
   });
 
-  test('a repeated Waiting cancel does not duplicate History',
-      () async {
+  test('a repeated Waiting cancel does not duplicate History', () async {
     final active = snapshot(rideId: 'ride-waiting-archive-once');
     await RideSnapshotStore.save(active);
     AppScope.instance.ride

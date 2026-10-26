@@ -42,8 +42,9 @@ void main() {
     expect(ratings.every((r) => r == r.roundToDouble()), isTrue);
   });
 
-  testWidgets('rider-u177: screen readers hear the rating and can change it',
-      (tester) async {
+  testWidgets('rider-u177: screen readers hear the rating and can change it', (
+    tester,
+  ) async {
     final semantics = tester.ensureSemantics();
     final ratings = await pumpReview(tester);
     final rating = find.bySemanticsLabel('Give rating to your driver');
@@ -61,7 +62,11 @@ void main() {
       api: ApiClient(client: InProcessMockClient()),
     );
     await expectLater(
-      repository.submit(rideId: 'ride-1', rating: 4.5, idempotencyKey: 'k-0123456789abcdef'),
+      repository.submit(
+        rideId: 'ride-1',
+        rating: 4.5,
+        idempotencyKey: 'k-0123456789abcdef',
+      ),
       throwsArgumentError,
     );
   });

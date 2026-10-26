@@ -20,13 +20,23 @@ void main() {
       'ridesTotal': 3,
       'endsAt': '2099-11-30T23:59:00Z',
     };
-    final controller = RiderPromotionController(ApiClient(
-      env: const AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid'),
-      client: MockClient((_) async => up
-          ? http.Response(jsonEncode({'promotion': promotion}), 200,
-              headers: {'content-type': 'application/json'})
-          : http.Response('{"code":"bad_request"}', 400)),
-    ));
+    final controller = RiderPromotionController(
+      ApiClient(
+        env: const AppEnv(
+          flavor: AppFlavor.staging,
+          apiBaseUrl: 'https://x.invalid',
+        ),
+        client: MockClient(
+          (_) async => up
+              ? http.Response(
+                  jsonEncode({'promotion': promotion}),
+                  200,
+                  headers: {'content-type': 'application/json'},
+                )
+              : http.Response('{"code":"bad_request"}', 400),
+        ),
+      ),
+    );
     await controller.refresh();
     expect(controller.active, isNotNull);
 

@@ -28,56 +28,65 @@ void main() {
     apiBaseUrl: 'https://api.test.movera.invalid',
   );
 
-  test('OTP request returns session, expiry, retry window and saves no tokens', () async {
-    final tokens = MemoryTokenStore();
-    final auth = AuthRepository(
-      api: ApiClient(
-        env: testEnv,
-        client: InProcessMockClient(),
+  test(
+    'OTP request returns session, expiry, retry window and saves no tokens',
+    () async {
+      final tokens = MemoryTokenStore();
+      final auth = AuthRepository(
+        api: ApiClient(
+          env: testEnv,
+          client: InProcessMockClient(),
+          tokens: tokens,
+        ),
         tokens: tokens,
-      ),
-      tokens: tokens,
-    );
+      );
 
-    final challenge = await auth.requestOtp(phone: '+46701234567');
+      final challenge = await auth.requestOtp(phone: '+46701234567');
 
-    expect(challenge.phone, '+46701234567');
-    expect(challenge.requestId, isNotEmpty);
-    expect(challenge.sessionId, isNotEmpty);
-    expect(challenge.expiresAt.isAfter(DateTime.now().toUtc()), isTrue);
-    expect(challenge.retryAfter, greaterThan(Duration.zero));
-    expect(await tokens.readAccess(), isNull);
-    expect(await tokens.readRefresh(), isNull);
-  });
+      expect(challenge.phone, '+46701234567');
+      expect(challenge.requestId, isNotEmpty);
+      expect(challenge.sessionId, isNotEmpty);
+      expect(challenge.expiresAt.isAfter(DateTime.now().toUtc()), isTrue);
+      expect(challenge.retryAfter, greaterThan(Duration.zero));
+      expect(await tokens.readAccess(), isNull);
+      expect(await tokens.readRefresh(), isNull);
+    },
+  );
 
-  test('the code request names the rider app (contract OtpRequest.app)', () async {
-    Map<String, dynamic>? sent;
-    final tokens = MemoryTokenStore();
-    final auth = AuthRepository(
-      api: ApiClient(
-        env: testEnv,
-        client: MockClient((request) async {
-          sent = jsonDecode(request.body) as Map<String, dynamic>;
-          return http.Response(
-            jsonEncode({
-              'requestId': 'req-1',
-              'sessionId': 'ses-1',
-              'expiresAt': DateTime.now().toUtc().add(const Duration(minutes: 5)).toIso8601String(),
-              'retryAfterSeconds': 30,
-            }),
-            200,
-            headers: {'content-type': 'application/json'},
-          );
-        }),
+  test(
+    'the code request names the rider app (contract OtpRequest.app)',
+    () async {
+      Map<String, dynamic>? sent;
+      final tokens = MemoryTokenStore();
+      final auth = AuthRepository(
+        api: ApiClient(
+          env: testEnv,
+          client: MockClient((request) async {
+            sent = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode({
+                'requestId': 'req-1',
+                'sessionId': 'ses-1',
+                'expiresAt': DateTime.now()
+                    .toUtc()
+                    .add(const Duration(minutes: 5))
+                    .toIso8601String(),
+                'retryAfterSeconds': 30,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+          tokens: tokens,
+        ),
         tokens: tokens,
-      ),
-      tokens: tokens,
-    );
+      );
 
-    await auth.requestOtp(phone: '+46 70 123 45 67');
+      await auth.requestOtp(phone: '+46 70 123 45 67');
 
-    expect(sent, {'phone': '+46701234567', 'app': 'rider'});
-  });
+      expect(sent, {'phone': '+46701234567', 'app': 'rider'});
+    },
+  );
 
   test('wrong OTP never authenticates or persists tokens', () async {
     final tokens = MemoryTokenStore();
@@ -169,30 +178,8 @@ void main() {
     expect((await RideSnapshotStore.read())?.rideId, 'ride_phase73');
   });
 
-  test('a first verify reports a new rider; the same phone later does not', () async {
-    final client = InProcessMockClient();
-    final tokens = MemoryTokenStore();
-    final auth = AuthRepository(
-      api: ApiClient(env: testEnv, client: client, tokens: tokens),
-      tokens: tokens,
-    );
-
-    final first = await auth.verifyOtp(
-      challenge: await auth.requestOtp(phone: '+46701234567'),
-      code: '1234',
-    );
-    final again = await auth.verifyOtp(
-      challenge: await auth.requestOtp(phone: '+46701234567'),
-      code: '1234',
-    );
-
-    expect(first.isNewRider, isTrue);
-    expect(again.isNewRider, isFalse);
-  });
-
   test(
-    'first provider sign-in needs a phone and saves no tokens until the '
-    'linked code is verified',
+    'a first verify reports a new rider; the same phone later does not',
     () async {
       final client = InProcessMockClient();
       final tokens = MemoryTokenStore();
@@ -201,34 +188,60 @@ void main() {
         tokens: tokens,
       );
 
-      final result = await auth.signIn(provider: 'apple');
+      final first = await auth.verifyOtp(
+        challenge: await auth.requestOtp(phone: '+46701234567'),
+        code: '1234',
+      );
+      final again = await auth.verifyOtp(
+        challenge: await auth.requestOtp(phone: '+46701234567'),
+        code: '1234',
+      );
 
-      expect(result, isA<ProviderPhoneRequired>());
-      final link = (result as ProviderPhoneRequired).link;
-      expect(link.provider, 'apple');
-      expect(link.linkToken, isNotEmpty);
-      expect(await tokens.readAccess(), isNull);
-      expect(await tokens.readRefresh(), isNull);
-
-      final challenge = await auth.requestOtp(phone: '+46701234567', link: link);
-      expect(challenge.link, same(link));
-      expect(await tokens.readAccess(), isNull);
-
-      final verified = await auth.verifyOtp(challenge: challenge, code: '1234');
-      expect(verified.isNewRider, isTrue);
-      expect(await tokens.readAccess(), startsWith('mock-access-apple-'));
-
-      // With a verified phone on file, Apple now signs straight in.
-      await tokens.clear();
-      expect(await auth.signIn(provider: 'apple'), isA<ProviderSignedIn>());
-      expect(await tokens.readAccess(), 'mock-access-apple');
+      expect(first.isNewRider, isTrue);
+      expect(again.isNewRider, isFalse);
     },
   );
+
+  test('first provider sign-in needs a phone and saves no tokens until the '
+      'linked code is verified', () async {
+    final client = InProcessMockClient();
+    final tokens = MemoryTokenStore();
+    final auth = AuthRepository(
+      api: ApiClient(env: testEnv, client: client, tokens: tokens),
+      tokens: tokens,
+    );
+
+    final result = await auth.signIn(provider: 'apple');
+
+    expect(result, isA<ProviderPhoneRequired>());
+    final link = (result as ProviderPhoneRequired).link;
+    expect(link.provider, 'apple');
+    expect(link.linkToken, isNotEmpty);
+    expect(await tokens.readAccess(), isNull);
+    expect(await tokens.readRefresh(), isNull);
+
+    final challenge = await auth.requestOtp(phone: '+46701234567', link: link);
+    expect(challenge.link, same(link));
+    expect(await tokens.readAccess(), isNull);
+
+    final verified = await auth.verifyOtp(challenge: challenge, code: '1234');
+    expect(verified.isNewRider, isTrue);
+    expect(await tokens.readAccess(), startsWith('mock-access-apple-'));
+
+    // With a verified phone on file, Apple now signs straight in.
+    await tokens.clear();
+    expect(await auth.signIn(provider: 'apple'), isA<ProviderSignedIn>());
+    expect(await tokens.readAccess(), 'mock-access-apple');
+  });
 
   test('a code request with an unknown link token is refused', () async {
     final tokens = MemoryTokenStore();
     final auth = AuthRepository(
-      api: ApiClient(env: testEnv, client: InProcessMockClient(), tokens: tokens),
+      api: ApiClient(
+        env: testEnv,
+        client: InProcessMockClient(),
+        tokens: tokens,
+      ),
       tokens: tokens,
     );
 

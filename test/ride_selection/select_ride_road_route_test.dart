@@ -63,7 +63,10 @@ void main() {
     final routing = RoutingService(
       api: ApiClient(
         client: InProcessMockClient(),
-        env: const AppEnv(flavor: AppFlavor.test, apiBaseUrl: 'https://t.invalid'),
+        env: const AppEnv(
+          flavor: AppFlavor.test,
+          apiBaseUrl: 'https://t.invalid',
+        ),
       ),
       allowPublicRoadFallback: true,
       isWeb: true,

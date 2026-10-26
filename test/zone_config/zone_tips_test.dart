@@ -23,21 +23,22 @@ void main() {
   setUp(LastCompletedRide.clear);
   tearDown(LastCompletedRide.clear);
 
-  RideSnapshot finished(String currency, double lat, double lng) => RideSnapshot(
-    status: RideStatus.tripCompleted,
-    rideId: 'ride_tip_$currency',
-    pickupAddress: 'Pickup',
-    destinationAddress: 'Drop-off',
-    pickupLat: lat,
-    pickupLng: lng,
-    destinationLat: lat + 0.02,
-    destinationLng: lng + 0.02,
-    rideType: 'Economy',
-    price: 24,
-    paymentMethod: 'Card',
-    savedAt: DateTime(2026, 10, 20, 9),
-    currency: currency,
-  );
+  RideSnapshot finished(String currency, double lat, double lng) =>
+      RideSnapshot(
+        status: RideStatus.tripCompleted,
+        rideId: 'ride_tip_$currency',
+        pickupAddress: 'Pickup',
+        destinationAddress: 'Drop-off',
+        pickupLat: lat,
+        pickupLng: lng,
+        destinationLat: lat + 0.02,
+        destinationLng: lng + 0.02,
+        rideType: 'Economy',
+        price: 24,
+        paymentMethod: 'Card',
+        savedAt: DateTime(2026, 10, 20, 9),
+        currency: currency,
+      );
 
   Future<void> pumpTips(
     WidgetTester tester,
@@ -52,7 +53,10 @@ void main() {
         designSize: const Size(390, 844),
         builder: (_, __) => MaterialApp(
           home: Scaffold(
-            body: RideCompletedAddTip(controller: controller, onTipChanged: onTip),
+            body: RideCompletedAddTip(
+              controller: controller,
+              onTipChanged: onTip,
+            ),
           ),
         ),
       ),
@@ -120,34 +124,37 @@ void main() {
     expect(find.text('30 kr'), findsNothing);
   });
 
-  test('the tip is sent in the trip currency, the rating as whole stars', () async {
-    final bodies = <Map<String, dynamic>>[];
-    final api = ApiClient(
-      client: MockClient((request) async {
-        bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
-        return http.Response(
-          jsonEncode({'code': 'OK', 'status': 'accepted'}),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
-    LastCompletedRide.remember(finished('EUR', 48.86, 2.34));
-    final controller = RideCompleteController(
-      feedback: RideFeedbackRepository(api: api),
-      config: EditedZoneConfigs(),
-    );
+  test(
+    'the tip is sent in the trip currency, the rating as whole stars',
+    () async {
+      final bodies = <Map<String, dynamic>>[];
+      final api = ApiClient(
+        client: MockClient((request) async {
+          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response(
+            jsonEncode({'code': 'OK', 'status': 'accepted'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      LastCompletedRide.remember(finished('EUR', 48.86, 2.34));
+      final controller = RideCompleteController(
+        feedback: RideFeedbackRepository(api: api),
+        config: EditedZoneConfigs(),
+      );
 
-    await controller.submitFeedback(
-      rideId: 'ride_tip_EUR',
-      rating: 4,
-      tipMinor: 200,
-      idempotencyKey: 'tip-key-0123456789abcdef',
-    );
+      await controller.submitFeedback(
+        rideId: 'ride_tip_EUR',
+        rating: 4,
+        tipMinor: 200,
+        idempotencyKey: 'tip-key-0123456789abcdef',
+      );
 
-    expect(bodies.single['tipMinor'], 200);
-    expect(bodies.single['currency'], 'EUR');
-    expect(bodies.single['rating'], isA<int>());
-    expect(bodies.single['rating'], 4);
-  });
+      expect(bodies.single['tipMinor'], 200);
+      expect(bodies.single['currency'], 'EUR');
+      expect(bodies.single['rating'], isA<int>());
+      expect(bodies.single['rating'], 4);
+    },
+  );
 }

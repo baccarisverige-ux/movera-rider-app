@@ -80,132 +80,123 @@ class AuthScaffold extends StatelessWidget {
 
   Widget _page(BuildContext context, double bottomInset) {
     return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
-                    child: _TopBar(
-                      step: step,
-                      totalSteps: totalSteps,
-                      onBack: onBack,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+          child: _TopBar(step: step, totalSteps: totalSteps, onBack: onBack),
+        ),
+        if (hero != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+            child: hero!,
+          )
+        else ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 10, 24, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: MoveraWordmark(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+            child: Semantics(
+              header: true,
+              child: Text.rich(
+                TextSpan(
+                  text: headline,
+                  children: [
+                    TextSpan(
+                      text: headlineAccent,
+                      style: const TextStyle(color: AuthColors.green),
                     ),
-                  ),
-                  if (hero != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-                      child: hero!,
-                    )
-                  else ...[
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(24, 10, 24, 0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: MoveraWordmark(),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-                      child: Semantics(
-                        header: true,
-                        child: Text.rich(
-                          TextSpan(
-                            text: headline,
-                            children: [
-                              TextSpan(
-                                text: headlineAccent,
-                                style: const TextStyle(color: AuthColors.green),
-                              ),
-                            ],
-                          ),
-                          style: AuthText.headline(headlineSize),
-                        ),
-                      ),
-                    ),
-                    if (lede != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 40, 0),
-                        child: DefaultTextStyle(
-                          style: AuthText.lede(),
-                          child: lede!,
-                        ),
-                      ),
                   ],
-                  // Takes whatever height the card leaves, never less than
-                  // 96: on short screens (landscape, keyboard up) the page
-                  // scrolls instead of squeezing the form.
-                  Expanded(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 96),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          AuthScene(
-                            key: sceneKey,
-                            showCar: showCar,
-                            storyProgress: sceneProgress,
-                          ),
-                          // Owner round 3: the scene darkens a little just
-                          // above the card, part of the raised edge.
-                          const Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            height: 64,
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [Color(0x00000000), Color(0x1A000000)],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                ),
+                style: AuthText.headline(headlineSize),
+              ),
+            ),
+          ),
+          if (lede != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 40, 0),
+              child: DefaultTextStyle(style: AuthText.lede(), child: lede!),
+            ),
+        ],
+        // Takes whatever height the card leaves, never less than
+        // 96: on short screens (landscape, keyboard up) the page
+        // scrolls instead of squeezing the form.
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 96),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AuthScene(
+                  key: sceneKey,
+                  showCar: showCar,
+                  storyProgress: sceneProgress,
+                ),
+                // Owner round 3: the scene darkens a little just
+                // above the card, part of the raised edge.
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 64,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x00000000), Color(0x1A000000)],
+                        ),
                       ),
                     ),
                   ),
-                  // Owner round 3: a white, square card edge to edge, raised
-                  // over the scene by a shadow cast upward.
-                  Container(
-                    key: const ValueKey('auth-card'),
-                    padding: EdgeInsets.fromLTRB(20, 22, 20, 18 + bottomInset),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x26000000),
-                          blurRadius: 36,
-                          offset: Offset(0, -14),
-                        ),
-                        BoxShadow(
-                          color: Color(0x12000000),
-                          blurRadius: 6,
-                          offset: Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        card,
-                        if (AppEnv.current.authPreview) ...[
-                          const SizedBox(height: 12),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AuthColors.ink,
-                            ),
-                            onPressed: () => enterMoveraApp(context),
-                            child: Text(context.l10n.skipDemo),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Owner round 3: a white, square card edge to edge, raised
+        // over the scene by a shadow cast upward.
+        Container(
+          key: const ValueKey('auth-card'),
+          padding: EdgeInsets.fromLTRB(20, 22, 20, 18 + bottomInset),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x26000000),
+                blurRadius: 36,
+                offset: Offset(0, -14),
+              ),
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 6,
+                offset: Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              card,
+              if (AppEnv.current.authPreview) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: AuthColors.ink),
+                  onPressed: () => enterMoveraApp(context),
+                  child: Text(context.l10n.skipDemo),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -267,8 +258,8 @@ class _TopBar extends StatelessWidget {
                         color: i == step
                             ? AuthColors.ink
                             : i < step
-                                ? AuthColors.stepDone
-                                : AuthColors.stepIdle,
+                            ? AuthColors.stepDone
+                            : AuthColors.stepIdle,
                       ),
                     ),
                   ],

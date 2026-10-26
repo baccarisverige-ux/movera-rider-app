@@ -74,16 +74,20 @@ void main() {
 
   /// Book now opens Set pickup first; confirm it to start the request.
   Future<void> confirmSetPickup(WidgetTester tester) async {
-    for (var i = 0;
-        i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.byType(SetPickupPage), findsOneWidget);
     await tester.tap(find.text('Confirm and search'));
-    for (var i = 0;
-        i < 10 && find.byType(SetPickupPage).evaluate().isNotEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 10 && find.byType(SetPickupPage).evaluate().isNotEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
@@ -104,9 +108,7 @@ void main() {
       );
       addTearDown(selection.dispose);
       final booking = BookingController(
-        store: BookingRepository(
-          coordinator: BookingCoordinator(api: api),
-        ),
+        store: BookingRepository(coordinator: BookingCoordinator(api: api)),
       );
       final observer = _RecordingObserver();
 
@@ -118,9 +120,7 @@ void main() {
           builder: (_, __) => MaterialApp(
             navigatorKey: moveraNavigatorKey,
             navigatorObservers: [observer],
-            home: const Scaffold(
-              body: Center(child: Text('phase55-home')),
-            ),
+            home: const Scaffold(body: Center(child: Text('phase55-home'))),
           ),
         ),
       );
@@ -211,10 +211,7 @@ void main() {
         assignAfter: const Duration(days: 1),
         api: api,
       );
-      final active = FindingDriverController(
-        realtime: realtime,
-        api: api,
-      );
+      final active = FindingDriverController(realtime: realtime, api: api);
       addTearDown(() {
         active.dispose();
         realtime.dispose();
@@ -256,7 +253,6 @@ void main() {
     },
   );
 
-
   testWidgets(
     'rapid double Book creates one authoritative ride and one Finding lifecycle',
     (tester) async {
@@ -273,9 +269,7 @@ void main() {
       );
       addTearDown(selection.dispose);
       final booking = BookingController(
-        store: BookingRepository(
-          coordinator: BookingCoordinator(api: api),
-        ),
+        store: BookingRepository(coordinator: BookingCoordinator(api: api)),
       );
       final observer = _RecordingObserver();
 
@@ -350,5 +344,4 @@ void main() {
       expect(snapshot?.status, RideStatus.findingDriver);
     },
   );
-
 }

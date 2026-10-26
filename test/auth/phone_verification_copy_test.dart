@@ -39,7 +39,8 @@ void main() {
   }
 
   /// The resend countdown is a periodic timer; unmount before the test ends.
-  Future<void> unmount(WidgetTester tester) => tester.pumpWidget(const SizedBox());
+  Future<void> unmount(WidgetTester tester) =>
+      tester.pumpWidget(const SizedBox());
 
   AuthController controller() {
     final tokens = MemoryTokenStore();
@@ -58,7 +59,11 @@ void main() {
     var now = DateTime(2026, 10, 21, 9);
     await pump(
       tester,
-      PhoneVerification(challenge: challenge, controller: auth, clock: () => now),
+      PhoneVerification(
+        challenge: challenge,
+        controller: auth,
+        clock: () => now,
+      ),
     );
     // Two minutes in the background: the timer fires once, not 120 times.
     now = now.add(const Duration(minutes: 2));
@@ -67,36 +72,49 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('resend waits for the server retry window, then sends a new code',
-      (tester) async {
-    final auth = controller();
-    final challenge = await auth.requestOtp(phone: '+46701234567');
-    expect(challenge.retryAfter, const Duration(seconds: 30));
-    await pump(tester, PhoneVerification(challenge: challenge, controller: auth));
+  testWidgets(
+    'resend waits for the server retry window, then sends a new code',
+    (tester) async {
+      final auth = controller();
+      final challenge = await auth.requestOtp(phone: '+46701234567');
+      expect(challenge.retryAfter, const Duration(seconds: 30));
+      await pump(
+        tester,
+        PhoneVerification(challenge: challenge, controller: auth),
+      );
 
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining('Resend code in', findRichText: true), findsOneWidget);
-    expect(find.textContaining('0:30', findRichText: true), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Resend code'), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(
+        find.textContaining('Resend code in', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('0:30', findRichText: true), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Resend code'), findsNothing);
 
-    await tester.pump(const Duration(seconds: 10));
-    expect(find.textContaining('0:20', findRichText: true), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.textContaining('0:20', findRichText: true), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 21));
-    final resend = find.widgetWithText(TextButton, 'Resend code');
-    expect(resend, findsOneWidget);
+      await tester.pump(const Duration(seconds: 21));
+      final resend = find.widgetWithText(TextButton, 'Resend code');
+      expect(resend, findsOneWidget);
 
-    await tester.ensureVisible(resend);
-    await tester.tap(resend);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.ensureVisible(resend);
+      await tester.tap(resend);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('New code sent.'), findsOneWidget);
-    expect(find.textContaining('Resend code in', findRichText: true), findsOneWidget);
-    await unmount(tester);
-  });
+      expect(find.text('New code sent.'), findsOneWidget);
+      expect(
+        find.textContaining('Resend code in', findRichText: true),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    },
+  );
 
-  testWidgets('a known number is shown back to the rider, formatted', (tester) async {
+  testWidgets('a known number is shown back to the rider, formatted', (
+    tester,
+  ) async {
     await pump(tester, const PhoneVerification(phoneNumber: '+46701234567'));
 
     expect(
@@ -109,18 +127,27 @@ void main() {
     await pump(tester, const PhoneVerification());
 
     expect(
-      find.textContaining("We've sent a code to your phone", findRichText: true),
+      find.textContaining(
+        "We've sent a code to your phone",
+        findRichText: true,
+      ),
       findsOneWidget,
     );
     expect(find.textContaining('+', findRichText: true), findsNothing);
   });
 
-  testWidgets('Verify stays locked until four digits are entered', (tester) async {
+  testWidgets('Verify stays locked until four digits are entered', (
+    tester,
+  ) async {
     final auth = controller();
     final challenge = await auth.requestOtp(phone: '+46701234567');
-    await pump(tester, PhoneVerification(challenge: challenge, controller: auth));
+    await pump(
+      tester,
+      PhoneVerification(challenge: challenge, controller: auth),
+    );
 
-    bool verifyEnabled() => tester
+    bool verifyEnabled() =>
+        tester
             .widget<InkWell>(
               find.descendant(
                 of: find.widgetWithText(AuthPrimaryButton, 'Verify'),
@@ -131,7 +158,10 @@ void main() {
         null;
 
     expect(verifyEnabled(), isFalse);
-    final input = find.descendant(of: find.byType(Pinput), matching: find.byType(EditableText));
+    final input = find.descendant(
+      of: find.byType(Pinput),
+      matching: find.byType(EditableText),
+    );
     await tester.enterText(input, '123');
     await tester.pump();
     expect(verifyEnabled(), isFalse);
@@ -141,7 +171,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('an expired code says so instead of calling it wrong', (tester) async {
+  testWidgets('an expired code says so instead of calling it wrong', (
+    tester,
+  ) async {
     final auth = controller();
     final expired = OtpChallenge(
       phone: '+46701234567',
@@ -153,7 +185,10 @@ void main() {
     await pump(tester, PhoneVerification(challenge: expired, controller: auth));
 
     await tester.enterText(
-      find.descendant(of: find.byType(Pinput), matching: find.byType(EditableText)),
+      find.descendant(
+        of: find.byType(Pinput),
+        matching: find.byType(EditableText),
+      ),
       '1234',
     );
     await tester.pump();

@@ -86,7 +86,8 @@ class WalletAndPaymentsScreen extends StatefulWidget {
   final int initialTab;
 
   @override
-  State<WalletAndPaymentsScreen> createState() => _WalletAndPaymentsScreenState();
+  State<WalletAndPaymentsScreen> createState() =>
+      _WalletAndPaymentsScreenState();
 }
 
 class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
@@ -118,7 +119,10 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 48),
@@ -129,7 +133,10 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  for (final (index, title) in [(0, context.l10n.menuWallet), (1, context.l10n.payments)])
+                  for (final (index, title) in [
+                    (0, context.l10n.menuWallet),
+                    (1, context.l10n.payments),
+                  ])
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -139,10 +146,18 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
                             _tab = index;
                           }),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: _tab == index ? const Color(0xFF11181D) : Colors.white,
-                            foregroundColor: _tab == index ? Colors.white : const Color(0xFF11181D),
+                            backgroundColor: _tab == index
+                                ? const Color(0xFF11181D)
+                                : Colors.white,
+                            foregroundColor: _tab == index
+                                ? Colors.white
+                                : const Color(0xFF11181D),
                           ),
-                          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ),
@@ -459,29 +474,38 @@ class _WalletHomeState extends State<WalletHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!widget.embedded) Row(
-                children: [
-                  Semantics(
-                    button: true,
-                    label: context.l10n.back,
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        customBorder: const CircleBorder(),
-                        child: const SizedBox(
-                          width: 42,
-                          height: 42,
-                          child: Icon(Icons.arrow_back_rounded, color: _ink),
+              if (!widget.embedded)
+                Row(
+                  children: [
+                    Semantics(
+                      button: true,
+                      label: context.l10n.back,
+                      child: Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: () => Navigator.pop(context),
+                          customBorder: const CircleBorder(),
+                          child: const SizedBox(
+                            width: 42,
+                            height: 42,
+                            child: Icon(Icons.arrow_back_rounded, color: _ink),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(child: Text(context.l10n.menuWallet, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(16, weight: FontWeight.w700))),
-                  const SizedBox(width: 42),
-                ],
-              ),
+                    Expanded(
+                      child: Text(
+                        context.l10n.menuWallet,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _style(16, weight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 42),
+                  ],
+                ),
               const SizedBox(height: 10),
               SizedBox(
                 height: 196,
@@ -581,9 +605,7 @@ class _WalletHomeState extends State<WalletHome> {
                         // rider-r5-14: exact, as Pay With shows it and as
                         // Select Ride compares it; rounding up claimed öre
                         // the wallet does not have.
-                        formatMoney(
-                          Money.fromLegacyMajor(_balance, _currency),
-                        ),
+                        formatMoney(Money.fromLegacyMajor(_balance, _currency)),
                         style: _style(
                           34,
                           weight: FontWeight.w700,
@@ -609,7 +631,9 @@ class _WalletHomeState extends State<WalletHome> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Text(
                                   _demoPayments
@@ -629,9 +653,17 @@ class _WalletHomeState extends State<WalletHome> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
-                      const Icon(Icons.confirmation_number_outlined, color: _muted),
+                      const Icon(
+                        Icons.confirmation_number_outlined,
+                        color: _muted,
+                      ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(context.l10n.vouchersUnavailable, style: _style(14, color: _muted))),
+                      Expanded(
+                        child: Text(
+                          context.l10n.vouchersUnavailable,
+                          style: _style(14, color: _muted),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -694,8 +726,9 @@ class _WalletScreenState extends State<WalletScreen> {
     final zone = await currentRiderZone();
     List<String>? methods;
     try {
-      methods = (await AppScope.instance.riderConfig.forZone(zone.id))
-          .paymentMethods;
+      methods = (await AppScope.instance.riderConfig.forZone(
+        zone.id,
+      )).paymentMethods;
     } catch (_) {
       methods = null;
     }
@@ -960,36 +993,39 @@ class _WalletScreenState extends State<WalletScreen> {
                               color: _line,
                             ),
                           ],
-                          if (!_isAndroid && _offers('apple_pay')) _paymentTile(
-                            id: 'apple',
-                            title: 'Apple Pay',
-                            detail: context.l10n.paysWhenSearchStarts,
-                            brand: 'apple',
-                          ),
+                          if (!_isAndroid && _offers('apple_pay'))
+                            _paymentTile(
+                              id: 'apple',
+                              title: 'Apple Pay',
+                              detail: context.l10n.paysWhenSearchStarts,
+                              brand: 'apple',
+                            ),
                           const Divider(
                             height: 1,
                             indent: 62,
                             endIndent: 16,
                             color: _line,
                           ),
-                          if (!_isIos && _offers('google_pay')) _paymentTile(
-                            id: 'google',
-                            title: 'Google Pay',
-                            detail: context.l10n.paysWhenSearchStarts,
-                            brand: 'google',
-                          ),
+                          if (!_isIos && _offers('google_pay'))
+                            _paymentTile(
+                              id: 'google',
+                              title: 'Google Pay',
+                              detail: context.l10n.paysWhenSearchStarts,
+                              brand: 'google',
+                            ),
                           const Divider(
                             height: 1,
                             indent: 62,
                             endIndent: 16,
                             color: _line,
                           ),
-                          if (_offers('cash')) _paymentTile(
-                            id: 'cash',
-                            title: context.l10n.payCash,
-                            detail: context.l10n.payDriverCash,
-                            brand: 'cash',
-                          ),
+                          if (_offers('cash'))
+                            _paymentTile(
+                              id: 'cash',
+                              title: context.l10n.payCash,
+                              detail: context.l10n.payDriverCash,
+                              brand: 'cash',
+                            ),
                           for (final method in _extraMethods) ...[
                             const Divider(
                               height: 1,
@@ -1004,7 +1040,10 @@ class _WalletScreenState extends State<WalletScreen> {
                               brand: method['id']!,
                             ),
                           ],
-                          for (final card in _offers('card') ? _cards.list() : const <SavedCard>[]) ...[
+                          for (final card
+                              in _offers('card')
+                                  ? _cards.list()
+                                  : const <SavedCard>[]) ...[
                             const Divider(
                               height: 1,
                               indent: 62,
@@ -1014,7 +1053,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             _paymentTile(
                               id: card.methodBrand,
                               title: card.displayName,
-                              detail: context.l10n.cardExpires(card.expiryLabel),
+                              detail: context.l10n.cardExpires(
+                                card.expiryLabel,
+                              ),
                               brand: card.methodBrand,
                               onRemove: () => _confirmRemoveCard(card),
                             ),
@@ -1046,12 +1087,24 @@ class _WalletScreenState extends State<WalletScreen> {
                       child: Semantics(
                         enabled: false,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 15,
+                            vertical: 15,
+                          ),
                           child: Row(
                             children: [
-                              const Icon(Icons.confirmation_number_outlined, color: _muted, size: 21),
+                              const Icon(
+                                Icons.confirmation_number_outlined,
+                                color: _muted,
+                                size: 21,
+                              ),
                               const SizedBox(width: 17),
-                              Expanded(child: Text(context.l10n.vouchersUnavailable, style: _style(12, color: _muted))),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.vouchersUnavailable,
+                                  style: _style(12, color: _muted),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1253,7 +1306,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(12.5, weight: FontWeight.w600)),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _style(12.5, weight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       selected ? context.l10n.defaultForRides : detail,

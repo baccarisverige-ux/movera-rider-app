@@ -16,8 +16,10 @@ class WalletSplit {
   });
 
   /// No wallet part: the method pays [totalMinor].
-  const WalletSplit.none(this.totalMinor, [this.currency = Money.defaultCurrency])
-    : walletMinor = 0;
+  const WalletSplit.none(
+    this.totalMinor, [
+    this.currency = Money.defaultCurrency,
+  ]) : walletMinor = 0;
 
   /// The wallet covers up to [balanceMinor] of [totalMinor].
   factory WalletSplit.of({
@@ -71,12 +73,10 @@ class WalletSplit {
   /// The parts as shown. Kronor are whole (the remainder is the total
   /// shown less the wallet shown, so the parts add up); euros and dinars
   /// are exact to the minor unit, so they add up as they are.
-  String get totalLabel => _kronor
-      ? formatKr(totalKr)
-      : formatMoney(Money(totalMinor, currency));
-  String get walletLabel => _kronor
-      ? formatKr(walletKr)
-      : formatMoney(Money(walletMinor, currency));
+  String get totalLabel =>
+      _kronor ? formatKr(totalKr) : formatMoney(Money(totalMinor, currency));
+  String get walletLabel =>
+      _kronor ? formatKr(walletKr) : formatMoney(Money(walletMinor, currency));
   String get remainderLabel => _kronor
       ? formatKr(remainderKr)
       : formatMoney(Money(remainderMinor, currency));

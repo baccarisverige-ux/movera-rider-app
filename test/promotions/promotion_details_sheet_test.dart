@@ -153,18 +153,20 @@ void main() {
     expect(find.text('Max 15 DT off per ride'), findsOneWidget);
   });
 
-  testWidgets('Q10: no cap set, no cap text (the promotion\'s own is not shown)',
-      (tester) async {
-    await pump(tester, promotion: RiderPromotion.fromJson(json)!);
-    expect(find.textContaining('off per ride'), findsNothing);
+  testWidgets(
+    'Q10: no cap set, no cap text (the promotion\'s own is not shown)',
+    (tester) async {
+      await pump(tester, promotion: RiderPromotion.fromJson(json)!);
+      expect(find.textContaining('off per ride'), findsNothing);
 
-    // A cap in another currency than the zone's is never shown.
-    await pump(
-      tester,
-      promotion: RiderPromotion.fromJson(json)!,
-      currency: 'EUR',
-      cap: const Money(5000, 'SEK'),
-    );
-    expect(find.textContaining('off per ride'), findsNothing);
-  });
+      // A cap in another currency than the zone's is never shown.
+      await pump(
+        tester,
+        promotion: RiderPromotion.fromJson(json)!,
+        currency: 'EUR',
+        cap: const Money(5000, 'SEK'),
+      );
+      expect(find.textContaining('off per ride'), findsNothing);
+    },
+  );
 }

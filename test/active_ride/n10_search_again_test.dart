@@ -101,7 +101,11 @@ void main() {
     final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
     realtime.holdAssignment();
     for (final step in steps) {
-      realtime.emit(step, latitude: _pickup.latitude, longitude: _pickup.longitude);
+      realtime.emit(
+        step,
+        latitude: _pickup.latitude,
+        longitude: _pickup.longitude,
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
     }
@@ -122,8 +126,10 @@ void main() {
     ]);
     realtime.emit(RideStatus.noShow);
     await frames(tester);
-    expect(find.byKey(const ValueKey<String>('ride-terminal-state-noShow')),
-        findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('ride-terminal-state-noShow')),
+      findsOneWidget,
+    );
     expect(find.text('Search again'), findsOneWidget);
     expect(find.text('Back to home'), findsOneWidget);
     // The trip sheet behind says how it ended: no stale "almost there", no
@@ -156,7 +162,8 @@ void main() {
     // The booking goes through the app's in-process API: let it run.
     for (var i = 0; i < 30; i++) {
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump(const Duration(milliseconds: 100));
     }
     // A price other than the one shown is asked first.
@@ -165,7 +172,8 @@ void main() {
       await tester.tap(accept);
       for (var i = 0; i < 30; i++) {
         await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
         await tester.pump(const Duration(milliseconds: 100));
       }
     }
@@ -187,11 +195,16 @@ void main() {
       RideStatus.tripStarted,
       RideStatus.tripInProgress,
     ]);
-    realtime.emit(RideStatus.endedByDriver,
-        latitude: _destination.latitude, longitude: _destination.longitude);
+    realtime.emit(
+      RideStatus.endedByDriver,
+      latitude: _destination.latitude,
+      longitude: _destination.longitude,
+    );
     await frames(tester, 20);
-    expect(find.byKey(const ValueKey<String>('ride-terminal-state-endedByDriver')),
-        findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('ride-terminal-state-endedByDriver')),
+      findsOneWidget,
+    );
     expect(find.text('Driver is almost there'), findsNothing);
     expect(find.byType(RealtimeConnectionBanner), findsNothing);
     expect(find.text('Search again'), findsOneWidget);
@@ -200,7 +213,8 @@ void main() {
     await tester.tap(find.text('Search again'));
     for (var i = 0; i < 30; i++) {
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump(const Duration(milliseconds: 100));
     }
     final accept = find.byKey(const ValueKey('rebook-price-accept'));
@@ -208,7 +222,8 @@ void main() {
       await tester.tap(accept);
       for (var i = 0; i < 30; i++) {
         await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
         await tester.pump(const Duration(milliseconds: 100));
       }
     }
@@ -231,9 +246,11 @@ void main() {
 
   test('only a no-show and a driver end offer Search again', () {
     for (final status in RideStatus.values) {
-      expect(canSearchAgainAfter(status),
-          status == RideStatus.noShow || status == RideStatus.endedByDriver,
-          reason: status.name);
+      expect(
+        canSearchAgainAfter(status),
+        status == RideStatus.noShow || status == RideStatus.endedByDriver,
+        reason: status.name,
+      );
     }
   });
 }
@@ -249,8 +266,7 @@ class _BlankMaps extends GoogleMapsFlutterPlatform {
     required MapWidgetConfiguration widgetConfiguration,
     MapConfiguration mapConfiguration = const MapConfiguration(),
     MapObjects mapObjects = const MapObjects(),
-  }) =>
-      const SizedBox.expand();
+  }) => const SizedBox.expand();
 
   @override
   void dispose({required int mapId}) {}

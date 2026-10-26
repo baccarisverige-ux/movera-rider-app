@@ -80,35 +80,35 @@ void main() {
     RideStatus.tripFailed,
     RideStatus.noDriverFound,
   ]) {
-    test('resync delivers authoritative ${terminal.name} exactly once', () async {
-      final (api, realtime, rideId) = await harness();
-      addTearDown(realtime.dispose);
+    test(
+      'resync delivers authoritative ${terminal.name} exactly once',
+      () async {
+        final (api, realtime, rideId) = await harness();
+        addTearDown(realtime.dispose);
 
-      final events = <RideRealtimeEvent>[];
-      final subscription = realtime.subscribe(rideId).listen(events.add);
-      addTearDown(subscription.cancel);
+        final events = <RideRealtimeEvent>[];
+        final subscription = realtime.subscribe(rideId).listen(events.add);
+        addTearDown(subscription.cancel);
 
-      await setServerStatus(api, rideId, terminal);
-      await realtime.reconnectAndResync(rideId);
-      await Future<void>.delayed(Duration.zero);
+        await setServerStatus(api, rideId, terminal);
+        await realtime.reconnectAndResync(rideId);
+        await Future<void>.delayed(Duration.zero);
 
-      final terminalEvents = events
-          .where((event) => event.status == terminal)
-          .toList(growable: false);
+        final terminalEvents = events
+            .where((event) => event.status == terminal)
+            .toList(growable: false);
 
-      expect(terminalEvents, hasLength(1));
-      expect(terminalEvents.single.rideId, rideId);
-      expect(realtime.lastStatus, terminal);
+        expect(terminalEvents, hasLength(1));
+        expect(terminalEvents.single.rideId, rideId);
+        expect(realtime.lastStatus, terminal);
 
-      // A second resync after the terminal delivery must not duplicate it.
-      await realtime.reconnectAndResync(rideId);
-      await Future<void>.delayed(Duration.zero);
+        // A second resync after the terminal delivery must not duplicate it.
+        await realtime.reconnectAndResync(rideId);
+        await Future<void>.delayed(Duration.zero);
 
-      expect(
-        events.where((event) => event.status == terminal),
-        hasLength(1),
-      );
-    });
+        expect(events.where((event) => event.status == terminal), hasLength(1));
+      },
+    );
   }
 
   test('resync still delivers a non-terminal authoritative status', () async {

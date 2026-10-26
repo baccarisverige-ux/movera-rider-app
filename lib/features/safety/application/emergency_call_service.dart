@@ -20,7 +20,7 @@ abstract class EmergencyDialer {
 /// Production dialer. It requests the platform to open an external `tel:` URI.
 class SystemEmergencyDialer implements EmergencyDialer {
   SystemEmergencyDialer({EmergencyUriLauncher? launcher})
-      : _launcher = launcher ?? _launch;
+    : _launcher = launcher ?? _launch;
 
   final EmergencyUriLauncher _launcher;
 
@@ -59,7 +59,7 @@ class RecordingEmergencyDialer implements EmergencyDialer {
 
 class EmergencyCallService {
   EmergencyCallService({EmergencyDialer? dialer})
-      : _dialer = dialer ?? SystemEmergencyDialer();
+    : _dialer = dialer ?? SystemEmergencyDialer();
 
   static final EmergencyCallService shared = EmergencyCallService();
 

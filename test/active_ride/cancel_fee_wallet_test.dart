@@ -26,22 +26,26 @@ void main() {
       ..authoritativeVersion = null
       ..authoritativeUpdatedAt = null
       ..restoreFromBackend(RideStatus.driverArriving, id: rideId);
-    await RideSnapshotStore.save(RideSnapshot(
-      status: RideStatus.driverArriving,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.34,
-      pickupLng: 18.05,
-      destinationLat: 59.65,
-      destinationLng: 17.93,
-      rideType: 'Movera',
-      price: 245,
-      paymentMethod: 'Movera Wallet',
-      paymentMethodId: 'wallet',
-      rideId: rideId,
-    ));
-    final api = ApiClient(client: MockClient((_) async => http.Response(
+    await RideSnapshotStore.save(
+      RideSnapshot(
+        status: RideStatus.driverArriving,
+        savedAt: DateTime.now(),
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.34,
+        pickupLng: 18.05,
+        destinationLat: 59.65,
+        destinationLng: 17.93,
+        rideType: 'Movera',
+        price: 245,
+        paymentMethod: 'Movera Wallet',
+        paymentMethodId: 'wallet',
+        rideId: rideId,
+      ),
+    );
+    final api = ApiClient(
+      client: MockClient(
+        (_) async => http.Response(
           jsonEncode({
             'code': 'OK',
             'ride': {
@@ -57,9 +61,13 @@ void main() {
           }),
           200,
           headers: {'content-type': 'application/json'},
-        )));
+        ),
+      ),
+    );
 
-    await ActiveRideController(api: api).markCancelled(reasonId: 'plans_changed');
+    await ActiveRideController(
+      api: api,
+    ).markCancelled(reasonId: 'plans_changed');
 
     expect(await WalletStore().loadBalance(), 65);
   });

@@ -10,6 +10,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 RideSnapshot _snapshot({
@@ -98,45 +99,48 @@ void main() {
     RideSnapshotStore.epoch = 0;
   });
 
-  test('price edit that commits first is preserved through assignment', () async {
-    final transport = InProcessMockClient(
-      latency: const Duration(milliseconds: 50),
-    )..rides['r1'] = _rideJson();
-    final api = ApiClient(client: transport);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
-    final ride = RideSession()..rideId = 'r1';
-    final controller = _controller(realtime: realtime, ride: ride, api: api);
-    var matches = 0;
+  test(
+    'price edit that commits first is preserved through assignment',
+    () async {
+      final transport = InProcessMockClient(
+        latency: const Duration(milliseconds: 50),
+      )..rides['r1'] = _rideJson();
+      final api = ApiClient(client: transport);
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final ride = RideSession()..rideId = 'r1';
+      final controller = _controller(realtime: realtime, ride: ride, api: api);
+      var matches = 0;
 
-    controller.start(
-      snapshot: _snapshot(),
-      onTick: (_) {},
-      onMatched: () => matches += 1,
-    );
+      controller.start(
+        snapshot: _snapshot(),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
 
-    final edit = controller.confirmPriceIncrease(20);
-    await Future<void>.delayed(const Duration(milliseconds: 5));
-    realtime.assignNow();
+      final edit = controller.confirmPriceIncrease(20);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      realtime.assignNow();
 
-    final changed = await edit;
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+      final changed = await edit;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    expect(changed, isTrue);
-    expect(controller.currentPrice, 279);
-    expect(mockFareKr(transport.rides['r1']), 279);
-    expect(transport.rides['r1']?['status'], 'accepted');
-    expect(ride.status, RideStatus.driverAssigned);
-    expect(matches, 1);
-    final stored = await RideSnapshotStore.read();
-    expect(stored?.price, 279);
-    expect(stored?.status, RideStatus.driverAssigned);
+      expect(changed, isTrue);
+      expect(controller.currentPrice, 279);
+      expect(mockFareKr(transport.rides['r1']), 279);
+      expect(transport.rides['r1']?['status'], 'accepted');
+      expect(ride.status, RideStatus.driverAssigned);
+      expect(matches, 1);
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.price, 279);
+      expect(stored?.status, RideStatus.driverAssigned);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 
   test('assignment that commits first rejects a later price edit', () async {
     final transport = InProcessMockClient(
@@ -150,11 +154,7 @@ void main() {
     final ride = RideSession()..rideId = 'r1';
     final controller = _controller(realtime: realtime, ride: ride, api: api);
 
-    controller.start(
-      snapshot: _snapshot(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: _snapshot(), onTick: (_) {}, onMatched: () {});
 
     realtime.assignNow();
     await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -171,51 +171,50 @@ void main() {
     realtime.dispose();
   });
 
-  test('pickup edit that commits first is preserved through assignment', () async {
-    final transport = InProcessMockClient(
-      latency: const Duration(milliseconds: 50),
-    )..rides['r1'] = _rideJson();
-    final api = ApiClient(client: transport);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
-    final ride = RideSession()..rideId = 'r1';
-    final controller = _controller(realtime: realtime, ride: ride, api: api);
+  test(
+    'pickup edit that commits first is preserved through assignment',
+    () async {
+      final transport = InProcessMockClient(
+        latency: const Duration(milliseconds: 50),
+      )..rides['r1'] = _rideJson();
+      final api = ApiClient(client: transport);
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final ride = RideSession()..rideId = 'r1';
+      final controller = _controller(realtime: realtime, ride: ride, api: api);
 
-    controller.start(
-      snapshot: _snapshot(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+      controller.start(snapshot: _snapshot(), onTick: (_) {}, onMatched: () {});
 
-    final edit = controller.updatePickup(
-      address: 'Pickup B',
-      latitude: 59.35,
-      longitude: 18.07,
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 5));
-    realtime.assignNow();
+      final edit = controller.updatePickup(
+        address: 'Pickup B',
+        latitude: 59.35,
+        longitude: 18.07,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      realtime.assignNow();
 
-    final changed = await edit;
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+      final changed = await edit;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    expect(changed, isTrue);
-    expect(controller.pickupAddress, 'Pickup B');
-    expect(controller.pickupLat, 59.35);
-    expect(controller.pickupLng, 18.07);
-    expect(transport.rides['r1']?['pickupAddress'], 'Pickup B');
-    expect(transport.rides['r1']?['pickupLat'], 59.35);
-    expect(transport.rides['r1']?['pickupLng'], 18.07);
-    expect(transport.rides['r1']?['status'], 'accepted');
-    expect(ride.status, RideStatus.driverAssigned);
-    final stored = await RideSnapshotStore.read();
-    expect(stored?.pickupAddress, 'Pickup B');
-    expect(stored?.status, RideStatus.driverAssigned);
+      expect(changed, isTrue);
+      expect(controller.pickupAddress, 'Pickup B');
+      expect(controller.pickupLat, 59.35);
+      expect(controller.pickupLng, 18.07);
+      expect(transport.rides['r1']?['pickupAddress'], 'Pickup B');
+      expect(transport.rides['r1']?['pickupLat'], 59.35);
+      expect(transport.rides['r1']?['pickupLng'], 18.07);
+      expect(transport.rides['r1']?['status'], 'accepted');
+      expect(ride.status, RideStatus.driverAssigned);
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.pickupAddress, 'Pickup B');
+      expect(stored?.status, RideStatus.driverAssigned);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 
   test('assignment waits for an edit snapshot save to finish', () async {
     final transport = InProcessMockClient()..rides['r1'] = _rideJson();

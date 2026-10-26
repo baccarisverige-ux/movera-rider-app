@@ -132,28 +132,25 @@ void main() {
     },
   );
 
-  test(
-    'rider-r4-9: a bare projection (no serverTime) ages the fix by its own '
-    'updatedAt, not by the device clock',
-    () async {
-      final device = t0.add(const Duration(minutes: 3));
-      final t = build([
-        {
-          'id': 'ride-1',
-          'status': 'driverArriving',
-          'version': 1,
-          'updatedAt': t0.add(const Duration(seconds: 5)).toIso8601String(),
-          'driverLocation': {
-            'lat': 59.33,
-            'lng': 18.06,
-            'measuredAt': t0.toIso8601String(),
-          },
+  test('rider-r4-9: a bare projection (no serverTime) ages the fix by its own '
+      'updatedAt, not by the device clock', () async {
+    final device = t0.add(const Duration(minutes: 3));
+    final t = build([
+      {
+        'id': 'ride-1',
+        'status': 'driverArriving',
+        'version': 1,
+        'updatedAt': t0.add(const Duration(seconds: 5)).toIso8601String(),
+        'driverLocation': {
+          'lat': 59.33,
+          'lng': 18.06,
+          'measuredAt': t0.toIso8601String(),
         },
-      ], clock: () => device);
-      final event = await t.rt.subscribe('ride-1').first;
-      expect(event.locationAt, device.subtract(const Duration(seconds: 5)));
-    },
-  );
+      },
+    ], clock: () => device);
+    final event = await t.rt.subscribe('ride-1').first;
+    expect(event.locationAt, device.subtract(const Duration(seconds: 5)));
+  });
 
   test(
     'the transport sequence does not restart when a screen re-subscribes',
@@ -199,10 +196,11 @@ void main() {
     () async {
       var now = t0;
       final connection = RealtimeConnection();
-      final t = build([
-        body(eventId: 'ev-1', version: 4),
-        404,
-      ], clock: () => now, connection: connection);
+      final t = build(
+        [body(eventId: 'ev-1', version: 4), 404],
+        clock: () => now,
+        connection: connection,
+      );
       final events = <RideRealtimeEvent>[];
       final sub = t.rt.subscribe('ride-1').listen(events.add);
       await settle();

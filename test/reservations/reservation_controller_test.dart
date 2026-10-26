@@ -107,16 +107,19 @@ void main() {
     expect(c.completed(), isEmpty);
   });
 
-  test('missing driver payload stays pending on the same reservation', () async {
-    final c = controller();
-    await c.create(draft);
-    await c.assignMockDriver('rsv_ctrl');
-    final ride = c.byId('rsv_ctrl')!;
-    expect(ride.status, ReservationStatus.driverAssignmentPending);
-    expect(ride.driverAssigned, isFalse);
-    expect(ride.driver, isNull);
-    expect(c.upcoming(), hasLength(1));
-  });
+  test(
+    'missing driver payload stays pending on the same reservation',
+    () async {
+      final c = controller();
+      await c.create(draft);
+      await c.assignMockDriver('rsv_ctrl');
+      final ride = c.byId('rsv_ctrl')!;
+      expect(ride.status, ReservationStatus.driverAssignmentPending);
+      expect(ride.driverAssigned, isFalse);
+      expect(ride.driver, isNull);
+      expect(c.upcoming(), hasLength(1));
+    },
+  );
 
   test('explicit driver assignment is the same reservation', () async {
     final c = controller();

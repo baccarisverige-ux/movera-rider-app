@@ -136,9 +136,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     // The trip is real elapsed time in the pickup zone, not the device
     // zone, and the booking reads a repeated hour as its later copy: step
     // back a slot until the booked instant is not after arrival - trip.
-    final latest = _schedule
-        .toUtc(chosen)
-        .subtract(Duration(minutes: trip));
+    final latest = _schedule.toUtc(chosen).subtract(Duration(minutes: trip));
     final wall = ZoneClock.wallTime(widget.timeZone, latest);
     var slot = DateTime.utc(
       wall.year,
@@ -182,7 +180,13 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     }
     final first = _schedule.minimumPickup(now);
     return StockholmSchedule.roundToFive(
-      DateTime.utc(first.year, first.month, first.day, first.hour, first.minute + trip),
+      DateTime.utc(
+        first.year,
+        first.month,
+        first.day,
+        first.hour,
+        first.minute + trip,
+      ),
     );
   }
 
@@ -194,8 +198,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       final corrected = _clampChosen(_selectedDateTime, now);
       setState(() {
         _selectedDateTime = corrected;
-        _pickupCorrectionMessage =
-            context.l10n.pickupTimeUpdated;
+        _pickupCorrectionMessage = context.l10n.pickupTimeUpdated;
       });
       _commitSchedule();
       return;
@@ -234,10 +237,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   void _commitSchedule() {
-    widget.session?.captureSchedule(
-      _pickupAt,
-      timezone: widget.timeZone,
-    );
+    widget.session?.captureSchedule(_pickupAt, timezone: widget.timeZone);
   }
 
   void _setPickupMode(bool pickupMode) {
@@ -677,7 +677,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           ),
         ),
         const Spacer(),
-        Text(context.l10n.navScheduleRide, style: _style(12, weight: FontWeight.w600)),
+        Text(
+          context.l10n.navScheduleRide,
+          style: _style(12, weight: FontWeight.w600),
+        ),
         const Spacer(),
         const SizedBox(width: A11y.minTapIOS),
       ],
@@ -841,7 +844,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _pickupMode ? context.l10n.estimatedArrival : context.l10n.estimatedPickup,
+              _pickupMode
+                  ? context.l10n.estimatedArrival
+                  : context.l10n.estimatedPickup,
               style: _style(11, weight: FontWeight.w500, color: _muted),
             ),
           ),
@@ -879,11 +884,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
               Text(
                 _pickupCorrectionMessage!,
                 textAlign: TextAlign.center,
-                style: _style(
-                  11,
-                  weight: FontWeight.w500,
-                  color: _muted,
-                ),
+                style: _style(11, weight: FontWeight.w500, color: _muted),
               ),
               const SizedBox(height: 8),
             ],
@@ -906,7 +907,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                   ),
                 ),
                 child: Text(
-                  _continuing ? context.l10n.continuing : context.l10n.continueLabel,
+                  _continuing
+                      ? context.l10n.continuing
+                      : context.l10n.continueLabel,
                   style: _style(
                     14,
                     weight: FontWeight.w600,

@@ -257,7 +257,8 @@ void main() {
       booked.pickupWallTime.isBefore(slotAtStart) ||
           booked.pickupWallTime.isAfter(slotAtEnd),
       isFalse,
-      reason: 'the picker books the clamped prefill: the earliest legal slot '
+      reason:
+          'the picker books the clamped prefill: the earliest legal slot '
           'at some moment between $slotAtStart and $slotAtEnd, '
           'got ${booked.pickupWallTime}',
     );

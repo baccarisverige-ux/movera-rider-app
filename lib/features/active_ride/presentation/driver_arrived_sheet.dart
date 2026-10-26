@@ -28,10 +28,7 @@ Future<void> showDriverArrivedSheet(
     builder: (sheetContext) {
       final route = ModalRoute.of(sheetContext);
       if (route != null) onRoute?.call(route);
-      return DriverArrivedSheet(
-        driver: driver,
-        onWay: onWay,
-      );
+      return DriverArrivedSheet(driver: driver, onWay: onWay);
     },
   );
 }
@@ -50,11 +47,7 @@ void closeRouteByReference(Route<Object?>? route) {
 }
 
 class DriverArrivedSheet extends StatelessWidget {
-  const DriverArrivedSheet({
-    super.key,
-    this.driver,
-    this.onWay,
-  });
+  const DriverArrivedSheet({super.key, this.driver, this.onWay});
 
   final MatchedDriver? driver;
   final Future<void> Function()? onWay;
@@ -135,10 +128,7 @@ class DriverArrivedSheet extends StatelessWidget {
                     if (vehicle != null && vehicle.isNotEmpty)
                       Text(
                         vehicle,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: _muted,
-                        ),
+                        style: GoogleFonts.poppins(fontSize: 13, color: _muted),
                       ),
                   ],
                 ),

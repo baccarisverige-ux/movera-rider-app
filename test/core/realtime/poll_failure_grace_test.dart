@@ -17,7 +17,10 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 /// "Reconnecting" first, "Connection problem" after a run of failures, and
 /// is back within seconds of the server, never ending the search itself.
 void main() {
-  const live = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
+  const live = AppEnv(
+    flavor: AppFlavor.staging,
+    apiBaseUrl: 'https://x.invalid',
+  );
   final t0 = DateTime.utc(2026, 10, 26, 9);
   String searching(int version) => jsonEncode({
     'tripId': 'trp_1',
@@ -47,7 +50,9 @@ void main() {
       );
       final events = <RideRealtimeEvent>[];
       var done = false;
-      final sub = rt.subscribe('trp_1').listen(events.add, onDone: () => done = true);
+      final sub = rt
+          .subscribe('trp_1')
+          .listen(events.add, onDone: () => done = true);
       async.flushMicrotasks();
       expect(connection.state, RealtimeState.connected);
       expect(events.single.status, RideStatus.findingDriver);
@@ -73,7 +78,11 @@ void main() {
         async.elapse(const Duration(seconds: 2));
         if (connection.state == RealtimeState.connected) break;
       }
-      expect(connection.state, RealtimeState.connected, reason: 'back within 10 s');
+      expect(
+        connection.state,
+        RealtimeState.connected,
+        reason: 'back within 10 s',
+      );
       expect(calls, greaterThan(recoveredAt));
       expect(events.last.status, RideStatus.findingDriver);
 
@@ -92,9 +101,11 @@ void main() {
       final connection = RealtimeConnection();
       final rt = ApiRideRealtime(
         api: ApiClient(
-          client: MockClient((_) async => fail
-              ? http.Response('{"code":"unavailable"}', 503)
-              : http.Response(searching(1), 200)),
+          client: MockClient(
+            (_) async => fail
+                ? http.Response('{"code":"unavailable"}', 503)
+                : http.Response(searching(1), 200),
+          ),
           env: live,
         ),
         connection: connection,

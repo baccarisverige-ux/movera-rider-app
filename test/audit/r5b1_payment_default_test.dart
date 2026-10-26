@@ -13,7 +13,10 @@ void main() {
     var server = 'cash';
     var failNext = true;
     final api = ApiClient(
-      env: const AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid'),
+      env: const AppEnv(
+        flavor: AppFlavor.staging,
+        apiBaseUrl: 'https://x.invalid',
+      ),
       client: MockClient((request) async {
         // Contract `POST /payment-methods/default` `{method}` (staging).
         if (request.method == 'POST' && request.url.path.endsWith('/default')) {

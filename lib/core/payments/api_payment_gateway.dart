@@ -105,8 +105,11 @@ class ApiPaymentGateway implements PaymentGateway {
     Map<String, dynamic> response, {
     required String operation,
   }) {
-    final raw = response['status'] ??
-        (response['intent'] is Map ? (response['intent'] as Map)['status'] : null);
+    final raw =
+        response['status'] ??
+        (response['intent'] is Map
+            ? (response['intent'] as Map)['status']
+            : null);
     if (response['code'] != 'OK' || raw is! String || raw.trim().isEmpty) {
       throw PaymentTransportException(
         'Payment $operation was not acknowledged.',

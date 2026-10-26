@@ -13,7 +13,9 @@ void main() {
   }
 
   String oldDriverInfoInitial(String name) {
-    return name.trim().isEmpty ? '?' : name.trim().substring(0, 1).toUpperCase();
+    return name.trim().isEmpty
+        ? '?'
+        : name.trim().substring(0, 1).toUpperCase();
   }
 
   test('matches MatchedDriver/ReservationDriver.initial for typical names', () {
@@ -24,10 +26,7 @@ void main() {
 
   test('matches driver_info.dart inline formula with whenEmpty: "?"', () {
     for (final name in ['Erik', 'anna', '  Björn  ', '', '   ']) {
-      expect(
-        initialFromName(name, whenEmpty: '?'),
-        oldDriverInfoInitial(name),
-      );
+      expect(initialFromName(name, whenEmpty: '?'), oldDriverInfoInitial(name));
     }
   });
 }

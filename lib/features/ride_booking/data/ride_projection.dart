@@ -46,8 +46,9 @@ abstract final class RideProjection {
     }
     final rawDriver = ride['driver'];
     final rawCategory = _string(ride['categoryId'] ?? ride['rideType']);
-    final categoryId =
-        rawCategory == null ? null : CategoryIds.canonical(rawCategory);
+    final categoryId = rawCategory == null
+        ? null
+        : CategoryIds.canonical(rawCategory);
     final paymentMethodId = _string(
       ride['paymentMethodId'] ?? ride['paymentMethod'],
     );

@@ -48,29 +48,35 @@ void main() {
       final expected = status.isTerminal
           ? RestoredSurface.home
           : finding.contains(status)
-              ? RestoredSurface.finding
-              : waiting.contains(status)
-                  ? RestoredSurface.waiting
-                  : complete.contains(status)
-                      ? RestoredSurface.complete
-                      : RestoredSurface.home;
-      expect(coordinator.surfaceFor(_snapshot(status)), expected,
-          reason: 'unexpected restore surface for ${status.name}');
-    }
-  });
-
-  test('every stale ride status restores Home, including otherwise active states', () {
-    final coordinator = RideRestoreCoordinator(reader: () async => null);
-    final staleAt = DateTime.now().subtract(const Duration(days: 1));
-
-    for (final status in RideStatus.values) {
+          ? RestoredSurface.finding
+          : waiting.contains(status)
+          ? RestoredSurface.waiting
+          : complete.contains(status)
+          ? RestoredSurface.complete
+          : RestoredSurface.home;
       expect(
-        coordinator.surfaceFor(_snapshot(status, savedAt: staleAt)),
-        RestoredSurface.home,
-        reason: 'stale ${status.name} must never restore an active surface',
+        coordinator.surfaceFor(_snapshot(status)),
+        expected,
+        reason: 'unexpected restore surface for ${status.name}',
       );
     }
   });
+
+  test(
+    'every stale ride status restores Home, including otherwise active states',
+    () {
+      final coordinator = RideRestoreCoordinator(reader: () async => null);
+      final staleAt = DateTime.now().subtract(const Duration(days: 1));
+
+      for (final status in RideStatus.values) {
+        expect(
+          coordinator.surfaceFor(_snapshot(status, savedAt: staleAt)),
+          RestoredSurface.home,
+          reason: 'stale ${status.name} must never restore an active surface',
+        );
+      }
+    },
+  );
 
   test('null snapshot is the inverse of restore and lands Home', () {
     final coordinator = RideRestoreCoordinator(reader: () async => null);

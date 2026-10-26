@@ -24,15 +24,17 @@ void main() {
     final tokens = MemoryTokenStore();
     final api = ApiClient(
       tokens: tokens,
-      client: MockClient((_) async => http.Response(
-            jsonEncode({
-              'accessToken': 'a',
-              'refreshToken': 'r',
-              'isNewRider': true,
-            }),
-            200,
-            headers: {'content-type': 'application/json'},
-          )),
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'accessToken': 'a',
+            'refreshToken': 'r',
+            'isNewRider': true,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
     );
     final auth = AuthController(
       auth: AuthRepository(api: api, tokens: tokens),

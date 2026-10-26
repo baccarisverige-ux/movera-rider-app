@@ -35,10 +35,7 @@ void main() {
 
   test('dev/test may explicitly use in-process transport', () {
     for (final environment in <AppEnv>[dev, testEnv]) {
-      final api = ApiClient(
-        env: environment,
-        client: InProcessMockClient(),
-      );
+      final api = ApiClient(env: environment, client: InProcessMockClient());
       expect(api.usesMockTransport, isTrue);
     }
   });
@@ -106,9 +103,7 @@ void main() {
         realtime: realtime,
         paymentGateway: MockPaymentGateway(),
         push: NoopPushService(),
-        emergencyDialer: SystemEmergencyDialer(
-          launcher: (_) async => true,
-        ),
+        emergencyDialer: SystemEmergencyDialer(launcher: (_) async => true),
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
@@ -146,7 +141,6 @@ void main() {
 
     realtime.dispose();
   });
-
 
   test('release composition rejects unavailable payment placeholder', () {
     final api = ApiClient(env: production);
@@ -203,5 +197,4 @@ void main() {
 
     realtime.dispose();
   });
-
 }

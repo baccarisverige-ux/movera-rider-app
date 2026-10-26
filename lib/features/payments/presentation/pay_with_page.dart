@@ -162,7 +162,10 @@ class _PayWithPageState extends State<PayWithPage> {
                 children: [
                   Text(title, style: _t(15.5)),
                   if (subtitle != null)
-                    Text(subtitle, style: _t(12.5, w: FontWeight.w400, c: _muted)),
+                    Text(
+                      subtitle,
+                      style: _t(12.5, w: FontWeight.w400, c: _muted),
+                    ),
                 ],
               ),
             ),
@@ -234,7 +237,11 @@ class _PayWithPageState extends State<PayWithPage> {
                 leading: brandMark('wallet'),
                 // rider-r4-33: to the öre, as walletCoversFare compares it
                 // ("249,60 kr" is too low for 250 kr, never "250 kr").
-                title: context.l10n.walletBalance(formatMoney(Money.fromLegacyMajor(walletBalance, widget.walletCurrency))),
+                title: context.l10n.walletBalance(
+                  formatMoney(
+                    Money.fromLegacyMajor(walletBalance, widget.walletCurrency),
+                  ),
+                ),
                 subtitle: widget.walletCoversFare
                     ? context.l10n.walletTapToPay
                     : context.l10n.walletTooLowForRide,
@@ -249,7 +256,10 @@ class _PayWithPageState extends State<PayWithPage> {
                 value: _walletFirst,
                 onChanged: _toggleWalletFirst,
                 activeTrackColor: const Color(0xFF11181D),
-                title: Text(context.l10n.walletFirst, style: _t(15, w: FontWeight.w600)),
+                title: Text(
+                  context.l10n.walletFirst,
+                  style: _t(15, w: FontWeight.w600),
+                ),
                 subtitle: Text(
                   context.l10n.walletFirstBody,
                   style: _t(12.5, c: _muted),
@@ -276,11 +286,17 @@ class _PayWithPageState extends State<PayWithPage> {
             _section(context.l10n.vouchers),
             if (promo != null)
               _row(
-                leading: Image.asset(AppAssets.promoCard, width: 40, height: 28),
+                leading: Image.asset(
+                  AppAssets.promoCard,
+                  width: 40,
+                  height: 28,
+                ),
                 title: promo.title,
-                subtitle:
-                    context.l10n.ridesLeft(promo.ridesLeft),
-                trailing: const Icon(Icons.chevron_right_rounded, color: _muted),
+                subtitle: context.l10n.ridesLeft(promo.ridesLeft),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _muted,
+                ),
                 onTap: () => PromotionDetailsSheet.open(context, promo),
               ),
             _row(

@@ -98,7 +98,9 @@ void main() {
       code,
       RideHistory(
         reservations: ReservationController(
-          store: LocalReservationRepository(storage: MemoryReservationStorage()),
+          store: LocalReservationRepository(
+            storage: MemoryReservationStorage(),
+          ),
         ),
         onDemandReader: () async => [ride],
       ),
@@ -160,10 +162,7 @@ void main() {
           ),
         );
         expect(errors, isEmpty);
-        expect(
-          find.text(L10n.current.nearDestinationUpper),
-          findsOneWidget,
-        );
+        expect(find.text(L10n.current.nearDestinationUpper), findsOneWidget);
       });
 
       testWidgets('rider-u65: driver card Message fits a 360 px phone at 2x', (
@@ -232,20 +231,26 @@ void main() {
         expect(formatDistanceKm(1.24), '1,2 km');
       });
 
-      testWidgets('rider-u112: a server-ended ride shows its reason translated', (
-        tester,
-      ) async {
-        final ride = OnDemandRideHistoryStore.recordFor(
-          snapshot('r51-no-driver'),
-          terminalStatus: RideStatus.noDriverFound,
-        )!;
-        L10n.use(code);
-        await openHistoryDetail(tester, code, ride, L10n.current.resCancelled);
-        expect(
-          find.text(L10n.current.reasonLine(L10n.current.termNoDriverFound)),
-          findsOneWidget,
-        );
-      });
+      testWidgets(
+        'rider-u112: a server-ended ride shows its reason translated',
+        (tester) async {
+          final ride = OnDemandRideHistoryStore.recordFor(
+            snapshot('r51-no-driver'),
+            terminalStatus: RideStatus.noDriverFound,
+          )!;
+          L10n.use(code);
+          await openHistoryDetail(
+            tester,
+            code,
+            ride,
+            L10n.current.resCancelled,
+          );
+          expect(
+            find.text(L10n.current.reasonLine(L10n.current.termNoDriverFound)),
+            findsOneWidget,
+          );
+        },
+      );
 
       testWidgets('rider-38: History detail names the Wallet in the language', (
         tester,
@@ -262,31 +267,32 @@ void main() {
         );
       });
 
-      testWidgets('rider-42: a place added from Home is named in the language', (
-        tester,
-      ) async {
-        await pumpIn(
-          tester,
-          code,
-          Scaffold(
-            body: SavedPlacesRow(
-              homeAddress: null,
-              workAddress: null,
-              savedPlaces: const [
-                SavedPlaceData(
-                  title: 'restaurant',
-                  type: 'restaurant',
-                  address: 'Sveavägen 1',
-                ),
-              ],
-              onUseSavedPlace: (address, {required target, customType}) {},
-              onAddPlace: noop,
+      testWidgets(
+        'rider-42: a place added from Home is named in the language',
+        (tester) async {
+          await pumpIn(
+            tester,
+            code,
+            Scaffold(
+              body: SavedPlacesRow(
+                homeAddress: null,
+                workAddress: null,
+                savedPlaces: const [
+                  SavedPlaceData(
+                    title: 'restaurant',
+                    type: 'restaurant',
+                    address: 'Sveavägen 1',
+                  ),
+                ],
+                onUseSavedPlace: (address, {required target, customType}) {},
+                onAddPlace: noop,
+              ),
             ),
-          ),
-        );
-        expect(find.text(L10n.current.placeRestaurant), findsOneWidget);
-        expect(find.text('restaurant'), findsNothing);
-      });
+          );
+          expect(find.text(L10n.current.placeRestaurant), findsOneWidget);
+          expect(find.text('restaurant'), findsNothing);
+        },
+      );
 
       testWidgets('rider-49: an ended ride notification toast is translated', (
         tester,
@@ -343,7 +349,10 @@ void main() {
         await pumpIn(
           tester,
           code,
-          AddCardPage(cards: SavedCardsController(), now: DateTime(2026, 10, 13)),
+          AddCardPage(
+            cards: SavedCardsController(),
+            now: DateTime(2026, 10, 13),
+          ),
         );
         await tester.enterText(
           find.byKey(const ValueKey('add-card-number')),
@@ -370,7 +379,10 @@ void main() {
           find.byKey(const ValueKey('add-card-expiry')),
           '1230',
         );
-        await tester.enterText(find.byKey(const ValueKey('add-card-cvc')), '123');
+        await tester.enterText(
+          find.byKey(const ValueKey('add-card-cvc')),
+          '123',
+        );
         await tester.enterText(
           find.byKey(const ValueKey('add-card-holder')),
           'Alex Berg',
@@ -393,33 +405,36 @@ void main() {
         );
       });
 
-      test('rider-55: pickup spot chips and the booked label are translated', () async {
-        L10n.use(code);
-        const at = LatLng(59.3293, 18.0686);
-        final spots = await PickupSpotsController().forAddress(
-          at: at,
-          address: 'Klockarvägen 37, Huddinge',
-          home: pickupSpotOffset(at, northM: 100),
-        );
-        final titles = spots.map((s) => s.title).toList();
-        expect(titles, [
-          L10n.current.pickupSpotMainEntrance,
-          L10n.current.pickupSpotSideEntrance,
-          L10n.current.pickupSpotParking,
-          L10n.current.pickupSpotNearHome,
-        ]);
-        expect(titles, isNot(contains('Main entrance')));
-        expect(
-          spots.last.subtitle,
-          code == 'fr' ? 'À 100 m d’ici' : '100 m härifrån',
-        );
-        expect(
-          pickupSpotLabel('Klockarvägen 37, Huddinge', spots.first),
-          code == 'fr'
-              ? 'Klockarvägen 37 – Entrée principale'
-              : 'Klockarvägen 37 – Huvudentré',
-        );
-      });
+      test(
+        'rider-55: pickup spot chips and the booked label are translated',
+        () async {
+          L10n.use(code);
+          const at = LatLng(59.3293, 18.0686);
+          final spots = await PickupSpotsController().forAddress(
+            at: at,
+            address: 'Klockarvägen 37, Huddinge',
+            home: pickupSpotOffset(at, northM: 100),
+          );
+          final titles = spots.map((s) => s.title).toList();
+          expect(titles, [
+            L10n.current.pickupSpotMainEntrance,
+            L10n.current.pickupSpotSideEntrance,
+            L10n.current.pickupSpotParking,
+            L10n.current.pickupSpotNearHome,
+          ]);
+          expect(titles, isNot(contains('Main entrance')));
+          expect(
+            spots.last.subtitle,
+            code == 'fr' ? 'À 100 m d’ici' : '100 m härifrån',
+          );
+          expect(
+            pickupSpotLabel('Klockarvägen 37, Huddinge', spots.first),
+            code == 'fr'
+                ? 'Klockarvägen 37 – Entrée principale'
+                : 'Klockarvägen 37 – Huvudentré',
+          );
+        },
+      );
 
       for (final stand in ['Current location', 'Pickup location']) {
         testWidgets('rider-56: Confirm pickup spot shows "$stand" translated', (
@@ -490,14 +505,15 @@ void main() {
         );
       });
 
-      testWidgets('rider-u147: the menu greets a rider with no name in the language', (
-        tester,
-      ) async {
-        await pumpIn(tester, code, const RiderMenuPage());
-        await tester.pumpAndSettle();
-        expect(find.text(L10n.current.menuWelcomeNoName), findsOneWidget);
-        expect(find.text('Welcome to Movera'), findsNothing);
-      });
+      testWidgets(
+        'rider-u147: the menu greets a rider with no name in the language',
+        (tester) async {
+          await pumpIn(tester, code, const RiderMenuPage());
+          await tester.pumpAndSettle();
+          expect(find.text(L10n.current.menuWelcomeNoName), findsOneWidget);
+          expect(find.text('Welcome to Movera'), findsNothing);
+        },
+      );
 
       for (final reason in ['no_driver_found', 'rider_cancelled_live']) {
         testWidgets('rider-j8-3: reservation reason $reason is translated', (
@@ -512,7 +528,12 @@ void main() {
           final label = reason == 'no_driver_found'
               ? L10n.current.termNoDriverFound
               : L10n.current.reasonRiderCancelledLive;
-          await openHistoryDetail(tester, code, ride, L10n.current.resCancelled);
+          await openHistoryDetail(
+            tester,
+            code,
+            ride,
+            L10n.current.resCancelled,
+          );
           expect(find.text(L10n.current.reasonLine(label)), findsOneWidget);
         });
       }

@@ -14,6 +14,7 @@ import 'dart:js_interop_unsafe';
           ? (value as JSNumber).toDartInt
           : 0;
     }
+
     return (lost: read('lost'), restored: read('restored'));
   } catch (_) {
     return (lost: 0, restored: 0);

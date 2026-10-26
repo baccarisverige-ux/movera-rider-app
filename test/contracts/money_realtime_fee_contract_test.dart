@@ -14,14 +14,14 @@ import 'contract_fixtures.dart';
 /// replayed from the shipped fixtures with the reference engine's answers.
 void main() {
   group('fixtures/money.json', () {
-    final fixture = contractJson('fixtures/money.json')! as Map<String, dynamic>;
+    final fixture =
+        contractJson('fixtures/money.json')! as Map<String, dynamic>;
 
     test('exponents equal contract.json#currencies', () {
       final currencies = contract['currencies'] as Map<String, dynamic>;
-      expect(
-        {for (final e in currencies.entries) e.key: e.value['exponent']},
-        Money.exponents,
-      );
+      expect({
+        for (final e in currencies.entries) e.key: e.value['exponent'],
+      }, Money.exponents);
     });
 
     test('valid cases parse and render with the ISO exponent', () {
@@ -46,11 +46,12 @@ void main() {
       RealtimeKind.values.map((k) => k.wireName).toList(),
       List<String>.from(realtime['kinds'] as List),
     );
-    expect(
-      {for (final k in RealtimeKind.values) if (k.passesAfterTerminal) k.wireName},
-      Set<String>.from(realtime['afterTerminal'] as List),
-    );
-    final fixture = contractJson('fixtures/events.json')! as Map<String, dynamic>;
+    expect({
+      for (final k in RealtimeKind.values)
+        if (k.passesAfterTerminal) k.wireName,
+    }, Set<String>.from(realtime['afterTerminal'] as List));
+    final fixture =
+        contractJson('fixtures/events.json')! as Map<String, dynamic>;
     for (final scenario in fixture['cases'] as List) {
       final gate = RealtimeGate();
       for (final event in scenario['events'] as List) {
@@ -82,7 +83,11 @@ void main() {
         final rule = FeeRule.fromJson(row['rule'])!;
         final fare = Money.fromWire(row['fare'])!;
         final fee = row['kind'] == 'live'
-            ? CancelFeeCalculator.live(rule, fare, row['minutesSinceAccept'] as int)
+            ? CancelFeeCalculator.live(
+                rule,
+                fare,
+                row['minutesSinceAccept'] as int,
+              )
             : CancelFeeCalculator.reservation(
                 rule,
                 fare,
@@ -114,19 +119,30 @@ void main() {
         status: ReservationStatus.driverAssigned,
       );
       expect(
-        rules.cancelTermsFor(ride(), pickup.subtract(const Duration(minutes: 61))).fee,
+        rules
+            .cancelTermsFor(
+              ride(),
+              pickup.subtract(const Duration(minutes: 61)),
+            )
+            .fee,
         isNull,
       );
       expect(
-        rules.cancelTermsFor(ride(), pickup.subtract(const Duration(minutes: 30))).fee,
+        rules
+            .cancelTermsFor(
+              ride(),
+              pickup.subtract(const Duration(minutes: 30)),
+            )
+            .fee,
         const Money(5000),
       );
     });
   });
 
   group('RiderAppConfig cancelFees', () {
-    final document = contractJson('fixtures/config/rider_app_config.json')!
-        as Map<String, dynamic>;
+    final document =
+        contractJson('fixtures/config/rider_app_config.json')!
+            as Map<String, dynamic>;
 
     test('parses the published document', () {
       final config = RiderAppConfig.fromJson(document)!;

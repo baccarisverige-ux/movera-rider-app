@@ -125,7 +125,10 @@ void main() {
       ride: ride,
     );
     addTearDown(controller.dispose);
-    controller.start(rideId: 'trip-n9', initialStatus: RideStatus.tripInProgress);
+    controller.start(
+      rideId: 'trip-n9',
+      initialStatus: RideStatus.tripInProgress,
+    );
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(controller.fare, isNull);
 
@@ -146,27 +149,30 @@ void main() {
     expect(controller.fare, const Money(5400, 'SEK'));
   });
 
-  test('the completion shows the server\'s fare, not the booked price', () async {
-    final snapshot = _snapshot(RideStatus.tripInProgress);
-    await RideSnapshotStore.save(snapshot);
-    AppScope.instance.ride
-      ..rideId = snapshot.rideId
-      ..status = RideStatus.tripInProgress;
+  test(
+    'the completion shows the server\'s fare, not the booked price',
+    () async {
+      final snapshot = _snapshot(RideStatus.tripInProgress);
+      await RideSnapshotStore.save(snapshot);
+      AppScope.instance.ride
+        ..rideId = snapshot.rideId
+        ..status = RideStatus.tripInProgress;
 
-    await ActiveRideController().markCompleted(
-      RideStatus.tripCompleted,
-      charged: const Money(5400, 'SEK'),
-    );
+      await ActiveRideController().markCompleted(
+        RideStatus.tripCompleted,
+        charged: const Money(5400, 'SEK'),
+      );
 
-    expect(LastCompletedRide.charged, const Money(5400, 'SEK'));
-    expect(LastCompletedRide.value?.price, 54);
-    expect((await RideSnapshotStore.read())?.price, 54);
-    final receipt = RideCompleteController().receipt(rideId: 'trip-n9');
-    expect(receipt, isNotNull);
-    expect(receipt!.isFinal, isTrue);
-    expect(receipt.total, contains('54'));
-    expect(receipt.total, isNot(contains('824')));
-  });
+      expect(LastCompletedRide.charged, const Money(5400, 'SEK'));
+      expect(LastCompletedRide.value?.price, 54);
+      expect((await RideSnapshotStore.read())?.price, 54);
+      final receipt = RideCompleteController().receipt(rideId: 'trip-n9');
+      expect(receipt, isNotNull);
+      expect(receipt!.isFinal, isTrue);
+      expect(receipt.total, contains('54'));
+      expect(receipt.total, isNot(contains('824')));
+    },
+  );
 
   test('without a fare on the wire the booked price stays', () async {
     final snapshot = _snapshot(RideStatus.tripInProgress);

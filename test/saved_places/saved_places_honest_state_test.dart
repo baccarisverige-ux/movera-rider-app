@@ -62,14 +62,17 @@ void main() {
     expect(find.text('Favorite'), findsNothing);
     for (final chip in ['Home', 'Work']) {
       final tap = tester.widget<InkWell>(
-        find.ancestor(of: find.text(chip), matching: find.byType(InkWell)).first,
+        find
+            .ancestor(of: find.text(chip), matching: find.byType(InkWell))
+            .first,
       );
       expect(tap.onTap, isNull, reason: chip);
     }
   });
 
-  testWidgets('pickup search shows honest empty states instead of demo trips',
-      (tester) async {
+  testWidgets('pickup search shows honest empty states instead of demo trips', (
+    tester,
+  ) async {
     await pumpPickup(tester);
 
     expect(find.text('Your last trip'), findsOneWidget);
@@ -98,8 +101,9 @@ void main() {
     expect(find.textContaining('Sharjah'), findsNothing);
   });
 
-  testWidgets('empty Home shortcut opens the existing save-location flow',
-      (tester) async {
+  testWidgets('empty Home shortcut opens the existing save-location flow', (
+    tester,
+  ) async {
     await pumpPickup(tester);
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
@@ -172,53 +176,56 @@ void main() {
     },
   );
 
-  testWidgets('saved Home shortcut keeps selection instead of opening save flow',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'movera_home_address': 'Klockarvägen 37',
-    });
-    String? selected;
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'saved Home shortcut keeps selection instead of opening save flow',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'movera_home_address': 'Klockarvägen 37',
+      });
+      String? selected;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(390, 844),
-        minTextAdapt: true,
-        splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          home: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: TextButton(
-                  onPressed: () async {
-                    selected = await Navigator.push<String>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RiderSearchPickupLocation(),
-                      ),
-                    );
-                  },
-                  child: const Text('Open pickup'),
-                ),
-              );
-            },
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            home: Builder(
+              builder: (context) {
+                return Scaffold(
+                  body: TextButton(
+                    onPressed: () async {
+                      selected = await Navigator.push<String>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RiderSearchPickupLocation(),
+                        ),
+                      );
+                    },
+                    child: const Text('Open pickup'),
+                  ),
+                );
+              },
+            ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('Open pickup'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-    expect(selected, 'Klockarvägen 37');
-    expect(find.text('Add new address'), findsNothing);
-  });
+      );
+      await tester.tap(find.text('Open pickup'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(selected, 'Klockarvägen 37');
+      expect(find.text('Add new address'), findsNothing);
+    },
+  );
 
-  testWidgets('pickup confirmation contains no seeded address suggestions',
-      (tester) async {
+  testWidgets('pickup confirmation contains no seeded address suggestions', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -230,9 +237,7 @@ void main() {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (_, __) => const MaterialApp(
-          home: Scaffold(
-            body: PickupLocationBottomSheet(),
-          ),
+          home: Scaffold(body: PickupLocationBottomSheet()),
         ),
       ),
     );

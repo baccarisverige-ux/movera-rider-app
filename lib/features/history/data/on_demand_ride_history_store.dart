@@ -10,11 +10,12 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
-typedef OnDemandArchiveWriter = Future<void> Function(
-  RideSnapshot snapshot,
-  RideStatus terminalStatus,
-  String? cancellationReason,
-);
+typedef OnDemandArchiveWriter =
+    Future<void> Function(
+      RideSnapshot snapshot,
+      RideStatus terminalStatus,
+      String? cancellationReason,
+    );
 
 /// Local archive for finished Book Now rides.
 ///
@@ -78,11 +79,7 @@ abstract final class OnDemandRideHistoryStore {
     if (candidate != null && rideId != null && rideId.isNotEmpty) {
       try {
         if (archiveWriter != null) {
-          await archiveWriter(
-            candidate,
-            RideStatus.cancelledByRider,
-            reasonId,
-          );
+          await archiveWriter(candidate, RideStatus.cancelledByRider, reasonId);
         } else {
           await archive(
             candidate,
@@ -152,19 +149,14 @@ abstract final class OnDemandRideHistoryStore {
       final retained = updated.take(maxRecords).toList(growable: false);
 
       final prefs = await PreferencesStore.load();
-      await prefs.setString(
-        key,
-        jsonEncode(retained.map(_stored).toList()),
-      );
+      await prefs.setString(key, jsonEncode(retained.map(_stored).toList()));
       _changes.add(null);
 
       // A record trimmed by maxRecords or already past retention was never
       // meant to be readable, so only verify the writes that claim a slot.
       final claimsSlot =
           retained.any((ride) => ride.reservationId == record.reservationId) &&
-          record.scheduledPickupAt.isAfter(
-            DateTime.now().subtract(retention),
-          );
+          record.scheduledPickupAt.isAfter(DateTime.now().subtract(retention));
       if (!claimsSlot) return;
 
       final stored = await read();
@@ -239,10 +231,9 @@ abstract final class OnDemandRideHistoryStore {
           _endedSearchReason(terminalStatus),
       endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
       chargedFare: charged,
-      cancellationFee:
-          cancellationFee != null && cancellationFee.isPositive
-              ? cancellationFee
-              : null,
+      cancellationFee: cancellationFee != null && cancellationFee.isPositive
+          ? cancellationFee
+          : null,
       paymentFailed: terminalStatus == RideStatus.paymentFailed,
     );
   }
@@ -254,9 +245,8 @@ abstract final class OnDemandRideHistoryStore {
 
   /// The persisted form: the History time as a UTC instant, so a stored
   /// ride keeps its moment if the device changes time zone.
-  static Map<String, dynamic> _stored(Reservation ride) => ride
-      .copyWith(scheduledPickupAt: ride.scheduledPickupAt.toUtc())
-      .toJson();
+  static Map<String, dynamic> _stored(Reservation ride) =>
+      ride.copyWith(scheduledPickupAt: ride.scheduledPickupAt.toUtc()).toJson();
 
   static Future<void> clear() async {
     final prefs = await PreferencesStore.load();

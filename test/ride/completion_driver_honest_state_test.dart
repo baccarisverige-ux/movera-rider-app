@@ -41,9 +41,8 @@ void main() {
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, __) => const MaterialApp(
-          home: Scaffold(body: RideCompletedDriverInfo()),
-        ),
+        builder: (_, __) =>
+            const MaterialApp(home: Scaffold(body: RideCompletedDriverInfo())),
       ),
     );
     await tester.pumpAndSettle();

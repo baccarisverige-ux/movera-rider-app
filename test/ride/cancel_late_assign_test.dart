@@ -17,22 +17,21 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot findingSnap({String rideId = 'r-late'}) => RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3,
-      pickupLng: 18.0,
-      destinationLat: 59.4,
-      destinationLng: 18.1,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: rideId,
-    );
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'A',
+  destinationAddress: 'B',
+  pickupLat: 59.3,
+  pickupLng: 18.0,
+  destinationLat: 59.4,
+  destinationLng: 18.1,
+  rideType: 'Movera',
+  price: 259,
+  paymentMethod: 'Apple Pay',
+  rideId: rideId,
+);
 
-MockRideRealtime get _rt =>
-    AppScope.instance.rideRealtime as MockRideRealtime;
+MockRideRealtime get _rt => AppScope.instance.rideRealtime as MockRideRealtime;
 
 void _resetScope() {
   SharedPreferences.setMockInitialValues({});

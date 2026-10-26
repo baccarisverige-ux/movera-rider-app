@@ -17,7 +17,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  testWidgets('first confirmation does not commit cancellation', (tester) async {
+  testWidgets('first confirmation does not commit cancellation', (
+    tester,
+  ) async {
     await phoneSurface(tester);
     final order = <String>[];
     CancelOutcome? outcome;
@@ -55,7 +57,9 @@ void main() {
     expect(outcome?.cancelled, isTrue);
   });
 
-  testWidgets('Keep ride after first confirmation keeps the ride', (tester) async {
+  testWidgets('Keep ride after first confirmation keeps the ride', (
+    tester,
+  ) async {
     await phoneSurface(tester);
     var committed = false;
     CancelOutcome? outcome;
@@ -90,7 +94,6 @@ void main() {
     expect(outcome?.cancelled, isFalse);
     expect(committed, isFalse);
   });
-
 
   testWidgets('matched-driver cancel stays reversible until the final step', (
     tester,

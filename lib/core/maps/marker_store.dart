@@ -4,11 +4,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
 
 class MarkerRecord {
-  const MarkerRecord({
-    required this.id,
-    required this.point,
-    this.heading = 0,
-  });
+  const MarkerRecord({required this.id, required this.point, this.heading = 0});
 
   final String id;
   final GeoPoint point;
@@ -20,8 +16,7 @@ class MarkerRecord {
 class MarkerStore {
   MarkerStore({
     this.minimumMoveMeters = PerformanceBudgets.markerMinimumMoveMeters,
-    this.minimumHeadingDegrees =
-        PerformanceBudgets.markerMinimumHeadingDegrees,
+    this.minimumHeadingDegrees = PerformanceBudgets.markerMinimumHeadingDegrees,
   });
 
   final double minimumMoveMeters;
@@ -61,8 +56,6 @@ double _metersBetween(GeoPoint a, GeoPoint b) {
   final dLng = (b.longitude - a.longitude) * math.pi / 180;
   final sinLat = math.sin(dLat / 2);
   final sinLng = math.sin(dLng / 2);
-  final h =
-      sinLat * sinLat +
-      math.cos(lat1) * math.cos(lat2) * sinLng * sinLng;
+  final h = sinLat * sinLat + math.cos(lat1) * math.cos(lat2) * sinLng * sinLng;
   return earthRadius * 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
 }

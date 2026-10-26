@@ -20,7 +20,15 @@ void main() {
   });
 
   test('every ride category', () async {
-    for (final type in <String>['economy', 'comfort', 'premium', 'priority', 'xl', 'electric', 'pet']) {
+    for (final type in <String>[
+      'economy',
+      'comfort',
+      'premium',
+      'priority',
+      'xl',
+      'electric',
+      'pet',
+    ]) {
       final quote = await repo().quote(rideType: type, distanceMeters: 1000);
       expect(quote.totalMinor, greaterThan(0));
       expect(quote.signedPayload, 'mock-api');

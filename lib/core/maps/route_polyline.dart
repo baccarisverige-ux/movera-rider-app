@@ -36,7 +36,6 @@ Polyline routePolyline({
   );
 }
 
-
 /// uat-r1: a route a screen already resolved (its kept road points) as the
 /// polyline it draws, with the same colour and width rules as
 /// [routePolyline], so the road line and the first-paint line are one shape.

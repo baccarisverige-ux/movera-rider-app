@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -13,9 +13,11 @@
     "money": "Money { amountMinor: integer, currency: ISO-4217 }. No major-unit floats, no display strings on the wire.",
     "location": {
       "Place": "{ address?: string, lat: number, lng: number } — pickup, dropoff, stops",
-      "GeoFix": "{ lat, lng, accuracy, heading?, speedMps?, moving?, measuredAt } — device GPS only; moving is the app's stopped/driving judgement (v0.5.0)"
+      "GeoFix": "{ lat, lng, accuracy, heading?, speedMps?, moving?, measuredAt } — device GPS only; moving is the app's stopped/driving judgement (v0.5.0)",
+      "locationsException": "v0.5.1 (CONTRACT.md §10): the bodies of POST /locations/autocomplete, /locations/geocode and /locations/reverse-geocode name coordinates latitude / longitude, as the rider app sends and reads them. This is the one exception to the lat / lng rule; POST /routes and everything else keep lat / lng."
     },
-    "case": "JSON keys camelCase; enum values snake_case."
+    "case": "JSON keys camelCase; enum values snake_case.",
+    "readOnlyPosts": "v0.5.1: POST /locations/*, POST /routes and POST /telemetry/* are read-only or fire-and-forget calls, not mutations: they take no Idempotency-Key and the server must not require one. Telemetry also takes no bearer token (optional) and no standard headers (optional)."
   },
   "currencies": {
     "SEK": {
@@ -87,7 +89,18 @@
       "pickup_fee",
       "surge",
       "discount",
-      "cancel_fee"
+      "cancel_fee",
+      "app_fee",
+      "minimum_adjust",
+      "maximum_adjust",
+      "stop_waiting",
+      "extras",
+      "airport",
+      "reservation_fee",
+      "fixed_route",
+      "rounding",
+      "outstanding_fee",
+      "rider_raise"
     ],
     "driverOnly": [
       "pickup_pay",
@@ -96,6 +109,28 @@
     "aliases": {
       "note": "v0.4 documents named the rider's pickup line pickup_pay; read it as pickup_fee for one release.",
       "pickup_pay": "pickup_fee"
+    },
+    "meaning": {
+      "note": "v0.5.1 (CONTRACT.md §3.5): what each rider line carries. Lines with amount 0 are left out, except base, distance and time (and fixed_route) which are always sent.",
+      "base": "category base fare",
+      "distance": "perKm × km",
+      "time": "perMin × minutes",
+      "surge": "ride part × (multiplier − 1); on base + distance + time only",
+      "minimum_adjust": "raises the ride part to the category minimum (positive)",
+      "maximum_adjust": "lowers the ride part to the category maximum, or to the booked fare when the rider ends early (negative)",
+      "fixed_route": "a fixed route price instead of base + distance + time; no surge, minimum or maximum",
+      "waiting": "waiting at pickup after the free wait, per second; 100 % the driver's, no commission",
+      "stops": "extraStopFee per extra stop",
+      "stop_waiting": "waiting at stops after stopFreeWaitMin at each stop, per second; 100 % the driver's, no commission",
+      "extras": "baby and child seats",
+      "airport": "airport pickup and drop-off fees",
+      "reservation_fee": "zone reservation fee for kind=scheduled",
+      "app_fee": "appFeePct of (ride part + extras); Movera keeps it",
+      "pickup_fee": "the rider's fixed pickup fee (§3.2); Movera keeps it",
+      "rounding": "total (rounded once to priceStep) − the sum of the other rounded lines; may be negative",
+      "outstanding_fee": "an unpaid cash cancel / no-show fee from an earlier trip (FareLine.sourceTripId), added after the price step rounding; owed to Movera, never in driverEarnings (§3.7)",
+      "discount": "unchanged from v0.5.0; promotions are off in the test week",
+      "cancel_fee": "unchanged from v0.5.0"
     }
   },
   "ratings": {
@@ -224,6 +259,15 @@
       "to": "searching"
     },
     {
+      "command": "raise_price",
+      "actor": "rider",
+      "from": [
+        "searching",
+        "offered"
+      ],
+      "to": "searching"
+    },
+    {
       "command": "send_offer",
       "actor": "system",
       "from": [
@@ -244,11 +288,20 @@
       "command": "accept",
       "actor": "driver",
       "from": [
-        "offered",
+        "offered"
+      ],
+      "to": "accepted",
+      "note": "v0.5.1: split from the v0.5.0 row (offered, requested); a live trip is accepted only from offered"
+    },
+    {
+      "command": "accept",
+      "actor": "driver",
+      "from": [
         "requested"
       ],
       "to": "accepted",
-      "note": "requested only for a scheduled trip the driver claims early"
+      "when": "scheduled",
+      "note": "a scheduled trip the driver claims early (the v0.5.0 row said so in its note; v0.5.1 makes it machine-readable)"
     },
     {
       "command": "assign",
@@ -727,7 +780,7 @@
       "apple",
       "google"
     ],
-    "providerNote": "POST /auth/provider { provider, idToken } signs in a linked account, or answers { code: PHONE_REQUIRED, linkToken, name? } for a new one: the phone is then verified with the linkToken on the OTP calls, and the account is created linked.",
+    "providerNote": "POST /auth/provider { provider, idToken, app } signs in an account already linked to that Apple / Google identity (AuthTokens), or answers { code: PHONE_REQUIRED, linkToken, firstName?, lastName?, email? } for a new one: the app then verifies a phone with the linkToken on the OTP calls (the phone is confirmed once, the first time), the account is created linked, and the driver app prefills its details screen with the names and e-mail the provider gave (Apple gives them only the first time and may give a hidden relay e-mail; all stay editable). Unset provider keys on the server answer 503 unavailable (provider_not_configured).",
     "tokens": {
       "access": "JWT, short-lived (accessExpiresSeconds), bearer on every call",
       "refresh": "opaque, rotated on every POST /auth/refresh; a used or revoked one is 401 unauthenticated",
@@ -750,13 +803,676 @@
         "android",
         "web"
       ]
+    },
+    "admin": {
+      "note": "v0.5.1 (CONTRACT.md §9), owner decisions 9 and 14 (2026-10-24): the admin panel signs in with e-mail and password through the server; this replaces \"outside this contract\" in auth.note for the admin. No second factor in v0.5.1.",
+      "paths": [
+        "POST /admin/auth/sign-in",
+        "POST /admin/auth/setup-password",
+        "POST /admin/auth/setup-password/check",
+        "POST /admin/auth/refresh",
+        "POST /admin/auth/sign-out",
+        "GET /admin/auth/me",
+        "POST /admin/agents/{adminId}/setup-link"
+      ],
+      "passwordMinLength": 10,
+      "passwordHash": "argon2id, server side; the password never leaves the sign-in and setup calls",
+      "setupLinkHours": 72,
+      "setupLinkUses": 1,
+      "accessExpiresSeconds": 900,
+      "refreshExpiresHours": 12,
+      "idleTimeoutSecondsDefault": 900,
+      "idleTimeoutMinutesRange": [
+        5,
+        240
+      ],
+      "reasons": {
+        "invalid_credentials": "401 unauthenticated: unknown e-mail, wrong password or deactivated account, one generic answer",
+        "weak_password": "400 invalid_request: shorter than passwordMinLength",
+        "invalid_setup_token": "400 invalid_request: unknown setup token",
+        "setup_link_expired": "410 otp_expired: the one-time link is older than setupLinkHours",
+        "setup_link_used": "410 otp_expired: the one-time link was used already"
+      },
+      "lockout": "failed sign-ins are slowed and then locked per e-mail and per address: 429 rate_limited with Retry-After",
+      "secondFactor": "none in v0.5.1. Reserved for later, additively: a sign-in answer { code: \"SECOND_FACTOR_REQUIRED\", challengeId } followed by a verify call; v0.5.1 servers never send it.",
+      "superAdmin": "role super: AdminMe.approvalExempt is true and every permission is granted; refunds, publishes, surge and dispatch control run directly (200, never 202 pending_approval) and are written in the audit (owner decision 14)."
+    },
+    "providerKeys": {
+      "apple": "APPLE_CLIENT_IDS (the app bundle ids / service id), tokens verified against Apple's public keys",
+      "google": "GOOGLE_CLIENT_IDS (the OAuth client ids), tokens verified against Google's public keys"
     }
   },
   "configVersion": {
     "note": "v0.5.0. RiderAppConfig.version / DriverAppConfig.version is the admin's revision number of the zone's live document, strictly increasing per zone and document; publishedAt is when it was published. The server stores the published document as the admin built it and serves it unchanged from GET /rider/config and GET /driver/config; config_published carries the same version. Apps keep the last good document and ignore an older version."
   },
+  "adminPermissions": {
+    "note": "v0.5.1 (CONTRACT.md §9): the admin panel's 34 permission ids (platform/team.ts). Every admin operation names one in x-permission; where v0.5.1 changed a v0.5.0 value, openapi.yaml keeps the old one under x-permission-v050. Roles: AdminRole; super has all of them.",
+    "groups": {
+      "look": [
+        "overview.read",
+        "trips.read",
+        "riders.read",
+        "drivers.read",
+        "zones.read",
+        "finance.read",
+        "incidents.read",
+        "audit.read",
+        "team.read",
+        "system.read"
+      ],
+      "privateData": [
+        "riders.viewSensitive",
+        "drivers.viewSensitive"
+      ],
+      "act": [
+        "trips.annotate",
+        "trips.intervene",
+        "support.reply",
+        "safety.edit",
+        "riders.block",
+        "riders.promotions",
+        "drivers.activate",
+        "drivers.bonuses",
+        "documents.approve",
+        "vehicles.edit",
+        "alerts.manage",
+        "payments.refund",
+        "finance.edit"
+      ],
+      "setup": [
+        "zones.edit",
+        "zones.publish",
+        "dispatch.edit",
+        "dispatch.approve",
+        "settings.read",
+        "settings.edit",
+        "settings.publish",
+        "approval.decide",
+        "team.edit"
+      ]
+    },
+    "values": [
+      "overview.read",
+      "trips.read",
+      "riders.read",
+      "drivers.read",
+      "zones.read",
+      "finance.read",
+      "incidents.read",
+      "audit.read",
+      "team.read",
+      "system.read",
+      "riders.viewSensitive",
+      "drivers.viewSensitive",
+      "trips.annotate",
+      "trips.intervene",
+      "support.reply",
+      "safety.edit",
+      "riders.block",
+      "riders.promotions",
+      "drivers.activate",
+      "drivers.bonuses",
+      "documents.approve",
+      "vehicles.edit",
+      "alerts.manage",
+      "payments.refund",
+      "finance.edit",
+      "zones.edit",
+      "zones.publish",
+      "dispatch.edit",
+      "dispatch.approve",
+      "settings.read",
+      "settings.edit",
+      "settings.publish",
+      "approval.decide",
+      "team.edit"
+    ],
+    "v050": {
+      "note": "v0.5.0 x-permission values and what replaces them (per operation in openapi.yaml x-permission-v050)",
+      "fleet.read": "drivers.read",
+      "payments.read": "finance.read",
+      "support.read": "support.reply",
+      "safety.read": "incidents.read",
+      "trips.edit": "trips.intervene",
+      "payments.edit": "payments.refund",
+      "drivers.edit": "drivers.activate (status) | documents.approve (document review)",
+      "riders.edit": "riders.block",
+      "fleet.edit": "vehicles.edit",
+      "config.read": "settings.read",
+      "config.edit": "settings.edit (draft) | settings.publish (publish)",
+      "pricing.read": "settings.read",
+      "pricing.edit": "settings.publish",
+      "approval.read": "approval.decide"
+    }
+  },
+  "configDocs": {
+    "note": "v0.5.1 (CONTRACT.md §6.2, §6.3). ConfigDocName values. app documents are served to the apps (GET /rider/config, /driver/config, config_published). serverOnly documents are published by the admin through the same draft / publish calls and the same version rule (configVersion), read only by the server and by admins with settings.read; the apps never get them.",
+    "app": [
+      "rider_app_config",
+      "driver_app_config"
+    ],
+    "serverOnly": [
+      "pricing",
+      "dispatch"
+    ],
+    "mustMatch": [
+      "RiderAppConfig.waiting.byCategory and DriverAppConfig.waiting.byCategory = pricing.categories[].waiting",
+      "RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee = pricing.categories[].riderPickupFee",
+      "DriverAppConfig.offers.radarSeconds / exclusiveSeconds / radarOn / exclusiveOn = dispatch.radar.seconds / exclusive.seconds / radar.on / exclusive.on",
+      "DriverAppConfig.offers.exclusiveWhileDriving = dispatch.exclusiveWhileDriving"
+    ],
+    "mustMatchNote": "mustMatch binds the documents the admin publishes for one zone (the same admin pages build them). fixtures/config/rider_app_config.json and driver_app_config.json are older illustrative samples whose waiting amounts predate the pricing defaults; they are left unchanged in v0.5.1 to stay additive and are aligned in v0.6. reference_check.py does not check mustMatch against them."
+  },
+  "pricing": {
+    "note": "v0.5.1 (CONTRACT.md §3.5). The server prices every quote and fare from the zone's pricing document (admin Pricing, the order of quoteRide), with owner decisions 16-21 applied. Amounts are exact until they become a fare line. Cases: fixtures/fares.json.",
+    "order": [
+      "ride part: a matching fixed route (fixed_route, no surge / minimum / maximum), else base + perKm × km + perMin × minutes",
+      "surge: ride part × multiplier, multiplier clamped to [1, surge.maxMultiplier]; the extra is the surge line",
+      "minimum: ride part raised to minimum (minimum_adjust); maximum: ride part lowered to maximum when not null (maximum_adjust)",
+      "extras, unsurged: waiting, stops, stop_waiting, extras (seats), airport, reservation_fee (kind=scheduled)",
+      "app fee = (ride part + extras) × appFeePct / 100",
+      "pickup fee = riderPickupFee.live, or .reservation for kind=scheduled (null = none)",
+      "total = half_up((ride part + extras + app fee + pickup fee) / priceStep) × priceStep, rounded once",
+      "lines: each exact amount half_up to a whole minor unit; rounding = total − sum of the rounded lines (left out when 0)",
+      "outstanding_fee (§3.7) is added after the rounding: Quote.total / fare = total + outstanding"
+    ],
+    "halfUp": "half_up(x) = floor(x + 1/2) in minor units: a tie goes up (toward +∞), also on a negative line",
+    "waiting": "waiting = Waiting.chargedSeconds / 60 × waiting.perMin, accrued per second after freeWaitMin (the driver app's rule; the admin calculator multiplies minutes, the same value for whole minutes). stop_waiting = Σ over stops of max(0, seconds at the stop − stopFreeWaitMin × 60) / 60 × stopWaitPerMin.",
+    "moneySplit": {
+      "commissionBase": "ride part + extras − waiting − stop waiting (owner decision 17: no commission on waiting; decision 18: the app fee and the pickup fee are Movera's and outside it)",
+      "driverEarnings": "min(total before outstanding_fee, half_up(commissionBase × (1 − commissionPct / 100)) + waiting line + stop_waiting line)",
+      "moveraShare": "Quote.total / fare − driverEarnings (app fee, pickup fee, commission, rounding and any outstanding_fee); TripProjection.commission carries it. Driver pickup pay and driver bonus are paid from it (§3.2)."
+    },
+    "quoteAndFare": "The quote prices the server's own route (OSRM km and minutes; a client distance is a hint) with no waiting. The fare at completion is the same calculation with the quote's km and minutes, the stops made and the waiting the trip had (Waiting.chargedSeconds, stop waits), rounded once.",
+    "endEarly": "owner decisions 8 and 19: ride part = base + km driven × perKm + minutes on board × perMin, × the booked surge multiplier, then minimum and maximum; no extras; + app fee + pickup fee. If that exceeds the booked fare (Quote.total plus route changes, without outstanding_fee) the ride part is lowered (maximum_adjust) to (booked − pickup fee) / (1 + appFeePct / 100), so the exact sum is the booked fare; then rounded once to priceStep. driverEarnings from that ride part.",
+    "surgeSource": "first match: the zone's active surge schedule (§3.4, PUT /admin/zones/{zoneId}/surge), then a pricing.surge.scheduled window in force, then smart surge when smart.enabled; else 1.0. The quote keeps its multiplier.",
+    "maxMultiplier": 3.0,
+    "notInFormula": "cleaningFee (charged afterwards with an admin adjust), tollsPassThrough (no tolls priced in v0.5.1), smart surge profiles (smart.enabled is false in the test week, owner decision 21; its algorithm is not normative in v0.5.1)"
+  },
+  "dispatch": {
+    "note": "v0.5.1 (CONTRACT.md §3.6), owner decisions 6, 10, 22, 23, 24 and the technical defaults (2026-10-24). How the server finds a driver for a live trip in searching, from the pickup zone's dispatch document and its DispatchControl. Cases: fixtures/dispatch.json.",
+    "modes": [
+      "radar",
+      "exclusive"
+    ],
+    "then": {
+      "radar": [
+        "widen",
+        "exclusive",
+        "widen_then_exclusive"
+      ],
+      "exclusive": [
+        "radar",
+        "widen",
+        "widen_then_radar"
+      ]
+    },
+    "chooseHow": [
+      "auto",
+      "manual"
+    ],
+    "waitingKinds": [
+      "raise_price",
+      "upgrade",
+      "alert_admin",
+      "keep_waiting",
+      "busy"
+    ],
+    "skippedWaitingKinds": [
+      "raise_price",
+      "upgrade"
+    ],
+    "skippedNote": "test week, owner decision 10: these steps are skipped and change no timing",
+    "score": {
+      "etaFullMin": 20,
+      "ratingFloor": 3.5,
+      "ratingSpan": 1.5,
+      "cancelZeroPct": 30,
+      "idleFullMin": 30,
+      "pickupKmh": 24,
+      "roadFactor": 1.25
+    },
+    "fallbacks": {
+      "rating": 4.7,
+      "acceptancePct": 85,
+      "cancelPct": 5
+    },
+    "ranges": {
+      "radar.drivers": [
+        1,
+        30
+      ],
+      "radar.seconds": [
+        5,
+        120
+      ],
+      "exclusive.drivers": [
+        1,
+        10
+      ],
+      "exclusive.seconds": [
+        5,
+        60
+      ],
+      "choose.radarAbove": "> 0 and <= 10",
+      "radius.steps": "> 0 and <= 50 km, strictly increasing",
+      "radius.maxWaitMin": [
+        1,
+        30
+      ],
+      "waiting[].afterMin": [
+        0,
+        30
+      ],
+      "factors": "at least one on with weight > 0",
+      "exclusiveWhileDriving.count": [
+        1,
+        5
+      ],
+      "other": "auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode on"
+    },
+    "distance": "km = round1(equirectangular distance × 111.32 × roadFactor); a driver finishing a ride: km from the drop-off. round1(x) = floor(x × 10 + 0.5) / 10",
+    "eta": "etaMin = max(1, round(km / pickupKmh × 60) + finishing.inMin), round = floor(x + 0.5)",
+    "busy": "busy = round1(waiting / max(1, free)) once at search start: waiting = trips in the zone in requested, searching or offered (the new one included); free = online drivers in the zone with no rider and no trip",
+    "reasonCodes": "Exclusive Offer.reasonCode: favourite when the favourite factor gave points; else finishing-nearby; else best-match for the top-ranked driver in range at that moment; else nearby",
+    "rules": [
+      "mode at search start, first match: control.paused → no automatic offers; control.mode; the first on time rule (zone-local HH:MM in timeZone, [from, to), wraps midnight) whose mode is on; choose.how auto (both modes on) → radar when busy >= radarAbove else exclusive; else choose.main if on, else the mode that is on. choose.backup and rulesFrom are ignored (the pickup zone's document governs the search).",
+      "candidates at each offer, ranked again each time: eligible first (category allowed, km <= widest step, a driver on a ride only when finishing within finishing.withinMin and withinKm and the finishing factor is on), then score descending, km ascending, driverId ascending. Radar never goes to a driver with a rider; Exclusive does only when finishing.exclusive and exclusiveWhileDriving.on.",
+      "score = sum over the factors that are on of round(weight / (sum of on weights) × 100 × clamp01(ratio)): eta 1 − etaMin / etaFullMin; rating (rating − ratingFloor) / ratingSpan; acceptance pct / 100; cancel 1 − pct / cancelZeroPct; idle idleMin / idleFullMin; finishing 1 when finishing nearby; favourite 1 when the rider favourited the driver, favourite.on and km <= favourite.maxKm. A factor that does not apply still counts in the sum of weights.",
+      "Radar round: the top radar.drivers in range at the current step, all at once, for radar.seconds; the first accept wins (others claimed_elsewhere). Radar adds nobody to asked: a driver who declined or missed may see the trip again on a later round (owner decision 23).",
+      "Exclusive: one driver at a time, the best in range not yet asked, for exclusive.seconds; at most exclusive.drivers per step; each driver is asked once per search (asked). A decline moves on at once.",
+      "after a Radar round nobody accepted: widen (then widen or widen_then_exclusive, not at the widest step); else switch to Exclusive at the same step (then exclusive or widen_then_exclusive, exclusive on, not switched into before; tried = 0); else widen; else the steps are used up. After an Exclusive step: widen (widen, widen_then_radar; tried = 0); else switch to Radar (radar, widen_then_radar, radar on, not switched before); else widen; else used up. The start mode is not counted as switched into.",
+      "a round with nobody in range moves on at once (no time passes).",
+      "steps used up before the search end (owner decision 22, approved as \"Radar every 15 s at the widest area, and Exclusive to any driver not yet asked\"): the search never goes silent. Each repeat round at the widest step is: when exclusive.on and a driver in range has not been asked on Exclusive in this search (newly free drivers count), an Exclusive offer to the best such driver for exclusive.seconds; otherwise, when radar.on, a Radar round to the top radar.drivers in range for radar.seconds; otherwise wait radar.seconds (exclusive.seconds when Radar is off) and look again. Rounds go on until the search end.",
+      "search end = min(radius.maxWaitMin, the first on busy step) measured from search start (t = 0, when the trip enters searching). No new offer starts at or after the end; Offer.expiresAt = min(sentAt + seconds, search end). At the end the trip takes system expire (expired) unless a driver accepted.",
+      "rider-waiting steps: the on steps not skipped, sorted by afterMin (stable), each fires at afterMin × 60 s from search start if not after the search end; TripProjection.searchStep shows the latest. alert_admin: Live alert, offers go on. keep_waiting: the rider answers POST /trips/{tripId}/keep-waiting: wait → search end += extraMin × 60 and a busy step not fired yet moves to no earlier than the new end; stop → the normal free rider cancel; no answer → the search goes on (owner decision 24). busy: the search ends at that moment.",
+      "DispatchControl: paused stops new offers in running searches too (open ones run out); the waiting steps and the search end keep running. A forced mode applies to new searches only; forcing a mode that is off is 400 invalid_request (reason mode_off).",
+      "a free driver holds at most 1 open Exclusive; a driver with a rider at most exclusiveWhileDriving.count; a driver already holding one is skipped and does not count toward exclusive.drivers. Radar deliveries follow §3.3.",
+      "a driver cancel that sends the trip back to searching starts a new search (t = 0, new steps); the driver who cancelled stays in asked.",
+      "score inputs: acceptance and cancel rates over the last 30 days, rating as shown, fallbacks when there is no data; idleMin = minutes since the driver last became free or came online; favourites score 0 until the server has the data."
+    ],
+    "control": {
+      "note": "DispatchControl { zoneId, paused, mode: radar | exclusive | null, by, at, version } is live state, outside publishing. PUT /admin/zones/{zoneId}/dispatch-control (dispatch.edit). Pausing or forcing a mode by an admin who is not Super admin is 202 pending_approval (owner decision 14); resume and back to rules apply at once for everyone (the admin panel's rule).",
+      "default": {
+        "paused": false,
+        "mode": null
+      }
+    },
+    "searchStep": "TripProjection.searchStep { id, kind, message, extraMin: int | null, at } (rider view): the latest rider-waiting step that fired. Sent as trip_projection; it does not change version (like the after-cancel reason). raise_price and upgrade never appear in v0.5.1.",
+    "keepWaitingAnswers": [
+      "wait",
+      "stop"
+    ],
+    "offerTimers": "DriverAppConfig.offers.radarSeconds, exclusiveSeconds, radarOn, exclusiveOn must equal dispatch.radar.seconds, exclusive.seconds, radar.on, exclusive.on of the same zone (contract.json#configDocs.mustMatch).",
+    "raisePrice": {
+      "maxFactor": 2,
+      "note": "Owner decision 25 (2026-10-26): POST /trips/{tripId}/raise-price while searching or offered. fare += increase (rider_raise line); the whole raise goes to driverEarnings (Movera's share unchanged); open offers are withdrawn and a new search starts in which drivers who declined are asked again at the new price; version + 1. The new fare may not pass maxFactor × the quoted fare (400 invalid_request, reason raise_too_high). The raise_price waiting step stays skipped: the rider app offers the raise on its own schedule."
+    }
+  },
+  "maps": {
+    "note": "v0.5.1 (CONTRACT.md §10), owner decision 4: address search through the server (Google Places / Geocoding), routes and arrival times from Movera's own OSRM. All of them are read-only POSTs or GETs: no Idempotency-Key.",
+    "autocompleteMaxSuggestions": 8,
+    "routeModes": [
+      "driving"
+    ],
+    "osrm": {
+      "path": "GET /routes/driving/{coordinates}",
+      "coordinates": "lng,lat;lng,lat (2 to 10 points, OSRM order)",
+      "geometries": [
+        "geojson"
+      ],
+      "rateLimitPerMinute": 30,
+      "noRoute": "200 { code: \"NoRoute\", routes: [] }"
+    },
+    "reasons": {
+      "no_route": "404 not_found on POST /routes",
+      "invalid_coordinates": "400 invalid_request on /locations/* and /routes"
+    },
+    "serverRoutes": "the server routes quotes itself; QuoteRequest distance / duration from a client are hints and never priced"
+  },
+  "telemetry": {
+    "note": "v0.5.1 (CONTRACT.md §11). Fire-and-forget logs from the apps: no auth required (a bearer token is used when sent), no Idempotency-Key, X-Request-Id and X-Api-Version optional. 202 with an empty body.",
+    "paths": [
+      "POST /telemetry/logs",
+      "POST /telemetry/analytics",
+      "POST /telemetry/crashes"
+    ],
+    "levels": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "fatal"
+    ],
+    "maxBodyBytes": 16384,
+    "keepDays": 30,
+    "privacy": "clients scrub e-mails, phone numbers and coordinates; the server scrubs again before storing",
+    "limits": "rate limited per address and device: 429 rate_limited; a body over maxBodyBytes is 400 invalid_request (reason payload_too_large)"
+  },
+  "liveDrivers": {
+    "note": "v0.5.1 (CONTRACT.md §12), owner decision 11: the admin live map reads driver positions from the server.",
+    "staleAfterSeconds": 120,
+    "pollSeconds": 5,
+    "traceKeepDays": 30,
+    "keep": "trip GPS traces are deleted after traceKeepDays; only each driver's latest position is kept beyond that"
+  },
+  "riderNearby": {
+    "note": "v0.5.2 (CONTRACT.md §13): the free cars near the rider, drawn on the rider's map while it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day.",
+    "radiusMeters": 3000,
+    "maxVehicles": 15,
+    "freshSeconds": 120,
+    "refreshSeconds": 5,
+    "roundDecimals": 4,
+    "keyRotation": "daily, Europe/Stockholm",
+    "who": "drivers online and free (not on a trip, no accepted trip), with a fix not older than freshSeconds"
+  },
+  "driverOnboarding": {
+    "note": "v0.5.3 (CONTRACT.md §14), owner decisions of 2026-10-25: the driver app signs in with the phone and the code (§8) and then sends its details once (POST /driver/onboarding); the account waits on hold until Movera approves it. Two account types: a driver who works for a fleet, and a fleet (a company with cars and drivers; its owner may drive too). Documents are listed per country and account type and uploaded to the server for review in the admin panel. Tunisia is shown but not open yet.",
+    "accountTypes": [
+      "driver",
+      "fleet"
+    ],
+    "minAge": 21,
+    "countries": {
+      "SE": {
+        "open": true,
+        "cities": [
+          {
+            "cityId": "stockholm_lan",
+            "name": "Stockholm län",
+            "zoneId": "Z001"
+          }
+        ]
+      },
+      "FR": {
+        "open": true,
+        "cities": [
+          {
+            "cityId": "paris",
+            "name": "Paris",
+            "zoneId": "FR-PC"
+          }
+        ]
+      },
+      "TN": {
+        "open": false,
+        "cities": []
+      }
+    },
+    "accountStatus": {
+      "pending": "signed in, details not sent yet (the app shows the details screen)",
+      "on_hold": "details sent, waiting for Movera (the app opens with the account on hold; the driver uploads documents, cannot go online)",
+      "active": "approved by an admin (POST /admin/drivers/{driverId}/status); may go online with an approved vehicle",
+      "suspended": "blocked by an admin"
+    },
+    "fleetCode": {
+      "note": "Made by the server when an admin approves the fleet; shown only to the fleet owner (GET /driver/fleet) and admins. A driver asks to join with the code plus the owner's full name and e-mail as registered; all three must match (one mismatch message, fleet_join_mismatch), and the owner then accepts or declines the request (fleetInvitations). An admin can make a new code (POST /admin/fleets/{fleetId}/code); the old one stops working at once.",
+      "prefix": "MV-",
+      "length": 5,
+      "alphabet": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+      "caseInsensitive": true,
+      "joinAttemptsPerHour": 10
+    },
+    "vehicles": {
+      "note": "Fleet accounts own the cars (POST /driver/vehicles); an admin approves each (POST /admin/vehicles/{vehicleId}/review). A linked driver sees the fleet's approved cars (GET /driver/vehicles) and picks the one he drives (PATCH /driver/profile { vehicleId }). One car has one driver at a time: a car is in use while another driver has it picked and is online or on a trip (409 conflict, reason vehicle_in_use); picking a car another offline driver had moves it (that driver picks again before going online). A driver account that is not linked to a fleet has no cars (the app says the fleet's vehicle details are awaited)."
+    },
+    "payouts": {
+      "note": "Driver.payoutTo tells who is paid: fleet for a driver linked to a fleet (the fleet's bank; the driver sees his own trips and earnings, the owner sees every driver's earnings with GET /driver/fleet/earnings), self for a fleet account."
+    },
+    "documents": {
+      "note": "kind file: uploaded with POST /driver/documents (multipart) and reviewed by an admin; acceptance: terms, accepted on POST /driver/onboarding (termsAccepted) and stored approved; admin_check: no file, an admin marks it approved (the session was held). required[country].driver are the person's documents (every account); required[country].fleet are the company's (fleet accounts; the fleet is approved on them, and the owner needs his driver documents too to go online himself); required[country].vehicle per car. Driver.requiredDocuments and Vehicle.requiredDocuments carry the lists so the app never computes them.",
+      "types": {
+        "terms": {
+          "owner": "driver",
+          "kind": "acceptance",
+          "name": {
+            "en": "Terms and conditions",
+            "sv": "Villkor",
+            "fr": "Conditions générales"
+          }
+        },
+        "info_session": {
+          "owner": "driver",
+          "kind": "admin_check",
+          "name": {
+            "en": "Virtual information session",
+            "sv": "Digitalt informationsmöte",
+            "fr": "Session d’information en ligne"
+          }
+        },
+        "driving_license": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Driving licence",
+            "sv": "Körkort",
+            "fr": "Permis de conduire"
+          }
+        },
+        "profile_photo": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Profile photo",
+            "sv": "Profilbild",
+            "fr": "Photo de profil"
+          }
+        },
+        "national_id": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "ID card or passport",
+            "sv": "ID-kort eller pass",
+            "fr": "Pièce d’identité ou passeport"
+          }
+        },
+        "taxi_driver_license": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Taxi driver licence",
+            "sv": "Taxiförarlegitimation",
+            "fr": "Carte de chauffeur de taxi"
+          }
+        },
+        "vtc_card": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "VTC professional card",
+            "sv": "VTC-yrkeskort",
+            "fr": "Carte professionnelle VTC"
+          }
+        },
+        "company_registration": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Company registration",
+            "sv": "Registreringsbevis (Bolagsverket)",
+            "fr": "Extrait Kbis ou avis SIRENE (moins de 3 mois)"
+          }
+        },
+        "taxi_traffic_permit": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Taxi traffic permit",
+            "sv": "Taxitrafiktillstånd (Transportstyrelsen)",
+            "fr": "Licence de taxi"
+          }
+        },
+        "tax_settings": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Tax settings (F-skatt)",
+            "sv": "F-skattsedel",
+            "fr": "Attestation fiscale"
+          }
+        },
+        "bank_statement": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Bank details",
+            "sv": "Kontobevis",
+            "fr": "RIB de la société"
+          }
+        },
+        "vtc_register_certificate": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "VTC operators register certificate",
+            "sv": "Intyg från VTC-registret",
+            "fr": "Certificat d’inscription au registre des exploitants VTC"
+          }
+        },
+        "rc_pro_insurance": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "Professional liability insurance (RC pro)",
+            "sv": "Ansvarsförsäkring (RC pro)",
+            "fr": "Attestation RC professionnelle"
+          }
+        },
+        "urssaf_certificate": {
+          "owner": "driver",
+          "kind": "file",
+          "name": {
+            "en": "URSSAF certificate",
+            "sv": "URSSAF-intyg",
+            "fr": "Attestation de vigilance URSSAF"
+          }
+        },
+        "vehicle_registration": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Registration certificate",
+            "sv": "Registreringsbevis",
+            "fr": "Certificat d’immatriculation (carte grise)"
+          }
+        },
+        "insurance": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Vehicle insurance",
+            "sv": "Försäkringsbrev",
+            "fr": "Assurance transport de personnes"
+          }
+        },
+        "vtc_sticker": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "VTC sticker (macaron)",
+            "sv": "VTC-dekal",
+            "fr": "Macaron VTC"
+          }
+        }
+      },
+      "required": {
+        "SE": {
+          "driver": [
+            "terms",
+            "info_session",
+            "driving_license",
+            "profile_photo",
+            "taxi_driver_license"
+          ],
+          "fleet": [
+            "company_registration",
+            "taxi_traffic_permit",
+            "tax_settings",
+            "bank_statement"
+          ],
+          "vehicle": [
+            "vehicle_registration",
+            "insurance"
+          ]
+        },
+        "FR": {
+          "driver": [
+            "terms",
+            "vtc_card",
+            "driving_license",
+            "national_id",
+            "profile_photo"
+          ],
+          "fleet": [
+            "company_registration",
+            "vtc_register_certificate",
+            "rc_pro_insurance",
+            "urssaf_certificate",
+            "national_id",
+            "bank_statement"
+          ],
+          "vehicle": [
+            "vehicle_registration",
+            "insurance",
+            "vtc_sticker"
+          ]
+        }
+      },
+      "upload": {
+        "maxBytes": 10485760,
+        "mediaTypes": [
+          "image/jpeg",
+          "image/png",
+          "image/heic",
+          "application/pdf"
+        ],
+        "note": "Files are stored by the server (encrypted at rest, Europe) and read only through GET /driver/documents/{documentId}/file (the owner) and GET /admin/documents/{documentId}/file (documents.approve). fileUrl is that path, never a public link."
+      }
+    },
+    "fleetInvitations": {
+      "note": "Owner decision 2026-10-25: joining a fleet is a two-sided invitation. driver_request: the driver asks with the code, the owner's name and e-mail (POST /driver/fleet/join); the owner accepts or declines. owner_invite: the owner invites a phone number (POST /driver/fleet/invite); a driver with an account gets it at once, one without gets it the moment he signs up with that number; he accepts or declines. Either side may cancel its own. The other side is told in the app (GET /notifications, kind fleet_invitation; a badge on Home and My fleet) and by one SMS. An admin sees pending invitations on the fleet and may accept or cancel one. Accepting links the driver (Driver.fleet) and closes every other pending invitation of his.",
+      "expiresDays": 7,
+      "notice": [
+        "in_app",
+        "sms"
+      ],
+      "smsText": {
+        "sv": "{fleet} bjuder in dig till sitt åkeri i Movera. Öppna appen för att svara.",
+        "fr": "{fleet} vous invite dans sa flotte Movera. Ouvrez l’application pour répondre.",
+        "en": "{fleet} invites you to its fleet in Movera. Open the app to answer."
+      },
+      "smsTextRequest": {
+        "sv": "{driver} vill gå med i {fleet} i Movera. Öppna appen för att svara.",
+        "fr": "{driver} veut rejoindre {fleet} dans Movera. Ouvrez l’application pour répondre.",
+        "en": "{driver} wants to join {fleet} in Movera. Open the app to answer."
+      },
+      "appLink": "the SMS to a number without an account ends with the app's install link (deploy setting)"
+    }
+  },
+  "outstandingFee": {
+    "note": "v0.5.1 (CONTRACT.md §3.7), owner decision 7: an unpaid cash cancel or no-show fee puts the rider in minus (Rider.outstanding) and is added to the next trip as the outstanding_fee line.",
+    "feeStatus": [
+      "paid",
+      "owed",
+      "waived"
+    ],
+    "rules": [
+      "Cancellation.feeStatus owed while unpaid; Rider.outstanding is the sum of the owed fees",
+      "every quote and the fare of the next trip carry outstanding_fee (FareLine.sourceTripId = the trip that owes it) while it is open",
+      "cleared (feeStatus paid) when a cash trip that carries it completes and is paid; a trip that carried it but did not complete leaves it owed",
+      "the driver of the original trip gets their share at once (an earnings entry, waiting.driverSharePct for a no-show); Movera carries the risk",
+      "on the next trip the line is cash the new driver collects (in cashCollected) but not in their driverEarnings: it is owed to Movera"
+    ]
+  },
+  "accountDeletion": {
+    "note": "v0.5.1: POST /account/deletion (rider) answers 202 { status: requested }; the server erases the account on its own schedule (legal retention, open payments).",
+    "status": [
+      "requested"
+    ]
+  },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge.",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults).",
     "maxStops": 3,
     "maxPickupMoveMeters": 500,
     "freeWaitMin": {
@@ -1132,7 +1848,296 @@
         }
       }
     },
-    "promoCap": "null until Admin sets a cap for the country (no default decided)"
+    "promoCap": "null until Admin sets a cap for the country (no default decided)",
+    "pricing": {
+      "note": "PricingDocument defaults (v0.5.1, CONTRACT.md §6.2): the admin panel's Stockholm prices (zonePricing.ts defaultZoneBook), SEK minor units (öre); a full Z001 document is fixtures/config/pricing_document.json. Smart surge off (owner decision 21), the surge cap 3, stops 3 free minutes (decision 20). Other countries: the admin converts (FR × 0.095, TN × 0.3).",
+      "countries": {
+        "SE": {
+          "currency": "SEK",
+          "priceStep": 100,
+          "categories": {
+            "economy": {
+              "base": 2900,
+              "perKm": 1200,
+              "perMin": 400,
+              "minimum": 4900,
+              "maximum": 150000,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 1500,
+              "stopWaitPerMin": 500,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "comfort": {
+              "base": 3600,
+              "perKm": 1500,
+              "perMin": 500,
+              "minimum": 6100,
+              "maximum": 187500,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 1900,
+              "stopWaitPerMin": 600,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "premium": {
+              "base": 5200,
+              "perKm": 2200,
+              "perMin": 700,
+              "minimum": 8800,
+              "maximum": 270000,
+              "appFeePct": 12,
+              "commissionPct": 22,
+              "extraStopFee": 2700,
+              "stopWaitPerMin": 900,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1690,
+              "noShowFee": 6500
+            },
+            "priority": {
+              "base": 3900,
+              "perKm": 1600,
+              "perMin": 500,
+              "minimum": 6600,
+              "maximum": 202500,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 2000,
+              "stopWaitPerMin": 700,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "xl": {
+              "base": 4400,
+              "perKm": 1800,
+              "perMin": 600,
+              "minimum": 7400,
+              "maximum": 225000,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 2300,
+              "stopWaitPerMin": 800,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 3,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "electric": {
+              "base": 3200,
+              "perKm": 1300,
+              "perMin": 400,
+              "minimum": 5400,
+              "maximum": 165000,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 1700,
+              "stopWaitPerMin": 600,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "pet": {
+              "base": 3300,
+              "perKm": 1400,
+              "perMin": 500,
+              "minimum": 5600,
+              "maximum": 172500,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 1700,
+              "stopWaitPerMin": 600,
+              "babySeatFee": 3000,
+              "childSeatFee": 3000,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            },
+            "child_seat": {
+              "base": 3500,
+              "perKm": 1400,
+              "perMin": 500,
+              "minimum": 5900,
+              "maximum": 180000,
+              "appFeePct": 10,
+              "commissionPct": 20,
+              "extraStopFee": 1800,
+              "stopWaitPerMin": 600,
+              "babySeatFee": 1500,
+              "childSeatFee": 1500,
+              "freeWaitMin": 5,
+              "waitPerMin": 1226,
+              "noShowFee": 6500
+            }
+          },
+          "fees": {
+            "airportPickup": 0,
+            "airportDropoff": 0,
+            "reservationFee": 2500,
+            "cleaningFee": 30000,
+            "tollsPassThrough": true
+          },
+          "airportZones": "ARN and BMA: base and minimum × 1.3, airport pickup 6500, drop-off 3000",
+          "riderPickupFee": "null (off) in every category, §3.2",
+          "stopFreeWaitMin": 3,
+          "surgeMaxMultiplier": 3.0,
+          "smartSurge": false,
+          "fleetCommissionPct": 5
+        }
+      }
+    },
+    "dispatch": {
+      "note": "DispatchDocument defaults (v0.5.1, CONTRACT.md §6.3): the admin panel's defaultZone for a city zone (Z001-Z009 identical; fixtures/config/dispatch_document.json is Z001). Airport zones: radar.drivers 8, radius.steps [3, 6, 10].",
+      "zone": {
+        "radar": {
+          "on": true,
+          "drivers": 5,
+          "seconds": 15,
+          "then": "widen_then_exclusive"
+        },
+        "exclusive": {
+          "on": true,
+          "drivers": 3,
+          "seconds": 15,
+          "then": "widen_then_radar"
+        },
+        "choose": {
+          "how": "auto",
+          "radarAbove": 1.5,
+          "main": "exclusive",
+          "backup": "radar",
+          "times": [
+            {
+              "id": "t1",
+              "on": false,
+              "from": "22:00",
+              "to": "04:00",
+              "mode": "radar"
+            }
+          ]
+        },
+        "rulesFrom": "driver",
+        "radius": {
+          "steps": [
+            3,
+            5,
+            8
+          ],
+          "maxWaitMin": 10
+        },
+        "factors": [
+          {
+            "id": "eta",
+            "on": true,
+            "weight": 40
+          },
+          {
+            "id": "rating",
+            "on": true,
+            "weight": 15
+          },
+          {
+            "id": "acceptance",
+            "on": true,
+            "weight": 15
+          },
+          {
+            "id": "cancel",
+            "on": true,
+            "weight": 10
+          },
+          {
+            "id": "idle",
+            "on": true,
+            "weight": 10
+          },
+          {
+            "id": "finishing",
+            "on": true,
+            "weight": 5
+          },
+          {
+            "id": "favourite",
+            "on": true,
+            "weight": 5
+          }
+        ],
+        "finishing": {
+          "exclusive": true,
+          "withinMin": 3,
+          "withinKm": 1.5
+        },
+        "favourite": {
+          "on": true,
+          "maxKm": 4
+        },
+        "exclusiveWhileDriving": {
+          "on": true,
+          "count": 1
+        },
+        "waiting": [
+          {
+            "id": "w1",
+            "kind": "raise_price",
+            "on": true,
+            "afterMin": 1,
+            "message": "Drivers are busy. Raise your price to be picked up faster.",
+            "extraMin": null
+          },
+          {
+            "id": "w2",
+            "kind": "upgrade",
+            "on": true,
+            "afterMin": 2,
+            "message": "A Priority or Comfort car can come sooner. Upgrade?",
+            "extraMin": null
+          },
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "on": true,
+            "afterMin": 3,
+            "message": "We are looking for a driver for you.",
+            "extraMin": null
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "on": true,
+            "afterMin": 5,
+            "message": "Still searching. Keep waiting?",
+            "extraMin": 3
+          },
+          {
+            "id": "w5",
+            "kind": "busy",
+            "on": true,
+            "afterMin": 8,
+            "message": "It is very busy right now. Please try again in a few minutes.",
+            "extraMin": null
+          }
+        ]
+      },
+      "control": {
+        "paused": false,
+        "mode": null
+      }
+    }
   },
   "realtime": {
     "envelope": [

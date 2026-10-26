@@ -37,49 +37,43 @@ abstract final class AuthColors {
 
 abstract final class AuthText {
   static TextStyle headline(double size) => GoogleFonts.urbanist(
-        fontSize: size,
-        height: 1.1,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -1.1,
-        color: AuthColors.ink,
-      );
+    fontSize: size,
+    height: 1.1,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -1.1,
+    color: AuthColors.ink,
+  );
 
-  static TextStyle lede() => GoogleFonts.urbanist(
-        fontSize: 15,
-        height: 1.45,
-        color: AuthColors.muted,
-      );
+  static TextStyle lede() =>
+      GoogleFonts.urbanist(fontSize: 15, height: 1.45, color: AuthColors.muted);
 
   static TextStyle cardTitle() => GoogleFonts.urbanist(
-        fontSize: 17,
-        height: 1.3,
-        fontWeight: FontWeight.w600,
-        color: AuthColors.ink,
-      );
+    fontSize: 17,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    color: AuthColors.ink,
+  );
 
   static TextStyle cardSub() => GoogleFonts.urbanist(
-        fontSize: 13.5,
-        height: 1.4,
-        color: AuthColors.muted,
-      );
+    fontSize: 13.5,
+    height: 1.4,
+    color: AuthColors.muted,
+  );
 
   static TextStyle label() => GoogleFonts.urbanist(
-        fontSize: 12.5,
-        fontWeight: FontWeight.w600,
-        color: AuthColors.ink,
-      );
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+    color: AuthColors.ink,
+  );
 
   static TextStyle input() => GoogleFonts.urbanist(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: AuthColors.ink,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: AuthColors.ink,
+  );
 
-  static TextStyle small() => GoogleFonts.urbanist(
-        fontSize: 12,
-        height: 1.45,
-        color: AuthColors.faint,
-      );
+  static TextStyle small() =>
+      GoogleFonts.urbanist(fontSize: 12, height: 1.45, color: AuthColors.faint);
 
   /// Body text in the sign-in font, for the few places that style inline.
   static TextStyle body({
@@ -87,11 +81,10 @@ abstract final class AuthText {
     FontWeight weight = FontWeight.w500,
     Color color = AuthColors.ink,
     double? height,
-  }) =>
-      GoogleFonts.urbanist(
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        height: height,
-      );
+  }) => GoogleFonts.urbanist(
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+  );
 }

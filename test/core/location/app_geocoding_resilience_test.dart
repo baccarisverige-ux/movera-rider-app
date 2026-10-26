@@ -17,7 +17,10 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 /// lookup can take a while or be refused once while it wakes; neither is
 /// a reason to tell the rider that Movera could not be reached.
 void main() {
-  const live = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
+  const live = AppEnv(
+    flavor: AppFlavor.staging,
+    apiBaseUrl: 'https://x.invalid',
+  );
   final found = jsonEncode({
     'address': 'Medborgarplatsen, Stockholm',
     'latitude': 59.3143,
@@ -33,11 +36,24 @@ void main() {
   );
 
   test('a live lookup may take 25 s; the mock keeps its 8 s and no retry', () {
-    const demo = AppEnv(flavor: AppFlavor.demo, apiBaseUrl: 'https://x.invalid');
-    final onLive = AppGeocoding(api: ApiClient(client: MockClient((_) async => http.Response('{}', 200)), env: live));
+    const demo = AppEnv(
+      flavor: AppFlavor.demo,
+      apiBaseUrl: 'https://x.invalid',
+    );
+    final onLive = AppGeocoding(
+      api: ApiClient(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        env: live,
+      ),
+    );
     expect(onLive.requestTimeout, const Duration(seconds: 25));
     expect(onLive.retries, 1);
-    final onMock = AppGeocoding(api: ApiClient(client: MockClient((_) async => http.Response('{}', 200)), env: demo));
+    final onMock = AppGeocoding(
+      api: ApiClient(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        env: demo,
+      ),
+    );
     expect(onMock.requestTimeout, const Duration(seconds: 8));
     expect(onMock.retries, 0);
     expect(AppGeocoding().requestTimeout, const Duration(seconds: 8));
@@ -52,7 +68,16 @@ void main() {
         ),
       );
       Object? outcome;
-      geo.forward('Medborgarplatsen').then((v) { outcome = v; }, onError: (Object e) { outcome = e; });
+      geo
+          .forward('Medborgarplatsen')
+          .then(
+            (v) {
+              outcome = v;
+            },
+            onError: (Object e) {
+              outcome = e;
+            },
+          );
       async.elapse(const Duration(seconds: 19));
       expect(outcome, isNull, reason: 'still waiting, no error yet');
       async.elapse(const Duration(seconds: 2));
@@ -86,24 +111,26 @@ void main() {
     expect(calls, 2);
   });
 
-  test('a definite refusal (4xx) and a second fault are not retried again',
-      () async {
-    var calls = 0;
-    final refused = geocoding((_) async {
-      calls++;
-      return http.Response('{"code":"invalid_request"}', 400);
-    });
-    await expectLater(refused.forward('x'), throwsA(isA<ApiError>()));
-    expect(calls, 1);
+  test(
+    'a definite refusal (4xx) and a second fault are not retried again',
+    () async {
+      var calls = 0;
+      final refused = geocoding((_) async {
+        calls++;
+        return http.Response('{"code":"invalid_request"}', 400);
+      });
+      await expectLater(refused.forward('x'), throwsA(isA<ApiError>()));
+      expect(calls, 1);
 
-    calls = 0;
-    final down = geocoding((_) async {
-      calls++;
-      return http.Response('{"code":"unavailable"}', 503);
-    });
-    await expectLater(down.forward('y'), throwsA(isA<ApiError>()));
-    expect(calls, 2, reason: 'one retry, then the failure is reported');
-  });
+      calls = 0;
+      final down = geocoding((_) async {
+        calls++;
+        return http.Response('{"code":"unavailable"}', 503);
+      });
+      await expectLater(down.forward('y'), throwsA(isA<ApiError>()));
+      expect(calls, 2, reason: 'one retry, then the failure is reported');
+    },
+  );
 
   test('a timeout is not retried: the rider has waited long enough', () {
     fakeAsync((async) {
@@ -113,7 +140,16 @@ void main() {
         return Completer<http.Response>().future;
       });
       Object? outcome;
-      geo.forward('z').then((v) { outcome = v; }, onError: (Object e) { outcome = e; });
+      geo
+          .forward('z')
+          .then(
+            (v) {
+              outcome = v;
+            },
+            onError: (Object e) {
+              outcome = e;
+            },
+          );
       async.elapse(const Duration(seconds: 26));
       expect(outcome, isA<TimeoutException>());
       expect(calls, 1);
@@ -122,12 +158,40 @@ void main() {
   });
 
   test('isTransientFault: server faults and no network, never 4xx', () {
-    expect(AppGeocoding.isTransientFault(const ApiError(code: 'x', message: '', statusCode: 503)), isTrue);
-    expect(AppGeocoding.isTransientFault(const ApiError(code: 'x', message: '', statusCode: 429)), isTrue);
-    expect(AppGeocoding.isTransientFault(const ApiError(code: 'NETWORK', message: '')), isTrue);
-    expect(AppGeocoding.isTransientFault(http.ClientException('reset')), isTrue);
-    expect(AppGeocoding.isTransientFault(const ApiError(code: 'TIMEOUT', message: '')), isFalse);
-    expect(AppGeocoding.isTransientFault(const ApiError(code: 'x', message: '', statusCode: 404)), isFalse);
+    expect(
+      AppGeocoding.isTransientFault(
+        const ApiError(code: 'x', message: '', statusCode: 503),
+      ),
+      isTrue,
+    );
+    expect(
+      AppGeocoding.isTransientFault(
+        const ApiError(code: 'x', message: '', statusCode: 429),
+      ),
+      isTrue,
+    );
+    expect(
+      AppGeocoding.isTransientFault(
+        const ApiError(code: 'NETWORK', message: ''),
+      ),
+      isTrue,
+    );
+    expect(
+      AppGeocoding.isTransientFault(http.ClientException('reset')),
+      isTrue,
+    );
+    expect(
+      AppGeocoding.isTransientFault(
+        const ApiError(code: 'TIMEOUT', message: ''),
+      ),
+      isFalse,
+    );
+    expect(
+      AppGeocoding.isTransientFault(
+        const ApiError(code: 'x', message: '', statusCode: 404),
+      ),
+      isFalse,
+    );
     expect(AppGeocoding.isTransientFault(StateError('x')), isFalse);
   });
 }

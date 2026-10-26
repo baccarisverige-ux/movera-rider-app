@@ -85,8 +85,7 @@ class ReservationDriver {
 
   bool get hasFirstName => normalizedFirstName.isNotEmpty;
 
-  String get displayFirstName =>
-      hasFirstName ? normalizedFirstName : 'Driver';
+  String get displayFirstName => hasFirstName ? normalizedFirstName : 'Driver';
 
   String get initial => initialFromName(normalizedFirstName);
 
@@ -183,8 +182,9 @@ class ReservationDraft {
 /// a [ZoneClock.wallTime], whatever the phone's time zone); without a zone,
 /// [instant] in the device's time zone (a ride saved before rides kept
 /// their zone, shown as it always was).
-DateTime zoneWallTime(DateTime instant, String? timeZone) =>
-    timeZone == null ? instant.toLocal() : ZoneClock.wallTime(timeZone, instant);
+DateTime zoneWallTime(DateTime instant, String? timeZone) => timeZone == null
+    ? instant.toLocal()
+    : ZoneClock.wallTime(timeZone, instant);
 
 class ReservationPriceChange {
   const ReservationPriceChange({
@@ -503,9 +503,7 @@ class Reservation {
       // as it was written. createdAt is only compared, so it stays as
       // stored.
       final created = DateTime.tryParse(map['createdAt'] as String? ?? '');
-      final pickupAt = _localTime(
-        map['scheduledPickupAt'] ?? map['pickupAt'],
-      );
+      final pickupAt = _localTime(map['scheduledPickupAt'] ?? map['pickupAt']);
       if (created == null || pickupAt == null) return null;
       final rawStatus = map['status'] as String?;
       final status = rawStatus == null
@@ -558,7 +556,6 @@ class Reservation {
     }
   }
 }
-
 
 DateTime? _localTime(Object? raw) =>
     raw is String ? DateTime.tryParse(raw)?.toLocal() : null;

@@ -35,7 +35,8 @@ void main() {
     final rt = ApiRideRealtime(
       api: ApiClient(
         client: MockClient((_) async {
-          final next = script[index < script.length ? index : script.length - 1];
+          final next =
+              script[index < script.length ? index : script.length - 1];
           index++;
           return http.Response(jsonEncode(next), 200);
         }),
@@ -60,17 +61,19 @@ void main() {
     return events;
   }
 
-  test('an admin reassign goes back to searching without a driver cancel',
-      () async {
-    final events = await run([
-      projection('accepted', 1),
-      projection('searching', 2, eventKind: 'trip_projection'),
-    ]);
-    final back = events.last;
-    expect(back.isAdminReassign, isTrue);
-    expect(back.kind, RealtimeKind.tripProjection);
-    expect(back.kind, isNot(RealtimeKind.driverCancelled));
-  });
+  test(
+    'an admin reassign goes back to searching without a driver cancel',
+    () async {
+      final events = await run([
+        projection('accepted', 1),
+        projection('searching', 2, eventKind: 'trip_projection'),
+      ]);
+      final back = events.last;
+      expect(back.isAdminReassign, isTrue);
+      expect(back.kind, RealtimeKind.tripProjection);
+      expect(back.kind, isNot(RealtimeKind.driverCancelled));
+    },
+  );
 
   test('cancellation.actor admin also marks the reassign', () async {
     final events = await run([

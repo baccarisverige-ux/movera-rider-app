@@ -10,7 +10,10 @@ void main() {
   test('RideStatus projects onto separate trip/payment/rating dimensions', () {
     expect(RideStatus.findingDriver.tripStatus, TripStatus.searching);
     expect(RideStatus.paymentProcessing.tripStatus, TripStatus.completed);
-    expect(RideStatus.paymentProcessing.paymentStatus, PaymentStatus.processing);
+    expect(
+      RideStatus.paymentProcessing.paymentStatus,
+      PaymentStatus.processing,
+    );
     expect(RideStatus.ratingPending.ratingStatus, RatingStatus.pending);
   });
 

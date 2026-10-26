@@ -58,8 +58,11 @@ void main() {
 
     controller.debugAdvance(1);
     expect(controller.showPriceBump, isTrue);
-    expect(controller.isDelayed, isFalse,
-        reason: 'the search copy still waits for the 60 s mark');
+    expect(
+      controller.isDelayed,
+      isFalse,
+      reason: 'the search copy still waits for the 60 s mark',
+    );
 
     controller.debugAdvance(15);
     expect(controller.isDelayed, isTrue);

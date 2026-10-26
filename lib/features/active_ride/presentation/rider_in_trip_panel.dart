@@ -47,6 +47,7 @@ class RiderInTripPanel extends StatelessWidget {
   final String? headline;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
+
   /// Null where the route cannot change (rider-u55).
   final VoidCallback? onMore;
   final VoidCallback onCancel;
@@ -88,7 +89,9 @@ class RiderInTripPanel extends StatelessWidget {
                           // overflow the pill (Swedish, large text).
                           Flexible(
                             child: Text(
-                              approaching ? context.l10n.nearDestinationUpper : context.l10n.onTripUpper,
+                              approaching
+                                  ? context.l10n.nearDestinationUpper
+                                  : context.l10n.onTripUpper,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: waitingText(

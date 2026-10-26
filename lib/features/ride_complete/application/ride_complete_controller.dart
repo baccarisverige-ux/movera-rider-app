@@ -36,7 +36,8 @@ class RideCompleteController {
   final RiderConfigRepository? _config;
 
   void close() => _ride.markClosed();
-  Future<void> closeCompletedRide(String rideId) => _ride.closeCompletedRide(rideId);
+  Future<void> closeCompletedRide(String rideId) =>
+      _ride.closeCompletedRide(rideId);
   Future<void> submitFeedback({
     required String rideId,
     double? rating,
@@ -56,8 +57,10 @@ class RideCompleteController {
       _ride.markCompletedPaymentFailed(rideId);
   Future<void> markPaymentRetried(String rideId, RideStatus status) =>
       _ride.markPaymentRetried(rideId, status);
-  Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
-      _ride.persistCompletedStatus(status, rideId: rideId);
+  Future<void> persistCompletedStatus(
+    RideStatus status, {
+    required String rideId,
+  }) => _ride.persistCompletedStatus(status, rideId: rideId);
   // rider-u166: [rideId] is the ride the completion screen shows; another
   // ride remembered in LastCompletedRide is never shown for it.
   DriverProfile? driver({String? rideId}) => _drivers.current(rideId: rideId);

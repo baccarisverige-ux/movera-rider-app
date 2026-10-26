@@ -130,8 +130,10 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
                   : context.l10n.pinSavedHint,
             )
           else
-            Text(context.l10n.pinUnavailable,
-                style: SafetyUi.text(14, color: SafetyUi.muted)),
+            Text(
+              context.l10n.pinUnavailable,
+              style: SafetyUi.text(14, color: SafetyUi.muted),
+            ),
           const SizedBox(height: 18),
           SizedBox(
             height: 52,

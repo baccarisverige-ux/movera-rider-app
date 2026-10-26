@@ -53,7 +53,9 @@ class _EditGate extends http.BaseClient {
       pending = completer;
       return completer.future;
     }
-    return Future.value(_json(200, {'tripId': 'drop-deferred', 'status': 'searching'}));
+    return Future.value(
+      _json(200, {'tripId': 'drop-deferred', 'status': 'searching'}),
+    );
   }
 
   void answer(int status, Map<String, Object?> body) {
@@ -82,31 +84,34 @@ void main() {
   });
 
   RideSnapshot snapshot() => RideSnapshot(
-        status: RideStatus.findingDriver,
-        savedAt: DateTime.now(),
-        searchStartedAt: DateTime.now(),
-        pickupAddress: 'Stockholm Central',
-        destinationAddress: 'Arlanda Airport',
-        pickupLat: 59.33,
-        pickupLng: 18.059,
-        destinationLat: 59.6519,
-        destinationLng: 17.9186,
-        rideType: 'Movera',
-        price: 349,
-        paymentMethod: 'Apple Pay',
-        rideId: rideId,
-      );
+    status: RideStatus.findingDriver,
+    savedAt: DateTime.now(),
+    searchStartedAt: DateTime.now(),
+    pickupAddress: 'Stockholm Central',
+    destinationAddress: 'Arlanda Airport',
+    pickupLat: 59.33,
+    pickupLng: 18.059,
+    destinationLat: 59.6519,
+    destinationLng: 17.9186,
+    rideType: 'Movera',
+    price: 349,
+    paymentMethod: 'Apple Pay',
+    rideId: rideId,
+  );
 
-  RideRealtimeEvent event(RideStatus status, int sequence, {RealtimeKind? kind}) =>
-      RideRealtimeEvent(
-        tripId: rideId,
-        status: status,
-        sequence: sequence,
-        version: sequence,
-        kind: kind,
-        driver: status.isMatched ? driver : null,
-        serverTime: DateTime.utc(2026, 10, 23, 9, sequence),
-      );
+  RideRealtimeEvent event(
+    RideStatus status,
+    int sequence, {
+    RealtimeKind? kind,
+  }) => RideRealtimeEvent(
+    tripId: rideId,
+    status: status,
+    sequence: sequence,
+    version: sequence,
+    kind: kind,
+    driver: status.isMatched ? driver : null,
+    serverTime: DateTime.utc(2026, 10, 23, 9, sequence),
+  );
 
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
@@ -114,7 +119,9 @@ void main() {
     }
   }
 
-  testWidgets('a driver drop during a deferred match keeps the search', (tester) async {
+  testWidgets('a driver drop during a deferred match keeps the search', (
+    tester,
+  ) async {
     final realtime = _Realtime();
     addTearDown(realtime.dispose);
     final gate = _EditGate();
@@ -138,11 +145,13 @@ void main() {
     await RideSnapshotStore.save(snapshot());
 
     // The rider moves the pickup; the PATCH is out.
-    unawaited(controller.updatePickup(
-      address: 'Stockholm Odenplan',
-      latitude: 59.343,
-      longitude: 18.05,
-    ));
+    unawaited(
+      controller.updatePickup(
+        address: 'Stockholm Odenplan',
+        latitude: 59.343,
+        longitude: 18.05,
+      ),
+    );
     for (var i = 0; i < 20 && !gate.inFlight; i++) {
       await tester.pump(const Duration(milliseconds: 20));
     }
@@ -152,14 +161,26 @@ void main() {
     realtime.c.add(event(RideStatus.driverAssigned, 2));
     await settle(tester);
     expect(matched, 0, reason: 'the match waits for the edit answer');
-    realtime.c.add(event(RideStatus.cancelledByDriver, 3, kind: RealtimeKind.driverCancelled));
+    realtime.c.add(
+      event(
+        RideStatus.cancelledByDriver,
+        3,
+        kind: RealtimeKind.driverCancelled,
+      ),
+    );
     await settle(tester);
 
     expect(terminal, isNull, reason: 'a driver drop does not end the ride');
-    expect(identical(FindingDriverController.active, controller), isTrue,
-        reason: 'the search still owns the ride');
-    expect(await RideSnapshotStore.read(), isNotNull,
-        reason: 'the ride snapshot is kept for the next driver');
+    expect(
+      identical(FindingDriverController.active, controller),
+      isTrue,
+      reason: 'the search still owns the ride',
+    );
+    expect(
+      await RideSnapshotStore.read(),
+      isNotNull,
+      reason: 'the ride snapshot is kept for the next driver',
+    );
     expect(AppScope.instance.ride.status, RideStatus.findingDriver);
     expect(controller.matchCount, 0);
     expect(controller.matchedDriver, isNull);

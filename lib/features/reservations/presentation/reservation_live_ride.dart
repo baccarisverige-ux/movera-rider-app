@@ -145,9 +145,7 @@ abstract final class ReservationLiveRide {
               showConnectionBanner: false,
               onClose: (completionContext) async {
                 if (!completionContext.mounted) return;
-                Navigator.of(
-                  completionContext,
-                ).popUntil(AppRoutes.isHomeRoute);
+                Navigator.of(completionContext).popUntil(AppRoutes.isHomeRoute);
               },
             ),
             settings: const RouteSettings(name: AppRoutes.rideCompleted),

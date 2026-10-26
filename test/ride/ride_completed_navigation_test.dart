@@ -58,9 +58,7 @@ void main() {
     // The completion surface must not close the ride before the rider leaves it.
     expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
 
-    final done = find.byKey(
-      const ValueKey<String>('ride-completed-done'),
-    );
+    final done = find.byKey(const ValueKey<String>('ride-completed-done'));
     expect(done, findsOneWidget);
     await tester.tap(done);
     await tester.pumpAndSettle();

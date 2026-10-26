@@ -193,7 +193,10 @@ void main() {
     );
     final first = selection.rides().first.id;
     selection.adoptQuote(first, quote(first, const Duration(minutes: 2)));
-    selection.adoptQuote('retired', quote('retired', const Duration(minutes: 1)));
+    selection.adoptQuote(
+      'retired',
+      quote('retired', const Duration(minutes: 1)),
+    );
     final later = t0.add(const Duration(minutes: 3));
     // Back from a booking flow that outlasted the quote: it is spent.
     expect(selection.discardExpiredQuotes(now: later), isTrue);
@@ -201,7 +204,10 @@ void main() {
     expect(selection.discardExpiredQuotes(now: later), isFalse);
 
     // A category the catalog no longer has loses its quote on the next load.
-    selection.adoptQuote('retired', quote('retired', const Duration(minutes: 1)));
+    selection.adoptQuote(
+      'retired',
+      quote('retired', const Duration(minutes: 1)),
+    );
     await selection.loadQuotes(
       generation: selection.beginQuotes(),
       pickup: 'A',

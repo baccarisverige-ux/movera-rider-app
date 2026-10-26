@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,7 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 /// A [Random] that always answers [value].
 class _FixedRandom implements Random {
   _FixedRandom(this.value);
@@ -220,15 +222,23 @@ void main() {
     await tester.pump(cameraEaseFrame);
   });
 
-  test('rider-u20: the road-route cache stays bounded on a long ride', () async {
-    final routing = RoutingService(api: ApiClient(client: InProcessMockClient()));
-    const pickup = GeoPoint(59.3326, 18.0649);
-    // A driver moving: every 10 s refresh has a new origin.
-    for (var i = 0; i < roadCacheLimit + 20; i++) {
-      await routing.roadLine(from: GeoPoint(59.30 + i * 0.0001, 18.06), to: pickup);
-    }
-    expect(roadCacheLengthOf(routing), roadCacheLimit);
-  });
+  test(
+    'rider-u20: the road-route cache stays bounded on a long ride',
+    () async {
+      final routing = RoutingService(
+        api: ApiClient(client: InProcessMockClient()),
+      );
+      const pickup = GeoPoint(59.3326, 18.0649);
+      // A driver moving: every 10 s refresh has a new origin.
+      for (var i = 0; i < roadCacheLimit + 20; i++) {
+        await routing.roadLine(
+          from: GeoPoint(59.30 + i * 0.0001, 18.06),
+          to: pickup,
+        );
+      }
+      expect(roadCacheLengthOf(routing), roadCacheLimit);
+    },
+  );
 
   test('rider-20: the home puck glides to a new fix over the window', () {
     final engine = MotionEngine();
@@ -327,8 +337,16 @@ void main() {
 
   test('rider-r3-11: sign-in takes only a Swedish mobile number', () {
     expect(swedishNumberFromField('70 123 45 67'), '+46701234567');
-    expect(swedishNumberFromField('70 123 45 6'), isNull, reason: 'a digit short');
-    expect(swedishNumberFromField('08 123 456 78'), isNull, reason: 'a landline');
+    expect(
+      swedishNumberFromField('70 123 45 6'),
+      isNull,
+      reason: 'a digit short',
+    );
+    expect(
+      swedishNumberFromField('08 123 456 78'),
+      isNull,
+      reason: 'a landline',
+    );
   });
 
   test('rider-u84: the highlight range is in the title\'s own offsets', () {
@@ -404,7 +422,9 @@ void main() {
     final upcoming = reservations.upcoming();
     expect(upcoming, hasLength(2));
     expect(
-      upcoming.first.scheduledPickupAt.isBefore(upcoming.last.scheduledPickupAt),
+      upcoming.first.scheduledPickupAt.isBefore(
+        upcoming.last.scheduledPickupAt,
+      ),
       isTrue,
     );
   });
@@ -500,7 +520,10 @@ void main() {
     );
     await selection.loadSavedCards();
     expect(selection.hasSavedCard, isFalse);
-    expect(selection.payments().map((p) => p.brand), isNot(contains('card:old')));
+    expect(
+      selection.payments().map((p) => p.brand),
+      isNot(contains('card:old')),
+    );
     expect(selection.savedCardFor('card:old'), isNull);
   });
 

@@ -27,20 +27,23 @@ void main() {
     rideId: 'ride-archive-failure',
   );
 
-  test('cancel clears active snapshot even when History archival fails', () async {
-    final active = snapshot();
-    await RideSnapshotStore.save(active);
-    expect(await RideSnapshotStore.readForArchive(), isNotNull);
+  test(
+    'cancel clears active snapshot even when History archival fails',
+    () async {
+      final active = snapshot();
+      await RideSnapshotStore.save(active);
+      expect(await RideSnapshotStore.readForArchive(), isNotNull);
 
-    await OnDemandRideHistoryStore.archiveCancelledThenClear(
-      snapshot: active,
-      reasonId: 'plans_changed',
-      archiveWriter: (_, __, ___) async {
-        throw StateError('simulated History write failure');
-      },
-    );
+      await OnDemandRideHistoryStore.archiveCancelledThenClear(
+        snapshot: active,
+        reasonId: 'plans_changed',
+        archiveWriter: (_, __, ___) async {
+          throw StateError('simulated History write failure');
+        },
+      );
 
-    expect(await RideSnapshotStore.readForArchive(), isNull);
-    expect(await OnDemandRideHistoryStore.read(), isEmpty);
-  });
+      expect(await RideSnapshotStore.readForArchive(), isNull);
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
+    },
+  );
 }

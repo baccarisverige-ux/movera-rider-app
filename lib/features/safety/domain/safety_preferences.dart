@@ -44,15 +44,15 @@ class SafetyPreferences {
   }
 
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'pinRequired': pinRequired,
-        'tripShareEnabled': tripShareEnabled,
-        'tripShareMode': tripShareMode.name,
-        'tripShareContactIds': tripShareContactIds,
-        'rideCheckEnabled': rideCheckEnabled,
-        'updatedAt': updatedAt?.toIso8601String(),
-        'version': version,
-      };
+    'userId': userId,
+    'pinRequired': pinRequired,
+    'tripShareEnabled': tripShareEnabled,
+    'tripShareMode': tripShareMode.name,
+    'tripShareContactIds': tripShareContactIds,
+    'rideCheckEnabled': rideCheckEnabled,
+    'updatedAt': updatedAt?.toIso8601String(),
+    'version': version,
+  };
 
   factory SafetyPreferences.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const SafetyPreferences();

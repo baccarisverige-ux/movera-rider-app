@@ -18,7 +18,8 @@ double pickupSpotDistanceM(LatLng a, LatLng b) {
 LatLng pickupSpotOffset(LatLng point, {double northM = 0, double eastM = 0}) {
   const metresPerDegree = 111320.0;
   final lat = point.latitude + northM / metresPerDegree;
-  final lng = point.longitude +
+  final lng =
+      point.longitude +
       eastM / (metresPerDegree * math.cos(point.latitude * math.pi / 180));
   return LatLng(lat, lng);
 }
@@ -49,7 +50,7 @@ String pickupSpotLabel(String address, PickupSpot spot) {
 /// pickups; "Near Home" only when Home is within [nearHomeM].
 class PickupSpotsController {
   PickupSpotsController({PreviousPickupsStore? store})
-      : _store = store ?? SharedPreferencesPreviousPickupsStore();
+    : _store = store ?? SharedPreferencesPreviousPickupsStore();
 
   final PreviousPickupsStore _store;
 
@@ -154,8 +155,7 @@ class PickupSpotsController {
     final near = all.where((p) {
       final d = pickupSpotDistanceM(at, p.position);
       return d > sameSpotM && d <= previousRadiusM;
-    }).toList()
-      ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    }).toList()..sort((a, b) => b.savedAt.compareTo(a.savedAt));
     return near;
   }
 

@@ -53,7 +53,8 @@ List<Map<String, String>> withPlaceIds(List<Map<String, String>> places) {
 }
 
 class HomeAddressRepository {
-  static final StreamController<void> _changes = StreamController<void>.broadcast();
+  static final StreamController<void> _changes =
+      StreamController<void>.broadcast();
 
   Stream<void> get changes => _changes.stream;
 

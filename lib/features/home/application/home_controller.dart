@@ -61,7 +61,6 @@ class RotatedPuckCache {
   void clear() => _icons.clear();
 }
 
-
 /// Whether [label] is a placeholder rather than a real address, so it must
 /// not be forward-geocoded or saved.
 bool isPlaceholderPickupLabel(String? label) {
@@ -515,8 +514,7 @@ class HomeLocationController extends ChangeNotifier {
             ),
           )
           .timeout(quickFixTimeout);
-      if (position.accuracy.isFinite &&
-          position.accuracy > quickFixMaxMeters) {
+      if (position.accuracy.isFinite && position.accuracy > quickFixMaxMeters) {
         return null;
       }
       final point = GeoPoint(position.latitude, position.longitude);

@@ -15,8 +15,7 @@ import 'package:movera_rider/core/observability/observability.dart';
 /// lines (debug, info) are capped per minute, and a path the server does
 /// not serve (404) is left alone for a while instead of being hit on every
 /// log line. Errors, crashes and warnings always go out.
-class HttpObservabilitySink
-    implements LoggerSink, AnalyticsSink, CrashSink {
+class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
   HttpObservabilitySink({
     required this.baseUrl,
     http.Client? client,
@@ -24,8 +23,8 @@ class HttpObservabilitySink
     this.queueLimit = 40,
     this.muteAfterNotFound = const Duration(minutes: 10),
     DateTime Function()? clock,
-  })  : _client = client ?? http.Client(),
-        _clock = clock ?? DateTime.now;
+  }) : _client = client ?? http.Client(),
+       _clock = clock ?? DateTime.now;
 
   final String baseUrl;
   final http.Client _client;
@@ -134,28 +133,20 @@ class HttpObservabilitySink
     Object? error,
     StackTrace? stackTrace,
   }) {
-    _post(
-      '/api/v1/telemetry/logs',
-      {
-        'level': level.name,
-        'event': event,
-        'extra': Observability.sanitize(extra),
-        if (error != null) 'error': Observability.scrubText(error.toString()),
-      },
-      routine: level == TelemetryLevel.debug || level == TelemetryLevel.info,
-    );
+    _post('/api/v1/telemetry/logs', {
+      'level': level.name,
+      'event': event,
+      'extra': Observability.sanitize(extra),
+      if (error != null) 'error': Observability.scrubText(error.toString()),
+    }, routine: level == TelemetryLevel.debug || level == TelemetryLevel.info);
   }
 
   @override
   void track(String event, {Map<String, Object?> extra = const {}}) {
-    _post(
-      '/api/v1/telemetry/analytics',
-      {
-        'event': event,
-        'extra': Observability.sanitize(extra),
-      },
-      routine: true,
-    );
+    _post('/api/v1/telemetry/analytics', {
+      'event': event,
+      'extra': Observability.sanitize(extra),
+    }, routine: true);
   }
 
   @override
@@ -164,15 +155,11 @@ class HttpObservabilitySink
     StackTrace stackTrace, {
     Map<String, Object?> extra = const {},
   }) {
-    _post(
-      '/api/v1/telemetry/crashes',
-      {
-        'error': Observability.scrubText(error.toString()),
-        'stack': Observability.scrubText(stackTrace.toString()),
-        'extra': Observability.sanitize(extra),
-      },
-      routine: false,
-    );
+    _post('/api/v1/telemetry/crashes', {
+      'error': Observability.scrubText(error.toString()),
+      'stack': Observability.scrubText(stackTrace.toString()),
+      'extra': Observability.sanitize(extra),
+    }, routine: false);
   }
 
   void dispose() {

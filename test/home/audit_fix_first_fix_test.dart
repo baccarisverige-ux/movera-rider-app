@@ -232,9 +232,7 @@ void main() {
     await frames(tester, 10);
     final recenter = find.byIcon(Icons.near_me_outlined);
     // The rider pans the map away, as the map reports it to Home.
-    tester
-        .widget<CustomGoogleMap>(find.byType(CustomGoogleMap))
-        .onCameraMove!(
+    tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap)).onCameraMove!(
       const CameraPosition(target: LatLng(59.40, 18.20), zoom: 15),
     );
     await frames(tester, 1);

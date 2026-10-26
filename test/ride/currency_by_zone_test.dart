@@ -408,29 +408,33 @@ void main() {
         expect(formatMoney(preview.fee), endsWith(market.symbol));
       });
 
-      test('Q8: only the wallet of the trip currency pays; kronor never do',
-          () async {
-        SharedPreferences.setMockInitialValues({
-          WalletStore.balanceKey: 500.0,
-          WalletStore.balanceKeyFor(market.currency): 100.0,
-        });
-        final quote = await quoteIn(market);
-        final selection = RideSelectionController(
-          flags: const FeatureFlags(),
-          currency: market.currency,
-        )..setWalletBalance(50);
-        addTearDown(selection.dispose);
-        selection.adoptQuote('economy', quote);
-        expect(selection.walletMatchesTrip, isFalse);
-        expect(selection.walletSplitFor(quote.totalMinor).usesWallet, isFalse);
-        expect(
-          selection.payments().map((item) => item.brand),
-          isNot(contains('wallet')),
-        );
+      test(
+        'Q8: only the wallet of the trip currency pays; kronor never do',
+        () async {
+          SharedPreferences.setMockInitialValues({
+            WalletStore.balanceKey: 500.0,
+            WalletStore.balanceKeyFor(market.currency): 100.0,
+          });
+          final quote = await quoteIn(market);
+          final selection = RideSelectionController(
+            flags: const FeatureFlags(),
+            currency: market.currency,
+          )..setWalletBalance(50);
+          addTearDown(selection.dispose);
+          selection.adoptQuote('economy', quote);
+          expect(selection.walletMatchesTrip, isFalse);
+          expect(
+            selection.walletSplitFor(quote.totalMinor).usesWallet,
+            isFalse,
+          );
+          expect(
+            selection.payments().map((item) => item.brand),
+            isNot(contains('wallet')),
+          );
 
-        // The server takes a wallet part in the trip's own currency (Q8:
-        // one wallet per currency, no conversion).
-        final created = await api.post(
+          // The server takes a wallet part in the trip's own currency (Q8:
+          // one wallet per currency, no conversion).
+          final created = await api.post(
             '/api/v1/rides',
             body: {
               'categoryId': 'economy',
@@ -449,39 +453,43 @@ void main() {
               'useWalletFirst': true,
               'walletAmountMinor': 1000,
             },
-        );
-        expect(created['ride'], isNotNull);
+          );
+          expect(created['ride'], isNotNull);
 
-        // A completed wallet trip is taken off that currency's balance,
-        // never off the kronor one.
-        final snapshot = RideSnapshot(
-          status: RideStatus.paymentFinalized,
-          savedAt: DateTime.now(),
-          pickupAddress: 'Pickup',
-          destinationAddress: 'Destination',
-          pickupLat: market.pickupLat,
-          pickupLng: market.pickupLng,
-          destinationLat: market.destinationLat,
-          destinationLng: market.destinationLng,
-          rideType: 'Movera',
-          price: Money(quote.totalMinor, quote.currency).major,
-          currency: quote.currency,
-          paymentMethod: 'Movera Wallet',
-          paymentMethodId: 'wallet',
-          rideId: 'paid-elsewhere',
-        );
-        final wallet = WalletController();
-        final fare = Money(quote.totalMinor, quote.currency);
-        expect(
-          await wallet.chargeCompletedRide(snapshot, rideId: 'paid-elsewhere'),
-          closeTo(100 - fare.major, 1e-6),
-        );
-        expect(await wallet.loadBalance(), 500.0);
-        expect(
-          await wallet.forCurrency(market.currency).loadBalance(),
-          closeTo(100 - fare.major, 1e-6),
-        );
-      });
+          // A completed wallet trip is taken off that currency's balance,
+          // never off the kronor one.
+          final snapshot = RideSnapshot(
+            status: RideStatus.paymentFinalized,
+            savedAt: DateTime.now(),
+            pickupAddress: 'Pickup',
+            destinationAddress: 'Destination',
+            pickupLat: market.pickupLat,
+            pickupLng: market.pickupLng,
+            destinationLat: market.destinationLat,
+            destinationLng: market.destinationLng,
+            rideType: 'Movera',
+            price: Money(quote.totalMinor, quote.currency).major,
+            currency: quote.currency,
+            paymentMethod: 'Movera Wallet',
+            paymentMethodId: 'wallet',
+            rideId: 'paid-elsewhere',
+          );
+          final wallet = WalletController();
+          final fare = Money(quote.totalMinor, quote.currency);
+          expect(
+            await wallet.chargeCompletedRide(
+              snapshot,
+              rideId: 'paid-elsewhere',
+            ),
+            closeTo(100 - fare.major, 1e-6),
+          );
+          expect(await wallet.loadBalance(), 500.0);
+          expect(
+            await wallet.forCurrency(market.currency).loadBalance(),
+            closeTo(100 - fare.major, 1e-6),
+          );
+        },
+      );
 
       testWidgets('the receipt, the waybill and History', (tester) async {
         tester.view.physicalSize = const Size(390, 1400);

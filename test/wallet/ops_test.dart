@@ -23,26 +23,30 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('legacy local voucher values are purged during wallet restore', () async {
-    SharedPreferences.setMockInitialValues({
-      'movera_voucher_code': 'LEGACY',
-      'movera_voucher_amount': 100,
-      'movera_voucher_expires': '2027-01-01',
-      'movera_used_vouchers': '["LEGACY"]',
-    });
+  test(
+    'legacy local voucher values are purged during wallet restore',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'movera_voucher_code': 'LEGACY',
+        'movera_voucher_amount': 100,
+        'movera_voucher_expires': '2027-01-01',
+        'movera_used_vouchers': '["LEGACY"]',
+      });
 
-    await WalletStore().loadPayments();
+      await WalletStore().loadPayments();
 
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.containsKey('movera_voucher_code'), isFalse);
-    expect(prefs.containsKey('movera_voucher_amount'), isFalse);
-    expect(prefs.containsKey('movera_voucher_expires'), isFalse);
-    expect(prefs.containsKey('movera_used_vouchers'), isFalse);
-  });
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('movera_voucher_code'), isFalse);
+      expect(prefs.containsKey('movera_voucher_amount'), isFalse);
+      expect(prefs.containsKey('movera_voucher_expires'), isFalse);
+      expect(prefs.containsKey('movera_used_vouchers'), isFalse);
+    },
+  );
 
   test('legacy unverified payment labels and defaults are removed', () async {
     SharedPreferences.setMockInitialValues({
-      'movera_payment_methods': '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
+      'movera_payment_methods':
+          '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
       'movera_default_payment': 'card_4242',
     });
     final store = WalletStore();
@@ -53,11 +57,15 @@ void main() {
     expect(prefs.containsKey('movera_payment_methods'), isFalse);
     expect(prefs.getString('movera_default_payment'), 'cash');
 
-    await store.savePayments(WalletPaymentSettings(
-      defaultMethod: 'paypal',
-      business: false,
-      extraMethods: [{'id': 'paypal', 'detail': 'Connected'}],
-    ));
+    await store.savePayments(
+      WalletPaymentSettings(
+        defaultMethod: 'paypal',
+        business: false,
+        extraMethods: [
+          {'id': 'paypal', 'detail': 'Connected'},
+        ],
+      ),
+    );
     expect((await store.loadPayments()).defaultMethod, 'cash');
     expect(prefs.containsKey('movera_payment_methods'), isFalse);
   });

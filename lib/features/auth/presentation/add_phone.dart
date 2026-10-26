@@ -50,6 +50,7 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
       _error = null;
     });
   }
+
   bool _busy = false;
   String? _error;
 
@@ -79,7 +80,10 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
     }
     setState(() => _busy = true);
     try {
-      final challenge = await _auth.requestOtp(phone: number, link: widget.link);
+      final challenge = await _auth.requestOtp(
+        phone: number,
+        link: widget.link,
+      );
       if (!mounted) return;
       _phoneFocus.unfocus();
       await Navigator.push(
@@ -130,7 +134,9 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      link.provider == 'apple' ? Icons.apple : Icons.g_mobiledata_rounded,
+                      link.provider == 'apple'
+                          ? Icons.apple
+                          : Icons.g_mobiledata_rounded,
                       size: 13,
                       color: Colors.white,
                     ),
@@ -148,7 +154,11 @@ class _AddPhoneNumberState extends State<AddPhoneNumber> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.check_rounded, size: 15, color: AuthColors.ink),
+                  const Icon(
+                    Icons.check_rounded,
+                    size: 15,
+                    color: AuthColors.ink,
+                  ),
                 ],
               ),
             ),

@@ -153,6 +153,7 @@ class FindingDriverController {
   bool _stillLooking = false;
   bool _stillLookingDismissed = false;
   bool _serverCheckInFlight = false;
+
   /// Contract v0.3.0 realtime gate: the server's sequence and eventId,
   /// `sequence <= last` dropped, nothing but payment/rating/message after a
   /// terminal status.
@@ -226,6 +227,7 @@ class FindingDriverController {
   /// Q7: the currency of this trip (its pickup's zone). [currentPrice] and
   /// [maxOfferPrice] are whole units of it.
   String get currency => _snapshot?.currency ?? Money.defaultCurrency;
+
   /// ARCH-20: the ceiling the booking carries (server or booked fare), so a
   /// raised offer plus a reload does not lift it; the catalog rule only for
   /// a snapshot without one.
@@ -234,6 +236,7 @@ class FindingDriverController {
     if (minor != null) return Money(minor, currency).major;
     return FareRules.maximum(_catalogPrice ?? currentPrice);
   }
+
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
@@ -290,8 +293,9 @@ class FindingDriverController {
         // ARCH-1: keep the server ordering the session already holds for
         // this ride, so every later snapshot save persists it.
         version: rideId == null ? null : session.authoritativeVersion,
-        serverUpdatedAt:
-            rideId == null ? null : session.authoritativeUpdatedAt?.toUtc(),
+        serverUpdatedAt: rideId == null
+            ? null
+            : session.authoritativeUpdatedAt?.toUtc(),
         categoryId: rideId == null ? null : session.bookedCategoryId,
         paymentMethodId: rideId == null ? null : session.bookedPaymentMethodId,
         // rider-u93: a ceiling the caller knows (the saved ride's, which a
@@ -395,7 +399,8 @@ class FindingDriverController {
           // rider-32: a driver drop is not the end of the trip (contract
           // §3: the trip is back in `searching`), so it must not seal the
           // gate against the next driver's acceptance.
-          isTerminalStatus: event.status.isTerminal &&
+          isTerminalStatus:
+              event.status.isTerminal &&
               event.status != RideStatus.cancelledByDriver,
         );
         if (!disposition.passes) return;
@@ -678,10 +683,9 @@ class FindingDriverController {
       final snapshot = _snapshot;
       if (snapshot != null) {
         _store.save(
-          _ordered(snapshot).copyWith(
-            status: RideStatus.searchDelayed,
-            savedAt: DateTime.now(),
-          ),
+          _ordered(
+            snapshot,
+          ).copyWith(status: RideStatus.searchDelayed, savedAt: DateTime.now()),
         );
       }
       AppLog.info(
@@ -905,8 +909,10 @@ class FindingDriverController {
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
     final catalog = _catalogPrice ?? snapshot.price;
-    final next = Money(snapshot.fare.amountMinor + increase.amountMinor, currency)
-        .major;
+    final next = Money(
+      snapshot.fare.amountMinor + increase.amountMinor,
+      currency,
+    ).major;
     if (next > maxOfferPrice ||
         (snapshot.maxOfferMinor == null &&
             !FareRules.allowsTotal(total: next, catalog: catalog))) {
@@ -988,8 +994,7 @@ class FindingDriverController {
         // Keep showing the last fare the server confirmed rather than
         // assuming the preview total is what happened.
         offerConfirmation = null;
-        editFeedback =
-            L10n.current.offerSentUnconfirmed;
+        editFeedback = L10n.current.offerSentUnconfirmed;
         AppLog.warning(
           'ride.offer.price_unconfirmed',
           extra: {'rideId': id, 'increase': increase.majorString},
@@ -999,8 +1004,9 @@ class FindingDriverController {
         return true;
       }
       _priceUpdated = true;
-      offerConfirmation =
-          L10n.current.offerUpdatedTo(formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true));
+      offerConfirmation = L10n.current.offerUpdatedTo(
+        formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true),
+      );
       editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
@@ -1111,9 +1117,10 @@ class FindingDriverController {
       _cancelQueued = false;
       final id = ownedRideId;
       if (id != null) unawaited(PendingCancelStore.remove(id));
-      AppLog.info('ride.cancel.queued_overtaken_by_match', extra: {
-        'rideId': id,
-      });
+      AppLog.info(
+        'ride.cancel.queued_overtaken_by_match',
+        extra: {'rideId': id},
+      );
       _lastRefusalStale = false;
       _onCancelRefused?.call();
     }
@@ -1209,17 +1216,17 @@ class FindingDriverController {
     RideSnapshot snapshot,
     RideStatus status,
   ) async {
-    final writer = _historyArchiveWriter ??
+    final writer =
+        _historyArchiveWriter ??
         (
           RideSnapshot candidate,
           RideStatus terminalStatus,
           String? cancellationReason,
-        ) =>
-            OnDemandRideHistoryStore.archive(
-              candidate,
-              terminalStatus: terminalStatus,
-              cancellationReason: cancellationReason,
-            );
+        ) => OnDemandRideHistoryStore.archive(
+          candidate,
+          terminalStatus: terminalStatus,
+          cancellationReason: cancellationReason,
+        );
 
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
@@ -1257,7 +1264,11 @@ class FindingDriverController {
   ///
   /// The optional reason is usually sent afterwards with [sendCancelReason].
   Future<SearchCancelResult> cancelSearch({String? reasonId}) async {
-    if (_cancelled || _cancelInFlight || _terminated || _disposed || _assigned) {
+    if (_cancelled ||
+        _cancelInFlight ||
+        _terminated ||
+        _disposed ||
+        _assigned) {
       return SearchCancelResult.ignored;
     }
     _cancelInFlight = true;
@@ -1394,8 +1405,9 @@ class FindingDriverController {
           // no driver, an admin or system cancel) can no longer be
           // cancelled, and realtime brings its outcome.
           final projection = error.projection;
-          final now =
-              projection == null ? null : RideStatusWire.fromProjection(projection);
+          final now = projection == null
+              ? null
+              : RideStatusWire.fromProjection(projection);
           return status == 409 && (now == null || now.isMatched)
               ? SearchCancelResult.driverAccepted
               : SearchCancelResult.rejected;
@@ -1641,6 +1653,7 @@ class FindingDriverController {
     _flushSession += 1;
     _flushInFlight = null;
   }
+
   static StreamSubscription<RealtimeState>? _reconnectFlush;
 
   /// Retries any ride cancellations that were never acknowledged. Called at
@@ -1721,7 +1734,8 @@ class FindingDriverController {
       // rider-u32: what the server answered a delivered command with.
       Map<String, dynamic>? answered = current.projection;
       final reread = current.projection;
-      RideStatus? endedAs = result == PendingCancelResult.ended && reread != null
+      RideStatus? endedAs =
+          result == PendingCancelResult.ended && reread != null
           ? RideStatusWire.fromProjection(reread)
           : null;
       if (result == null) {
@@ -1761,22 +1775,24 @@ class FindingDriverController {
       await PendingCancelStore.remove(cancel.rideId);
       results[cancel.rideId] = result;
       final sent = result == PendingCancelResult.sent;
-      PendingCancelStore.report(PendingCancelOutcome(
-        rideId: cancel.rideId,
-        command: cancel.command,
-        result: result,
-        reasonId: cancel.reasonId,
-        charged:
-            sent &&
-                answered != null &&
-                cancel.command == PendingCancelCommand.endEarly
-            ? Money.fromWire(answered['fare'])
-            : null,
-        fee: sent && answered != null
-            ? RideProjection.cancellationFee(answered)
-            : null,
-        endedAs: endedAs,
-      ));
+      PendingCancelStore.report(
+        PendingCancelOutcome(
+          rideId: cancel.rideId,
+          command: cancel.command,
+          result: result,
+          reasonId: cancel.reasonId,
+          charged:
+              sent &&
+                  answered != null &&
+                  cancel.command == PendingCancelCommand.endEarly
+              ? Money.fromWire(answered['fare'])
+              : null,
+          fee: sent && answered != null
+              ? RideProjection.cancellationFee(answered)
+              : null,
+          endedAs: endedAs,
+        ),
+      );
     }
     return results;
   }
@@ -1869,7 +1885,8 @@ class FindingDriverController {
       PendingCancelCommand.cancel => 'cancel',
       PendingCancelCommand.endEarly => 'end_early',
     };
-    final applies = TripStateMachine.apply(
+    final applies =
+        TripStateMachine.apply(
           status,
           command,
           TripActor.rider,
@@ -1899,11 +1916,7 @@ class FindingDriverController {
   /// over" both refuse (RC-03). A ride that is still live is a refusal the
   /// rider must hear about; it is logged as an error, not dropped quietly.
   static Future<({PendingCancelResult result, RideStatus? endedAs})>
-  _refusalResult(
-    ApiClient client,
-    PendingCancel cancel,
-    Object error,
-  ) async {
+  _refusalResult(ApiClient client, PendingCancel cancel, Object error) async {
     final apiError = error as ApiError;
     AppScope.instance.ride.observeProjection(apiError.projection);
     // R-O3: the rider already cancelled it; nothing more to do.

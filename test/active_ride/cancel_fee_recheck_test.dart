@@ -39,25 +39,27 @@ void main() {
     WaitingForDriver.cancelFeeClock = () => DateTime.now().add(offset);
     final realtime = MockRideRealtime(assignAfter: const Duration(days: 1))
       ..primeResume(status: RideStatus.driverAssigned);
-    await tester.pumpWidget(MaterialApp(
-      home: WaitingForDriver(
-        pickupAddress: 'Sveavägen 1',
-        destinationAddress: 'Hornsgatan 2',
-        pickupPosition: const LatLng(59.34, 18.05),
-        destinationPosition: const LatLng(59.31, 18.04),
-        rideType: 'Movera',
-        categoryId: 'economy',
-        price: 259,
-        paymentMethod: 'Apple Pay',
-        rideId: rideId,
-        realtime: realtime,
-        controller: ActiveRideController(api: ApiClient(client: server)),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WaitingForDriver(
+          pickupAddress: 'Sveavägen 1',
+          destinationAddress: 'Hornsgatan 2',
+          pickupPosition: const LatLng(59.34, 18.05),
+          destinationPosition: const LatLng(59.31, 18.04),
+          rideType: 'Movera',
+          categoryId: 'economy',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+          rideId: rideId,
+          realtime: realtime,
+          controller: ActiveRideController(api: ApiClient(client: server)),
+        ),
+        onGenerateRoute: (s) => MaterialPageRoute<void>(
+          settings: const RouteSettings(name: AppRoutes.waitingForDriver),
+          builder: (_) => const SizedBox(),
+        ),
       ),
-      onGenerateRoute: (s) => MaterialPageRoute<void>(
-        settings: const RouteSettings(name: AppRoutes.waitingForDriver),
-        builder: (_) => const SizedBox(),
-      ),
-    ));
+    );
     await tester.pump(const Duration(milliseconds: 50));
 
     await tester.tap(find.byIcon(Icons.close_rounded));

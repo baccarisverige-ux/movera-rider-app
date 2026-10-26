@@ -45,7 +45,9 @@ void main() {
     expect(find.text('pushed'), findsOneWidget);
   });
 
-  testWidgets('a tap after the pushed route pops can push again', (tester) async {
+  testWidgets('a tap after the pushed route pops can push again', (
+    tester,
+  ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     var pushes = 0;
 

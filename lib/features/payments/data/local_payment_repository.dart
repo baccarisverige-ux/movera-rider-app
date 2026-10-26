@@ -3,7 +3,7 @@ import 'package:movera_rider/features/payments/domain/payment_repository.dart';
 
 class LocalPaymentRepository implements PaymentRepository {
   LocalPaymentRepository({DefaultPaymentStore? store})
-      : _store = store ?? const PrefsDefaultPaymentStore();
+    : _store = store ?? const PrefsDefaultPaymentStore();
 
   final DefaultPaymentStore _store;
   String _defaultId = 'cash';
@@ -13,9 +13,21 @@ class LocalPaymentRepository implements PaymentRepository {
   Future<List<PaymentMethod>> listMethods() async {
     await restore();
     return const [
-      PaymentMethod(id: 'wallet', kind: PaymentMethodKind.wallet, label: 'Movera Wallet'),
-      PaymentMethod(id: 'apple', kind: PaymentMethodKind.applePay, label: 'Apple Pay'),
-      PaymentMethod(id: 'google', kind: PaymentMethodKind.googlePay, label: 'Google Pay'),
+      PaymentMethod(
+        id: 'wallet',
+        kind: PaymentMethodKind.wallet,
+        label: 'Movera Wallet',
+      ),
+      PaymentMethod(
+        id: 'apple',
+        kind: PaymentMethodKind.applePay,
+        label: 'Apple Pay',
+      ),
+      PaymentMethod(
+        id: 'google',
+        kind: PaymentMethodKind.googlePay,
+        label: 'Google Pay',
+      ),
       PaymentMethod(id: 'card', kind: PaymentMethodKind.card, label: 'Card'),
       PaymentMethod(id: 'cash', kind: PaymentMethodKind.cash, label: 'Cash'),
     ];

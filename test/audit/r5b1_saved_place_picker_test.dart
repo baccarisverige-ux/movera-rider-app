@@ -20,10 +20,8 @@ void main() {
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, _) => MaterialApp(
-          navigatorKey: nav,
-          home: const Text('Saved places'),
-        ),
+        builder: (_, _) =>
+            MaterialApp(navigatorKey: nav, home: const Text('Saved places')),
       ),
     );
     nav.currentState!.push(
@@ -32,9 +30,8 @@ void main() {
     await tester.pumpAndSettle();
     nav.currentState!.push(
       MaterialPageRoute<String>(
-        builder: (_) => RiderSearchPickupLocation(
-          geocode: (_) => answer.future,
-        ),
+        builder: (_) =>
+            RiderSearchPickupLocation(geocode: (_) => answer.future),
       ),
     );
     await tester.pumpAndSettle();

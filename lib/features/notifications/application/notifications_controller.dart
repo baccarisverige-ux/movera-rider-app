@@ -4,7 +4,7 @@ import 'package:movera_rider/features/notifications/domain/notifications.dart';
 
 class NotificationsController {
   NotificationsController({NotificationsRepository? store})
-      : _store = store ?? NotificationsRepository.shared;
+    : _store = store ?? NotificationsRepository.shared;
 
   final NotificationsRepository _store;
 

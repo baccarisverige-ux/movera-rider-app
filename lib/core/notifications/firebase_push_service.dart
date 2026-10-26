@@ -53,7 +53,7 @@ abstract interface class FirebasePushGateway {
 
 class FlutterFirebasePushGateway implements FirebasePushGateway {
   FlutterFirebasePushGateway({FirebaseMessaging? messaging})
-      : _messagingOverride = messaging;
+    : _messagingOverride = messaging;
 
   final FirebaseMessaging? _messagingOverride;
   FirebaseMessaging get _messaging =>
@@ -103,21 +103,20 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
       if (token != null && token.trim().isNotEmpty) return;
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    throw const PushRegistrationException(
-      'APNs token is not available yet.',
-    );
+    throw const PushRegistrationException('APNs token is not available yet.');
   }
 
   @override
   Future<String?> getToken({String? vapidKey}) => _messaging.getToken(
-        vapidKey: vapidKey,
-        // Relative to the page's <base href>, so the worker also registers
-        // when the app is served from a sub-path such as /movera-rider-app/.
-        // The Firebase default (/firebase-messaging-sw.js at the origin root)
-        // does not exist there.
-        serviceWorkerScriptPath:
-            kIsWeb ? moveraFirebaseMessagingServiceWorker : null,
-      );
+    vapidKey: vapidKey,
+    // Relative to the page's <base href>, so the worker also registers
+    // when the app is served from a sub-path such as /movera-rider-app/.
+    // The Firebase default (/firebase-messaging-sw.js at the origin root)
+    // does not exist there.
+    serviceWorkerScriptPath: kIsWeb
+        ? moveraFirebaseMessagingServiceWorker
+        : null,
+  );
 
   @override
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
@@ -129,11 +128,11 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
       .cast<PushPayload>();
 
   @override
-  Stream<PushPayload> get onOpenedMessage =>
-      FirebaseMessaging.onMessageOpenedApp
-          .map(_payloadFromRemoteMessage)
-          .where((payload) => payload != null)
-          .cast<PushPayload>();
+  Stream<PushPayload> get onOpenedMessage => FirebaseMessaging
+      .onMessageOpenedApp
+      .map(_payloadFromRemoteMessage)
+      .where((payload) => payload != null)
+      .cast<PushPayload>();
 
   @override
   Future<PushPayload?> getInitialMessage() async {
@@ -153,10 +152,7 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
     } on FormatException catch (error) {
       AppLog.warning(
         'push.payload_rejected',
-        extra: {
-          'messageId': message.messageId ?? '',
-          'reason': error.message,
-        },
+        extra: {'messageId': message.messageId ?? '', 'reason': error.message},
       );
       return null;
     }
@@ -171,9 +167,9 @@ class FirebasePushService implements PushService {
     required ApiClient api,
     required AppEnv environment,
     FirebasePushGateway? gateway,
-  })  : _api = api,
-        _environment = environment,
-        _gateway = gateway ?? FlutterFirebasePushGateway();
+  }) : _api = api,
+       _environment = environment,
+       _gateway = gateway ?? FlutterFirebasePushGateway();
 
   final ApiClient _api;
   final AppEnv _environment;
@@ -301,11 +297,7 @@ class FirebasePushService implements PushService {
 
     final response = await _api.post(
       '/api/v1/push/devices',
-      body: {
-        'token': token,
-        'provider': 'fcm',
-        'platform': _platformName,
-      },
+      body: {'token': token, 'provider': 'fcm', 'platform': _platformName},
     );
     if (response['code'] != 'OK' || response['status'] != 'registered') {
       throw const PushRegistrationException(

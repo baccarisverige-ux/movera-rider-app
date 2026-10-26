@@ -56,7 +56,8 @@ Future<RideSnapshot?> openRouteChange(
           destinationPoint: GeoPoint(ride.destinationLat, ride.destinationLng),
           stops: [for (final stop in ride.stops) stop.address],
           stopPoints: [
-            for (final stop in ride.stops) GeoPoint(stop.latitude, stop.longitude),
+            for (final stop in ride.stops)
+              GeoPoint(stop.latitude, stop.longitude),
           ],
           stopsSupported: true,
           pickupLocked: pickupLocked,
@@ -83,13 +84,20 @@ Future<RideSnapshot?> openRouteChange(
               initialAddress: address.isEmpty
                   ? (pickup ? ride.pickupAddress : ride.destinationAddress)
                   : address,
-              title: pickup ? context.l10n.confirmPickupSpot : context.l10n.confirmDestination,
-              confirmLabel: pickup ? context.l10n.confirmPickup : context.l10n.confirmDestination,
+              title: pickup
+                  ? context.l10n.confirmPickupSpot
+                  : context.l10n.confirmDestination,
+              confirmLabel: pickup
+                  ? context.l10n.confirmPickup
+                  : context.l10n.confirmDestination,
             );
             if (result == null) return null;
             return RoutePickerMapPick(
               address: result.address,
-              point: GeoPoint(result.position.latitude, result.position.longitude),
+              point: GeoPoint(
+                result.position.latitude,
+                result.position.longitude,
+              ),
             );
           },
           onFinish: (selection) async {
@@ -226,8 +234,12 @@ int routeChangeWalletCreditMinor({
   required RideSnapshot before,
   required RideSnapshot after,
 }) {
-  final refundMinor = -(quote.differenceMinor ??
-      Money.fromLegacyMajor(quote.differenceKr, quote.currency).amountMinor);
+  final refundMinor =
+      -(quote.differenceMinor ??
+          Money.fromLegacyMajor(
+            quote.differenceKr,
+            quote.currency,
+          ).amountMinor);
   if (refundMinor <= 0) return 0;
   int walletPart(RideSnapshot ride) {
     final methodId = ride.paymentMethodId;
@@ -256,7 +268,9 @@ void showRouteUpdated(
   RefundDestination? refundTo,
 }) {
   final parts = <String>[
-    driverAssigned ? context.l10n.routeUpdatedDriverTold : context.l10n.routeUpdated,
+    driverAssigned
+        ? context.l10n.routeUpdatedDriverTold
+        : context.l10n.routeUpdated,
   ];
   // rider-u43: any change in minor units is told, not only half a unit.
   if (!isCashPayment(paymentMethod) &&
@@ -267,7 +281,8 @@ void showRouteUpdated(
     final method = paymentLabelFor(paymentMethod);
     if (differenceKr > 0) {
       parts.add(context.l10n.chargedTo(kr, method));
-    } else if ((refundTo ?? lastRefundDestination) == RefundDestination.wallet) {
+    } else if ((refundTo ?? lastRefundDestination) ==
+        RefundDestination.wallet) {
       parts.add(context.l10n.creditedToWallet(kr));
     } else {
       parts.add(context.l10n.refundedToDays(kr, method));
@@ -310,7 +325,9 @@ Future<RideSnapshot?> removeRouteStop(
       ride: ride,
       destinationAddress: ride.destinationAddress,
       stops: [for (final stop in kept) stop.address],
-      stopPoints: [for (final stop in kept) GeoPoint(stop.latitude, stop.longitude)],
+      stopPoints: [
+        for (final stop in kept) GeoPoint(stop.latitude, stop.longitude),
+      ],
     );
     if (!context.mounted) return null;
     final decision = await RouteChangeSheet.confirm(
@@ -325,12 +342,7 @@ Future<RideSnapshot?> removeRouteStop(
       quote: quote,
       refundTo: decision.refundTo,
     );
-    await _creditWallet(
-      decision.refundTo,
-      quote,
-      before: ride,
-      after: updated,
-    );
+    await _creditWallet(decision.refundTo, quote, before: ride, after: updated);
     lastRefundDestination = decision.refundTo;
     lastRouteDifferenceKr = quote.differenceKr;
     return updated;
@@ -348,7 +360,10 @@ Set<Marker> routeStopMarkers(List<RouteStop> stops) => {
     Marker(
       markerId: MarkerId('stop-$i'),
       position: LatLng(stops[i].latitude, stops[i].longitude),
-      infoWindow: InfoWindow(title: L10n.current.stopNumber('${i + 1}'), snippet: stops[i].address),
+      infoWindow: InfoWindow(
+        title: L10n.current.stopNumber('${i + 1}'),
+        snippet: stops[i].address,
+      ),
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
     ),
 };

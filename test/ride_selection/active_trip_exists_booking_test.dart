@@ -157,9 +157,11 @@ void main() {
 
     await tester.tap(find.text('Select Movera'));
     await tester.pump();
-    for (var i = 0;
-        i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.tap(find.text('Confirm and search'));
@@ -175,9 +177,11 @@ void main() {
   ) async {
     final activeTrips = _ActiveTrips(_searching());
     await bookMovera(tester, activeTrips);
-    for (var i = 0;
-        i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 

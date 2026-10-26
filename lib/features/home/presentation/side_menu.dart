@@ -182,7 +182,9 @@ class RiderMenuPage extends StatelessWidget {
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
     final first = profile.name.trim().split(RegExp(r'\s+')).first;
-    final greeting = first.isEmpty ? controller.displayName() : L10n.current.menuHiName(first);
+    final greeting = first.isEmpty
+        ? controller.displayName()
+        : L10n.current.menuHiName(first);
 
     return Row(
       children: [
@@ -392,7 +394,9 @@ class RiderMenuPage extends StatelessWidget {
     final amount = balance == null ? null : formatMoney(balance);
     return _tap(
       // UI-7: the balance is part of what a screen reader hears.
-      label: amount == null ? context.l10n.menuWallet : context.l10n.menuWalletWithAmount(amount),
+      label: amount == null
+          ? context.l10n.menuWallet
+          : context.l10n.menuWalletWithAmount(amount),
       onTap: () async {
         await _pushPage(context, const WalletAndPaymentsScreen());
         // A top-up in Wallet shows here on the way back.
@@ -410,7 +414,10 @@ class RiderMenuPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(context.l10n.menuWallet, style: _text(18, weight: FontWeight.w600)),
+                    Text(
+                      context.l10n.menuWallet,
+                      style: _text(18, weight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 2),
                     if (amount == null)
                       const SizedBox(height: 18)
@@ -434,7 +441,11 @@ class RiderMenuPage extends StatelessWidget {
   /// Two columns of picture tiles.
   Widget _tiles(BuildContext context) {
     final items = <(String, String, VoidCallback)>[
-      (context.l10n.menuRideHistory, 'order_ride', () => _pushPage(context, RideHistory())),
+      (
+        context.l10n.menuRideHistory,
+        'order_ride',
+        () => _pushPage(context, RideHistory()),
+      ),
       (
         context.l10n.menuNotifications,
         'notify',
@@ -449,7 +460,11 @@ class RiderMenuPage extends StatelessWidget {
         'current_location',
         () => _pushPage(context, SavedPlaces()),
       ),
-      (context.l10n.menuSupport, 'questions', () => _pushPage(context, const SupportHome())),
+      (
+        context.l10n.menuSupport,
+        'questions',
+        () => _pushPage(context, const SupportHome()),
+      ),
     ];
     Widget tile((String, String, VoidCallback) item) {
       return _tap(
@@ -507,7 +522,11 @@ class RiderMenuPage extends StatelessWidget {
     final promotion = AppScope.instance.promotion.active;
     final promoBody = promotion == null
         ? context.l10n.menuPromoBodyNone
-        : context.l10n.menuPromoBody('${promotion.percentOff}', '${promotion.ridesTotal}', '${promotion.ridesLeft}');
+        : context.l10n.menuPromoBody(
+            '${promotion.percentOff}',
+            '${promotion.ridesTotal}',
+            '${promotion.ridesLeft}',
+          );
     final cards = <_FeatureCard>[
       _FeatureCard(
         title: context.l10n.menuYourPromos,
@@ -538,8 +557,7 @@ class RiderMenuPage extends StatelessWidget {
           context,
           HelpArticle(
             title: context.l10n.menuFamily,
-            body:
-                context.l10n.menuFamilyArticle,
+            body: context.l10n.menuFamilyArticle,
           ),
         ),
       ),
@@ -559,8 +577,7 @@ class RiderMenuPage extends StatelessWidget {
           context,
           HelpArticle(
             title: context.l10n.menuBusiness,
-            body:
-                context.l10n.menuBusinessArticle,
+            body: context.l10n.menuBusinessArticle,
           ),
         ),
       ),
@@ -572,8 +589,7 @@ class RiderMenuPage extends StatelessWidget {
           context,
           HelpArticle(
             title: context.l10n.menuGreener,
-            body:
-                context.l10n.menuGreenerArticle,
+            body: context.l10n.menuGreenerArticle,
           ),
         ),
       ),
@@ -669,9 +685,7 @@ class RiderMenuPage extends StatelessWidget {
         context.l10n.language,
         // Q48: "FR · Français"; the rider's choice wins over the zone.
         AppScope.instance.language.language.label,
-        () => unawaited(
-          pickAppLanguage(context, profile: profile),
-        ),
+        () => unawaited(pickAppLanguage(context, profile: profile)),
       ),
       (
         AppAssets.solarShieldCheck,
@@ -705,8 +719,7 @@ class RiderMenuPage extends StatelessWidget {
           context,
           HelpArticle(
             title: context.l10n.menuAboutMovera,
-            body:
-                context.l10n.menuAboutArticle,
+            body: context.l10n.menuAboutArticle,
           ),
         ),
       ),

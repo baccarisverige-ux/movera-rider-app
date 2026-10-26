@@ -64,7 +64,10 @@ class PremiumTopActions extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _PremiumTopAction(icon: Icons.menu_open_rounded, onTap: onMenuTap),
+              _PremiumTopAction(
+                icon: Icons.menu_open_rounded,
+                onTap: onMenuTap,
+              ),
               Container(
                 height: ResSize.h * 23,
                 width: 0.8,

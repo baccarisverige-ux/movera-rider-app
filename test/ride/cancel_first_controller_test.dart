@@ -9,19 +9,19 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot snap() => RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3,
-      pickupLng: 18.0,
-      destinationLat: 59.4,
-      destinationLng: 18.1,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: 'r1',
-    );
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'A',
+  destinationAddress: 'B',
+  pickupLat: 59.3,
+  pickupLng: 18.0,
+  destinationLat: 59.4,
+  destinationLng: 18.1,
+  rideType: 'Movera',
+  price: 259,
+  paymentMethod: 'Apple Pay',
+  rideId: 'r1',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -93,11 +93,7 @@ void main() {
       ride: ride,
       store: FindingDriverRepository(),
     );
-    controller.start(
-      snapshot: snap(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
     await controller.cancelSearch();
     expect(await RideSnapshotStore.read(), isNull);
     expect(ride.suppressRestore, isTrue);

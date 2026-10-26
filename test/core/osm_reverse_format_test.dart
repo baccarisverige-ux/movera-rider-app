@@ -24,10 +24,7 @@ void main() {
       'Storgatan, Nyköping',
     );
     expect(
-      formatOpenStreetMapAddress({
-        'suburb': 'Centrum',
-        'city': 'Centrum',
-      }),
+      formatOpenStreetMapAddress({'suburb': 'Centrum', 'city': 'Centrum'}),
       'Centrum',
     );
     expect(formatOpenStreetMapAddress({'country': 'Sverige'}), isNull);

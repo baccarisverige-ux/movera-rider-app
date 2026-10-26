@@ -22,16 +22,18 @@ void main() {
   });
 
   Future<String> book() async {
-    final quote = (await api.post(
-      '/api/v1/quotes',
-      body: {
-        'rideType': 'economy',
-        'pickupLat': 59.3293,
-        'pickupLng': 18.0686,
-        'destinationLat': 59.3326,
-        'destinationLng': 18.0649,
-      },
-    ))['quote'] as Map;
+    final quote =
+        (await api.post(
+              '/api/v1/quotes',
+              body: {
+                'rideType': 'economy',
+                'pickupLat': 59.3293,
+                'pickupLng': 18.0686,
+                'destinationLat': 59.3326,
+                'destinationLng': 18.0649,
+              },
+            ))['quote']
+            as Map;
     final created = await api.post(
       '/api/v1/rides',
       body: {
@@ -70,36 +72,38 @@ void main() {
     }
   }
 
-  test('the server assigns sequence and eventId; the client keeps them',
-      () async {
-    final id = await book();
-    final realtime = ApiRideRealtime(
-      api: api,
-      pollInterval: const Duration(days: 1),
-    );
-    addTearDown(realtime.dispose);
-    final events = <RideRealtimeEvent>[];
-    final sub = realtime.subscribe(id).listen(events.add);
-    addTearDown(sub.cancel);
-    await Future<void>.delayed(Duration.zero);
-    await simulate(id, {'status': 'accepted'}); // offered, accepted: +2
-    await realtime.reconnectAndResync(id);
-    await simulate(id, {'status': 'completed'});
-    await realtime.reconnectAndResync(id);
-    await simulate(id, {'paymentStatus': 'captured'});
-    await realtime.reconnectAndResync(id);
-    // A lifecycle change after the terminal status is blocked by the gate:
-    // the stand-in server cannot produce one, so replay the same poll.
-    await realtime.reconnectAndResync(id);
-    await Future<void>.delayed(Duration.zero);
+  test(
+    'the server assigns sequence and eventId; the client keeps them',
+    () async {
+      final id = await book();
+      final realtime = ApiRideRealtime(
+        api: api,
+        pollInterval: const Duration(days: 1),
+      );
+      addTearDown(realtime.dispose);
+      final events = <RideRealtimeEvent>[];
+      final sub = realtime.subscribe(id).listen(events.add);
+      addTearDown(sub.cancel);
+      await Future<void>.delayed(Duration.zero);
+      await simulate(id, {'status': 'accepted'}); // offered, accepted: +2
+      await realtime.reconnectAndResync(id);
+      await simulate(id, {'status': 'completed'});
+      await realtime.reconnectAndResync(id);
+      await simulate(id, {'paymentStatus': 'captured'});
+      await realtime.reconnectAndResync(id);
+      // A lifecycle change after the terminal status is blocked by the gate:
+      // the stand-in server cannot produce one, so replay the same poll.
+      await realtime.reconnectAndResync(id);
+      await Future<void>.delayed(Duration.zero);
 
-    final ride = server.rides[id]!;
-    expect(events.map((e) => e.sequence), [1, 3, 8, 9]);
-    expect(events.last.sequence, ride['sequence']);
-    expect(events.last.eventId, ride['eventId']);
-    expect(events.map((e) => e.kind).last, RealtimeKind.paymentUpdated);
-    expect(events.map((e) => e.eventId).toSet(), hasLength(events.length));
-  });
+      final ride = server.rides[id]!;
+      expect(events.map((e) => e.sequence), [1, 3, 8, 9]);
+      expect(events.last.sequence, ride['sequence']);
+      expect(events.last.eventId, ride['eventId']);
+      expect(events.map((e) => e.kind).last, RealtimeKind.paymentUpdated);
+      expect(events.map((e) => e.eventId).toSet(), hasLength(events.length));
+    },
+  );
 
   test('ride, offer and route-change money is Money, never kronor', () async {
     final id = await book();
@@ -162,8 +166,15 @@ void main() {
       stops: const [stop],
     );
     expect(quotes.stops, isNotEmpty);
-    expect(quotes.stops.every((s) => s.length == 1 && s.single == stop), isTrue);
-    await selection.quoteFromPin(rideId: 'economy', distanceMeters: 1, stops: const [stop]);
+    expect(
+      quotes.stops.every((s) => s.length == 1 && s.single == stop),
+      isTrue,
+    );
+    await selection.quoteFromPin(
+      rideId: 'economy',
+      distanceMeters: 1,
+      stops: const [stop],
+    );
     expect(quotes.stops.last, [stop]);
   });
 }

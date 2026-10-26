@@ -38,7 +38,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  Future<void> open(WidgetTester tester, RideSelectionController selection) async {
+  Future<void> open(
+    WidgetTester tester,
+    RideSelectionController selection,
+  ) async {
     tester.view.physicalSize = const Size(390, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

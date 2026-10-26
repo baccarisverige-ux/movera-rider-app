@@ -34,7 +34,8 @@ SafetyController buildController({SafetyStore? store}) {
   SafetyRepository.resetShared();
   SafetyController.resetShared();
   final client = InProcessMockClient();
-  final session = store ??
+  final session =
+      store ??
       SafetyStore(
         local: PreferencesSafetyLocalDataSource(memoryOnly: true),
         remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
@@ -57,14 +58,24 @@ class TestSafetyRecorder implements SafetyRecorder {
     permissionRequests++;
     return permissionGranted;
   }
+
   @override
-  Future<void> start(String recordingId) async { starts++; }
+  Future<void> start(String recordingId) async {
+    starts++;
+  }
+
   @override
-  Future<String?> stop() async { stops++; return capturedPath; }
+  Future<String?> stop() async {
+    stops++;
+    return capturedPath;
+  }
+
   @override
   Future<void> cancel() async {}
   @override
-  Future<void> delete(String path) async { deletedPaths.add(path); }
+  Future<void> delete(String path) async {
+    deletedPaths.add(path);
+  }
 }
 
 /// Owner decision 10 hides "Record audio" by default; the recording tests
@@ -105,9 +116,7 @@ void main() {
       'RideCheck',
     ]) {
       // UI-7: the row reads its title first, then its subtitle and status.
-      final row = find.bySemanticsLabel(
-        RegExp('^${RegExp.escape(label)}, '),
-      );
+      final row = find.bySemanticsLabel(RegExp('^${RegExp.escape(label)}, '));
       final data = tester.getSemantics(row).getSemanticsData();
       expect(data.label, startsWith('$label, '), reason: label);
       expect(
@@ -165,7 +174,9 @@ void main() {
   testWidgets('PIN page shows a framed 4-digit cadre', (tester) async {
     final ctl = buildController();
     await ctl.load();
-    await tester.pumpWidget(MaterialApp(home: PinVerificationPage(controller: ctl)));
+    await tester.pumpWidget(
+      MaterialApp(home: PinVerificationPage(controller: ctl)),
+    );
     await tester.pumpAndSettle();
     expect(find.text('YOUR PIN'), findsOneWidget);
     expect(find.text('Verify rides with a PIN'), findsOneWidget);
@@ -210,10 +221,18 @@ void main() {
   test('emergency contacts CRUD primary duplicate and invalid phone', () async {
     final ctl = buildController();
     await ctl.load();
-    await ctl.addContact(name: 'Sam', phone: '0701111111', relationship: 'Friend');
+    await ctl.addContact(
+      name: 'Sam',
+      phone: '0701111111',
+      relationship: 'Friend',
+    );
     expect(ctl.contacts.single.isPrimary, isTrue);
     expect(ctl.contacts.single.phoneE164, '+46701111111');
-    await ctl.addContact(name: 'Kim', phone: '+46702222222', relationship: 'Family');
+    await ctl.addContact(
+      name: 'Kim',
+      phone: '+46702222222',
+      relationship: 'Family',
+    );
     expect(ctl.contacts, hasLength(2));
     final kim = ctl.contacts.firstWhere((c) => c.name == 'Kim');
     await ctl.makePrimary(kim.id);
@@ -255,10 +274,7 @@ void main() {
     await ctl.load();
     await ctl.setTripShare(enabled: true, mode: TripShareMode.auto);
     expect(ctl.preferences.tripShareEnabled, isTrue);
-    expect(
-      () => ctl.startShare(''),
-      throwsA(isA<SafetyException>()),
-    );
+    expect(() => ctl.startShare(''), throwsA(isA<SafetyException>()));
     final share = await ctl.startShare('ride_qa');
     expect(share.isActive, isTrue);
     expect(share.shareToken, isNotNull);
@@ -272,121 +288,151 @@ void main() {
       'rideId': 'r1',
       'userId': 'rider-local',
       'isActive': true,
-      'expiresAt': DateTime.now().toUtc().subtract(const Duration(hours: 1)).toIso8601String(),
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .subtract(const Duration(hours: 1))
+          .toIso8601String(),
     });
     expect(share.expired, isTrue);
   });
 
-  test('RideCheck enable deterministic events duplicate stale resolve', () async {
-    final ctl = buildController();
-    await ctl.load();
-    await ctl.setRideCheck(true);
-    expect(ctl.rideCheckPolicy.enabled, isTrue);
-    final first = await ctl.rideCheck.unexpectedStop();
-    final dup = await ctl.rideCheck.simulate(
-      type: RideCheckEventType.unexpectedStop,
-      eventId: first.eventId,
-    );
-    expect(dup.eventId, first.eventId);
-    expect(
-      ctl.rideCheck.events().where((e) => e.eventId == first.eventId),
-      hasLength(1),
-    );
-    await ctl.rideCheck.resolve(first);
-    final stale = await ctl.rideCheck.simulate(
-      type: RideCheckEventType.routeDeviation,
-      eventId: 'ev_stale',
-      at: first.at.subtract(const Duration(minutes: 1)),
-    );
-    expect(stale.status, RideCheckStatus.stale);
-    final live = await ctl.rideCheck.routeDeviation();
-    expect(live.status, RideCheckStatus.pending);
-  });
+  test(
+    'RideCheck enable deterministic events duplicate stale resolve',
+    () async {
+      final ctl = buildController();
+      await ctl.load();
+      await ctl.setRideCheck(true);
+      expect(ctl.rideCheckPolicy.enabled, isTrue);
+      final first = await ctl.rideCheck.unexpectedStop();
+      final dup = await ctl.rideCheck.simulate(
+        type: RideCheckEventType.unexpectedStop,
+        eventId: first.eventId,
+      );
+      expect(dup.eventId, first.eventId);
+      expect(
+        ctl.rideCheck.events().where((e) => e.eventId == first.eventId),
+        hasLength(1),
+      );
+      await ctl.rideCheck.resolve(first);
+      final stale = await ctl.rideCheck.simulate(
+        type: RideCheckEventType.routeDeviation,
+        eventId: 'ev_stale',
+        at: first.at.subtract(const Duration(minutes: 1)),
+      );
+      expect(stale.status, RideCheckStatus.stale);
+      final live = await ctl.rideCheck.routeDeviation();
+      expect(live.status, RideCheckStatus.pending);
+    },
+  );
 
-  testWidgets('a server RideCheck alert opens the Ride check card (not the Safety Kit) and sends resolution', (
-    tester,
-  ) async {
-    final store = SafetyStore(
-      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
-    );
-    final ctl = SafetyController(session: store);
-    await ctl.load();
-    final alert = await ctl.rideCheck.unexpectedStop(rideId: 'ride_alert');
+  testWidgets(
+    'a server RideCheck alert opens the Ride check card (not the Safety Kit) and sends resolution',
+    (tester) async {
+      final store = SafetyStore(
+        local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+        remote: ApiSafetyRemoteDataSource(
+          ApiClient(client: InProcessMockClient()),
+        ),
+      );
+      final ctl = SafetyController(session: store);
+      await ctl.load();
+      final alert = await ctl.rideCheck.unexpectedStop(rideId: 'ride_alert');
 
-    // The Safety Kit no longer lists pending checks.
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: RideSafetyKitSheet(
-        rideId: 'ride_alert', controller: ctl,
-      )),
-    ));
-    await tester.pumpAndSettle();
-    expect(find.text('RideCheck alert'), findsNothing);
-    expect(find.text("I'm okay"), findsNothing);
+      // The Safety Kit no longer lists pending checks.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RideSafetyKitSheet(rideId: 'ride_alert', controller: ctl),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('RideCheck alert'), findsNothing);
+      expect(find.text("I'm okay"), findsNothing);
 
-    // The trip screen shows it as the Ride check card.
-    final rideCheck = RideCheckController.forSafety(ctl);
-    addTearDown(rideCheck.dispose);
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: RideCheckLayer(
-        rideId: 'ride_alert', controller: rideCheck,
-      )),
-    ));
-    for (var i = 0; i < 8; i++) {
-      await tester.pump(const Duration(milliseconds: 150));
-    }
-    expect(find.text('Is everything OK?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey<String>('ride-check-ok')));
-    for (var i = 0; i < 8; i++) {
-      await tester.pump(const Duration(milliseconds: 150));
-    }
-    expect(find.text('Is everything OK?'), findsNothing);
+      // The trip screen shows it as the Ride check card.
+      final rideCheck = RideCheckController.forSafety(ctl);
+      addTearDown(rideCheck.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RideCheckLayer(rideId: 'ride_alert', controller: rideCheck),
+          ),
+        ),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+      expect(find.text('Is everything OK?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey<String>('ride-check-ok')));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+      expect(find.text('Is everything OK?'), findsNothing);
 
-    final confirmed = await ctl.rideCheck.refresh('ride_alert');
-    expect(confirmed.single.eventId, alert.eventId);
-    expect(confirmed.single.status, RideCheckStatus.resolved);
-  });
+      final confirmed = await ctl.rideCheck.refresh('ride_alert');
+      expect(confirmed.single.eventId, alert.eventId);
+      expect(confirmed.single.status, RideCheckStatus.resolved);
+    },
+  );
 
   test('failed SOS is not recorded as registered', () async {
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     final ctl = SafetyController(session: store);
     await ctl.load();
     expect(await ctl.sos(), isFalse);
     store.failNextWrite = true;
-    await expectLater(ctl.sos(rideId: 'ride_sos_failure'), throwsA(isA<SafetyException>()));
+    await expectLater(
+      ctl.sos(rideId: 'ride_sos_failure'),
+      throwsA(isA<SafetyException>()),
+    );
     expect(ctl.events.where((event) => event.kind == SafetyKind.sos), isEmpty);
     expect(await ctl.rideCheck.refresh('ride_sos_failure'), isEmpty);
   });
 
-  testWidgets('Safety Kit distinguishes opened dialer from failed SOS registration', (
-    tester,
-  ) async {
-    final store = SafetyStore(
-      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
-    );
-    final dialer = RecordingEmergencyDialer();
-    final ctl = SafetyController(
-      session: store,
-      emergency: EmergencyCallService(dialer: dialer),
-    );
-    await ctl.load();
-    store.failNextWrite = true;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: RideSafetyKitSheet(
-        rideId: 'ride_failed_sos', controller: ctl,
-      )),
-    ));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Contact 112'));
-    await tester.pumpAndSettle();
-    expect(dialer.calls, ['112']);
-    expect(find.text('Phone dialer opened, but Movera could not register your SOS.'),
-        findsOneWidget);
-  });
+  testWidgets(
+    'Safety Kit distinguishes opened dialer from failed SOS registration',
+    (tester) async {
+      final store = SafetyStore(
+        local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+        remote: ApiSafetyRemoteDataSource(
+          ApiClient(client: InProcessMockClient()),
+        ),
+      );
+      final dialer = RecordingEmergencyDialer();
+      final ctl = SafetyController(
+        session: store,
+        emergency: EmergencyCallService(dialer: dialer),
+      );
+      await ctl.load();
+      store.failNextWrite = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RideSafetyKitSheet(
+              rideId: 'ride_failed_sos',
+              controller: ctl,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Contact 112'));
+      await tester.pumpAndSettle();
+      expect(dialer.calls, ['112']);
+      expect(
+        find.text(
+          'Phone dialer opened, but Movera could not register your SOS.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   test('emergency call is never automatic', () async {
     final dialer = RecordingEmergencyDialer();
@@ -402,14 +448,18 @@ void main() {
     resetSafetyMockForProcess();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     await store.load();
     final recorder = TestSafetyRecorder();
     final audio = SafetyAudioService(recorder: recorder, store: store);
     await expectLater(
       audio.start(),
-      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'MIC_DENIED')),
+      throwsA(
+        isA<SafetyAudioException>().having((e) => e.code, 'code', 'MIC_DENIED'),
+      ),
     );
     expect(recorder.permissionRequests, 1);
     expect(recorder.starts, 0);
@@ -429,7 +479,9 @@ void main() {
     await audio.start(rideId: 'ride_b');
     await expectLater(
       audio.stop(),
-      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'NO_AUDIO')),
+      throwsA(
+        isA<SafetyAudioException>().having((e) => e.code, 'code', 'NO_AUDIO'),
+      ),
     );
     expect(audio.isRecording, isFalse);
 
@@ -438,7 +490,10 @@ void main() {
       store: store,
       supported: false,
     );
-    await expectLater(unsupported.start(), throwsA(isA<SafetyAudioException>()));
+    await expectLater(
+      unsupported.start(),
+      throwsA(isA<SafetyAudioException>()),
+    );
   });
 
   // rider-r4-27: a double tap on Record ran two overlapping start() calls;
@@ -446,7 +501,9 @@ void main() {
   test('an overlapping audio start is refused, not a second take', () async {
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     await store.load();
     final recorder = TestSafetyRecorder()..permissionGranted = true;
@@ -454,8 +511,13 @@ void main() {
     final first = audio.start(rideId: 'ride_a');
     await expectLater(
       audio.start(rideId: 'ride_a'),
-      throwsA(isA<SafetyAudioException>()
-          .having((e) => e.code, 'code', 'ALREADY_RECORDING')),
+      throwsA(
+        isA<SafetyAudioException>().having(
+          (e) => e.code,
+          'code',
+          'ALREADY_RECORDING',
+        ),
+      ),
     );
     await first;
     expect(recorder.starts, 1);
@@ -468,7 +530,9 @@ void main() {
     _withAudioOption();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     final recorder = TestSafetyRecorder();
     final controller = SafetyController(
@@ -476,16 +540,23 @@ void main() {
       audio: SafetyAudioService(recorder: recorder, store: store),
     );
     await controller.load();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: RideSafetyKitSheet(
-        rideId: 'ride_denied',
-        controller: controller,
-      )),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RideSafetyKitSheet(
+            rideId: 'ride_denied',
+            controller: controller,
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Record audio'));
     await tester.pumpAndSettle();
-    expect(find.text('Microphone permission is required to record.'), findsOneWidget);
+    expect(
+      find.text('Microphone permission is required to record.'),
+      findsOneWidget,
+    );
     expect(recorder.permissionRequests, 1);
     expect(recorder.starts, 0);
   });
@@ -494,7 +565,9 @@ void main() {
     resetSafetyMockForProcess();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     await store.load();
     expect(store.preferences.pinRequired, isFalse);
@@ -510,14 +583,26 @@ void main() {
     resetSafetyMockForProcess();
     final client = InProcessMockClient();
     final api = ApiClient(client: client);
-    final first = await api.post('/api/v1/safety/pin/rotate', idempotencyKey: 'safety-pin-same');
-    final second = await api.post('/api/v1/safety/pin/rotate', idempotencyKey: 'safety-pin-same');
+    final first = await api.post(
+      '/api/v1/safety/pin/rotate',
+      idempotencyKey: 'safety-pin-same',
+    );
+    final second = await api.post(
+      '/api/v1/safety/pin/rotate',
+      idempotencyKey: 'safety-pin-same',
+    );
     expect(first['pin']['pinId'], second['pin']['pinId']);
   });
 
   test('malformed safety DTOs do not throw', () {
-    expect(SafetyPreferences.fromJson({'tripShareMode': 1}).tripShareMode, TripShareMode.manual);
-    expect(RideCheckEvent.fromJson({}).type, RideCheckEventType.manualSafetyCheck);
+    expect(
+      SafetyPreferences.fromJson({'tripShareMode': 1}).tripShareMode,
+      TripShareMode.manual,
+    );
+    expect(
+      RideCheckEvent.fromJson({}).type,
+      RideCheckEventType.manualSafetyCheck,
+    );
     expect(EmergencyContact.fromJson({}).name, '');
   });
 
@@ -587,7 +672,10 @@ void main() {
     expect(share, isNotNull);
     expect(share!.isActive, isTrue);
     expect(share.contactIds, contains(ctl.contacts.single.id));
-    expect(find.text('Trip sharing started for 1 trusted contact.'), findsOneWidget);
+    expect(
+      find.text('Trip sharing started for 1 trusted contact.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Safety Kit finishes closing before Safety Hub opens', (
@@ -619,5 +707,4 @@ void main() {
     expect(find.text('Safety tools'), findsNothing);
     expect(tester.takeException(), isNull);
   });
-
 }

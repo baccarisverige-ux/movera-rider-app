@@ -410,7 +410,10 @@ void main() {
           parallelism: 100,
         );
         final listCount = answers.length;
-        final pin = selection.quoteFromPin(rideId: 'economy', distanceMeters: 2);
+        final pin = selection.quoteFromPin(
+          rideId: 'economy',
+          distanceMeters: 2,
+        );
         answers.last.complete(_quote('pin', 30100));
         await pin;
         for (var i = 0; i < listCount; i++) {

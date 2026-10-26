@@ -3,10 +3,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  
-
-  
-
   test('final lifecycle certification suites remain present', () {
     const required = <String>[
       'integration_test/global_uat_flow_test.dart',

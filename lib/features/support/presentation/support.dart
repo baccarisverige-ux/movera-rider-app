@@ -823,7 +823,9 @@ class _SupportChatState extends State<SupportChat> {
       return _wideButton(
         label: context.l10n.supportEmail,
         onPressed: () async {
-          final opened = await contact.openEmail(subject: context.l10n.supportEmailSubject);
+          final opened = await contact.openEmail(
+            subject: context.l10n.supportEmailSubject,
+          );
           if (!opened && context.mounted) {
             MoveraToast.show(
               context,

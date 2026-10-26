@@ -63,7 +63,9 @@ class SafetyMockApi {
       final saved = jsonDecode(raw);
       if (saved is! Map) return;
       final prefsMap = saved['preferences'];
-      if (prefsMap is Map) preferences.addAll(Map<String, dynamic>.from(prefsMap));
+      if (prefsMap is Map) {
+        preferences.addAll(Map<String, dynamic>.from(prefsMap));
+      }
       final pinMap = saved['pin'];
       if (pinMap is Map) pin = Map<String, dynamic>.from(pinMap);
       final rideCheckMap = saved['rideCheck'];
@@ -187,7 +189,8 @@ class SafetyMockApi {
     }
     if (path == '/api/v1/safety/preferences' && method == 'PATCH') {
       preferences.addAll({
-        if (body.containsKey('pinRequired')) 'pinRequired': body['pinRequired'] == true,
+        if (body.containsKey('pinRequired'))
+          'pinRequired': body['pinRequired'] == true,
         if (body.containsKey('tripShareEnabled'))
           'tripShareEnabled': body['tripShareEnabled'] == true,
         if (body.containsKey('tripShareMode'))
@@ -238,7 +241,9 @@ class SafetyMockApi {
       contacts.add(created);
       return (status: 200, payload: {'code': 'OK', 'contact': created});
     }
-    final contactId = RegExp(r'^/api/v1/safety/contacts/([^/]+)$').firstMatch(path);
+    final contactId = RegExp(
+      r'^/api/v1/safety/contacts/([^/]+)$',
+    ).firstMatch(path);
     if (contactId != null && method == 'PATCH') {
       final id = contactId.group(1);
       final index = contacts.indexWhere((c) => c['id'] == id);
@@ -256,7 +261,9 @@ class SafetyMockApi {
       }
       return (status: 200, payload: {'code': 'OK'});
     }
-    final primary = RegExp(r'^/api/v1/safety/contacts/([^/]+)/primary$').firstMatch(path);
+    final primary = RegExp(
+      r'^/api/v1/safety/contacts/([^/]+)/primary$',
+    ).firstMatch(path);
     if (primary != null && method == 'POST') {
       final id = primary.group(1);
       for (final contact in contacts) {
@@ -305,7 +312,10 @@ class SafetyMockApi {
       }
     }
     if (path == '/api/v1/safety/ridecheck/preferences' && method == 'GET') {
-      return (status: 200, payload: {'code': 'OK', 'policy': _rideCheckPolicy()});
+      return (
+        status: 200,
+        payload: {'code': 'OK', 'policy': _rideCheckPolicy()},
+      );
     }
     if (path == '/api/v1/safety/ridecheck/preferences' && method == 'PATCH') {
       // The rider's switch only; the triggers are admin's.
@@ -315,13 +325,17 @@ class SafetyMockApi {
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
       preferences['rideCheckEnabled'] = rideCheck['enabled'] == true;
-      return (status: 200, payload: {'code': 'OK', 'policy': _rideCheckPolicy()});
+      return (
+        status: 200,
+        payload: {'code': 'OK', 'policy': _rideCheckPolicy()},
+      );
     }
     if (path == '/api/v1/safety/ridecheck/answers' && method == 'POST') {
       return _rideCheckAnswer(body, requestId);
     }
-    final safetyEvents =
-        RegExp(r'^/api/v1/rides/([^/]+)/safety-events$').firstMatch(path);
+    final safetyEvents = RegExp(
+      r'^/api/v1/rides/([^/]+)/safety-events$',
+    ).firstMatch(path);
     if (safetyEvents != null && method == 'POST') {
       final rideId = safetyEvents.group(1)!;
       final event = {
@@ -362,11 +376,14 @@ class SafetyMockApi {
         return (status: 404, payload: _notFound);
       }
       final action = '${body['action'] ?? 'acknowledged'}';
-      events[index]['status'] = action == 'resolved' ? 'resolved' : 'acknowledged';
+      events[index]['status'] = action == 'resolved'
+          ? 'resolved'
+          : 'acknowledged';
       return (status: 200, payload: {'code': 'OK', 'event': events[index]});
     }
-    final audioInit =
-        RegExp(r'^/api/v1/rides/([^/]+)/safety-audio/init$').firstMatch(path);
+    final audioInit = RegExp(
+      r'^/api/v1/rides/([^/]+)/safety-audio/init$',
+    ).firstMatch(path);
     if (audioInit != null && method == 'POST') {
       final rec = {
         'id': 'aud_$requestId',
@@ -379,9 +396,9 @@ class SafetyMockApi {
       recordings.add(rec);
       return (status: 200, payload: {'code': 'OK', 'recording': rec});
     }
-    final audio =
-        RegExp(r'^/api/v1/rides/([^/]+)/safety-audio/([^/]+)(/complete)?$')
-            .firstMatch(path);
+    final audio = RegExp(
+      r'^/api/v1/rides/([^/]+)/safety-audio/([^/]+)(/complete)?$',
+    ).firstMatch(path);
     if (audio != null) {
       final recordingId = audio.group(2);
       final complete = audio.group(3) != null;

@@ -65,22 +65,24 @@ void main() {
     expect(calls, 2);
   });
 
-  test('two screens asking for the same leg share one public request',
-      () async {
-    var calls = 0;
-    final gate = Completer<void>();
-    final routing = demoRouting((a, b, {timeout = Duration.zero}) async {
-      calls += 1;
-      await gate.future;
-      return road;
-    });
-    final selectRide = routing.roadLine(from: from, to: to);
-    final finding = routing.roadLine(from: from, to: to);
-    gate.complete();
-    expect(await selectRide, road);
-    expect(await finding, road);
-    expect(calls, 1);
-  });
+  test(
+    'two screens asking for the same leg share one public request',
+    () async {
+      var calls = 0;
+      final gate = Completer<void>();
+      final routing = demoRouting((a, b, {timeout = Duration.zero}) async {
+        calls += 1;
+        await gate.future;
+        return road;
+      });
+      final selectRide = routing.roadLine(from: from, to: to);
+      final finding = routing.roadLine(from: from, to: to);
+      gate.complete();
+      expect(await selectRide, road);
+      expect(await finding, road);
+      expect(calls, 1);
+    },
+  );
 
   test('when the public router has nothing the direct line is drawn and '
       'the next request asks again', () async {
@@ -95,84 +97,95 @@ void main() {
     expect(calls, 4);
   });
 
-  test('outside the demo (and off the web) the public router is never asked',
-      () async {
-    var calls = 0;
-    Future<List<GeoPoint>?> router(
-      GeoPoint a,
-      GeoPoint b, {
-      Duration timeout = Duration.zero,
-    }) async {
-      calls += 1;
-      return road;
-    }
-    final production = RoutingService(
-      api: ApiClient(client: InProcessMockClient(), env: env),
-      isWeb: true,
-      publicRoad: router,
-    );
-    expect(ll(await production.roadLine(from: from, to: to)), ll([from, to]));
-    final native = RoutingService(
-      api: ApiClient(client: InProcessMockClient(), env: env),
-      allowPublicRoadFallback: true,
-      isWeb: false,
-      publicRoad: router,
-    );
-    expect(ll(await native.roadLine(from: from, to: to)), ll([from, to]));
-    expect(calls, 0);
-  });
+  test(
+    'outside the demo (and off the web) the public router is never asked',
+    () async {
+      var calls = 0;
+      Future<List<GeoPoint>?> router(
+        GeoPoint a,
+        GeoPoint b, {
+        Duration timeout = Duration.zero,
+      }) async {
+        calls += 1;
+        return road;
+      }
 
-  test('OSRM geojson is read as lat/lng points; bad answers are null',
-      () async {
-    Uri? asked;
-    final client = MockClient((request) async {
-      asked = request.url;
-      return http.Response(
-        jsonEncode({
-          'code': 'Ok',
-          'routes': [
-            {
-              'geometry': {
-                'type': 'LineString',
-                'coordinates': [
-                  [17.6165, 59.1955],
-                  [17.6200, 59.1970],
-                  [17.6300, 59.2000],
-                ],
-              },
-            },
-          ],
-        }),
-        200,
+      final production = RoutingService(
+        api: ApiClient(client: InProcessMockClient(), env: env),
+        isWeb: true,
+        publicRoad: router,
       );
-    });
-    final points = await openSourceRoutingMachineRoute(
-      from,
-      to,
-      client: client,
-    );
-    expect(ll(points), ll(const [
-      GeoPoint(59.1955, 17.6165),
-      GeoPoint(59.1970, 17.6200),
-      GeoPoint(59.2000, 17.6300),
-    ]));
-    expect(asked?.scheme, 'https');
-    expect(asked?.host, 'router.project-osrm.org');
-    expect(asked?.path, '/route/v1/driving/17.616500,59.195500;17.630000,59.200000');
-    expect(asked?.queryParameters['geometries'], 'geojson');
-    expect(asked?.queryParameters['overview'], 'full');
+      expect(ll(await production.roadLine(from: from, to: to)), ll([from, to]));
+      final native = RoutingService(
+        api: ApiClient(client: InProcessMockClient(), env: env),
+        allowPublicRoadFallback: true,
+        isWeb: false,
+        publicRoad: router,
+      );
+      expect(ll(await native.roadLine(from: from, to: to)), ll([from, to]));
+      expect(calls, 0);
+    },
+  );
 
-    final noRoute = MockClient(
-      (_) async => http.Response(jsonEncode({'code': 'NoRoute'}), 200),
-    );
-    expect(
-      await openSourceRoutingMachineRoute(from, to, client: noRoute),
-      isNull,
-    );
-    final down = MockClient((_) async => http.Response('', 503));
-    expect(
-      await openSourceRoutingMachineRoute(from, to, client: down),
-      isNull,
-    );
-  });
+  test(
+    'OSRM geojson is read as lat/lng points; bad answers are null',
+    () async {
+      Uri? asked;
+      final client = MockClient((request) async {
+        asked = request.url;
+        return http.Response(
+          jsonEncode({
+            'code': 'Ok',
+            'routes': [
+              {
+                'geometry': {
+                  'type': 'LineString',
+                  'coordinates': [
+                    [17.6165, 59.1955],
+                    [17.6200, 59.1970],
+                    [17.6300, 59.2000],
+                  ],
+                },
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      final points = await openSourceRoutingMachineRoute(
+        from,
+        to,
+        client: client,
+      );
+      expect(
+        ll(points),
+        ll(const [
+          GeoPoint(59.1955, 17.6165),
+          GeoPoint(59.1970, 17.6200),
+          GeoPoint(59.2000, 17.6300),
+        ]),
+      );
+      expect(asked?.scheme, 'https');
+      expect(asked?.host, 'router.project-osrm.org');
+      expect(
+        asked?.path,
+        '/route/v1/driving/17.616500,59.195500;17.630000,59.200000',
+      );
+      expect(asked?.queryParameters['geometries'], 'geojson');
+      expect(asked?.queryParameters['overview'], 'full');
+
+      final noRoute = MockClient(
+        (_) async => http.Response(jsonEncode({'code': 'NoRoute'}), 200),
+      );
+      expect(
+        await openSourceRoutingMachineRoute(from, to, client: noRoute),
+        isNull,
+      );
+      final down = MockClient((_) async => http.Response('', 503));
+      expect(
+        await openSourceRoutingMachineRoute(from, to, client: down),
+        isNull,
+      );
+    },
+  );
 }

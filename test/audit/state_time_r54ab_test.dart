@@ -60,10 +60,12 @@ Future<String> _book(ApiClient api) async {
     'destinationLat': 59.3326,
     'destinationLng': 18.0649,
   };
-  final quote = (await api.post(
-    '/api/v1/quotes',
-    body: {'rideType': 'economy', ...at},
-  ))['quote'] as Map;
+  final quote =
+      (await api.post(
+            '/api/v1/quotes',
+            body: {'rideType': 'economy', ...at},
+          ))['quote']
+          as Map;
   final created = await api.post(
     '/api/v1/rides',
     body: {
@@ -174,20 +176,25 @@ void main() {
     expect(await tokens.readAccess(), 'old-access');
   });
 
-  test('rider-8: an offer raise while searching is a committed change',
-      () async {
-    final server = InProcessMockClient();
-    final api = ApiClient(client: server);
-    final id = await _book(api);
-    final before = Map<String, dynamic>.of(server.rides[id]!);
-    await api.patch('/api/v1/rides/$id', body: {
-      'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
-    });
-    final after = server.rides[id]!;
-    expect(after['fare'], isNot(before['fare']));
-    expect(after['version'], (before['version'] as int) + 1);
-    expect(after['eventId'], isNot(before['eventId']));
-  });
+  test(
+    'rider-8: an offer raise while searching is a committed change',
+    () async {
+      final server = InProcessMockClient();
+      final api = ApiClient(client: server);
+      final id = await _book(api);
+      final before = Map<String, dynamic>.of(server.rides[id]!);
+      await api.patch(
+        '/api/v1/rides/$id',
+        body: {
+          'offerIncrease': {'amountMinor': 5000, 'currency': 'SEK'},
+        },
+      );
+      final after = server.rides[id]!;
+      expect(after['fare'], isNot(before['fare']));
+      expect(after['version'], (before['version'] as int) + 1);
+      expect(after['eventId'], isNot(before['eventId']));
+    },
+  );
 
   test('rider-j8-13: a web flight stopped by a tap leaves the pose where the '
       'camera stopped', () async {
@@ -279,41 +286,43 @@ void main() {
     rt.dispose();
   });
 
-  test('rider-25: History keeps the completion time when Done comes later',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    RideSnapshotStore.epoch = 0;
-    final trip = RideSnapshot(
-      status: RideStatus.tripInProgress,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.33,
-      pickupLng: 18.06,
-      destinationLat: 59.34,
-      destinationLng: 18.07,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: 'ride_r25',
-    );
-    await RideSnapshotStore.save(trip);
-    AppScope.instance.ride
-      ..rideId = trip.rideId
-      ..status = RideStatus.tripInProgress;
-    final controller = ActiveRideController();
-    await controller.markCompleted(RideStatus.tripCompleted);
-    // The rider stayed on the summary for 40 minutes before Done.
-    final completedAt = DateTime.now().subtract(const Duration(minutes: 40));
-    final stored = (await RideSnapshotStore.read())!;
-    await RideSnapshotStore.save(stored.copyWith(completedAt: completedAt));
-    await controller.closeCompletedRide('ride_r25');
-    final record = (await OnDemandRideHistoryStore.read()).single;
-    expect(
-      record.scheduledPickupAt.difference(completedAt).inSeconds.abs(),
-      lessThan(2),
-    );
-  });
+  test(
+    'rider-25: History keeps the completion time when Done comes later',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      RideSnapshotStore.epoch = 0;
+      final trip = RideSnapshot(
+        status: RideStatus.tripInProgress,
+        savedAt: DateTime.now(),
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.33,
+        pickupLng: 18.06,
+        destinationLat: 59.34,
+        destinationLng: 18.07,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+        rideId: 'ride_r25',
+      );
+      await RideSnapshotStore.save(trip);
+      AppScope.instance.ride
+        ..rideId = trip.rideId
+        ..status = RideStatus.tripInProgress;
+      final controller = ActiveRideController();
+      await controller.markCompleted(RideStatus.tripCompleted);
+      // The rider stayed on the summary for 40 minutes before Done.
+      final completedAt = DateTime.now().subtract(const Duration(minutes: 40));
+      final stored = (await RideSnapshotStore.read())!;
+      await RideSnapshotStore.save(stored.copyWith(completedAt: completedAt));
+      await controller.closeCompletedRide('ride_r25');
+      final record = (await OnDemandRideHistoryStore.read()).single;
+      expect(
+        record.scheduledPickupAt.difference(completedAt).inSeconds.abs(),
+        lessThan(2),
+      );
+    },
+  );
 
   test('rider-u60: a stop the rider added moves the pre-trip arrival '
       'estimate', () {
@@ -350,12 +359,14 @@ void main() {
     final flush = FindingDriverController.flushPendingCancels(api: api);
     await _until(() => gets == 1);
     await UserDataWipe.run();
-    reread.complete(http.Response(
-      jsonEncode({
-        'ride': {'id': 'ride_u68', 'status': 'searching', 'version': 2},
-      }),
-      200,
-    ));
+    reread.complete(
+      http.Response(
+        jsonEncode({
+          'ride': {'id': 'ride_u68', 'status': 'searching', 'version': 2},
+        }),
+        200,
+      ),
+    );
     await flush;
     expect(await PendingCancelStore.all(), isEmpty);
     expect(posts, 0);
@@ -369,14 +380,16 @@ void main() {
       tokens: MemoryTokenStore(),
       api: ApiClient(
         env: _env,
-        client: MockClient((_) async => http.Response(
-          jsonEncode({
-            'accessToken': 'a',
-            'refreshToken': 'r',
-            'isNewRider': true,
-          }),
-          200,
-        )),
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'accessToken': 'a',
+              'refreshToken': 'r',
+              'isNewRider': true,
+            }),
+            200,
+          ),
+        ),
       ),
     );
     final result = await auth.verifyOtp(
@@ -441,10 +454,7 @@ void main() {
                   onPressed: () => confirmAndSignOut(context, auth: auth),
                   child: const Text('open'),
                 ),
-                TextButton(
-                  onPressed: () => taps++,
-                  child: const Text('book'),
-                ),
+                TextButton(onPressed: () => taps++, child: const Text('book')),
               ],
             ),
           ),
@@ -506,8 +516,9 @@ void main() {
       FindingDriverController.active = null;
       owner.dispose();
     });
-    final kept = await BookingCoordinator(api: api)
-        .reconcileCreatedFinding('ride_duplicate');
+    final kept = await BookingCoordinator(
+      api: api,
+    ).reconcileCreatedFinding('ride_duplicate');
     expect(kept, 'ride_owner');
     expect(await PendingCancelStore.find('ride_duplicate'), isNotNull);
   });

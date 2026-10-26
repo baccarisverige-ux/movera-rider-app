@@ -26,19 +26,19 @@ class SocketExceptionStub implements Exception {
 }
 
 RideSnapshot snap() => RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3,
-      pickupLng: 18.0,
-      destinationLat: 59.4,
-      destinationLng: 18.1,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: 'r1',
-    );
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'A',
+  destinationAddress: 'B',
+  pickupLat: 59.3,
+  pickupLng: 18.0,
+  destinationLat: 59.4,
+  destinationLng: 18.1,
+  rideType: 'Movera',
+  price: 259,
+  paymentMethod: 'Apple Pay',
+  rideId: 'r1',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -119,17 +119,14 @@ void main() {
     },
   );
 
-  test(
-    'flushPendingCancels leaves a still-failing cancel pending',
-    () async {
-      await PendingCancelStore.add(const PendingCancel(rideId: 'r3'));
-      final api = ApiClient(client: _OfflineHttpClient());
+  test('flushPendingCancels leaves a still-failing cancel pending', () async {
+    await PendingCancelStore.add(const PendingCancel(rideId: 'r3'));
+    final api = ApiClient(client: _OfflineHttpClient());
 
-      await FindingDriverController.flushPendingCancels(api: api);
+    await FindingDriverController.flushPendingCancels(api: api);
 
-      final pending = await PendingCancelStore.all();
-      expect(pending, hasLength(1));
-      expect(pending.single.rideId, 'r3');
-    },
-  );
+    final pending = await PendingCancelStore.all();
+    expect(pending, hasLength(1));
+    expect(pending.single.rideId, 'r3');
+  });
 }

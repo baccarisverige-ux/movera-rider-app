@@ -114,7 +114,11 @@ void main() {
   group('RC-02 the outbox keeps the command', () {
     test('an offline on-board end-early is flushed as end-early', () async {
       final ride = AppScope.instance.ride;
-      ride.backendReconcile(RideStatus.tripInProgress, id: 'ride-9', version: 5);
+      ride.backendReconcile(
+        RideStatus.tripInProgress,
+        id: 'ride-9',
+        version: 5,
+      );
       final outcome = await ActiveRideController(
         api: _offline(),
       ).markCancelled(reasonId: 'changed_plans');
@@ -132,17 +136,25 @@ void main() {
       expect(await PendingCancelStore.all(), isEmpty);
     });
 
-    test('an entry stored before the command existed flushes as cancel',
-        () async {
-      SharedPreferences.setMockInitialValues({
-        'movera_pending_cancels': [
-          jsonEncode({'rideId': 'old', 'reasonId': null, 'idempotencyKey': 'k'}),
-        ],
-      });
-      final paths = <String>[];
-      await FindingDriverController.flushPendingCancels(api: _accepting(paths));
-      expect(paths, ['/api/v1/rides/old', '/api/v1/rides/old/cancel']);
-    });
+    test(
+      'an entry stored before the command existed flushes as cancel',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'movera_pending_cancels': [
+            jsonEncode({
+              'rideId': 'old',
+              'reasonId': null,
+              'idempotencyKey': 'k',
+            }),
+          ],
+        });
+        final paths = <String>[];
+        await FindingDriverController.flushPendingCancels(
+          api: _accepting(paths),
+        );
+        expect(paths, ['/api/v1/rides/old', '/api/v1/rides/old/cancel']);
+      },
+    );
 
     test('a different command for the same ride gets its own key', () async {
       final first = await PendingCancelStore.enqueue(rideId: 'r');
@@ -153,14 +165,15 @@ void main() {
       );
       expect(again.idempotencyKey, first.idempotencyKey);
       expect(ended.idempotencyKey, isNot(first.idempotencyKey));
-      expect((await PendingCancelStore.all()).single.command,
-          PendingCancelCommand.endEarly);
+      expect(
+        (await PendingCancelStore.all()).single.command,
+        PendingCancelCommand.endEarly,
+      );
     });
   });
 
   group('RC-03 a refusal is not dropped silently', () {
-    test('409 for a ride that is still live is reported as refused',
-        () async {
+    test('409 for a ride that is still live is reported as refused', () async {
       await PendingCancelStore.add(
         const PendingCancel(rideId: 'r1', idempotencyKey: 'k1'),
       );
@@ -211,23 +224,25 @@ void main() {
       expect(results['r1'], PendingCancelResult.ended);
     });
 
-    test('a queued cancel for an expired search reports how it ended',
-        () async {
-      await PendingCancelStore.add(
-        const PendingCancel(rideId: 'r1', idempotencyKey: 'k1'),
-      );
-      final reported = <PendingCancelOutcome>[];
-      final sub = PendingCancelStore.outcomes.listen(reported.add);
-      addTearDown(sub.cancel);
-      final paths = <String>[];
-      final results = await FindingDriverController.flushPendingCancels(
-        api: _refusing(409, rideStatus: 'expired', paths: paths),
-      );
-      await pumpEventQueue();
-      expect(paths, ['GET /api/v1/rides/r1'], reason: 'nothing is sent');
-      expect(results['r1'], PendingCancelResult.ended);
-      expect(reported.single.endedAs, RideStatus.noDriverFound);
-    });
+    test(
+      'a queued cancel for an expired search reports how it ended',
+      () async {
+        await PendingCancelStore.add(
+          const PendingCancel(rideId: 'r1', idempotencyKey: 'k1'),
+        );
+        final reported = <PendingCancelOutcome>[];
+        final sub = PendingCancelStore.outcomes.listen(reported.add);
+        addTearDown(sub.cancel);
+        final paths = <String>[];
+        final results = await FindingDriverController.flushPendingCancels(
+          api: _refusing(409, rideStatus: 'expired', paths: paths),
+        );
+        await pumpEventQueue();
+        expect(paths, ['GET /api/v1/rides/r1'], reason: 'nothing is sent');
+        expect(results['r1'], PendingCancelResult.ended);
+        expect(reported.single.endedAs, RideStatus.noDriverFound);
+      },
+    );
   });
 
   group('RC-03 Finding: a queued cancel is not committed', () {
@@ -283,27 +298,33 @@ void main() {
 
     test('the server confirming it commits the cancel', () async {
       await startOffline('q2');
-      rt.events.add(RideRealtimeEvent(
-        rideId: 'q2',
-        status: RideStatus.cancelledByRider,
-        sequence: 5,
-        version: 5,
-      ));
+      rt.events.add(
+        RideRealtimeEvent(
+          rideId: 'q2',
+          status: RideStatus.cancelledByRider,
+          sequence: 5,
+          version: 5,
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(controller.cancelled, isTrue);
       expect(terminal, [RideStatus.cancelledByRider]);
       expect(await RideSnapshotStore.read(), isNull);
-      expect((await OnDemandRideHistoryStore.read()).single.status.name,
-          'cancelled');
+      expect(
+        (await OnDemandRideHistoryStore.read()).single.status.name,
+        'cancelled',
+      );
     });
 
     test('a sent outbox entry commits it too', () async {
       await startOffline('q3');
-      PendingCancelStore.report(const PendingCancelOutcome(
-        rideId: 'q3',
-        command: PendingCancelCommand.cancel,
-        result: PendingCancelResult.sent,
-      ));
+      PendingCancelStore.report(
+        const PendingCancelOutcome(
+          rideId: 'q3',
+          command: PendingCancelCommand.cancel,
+          result: PendingCancelResult.sent,
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(controller.cancelled, isTrue);
       expect(terminal, [RideStatus.cancelledByRider]);
@@ -312,12 +333,14 @@ void main() {
     test('a driver who accepted first wins; the stale cancel leaves the '
         'outbox', () async {
       await startOffline('q4');
-      rt.events.add(RideRealtimeEvent(
-        rideId: 'q4',
-        status: RideStatus.driverAssigned,
-        sequence: 3,
-        version: 3,
-      ));
+      rt.events.add(
+        RideRealtimeEvent(
+          rideId: 'q4',
+          status: RideStatus.driverAssigned,
+          sequence: 3,
+          version: 3,
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(controller.cancelled, isFalse);
       expect(controller.cancelQueued, isFalse);
@@ -329,12 +352,14 @@ void main() {
     test('a search the server ended is shown as it ended, not cancelled '
         '(rider-r4-24)', () async {
       await startOffline('q6');
-      PendingCancelStore.report(const PendingCancelOutcome(
-        rideId: 'q6',
-        command: PendingCancelCommand.cancel,
-        result: PendingCancelResult.ended,
-        endedAs: RideStatus.noDriverFound,
-      ));
+      PendingCancelStore.report(
+        const PendingCancelOutcome(
+          rideId: 'q6',
+          command: PendingCancelCommand.cancel,
+          result: PendingCancelResult.ended,
+          endedAs: RideStatus.noDriverFound,
+        ),
+      );
       await pumpEventQueue();
       expect(controller.cancelled, isFalse);
       expect(terminal, [RideStatus.noDriverFound]);
@@ -344,11 +369,13 @@ void main() {
 
     test('a refused flush resumes the search and tells the rider', () async {
       await startOffline('q5');
-      PendingCancelStore.report(const PendingCancelOutcome(
-        rideId: 'q5',
-        command: PendingCancelCommand.cancel,
-        result: PendingCancelResult.refused,
-      ));
+      PendingCancelStore.report(
+        const PendingCancelOutcome(
+          rideId: 'q5',
+          command: PendingCancelCommand.cancel,
+          result: PendingCancelResult.refused,
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(controller.cancelQueued, isFalse);
       expect(controller.cancelled, isFalse);
@@ -371,8 +398,7 @@ void main() {
       );
     }
 
-    test('no answer (offline): the search is restored, not archived',
-        () async {
+    test('no answer (offline): the search is restored, not archived', () async {
       final coordinator = await restoring(null);
       await coordinator.root();
       expect(coordinator.showing, RestoredSurface.finding);
@@ -400,8 +426,10 @@ void main() {
       await coordinator.root();
       expect(coordinator.showing, RestoredSurface.home);
       expect(await RideSnapshotStore.read(), isNull);
-      expect((await OnDemandRideHistoryStore.read()).single.status.name,
-          'cancelled');
+      expect(
+        (await OnDemandRideHistoryStore.read()).single.status.name,
+        'cancelled',
+      );
     });
   });
 }

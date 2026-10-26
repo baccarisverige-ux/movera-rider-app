@@ -118,33 +118,39 @@ void main() {
     expect(shown, isNull);
   });
 
-  test('replaceRootSurface updates a restored stage without replacing Navigator root', () {
-    final c = RideRestoreCoordinator(reader: () async => null);
-    Widget? shown;
-    c.onReplaceRoot = (page) => shown = page;
+  test(
+    'replaceRootSurface updates a restored stage without replacing Navigator root',
+    () {
+      final c = RideRestoreCoordinator(reader: () async => null);
+      Widget? shown;
+      c.onReplaceRoot = (page) => shown = page;
 
-    final replaced = c.replaceRootSurface(
-      const Home(),
-      RestoredSurface.finding,
-    );
+      final replaced = c.replaceRootSurface(
+        const Home(),
+        RestoredSurface.finding,
+      );
 
-    expect(replaced, isTrue);
-    expect(c.showing, RestoredSurface.finding);
-    expect(shown, isA<Home>());
-  });
+      expect(replaced, isTrue);
+      expect(c.showing, RestoredSurface.finding);
+      expect(shown, isA<Home>());
+    },
+  );
 
-  test('replaceRootSurface reports unavailable when restore gate is absent', () {
-    final c = RideRestoreCoordinator(reader: () async => null);
-    c.showing = RestoredSurface.waiting;
+  test(
+    'replaceRootSurface reports unavailable when restore gate is absent',
+    () {
+      final c = RideRestoreCoordinator(reader: () async => null);
+      c.showing = RestoredSurface.waiting;
 
-    final replaced = c.replaceRootSurface(
-      const Home(),
-      RestoredSurface.finding,
-    );
+      final replaced = c.replaceRootSurface(
+        const Home(),
+        RestoredSurface.finding,
+      );
 
-    expect(replaced, isFalse);
-    expect(c.showing, RestoredSurface.waiting);
-  });
+      expect(replaced, isFalse);
+      expect(c.showing, RestoredSurface.waiting);
+    },
+  );
 
   test('resume is idempotent when already showing', () async {
     final snapshot = snap(RideStatus.findingDriver);
@@ -219,15 +225,12 @@ void main() {
     expect(c.showing, RestoredSurface.home);
   });
 
-  test('pagehide keeps the snapshot so a crash can restore the trip',
-      () async {
+  test('pagehide keeps the snapshot so a crash can restore the trip', () async {
     await RideSnapshotStore.save(snap(RideStatus.driverAssigned));
     expect(await RideSnapshotStore.read(), isNotNull);
 
     Widget? shown;
-    final c = RideRestoreCoordinator(
-      reader: RideSnapshotStore.read,
-    );
+    final c = RideRestoreCoordinator(reader: RideSnapshotStore.read);
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.waiting;
 
@@ -244,9 +247,7 @@ void main() {
     expect(await RideSnapshotStore.read(), isNotNull);
 
     Widget? shown;
-    final c = RideRestoreCoordinator(
-      reader: RideSnapshotStore.read,
-    );
+    final c = RideRestoreCoordinator(reader: RideSnapshotStore.read);
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.finding;
 

@@ -51,14 +51,6 @@ void main() {
     );
   });
 
-  
-
-  
-
-  
-
-  
-
   test(
     'resume reconnect does not reset an unmatched ride subscription',
     () async {

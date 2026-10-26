@@ -22,11 +22,9 @@ class MotionOutput {
 
 /// Isolated from widgets and Google Maps.
 class MotionEngine {
-  MotionEngine({
-    LocationSmoother? smoother,
-    PositionInterpolator? interpolator,
-  })  : _smoother = smoother ?? LocationSmoother(),
-        _interpolator = interpolator ?? PositionInterpolator();
+  MotionEngine({LocationSmoother? smoother, PositionInterpolator? interpolator})
+    : _smoother = smoother ?? LocationSmoother(),
+      _interpolator = interpolator ?? PositionInterpolator();
 
   final LocationSmoother _smoother;
   final PositionInterpolator _interpolator;
@@ -57,7 +55,8 @@ class MotionEngine {
     _to = sample;
     // Nowhere to glide (the first fix, or the same point): already there.
     final from = _from!.point;
-    final still = from.latitude == sample.point.latitude &&
+    final still =
+        from.latitude == sample.point.latitude &&
         from.longitude == sample.point.longitude;
     _startedAt = still ? clock.subtract(window) : clock;
     return poseAt(clock);

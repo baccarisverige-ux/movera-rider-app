@@ -171,7 +171,11 @@ void main() {
         ),
         throwsA(
           isA<RouteChangeException>()
-              .having((e) => e.failure, 'failure', RouteChangeFailure.pickupTooFar)
+              .having(
+                (e) => e.failure,
+                'failure',
+                RouteChangeFailure.pickupTooFar,
+              )
               .having((e) => e.message, 'message', contains('up to 200 m')),
         ),
       );
@@ -230,7 +234,9 @@ void main() {
                 onPressed: () => PromotionDetailsSheet.open(
                   context,
                   RiderPromotion.fromJson(promotionJson)!,
-                  categories: const [PromotionCategory(id: 'comfort', name: 'Comfort')],
+                  categories: const [
+                    PromotionCategory(id: 'comfort', name: 'Comfort'),
+                  ],
                   currency: currency,
                 ),
                 child: const Text('Open'),
@@ -267,7 +273,10 @@ void main() {
       final zone = await AppScope.instance.riderConfig.timeZoneAt(48.86, 2.34);
       expect(zone, 'Europe/Lisbon');
       // Lisbon: UTC+0 in winter, +1 in summer (EU rule).
-      expect(ZoneClock.offsetAt(zone, DateTime.utc(2026, 1, 15)), Duration.zero);
+      expect(
+        ZoneClock.offsetAt(zone, DateTime.utc(2026, 1, 15)),
+        Duration.zero,
+      );
       expect(
         ZoneClock.offsetAt(zone, DateTime.utc(2026, 7, 15)),
         const Duration(hours: 1),

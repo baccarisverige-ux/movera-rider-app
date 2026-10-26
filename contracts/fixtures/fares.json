@@ -1,0 +1,1220 @@
+{
+  "version": "0.5.1",
+  "note": "Fares (CONTRACT.md §3.5, contract.json#pricing). Each case prices input against fixtures/config/pricing_document.json (Z001, the admin Stockholm prices) with overrides deep-merged into it (objects merge, anything else replaces). Every line is its exact amount rounded half-up to a whole minor unit; total is the exact sum rounded once to priceStep, a rounding line makes the lines add up; outstanding_fee is added after that. driverEarnings = min(total before outstanding_fee, half_up((ride part + extras - waiting - stop waiting) x (1 - commissionPct/100)) + waiting + stop_waiting); moveraShare = total - driverEarnings. input: km, minutes = the priced route; waitingChargedSeconds = Waiting.chargedSeconds; stopWaitSeconds = seconds waited at each extra stop (one entry per stop); kind scheduled adds the reservation fee and uses the reservation pickup fee; endEarly = the rider ended the trip early (kmDriven, minutesOnBoard, bookedFare).",
+  "document": "fixtures/config/pricing_document.json",
+  "cases": [
+    {
+      "id": "economy_plain",
+      "note": "Economy, 8 km and 18 min, no extras. 10 % app fee on top, 20 % commission on the ride part; total rounded once to the 1 kr step.",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 21700,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5940,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "premium_commission_22",
+      "note": "Premium keeps the admin 22 % commission and 12 % app fee (owner decision 16).",
+      "input": {
+        "categoryId": "premium",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 39600,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 5200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 17600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 12600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 4248,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -48,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 27612,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 11988,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "minimum_kicks_in",
+      "note": "Priority, 1 km and 2 min: the ride part 65 kr is raised to the 66 kr minimum before the app fee.",
+      "input": {
+        "categoryId": "priority",
+        "km": 1,
+        "minutes": 2,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 7300,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 3900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 1600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 1000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "minimum_adjust",
+            "amount": {
+              "amountMinor": 100,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 660,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 40,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 5280,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 2020,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "maximum_caps_ride",
+      "note": "Economy, 100 km and 90 min: the ride part 1 589 kr is capped at the 1 500 kr maximum; the app fee is worked out on the capped ride.",
+      "input": {
+        "categoryId": "economy",
+        "km": 100,
+        "minutes": 90,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 165000,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 120000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 36000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "maximum_adjust",
+            "amount": {
+              "amountMinor": -8900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 15000,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 120000,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 45000,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "manual_surge_1_3",
+      "note": "A manual surge ×1.3 multiplies the ride part only (base + distance + time); the surge line is the extra.",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "surgeMultiplier": 1.3,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 28200,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "surge",
+            "amount": {
+              "amountMinor": 5910,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 2561,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 29,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 20488,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 7712,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "surge_above_cap",
+      "note": "A multiplier above surge.maxMultiplier (3, owner decision 21) is priced at the cap.",
+      "input": {
+        "categoryId": "economy",
+        "km": 2.5,
+        "minutes": 7,
+        "surgeMultiplier": 4,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 28700,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 3000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 2800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "surge",
+            "amount": {
+              "amountMinor": 17400,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 2610,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -10,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 20880,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 7820,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "waiting_per_second",
+      "note": "Waiting.chargedSeconds 150 after the free 5 min: 150 / 60 × 12.26 kr = 30.65 kr, per second. Waiting is 100 % the driver's, outside the commission (owner decision 17), but inside the app fee base.",
+      "input": {
+        "categoryId": "economy",
+        "km": 6,
+        "minutes": 14,
+        "waitingChargedSeconds": 150,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 20600,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 5600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "waiting",
+            "amount": {
+              "amountMinor": 3065,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1877,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -42,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15625,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 4975,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "stops_first_3_min_free",
+      "note": "Comfort with two stops: 19 kr stop fee each; waits of 2 min (free) and 5.5 min (2.5 min paid at 6 kr). Stop waiting is waiting money: 100 % driver (owner decisions 17, 20).",
+      "input": {
+        "categoryId": "comfort",
+        "km": 9.4,
+        "minutes": 21,
+        "stopWaitSeconds": [
+          120,
+          330
+        ],
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 36900,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 3600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 14100,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 10500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "stops",
+            "amount": {
+              "amountMinor": 3800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "stop_waiting",
+            "amount": {
+              "amountMinor": 1500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 3350,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 50,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 27100,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 9800,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "rider_pickup_fee_on",
+      "note": "The category has a 15 kr rider pickup fee for live rides: added after the app fee, Movera keeps it (outside the commission and app fee base).",
+      "overrides": {
+        "categories": {
+          "economy": {
+            "riderPickupFee": {
+              "live": {
+                "amountMinor": 1500,
+                "currency": "SEK"
+              },
+              "reservation": {
+                "amountMinor": 2000,
+                "currency": "SEK"
+              }
+            }
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 23200,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "pickup_fee",
+            "amount": {
+              "amountMinor": 1500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 7440,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "scheduled_with_extras",
+      "note": "A reservation: the 25 kr reservation fee, the 20 kr reservation pickup fee, one child seat and an airport drop-off fee (zone override 30 kr).",
+      "overrides": {
+        "fees": {
+          "airportDropoff": {
+            "amountMinor": 3000,
+            "currency": "SEK"
+          }
+        },
+        "categories": {
+          "economy": {
+            "riderPickupFee": {
+              "live": {
+                "amountMinor": 1500,
+                "currency": "SEK"
+              },
+              "reservation": {
+                "amountMinor": 2000,
+                "currency": "SEK"
+              }
+            }
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 12.3,
+        "minutes": 24,
+        "childSeats": 1,
+        "airportDropoff": true,
+        "kind": "scheduled"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 41300,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 14760,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "extras",
+            "amount": {
+              "amountMinor": 3000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "airport",
+            "amount": {
+              "amountMinor": 3000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "reservation_fee",
+            "amount": {
+              "amountMinor": 2500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 3576,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "pickup_fee",
+            "amount": {
+              "amountMinor": 2000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -36,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 28608,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 12692,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "fixed_route_ignores_surge",
+      "note": "A fixed route replaces base + distance + time and takes no surge, minimum or maximum; extras, app fee and rounding still apply.",
+      "overrides": {
+        "fixedRoutes": [
+          {
+            "id": "R1",
+            "from": "T-Centralen",
+            "to": "Arlanda",
+            "categoryId": "economy",
+            "price": {
+              "amountMinor": 55000,
+              "currency": "SEK"
+            }
+          }
+        ]
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 40,
+        "minutes": 38,
+        "surgeMultiplier": 1.5,
+        "fixedRouteId": "R1",
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 60500,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "fixed_route",
+            "amount": {
+              "amountMinor": 55000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 5500,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 44000,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 16500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "rounding_step_5",
+      "note": "priceStep 5 kr: the exact 216.70 kr is rounded half-up once to 215 kr; the rounding line makes the lines add up.",
+      "overrides": {
+        "priceStep": {
+          "amountMinor": 500,
+          "currency": "SEK"
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 21500,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -170,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5740,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "rounding_half_up",
+      "note": "Economy, 5 km and 4 min: ride 105 kr + 10.50 kr app fee = exactly 115.50 kr with a 1 kr step rounds up to 116 kr (half-up, once).",
+      "input": {
+        "categoryId": "economy",
+        "km": 5,
+        "minutes": 4,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 11600,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 6000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 1600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1050,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 50,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 8400,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 3200,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "end_early_short",
+      "note": "The rider ends early after 3.2 km and 9 min on board (owner decisions 8, 19): base + km driven + minutes on board, the booked surge, minimum, app fee; no waiting or stops; never above the booked 217 kr.",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live",
+        "endEarly": {
+          "kmDriven": 3.2,
+          "minutesOnBoard": 9,
+          "bookedFare": {
+            "amountMinor": 21700,
+            "currency": "SEK"
+          }
+        }
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 11400,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 3840,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 3600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1034,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 26,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 8272,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 3128,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "end_early_minimum",
+      "note": "Ended after 0.4 km and 1 min: the ride part is raised to the 49 kr minimum, then the app fee.",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live",
+        "endEarly": {
+          "kmDriven": 0.4,
+          "minutesOnBoard": 1,
+          "bookedFare": {
+            "amountMinor": 21700,
+            "currency": "SEK"
+          }
+        }
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 5400,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 480,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 400,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "minimum_adjust",
+            "amount": {
+              "amountMinor": 1120,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 490,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 10,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 3920,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 1480,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "end_early_capped_at_booked",
+      "note": "Booked at ×1.3 for 282 kr; slow traffic made 7.5 km and 30 min worth 341.77 kr: capped at the booked fare: the ride part is lowered (maximum_adjust) so that ride + app fee + pickup fee is the booked fare, and the split follows the lowered ride.",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "surgeMultiplier": 1.3,
+        "kind": "live",
+        "endEarly": {
+          "kmDriven": 7.5,
+          "minutesOnBoard": 30,
+          "bookedFare": {
+            "amountMinor": 28200,
+            "currency": "SEK"
+          }
+        }
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 28200,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 12000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "surge",
+            "amount": {
+              "amountMinor": 7170,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "maximum_adjust",
+            "amount": {
+              "amountMinor": -5434,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 2564,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 20509,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 7691,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "outstanding_fee_added",
+      "note": "The rider owes a 65 kr no-show fee from trip T-prev-1 (owner decision 7): the outstanding_fee line is added after the step rounding, is in the total the driver collects in cash, and is not in driverEarnings (it is owed to Movera).",
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "outstandingFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        },
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 28200,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "outstanding_fee",
+            "amount": {
+              "amountMinor": 6500,
+              "currency": "SEK"
+            },
+            "sourceTripId": "T-prev-1"
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 12440,
+          "currency": "SEK"
+        }
+      }
+    }
+  ]
+}

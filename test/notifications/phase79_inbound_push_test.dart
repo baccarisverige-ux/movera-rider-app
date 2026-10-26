@@ -115,42 +115,44 @@ void main() {
     expect(store.all().single.messageId, 'message-1');
   });
 
-  test('opened ride push resync route is requested and marks feed read',
-      () async {
-    final push = _FakePushService();
-    addTearDown(push.dispose);
-    final store = NotificationsRepository();
-    final openedRideIds = <String>[];
-    var notificationOpens = 0;
-    final coordinator = PushCoordinator(
-      push: push,
-      notifications: NotificationsController(store: store),
-      openRide: (rideId) async {
-        openedRideIds.add(rideId);
-        return true;
-      },
-      openNotifications: () => notificationOpens += 1,
-    );
-    addTearDown(coordinator.stop);
-    await coordinator.start();
+  test(
+    'opened ride push resync route is requested and marks feed read',
+    () async {
+      final push = _FakePushService();
+      addTearDown(push.dispose);
+      final store = NotificationsRepository();
+      final openedRideIds = <String>[];
+      var notificationOpens = 0;
+      final coordinator = PushCoordinator(
+        push: push,
+        notifications: NotificationsController(store: store),
+        openRide: (rideId) async {
+          openedRideIds.add(rideId);
+          return true;
+        },
+        openNotifications: () => notificationOpens += 1,
+      );
+      addTearDown(coordinator.stop);
+      await coordinator.start();
 
-    push.opened.add(
-      const PushPayload(
-        type: 'ride.driver_assigned',
-        rideId: 'ride-authoritative',
-        title: 'Driver assigned',
-        body: 'Your driver is on the way.',
-        messageId: 'message-2',
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      push.opened.add(
+        const PushPayload(
+          type: 'ride.driver_assigned',
+          rideId: 'ride-authoritative',
+          title: 'Driver assigned',
+          body: 'Your driver is on the way.',
+          messageId: 'message-2',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(openedRideIds, ['ride-authoritative']);
-    expect(notificationOpens, 0);
-    expect(store.all(), hasLength(1));
-    expect(store.all().single.read, isTrue);
-  });
+      expect(openedRideIds, ['ride-authoritative']);
+      expect(notificationOpens, 0);
+      expect(store.all(), hasLength(1));
+      expect(store.all().single.read, isTrue);
+    },
+  );
 
   test('cold-start non-ride push opens Notifications once', () async {
     final push = _FakePushService()
@@ -179,37 +181,39 @@ void main() {
     expect(store.all().single.read, isTrue);
   });
 
-  test('foreground then opened same message deduplicates and becomes read',
-      () async {
-    final push = _FakePushService();
-    addTearDown(push.dispose);
-    final store = NotificationsRepository();
-    final coordinator = PushCoordinator(
-      push: push,
-      notifications: NotificationsController(store: store),
-      openRide: (_) async => false,
-      openNotifications: () {},
-    );
-    addTearDown(coordinator.stop);
-    await coordinator.start();
+  test(
+    'foreground then opened same message deduplicates and becomes read',
+    () async {
+      final push = _FakePushService();
+      addTearDown(push.dispose);
+      final store = NotificationsRepository();
+      final coordinator = PushCoordinator(
+        push: push,
+        notifications: NotificationsController(store: store),
+        openRide: (_) async => false,
+        openNotifications: () {},
+      );
+      addTearDown(coordinator.stop);
+      await coordinator.start();
 
-    const payload = PushPayload(
-      type: 'account.updated',
-      title: 'Security update',
-      body: 'Review your account.',
-      messageId: 'same-message',
-    );
-    push.foreground.add(payload);
-    await Future<void>.delayed(Duration.zero);
-    expect(store.all().single.read, isFalse);
+      const payload = PushPayload(
+        type: 'account.updated',
+        title: 'Security update',
+        body: 'Review your account.',
+        messageId: 'same-message',
+      );
+      push.foreground.add(payload);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.all().single.read, isFalse);
 
-    push.opened.add(payload);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      push.opened.add(payload);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(store.all(), hasLength(1));
-    expect(store.all().single.read, isTrue);
-  });
+      expect(store.all(), hasLength(1));
+      expect(store.all().single.read, isTrue);
+    },
+  );
 
   test('data-only ride push never fabricates notification copy', () async {
     final push = _FakePushService();

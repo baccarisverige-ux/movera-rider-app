@@ -16,10 +16,12 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(390, 844),
-      builder: (_, __) => const MaterialApp(home: WalletHome()),
-    ));
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) => const MaterialApp(home: WalletHome()),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('49,63 kr'), findsOneWidget);
   });

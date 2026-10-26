@@ -20,7 +20,9 @@ Map<String, dynamic> _adminExport(String zone) =>
         )
         as Map<String, dynamic>;
 
-List<int> _minor(List<Money> amounts) => [for (final m in amounts) m.amountMinor];
+List<int> _minor(List<Money> amounts) => [
+  for (final m in amounts) m.amountMinor,
+];
 
 void main() {
   test('ZoneDefaults equal contract.json#configDefaults', () {
@@ -66,14 +68,26 @@ void main() {
         expect(config.country, country);
         expect(config.languages.available, ['en', 'fr', 'sv']);
         expect(
-          [config.languages.rider, config.languages.driver, config.languages.admin],
+          [
+            config.languages.rider,
+            config.languages.driver,
+            config.languages.admin,
+          ],
           [lang, lang, lang],
         );
-        expect(config.paymentMethods, ['cash', 'card', 'apple_pay', 'google_pay']);
+        expect(config.paymentMethods, [
+          'cash',
+          'card',
+          'apple_pay',
+          'google_pay',
+        ]);
         expect(config.walletUsedFirst, isTrue);
         expect(_minor(config.enabledTips), tips);
         expect(_minor(config.enabledRaiseSteps), steps);
-        expect(config.enabledTips.every((m) => m.currency == config.currency), isTrue);
+        expect(
+          config.enabledTips.every((m) => m.currency == config.currency),
+          isTrue,
+        );
         expect(config.promoCap, isNull);
         expect(config.maxStops, 3);
         expect(config.maxPickupMoveMeters, 500);
@@ -102,7 +116,10 @@ void main() {
 
   group('safe defaults, never a crash', () {
     test('a v0.3 document gets the defaults of its currency', () {
-      final config = RiderAppConfig.fromJson({'version': 1, 'currency': 'EUR'})!;
+      final config = RiderAppConfig.fromJson({
+        'version': 1,
+        'currency': 'EUR',
+      })!;
       expect(config.country, 'FR');
       expect(config.languages.rider, 'fr');
       expect(_minor(config.enabledTips), [100, 200, 500]);
@@ -117,9 +134,23 @@ void main() {
       final config = RiderAppConfig.fromJson({
         'version': 1,
         'currency': 'SEK',
-        'paymentMethods': ['card', 'swish', 'apple', 'google', 'wallet', 'cash', 'd17', 7],
+        'paymentMethods': [
+          'card',
+          'swish',
+          'apple',
+          'google',
+          'wallet',
+          'cash',
+          'd17',
+          7,
+        ],
       })!;
-      expect(config.paymentMethods, ['card', 'apple_pay', 'google_pay', 'cash']);
+      expect(config.paymentMethods, [
+        'card',
+        'apple_pay',
+        'google_pay',
+        'cash',
+      ]);
       final onlySwish = RiderAppConfig.fromJson({
         'version': 1,
         'currency': 'SEK',
@@ -138,16 +169,30 @@ void main() {
           'default': {'rider': 'ar', 'driver': 'en', 'admin': null},
         },
         'tips': [
-          {'amount': {'amountMinor': 1500, 'currency': 'TND'}, 'enabled': false},
-          {'amount': {'amountMinor': 1500, 'currency': 'TND'}},
-          {'amount': {'amountMinor': 500, 'currency': 'SEK'}},
-          {'amount': {'amountMinor': -1, 'currency': 'TND'}},
+          {
+            'amount': {'amountMinor': 1500, 'currency': 'TND'},
+            'enabled': false,
+          },
+          {
+            'amount': {'amountMinor': 1500, 'currency': 'TND'},
+          },
+          {
+            'amount': {'amountMinor': 500, 'currency': 'SEK'},
+          },
+          {
+            'amount': {'amountMinor': -1, 'currency': 'TND'},
+          },
           {'amount': 3},
           'x',
-          {'amount': {'amountMinor': 2500, 'currency': 'TND'}, 'enabled': 'yes'},
+          {
+            'amount': {'amountMinor': 2500, 'currency': 'TND'},
+            'enabled': 'yes',
+          },
         ],
         'raiseSteps': [
-          {'amount': {'amountMinor': 200, 'currency': 'EUR'}},
+          {
+            'amount': {'amountMinor': 200, 'currency': 'EUR'},
+          },
         ],
         'promoCap': {'amountMinor': 5000, 'currency': 'EUR'},
         'wallet': {'usedFirst': 'no'},
@@ -158,7 +203,9 @@ void main() {
           'noShowAfterMin': 5,
           'noShowFee': {'amountMinor': 19500, 'currency': 'TND'},
           'byCategory': {
-            'xl': {'perMin': {'amountMinor': 1, 'currency': 'SEK'}},
+            'xl': {
+              'perMin': {'amountMinor': 1, 'currency': 'SEK'},
+            },
             'premium': {'freeWaitMin': 7},
             'BAD': {'freeWaitMin': 1},
             'comfort': 'none',
@@ -185,7 +232,11 @@ void main() {
       expect(waiting.forCategory('xl').noShowAfterMin, 3);
       expect(waiting.forCategory('xl').perMin, const Money(3700, 'TND'));
       expect(waiting.forCategory('premium').noShowAfterMin, 7);
-      expect(waiting.forCategory('comfort').freeWaitMin, 5, reason: 'top level');
+      expect(
+        waiting.forCategory('comfort').freeWaitMin,
+        5,
+        reason: 'top level',
+      );
     });
 
     test('a valid promo cap and an explicit null', () {

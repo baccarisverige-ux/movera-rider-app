@@ -137,8 +137,9 @@ void main() {
     expect(swap.onPressed, isNull);
   });
 
-  testWidgets('a locked pickup still lets the last stop and destination swap',
-      (tester) async {
+  testWidgets('a locked pickup still lets the last stop and destination swap', (
+    tester,
+  ) async {
     await pump(
       tester,
       pickupLocked: true,

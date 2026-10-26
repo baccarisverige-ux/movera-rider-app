@@ -76,22 +76,22 @@ class TripShare {
   }
 
   Map<String, dynamic> toJson() => {
-        'shareId': shareId,
-        'rideId': rideId,
-        'userId': userId,
-        'contactIds': contactIds,
-        'pickup': pickup,
-        'destination': destination,
-        'currentLocation': currentLocation,
-        'driver': driver,
-        'vehicle': vehicle,
-        'eta': eta,
-        'rideStatus': rideStatus,
-        'startedAt': startedAt?.toIso8601String(),
-        'expiresAt': expiresAt?.toIso8601String(),
-        'shareToken': shareToken,
-        'isActive': isActive,
-      };
+    'shareId': shareId,
+    'rideId': rideId,
+    'userId': userId,
+    'contactIds': contactIds,
+    'pickup': pickup,
+    'destination': destination,
+    'currentLocation': currentLocation,
+    'driver': driver,
+    'vehicle': vehicle,
+    'eta': eta,
+    'rideStatus': rideStatus,
+    'startedAt': startedAt?.toIso8601String(),
+    'expiresAt': expiresAt?.toIso8601String(),
+    'shareToken': shareToken,
+    'isActive': isActive,
+  };
 
   factory TripShare.fromJson(Map<String, dynamic> json) {
     final ids = json['contactIds'];

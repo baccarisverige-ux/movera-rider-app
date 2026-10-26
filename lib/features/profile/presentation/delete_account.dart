@@ -81,8 +81,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error =
-            context.l10n.deleteSendFailed;
+        _error = context.l10n.deleteSendFailed;
       });
     }
   }

@@ -56,6 +56,7 @@ class RideSnapshot {
   final double destinationLat;
   final double destinationLng;
   final String rideType;
+
   /// The fare in whole units of [currency] (kronor, euros, dinars).
   final double price;
 
@@ -85,6 +86,7 @@ class RideSnapshot {
   /// whose read happened before a [RideSnapshotStore.clear] is recognised as
   /// stale by [RideSnapshotStore.save] and can never bring the ride back.
   final int? readEpoch;
+
   /// "Use wallet balance first": the part of [price] booked to the Movera
   /// Wallet, in öre (0 = none). The rest goes to [paymentMethod].
   final int walletAmountMinor;
@@ -115,6 +117,7 @@ class RideSnapshot {
   /// rider-u49: the rider was already shown "Your driver has arrived" for
   /// this ride's current driver, so a reload does not open it again.
   final bool arrivalAnnounced;
+
   /// rider-25: when the trip completed (the first time the completion
   /// surface was reached). Unlike [savedAt], which every later save and
   /// backgrounding moves, it stays put; History and the receipt use it.
@@ -256,7 +259,9 @@ class RideSnapshot {
     final savedAt = savedParsed.toUtc();
 
     final createdRaw = json['createdAt'];
-    final createdParsed = createdRaw is String ? DateTime.tryParse(createdRaw) : null;
+    final createdParsed = createdRaw is String
+        ? DateTime.tryParse(createdRaw)
+        : null;
     // v1 did not persist creation time. Preserve its original persisted time
     // rather than manufacturing a new timestamp during migration.
     final createdAt = (createdParsed ?? savedParsed).toUtc();
@@ -317,7 +322,8 @@ class RideSnapshot {
       serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
       arrivalAnnounced: json['arrivalAnnounced'] == true,
-      categoryId: CategoryIds.tryCanonical(json['categoryId']) ??
+      categoryId:
+          CategoryIds.tryCanonical(json['categoryId']) ??
           _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
@@ -473,9 +479,7 @@ class RideSnapshotStore {
     }
 
     final snapshot = RideSnapshot.fromJson(decoded);
-    if (snapshot == null ||
-        snapshot.status.isTerminal ||
-        !snapshot.isFresh) {
+    if (snapshot == null || snapshot.status.isTerminal || !snapshot.isFresh) {
       return;
     }
 

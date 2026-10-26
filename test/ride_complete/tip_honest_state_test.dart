@@ -14,7 +14,8 @@ import 'package:movera_rider/shared/formatters/money.dart';
 /// and an empty catalog must still degrade to the honest state rather than
 /// invent an amount.
 final _sekTips = [
-  for (final option in ZoneDefaults.tipsIn('SEK')) formatMoneyShort(option.amount),
+  for (final option in ZoneDefaults.tipsIn('SEK'))
+    formatMoneyShort(option.amount),
 ];
 
 void main() {
@@ -56,28 +57,20 @@ void main() {
 
     await tester.tap(find.text(_sekTips.first));
     await tester.pumpAndSettle();
-    expect(
-      find.text('${_sekTips.first} selected.'),
-      findsOneWidget,
-    );
+    expect(find.text('${_sekTips.first} selected.'), findsOneWidget);
   });
 
   testWidgets('an empty catalog still shows the honest state', (tester) async {
     await pump(
       tester,
       RideCompletedAddTip(
-        controller: RideCompleteController(
-          tips: const TipCatalog(amounts: []),
-        ),
+        controller: RideCompleteController(tips: const TipCatalog(amounts: [])),
       ),
     );
 
     expect(find.byType(MoveraEmptyState), findsOneWidget);
     expect(find.text('Tips unavailable'), findsOneWidget);
-    expect(
-      find.text("Tipping isn't available in this build."),
-      findsOneWidget,
-    );
+    expect(find.text("Tipping isn't available in this build."), findsOneWidget);
   });
 
   testWidgets('the removed demo tipping UI stays gone', (tester) async {
@@ -88,7 +81,10 @@ void main() {
     expect(find.text(r'$5'), findsNothing);
     expect(find.text(r'$3.50'), findsNothing);
     expect(find.text('Add another amount'), findsNothing);
-    expect(find.byKey(const ValueKey<String>('custom-tip-field')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('custom-tip-field')),
+      findsNothing,
+    );
     expect(find.text('Custom amount'), findsNothing);
     expect(find.text('Enter amount'), findsNothing);
     expect(find.text('SET TIP'), findsNothing);
@@ -109,9 +105,8 @@ void _layout() {
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, __) => const MaterialApp(
-          home: Scaffold(body: RideCompletedAddTip()),
-        ),
+        builder: (_, __) =>
+            const MaterialApp(home: Scaffold(body: RideCompletedAddTip())),
       ),
     );
     await tester.pumpAndSettle();

@@ -71,30 +71,32 @@ void main() {
   );
 
   group('messages say what state the ride is left in', () {
-    test('every failed cancel except a refusal says the ride is still booked',
-        () {
-      final errors = <Object>[
-        _offline,
-        TimeoutException('slow'),
-        const ApiError(code: 'X', message: '', statusCode: 429),
-        const ApiError(code: 'X', message: '', statusCode: 503),
-        StateError('bug'),
-      ];
-      for (final error in errors) {
+    test(
+      'every failed cancel except a refusal says the ride is still booked',
+      () {
+        final errors = <Object>[
+          _offline,
+          TimeoutException('slow'),
+          const ApiError(code: 'X', message: '', statusCode: 429),
+          const ApiError(code: 'X', message: '', statusCode: 503),
+          StateError('bug'),
+        ];
+        for (final error in errors) {
+          expect(
+            reservationErrorMessage(error, ReservationAction.cancel),
+            contains('still booked'),
+            reason: '$error',
+          );
+        }
         expect(
-          reservationErrorMessage(error, ReservationAction.cancel),
-          contains('still booked'),
-          reason: '$error',
+          reservationErrorMessage(
+            const ApiError(code: 'X', message: '', statusCode: 409),
+            ReservationAction.cancel,
+          ),
+          "This ride can't be cancelled right now.",
         );
-      }
-      expect(
-        reservationErrorMessage(
-          const ApiError(code: 'X', message: '', statusCode: 409),
-          ReservationAction.cancel,
-        ),
-        "This ride can't be cancelled right now.",
-      );
-    });
+      },
+    );
 
     test('offline, rate limit and server trouble are told apart', () {
       expect(
@@ -185,8 +187,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a failed cancel tells the rider the ride is still booked',
-      (tester) async {
+  testWidgets('a failed cancel tells the rider the ride is still booked', (
+    tester,
+  ) async {
     final storage = _FlakyStorage();
     final c = ReservationController(
       store: LocalReservationRepository(
@@ -239,8 +242,9 @@ void main() {
     expect(c.byId('rsv_cancel')!.status, ReservationStatus.cancelled);
   });
 
-  testWidgets('a failed return-ride booking says it was not confirmed',
-      (tester) async {
+  testWidgets('a failed return-ride booking says it was not confirmed', (
+    tester,
+  ) async {
     // Select Ride quotes through the mock API, which needs a desktop
     // platform in widget tests (see phase114_return_ride_time_test.dart).
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -319,7 +323,11 @@ void main() {
       await waitFor(find.text(message));
       expect(find.text(message), findsOneWidget);
       expect(c.all, isEmpty);
-      expect(opened, isEmpty, reason: 'no "ride scheduled" for a failed booking');
+      expect(
+        opened,
+        isEmpty,
+        reason: 'no "ride scheduled" for a failed booking',
+      );
       expect(find.text('Schedule Movera'), findsOneWidget);
       expect(tester.takeException(), isNull);
 

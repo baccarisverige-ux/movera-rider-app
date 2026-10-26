@@ -22,15 +22,15 @@ class ApiClient {
     TokenStore? tokens,
     Future<void> Function()? onSessionExpired,
     Duration? requestTimeout,
-  })
-      : _env = env ?? AppEnv.current,
-        _client = client ?? _defaultClient(env ?? AppEnv.current),
-        _tokens = tokens,
-        _onSessionExpired = onSessionExpired,
-        requestTimeout = requestTimeout ??
-            ((env ?? AppEnv.current).allowsMockTransport
-                ? mockTransportTimeout
-                : liveServerTimeout);
+  }) : _env = env ?? AppEnv.current,
+       _client = client ?? _defaultClient(env ?? AppEnv.current),
+       _tokens = tokens,
+       _onSessionExpired = onSessionExpired,
+       requestTimeout =
+           requestTimeout ??
+           ((env ?? AppEnv.current).allowsMockTransport
+               ? mockTransportTimeout
+               : liveServerTimeout);
 
   /// How long one request to the in-process mock may take (demo, dev, test).
   static const mockTransportTimeout = Duration(seconds: 15);
@@ -187,7 +187,10 @@ class ApiClient {
       if (decoded is Map<String, dynamic>) return decoded;
       return {'data': decoded, 'requestId': requestId};
     } on TimeoutException {
-      AppLog.error('api.timeout', extra: {'path': path, 'requestId': requestId});
+      AppLog.error(
+        'api.timeout',
+        extra: {'path': path, 'requestId': requestId},
+      );
       throw ApiError(
         code: 'TIMEOUT',
         message: 'Request timed out',
@@ -202,24 +205,22 @@ class ApiClient {
     Map<String, String> headers,
     Map<String, dynamic>? body,
   ) async {
-      if (method == 'GET') {
-        return _getWithRetry(uri, headers);
-      } else if (method == 'DELETE') {
-        return _client
-            .send(
-              http.Request('DELETE', uri)..headers.addAll(headers),
-            )
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
-      } else {
-        final request = http.Request(method, uri)
-          ..headers.addAll(headers)
-          ..body = jsonEncode(body ?? {});
-        return _client
-            .send(request)
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
-      }
+    if (method == 'GET') {
+      return _getWithRetry(uri, headers);
+    } else if (method == 'DELETE') {
+      return _client
+          .send(http.Request('DELETE', uri)..headers.addAll(headers))
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
+    } else {
+      final request = http.Request(method, uri)
+        ..headers.addAll(headers)
+        ..body = jsonEncode(body ?? {});
+      return _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
+    }
   }
 
   Future<_Refresh> _refreshAccess(String failedAccess) async {
@@ -247,11 +248,16 @@ class ApiClient {
       return const _Refresh.rejected('no_refresh_token');
     }
     try {
-      final response = await _client.post(
-        Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refresh}),
-      ).timeout(_timeout);
+      final response = await _client
+          .post(
+            Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'refreshToken': refresh}),
+          )
+          .timeout(_timeout);
       final status = response.statusCode;
       if (status == 400 || status == 401 || status == 403) {
         return _Refresh.rejected('refresh_$status');
@@ -288,7 +294,10 @@ class ApiClient {
     _expiredAccess = failedAccess;
     // Why the rider was signed out (never the tokens), so a real expiry can
     // be told apart from a reload that only lost the session.
-    AppLog.warning('auth.session_expired', extra: {'cause': cause ?? 'unknown'});
+    AppLog.warning(
+      'auth.session_expired',
+      extra: {'cause': cause ?? 'unknown'},
+    );
     await _tokens?.clear();
     await _onSessionExpired?.call();
   }
@@ -304,7 +313,9 @@ class ApiClient {
         final rawCode = decoded['code'] ?? decoded['error'];
         final rawMessage = decoded['message'];
         final rawReason = decoded['reason'];
-        if (rawCode is String && rawCode.trim().isNotEmpty) code = rawCode.trim();
+        if (rawCode is String && rawCode.trim().isNotEmpty) {
+          code = rawCode.trim();
+        }
         if (rawMessage is String && rawMessage.trim().isNotEmpty) {
           message = rawMessage.trim();
         }

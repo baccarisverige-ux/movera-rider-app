@@ -520,40 +520,39 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.idle);
   });
 
-  testWidgets(
-    'edit hydrates the saved payment instead of defaulting to Cash',
-    (tester) async {
-      final c = reservations();
-      final create = scheduledSelection();
-      create.selectPaymentNamed('Card');
-      final first = await ScheduledRideBooking.confirm(
-        reservations: c,
-        selection: create,
-        pickup: const ReservationPlace(label: 'Current location'),
-        destination: const ReservationPlace(label: 'Arlanda'),
-      );
-      expect(first.paymentMethod, 'Card');
-      expect(first.reservationId, 'rsv_1');
+  testWidgets('edit hydrates the saved payment instead of defaulting to Cash', (
+    tester,
+  ) async {
+    final c = reservations();
+    final create = scheduledSelection();
+    create.selectPaymentNamed('Card');
+    final first = await ScheduledRideBooking.confirm(
+      reservations: c,
+      selection: create,
+      pickup: const ReservationPlace(label: 'Current location'),
+      destination: const ReservationPlace(label: 'Arlanda'),
+    );
+    expect(first.paymentMethod, 'Card');
+    expect(first.reservationId, 'rsv_1');
 
-      // rider-u238: SelectRide itself must hydrate the saved method when it
-      // edits the reservation; the test no longer does it.
-      final edit = await pumpSelectRide(
-        tester,
-        reservations: c,
-        editingReservationId: first.reservationId,
-        scheduledFor: StockholmSchedule.clampPickup(
-          StockholmSchedule.stockholmNow().add(const Duration(days: 1)),
-        ),
-      );
-      expect(edit.payments()[edit.selectedPayment].name, 'Card');
-      // Booking it from here asks for a saved card first (rider-r4-34);
-      // that ScheduledRideBooking.confirm keeps the selection's method is
-      // covered above.
-      expect(c.all.single.paymentMethod, 'Card');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 10));
-    },
-  );
+    // rider-u238: SelectRide itself must hydrate the saved method when it
+    // edits the reservation; the test no longer does it.
+    final edit = await pumpSelectRide(
+      tester,
+      reservations: c,
+      editingReservationId: first.reservationId,
+      scheduledFor: StockholmSchedule.clampPickup(
+        StockholmSchedule.stockholmNow().add(const Duration(days: 1)),
+      ),
+    );
+    expect(edit.payments()[edit.selectedPayment].name, 'Card');
+    // Booking it from here asks for a saved card first (rider-r4-34);
+    // that ScheduledRideBooking.confirm keeps the selection's method is
+    // covered above.
+    expect(c.all.single.paymentMethod, 'Card');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
+  });
 
   test('selectPaymentNamed ignores unknown methods', () {
     final selection = RideSelectionController();

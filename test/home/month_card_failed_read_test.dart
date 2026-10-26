@@ -14,22 +14,24 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(390, 844),
-      builder: (_, __) => MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: HomeJourneySection(
-              onDestinationTap: () {},
-              onOpenSchedule: () {},
-              ridesLoader: () async => throw StateError('offline'),
-              clock: () => DateTime(2026, 10, 14, 12),
-              changes: const Stream<void>.empty(),
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) => MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HomeJourneySection(
+                onDestinationTap: () {},
+                onOpenSchedule: () {},
+                ridesLoader: () async => throw StateError('offline'),
+                clock: () => DateTime(2026, 10, 14, 12),
+                changes: const Stream<void>.empty(),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     expect(find.text('0 rides'), findsNothing);
   });

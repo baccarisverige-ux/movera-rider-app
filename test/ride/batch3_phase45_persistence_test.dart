@@ -7,20 +7,20 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot _snapshot(String id, {DateTime? createdAt}) => RideSnapshot(
-      status: RideStatus.tripInProgress,
-      savedAt: DateTime.utc(2026, 9, 24, 12),
-      createdAt: createdAt,
-      pickupAddress: 'Pickup',
-      destinationAddress: 'Destination',
-      pickupLat: 59.33,
-      pickupLng: 18.06,
-      destinationLat: 59.34,
-      destinationLng: 18.07,
-      rideType: 'Movera',
-      price: 100,
-      paymentMethod: 'Apple Pay',
-      rideId: id,
-    );
+  status: RideStatus.tripInProgress,
+  savedAt: DateTime.utc(2026, 9, 24, 12),
+  createdAt: createdAt,
+  pickupAddress: 'Pickup',
+  destinationAddress: 'Destination',
+  pickupLat: 59.33,
+  pickupLng: 18.06,
+  destinationLat: 59.34,
+  destinationLng: 18.07,
+  rideType: 'Movera',
+  price: 100,
+  paymentMethod: 'Apple Pay',
+  rideId: id,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,11 +51,17 @@ void main() {
     expect(restored, isNotNull);
     expect(restored!.savedAt, DateTime.utc(2026, 9, 24, 8));
     expect(restored.createdAt, restored.savedAt);
-    expect(restored.toJson()['schemaVersion'], RideSnapshot.currentSchemaVersion);
+    expect(
+      restored.toJson()['schemaVersion'],
+      RideSnapshot.currentSchemaVersion,
+    );
   });
 
   test('malformed and future snapshot schemas are rejected', () {
-    expect(RideSnapshot.fromJson(<String, dynamic>{'status': 'findingDriver'}), isNull);
+    expect(
+      RideSnapshot.fromJson(<String, dynamic>{'status': 'findingDriver'}),
+      isNull,
+    );
     final future = _snapshot('future').toJson()
       ..['schemaVersion'] = RideSnapshot.currentSchemaVersion + 1;
     expect(RideSnapshot.fromJson(future), isNull);
@@ -106,17 +112,21 @@ void main() {
     );
   });
 
-  test('history preserves original creation time instead of latest save time', () async {
-    final created = DateTime.utc(2026, 9, 24, 8);
-    final ride = _snapshot('created-at', createdAt: created).copyWith(
-      savedAt: DateTime.utc(2026, 9, 24, 12),
-    );
-    await OnDemandRideHistoryStore.archive(
-      ride,
-      terminalStatus: RideStatus.tripCompleted,
-      endedAt: DateTime.utc(2026, 9, 24, 13),
-    );
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history.single.createdAt, created);
-  });
+  test(
+    'history preserves original creation time instead of latest save time',
+    () async {
+      final created = DateTime.utc(2026, 9, 24, 8);
+      final ride = _snapshot(
+        'created-at',
+        createdAt: created,
+      ).copyWith(savedAt: DateTime.utc(2026, 9, 24, 12));
+      await OnDemandRideHistoryStore.archive(
+        ride,
+        terminalStatus: RideStatus.tripCompleted,
+        endedAt: DateTime.utc(2026, 9, 24, 13),
+      );
+      final history = await OnDemandRideHistoryStore.read();
+      expect(history.single.createdAt, created);
+    },
+  );
 }

@@ -31,16 +31,18 @@ String reservationErrorMessage(Object error, ReservationAction action) {
     },
     ReservationAction.book => switch (kind) {
       RiderErrorKind.offline => l.resErrBookOffline,
-      RiderErrorKind.rateLimited =>
-        l.resErrBookRate(_capitalised(_tryAgain(error))),
+      RiderErrorKind.rateLimited => l.resErrBookRate(
+        _capitalised(_tryAgain(error)),
+      ),
       RiderErrorKind.serverTrouble => l.resErrBookServer,
       RiderErrorKind.refused => l.resErrBookRefused,
       RiderErrorKind.unknown => l.resErrBookUnknown,
     },
     ReservationAction.edit => switch (kind) {
       RiderErrorKind.offline => l.resErrEditOffline,
-      RiderErrorKind.rateLimited =>
-        l.resErrEditRate(_capitalised(_tryAgain(error))),
+      RiderErrorKind.rateLimited => l.resErrEditRate(
+        _capitalised(_tryAgain(error)),
+      ),
       RiderErrorKind.serverTrouble => l.resErrEditServer,
       RiderErrorKind.refused => l.resErrEditRefused,
       RiderErrorKind.unknown => l.resErrEditUnknown,

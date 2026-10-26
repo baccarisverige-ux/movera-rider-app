@@ -115,10 +115,7 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.paymentFailed,
     RideStatus.closed,
   },
-  RideStatus.paymentFinalized: {
-    RideStatus.ratingPending,
-    RideStatus.closed,
-  },
+  RideStatus.paymentFinalized: {RideStatus.ratingPending, RideStatus.closed},
   RideStatus.ratingPending: {RideStatus.closed},
 };
 

@@ -33,7 +33,9 @@ class _Location extends LocationRepository {
   }
 
   @override
-  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) async {
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async {
     if (error != null) throw error!;
     return Position(
       latitude: 59.33,
@@ -76,47 +78,53 @@ void main() {
     denied.dispose();
   });
 
-  test('temporary GPS exception becomes recoverable unavailable state', () async {
-    final location = _Location(error: StateError('temporary GPS failure'));
-    final home = HomeLocationController(
-      location: location,
-      geocoding: _Geo(),
-      motion: MotionEngine(),
-    );
-    final result = await home.detectCurrent();
-    expect(result.failure, HomeLocationFailure.unavailable);
-    expect(result.target, isNull);
-    home.dispose();
-  });
+  test(
+    'temporary GPS exception becomes recoverable unavailable state',
+    () async {
+      final location = _Location(error: StateError('temporary GPS failure'));
+      final home = HomeLocationController(
+        location: location,
+        geocoding: _Geo(),
+        motion: MotionEngine(),
+      );
+      final result = await home.detectCurrent();
+      expect(result.failure, HomeLocationFailure.unavailable);
+      expect(result.target, isNull);
+      home.dispose();
+    },
+  );
 
-  test('pickup exposes disabled, permanently denied and unavailable failures', () async {
-    final disabled = PickupMapController(
-      location: _Location(enabled: false),
-      geocoding: _Geo(),
-    );
-    expect(
-      (await disabled.currentPosition()).failure,
-      PickupLocationFailure.servicesDisabled,
-    );
+  test(
+    'pickup exposes disabled, permanently denied and unavailable failures',
+    () async {
+      final disabled = PickupMapController(
+        location: _Location(enabled: false),
+        geocoding: _Geo(),
+      );
+      expect(
+        (await disabled.currentPosition()).failure,
+        PickupLocationFailure.servicesDisabled,
+      );
 
-    final forever = PickupMapController(
-      location: _Location(permission: LocationPermission.deniedForever),
-      geocoding: _Geo(),
-    );
-    expect(
-      (await forever.currentPosition()).failure,
-      PickupLocationFailure.permissionDeniedForever,
-    );
+      final forever = PickupMapController(
+        location: _Location(permission: LocationPermission.deniedForever),
+        geocoding: _Geo(),
+      );
+      expect(
+        (await forever.currentPosition()).failure,
+        PickupLocationFailure.permissionDeniedForever,
+      );
 
-    final unavailable = PickupMapController(
-      location: _Location(error: StateError('GPS timeout')),
-      geocoding: _Geo(),
-    );
-    expect(
-      (await unavailable.currentPosition()).failure,
-      PickupLocationFailure.unavailable,
-    );
-  });
+      final unavailable = PickupMapController(
+        location: _Location(error: StateError('GPS timeout')),
+        geocoding: _Geo(),
+      );
+      expect(
+        (await unavailable.currentPosition()).failure,
+        PickupLocationFailure.unavailable,
+      );
+    },
+  );
 
   test('location recovery succeeds after services become available', () async {
     final location = _Location(enabled: false);

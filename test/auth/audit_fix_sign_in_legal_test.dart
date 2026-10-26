@@ -66,7 +66,9 @@ void main() {
       );
       expect(page.kind, kind);
       expect(
-        find.textContaining(kind == 'terms' ? 'Who we are' : 'Who is responsible'),
+        find.textContaining(
+          kind == 'terms' ? 'Who we are' : 'Who is responsible',
+        ),
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());

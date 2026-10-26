@@ -71,15 +71,15 @@ void main() {
       test('each message is translated (no English fallback)', () {
         final untranslated = [
           for (final key in en.keys)
-            if (other[key] == en[key] &&
-                !sameAsEnglish[code]!.contains(key))
+            if (other[key] == en[key] && !sameAsEnglish[code]!.contains(key))
               key,
         ];
         expect(untranslated, isEmpty, reason: '$code falls back to English');
       });
 
       test('each placeholder survives translation', () {
-        for (final MapEntry(:key, value: names) in messagePlaceholders.entries) {
+        for (final MapEntry(:key, value: names)
+            in messagePlaceholders.entries) {
           for (final name in names) {
             expect(
               other[key],
@@ -103,7 +103,9 @@ void main() {
         final enOne = allMessagesWithOne(
           lookupAppLocalizations(const Locale('en')),
         );
-        final otherOne = allMessagesWithOne(lookupAppLocalizations(Locale(code)));
+        final otherOne = allMessagesWithOne(
+          lookupAppLocalizations(Locale(code)),
+        );
         expect(otherOne.keys.toSet(), messageCounts.keys.toSet());
         for (final key in otherOne.keys) {
           expect(otherOne[key]!.trim(), isNotEmpty, reason: '$code $key (1)');

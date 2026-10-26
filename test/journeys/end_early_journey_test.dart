@@ -101,9 +101,11 @@ void main() {
       await tester.ensureVisible(onTheWay);
       await tester.tap(onTheWay);
     }
-    for (var i = 0;
-        i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.pump(const Duration(seconds: 9));
@@ -130,8 +132,9 @@ void main() {
     expect(find.text('Trip ended early'), findsOneWidget);
     expect(find.byType(Home), findsNothing);
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
-    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!
-        .single;
+    final record = (await tester.runAsync(
+      OnDemandRideHistoryStore.read,
+    ))!.single;
     expect(record.endedEarly, isTrue);
 
     await tester.tap(find.byKey(const ValueKey('ride-completed-done')));

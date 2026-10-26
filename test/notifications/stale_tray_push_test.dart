@@ -42,14 +42,16 @@ void main() {
     addTearDown(coordinator.stop);
     await coordinator.start();
 
-    push.opened.add(PushPayload(
-      type: 'ride.driver_arriving',
-      rideId: 'ride-of-rider-a',
-      title: 'Ahmed is arriving',
-      body: 'At Storgatan 5',
-      messageId: 'a-1',
-      sentAt: DateTime.now().subtract(const Duration(hours: 1)),
-    ));
+    push.opened.add(
+      PushPayload(
+        type: 'ride.driver_arriving',
+        rideId: 'ride-of-rider-a',
+        title: 'Ahmed is arriving',
+        body: 'At Storgatan 5',
+        messageId: 'a-1',
+        sentAt: DateTime.now().subtract(const Duration(hours: 1)),
+      ),
+    );
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
     expect(store.all(), isEmpty);

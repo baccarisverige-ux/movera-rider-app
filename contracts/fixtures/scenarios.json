@@ -1108,6 +1108,48 @@
      "invalid_transition"
     ]
    ]
+  },
+  {
+   "id": "live_accept_only_from_offered",
+   "kind": "live",
+   "note": "v0.5.1: accept from requested is for scheduled trips only (contract.json#transitions, when scheduled).",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "accept",
+     "driver",
+     "invalid_transition"
+    ],
+    [
+     "start_search",
+     "system",
+     "searching"
+    ],
+    [
+     "accept",
+     "driver",
+     "invalid_transition"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ]
+   ]
   }
  ]
 }

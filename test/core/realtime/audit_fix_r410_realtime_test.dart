@@ -50,14 +50,17 @@ void main() {
   /// Answers [script] in order, then keeps repeating its last projection.
   ApiRideRealtime scripted(List<Map<String, Object?>> script) {
     var index = 0;
-    return polling(() => http.Response(
-      jsonEncode(script[index < script.length ? index++ : script.length - 1]),
-      200,
-    ));
+    return polling(
+      () => http.Response(
+        jsonEncode(script[index < script.length ? index++ : script.length - 1]),
+        200,
+      ),
+    );
   }
 
-  testWidgets('rider-23: a resync after the not-found pause polls again',
-      (tester) async {
+  testWidgets('rider-23: a resync after the not-found pause polls again', (
+    tester,
+  ) async {
     var calls = 0;
     var gone = true;
     final rt = polling(() {
@@ -85,8 +88,9 @@ void main() {
   });
 
   group('rider-u23 a driver drop the polls skipped over', () {
-    testWidgets('a new subscription after the handover still sees it',
-        (tester) async {
+    testWidgets('a new subscription after the handover still sees it', (
+      tester,
+    ) async {
       final rt = scripted([
         projection('accepted', 2, driverId: 'elin'),
         projection('searching', 3),
@@ -104,8 +108,9 @@ void main() {
       rt.dispose();
     });
 
-    testWidgets('another driver accepting before the next poll is a drop',
-        (tester) async {
+    testWidgets('another driver accepting before the next poll is a drop', (
+      tester,
+    ) async {
       final rt = scripted([
         projection('driver_to_pickup', 2, driverId: 'elin'),
         projection('accepted', 5, driverId: 'omar'),
@@ -164,8 +169,12 @@ void main() {
       events = [];
     });
 
-    void seed(String id, String status, ({double lat, double lng}) at,
-        [Map<String, Object?> extra = const {}]) {
+    void seed(
+      String id,
+      String status,
+      ({double lat, double lng}) at, [
+      Map<String, Object?> extra = const {},
+    ]) {
       server.rides[id] = {
         'id': id,
         'tripId': id,
@@ -199,16 +208,18 @@ void main() {
       return next(tester, RideStatus.driverAssigned);
     }
 
-    testWidgets('rider-24: the first driver spawns near the booked pickup',
-        (tester) async {
+    testWidgets('rider-24: the first driver spawns near the booked pickup', (
+      tester,
+    ) async {
       seed('r-paris', 'searching', paris);
       final assigned = await assign(tester, 'r-paris');
       expect(metresFrom(paris, assigned), lessThan(2000));
       mock.dispose();
     });
 
-    testWidgets('rider-24: a reload resumes at the pickup, on server clocks',
-        (tester) async {
+    testWidgets('rider-24: a reload resumes at the pickup, on server clocks', (
+      tester,
+    ) async {
       seed('r-paris', 'driver_to_pickup', paris, {
         'acceptedAt': '2026-10-21T08:58:00Z',
       });
@@ -220,8 +231,9 @@ void main() {
       mock.dispose();
     });
 
-    testWidgets('rider-u27: a reload while the driver waits stays waiting',
-        (tester) async {
+    testWidgets('rider-u27: a reload while the driver waits stays waiting', (
+      tester,
+    ) async {
       seed('r-wait', 'arrived', paris);
       mock.primeResume(status: RideStatus.driverWaiting, driver: sara);
       mock.subscribe('r-wait').listen(events.add);
@@ -235,8 +247,9 @@ void main() {
       mock.dispose();
     });
 
-    testWidgets('rider-u28: the next ride\'s driver spawns at its own pickup',
-        (tester) async {
+    testWidgets('rider-u28: the next ride\'s driver spawns at its own pickup', (
+      tester,
+    ) async {
       seed('r-paris', 'searching', paris);
       seed('r-arlanda', 'searching', arlanda);
       await assign(tester, 'r-paris');

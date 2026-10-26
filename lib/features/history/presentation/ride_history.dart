@@ -114,9 +114,7 @@ class _RideHistoryState extends State<RideHistory> {
     if (!AppScope.instance.bookLaterAvailable) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(context.l10n.resErrUnavailable)),
-        );
+        ..showSnackBar(SnackBar(content: Text(context.l10n.resErrUnavailable)));
       return;
     }
     Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
@@ -452,7 +450,9 @@ class _RideHistoryState extends State<RideHistory> {
       return Center(
         child: MoveraEmptyState(
           icon: completed ? Icons.route_outlined : Icons.event_busy_outlined,
-          title: completed ? context.l10n.noCompletedRides : context.l10n.noCancelledRides,
+          title: completed
+              ? context.l10n.noCompletedRides
+              : context.l10n.noCancelledRides,
           message: completed
               ? context.l10n.noCompletedBody
               : context.l10n.noCancelledBody,
@@ -569,7 +569,9 @@ class _RideHistoryState extends State<RideHistory> {
             if (ride.cancellationReason?.trim().isNotEmpty == true) ...[
               const SizedBox(height: 5),
               Text(
-                context.l10n.reasonLine(ReservationFormat.reasonLabel(ride.cancellationReason!)),
+                context.l10n.reasonLine(
+                  ReservationFormat.reasonLabel(ride.cancellationReason!),
+                ),
                 style: _text(13.5, color: _muted),
               ),
             ],

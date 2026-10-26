@@ -226,10 +226,7 @@ void main() {
 
     test('fires after more than 2 min without moving mid-trip', () {
       final monitor = _monitor();
-      expect(
-        feed(monitor, still(stopAt, const Duration(minutes: 2))),
-        isNull,
-      );
+      expect(feed(monitor, still(stopAt, const Duration(minutes: 2))), isNull);
       final hit = monitor.addSample(
         RideCheckSample(
           point: stopAt,
@@ -272,10 +269,7 @@ void main() {
       expect(atPickup.checkStill(_t0.add(const Duration(minutes: 5))), isNull);
       final inTraffic = _monitor()
         ..addSample(RideCheckSample(point: stopAt, at: _t0, inTraffic: true));
-      expect(
-        inTraffic.checkStill(_t0.add(const Duration(minutes: 5))),
-        isNull,
-      );
+      expect(inTraffic.checkStill(_t0.add(const Duration(minutes: 5))), isNull);
     });
 
     test('not at a planned stop, not in traffic, not when off', () {
@@ -761,41 +755,36 @@ void main() {
       },
     );
 
-    test(
-      'a car last seen standing more than 2 min ago opens the card '
-      'without another fix',
-      () async {
-        RideCheckController.tripMonitoring = true;
-        final stopAt = _north(_pickup, 2000);
-        rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r5'), _plan);
-        rideCheck.addSample(
-          'r5',
-          RideCheckSample(
-            point: stopAt,
-            at: DateTime.now().subtract(const Duration(minutes: 1)),
-          ),
-        );
-        rideCheck.checkStill('r5');
-        await pumpEventQueue();
-        expect(rideCheck.session, isNull);
+    test('a car last seen standing more than 2 min ago opens the card '
+        'without another fix', () async {
+      RideCheckController.tripMonitoring = true;
+      final stopAt = _north(_pickup, 2000);
+      rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r5'), _plan);
+      rideCheck.addSample(
+        'r5',
+        RideCheckSample(
+          point: stopAt,
+          at: DateTime.now().subtract(const Duration(minutes: 1)),
+        ),
+      );
+      rideCheck.checkStill('r5');
+      await pumpEventQueue();
+      expect(rideCheck.session, isNull);
 
-        rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r6'), _plan);
-        rideCheck.addSample(
-          'r6',
-          RideCheckSample(
-            point: stopAt,
-            at: DateTime.now().subtract(
-              const Duration(minutes: 2, seconds: 10),
-            ),
-          ),
-        );
-        rideCheck.checkStill('r6');
-        await pumpEventQueue();
-        expect(rideCheck.session?.trigger, RideCheckTrigger.longStop);
-        expect(rideCheck.session?.rideId, 'r6');
-        expect(rideCheck.session?.reason.stoppedMinutes, 2);
-      },
-    );
+      rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r6'), _plan);
+      rideCheck.addSample(
+        'r6',
+        RideCheckSample(
+          point: stopAt,
+          at: DateTime.now().subtract(const Duration(minutes: 2, seconds: 10)),
+        ),
+      );
+      rideCheck.checkStill('r6');
+      await pumpEventQueue();
+      expect(rideCheck.session?.trigger, RideCheckTrigger.longStop);
+      expect(rideCheck.session?.rideId, 'r6');
+      expect(rideCheck.session?.reason.stoppedMinutes, 2);
+    });
 
     test(
       'the trip ending far from the drop-off opens "dropped far away"',
@@ -847,7 +836,10 @@ void main() {
       await rideCheck.settle();
 
       expect(
-        await rideCheck.playDemo(RideCheckTrigger.longStop, rideId: 'demo-stop'),
+        await rideCheck.playDemo(
+          RideCheckTrigger.longStop,
+          rideId: 'demo-stop',
+        ),
         RideCheckOpenResult.shown,
       );
       expect(rideCheck.session!.trigger, RideCheckTrigger.longStop);
@@ -857,7 +849,10 @@ void main() {
 
       // Played again, it opens again.
       expect(
-        await rideCheck.playDemo(RideCheckTrigger.longStop, rideId: 'demo-stop'),
+        await rideCheck.playDemo(
+          RideCheckTrigger.longStop,
+          rideId: 'demo-stop',
+        ),
         RideCheckOpenResult.shown,
       );
     });

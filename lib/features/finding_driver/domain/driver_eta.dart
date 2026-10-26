@@ -34,8 +34,7 @@ class DriverEta {
     double lng1,
     double lat2,
     double lng2,
-  ) =>
-      GeoDistance.metersBetween(lat1, lng1, lat2, lng2);
+  ) => GeoDistance.metersBetween(lat1, lng1, lat2, lng2);
 
   static int secondsForDistance(double meters) =>
       GeoDistance.urbanSecondsForDistance(meters);
@@ -55,7 +54,8 @@ class DriverEta {
     final clock = now ?? DateTime.now();
     // Once the trip is under way, "how far / how long" means distance to
     // drop-off, not the pickup point the driver already reached.
-    final useDestination = status != null &&
+    final useDestination =
+        status != null &&
         isInTrip(status) &&
         destinationLat != null &&
         destinationLng != null;
@@ -99,7 +99,9 @@ class DriverEta {
     if (isInTrip(status)) {
       return L10n.current.etaRideInProgress;
     }
-    if (status == RideStatus.driverWaiting) return L10n.current.etaDriverArrived;
+    if (status == RideStatus.driverWaiting) {
+      return L10n.current.etaDriverArrived;
+    }
     if (stale) return L10n.current.etaUpdatingLocation;
     final distance = distanceMeters;
     if (distance != null && distance < 180) return L10n.current.etaAlmostThere;

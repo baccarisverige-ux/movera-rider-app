@@ -11,10 +11,8 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 /// A street-name lookup outside the Movera backend (the web demo's
 /// OpenStreetMap fallback).
-typedef PublicReverseGeocoder = Future<String?> Function(
-  GeoPoint point, {
-  Duration timeout,
-});
+typedef PublicReverseGeocoder =
+    Future<String?> Function(GeoPoint point, {Duration timeout});
 
 class AppGeocoding implements GeocodingRepository {
   AppGeocoding({
@@ -26,14 +24,15 @@ class AppGeocoding implements GeocodingRepository {
     this.allowPublicReverseFallback = false,
     PublicReverseGeocoder? publicReverse,
     bool? isWeb,
-  })  : _api = api,
-        requestTimeout = requestTimeout ??
-            (api?.contractWire == true
-                ? liveRequestTimeout
-                : mockRequestTimeout),
-        retries = retries ?? (api?.contractWire == true ? 1 : 0),
-        _publicReverse = publicReverse ?? openStreetMapReverse,
-        _isWeb = isWeb ?? kIsWeb;
+  }) : _api = api,
+       requestTimeout =
+           requestTimeout ??
+           (api?.contractWire == true
+               ? liveRequestTimeout
+               : mockRequestTimeout),
+       retries = retries ?? (api?.contractWire == true ? 1 : 0),
+       _publicReverse = publicReverse ?? openStreetMapReverse,
+       _isWeb = isWeb ?? kIsWeb;
 
   /// How long one address lookup may take against movera-server (the
   /// contract wire: staging, production). The live server is slow (a
@@ -91,7 +90,9 @@ class AppGeocoding implements GeocodingRepository {
       _forwardCache[key] = _CachedValue(result);
       return result;
     } finally {
-      if (identical(_forwardInFlight[key], future)) _forwardInFlight.remove(key);
+      if (identical(_forwardInFlight[key], future)) {
+        _forwardInFlight.remove(key);
+      }
     }
   }
 
@@ -99,7 +100,8 @@ class AppGeocoding implements GeocodingRepository {
   Future<String?> reverse(GeoPoint point) async {
     // rider-r4-44: street names come back in the app language, so an
     // address looked up before a language switch is not reused after it.
-    final key = '${L10n.code}:${point.latitude.toStringAsFixed(5)}:'
+    final key =
+        '${L10n.code}:${point.latitude.toStringAsFixed(5)}:'
         '${point.longitude.toStringAsFixed(5)}';
     final cached = _reverseCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
@@ -119,7 +121,9 @@ class AppGeocoding implements GeocodingRepository {
       }
       return result;
     } finally {
-      if (identical(_reverseInFlight[key], future)) _reverseInFlight.remove(key);
+      if (identical(_reverseInFlight[key], future)) {
+        _reverseInFlight.remove(key);
+      }
     }
   }
 
@@ -149,13 +153,12 @@ class AppGeocoding implements GeocodingRepository {
   Future<String?> _reverseFromApi(GeoPoint point) async {
     final api = _requireApi();
     final response = await _onceMore(
-      () => api.post(
-        '/api/v1/locations/reverse-geocode',
-        body: {
-          'latitude': point.latitude,
-          'longitude': point.longitude,
-        },
-      ).timeout(requestTimeout),
+      () => api
+          .post(
+            '/api/v1/locations/reverse-geocode',
+            body: {'latitude': point.latitude, 'longitude': point.longitude},
+          )
+          .timeout(requestTimeout),
     );
     final data = _payload(response);
     final address = data['address'];
@@ -207,16 +210,16 @@ class AppGeocoding implements GeocodingRepository {
   ApiClient _requireApi() {
     final api = _api;
     if (api == null) {
-      throw StateError('AppGeocoding requires the authenticated Movera ApiClient');
+      throw StateError(
+        'AppGeocoding requires the authenticated Movera ApiClient',
+      );
     }
     return api;
   }
 
   static Map<String, dynamic> _payload(Map<String, dynamic> response) {
     final data = response['data'];
-    return data is Map
-        ? Map<String, dynamic>.from(data)
-        : response;
+    return data is Map ? Map<String, dynamic>.from(data) : response;
   }
 }
 

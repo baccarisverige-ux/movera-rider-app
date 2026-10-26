@@ -98,7 +98,10 @@ void main() {
       ratingLabel: '5.0',
       completedAt: 'now',
     );
-    expect(const DriverRepository(current: injected).current()?.name, 'Injected');
+    expect(
+      const DriverRepository(current: injected).current()?.name,
+      'Injected',
+    );
   });
 
   test('tip amounts are offered in SEK without a trip in another currency', () {

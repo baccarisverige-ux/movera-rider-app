@@ -97,6 +97,7 @@ class InProcessMockClient extends http.BaseClient {
   /// A ride still searching this long after it was created reads back as
   /// `noDriverFound`, so the demo still ends when no driver is assigned.
   final Duration searchExpiresAfter;
+
   /// RC-12: replays by `METHOD path key`, each with the body it answered
   /// and an encoded copy of that answer (never the live trip map, which
   /// keeps changing). Bounded: entries older than [idempotencyTtl] go, and
@@ -143,6 +144,7 @@ class InProcessMockClient extends http.BaseClient {
       'Up to kr 50 off each ride.',
     ],
   };
+
   /// Rider-side scheduled-ride rules as Admin › Dispatch › Reservations
   /// publishes them (PROPOSED). Values are the admin defaults: free cancel
   /// until 60 min before pickup, then a kr 50 fee; the driver shows as soon
@@ -186,6 +188,7 @@ class InProcessMockClient extends http.BaseClient {
       },
     ],
   };
+
   /// The process-wide Safety mock, looked up on each use so a sign-out
   /// reset (UserDataWipe) reaches every client.
   SafetyMockApi get safety => safetyMockForProcess();
@@ -198,39 +201,143 @@ class InProcessMockClient extends http.BaseClient {
   /// `van` is not in the app's built-in list: it proves the catalog really
   /// comes from here. Tests may edit this list.
   final List<Map<String, dynamic>> rideTypes = [
-    _rideType('economy', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
-        order: 1, badge: 'RECOMMENDED'),
-    _rideType('comfort', 'Comfort', 4, 11, 339, 'Newer cars with extra legroom',
-        order: 2),
-    _rideType('premium', 'Premium', 4, 11, 369,
-        'Premium cars with top-rated drivers',
-        order: 3),
-    _rideType('priority', 'Priority', 4, 6, 289, 'More options, less waiting',
-        order: 4, badge: 'FASTER'),
-    _rideType('xl', 'Movera XL', 6, 12, 399, 'Cars for larger groups (6 people)',
-        order: 5),
-    _rideType('electric', 'Electric', 4, 9, 259, 'Quiet and fossil-free cars',
-        order: 6, glyph: 'bolt'),
-    _rideType('pet', 'Movera Pet', 4, 10, 279, 'Pet-friendly rides',
-        order: 7, glyph: 'pets'),
-    _rideType('van', 'Van', 8, 14, 449, 'Groups and luggage',
-        order: 8, glyph: 'van'),
-    _rideType('wheelchair', 'Wheelchair', 4, 15, 289,
-        'Ramp or lift, driver helps on board',
-        order: 9, glyph: 'wheelchair'),
-    _rideType('business', 'Business', 4, 10, 399,
-        'Quiet ride, receipt for your company',
-        order: 10, glyph: 'briefcase'),
-    _rideType('airport', 'Airport', 4, 12, 429,
-        'Fixed price, flight tracked, extra luggage',
-        order: 11, glyph: 'plane'),
-    _rideType('kids', 'Kids seat', 4, 12, 279, 'Child seat already fitted',
-        order: 12, glyph: 'child'),
-    _rideType('women', 'Women driver', 4, 13, 279,
-        'A woman behind the wheel',
-        order: 13, glyph: 'person'),
-    _rideType('delivery', 'Delivery', 2, 9, 199, 'Send a parcel across town',
-        order: 14, glyph: 'parcel'),
+    _rideType(
+      'economy',
+      'Movera',
+      4,
+      8,
+      259,
+      'Affordable and convenient rides',
+      order: 1,
+      badge: 'RECOMMENDED',
+    ),
+    _rideType(
+      'comfort',
+      'Comfort',
+      4,
+      11,
+      339,
+      'Newer cars with extra legroom',
+      order: 2,
+    ),
+    _rideType(
+      'premium',
+      'Premium',
+      4,
+      11,
+      369,
+      'Premium cars with top-rated drivers',
+      order: 3,
+    ),
+    _rideType(
+      'priority',
+      'Priority',
+      4,
+      6,
+      289,
+      'More options, less waiting',
+      order: 4,
+      badge: 'FASTER',
+    ),
+    _rideType(
+      'xl',
+      'Movera XL',
+      6,
+      12,
+      399,
+      'Cars for larger groups (6 people)',
+      order: 5,
+    ),
+    _rideType(
+      'electric',
+      'Electric',
+      4,
+      9,
+      259,
+      'Quiet and fossil-free cars',
+      order: 6,
+      glyph: 'bolt',
+    ),
+    _rideType(
+      'pet',
+      'Movera Pet',
+      4,
+      10,
+      279,
+      'Pet-friendly rides',
+      order: 7,
+      glyph: 'pets',
+    ),
+    _rideType(
+      'van',
+      'Van',
+      8,
+      14,
+      449,
+      'Groups and luggage',
+      order: 8,
+      glyph: 'van',
+    ),
+    _rideType(
+      'wheelchair',
+      'Wheelchair',
+      4,
+      15,
+      289,
+      'Ramp or lift, driver helps on board',
+      order: 9,
+      glyph: 'wheelchair',
+    ),
+    _rideType(
+      'business',
+      'Business',
+      4,
+      10,
+      399,
+      'Quiet ride, receipt for your company',
+      order: 10,
+      glyph: 'briefcase',
+    ),
+    _rideType(
+      'airport',
+      'Airport',
+      4,
+      12,
+      429,
+      'Fixed price, flight tracked, extra luggage',
+      order: 11,
+      glyph: 'plane',
+    ),
+    _rideType(
+      'kids',
+      'Kids seat',
+      4,
+      12,
+      279,
+      'Child seat already fitted',
+      order: 12,
+      glyph: 'child',
+    ),
+    _rideType(
+      'women',
+      'Women driver',
+      4,
+      13,
+      279,
+      'A woman behind the wheel',
+      order: 13,
+      glyph: 'person',
+    ),
+    _rideType(
+      'delivery',
+      'Delivery',
+      2,
+      9,
+      199,
+      'Send a parcel across town',
+      order: 14,
+      glyph: 'parcel',
+    ),
   ];
 
   static Map<String, dynamic> _rideType(
@@ -328,19 +435,27 @@ class InProcessMockClient extends http.BaseClient {
         }
       }
       final endedEarly = saved['endedEarly'];
-      if (endedEarly is List) _endedEarly.addAll(endedEarly.whereType<String>());
+      if (endedEarly is List) {
+        _endedEarly.addAll(endedEarly.whereType<String>());
+      }
       // rider-r5-2: the on-board distance (R-O1) and the accepted pickup
       // (rider-u13) are server state too; a reload must not reset them.
       final driven = saved['driven'];
       if (driven is Map) {
         for (final entry in driven.entries) {
           final v = entry.value;
-          if (v is Map && v['lat'] is num && v['lng'] is num && v['meters'] is num) {
-            _driven.putIfAbsent('${entry.key}', () => (
-                  lat: (v['lat'] as num).toDouble(),
-                  lng: (v['lng'] as num).toDouble(),
-                  meters: (v['meters'] as num).toDouble(),
-                ));
+          if (v is Map &&
+              v['lat'] is num &&
+              v['lng'] is num &&
+              v['meters'] is num) {
+            _driven.putIfAbsent(
+              '${entry.key}',
+              () => (
+                lat: (v['lat'] as num).toDouble(),
+                lng: (v['lng'] as num).toDouble(),
+                meters: (v['meters'] as num).toDouble(),
+              ),
+            );
           }
         }
       }
@@ -349,10 +464,13 @@ class InProcessMockClient extends http.BaseClient {
         for (final entry in pickups.entries) {
           final v = entry.value;
           if (v is Map && v['lat'] is num && v['lng'] is num) {
-            _acceptedPickup.putIfAbsent('${entry.key}', () => (
-                  lat: (v['lat'] as num).toDouble(),
-                  lng: (v['lng'] as num).toDouble(),
-                ));
+            _acceptedPickup.putIfAbsent(
+              '${entry.key}',
+              () => (
+                lat: (v['lat'] as num).toDouble(),
+                lng: (v['lng'] as num).toDouble(),
+              ),
+            );
           }
         }
       }
@@ -375,7 +493,10 @@ class InProcessMockClient extends http.BaseClient {
           for (final id in recent)
             if (_acceptedAt[id] case final at?) id: WireTime.format(at),
         },
-        'endedEarly': [for (final id in recent) if (_endedEarly.contains(id)) id],
+        'endedEarly': [
+          for (final id in recent)
+            if (_endedEarly.contains(id)) id,
+        ],
         'driven': {
           for (final id in recent)
             if (_driven[id] case final d?)
@@ -467,7 +588,11 @@ class InProcessMockClient extends http.BaseClient {
       final longitude = body['longitude'];
       if (latitude is! num || longitude is! num) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_coordinates');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_coordinates',
+        );
       } else {
         payload = {
           'code': 'OK',
@@ -515,7 +640,8 @@ class InProcessMockClient extends http.BaseClient {
         // Deterministic demo coordinates keep the frontend booking contract
         // operational on GitHub Pages until the real geocoder is connected.
         final latitude = 59.3293 + (((hash % 1201) - 600) / 100000.0);
-        final longitude = 18.0686 + ((((hash ~/ 1201) % 1601) - 800) / 100000.0);
+        final longitude =
+            18.0686 + ((((hash ~/ 1201) % 1601) - 800) / 100000.0);
         payload = {
           'code': 'OK',
           'data': {
@@ -545,9 +671,9 @@ class InProcessMockClient extends http.BaseClient {
         payload = _error('invalid_request', requestId, reason: 'invalid_link');
       } else {
         final sessionId = 'otp_${newRequestId()}';
-        final expiresAt = DateTime.now()
-            .toUtc()
-            .add(const Duration(minutes: 5));
+        final expiresAt = DateTime.now().toUtc().add(
+          const Duration(minutes: 5),
+        );
         otpSessions[sessionId] = {
           'phone': phone.trim(),
           if (linkToken is String) 'linkToken': linkToken,
@@ -572,7 +698,11 @@ class InProcessMockClient extends http.BaseClient {
           code is! String ||
           session['phone'] != phone.trim()) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_otp_session');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_otp_session',
+        );
       } else {
         final expiresAt = DateTime.tryParse('${session['expiresAt'] ?? ''}');
         if (expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc())) {
@@ -586,7 +716,9 @@ class InProcessMockClient extends http.BaseClient {
           final normalizedPhone = phone.trim();
           final isNewRider = knownPhones.add(normalizedPhone);
           final linkToken = session['linkToken'];
-          final provider = linkToken is String ? pendingLinks.remove(linkToken) : null;
+          final provider = linkToken is String
+              ? pendingLinks.remove(linkToken)
+              : null;
           if (provider != null) {
             // The provider account now has a verified phone.
             linkedProviders.add(provider);
@@ -605,7 +737,11 @@ class InProcessMockClient extends http.BaseClient {
       final provider = body['provider'];
       if (provider is! String || provider.trim().isEmpty) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_provider');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_provider',
+        );
       } else if (!linkedProviders.contains(provider.trim())) {
         // First sign-in with this account: no session until a phone is
         // verified, only a short-lived link token.
@@ -626,9 +762,14 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/refresh' && method == 'POST') {
       final refreshToken = body['refreshToken'];
-      if (refreshToken is! String || !refreshToken.startsWith('mock-refresh-')) {
+      if (refreshToken is! String ||
+          !refreshToken.startsWith('mock-refresh-')) {
         status = 401;
-        payload = _error('unauthenticated', requestId, reason: 'invalid_refresh');
+        payload = _error(
+          'unauthenticated',
+          requestId,
+          reason: 'invalid_refresh',
+        );
       } else {
         payload = {
           'code': 'OK',
@@ -654,7 +795,11 @@ class InProcessMockClient extends http.BaseClient {
           platform is! String ||
           platform.trim().isEmpty) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_push_device');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_push_device',
+        );
       } else {
         final normalized = token.trim();
         pushDevices[normalized] = {
@@ -668,12 +813,15 @@ class InProcessMockClient extends http.BaseClient {
           'requestId': requestId,
         };
       }
-    } else if (path == '/api/v1/push/devices/unregister' &&
-        method == 'POST') {
+    } else if (path == '/api/v1/push/devices/unregister' && method == 'POST') {
       final token = body['token'];
       if (token is! String || token.trim().isEmpty) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_push_device');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_push_device',
+        );
       } else {
         pushDevices.remove(token.trim());
         payload = {
@@ -697,9 +845,8 @@ class InProcessMockClient extends http.BaseClient {
       final age = reauthenticatedAt == null
           ? null
           : now.difference(reauthenticatedAt.toUtc());
-      final fresh = age != null &&
-          !age.isNegative &&
-          age <= const Duration(minutes: 5);
+      final fresh =
+          age != null && !age.isNegative && age <= const Duration(minutes: 5);
       if (!fresh) {
         status = 403;
         payload = _error(
@@ -727,8 +874,12 @@ class InProcessMockClient extends http.BaseClient {
     } else if (path == '/api/v1/routes' && method == 'POST') {
       final from = body['from'];
       final to = body['to'];
-      final fromMap = from is Map ? Map<String, dynamic>.from(from) : const <String, dynamic>{};
-      final toMap = to is Map ? Map<String, dynamic>.from(to) : const <String, dynamic>{};
+      final fromMap = from is Map
+          ? Map<String, dynamic>.from(from)
+          : const <String, dynamic>{};
+      final toMap = to is Map
+          ? Map<String, dynamic>.from(to)
+          : const <String, dynamic>{};
       payload = {
         'code': 'OK',
         'points': [
@@ -747,7 +898,9 @@ class InProcessMockClient extends http.BaseClient {
       if (validation != null) {
         status = 409;
         payload = _error(
-          validation == 'wallet_amount_invalid' ? 'invalid_request' : 'conflict',
+          validation == 'wallet_amount_invalid'
+              ? 'invalid_request'
+              : 'conflict',
           requestId,
           reason: validation,
           message: 'Booking quote is missing, expired or does not match.',
@@ -778,10 +931,22 @@ class InProcessMockClient extends http.BaseClient {
         );
       } else if ((rating == null && tipMinor == null) ||
           // Q38 / X20: whole stars only (1 to 5); 0.5 steps are refused.
-          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating != rating.roundToDouble())) ||
-          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != _currencyOf(ride)))) {
+          (rating != null &&
+              (rating is! num ||
+                  rating < 1 ||
+                  rating > 5 ||
+                  rating != rating.roundToDouble())) ||
+          (tipMinor != null &&
+              (tipMinor is! int ||
+                  tipMinor <= 0 ||
+                  tipMinor > 999900 ||
+                  body['currency'] != _currencyOf(ride)))) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_feedback');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_feedback',
+        );
       } else {
         ride['feedback'] = {
           if (rating != null) 'rating': rating,
@@ -804,7 +969,11 @@ class InProcessMockClient extends http.BaseClient {
       final reason = body['reason'];
       if (reason is! String || reason.trim().isEmpty) {
         status = 400;
-        payload = _error('invalid_request', requestId, reason: 'invalid_dispute');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_dispute',
+        );
       } else {
         payload = {
           'code': 'OK',
@@ -906,7 +1075,8 @@ class InProcessMockClient extends http.BaseClient {
           // A cancel-first names the unspecified code only (rider-u19): the
           // rider picked no reason yet, and the one they pick afterwards
           // comes with POST /trips/{id}/cancel-reason (v0.4.4).
-          final reason = body['reason'] ??
+          final reason =
+              body['reason'] ??
               (reasonCode == CancelReasonCodes.unspecified ? null : reasonCode);
           if (reason is String) ride['cancellationReason'] = reason;
           ride['cancellation'] = {
@@ -989,7 +1159,8 @@ class InProcessMockClient extends http.BaseClient {
           if (body['lat'] != null) ride['driverLat'] = body['lat'];
           if (body['lng'] != null) ride['driverLng'] = body['lng'];
           _trackDriven(ride, body['lat'], body['lng']);
-          if (body['lat'] != null && body['command'] == null &&
+          if (body['lat'] != null &&
+              body['command'] == null &&
               body['status'] == null) {
             // A GPS fix alone: a `location` event, version unchanged.
             ride['locationAt'] = DateTime.now().toUtc().toIso8601String();
@@ -1064,7 +1235,8 @@ class InProcessMockClient extends http.BaseClient {
         } else {
           final pricing = _routeChangePricing(ride, body);
           final movedStatus = _statusOf(ride);
-          final moved = body['pickupAddress'] != null &&
+          final moved =
+              body['pickupAddress'] != null &&
                   body['pickupAddress'] != ride['pickupAddress'] &&
                   (movedStatus == TripStatus.accepted ||
                       movedStatus == TripStatus.driverToPickup)
@@ -1102,8 +1274,7 @@ class InProcessMockClient extends http.BaseClient {
           // charged or refunded the difference right away.
           // ARCH-9: the method id decides; the label is the old contract.
           final methodId = body['paymentMethodId']?.toString();
-          final method =
-              (methodId ?? body['paymentMethod'] ?? '').toString();
+          final method = (methodId ?? body['paymentMethod'] ?? '').toString();
           final cash = methodId != null
               ? methodId == 'cash'
               : method.toLowerCase() == 'cash' ||
@@ -1137,7 +1308,8 @@ class InProcessMockClient extends http.BaseClient {
         }
       } else {
         final current = _statusOf(ride);
-        final searching = current == TripStatus.requested ||
+        final searching =
+            current == TripStatus.requested ||
             current == TripStatus.searching ||
             current == TripStatus.offered;
         if (!searching) {
@@ -1206,7 +1378,8 @@ class InProcessMockClient extends http.BaseClient {
           _withPlaces(ride);
           // rider-8: a raise or a searching edit is a committed change like
           // any other: new version, updatedAt and event.
-          final edited = (increase != null && fare != null) ||
+          final edited =
+              (increase != null && fare != null) ||
               const [
                 'pickupAddress',
                 'pickupLat',
@@ -1341,11 +1514,7 @@ class InProcessMockClient extends http.BaseClient {
     } else if (path == '/api/v1/rider/profile' && method == 'GET') {
       // rider-u148: the profile the server holds, or null for a rider who
       // has none yet.
-      payload = {
-        'code': 'OK',
-        'profile': riderProfile,
-        'requestId': requestId,
-      };
+      payload = {'code': 'OK', 'profile': riderProfile, 'requestId': requestId};
     } else if (path == '/api/v1/rider/profile' && method == 'PATCH') {
       // FLOW-7 / C-12 (PROPOSED): name, language and consents. A field left
       // out keeps the value the server holds (rider-u148).
@@ -1355,7 +1524,11 @@ class InProcessMockClient extends http.BaseClient {
       if ((name != null && (name is! String || name.trim().length > 80)) ||
           (consents != null && consents is! Map)) {
         status = 422;
-        payload = _error('invalid_request', requestId, reason: 'invalid_profile');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_profile',
+        );
       } else {
         final previous = riderProfile;
         riderProfile = {
@@ -1408,12 +1581,15 @@ class InProcessMockClient extends http.BaseClient {
         'defaultMethodId': defaultPaymentMethodId,
         'requestId': requestId,
       };
-    } else if (path == '/api/v1/payment-methods/default' &&
-        method == 'PATCH') {
+    } else if (path == '/api/v1/payment-methods/default' && method == 'PATCH') {
       final methodId = body['methodId'];
       if (methodId is! String || methodId.trim().isEmpty) {
         status = 422;
-        payload = _error('invalid_request', requestId, reason: 'invalid_payment_method');
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'invalid_payment_method',
+        );
       } else {
         defaultPaymentMethodId = methodId.trim();
         payload = {
@@ -1645,7 +1821,9 @@ class InProcessMockClient extends http.BaseClient {
       // Payment and rating start as fields once the trip is done.
       ride['ratingStatus'] = TripRatingStatus.notRequested.wireName;
     }
-    if (actor != TripActor.rider && to.isTerminal && to != TripStatus.completed) {
+    if (actor != TripActor.rider &&
+        to.isTerminal &&
+        to != TripStatus.completed) {
       ride['cancellation'] ??= {
         'actor': actor.wireName,
         // openapi Cancellation requires a code of the actor's group.
@@ -1660,14 +1838,11 @@ class InProcessMockClient extends http.BaseClient {
         'fee': null,
       };
     }
-    _touch(
-      ride,
-      switch ((actor, command)) {
-        (TripActor.rider, 'cancel' || 'end_early') => 'rider_cancelled',
-        (TripActor.driver, 'cancel') => 'driver_cancelled',
-        _ => 'trip_projection',
-      },
-    );
+    _touch(ride, switch ((actor, command)) {
+      (TripActor.rider, 'cancel' || 'end_early') => 'rider_cancelled',
+      (TripActor.driver, 'cancel') => 'driver_cancelled',
+      _ => 'trip_projection',
+    });
     return true;
   }
 
@@ -1934,7 +2109,9 @@ class InProcessMockClient extends http.BaseClient {
     final rawStatus = body['status'];
     if (rawStatus != null) {
       target = TripStatusWire.parse(rawStatus);
-      final legacy = target == null ? RideStatusWire.legacyName(rawStatus) : null;
+      final legacy = target == null
+          ? RideStatusWire.legacyName(rawStatus)
+          : null;
       if (legacy != null) {
         target = legacy.tripStatus;
         // Pre-v0.3 post-trip "statuses" are payment/rating fields now.
@@ -1960,7 +2137,8 @@ class InProcessMockClient extends http.BaseClient {
 
     if (target != null && target != _statusOf(ride)) {
       final kind = _kindOf(ride);
-      final path = TripStateMachine.pathTo(_statusOf(ride), target, kind: kind) ??
+      final path =
+          TripStateMachine.pathTo(_statusOf(ride), target, kind: kind) ??
           TripStateMachine.pathTo(
             _statusOf(ride),
             target,
@@ -1989,9 +2167,10 @@ class InProcessMockClient extends http.BaseClient {
             TripRatingStatusWire.parse(ride['ratingStatus']) ??
             TripRatingStatus.notRequested;
         if (current != rating) {
-          final allowed = tripRatingTransitions[current]?.contains(rating) ??
-              false;
-          final viaPending = current == TripRatingStatus.notRequested &&
+          final allowed =
+              tripRatingTransitions[current]?.contains(rating) ?? false;
+          final viaPending =
+              current == TripRatingStatus.notRequested &&
               rating != TripRatingStatus.pending;
           if (!allowed && !viaPending) return 'rating:${rating.wireName}';
           ride['ratingStatus'] = rating.wireName;
@@ -2015,7 +2194,8 @@ class InProcessMockClient extends http.BaseClient {
     final queue = [start];
     while (queue.isNotEmpty) {
       final at = queue.removeAt(0);
-      for (final next in tripPaymentTransitions[at] ?? const <TripPaymentStatus>{}) {
+      for (final next
+          in tripPaymentTransitions[at] ?? const <TripPaymentStatus>{}) {
         if (next == start || previous.containsKey(next)) continue;
         previous[next] = at;
         if (next == to) {
@@ -2081,7 +2261,8 @@ class InProcessMockClient extends http.BaseClient {
       return 'pickup_locked';
     }
     // Q40: once a driver has accepted, the pickup moves only a short way.
-    final moved = pickupChanged &&
+    final moved =
+        pickupChanged &&
             (current == TripStatus.accepted ||
                 current == TripStatus.driverToPickup)
         ? _pickupMoveMeters(ride, body)
@@ -2098,7 +2279,10 @@ class InProcessMockClient extends http.BaseClient {
 
   /// ARCH-20: true when [increaseMinor] would take the fare over the
   /// ceiling.
-  static bool _offerAboveMaximum(Map<String, dynamic> ride, int? increaseMinor) {
+  static bool _offerAboveMaximum(
+    Map<String, dynamic> ride,
+    int? increaseMinor,
+  ) {
     final max = ride['maxOfferMinor'];
     final fare = _fareMinor(ride);
     if (increaseMinor == null || max is! num || fare == null) return false;
@@ -2114,17 +2298,18 @@ class InProcessMockClient extends http.BaseClient {
 
   /// Money on the wire, in [code] (the home currency unless a trip or a
   /// zone says otherwise).
-  static Map<String, Object> _money(int amountMinor, [String code = currency]) => {
-    'amountMinor': amountMinor,
-    'currency': code,
-  };
+  static Map<String, Object> _money(
+    int amountMinor, [
+    String code = currency,
+  ]) => {'amountMinor': amountMinor, 'currency': code};
 
   /// Q7: the currency of a stored trip, set at booking from its quote (the
   /// pickup's zone): its fare's, else its flat `currency`, else the home
   /// currency (a trip a test seeded by hand).
   static String _currencyOf(Map<String, dynamic> ride) {
     final fare = ride['fare'];
-    final code = Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
+    final code =
+        Money.normalizeCurrency(fare is Map ? fare['currency'] : null) ??
         Money.normalizeCurrency(ride['currency']);
     return code ?? currency;
   }
@@ -2136,10 +2321,8 @@ class InProcessMockClient extends http.BaseClient {
   );
 
   /// The stand-in's rates for [category] in [code] ([MockZoneRates]).
-  MockZoneRates _ratesFor(String category, String code) => MockZoneRates(
-    catalogKronor: _catalogPriceKr(category),
-    currency: code,
-  );
+  MockZoneRates _ratesFor(String category, String code) =>
+      MockZoneRates(catalogKronor: _catalogPriceKr(category), currency: code);
 
   /// The config document cancel fees are charged from for a trip in
   /// [code]: [riderConfig] when it is in that currency (tests replace it),
@@ -2197,7 +2380,9 @@ class InProcessMockClient extends http.BaseClient {
     final money = body['offerIncrease'];
     if (money is Map) {
       final minor = money['amountMinor'];
-      if (minor is int && minor > 0 && minor % step == 0 &&
+      if (minor is int &&
+          minor > 0 &&
+          minor % step == 0 &&
           money['currency'] == code) {
         return minor;
       }
@@ -2349,7 +2534,6 @@ class InProcessMockClient extends http.BaseClient {
   /// The catalog price covers a trip this long ([MockCategoryRates]).
   static const _catalogTripMeters = MockCategoryRates.includedMeters;
 
-
   /// A stop this close to a booked stop is that booked stop (contract §3).
   static const _sameStopMeters = 50;
 
@@ -2370,8 +2554,12 @@ class InProcessMockClient extends http.BaseClient {
     for (final stop in stops) {
       final match = booked.indexWhere(
         (b) =>
-            _km(b['lat'] as num, b['lng'] as num, stop['lat'] as num,
-                    stop['lng'] as num) *
+            _km(
+                  b['lat'] as num,
+                  b['lng'] as num,
+                  stop['lat'] as num,
+                  stop['lng'] as num,
+                ) *
                 1000 <=
             _sameStopMeters,
       );
@@ -2461,7 +2649,9 @@ class InProcessMockClient extends http.BaseClient {
       'currency': zone.currency,
       'zoneId': zone.id,
       // ARCH-11: RFC 3339 UTC with offset, like a real server.
-      'expiresAt': WireTime.format(DateTime.now().add(const Duration(minutes: 2))),
+      'expiresAt': WireTime.format(
+        DateTime.now().add(const Duration(minutes: 2)),
+      ),
       'expiresInSec': 120,
       'breakdown': {
         'baseMinor': math.min(fullMinor, catalogMinor),
@@ -2514,7 +2704,9 @@ class InProcessMockClient extends http.BaseClient {
     }
     final quoteCurrency = (quote['currency'] as String?) ?? currency;
 
-    final categoryId = CategoryIds.canonical((body['categoryId'] ?? '').toString());
+    final categoryId = CategoryIds.canonical(
+      (body['categoryId'] ?? '').toString(),
+    );
     if (quote['rideType'] != categoryId) return 'quote_category_mismatch';
 
     // The fare the rider confirmed: `fare: Money` in the quote's currency,
@@ -2526,8 +2718,10 @@ class InProcessMockClient extends http.BaseClient {
     final submittedMinor = fare is Map && fare['amountMinor'] is int
         ? fare['amountMinor'] as int
         : (body['price'] is num
-              ? Money.fromLegacyMajor(body['price'] as num, quoteCurrency)
-                    .amountMinor
+              ? Money.fromLegacyMajor(
+                  body['price'] as num,
+                  quoteCurrency,
+                ).amountMinor
               : null);
     if (submittedMinor == null || submittedMinor != serverTotal) {
       return 'quote_price_mismatch';
@@ -2550,10 +2744,12 @@ class InProcessMockClient extends http.BaseClient {
 
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
     final categoryId = CategoryIds.canonical(
-      (body['categoryId'] ?? body['rideType'] ?? CategoryIds.economy).toString(),
+      (body['categoryId'] ?? body['rideType'] ?? CategoryIds.economy)
+          .toString(),
     );
     final paymentMethodId =
-        (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet').toString();
+        (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet')
+            .toString();
     final scheduled = body['scheduledAt'] != null;
     // The server walks the new trip draft → quoted → requested (→ searching
     // for a live trip) through the transition table; the client reads the
@@ -2738,10 +2934,7 @@ class InProcessMockClient extends http.BaseClient {
     return http.StreamedResponse(
       Stream<List<int>>.value(bytes),
       status,
-      headers: {
-        'content-type': 'application/json',
-        'x-request-id': requestId,
-      },
+      headers: {'content-type': 'application/json', 'x-request-id': requestId},
       contentLength: bytes.length,
     );
   }

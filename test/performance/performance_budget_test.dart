@@ -44,32 +44,32 @@ void main() {
   test('certified performance budgets stay explicit', () {
     expect(PerformanceBudgets.quoteParallelism, 3);
     expect(PerformanceBudgets.quoteConcurrencyCeiling, 3);
-    expect(
-      PerformanceBudgets.quoteTimeout,
-      const Duration(seconds: 8),
-    );
+    expect(PerformanceBudgets.quoteTimeout, const Duration(seconds: 8));
     expect(PerformanceBudgets.markerMinimumMoveMeters, 1.5);
     expect(PerformanceBudgets.markerMinimumHeadingDegrees, 3);
   });
 
-  test('default quote loading respects certified concurrency ceiling', () async {
-    final quotes = _BudgetQuotes();
-    final selection = RideSelectionController(quotes: quotes);
-    final generation = selection.beginQuotes();
+  test(
+    'default quote loading respects certified concurrency ceiling',
+    () async {
+      final quotes = _BudgetQuotes();
+      final selection = RideSelectionController(quotes: quotes);
+      final generation = selection.beginQuotes();
 
-    await selection.loadQuotes(
-      generation: generation,
-      pickup: 'A',
-      destination: 'B',
-    );
+      await selection.loadQuotes(
+        generation: generation,
+        pickup: 'A',
+        destination: 'B',
+      );
 
-    expect(
-      quotes.maxActive,
-      lessThanOrEqualTo(PerformanceBudgets.quoteConcurrencyCeiling),
-    );
-    expect(quotes.maxActive, greaterThan(1));
-    selection.dispose();
-  });
+      expect(
+        quotes.maxActive,
+        lessThanOrEqualTo(PerformanceBudgets.quoteConcurrencyCeiling),
+      );
+      expect(quotes.maxActive, greaterThan(1));
+      selection.dispose();
+    },
+  );
 
   test('default marker budget suppresses sensor-scale jitter', () {
     final store = MarkerStore();

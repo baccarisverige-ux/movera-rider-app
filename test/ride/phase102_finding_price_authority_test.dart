@@ -16,6 +16,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 /// The contract wire (staging): the live server, not the in-process mock.
@@ -61,37 +62,39 @@ void main() {
     FindingDriverController.active = null;
   });
 
-  test('raise offer sends only the increase, never a client-computed price',
-      () async {
-    final bodies = <Map<String, dynamic>>[];
-    final api = ApiClient(
-      client: MockClient((request) async {
-        if (request.method == 'PATCH') {
-          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
-          return http.Response(
-            jsonEncode({
-              'code': 'OK',
-              'ride': {'id': 'r1', 'status': 'searchDelayed', 'price': 279},
-            }),
-            200,
-          );
-        }
-        return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
-      }),
-    );
-    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final controller = _controller(api, rt);
+  test(
+    'raise offer sends only the increase, never a client-computed price',
+    () async {
+      final bodies = <Map<String, dynamic>>[];
+      final api = ApiClient(
+        client: MockClient((request) async {
+          if (request.method == 'PATCH') {
+            bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+            return http.Response(
+              jsonEncode({
+                'code': 'OK',
+                'ride': {'id': 'r1', 'status': 'searchDelayed', 'price': 279},
+              }),
+              200,
+            );
+          }
+          return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
+        }),
+      );
+      final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final controller = _controller(api, rt);
 
-    expect(await controller.confirmPriceIncrease(20), isTrue);
+      expect(await controller.confirmPriceIncrease(20), isTrue);
 
-    // Contract v0.3.0: the raise as Money, not kronor.
-    expect(bodies.single, {
-      'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
-    });
-    expect(bodies.single.containsKey('price'), isFalse);
-    controller.dispose();
-    rt.dispose();
-  });
+      // Contract v0.3.0: the raise as Money, not kronor.
+      expect(bodies.single, {
+        'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
+      });
+      expect(bodies.single.containsKey('price'), isFalse);
+      controller.dispose();
+      rt.dispose();
+    },
+  );
 
   test('on the live wire the raise is POST /trips/{id}/raise-price with the '
       'version the rider last saw', () async {
@@ -175,49 +178,58 @@ void main() {
     rt.dispose();
   });
 
-  test('an acknowledgement without a fare keeps the last confirmed price',
-      () async {
-    final api = ApiClient(
-      client: MockClient((request) async {
-        if (request.method == 'PATCH') {
-          return http.Response(jsonEncode({'code': 'OK'}), 200);
-        }
-        return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
-      }),
-    );
-    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final controller = _controller(api, rt);
+  test(
+    'an acknowledgement without a fare keeps the last confirmed price',
+    () async {
+      final api = ApiClient(
+        client: MockClient((request) async {
+          if (request.method == 'PATCH') {
+            return http.Response(jsonEncode({'code': 'OK'}), 200);
+          }
+          return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
+        }),
+      );
+      final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final controller = _controller(api, rt);
 
-    expect(await controller.confirmPriceIncrease(20), isTrue);
+      expect(await controller.confirmPriceIncrease(20), isTrue);
 
-    expect(controller.currentPrice, 259);
-    expect(controller.offerConfirmation, isNull);
-    expect(controller.editFeedback, contains('once Movera confirms'));
-    controller.dispose();
-    rt.dispose();
-  });
+      expect(controller.currentPrice, 259);
+      expect(controller.offerConfirmation, isNull);
+      expect(controller.editFeedback, contains('once Movera confirms'));
+      controller.dispose();
+      rt.dispose();
+    },
+  );
 
-  test('the in-process mock prices the bump itself and ignores client price',
-      () async {
-    final backend = InProcessMockClient();
-    backend.rides['r1'] = {'id': 'r1', 'status': 'findingDriver', 'price': 259};
-    final api = ApiClient(client: backend);
+  test(
+    'the in-process mock prices the bump itself and ignores client price',
+    () async {
+      final backend = InProcessMockClient();
+      backend.rides['r1'] = {
+        'id': 'r1',
+        'status': 'findingDriver',
+        'price': 259,
+      };
+      final api = ApiClient(client: backend);
 
-    await api.patch('/api/v1/rides/r1', body: {'price': 9999});
-    expect(mockFareKr(backend.rides['r1']!), 259);
+      await api.patch('/api/v1/rides/r1', body: {'price': 9999});
+      expect(mockFareKr(backend.rides['r1']!), 259);
 
-    await api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': 20});
-    expect(mockFareKr(backend.rides['r1']!), 279);
+      await api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': 20});
+      expect(mockFareKr(backend.rides['r1']!), 279);
 
-    await expectLater(
-      api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': -50}),
-      throwsA(anything),
-    );
-    expect(mockFareKr(backend.rides['r1']!), 279);
-  });
+      await expectLater(
+        api.patch('/api/v1/rides/r1', body: {'offerIncreaseKr': -50}),
+        throwsA(anything),
+      );
+      expect(mockFareKr(backend.rides['r1']!), 279);
+    },
+  );
 
-  testWidgets('the bump card says the final fare is server-confirmed',
-      (tester) async {
+  testWidgets('the bump card says the final fare is server-confirmed', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -233,7 +245,10 @@ void main() {
         ),
       ),
     );
-    expect(find.byKey(const ValueKey('price-bump-server-confirms')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('price-bump-server-confirms')),
+      findsNothing,
+    );
     await tester.tap(find.text('+20 kr'));
     await tester.pump();
     expect(

@@ -87,9 +87,10 @@ void main() {
         final center = tester.getCenter(target);
         expect(center.dy, lessThan(size.height), reason: 'on screen');
         expect(
-          tester.hitTestOnBinding(center).path.any(
-            (entry) => entry.target == tester.renderObject(target),
-          ),
+          tester
+              .hitTestOnBinding(center)
+              .path
+              .any((entry) => entry.target == tester.renderObject(target)),
           isTrue,
           reason: 'tappable',
         );

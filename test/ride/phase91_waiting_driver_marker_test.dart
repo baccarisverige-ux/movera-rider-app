@@ -260,13 +260,15 @@ void main() {
   test(
     'the mock moves the driver from pickup toward the destination during the trip',
     () async {
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(milliseconds: 1),
-        boardAfter: const Duration(milliseconds: 1),
-        tripTick: const Duration(milliseconds: 5),
-        tripTicks: 4,
-      )..destinationLat = 59.35
-       ..destinationLng = 18.10;
+      final realtime =
+          MockRideRealtime(
+              assignAfter: const Duration(milliseconds: 1),
+              boardAfter: const Duration(milliseconds: 1),
+              tripTick: const Duration(milliseconds: 5),
+              tripTicks: 4,
+            )
+            ..destinationLat = 59.35
+            ..destinationLng = 18.10;
       addTearDown(realtime.dispose);
 
       final events = <RideRealtimeEvent>[];
@@ -291,9 +293,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
 
-      final tripCompleted = events.where(
-        (e) => e.status == RideStatus.tripCompleted,
-      ).firstOrNull;
+      final tripCompleted = events
+          .where((e) => e.status == RideStatus.tripCompleted)
+          .firstOrNull;
       expect(tripCompleted, isNotNull);
       expect(tripCompleted!.latitude, isNotNull);
       expect(tripCompleted.longitude, isNotNull);

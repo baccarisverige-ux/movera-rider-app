@@ -63,10 +63,8 @@ class ChatAppBar extends StatelessWidget {
         IconButton(
           // No driver phone number exists without a backend, so say so rather
           // than offering a button that silently does nothing.
-          onPressed: () => MoveraToast.show(
-            context,
-            context.l10n.chatCallUnavailable,
-          ),
+          onPressed: () =>
+              MoveraToast.show(context, context.l10n.chatCallUnavailable),
           tooltip: context.l10n.chatCall,
           icon: Image.asset(
             AppAssets.phoneOutl,

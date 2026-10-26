@@ -298,7 +298,8 @@ class _SelectRideState extends State<SelectRide>
   /// Owner round 2: the free cars around the pickup, gliding between the
   /// server's answers.
   late final NearbyCarsController _nearby = NearbyCarsController(
-    source: widget.nearbyCars ??
+    source:
+        widget.nearbyCars ??
         NearbyCarsController.apiSource(AppScope.instance.api),
   );
   Timer? _glideTicker;
@@ -2153,9 +2154,9 @@ class _SelectRideState extends State<SelectRide>
     if (trip == null ||
         (surface != RestoredSurface.finding &&
             surface != RestoredSurface.waiting)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.rideAlreadyGoing)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.rideAlreadyGoing)));
       unawaited(_loadQuotes());
       return;
     }
@@ -2208,108 +2209,109 @@ class _SelectRideState extends State<SelectRide>
                     ? ValueListenableBuilder<int>(
                         valueListenable: _carTick,
                         builder: (context, _, __) => CustomGoogleMap(
-                        key: const ValueKey('select-ride-map'),
-                        // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
-                        // flat; the route is read from above, never along a tilted horizon.
-                        tiltWithZoom: false,
-                        initialPosition: CameraPosition(
-                          target: _pickupPosition,
-                          zoom: 13.2,
-                        ),
-                        markers: {
-                          // Owner round 2: the free cars around, under
-                          // the route's pins.
-                          ..._nearbyCarMarkers(),
-                          if ((_pickupTimePin ?? _pickupPin) != null)
-                            Marker(
-                              markerId: const MarkerId('pickup'),
-                              position: _pickupPosition,
-                              icon: (_pickupTimePin ?? _pickupPin)!,
-                              anchor: _pickupTimePin != null
-                                  ? RouteTimeMarker.anchor
-                                  : const Offset(0.5, 0.5),
-                              zIndexInt: 2,
-                            ),
-                          if ((_destinationTimePin ?? _destinationPin) != null)
-                            Marker(
-                              markerId: const MarkerId('destination'),
-                              position: widget.destinationPosition,
-                              icon: (_destinationTimePin ?? _destinationPin)!,
-                              anchor: _destinationTimePin != null
-                                  ? RouteTimeMarker.anchor
-                                  : const Offset(0.5, 0.5),
-                              zIndexInt: 2,
-                            ),
-                          // UI-08: the stops are on the map while booking.
-                          ...routeStopMarkers(_locatedStops),
-                        },
-                        polylines: styledRoute(
-                          _roadRoutePoints != null
-                              ? resolvedRoutePolyline(
-                                  id: 'route',
-                                  points: _roadRoutePoints!,
-                                  color: RiderRouteStyle.color,
-                                )
-                              : routePolyline(
-                                  id: 'route',
-                                  from: _pickupPosition,
-                                  to: widget.destinationPosition,
-                                  color: RiderRouteStyle.color,
-                                ),
-                        ),
-                        myLocationEnabled: false,
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        compassEnabled: false,
-                        buildingsEnabled: false,
-                        indoorViewEnabled: false,
-                        tiltGesturesEnabled: false,
-                        rotateGesturesEnabled: false,
-                        onMapCreated: (controller) {
-                          final nextMapReadyWatch = _nextMapReadyWatch;
-                          if (nextMapReadyWatch != null) {
-                            nextMapReadyWatch.stop();
-                            RouteTransitionMetrics.nextMapReady(
-                              nextMapReadyWatch.elapsed,
+                          key: const ValueKey('select-ride-map'),
+                          // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+                          // flat; the route is read from above, never along a tilted horizon.
+                          tiltWithZoom: false,
+                          initialPosition: CameraPosition(
+                            target: _pickupPosition,
+                            zoom: 13.2,
+                          ),
+                          markers: {
+                            // Owner round 2: the free cars around, under
+                            // the route's pins.
+                            ..._nearbyCarMarkers(),
+                            if ((_pickupTimePin ?? _pickupPin) != null)
+                              Marker(
+                                markerId: const MarkerId('pickup'),
+                                position: _pickupPosition,
+                                icon: (_pickupTimePin ?? _pickupPin)!,
+                                anchor: _pickupTimePin != null
+                                    ? RouteTimeMarker.anchor
+                                    : const Offset(0.5, 0.5),
+                                zIndexInt: 2,
+                              ),
+                            if ((_destinationTimePin ?? _destinationPin) !=
+                                null)
+                              Marker(
+                                markerId: const MarkerId('destination'),
+                                position: widget.destinationPosition,
+                                icon: (_destinationTimePin ?? _destinationPin)!,
+                                anchor: _destinationTimePin != null
+                                    ? RouteTimeMarker.anchor
+                                    : const Offset(0.5, 0.5),
+                                zIndexInt: 2,
+                              ),
+                            // UI-08: the stops are on the map while booking.
+                            ...routeStopMarkers(_locatedStops),
+                          },
+                          polylines: styledRoute(
+                            _roadRoutePoints != null
+                                ? resolvedRoutePolyline(
+                                    id: 'route',
+                                    points: _roadRoutePoints!,
+                                    color: RiderRouteStyle.color,
+                                  )
+                                : routePolyline(
+                                    id: 'route',
+                                    from: _pickupPosition,
+                                    to: widget.destinationPosition,
+                                    color: RiderRouteStyle.color,
+                                  ),
+                          ),
+                          myLocationEnabled: false,
+                          myLocationButtonEnabled: false,
+                          zoomControlsEnabled: false,
+                          mapToolbarEnabled: false,
+                          compassEnabled: false,
+                          buildingsEnabled: false,
+                          indoorViewEnabled: false,
+                          tiltGesturesEnabled: false,
+                          rotateGesturesEnabled: false,
+                          onMapCreated: (controller) {
+                            final nextMapReadyWatch = _nextMapReadyWatch;
+                            if (nextMapReadyWatch != null) {
+                              nextMapReadyWatch.stop();
+                              RouteTransitionMetrics.nextMapReady(
+                                nextMapReadyWatch.elapsed,
+                              );
+                              _nextMapReadyWatch = null;
+                            }
+                            _mapController = controller;
+                            AppScope.instance.maps.attach(
+                              controller,
+                              owner: MapOwners.selectRide,
                             );
-                            _nextMapReadyWatch = null;
-                          }
-                          _mapController = controller;
-                          AppScope.instance.maps.attach(
-                            controller,
-                            owner: MapOwners.selectRide,
-                          );
-                          AppScope.instance.map.drawRoute(
-                            'select',
-                            GeoPoint(
-                              _pickupPosition.latitude,
-                              _pickupPosition.longitude,
-                            ),
-                            GeoPoint(
-                              widget.destinationPosition.latitude,
-                              widget.destinationPosition.longitude,
-                            ),
-                          );
-                          AppScope.instance.map.upsertMarker(
-                            'pickup',
-                            GeoPoint(
-                              _pickupPosition.latitude,
-                              _pickupPosition.longitude,
-                            ),
-                          );
-                          AppScope.instance.map.upsertMarker(
-                            'destination',
-                            GeoPoint(
-                              widget.destinationPosition.latitude,
-                              widget.destinationPosition.longitude,
-                            ),
-                          );
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) unawaited(_fitRoute(force: true));
-                          });
-                        },
-                      ),
+                            AppScope.instance.map.drawRoute(
+                              'select',
+                              GeoPoint(
+                                _pickupPosition.latitude,
+                                _pickupPosition.longitude,
+                              ),
+                              GeoPoint(
+                                widget.destinationPosition.latitude,
+                                widget.destinationPosition.longitude,
+                              ),
+                            );
+                            AppScope.instance.map.upsertMarker(
+                              'pickup',
+                              GeoPoint(
+                                _pickupPosition.latitude,
+                                _pickupPosition.longitude,
+                              ),
+                            );
+                            AppScope.instance.map.upsertMarker(
+                              'destination',
+                              GeoPoint(
+                                widget.destinationPosition.latitude,
+                                widget.destinationPosition.longitude,
+                              ),
+                            );
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) unawaited(_fitRoute(force: true));
+                            });
+                          },
+                        ),
                       )
                     : const SelectRideRouteCanvas(),
               ),
@@ -2947,9 +2949,7 @@ class _SelectRideState extends State<SelectRide>
                                     style: _text(
                                       9.5,
                                       weight: FontWeight.w700,
-                                      color: selected
-                                          ? Colors.white
-                                          : _accent,
+                                      color: selected ? Colors.white : _accent,
                                       letterSpacing: 0.4,
                                     ),
                                   ),

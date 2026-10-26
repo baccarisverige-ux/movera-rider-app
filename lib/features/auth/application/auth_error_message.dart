@@ -41,7 +41,8 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
   return switch (action) {
     AuthAction.sendCode => L10n.current.errSendCode,
     AuthAction.verifyCode => L10n.current.errCheckCode,
-    AuthAction.providerSignIn =>
-      L10n.current.errProvider(provider ?? L10n.current.thatAccount),
+    AuthAction.providerSignIn => L10n.current.errProvider(
+      provider ?? L10n.current.thatAccount,
+    ),
   };
 }

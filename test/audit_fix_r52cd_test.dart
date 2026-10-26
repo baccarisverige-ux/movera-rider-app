@@ -76,14 +76,16 @@ class _Quotes implements QuoteRepository {
   }) {
     final total = totalMinor(rideType);
     if (total == null) return Completer<RideQuote>().future;
-    return Future<RideQuote>.value(RideQuote(
-      id: 'q-$rideType',
-      rideType: rideType,
-      totalMinor: total,
-      currency: 'SEK',
-      expiresAt: DateTime.now().add(const Duration(minutes: 5)),
-      signedPayload: 'sig',
-    ));
+    return Future<RideQuote>.value(
+      RideQuote(
+        id: 'q-$rideType',
+        rideType: rideType,
+        totalMinor: total,
+        currency: 'SEK',
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        signedPayload: 'sig',
+      ),
+    );
   }
 }
 
@@ -150,18 +152,22 @@ void main() {
   Future<Reservation> book(
     ReservationController controller,
     DateTime pickupAt,
-  ) =>
-      controller.create(ReservationDraft(
-        scheduledPickupAt: pickupAt,
-        pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
-        destination:
-            const ReservationPlace(label: 'Arlanda', lat: 59.65, lng: 17.93),
-        categoryId: 'comfort',
-        categoryName: 'Comfort',
-        categoryImage: 'assets/images/rides/comfort.webp',
-        price: 450,
-        paymentMethod: 'Cash',
-      ));
+  ) => controller.create(
+    ReservationDraft(
+      scheduledPickupAt: pickupAt,
+      pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
+      destination: const ReservationPlace(
+        label: 'Arlanda',
+        lat: 59.65,
+        lng: 17.93,
+      ),
+      categoryId: 'comfort',
+      categoryName: 'Comfort',
+      categoryImage: 'assets/images/rides/comfort.webp',
+      price: 450,
+      paymentMethod: 'Cash',
+    ),
+  );
 
   /// Pumps frames until [finder] finds something (at most [max] frames).
   Future<void> pumpUntil(
@@ -187,16 +193,18 @@ void main() {
     addTearDown(tester.view.reset);
     final selection = RideSelectionController(quotes: quotes);
     addTearDown(selection.dispose);
-    await tester.pumpWidget(MaterialApp(
-      home: SelectRide(
-        pickupAddress: 'Pickup',
-        destinationAddress: 'Destination',
-        pickupPosition: pickup,
-        destinationPosition: destination,
-        pickupAlreadyConfirmed: true,
-        selection: selection,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SelectRide(
+          pickupAddress: 'Pickup',
+          destinationAddress: 'Destination',
+          pickupPosition: pickup,
+          destinationPosition: destination,
+          pickupAlreadyConfirmed: true,
+          selection: selection,
+        ),
       ),
-    ));
+    );
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -219,8 +227,9 @@ void main() {
     );
     final safety = SafetyController(
       session: store,
-      emergency:
-          EmergencyCallService(dialer: dialer ?? RecordingEmergencyDialer()),
+      emergency: EmergencyCallService(
+        dialer: dialer ?? RecordingEmergencyDialer(),
+      ),
       audio: SafetyAudioService(recorder: TestSafetyRecorder(), store: store),
     );
     SafetyController.sharedForTest = safety;
@@ -253,25 +262,27 @@ void main() {
     return controller;
   }
 
-  test('rider-u156: a sign-out after the reauthentication window says so',
-      () async {
-    final security = await securityWith({
-      'reauthenticatedAt': DateTime.now()
-          .toUtc()
-          .subtract(const Duration(minutes: 6))
-          .toIso8601String(),
-      'capabilities': {'reauthentication': true, 'signOutOtherDevices': true},
-      'sessions': [
-        {'id': 's1', 'device': 'This phone', 'current': true},
-        {'id': 's2', 'device': 'iPad'},
-      ],
-    });
+  test(
+    'rider-u156: a sign-out after the reauthentication window says so',
+    () async {
+      final security = await securityWith({
+        'reauthenticatedAt': DateTime.now()
+            .toUtc()
+            .subtract(const Duration(minutes: 6))
+            .toIso8601String(),
+        'capabilities': {'reauthentication': true, 'signOutOtherDevices': true},
+        'sessions': [
+          {'id': 's1', 'device': 'This phone', 'current': true},
+          {'id': 's2', 'device': 'iPad'},
+        ],
+      });
 
-    await security.signOutOtherDevices();
+      await security.signOutOtherDevices();
 
-    expect(posts, isEmpty);
-    expect(security.errorMessage, L10n.current.reauthBeforeRevoke);
-  });
+      expect(posts, isEmpty);
+      expect(security.errorMessage, L10n.current.reauthBeforeRevoke);
+    },
+  );
 
   testWidgets('rider-u157: a session without a place has no dangling '
       'separator', (tester) async {
@@ -291,22 +302,27 @@ void main() {
       'built-in one', (tester) async {
     // Admin publishes two categories; the built-in list has fourteen.
     Map<String, dynamic> type(String id, String name) => {
-          'id': id,
-          'name': name,
-          'seats': 4,
-          'etaMin': 5,
-          'price': {'amountMinor': 25900, 'currency': 'SEK'},
-          'enabled': true,
-        };
+      'id': id,
+      'name': name,
+      'seats': 4,
+      'etaMin': 5,
+      'price': {'amountMinor': 25900, 'currency': 'SEK'},
+      'enabled': true,
+    };
     final catalog = RideCatalogController(
       api: ApiClient(
-        client: MockClient((_) async => http.Response(
-              jsonEncode({
-                'code': 'OK',
-                'rideTypes': [type('economy', 'Movera'), type('comfort', 'Comfort')],
-              }),
-              200,
-            )),
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'code': 'OK',
+              'rideTypes': [
+                type('economy', 'Movera'),
+                type('comfort', 'Comfort'),
+              ],
+            }),
+            200,
+          ),
+        ),
         env: AppEnv.current,
       ),
       cache: MemoryRideCatalogCache(),
@@ -323,8 +339,11 @@ void main() {
       'rules': <String>[],
     })!;
 
-    await openFrom(tester, (context) =>
-        PromotionDetailsSheet.open(context, promotion, catalog: catalog));
+    await openFrom(
+      tester,
+      (context) =>
+          PromotionDetailsSheet.open(context, promotion, catalog: catalog),
+    );
 
     final sheet = tester.widget<PromotionDetailsSheet>(
       find.byType(PromotionDetailsSheet),
@@ -372,8 +391,9 @@ void main() {
       tester,
       Builder(
         builder: (context) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: const TextScaler.linear(2)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
           child: Scaffold(
             body: Center(
               child: HomeReservationChrono(
@@ -423,8 +443,8 @@ void main() {
     final controller = reservations();
     final ride = await book(controller, DateTime(2026, 10, 22, 10));
     String cancellation() => ReservationFormat.cancellationSummary(
-          controller.cancelTermsFor(controller.byId(ride.reservationId)!),
-        );
+      controller.cancelTermsFor(controller.byId(ride.reservationId)!),
+    );
     clock = DateTime(2026, 10, 22, 8, 50);
     await pumpPage(
       tester,
@@ -433,7 +453,10 @@ void main() {
         controller: controller,
       ),
     );
-    await tester.scrollUntilVisible(find.text('View scheduled ride terms'), 300);
+    await tester.scrollUntilVisible(
+      find.text('View scheduled ride terms'),
+      300,
+    );
     final free = cancellation();
     expect(find.text(free), findsOneWidget);
 
@@ -514,8 +537,11 @@ void main() {
       session.answers.map((answer) => answer.kind),
       isNot(contains(RideCheckAnswerKind.call112)),
     );
-    expect(session.alertState, isNot(RideCheckAlertState.none),
-        reason: 'the alert is still sent');
+    expect(
+      session.alertState,
+      isNot(RideCheckAlertState.none),
+      reason: 'the alert is still sent',
+    );
   });
 
   testWidgets('rider-u203: a PIN change that failed says so', (tester) async {
@@ -526,10 +552,12 @@ void main() {
     store.failNextWrite = true; // offline
     await tester.tap(find.byType(OutlinedButton));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(
-      of: find.byType(AlertDialog),
-      matching: find.text('Change PIN'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Change PIN'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Could not change PIN.'), findsOneWidget);
@@ -540,14 +568,19 @@ void main() {
     final now = DateTime.now();
     // Three hours ahead, at :02 (off the 5-minute grid).
     final prefill = DateTime(now.year, now.month, now.day, now.hour + 3, 2);
-    await openFrom(tester, (context) => ScheduleDateTimeSelector.choose(
-          context,
-          initial: prefill,
-          now: () => now,
-        ));
+    await openFrom(
+      tester,
+      (context) => ScheduleDateTimeSelector.choose(
+        context,
+        initial: prefill,
+        now: () => now,
+      ),
+    );
 
-    expect(find.text('Pickup time updated to the next available slot.'),
-        findsOneWidget);
+    expect(
+      find.text('Pickup time updated to the next available slot.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('rider-u227: a pickup time that went stale on screen is '
@@ -556,11 +589,11 @@ void main() {
     var confirmed = 0;
     final session = ScheduledRideSession();
     Widget picker() => ScheduleDateTimeSelector(
-          body: const SizedBox.shrink(),
-          session: session,
-          now: () => now,
-          onConfirm: () => confirmed++,
-        );
+      body: const SizedBox.shrink(),
+      session: session,
+      now: () => now,
+      onConfirm: () => confirmed++,
+    );
     await pumpPage(tester, picker());
 
     // The rider waits past the earliest slot; something rebuilds the page.
@@ -569,8 +602,10 @@ void main() {
     await tester.tap(find.byKey(const Key('schedule-continue')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pickup time updated to the next available slot.'),
-        findsOneWidget);
+    expect(
+      find.text('Pickup time updated to the next available slot.'),
+      findsOneWidget,
+    );
     expect(confirmed, 0, reason: 'the corrected time is shown first');
   });
 
@@ -580,23 +615,29 @@ void main() {
     await pumpPage(tester, const SupportMessages());
 
     expect(find.text('No active cases'), findsNothing);
-    expect(find.text("Your cases aren't listed in the app yet"),
-        findsOneWidget);
+    expect(
+      find.text("Your cases aren't listed in the app yet"),
+      findsOneWidget,
+    );
   });
 
-  test('rider-u230: Support shows a late-cancel fee, not 0 or the fare',
-      () async {
-    clock = DateTime(2026, 10, 22, 9, 30);
-    final controller = reservations();
-    final ride = await book(controller, DateTime(2026, 10, 22, 10));
-    final cancelled =
-        await controller.cancel(ride.reservationId, fee: const Money(5000));
+  test(
+    'rider-u230: Support shows a late-cancel fee, not 0 or the fare',
+    () async {
+      clock = DateTime(2026, 10, 22, 9, 30);
+      final controller = reservations();
+      final ride = await book(controller, DateTime(2026, 10, 22, 10));
+      final cancelled = await controller.cancel(
+        ride.reservationId,
+        fee: const Money(5000),
+      );
 
-    final row = SupportController.rideFor(cancelled);
+      final row = SupportController.rideFor(cancelled);
 
-    expect(row.priceLabel, contains('50'));
-    expect(row.priceLabel, isNot(contains('450')));
-  });
+      expect(row.priceLabel, contains('50'));
+      expect(row.priceLabel, isNot(contains('450')));
+    },
+  );
 
   testWidgets('rider-r3-2: a ride history that could not load says so and '
       'retries', (tester) async {
@@ -620,20 +661,25 @@ void main() {
     expect(find.text('No rides yet'), findsOneWidget);
   });
 
-  testWidgets('rider-96: the side gutter follows a window resize',
-      (tester) async {
+  testWidgets('rider-96: the side gutter follows a window resize', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     Future<double> gutterAt(double width) async {
       tester.view.physicalSize = Size(width, 844);
       late double gutter;
-      await tester.pumpWidget(ScreenUtilInit(
-        designSize: const Size(390, 844),
-        builder: (_, __) => Builder(builder: (_) {
-          gutter = screenHorizPadding;
-          return const SizedBox();
-        }),
-      ));
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, __) => Builder(
+            builder: (_) {
+              gutter = screenHorizPadding;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
       return gutter;
     }
 

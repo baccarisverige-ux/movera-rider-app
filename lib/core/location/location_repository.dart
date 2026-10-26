@@ -97,7 +97,8 @@ class LocationRepository {
 
   Future<Position> getCurrentPosition({LocationSettings? locationSettings}) {
     return Geolocator.getCurrentPosition(
-      locationSettings: locationSettings ??
+      locationSettings:
+          locationSettings ??
           const LocationSettings(accuracy: LocationAccuracy.high),
     );
   }

@@ -121,11 +121,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
       _handedOff = false;
       return;
     }
-    await ReservationLiveRide.open(
-      context,
-      ride,
-      controller: _reservations,
-    );
+    await ReservationLiveRide.open(context, ride, controller: _reservations);
     if (!mounted) return;
     _handedOff = false;
     _handoffIfLive();
@@ -698,14 +694,22 @@ class _KnowCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _KnowItem(index: '01', title: context.l10n.resWaitingTime, body: waiting),
+          _KnowItem(
+            index: '01',
+            title: context.l10n.resWaitingTime,
+            body: waiting,
+          ),
           const Divider(
             height: 1,
             indent: 20,
             endIndent: 20,
             color: kReservationLine,
           ),
-          _KnowItem(index: '02', title: context.l10n.resCancellation, body: cancellation),
+          _KnowItem(
+            index: '02',
+            title: context.l10n.resCancellation,
+            body: cancellation,
+          ),
           const Divider(
             height: 1,
             indent: 20,

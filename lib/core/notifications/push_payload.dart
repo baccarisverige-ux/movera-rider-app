@@ -48,8 +48,7 @@ class PushPayload {
     );
   }
 
-  bool get isRideEvent =>
-      type.startsWith('ride.') || type.startsWith('trip.');
+  bool get isRideEvent => type.startsWith('ride.') || type.startsWith('trip.');
 
   String? get routedRideId {
     final direct = _clean(rideId);
@@ -66,8 +65,9 @@ class PushPayload {
     return _clean(uri.pathSegments.single);
   }
 
-  PushDestination get destination =>
-      routedRideId == null ? PushDestination.notifications : PushDestination.ride;
+  PushDestination get destination => routedRideId == null
+      ? PushDestination.notifications
+      : PushDestination.ride;
 
   static String? _clean(String? value) {
     final trimmed = value?.trim();

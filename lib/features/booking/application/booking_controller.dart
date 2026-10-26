@@ -12,7 +12,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class BookingController {
   BookingController({BookingRepository? store})
-      : _store = store ?? BookingRepository();
+    : _store = store ?? BookingRepository();
   final BookingRepository _store;
 
   /// RC-09: the booking failed in a way that may still have created the
@@ -108,8 +108,8 @@ class BookingController {
       walletAmountMinor: walletAmountMinor,
     );
   }
+
   Future<String> reconcileCreatedFinding(String createdRideId) {
     return _store.reconcileCreatedFinding(createdRideId);
   }
-
 }

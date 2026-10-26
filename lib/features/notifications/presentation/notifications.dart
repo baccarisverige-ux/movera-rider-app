@@ -83,12 +83,13 @@ class NotificationScreen extends StatelessWidget {
                     return MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
                       title: context.l10n.allCaughtUp,
-                      message:
-                          context.l10n.notificationsEmptyBody,
+                      message: context.l10n.notificationsEmptyBody,
                     );
                   }
                   return ListView.builder(
-                    padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenHorizPadding,
+                    ),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
                       final notification = items[index];
@@ -97,7 +98,9 @@ class NotificationScreen extends StatelessWidget {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () async {
-                            notificationController.markRead(notification.messageId);
+                            notificationController.markRead(
+                              notification.messageId,
+                            );
                             final rideId = notificationRideTarget(
                               rideId: notification.rideId,
                               deepLink: notification.deepLink,
@@ -107,9 +110,8 @@ class NotificationScreen extends StatelessWidget {
                               context,
                               rideId,
                               open: openRide,
-                              onEnded: () => (openHistory ?? _openHistory)(
-                                context,
-                              ),
+                              onEnded: () =>
+                                  (openHistory ?? _openHistory)(context),
                             );
                           },
                           child: _buildNotificationCard(context, notification),

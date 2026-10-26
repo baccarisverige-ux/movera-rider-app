@@ -28,8 +28,9 @@ class SafetyStore {
     SafetyLocalDataSource? local,
     SafetyRemoteDataSource? remote,
     ApiClient? api,
-  })  : _local = local ?? PreferencesSafetyLocalDataSource(),
-        _remote = remote ?? ApiSafetyRemoteDataSource(api ?? AppScope.instance.api);
+  }) : _local = local ?? PreferencesSafetyLocalDataSource(),
+       _remote =
+           remote ?? ApiSafetyRemoteDataSource(api ?? AppScope.instance.api);
 
   static SafetyStore? _shared;
   static SafetyStore get shared => _shared ??= SafetyStore();
@@ -124,12 +125,11 @@ class SafetyStore {
     final previous = _cache.events.where((e) => e.eventId == eventId);
     final before = previous.isEmpty ? null : previous.last;
     return () => _cache.events = [
-          for (final event in _cache.events)
-            if (event.eventId != eventId) event
-            else if (before != null) before,
-          if (before != null && !_cache.events.any((e) => e.eventId == eventId))
-            before,
-        ];
+      for (final event in _cache.events)
+        if (event.eventId != eventId) event else if (before != null) before,
+      if (before != null && !_cache.events.any((e) => e.eventId == eventId))
+        before,
+    ];
   }
 
   Future<SafetyPreferences> patchPreferences(SafetyPreferences next) {
@@ -148,7 +148,9 @@ class SafetyStore {
       throw const SafetyException('SERVER_ERROR', 'Simulated write failure');
     }
     final confirmed = await _remote.rotatePin(idempotencyKey: idempotencyKey);
-    _cache.pin = confirmed.copyWith(requiredForStart: _cache.preferences.pinRequired);
+    _cache.pin = confirmed.copyWith(
+      requiredForStart: _cache.preferences.pinRequired,
+    );
     await _local.save(_cache);
     return _cache.pin;
   }
@@ -220,7 +222,8 @@ class SafetyStore {
   }
 
   Future<EmergencyContact> updateContact(EmergencyContact contact) async {
-    final e164 = SwedishPhone.toE164(contact.phoneE164) ??
+    final e164 =
+        SwedishPhone.toE164(contact.phoneE164) ??
         (RegExp(r'^\+46\d{7,10}$').hasMatch(contact.phoneE164)
             ? contact.phoneE164
             : null);
@@ -241,24 +244,20 @@ class SafetyStore {
       name: contact.name.trim(),
       updatedAt: DateTime.now().toUtc(),
     );
-    return _write(
-      () => _remote.updateContact(next),
-      next,
-      (value) {
-        _cache.contacts = [
-          for (final item in _cache.contacts)
-            if (item.id == value.id) value else item,
-        ];
-      },
-      keep: _keepContacts,
-    );
+    return _write(() => _remote.updateContact(next), next, (value) {
+      _cache.contacts = [
+        for (final item in _cache.contacts)
+          if (item.id == value.id) value else item,
+      ];
+    }, keep: _keepContacts);
   }
 
   Future<void> deleteContact(String id) async {
     await _ensure();
     final previous = [..._cache.contacts];
     _cache.contacts = _cache.contacts.where((c) => c.id != id).toList();
-    if (_cache.contacts.isNotEmpty && !_cache.contacts.any((c) => c.isPrimary)) {
+    if (_cache.contacts.isNotEmpty &&
+        !_cache.contacts.any((c) => c.isPrimary)) {
       _cache.contacts[0] = _cache.contacts[0].copyWith(isPrimary: true);
     }
     await _local.save(_cache);
@@ -285,12 +284,19 @@ class SafetyStore {
     );
   }
 
-  Future<TripShare> startShare(String rideId, {List<String>? contactIds}) async {
+  Future<TripShare> startShare(
+    String rideId, {
+    List<String>? contactIds,
+  }) async {
     if (rideId.trim().isEmpty) {
       throw SafetyException('NO_RIDE', L10n.current.shareNoRide);
     }
-    final ids = contactIds ??
-        _cache.contacts.where((c) => c.shareTrips && c.isEnabled).map((c) => c.id).toList();
+    final ids =
+        contactIds ??
+        _cache.contacts
+            .where((c) => c.shareTrips && c.isEnabled)
+            .map((c) => c.id)
+            .toList();
     final token = 'tok_${newRequestId()}';
     final now = DateTime.now().toUtc();
     final optimistic = TripShare(
@@ -364,15 +370,18 @@ class SafetyStore {
       next,
       (value) {
         _cache.rideCheck = value;
-        _cache.preferences = _cache.preferences.copyWith(rideCheckEnabled: value.enabled);
+        _cache.preferences = _cache.preferences.copyWith(
+          rideCheckEnabled: value.enabled,
+        );
       },
       keep: () {
         final policy = _cache.rideCheck;
         final enabled = _cache.preferences.rideCheckEnabled;
         return () {
           _cache.rideCheck = policy;
-          _cache.preferences =
-              _cache.preferences.copyWith(rideCheckEnabled: enabled);
+          _cache.preferences = _cache.preferences.copyWith(
+            rideCheckEnabled: enabled,
+          );
         };
       },
     );
@@ -382,32 +391,32 @@ class SafetyStore {
     await _ensure();
     final existing = _cache.events.where((e) => e.eventId == event.eventId);
     if (existing.isNotEmpty) return existing.first;
-    final lastResolved = _cache.events.where((e) => e.status == RideCheckStatus.resolved);
+    final lastResolved = _cache.events.where(
+      (e) => e.status == RideCheckStatus.resolved,
+    );
     if (lastResolved.isNotEmpty) {
       final latest = lastResolved.last.at;
       if (event.at.isBefore(latest) || event.at.isAtSameMomentAs(latest)) {
         return event.copyWith(status: RideCheckStatus.stale);
       }
     }
-    return _write(
-      () => _remote.postSafetyEvent(event),
-      event,
-      (value) {
-        // rider-u197: a card closed while its open was being sent stays
-        // closed, with the answers saved on this device.
-        final local = _cache.events
-            .where((e) => e.eventId == value.eventId)
-            .lastOrNull;
-        final kept = local?.status == RideCheckStatus.resolved
-            ? value.copyWith(
-                status: RideCheckStatus.resolved,
-                payload: {...value.payload, ...local!.payload},
-              )
-            : value;
-        _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), kept];
-      },
-      keep: () => _keepEvent(event.eventId),
-    );
+    return _write(() => _remote.postSafetyEvent(event), event, (value) {
+      // rider-u197: a card closed while its open was being sent stays
+      // closed, with the answers saved on this device.
+      final local = _cache.events
+          .where((e) => e.eventId == value.eventId)
+          .lastOrNull;
+      final kept = local?.status == RideCheckStatus.resolved
+          ? value.copyWith(
+              status: RideCheckStatus.resolved,
+              payload: {...value.payload, ...local!.payload},
+            )
+          : value;
+      _cache.events = [
+        ..._cache.events.where((e) => e.eventId != value.eventId),
+        kept,
+      ];
+    }, keep: () => _keepEvent(event.eventId));
   }
 
   Future<List<RideCheckEvent>> refreshEvents(String rideId) async {
@@ -438,10 +447,16 @@ class SafetyStore {
       ),
     );
     final next = current.copyWith(
-      status: action == 'resolved' ? RideCheckStatus.resolved : RideCheckStatus.acknowledged,
+      status: action == 'resolved'
+          ? RideCheckStatus.resolved
+          : RideCheckStatus.acknowledged,
     );
     return _write(
-      () => _remote.respondSafetyEvent(rideId: rideId, eventId: eventId, action: action),
+      () => _remote.respondSafetyEvent(
+        rideId: rideId,
+        eventId: eventId,
+        action: action,
+      ),
       next,
       (value) {
         _cache.events = [
@@ -512,7 +527,8 @@ class SafetyStore {
     if (!submission.isFinal && current?.status == RideCheckStatus.resolved) {
       return;
     }
-    final base = current ??
+    final base =
+        current ??
         RideCheckEvent(
           eventId: submission.checkId,
           rideId: submission.context.rideId,
@@ -520,26 +536,26 @@ class SafetyStore {
           at: submission.shownAt,
         );
     RideCheckEvent withAnswers(String? alertId) => base.copyWith(
-          status: submission.isFinal
-              ? RideCheckStatus.resolved
-              : submission.answers.isEmpty
-                  ? base.status
-                  : RideCheckStatus.acknowledged,
-          payload: {
-            ...base.payload,
-            'kind': rideCheckEventKind,
-            'trigger': submission.trigger.wire,
-            'reason': submission.reason.toJson(),
-            'answers': [for (final a in submission.answers) a.toJson()],
-            'answeredAt': DateTime.now().toUtc().toIso8601String(),
-            if (alertId != null) 'alertId': alertId,
-            // rider-u195: an alert was asked for. Kept on the device before
-            // it is sent, so after a reload a failed alert is known as
-            // failed (no alertId) rather than as no alert.
-            if (submission.alert || base.payload['alertRequested'] == true)
-              'alertRequested': true,
-          },
-        );
+      status: submission.isFinal
+          ? RideCheckStatus.resolved
+          : submission.answers.isEmpty
+          ? base.status
+          : RideCheckStatus.acknowledged,
+      payload: {
+        ...base.payload,
+        'kind': rideCheckEventKind,
+        'trigger': submission.trigger.wire,
+        'reason': submission.reason.toJson(),
+        'answers': [for (final a in submission.answers) a.toJson()],
+        'answeredAt': DateTime.now().toUtc().toIso8601String(),
+        if (alertId != null) 'alertId': alertId,
+        // rider-u195: an alert was asked for. Kept on the device before
+        // it is sent, so after a reload a failed alert is known as
+        // failed (no alertId) rather than as no alert.
+        if (submission.alert || base.payload['alertRequested'] == true)
+          'alertRequested': true,
+      },
+    );
     void keep(RideCheckEvent next) {
       _cache.events = [
         for (final event in _cache.events)
@@ -549,9 +565,11 @@ class SafetyStore {
     }
 
     final existingAlert = base.payload['alertId'];
-    keep(withAnswers(
-      submission.alertId ?? (existingAlert is String ? existingAlert : null),
-    ));
+    keep(
+      withAnswers(
+        submission.alertId ?? (existingAlert is String ? existingAlert : null),
+      ),
+    );
     await _local.save(_cache);
   }
 
@@ -666,16 +684,22 @@ class SafetyStore {
 
   Future<void> deleteAudio(AudioRecording recording) async {
     await _ensure();
-    _cache.recordings = _cache.recordings.where((r) => r.id != recording.id).toList();
+    _cache.recordings = _cache.recordings
+        .where((r) => r.id != recording.id)
+        .toList();
     await _local.save(_cache);
     if (recording.rideId != null && !recording.deviceOnly) {
-      await _remote.deleteAudio(rideId: recording.rideId!, recordingId: recording.id);
+      await _remote.deleteAudio(
+        rideId: recording.rideId!,
+        recordingId: recording.id,
+      );
     }
   }
 }
 
 class RidePinRepository {
-  RidePinRepository({SafetyStore? store}) : _store = store ?? SafetyStore.shared;
+  RidePinRepository({SafetyStore? store})
+    : _store = store ?? SafetyStore.shared;
   final SafetyStore _store;
   RidePin current() => _store.pin;
   Future<RidePin> rotate({String? idempotencyKey}) =>
@@ -684,7 +708,7 @@ class RidePinRepository {
 
 class EmergencyContactsRepository {
   EmergencyContactsRepository({SafetyStore? store})
-      : _store = store ?? SafetyStore.shared;
+    : _store = store ?? SafetyStore.shared;
   final SafetyStore _store;
   List<EmergencyContact> listContacts() => _store.contacts;
   Future<EmergencyContact> createContact({
@@ -694,15 +718,14 @@ class EmergencyContactsRepository {
     bool shareTrips = false,
     bool isEnabled = true,
     String? idempotencyKey,
-  }) =>
-      _store.createContact(
-        name: name,
-        phone: phone,
-        relationship: relationship,
-        shareTrips: shareTrips,
-        isEnabled: isEnabled,
-        idempotencyKey: idempotencyKey,
-      );
+  }) => _store.createContact(
+    name: name,
+    phone: phone,
+    relationship: relationship,
+    shareTrips: shareTrips,
+    isEnabled: isEnabled,
+    idempotencyKey: idempotencyKey,
+  );
   Future<EmergencyContact> updateContact(EmergencyContact contact) =>
       _store.updateContact(contact);
   Future<void> deleteContact(String id) => _store.deleteContact(id);
@@ -711,7 +734,8 @@ class EmergencyContactsRepository {
 }
 
 class TripShareRepository {
-  TripShareRepository({SafetyStore? store}) : _store = store ?? SafetyStore.shared;
+  TripShareRepository({SafetyStore? store})
+    : _store = store ?? SafetyStore.shared;
   final SafetyStore _store;
   Future<TripShare> start(String rideId, {List<String>? contactIds}) =>
       _store.startShare(rideId, contactIds: contactIds);
@@ -720,16 +744,17 @@ class TripShareRepository {
 }
 
 class RideCheckRepository {
-  RideCheckRepository({SafetyStore? store}) : _store = store ?? SafetyStore.shared;
+  RideCheckRepository({SafetyStore? store})
+    : _store = store ?? SafetyStore.shared;
   final SafetyStore _store;
   RideCheckPolicy policy() => _store.rideCheck;
   List<RideCheckEvent> events() => _store.rideCheckEvents;
-  Future<RideCheckPolicy> setEnabled(bool enabled) => _store.patchRideCheck(enabled);
+  Future<RideCheckPolicy> setEnabled(bool enabled) =>
+      _store.patchRideCheck(enabled);
   Future<RideCheckEvent> post(RideCheckEvent event) => _store.postEvent(event);
   Future<RideCheckEvent> respond({
     required String rideId,
     required String eventId,
     required String action,
-  }) =>
-      _store.respondEvent(rideId: rideId, eventId: eventId, action: action);
+  }) => _store.respondEvent(rideId: rideId, eventId: eventId, action: action);
 }

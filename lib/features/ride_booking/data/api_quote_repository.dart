@@ -159,12 +159,12 @@ class ApiQuoteRepository implements QuoteRepository {
       lastUsedFallback = false;
       AppLog.error(
         'quote.unavailable',
-        extra: {
-          'rideType': rideType,
-          'reason': error.toString(),
-        },
+        extra: {'rideType': rideType, 'reason': error.toString()},
       );
-      AppLog.error('quote.unavailable.stack', extra: {'stack': stack.toString()});
+      AppLog.error(
+        'quote.unavailable.stack',
+        extra: {'stack': stack.toString()},
+      );
       rethrow;
     }
   }
@@ -185,10 +185,16 @@ class ApiQuoteRepository implements QuoteRepository {
         throw const FormatException('a quote needs the pickup and dropoff');
       }
       final body = <String, dynamic>{
-        'pickup': contractPlace(pickupPoint.latitude, pickupPoint.longitude,
-            pickup),
-        'dropoff': contractPlace(destinationPoint.latitude,
-            destinationPoint.longitude, destination),
+        'pickup': contractPlace(
+          pickupPoint.latitude,
+          pickupPoint.longitude,
+          pickup,
+        ),
+        'dropoff': contractPlace(
+          destinationPoint.latitude,
+          destinationPoint.longitude,
+          destination,
+        ),
         'stops': [
           for (final stop in stops)
             contractPlace(stop.latitude, stop.longitude, stop.address),
@@ -233,7 +239,10 @@ class ApiQuoteRepository implements QuoteRepository {
         'quote.unavailable',
         extra: {'rideType': rideType, 'reason': error.toString()},
       );
-      AppLog.error('quote.unavailable.stack', extra: {'stack': stack.toString()});
+      AppLog.error(
+        'quote.unavailable.stack',
+        extra: {'stack': stack.toString()},
+      );
       rethrow;
     }
   }
@@ -265,7 +274,8 @@ class ApiQuoteRepository implements QuoteRepository {
       quotes[quote.rideType] = quote;
       _routes[quote.id] = QuotedRoute(
         expiresAt: quote.expiresAt.add(const Duration(minutes: 1)),
-        pickup: _placeOf(map['pickup']) ?? body['pickup'] as Map<String, dynamic>,
+        pickup:
+            _placeOf(map['pickup']) ?? body['pickup'] as Map<String, dynamic>,
         dropoff:
             _placeOf(map['dropoff']) ?? body['dropoff'] as Map<String, dynamic>,
         stops: map['stops'] is List

@@ -16,7 +16,6 @@ class MapLifecycleController {
   bool get isLive => state == MapLifecycle.created;
 }
 
-
 /// Re-entrant guard for map-heavy route handoffs.
 ///
 /// Nested flows (for example Home -> pickup confirmation -> Select Ride) must

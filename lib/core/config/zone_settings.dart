@@ -20,7 +20,8 @@ class AmountOption {
   int get hashCode => Object.hash(amount, enabled);
 
   @override
-  String toString() => 'AmountOption(${amount.majorString} '
+  String toString() =>
+      'AmountOption(${amount.majorString} '
       '${amount.currency}, ${enabled ? 'on' : 'off'})';
 }
 
@@ -66,7 +67,12 @@ abstract final class ZoneDefaults {
 
   /// `contract.json#zonePaymentMethods` (owner Q7): every country offers
   /// these four. No Swish, no D17; the wallet is separate.
-  static const paymentMethods = <String>['cash', 'card', 'apple_pay', 'google_pay'];
+  static const paymentMethods = <String>[
+    'cash',
+    'card',
+    'apple_pay',
+    'google_pay',
+  ];
 
   /// v0.3 ids read as their v0.4 names for one release.
   static const paymentMethodAliases = <String, String>{
@@ -81,18 +87,18 @@ abstract final class ZoneDefaults {
 
   /// Country of a zone currency, for documents without `country`.
   static String countryOf(String currency) => switch (currency) {
-        'EUR' => 'FR',
-        'TND' => 'TN',
-        _ => 'SE',
-      };
+    'EUR' => 'FR',
+    'TND' => 'TN',
+    _ => 'SE',
+  };
 
   /// Default app language of [country]: Swedish in Sweden, French in
   /// France and Tunisia, else English.
   static String languageOf(String country) => switch (country) {
-        'SE' => 'sv',
-        'FR' || 'TN' => 'fr',
-        _ => 'en',
-      };
+    'SE' => 'sv',
+    'FR' || 'TN' => 'fr',
+    _ => 'en',
+  };
 
   /// The default free wait (= no-show wait, owner Q41) of [categoryId].
   static int freeWaitMinOf(String categoryId) =>
@@ -111,7 +117,8 @@ abstract final class ZoneDefaults {
   };
 
   /// Tip options in [currency] (owner Q5); empty for an unknown currency.
-  static List<AmountOption> tipsIn(String currency) => _options(_tips, currency);
+  static List<AmountOption> tipsIn(String currency) =>
+      _options(_tips, currency);
 
   /// Raise-offer quick steps in [currency] (owner Q6).
   static List<AmountOption> raiseStepsIn(String currency) =>
@@ -143,7 +150,9 @@ List<AmountOption>? readAmountOptions(Object? raw, String currency) {
       continue;
     }
     final enabled = row['enabled'];
-    out.add(AmountOption(amount: amount, enabled: enabled is bool ? enabled : true));
+    out.add(
+      AmountOption(amount: amount, enabled: enabled is bool ? enabled : true),
+    );
   }
   return out.isEmpty ? null : out;
 }
@@ -172,11 +181,11 @@ AppLanguages? readAppLanguages(Object? raw, String country) {
   final available = <String>[
     if (list is List)
       for (final code in list)
-        if (code is String &&
-            ZoneDefaults.languages.contains(code))
-          code,
+        if (code is String && ZoneDefaults.languages.contains(code)) code,
   ];
-  final usable = available.isEmpty ? ZoneDefaults.languages : available.toSet().toList();
+  final usable = available.isEmpty
+      ? ZoneDefaults.languages
+      : available.toSet().toList();
   final defaults = raw['default'];
   String? pick(String app) {
     final value = defaults is Map ? defaults[app] : null;

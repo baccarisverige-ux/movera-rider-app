@@ -52,103 +52,108 @@ void main() {
       ProfileController(store: ProfileRepository(storageKey: 'l10n_profile'));
 
   // Screen, and one string it must show in each language.
-  final screens = <String, (Widget Function(), String Function(AppLocalizations))>{
-    'Home': (() => const Home(), (l) => l.whereTo),
-    'Home expanded': (() => const Home(), (l) => l.advancePlanAhead),
-    'RoutePickerPage': (
-      () => RoutePickerPage(
-        pickupAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        stops: const ['Hötorget 1'],
-        stopsSupported: true,
-        initialField: 'destination',
-        capture: EarlyInputCapture(),
-        here: const GeoPoint(59.33, 18.06),
-        homeAddress: 'Kungsgatan 12, Stockholm',
-        workAddress: null,
-        recent: const ['Drottninggatan 50, Stockholm'],
-        onSetFavourite: (_) async => null,
-        onPickOnMap: ({required pickup, required address}) async => null,
-        onFinish: (_) async => null,
-      ),
-      (l) => l.planYourRide,
-    ),
-    'SelectRide': (
-      () => const SelectRide(
-        pickupAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        pickupPosition: pickup,
-        destinationPosition: destination,
-      ),
-      // The Choose button is always there; the title gives way to the
-      // promotion line when the rider has one (owner round 2).
-      (l) => l.ctaSelect('').trim(),
-    ),
-    'Set pickup': (
-      () => SetPickupPage(
-        initialPosition: pickup,
-        initialAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        destinationPosition: destination,
-        ride: const SetPickupRide(
-          name: 'Movera',
-          image: 'missing.png',
-          seats: 4,
-          etaMin: 5,
-          tripMinutes: 12,
+  final screens =
+      <String, (Widget Function(), String Function(AppLocalizations))>{
+        'Home': (() => const Home(), (l) => l.whereTo),
+        'Home expanded': (() => const Home(), (l) => l.advancePlanAhead),
+        'RoutePickerPage': (
+          () => RoutePickerPage(
+            pickupAddress: pickupAddress,
+            destinationAddress: destinationAddress,
+            stops: const ['Hötorget 1'],
+            stopsSupported: true,
+            initialField: 'destination',
+            capture: EarlyInputCapture(),
+            here: const GeoPoint(59.33, 18.06),
+            homeAddress: 'Kungsgatan 12, Stockholm',
+            workAddress: null,
+            recent: const ['Drottninggatan 50, Stockholm'],
+            onSetFavourite: (_) async => null,
+            onPickOnMap: ({required pickup, required address}) async => null,
+            onFinish: (_) async => null,
+          ),
+          (l) => l.planYourRide,
         ),
-        fare: const SetPickupFare(totalKr: 259),
-        payment: const SetPickupPayment(brand: 'cash', name: 'Cash', detail: ''),
-        brandMark: (_) => const SizedBox(),
-      ),
-      (l) => l.confirmAndSearch,
-    ),
-    'FindingDrivers': (
-      () => const FindingDrivers(
-        pickupAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        pickupPosition: pickup,
-        destinationPosition: destination,
-        rideType: 'Movera',
-        price: 259,
-        paymentMethod: 'Apple Pay',
-      ),
-      (l) => l.findingDriver,
-    ),
-    'WaitingForDriver': (
-      () => const WaitingForDriver(
-        pickupAddress: pickupAddress,
-        destinationAddress: destinationAddress,
-        pickupPosition: pickup,
-        destinationPosition: destination,
-        rideType: 'Movera',
-        price: 259,
-        paymentMethod: 'Apple Pay',
-      ),
-      // No ride id in this harness: the honest "can't track" state.
-      (l) => l.cantTrackRide,
-    ),
-    'Ride complete': (() => const RideCompleted(), (l) => l.done),
-    'Receipt': (
-      () => const Scaffold(
-        body: SingleChildScrollView(child: RideCompletedTripDetail()),
-      ),
-      (l) => l.tripDetails,
-    ),
-    'Wallet & Payments': (
-      () => const WalletAndPaymentsScreen(),
-      (l) => l.walletAndPayments,
-    ),
-    'Menu': (() => const RiderMenuPage(), (l) => l.menuRideHistory),
-    'Account': (
-      () => AccountHomePage(controller: profile()),
-      (l) => l.language,
-    ),
-    'Personal info': (
-      () => PersonalInfoPage(controller: profile()),
-      (l) => l.accountPersonalInfo,
-    ),
-  };
+        'SelectRide': (
+          () => const SelectRide(
+            pickupAddress: pickupAddress,
+            destinationAddress: destinationAddress,
+            pickupPosition: pickup,
+            destinationPosition: destination,
+          ),
+          // The Choose button is always there; the title gives way to the
+          // promotion line when the rider has one (owner round 2).
+          (l) => l.ctaSelect('').trim(),
+        ),
+        'Set pickup': (
+          () => SetPickupPage(
+            initialPosition: pickup,
+            initialAddress: pickupAddress,
+            destinationAddress: destinationAddress,
+            destinationPosition: destination,
+            ride: const SetPickupRide(
+              name: 'Movera',
+              image: 'missing.png',
+              seats: 4,
+              etaMin: 5,
+              tripMinutes: 12,
+            ),
+            fare: const SetPickupFare(totalKr: 259),
+            payment: const SetPickupPayment(
+              brand: 'cash',
+              name: 'Cash',
+              detail: '',
+            ),
+            brandMark: (_) => const SizedBox(),
+          ),
+          (l) => l.confirmAndSearch,
+        ),
+        'FindingDrivers': (
+          () => const FindingDrivers(
+            pickupAddress: pickupAddress,
+            destinationAddress: destinationAddress,
+            pickupPosition: pickup,
+            destinationPosition: destination,
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+          (l) => l.findingDriver,
+        ),
+        'WaitingForDriver': (
+          () => const WaitingForDriver(
+            pickupAddress: pickupAddress,
+            destinationAddress: destinationAddress,
+            pickupPosition: pickup,
+            destinationPosition: destination,
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+          // No ride id in this harness: the honest "can't track" state.
+          (l) => l.cantTrackRide,
+        ),
+        'Ride complete': (() => const RideCompleted(), (l) => l.done),
+        'Receipt': (
+          () => const Scaffold(
+            body: SingleChildScrollView(child: RideCompletedTripDetail()),
+          ),
+          (l) => l.tripDetails,
+        ),
+        'Wallet & Payments': (
+          () => const WalletAndPaymentsScreen(),
+          (l) => l.walletAndPayments,
+        ),
+        'Menu': (() => const RiderMenuPage(), (l) => l.menuRideHistory),
+        'Account': (
+          () => AccountHomePage(controller: profile()),
+          (l) => l.language,
+        ),
+        'Personal info': (
+          () => PersonalInfoPage(controller: profile()),
+          (l) => l.accountPersonalInfo,
+        ),
+      };
 
   for (final code in ['fr', 'sv']) {
     for (final entry in screens.entries) {

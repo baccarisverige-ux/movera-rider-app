@@ -43,10 +43,8 @@ void main() {
         designSize: const Size(390, 844),
         minTextAdapt: true,
         splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          navigatorKey: moveraNavigatorKey,
-          home: const Home(),
-        ),
+        builder: (_, __) =>
+            MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 800));
@@ -92,45 +90,45 @@ void main() {
       ),
     );
 
-    testWidgets('parked shows only the placeholder; unparking restores the map', (
-      tester,
-    ) async {
-      parked.value = true;
-      await tester.pumpWidget(layer());
-      expect(mapKey, findsNothing);
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is ColoredBox && w.color == const Color(0xFFEEF1E8),
-        ),
-        findsOneWidget,
-      );
-
-      parked.value = false;
-      await tester.pump();
-      expect(mapKey, findsOneWidget);
-    });
-
     testWidgets(
-      'reuses the same map widget until overlays or padding change',
+      'parked shows only the placeholder; unparking restores the map',
       (tester) async {
+        parked.value = true;
         await tester.pumpWidget(layer());
-        final first = tester.widget(mapKey);
-
-        // A parent rebuild with identical inputs must not rebuild the map.
-        await tester.pumpWidget(layer());
-        expect(identical(tester.widget(mapKey), first), isTrue);
-
-        // New overlay sets (clearOverlays assigns fresh ones) must.
-        location.clearOverlays();
-        await tester.pump();
-        final second = tester.widget(mapKey);
-        expect(identical(second, first), isFalse);
-
-        await tester.pumpWidget(
-          layer(padding: const EdgeInsets.only(bottom: 10)),
+        expect(mapKey, findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ColoredBox && w.color == const Color(0xFFEEF1E8),
+          ),
+          findsOneWidget,
         );
-        expect(identical(tester.widget(mapKey), second), isFalse);
+
+        parked.value = false;
+        await tester.pump();
+        expect(mapKey, findsOneWidget);
       },
     );
+
+    testWidgets('reuses the same map widget until overlays or padding change', (
+      tester,
+    ) async {
+      await tester.pumpWidget(layer());
+      final first = tester.widget(mapKey);
+
+      // A parent rebuild with identical inputs must not rebuild the map.
+      await tester.pumpWidget(layer());
+      expect(identical(tester.widget(mapKey), first), isTrue);
+
+      // New overlay sets (clearOverlays assigns fresh ones) must.
+      location.clearOverlays();
+      await tester.pump();
+      final second = tester.widget(mapKey);
+      expect(identical(second, first), isFalse);
+
+      await tester.pumpWidget(
+        layer(padding: const EdgeInsets.only(bottom: 10)),
+      );
+      expect(identical(tester.widget(mapKey), second), isFalse);
+    });
   });
 }

@@ -36,9 +36,11 @@ class _HorizontalSwipeState extends State<HorizontalSwipe> {
       onHorizontalDragEnd: (d) {
         final velocity = d.primaryVelocity ?? 0;
         final distance = _last - _start;
-        final left = velocity < -HorizontalSwipe._minVelocity ||
+        final left =
+            velocity < -HorizontalSwipe._minVelocity ||
             distance < -HorizontalSwipe._minDistance;
-        final right = velocity > HorizontalSwipe._minVelocity ||
+        final right =
+            velocity > HorizontalSwipe._minVelocity ||
             distance > HorizontalSwipe._minDistance;
         if (left && !right) widget.onSwipeLeft?.call();
         if (right && !left) widget.onSwipeRight?.call();

@@ -76,8 +76,7 @@ class ActiveRideController {
   /// [rideId]'s current driver, as saved with the ride's snapshot.
   static Future<bool> arrivalAnnounced(String rideId) async {
     final saved = await RideSnapshotStore.read();
-    return saved?.rideId?.trim() == rideId.trim() &&
-        saved!.arrivalAnnounced;
+    return saved?.rideId?.trim() == rideId.trim() && saved!.arrivalAnnounced;
   }
 
   /// rider-u49: saves [announced] for [rideId] (a new driver clears it).
@@ -93,8 +92,7 @@ class ActiveRideController {
 
   /// RC-02/RC-03: ride ids whose queued cancel or end-early the server
   /// refused once it was sent, while the ride goes on.
-  static Stream<String> get queuedCancelRefusals => PendingCancelStore
-      .outcomes
+  static Stream<String> get queuedCancelRefusals => PendingCancelStore.outcomes
       .where((outcome) => outcome.result == PendingCancelResult.refused)
       .map((outcome) => outcome.rideId);
 
@@ -204,7 +202,8 @@ class ActiveRideController {
     final id = _clean(AppScope.instance.ride.rideId);
     final delivered = id == null ? null : PendingCancelStore.takeDelivered(id);
     final snapshot = await _store.historyCandidate();
-    final onboard = id != null &&
+    final onboard =
+        id != null &&
         snapshot != null &&
         _clean(snapshot.rideId) == id &&
         tripRiderOnboardStatuses.contains(snapshot.status.tripStatus);
@@ -305,8 +304,9 @@ class ActiveRideController {
     final onboard = tripRiderOnboardStatuses.contains(
       AppScope.instance.ride.status.tripStatus,
     );
-    final command =
-        onboard ? PendingCancelCommand.endEarly : PendingCancelCommand.cancel;
+    final command = onboard
+        ? PendingCancelCommand.endEarly
+        : PendingCancelCommand.cancel;
     final session = AppScope.instance.ride;
     // R-O2: the trip version this screen last saw. The outbox keeps it, so
     // a retry sends the same request (same key, same body).
@@ -551,7 +551,11 @@ class ActiveRideController {
   /// History show that, not the price booked at the quote.
   Future<void> markCompleted(RideStatus status, {Money? charged}) async {
     if (!status.isCompletedSurface) {
-      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Expected a completed status.',
+      );
     }
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
@@ -590,14 +594,15 @@ class ActiveRideController {
     required String rideId,
   }) async {
     if (!status.isCompletedSurface) {
-      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Expected a completed status.',
+      );
     }
     final snapshot = await _store.historyCandidate();
     if (snapshot == null || snapshot.rideId?.trim() != rideId.trim()) return;
-    final updated = snapshot.copyWith(
-      status: status,
-      savedAt: DateTime.now(),
-    );
+    final updated = snapshot.copyWith(status: status, savedAt: DateTime.now());
     LastCompletedRide.remember(updated);
     await _store.save(updated);
   }

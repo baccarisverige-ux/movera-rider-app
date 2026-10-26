@@ -44,67 +44,67 @@ class PickupLocationBottomSheet extends StatelessWidget {
               bottom: ResSize.h * 31,
             ),
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResSize.w * 7,
-                  vertical: ResSize.h * 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColor.liteBlue,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: ResSize.w * 40,
-                      height: ResSize.h * 40,
-                      decoration: BoxDecoration(
-                        color: AppColor.primary,
-                        borderRadius: BorderRadius.circular(8),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResSize.w * 7,
+                    vertical: ResSize.h * 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColor.liteBlue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: ResSize.w * 40,
+                        height: ResSize.h * 40,
+                        decoration: BoxDecoration(
+                          color: AppColor.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.location_on,
+                          color: Colors.white,
+                          size: 20 * ResSize.h,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.location_on,
-                        color: Colors.white,
-                        size: 20 * ResSize.h,
+                      12.width,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextWidget(
+                              text: context.l10n.spPickupLocation,
+                              color: AppColor.subtitle,
+                              fontSize: 10,
+                              fontWeight: fwMedium,
+                            ),
+                            TextWidget(
+                              text: context.l10n.spLocationUnavailable,
+                              color: AppColor.darkTitle,
+                              fontSize: 16,
+                              fontWeight: fwNormal,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    12.width,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextWidget(
-                            text: context.l10n.spPickupLocation,
-                            color: AppColor.subtitle,
-                            fontSize: 10,
-                            fontWeight: fwMedium,
-                          ),
-                          TextWidget(
-                            text: context.l10n.spLocationUnavailable,
-                            color: AppColor.darkTitle,
-                            fontSize: 16,
-                            fontWeight: fwNormal,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              16.height,
-              MoveraEmptyState(
-                icon: Icons.location_searching_outlined,
-                title: context.l10n.spNoLocationSuggestions,
-                message: context.l10n.spSuggestionsNotConnected,
-                actionLabel: context.l10n.close,
-                onAction: () => Navigator.maybePop(context),
-                compact: true,
-              ),
-            ],
-          ),
+                16.height,
+                MoveraEmptyState(
+                  icon: Icons.location_searching_outlined,
+                  title: context.l10n.spNoLocationSuggestions,
+                  message: context.l10n.spSuggestionsNotConnected,
+                  actionLabel: context.l10n.close,
+                  onAction: () => Navigator.maybePop(context),
+                  compact: true,
+                ),
+              ],
+            ),
           ),
         ),
       ),

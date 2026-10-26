@@ -31,6 +31,7 @@ class RideCompletedAddTip extends StatefulWidget {
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final RideCompleteController _ctl =
       widget.controller ?? AppScope.instance.rideComplete;
+
   /// Q5: the trip zone's tips, in its currency. The seed shows on the
   /// first frame; the zone's config replaces it once read.
   late List<Money> _amounts = _ctl.initialTips(rideId: widget.rideId);

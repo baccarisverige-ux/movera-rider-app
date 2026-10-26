@@ -61,14 +61,14 @@ class TripTransition {
 }
 
 /// The single trip state machine, a pure mirror of
-/// `contract.json#transitions` (v0.5.0). A contract test checks this table
+/// `contract.json#transitions` (v0.5.5). A contract test checks this table
 /// row by row against the shipped `contracts/contract.json` and replays
 /// `fixtures/scenarios.json` through [TripStateMachine.apply].
 ///
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.5.0';
+  static const contractVersion = '0.5.5';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -81,52 +81,122 @@ abstract final class TripStateMachine {
   static const _ad = TripStatus.approachingDropoff;
 
   static const List<TripTransition> transitions = [
-    TripTransition('quote', TripActor.system, {TripStatus.draft},
-        TripStatus.quoted),
+    TripTransition('quote', TripActor.system, {
+      TripStatus.draft,
+    }, TripStatus.quoted),
     TripTransition('request', TripActor.rider, {TripStatus.quoted}, _rq),
     TripTransition('start_search', TripActor.system, {_rq}, _s),
+    // v0.5.5 (§3.6): the rider raises their offer while searching.
+    TripTransition('raise_price', TripActor.rider, {_o, _s}, _s),
     TripTransition('send_offer', TripActor.system, {_s}, _o),
     TripTransition('offer_lapsed', TripActor.system, {_o}, _s),
-    TripTransition('accept', TripActor.driver, {_o, _rq}, _a),
+    // v0.5.1: a live trip is accepted only from offered; from requested
+    // only a scheduled trip the driver claims early.
+    TripTransition('accept', TripActor.driver, {_o}, _a),
+    TripTransition(
+      'accept',
+      TripActor.driver,
+      {_rq},
+      _a,
+      when: TripKind.scheduled,
+    ),
     TripTransition('assign', TripActor.admin, {_rq, _s, _o}, _o),
     TripTransition('head_to_pickup', TripActor.driver, {_a}, _dp),
     TripTransition('arrive', TripActor.driver, {_dp}, _ar),
     TripTransition('board', TripActor.driver, {_ar}, _ob),
     TripTransition('start_trip', TripActor.driver, {_ob}, _it),
     TripTransition('near_dropoff', TripActor.system, {_it}, _ad),
-    TripTransition('complete', TripActor.driver, {_it, _ad},
-        TripStatus.completed),
-    TripTransition('complete', TripActor.admin, {_ob, _it, _ad},
-        TripStatus.completed),
-    TripTransition('cancel', TripActor.rider, {_rq, _s, _o, _a, _dp, _ar},
-        TripStatus.cancelledByRider),
-    TripTransition('end_early', TripActor.rider, {_ob, _it, _ad},
-        TripStatus.cancelledByRider),
-    TripTransition('cancel', TripActor.driver, {_a, _dp, _ar}, _s,
-        when: TripKind.live),
-    TripTransition('cancel', TripActor.driver, {_a}, _rq,
-        when: TripKind.scheduled),
-    TripTransition('cancel', TripActor.driver, {_dp, _ar}, _s,
-        when: TripKind.scheduled),
-    TripTransition('cancel', TripActor.driver, {_ob, _it, _ad},
-        TripStatus.cancelledByDriver),
-    TripTransition('no_show', TripActor.driver, {_ar}, TripStatus.noShow),
-    TripTransition('no_show', TripActor.admin, {_ar, _a, _dp},
-        TripStatus.noShow),
-    TripTransition('reassign', TripActor.admin, {_o, _a, _dp, _ar}, _s),
+    TripTransition('complete', TripActor.driver, {
+      _it,
+      _ad,
+    }, TripStatus.completed),
+    TripTransition('complete', TripActor.admin, {
+      _ob,
+      _it,
+      _ad,
+    }, TripStatus.completed),
+    TripTransition('cancel', TripActor.rider, {
+      _rq,
+      _s,
+      _o,
+      _a,
+      _dp,
+      _ar,
+    }, TripStatus.cancelledByRider),
+    TripTransition('end_early', TripActor.rider, {
+      _ob,
+      _it,
+      _ad,
+    }, TripStatus.cancelledByRider),
     TripTransition(
       'cancel',
-      TripActor.admin,
-      {TripStatus.draft, TripStatus.quoted, _rq, _s, _o, _a, _dp, _ar, _ob,
-        _it, _ad},
-      TripStatus.cancelledByAdmin,
+      TripActor.driver,
+      {_a, _dp, _ar},
+      _s,
+      when: TripKind.live,
     ),
-    TripTransition('expire', TripActor.system,
-        {TripStatus.quoted, _rq, _s, _o}, TripStatus.expired),
-    TripTransition('system_cancel', TripActor.system, {_rq, _s, _o, _a},
-        TripStatus.cancelledBySystem),
-    TripTransition('fail', TripActor.system,
-        {_rq, _s, _o, _a, _dp, _ar, _ob, _it, _ad}, TripStatus.failed),
+    TripTransition(
+      'cancel',
+      TripActor.driver,
+      {_a},
+      _rq,
+      when: TripKind.scheduled,
+    ),
+    TripTransition(
+      'cancel',
+      TripActor.driver,
+      {_dp, _ar},
+      _s,
+      when: TripKind.scheduled,
+    ),
+    TripTransition('cancel', TripActor.driver, {
+      _ob,
+      _it,
+      _ad,
+    }, TripStatus.cancelledByDriver),
+    TripTransition('no_show', TripActor.driver, {_ar}, TripStatus.noShow),
+    TripTransition('no_show', TripActor.admin, {
+      _ar,
+      _a,
+      _dp,
+    }, TripStatus.noShow),
+    TripTransition('reassign', TripActor.admin, {_o, _a, _dp, _ar}, _s),
+    TripTransition('cancel', TripActor.admin, {
+      TripStatus.draft,
+      TripStatus.quoted,
+      _rq,
+      _s,
+      _o,
+      _a,
+      _dp,
+      _ar,
+      _ob,
+      _it,
+      _ad,
+    }, TripStatus.cancelledByAdmin),
+    TripTransition('expire', TripActor.system, {
+      TripStatus.quoted,
+      _rq,
+      _s,
+      _o,
+    }, TripStatus.expired),
+    TripTransition('system_cancel', TripActor.system, {
+      _rq,
+      _s,
+      _o,
+      _a,
+    }, TripStatus.cancelledBySystem),
+    TripTransition('fail', TripActor.system, {
+      _rq,
+      _s,
+      _o,
+      _a,
+      _dp,
+      _ar,
+      _ob,
+      _it,
+      _ad,
+    }, TripStatus.failed),
   ];
 
   /// Every command name the table knows.

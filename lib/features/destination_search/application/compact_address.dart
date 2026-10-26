@@ -1,4 +1,5 @@
 import 'package:movera_rider/l10n/l10n.dart';
+
 /// Shortens a geocoder address to "street, city" for display: drops the
 /// country, "… kommun"/"… län" style regions, postal codes and repeated
 /// parts, then keeps the first part (street or place) and the last town.

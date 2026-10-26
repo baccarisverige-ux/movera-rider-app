@@ -28,7 +28,6 @@ import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 
-
 PushCoordinator? _pushCoordinator;
 
 Future<void> _registerExistingPushSession() async {

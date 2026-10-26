@@ -83,30 +83,45 @@ void main() {
         ApiQuoteRepository(api: ApiClient(client: InProcessMockClient()));
 
     test('a 3 km trip is the catalog price', () async {
-      final quote = await repo().quote(rideType: 'economy', distanceMeters: 3000);
+      final quote = await repo().quote(
+        rideType: 'economy',
+        distanceMeters: 3000,
+      );
       expect(quote.totalMinor, 25900);
       expect(quote.baseMinor, 25900);
       expect(quote.distanceMinor, 0);
     });
 
     test('longer trips cost 12 kr per extra kilometre', () async {
-      final quote = await repo().quote(rideType: 'economy', distanceMeters: 13000);
+      final quote = await repo().quote(
+        rideType: 'economy',
+        distanceMeters: 13000,
+      );
       expect(quote.totalMinor, 37900);
       expect(quote.baseMinor, 25900);
       expect(quote.distanceMinor, 12000);
-      final nextKm = await repo().quote(rideType: 'economy', distanceMeters: 4000);
+      final nextKm = await repo().quote(
+        rideType: 'economy',
+        distanceMeters: 4000,
+      );
       expect(nextKm.totalMinor, 27100);
     });
 
-    test('shorter trips cost less, never below 60% of the catalog price', () async {
-      final short = await repo().quote(rideType: 'economy', distanceMeters: 1000);
-      expect(short.totalMinor, 23500);
-      final tiny = await repo().quote(rideType: 'economy', distanceMeters: 1);
-      expect(tiny.totalMinor, 22300);
-      final xl = await repo().quote(rideType: 'xl', distanceMeters: 1);
-      // 399 - 36 = 363 is above the 60% floor (239), so the slope applies.
-      expect(xl.totalMinor, 36300);
-    });
+    test(
+      'shorter trips cost less, never below 60% of the catalog price',
+      () async {
+        final short = await repo().quote(
+          rideType: 'economy',
+          distanceMeters: 1000,
+        );
+        expect(short.totalMinor, 23500);
+        final tiny = await repo().quote(rideType: 'economy', distanceMeters: 1);
+        expect(tiny.totalMinor, 22300);
+        final xl = await repo().quote(rideType: 'xl', distanceMeters: 1);
+        // 399 - 36 = 363 is above the 60% floor (239), so the slope applies.
+        expect(xl.totalMinor, 36300);
+      },
+    );
 
     test('moving the pin a few hundred metres changes the price', () async {
       const destination = LatLng(59.6519, 17.9186);

@@ -79,47 +79,47 @@ void main() {
     expect(outcome()?.changeDestination, isFalse);
   });
 
-  testWidgets('no offer where the ride cannot change any more', (
-    tester,
-  ) async {
+  testWidgets('no offer where the ride cannot change any more', (tester) async {
     await open(tester, offer: false);
     await tester.tap(find.text('Destination needs to be changed'));
     await tester.pump();
     expect(offer, findsNothing);
   });
 
-  testWidgets('Waiting\'s cancel flow hands the choice back, nothing cancelled',
-      (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    CancelOutcome? outcome;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () async {
-              outcome = await showCancelRideSheet(
-                context,
-                takingLonger: false,
-                phase: CancelPhase.matched,
-                offerDestinationChange: true,
-              );
-            },
-            child: const Text('open'),
+  testWidgets(
+    'Waiting\'s cancel flow hands the choice back, nothing cancelled',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      CancelOutcome? outcome;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                outcome = await showCancelRideSheet(
+                  context,
+                  takingLonger: false,
+                  phase: CancelPhase.matched,
+                  offerDestinationChange: true,
+                );
+              },
+              child: const Text('open'),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel request'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Destination needs to be changed'));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('cancel-change-destination')));
-    await tester.pumpAndSettle();
-    expect(outcome?.changeDestination, isTrue);
-    expect(outcome?.cancelled, isFalse);
-  });
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel request'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Destination needs to be changed'));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('cancel-change-destination')));
+      await tester.pumpAndSettle();
+      expect(outcome?.changeDestination, isTrue);
+      expect(outcome?.cancelled, isFalse);
+    },
+  );
 }

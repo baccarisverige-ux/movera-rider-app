@@ -195,13 +195,14 @@ void main() {
       'a trip that arrives late still opens', () async {
     final lookup = Completer<RideSnapshot?>();
     final replaced = <Widget>[];
-    final restore = RideRestoreCoordinator(
-      resync: (_) async {},
-      authRequired: () => false,
-      serverActiveTrip: () => lookup.future,
-    )
-      ..debugAtRoot = (() => true)
-      ..onReplaceRoot = replaced.add;
+    final restore =
+        RideRestoreCoordinator(
+            resync: (_) async {},
+            authRequired: () => false,
+            serverActiveTrip: () => lookup.future,
+          )
+          ..debugAtRoot = (() => true)
+          ..onReplaceRoot = replaced.add;
     final page = await restore.root().timeout(const Duration(seconds: 10));
     expect(page, isA<Home>());
     expect(restore.showing, RestoredSurface.home);
@@ -221,13 +222,14 @@ void main() {
       ..localTransition(RideStatus.closed);
     expect(AppScope.instance.ride.suppressRestore, isTrue);
     final replaced = <Widget>[];
-    final restore = RideRestoreCoordinator(
-      resync: (_) async {},
-      authRequired: () => false,
-      serverActiveTrip: () => serverTrip('ride_b'),
-    )
-      ..debugAtRoot = (() => true)
-      ..onReplaceRoot = replaced.add;
+    final restore =
+        RideRestoreCoordinator(
+            resync: (_) async {},
+            authRequired: () => false,
+            serverActiveTrip: () => serverTrip('ride_b'),
+          )
+          ..debugAtRoot = (() => true)
+          ..onReplaceRoot = replaced.add;
     expect(
       (await restore.adoptServerActiveTrip(expectedRideId: 'ride_b'))?.rideId,
       'ride_b',

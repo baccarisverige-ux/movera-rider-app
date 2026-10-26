@@ -144,14 +144,8 @@ extension RoadRoutingService on RoutingService {
         '/api/v1/routes',
         body: <String, dynamic>{
           'mode': 'driving',
-          'from': <String, double>{
-            'lat': from.latitude,
-            'lng': from.longitude,
-          },
-          'to': <String, double>{
-            'lat': to.latitude,
-            'lng': to.longitude,
-          },
+          'from': <String, double>{'lat': from.latitude, 'lng': from.longitude},
+          'to': <String, double>{'lat': to.latitude, 'lng': to.longitude},
         },
       );
       final raw = json['points'];

@@ -1,0 +1,12 @@
+# gitleaks findings checked by hand (audit Phase 2, 2026-10-26) and accepted:
+# none is a credential. Fingerprint = file:rule:line (gitleaks `dir` mode).
+# test fixture: a made-up 16-hex fingerprint key
+test/auth/audit_fix_fresh_install_reset_test.dart:generic-api-key:51
+# test fixture: a SharedPreferences storage key name
+test/frontend/empty_loading_error_states_test.dart:generic-api-key:67
+# test fixtures: made-up idempotency keys (digit runs 0123456789)
+test/contracts/live_booking_wire_test.dart:generic-api-key:403
+test/contracts/live_booking_wire_test.dart:generic-api-key:434
+test/ride_complete/whole_star_rating_test.dart:generic-api-key:68
+# recorded test output: payment-intent ids from the in-process mock wallet (pi_…), not keys
+docs/audit-2026-10-21/raw/rider_audit_results.json:generic-api-key:11543

@@ -45,7 +45,10 @@ void main() {
   test('quote id equals quoteId', () async {
     final client = InProcessMockClient();
     final api = ApiClient(client: client);
-    final json = await api.post('/api/v1/quotes', body: {'rideType': 'economy'});
+    final json = await api.post(
+      '/api/v1/quotes',
+      body: {'rideType': 'economy'},
+    );
     expect(json['quote']['id'], json['quote']['quoteId']);
     expect(json['quote']['totalMinor'], 25900);
     expect(json['quote']['currency'], 'SEK');
@@ -97,23 +100,26 @@ void main() {
     expect(selection.offeredPrices['economy'], 259);
   });
 
-  test('ride category change while quotes pending preserves selection', () async {
-    final quotes = _SlowThenFast(CatalogQuoteRepository());
-    final selection = RideSelectionController(
-      store: RideSelectionRepository(),
-      quotes: quotes,
-    );
-    final first = selection.beginQuotes();
-    final load = selection.loadQuotes(
-      generation: first,
-      pickup: 'A',
-      destination: 'B',
-    );
-    selection.selectRide('xl', 399);
-    await load;
-    expect(selection.selectedRideId, 'xl');
-    expect(selection.quoteIds['economy'], startsWith('q_'));
-  });
+  test(
+    'ride category change while quotes pending preserves selection',
+    () async {
+      final quotes = _SlowThenFast(CatalogQuoteRepository());
+      final selection = RideSelectionController(
+        store: RideSelectionRepository(),
+        quotes: quotes,
+      );
+      final first = selection.beginQuotes();
+      final load = selection.loadQuotes(
+        generation: first,
+        pickup: 'A',
+        destination: 'B',
+      );
+      selection.selectRide('xl', 399);
+      await load;
+      expect(selection.selectedRideId, 'xl');
+      expect(selection.quoteIds['economy'], startsWith('q_'));
+    },
+  );
 
   test('select ride and payment live on the controller', () {
     final selection = RideSelectionController(

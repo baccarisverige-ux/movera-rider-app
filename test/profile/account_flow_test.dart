@@ -31,9 +31,7 @@ void main() {
   });
 
   ProfileController controller({String storageKey = 'test_profile'}) {
-    return ProfileController(
-      store: ProfileRepository(storageKey: storageKey),
-    );
+    return ProfileController(store: ProfileRepository(storageKey: storageKey));
   }
 
   AccountSecurityController securityController() {
@@ -65,10 +63,7 @@ void main() {
       ];
     return AccountSecurityController(
       repository: AccountSecurityRepository(
-        api: ApiClient(
-          env: env,
-          client: client,
-        ),
+        api: ApiClient(env: env, client: client),
       ),
     );
   }
@@ -92,57 +87,61 @@ void main() {
     expect(profile.passwordUpdatedAt.millisecondsSinceEpoch, 0);
   });
 
-  test('legacy demo identity is removed without inventing a replacement', () async {
-    const key = 'legacy_profile';
-    SharedPreferences.setMockInitialValues({
-      key: jsonEncode({
-        'name': 'Ben Gleason',
-        'email': 'ben.gleason@movera.se',
-        'phone': '+46 70 123 45 67',
-        'gender': 'Man',
-        'language': 'English',
-        'photoAsset': 'assets/images/profile_img.webp',
-        'passwordUpdatedAt': '2025-11-04T00:00:00.000',
-        'appleConnected': true,
-        'logins': [
-          {
-            'device': 'This browser',
-            'place': 'Stockholm, Sweden',
-            'source': 'Movera Web',
-            'current': true,
-          },
-          {
-            'device': 'iPhone',
-            'place': 'Stockholm, Sweden',
-            'source': 'Movera iOS',
-            'current': false,
-          },
-        ],
-      }),
-    });
+  test(
+    'legacy demo identity is removed without inventing a replacement',
+    () async {
+      const key = 'legacy_profile';
+      SharedPreferences.setMockInitialValues({
+        key: jsonEncode({
+          'name': 'Ben Gleason',
+          'email': 'ben.gleason@movera.se',
+          'phone': '+46 70 123 45 67',
+          'gender': 'Man',
+          'language': 'English',
+          'photoAsset': 'assets/images/profile_img.webp',
+          'passwordUpdatedAt': '2025-11-04T00:00:00.000',
+          'appleConnected': true,
+          'logins': [
+            {
+              'device': 'This browser',
+              'place': 'Stockholm, Sweden',
+              'source': 'Movera Web',
+              'current': true,
+            },
+            {
+              'device': 'iPhone',
+              'place': 'Stockholm, Sweden',
+              'source': 'Movera iOS',
+              'current': false,
+            },
+          ],
+        }),
+      });
 
-    final c = controller(storageKey: key);
-    await c.hydrate();
+      final c = controller(storageKey: key);
+      await c.hydrate();
 
-    expect(c.profile.name, isEmpty);
-    expect(c.profile.email, isEmpty);
-    expect(c.profile.phone, isEmpty);
-    expect(c.profile.gender, '');
-    expect(c.profile.photoAsset, isEmpty);
-    expect(c.profile.appleConnected, isFalse);
-    expect(c.profile.logins, isEmpty);
-    expect(c.displayName(), 'Welcome to Movera');
+      expect(c.profile.name, isEmpty);
+      expect(c.profile.email, isEmpty);
+      expect(c.profile.phone, isEmpty);
+      expect(c.profile.gender, '');
+      expect(c.profile.photoAsset, isEmpty);
+      expect(c.profile.appleConnected, isFalse);
+      expect(c.profile.logins, isEmpty);
+      expect(c.displayName(), 'Welcome to Movera');
 
-    final prefs = await SharedPreferences.getInstance();
-    final persisted = jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
-    expect(persisted['name'], '');
-    expect(persisted.containsKey('email'), isFalse);
-    expect(persisted.containsKey('phone'), isFalse);
-    expect(persisted['gender'], '');
-    expect(persisted['photoAsset'], '');
-    expect(persisted.containsKey('appleConnected'), isFalse);
-    expect(persisted.containsKey('logins'), isFalse);
-  });
+      final prefs = await SharedPreferences.getInstance();
+      final persisted =
+          jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
+      expect(persisted['name'], '');
+      expect(persisted.containsKey('email'), isFalse);
+      expect(persisted.containsKey('phone'), isFalse);
+      expect(persisted['gender'], '');
+      expect(persisted['photoAsset'], '');
+      expect(persisted.containsKey('appleConnected'), isFalse);
+      expect(persisted.containsKey('logins'), isFalse);
+    },
+  );
 
   test('only presentation profile edits survive local hydration', () async {
     const key = 'real_profile';
@@ -163,15 +162,14 @@ void main() {
     expect(second.profile.phone, isEmpty);
   });
 
-  testWidgets('account hub shows authoritative account email state', (tester) async {
+  testWidgets('account hub shows authoritative account email state', (
+    tester,
+  ) async {
     final security = securityController();
     await security.load();
     await pumpPhone(
       tester,
-      AccountHomePage(
-        controller: controller(),
-        securityController: security,
-      ),
+      AccountHomePage(controller: controller(), securityController: security),
     );
     await tester.pumpAndSettle();
     expect(find.text('Account'), findsOneWidget);
@@ -191,71 +189,66 @@ void main() {
     expect(find.textContaining('Uber'), findsNothing);
   });
 
-  testWidgets('personal info uses server contact truth and edits only presentation data', (tester) async {
-    final c = controller();
-    final security = securityController();
-    await pumpPhone(
-      tester,
-      PersonalInfoPage(
-        controller: c,
-        securityController: security,
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Phone'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('+46701234567 · Not verified'), findsOneWidget);
-    expect(find.text('rider@example.test · Verified'), findsOneWidget);
-    await tester.tap(find.text('Name'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Houssem Baccari');
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(c.profile.name, 'Houssem Baccari');
-  });
+  testWidgets(
+    'personal info uses server contact truth and edits only presentation data',
+    (tester) async {
+      final c = controller();
+      final security = securityController();
+      await pumpPhone(
+        tester,
+        PersonalInfoPage(controller: c, securityController: security),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Name'), findsOneWidget);
+      expect(find.text('Phone'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('+46701234567 · Not verified'), findsOneWidget);
+      expect(find.text('rider@example.test · Verified'), findsOneWidget);
+      await tester.tap(find.text('Name'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Houssem Baccari');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(c.profile.name, 'Houssem Baccari');
+    },
+  );
 
-  testWidgets('security is server-backed and unsupported controls are read-only', (
-    tester,
-  ) async {
-    final security = securityController();
-    await pumpPhone(
-      tester,
-      SecurityPage(securityController: security),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'security is server-backed and unsupported controls are read-only',
+    (tester) async {
+      final security = securityController();
+      await pumpPhone(tester, SecurityPage(securityController: security));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Passkeys'), findsOneWidget);
-    expect(find.text('2-step verification'), findsOneWidget);
-    expect(
-      find.text('Coming soon'),
-      findsWidgets,
-    );
-    expect(find.byType(Switch), findsNothing);
+      expect(find.text('Passkeys'), findsOneWidget);
+      expect(find.text('2-step verification'), findsOneWidget);
+      expect(find.text('Coming soon'), findsWidgets);
+      expect(find.byType(Switch), findsNothing);
 
-    final otherDevice = find.text('Other device');
-    await tester.scrollUntilVisible(otherDevice, 300);
-    await tester.pumpAndSettle();
-    expect(otherDevice, findsOneWidget);
-    expect(find.textContaining('Stockholm, Sweden'), findsWidgets);
+      final otherDevice = find.text('Other device');
+      await tester.scrollUntilVisible(otherDevice, 300);
+      await tester.pumpAndSettle();
+      expect(otherDevice, findsOneWidget);
+      expect(find.textContaining('Stockholm, Sweden'), findsWidgets);
 
-    final signOut = find.text('Sign out other devices');
-    await tester.scrollUntilVisible(signOut, 300);
-    await tester.pumpAndSettle();
-    expect(signOut, findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.ancestor(of: signOut, matching: find.byType(AccountTile)),
-        matching: find.text('Coming soon'),
-      ),
-      findsOneWidget,
-    );
+      final signOut = find.text('Sign out other devices');
+      await tester.scrollUntilVisible(signOut, 300);
+      await tester.pumpAndSettle();
+      expect(signOut, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.ancestor(of: signOut, matching: find.byType(AccountTile)),
+          matching: find.text('Coming soon'),
+        ),
+        findsOneWidget,
+      );
 
-    await tester.tap(signOut);
-    await tester.pumpAndSettle();
-    expect(find.text('Sign out others'), findsNothing);
-    expect(security.state!.sessions.any((item) => !item.current), isTrue);
-  });
+      await tester.tap(signOut);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out others'), findsNothing);
+      expect(security.state!.sessions.any((item) => !item.current), isTrue);
+    },
+  );
 
   testWidgets('Account Check ignores local contact strings for verification', (
     tester,
@@ -271,10 +264,7 @@ void main() {
 
     await pumpPhone(
       tester,
-      AccountCheckupPage(
-        controller: profile,
-        securityController: security,
-      ),
+      AccountCheckupPage(controller: profile, securityController: security),
     );
     await tester.pumpAndSettle();
 

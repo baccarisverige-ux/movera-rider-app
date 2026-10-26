@@ -101,20 +101,28 @@ void main() {
     quoteTotalMinor: 12000,
   );
 
-  test('RC-04: a retry after a 503 resends the first body under the key',
-      () async {
-    final t = unavailable();
-    final booking = BookingCoordinator(
-      api: t.api,
-      activeTrips: _ActiveTrip(null),
-    );
-    await expectLater(attempt(booking, 'q1', 59.32930), throwsA(isA<ApiError>()));
-    // Same trip, re-quoted after the failure; pin nudged 3 m.
-    await expectLater(attempt(booking, 'q2', 59.32932), throwsA(isA<ApiError>()));
-    expect(t.keys.toSet(), hasLength(1));
-    expect(t.bodies.toSet(), hasLength(1));
-    expect(jsonDecode(t.bodies.last)['quoteId'], 'q1');
-  });
+  test(
+    'RC-04: a retry after a 503 resends the first body under the key',
+    () async {
+      final t = unavailable();
+      final booking = BookingCoordinator(
+        api: t.api,
+        activeTrips: _ActiveTrip(null),
+      );
+      await expectLater(
+        attempt(booking, 'q1', 59.32930),
+        throwsA(isA<ApiError>()),
+      );
+      // Same trip, re-quoted after the failure; pin nudged 3 m.
+      await expectLater(
+        attempt(booking, 'q2', 59.32932),
+        throwsA(isA<ApiError>()),
+      );
+      expect(t.keys.toSet(), hasLength(1));
+      expect(t.bodies.toSet(), hasLength(1));
+      expect(jsonDecode(t.bodies.last)['quoteId'], 'q1');
+    },
+  );
 
   test('RC-09: before failing, a maybe-created booking is retried once and '
       'the active trip is checked', () async {
@@ -132,23 +140,27 @@ void main() {
     expect(BookingController.mayHaveBooked(failure!), isTrue);
   });
 
-  test('RC-09: the live trip the server holds for this booking is adopted',
-      () async {
-    final t = unavailable();
-    final trips = _ActiveTrip(_liveTrip('srv-1'));
-    final booking = BookingCoordinator(api: t.api, activeTrips: trips);
-    expect(await attempt(booking, 'q1', 59.3293), 'srv-1');
-    expect(AppScope.instance.ride.rideId, 'srv-1');
-    expect((await RideSnapshotStore.read())?.rideId, 'srv-1');
-  });
+  test(
+    'RC-09: the live trip the server holds for this booking is adopted',
+    () async {
+      final t = unavailable();
+      final trips = _ActiveTrip(_liveTrip('srv-1'));
+      final booking = BookingCoordinator(api: t.api, activeTrips: trips);
+      expect(await attempt(booking, 'q1', 59.3293), 'srv-1');
+      expect(AppScope.instance.ride.rideId, 'srv-1');
+      expect((await RideSnapshotStore.read())?.rideId, 'srv-1');
+    },
+  );
 
   test('rider-u80: a booking that may exist is checked on the server before '
       'a new key is sent', () async {
     final t = unavailable();
-    final trips = _ActiveTrip(null)
-      ..error = http.ClientException('offline');
+    final trips = _ActiveTrip(null)..error = http.ClientException('offline');
     final booking = BookingCoordinator(api: t.api, activeTrips: trips);
-    await expectLater(attempt(booking, 'q1', 59.3293), throwsA(isA<ApiError>()));
+    await expectLater(
+      attempt(booking, 'q1', 59.3293),
+      throwsA(isA<ApiError>()),
+    );
     expect(t.keys.toSet(), hasLength(1));
 
     // A different intent (the pin crossed a cell edge), still offline: the

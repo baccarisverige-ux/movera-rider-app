@@ -86,8 +86,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   /// has seen more time pass.
   void _startResendWindow(Duration wait) {
     _ticker?.cancel();
-    final seconds =
-        wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
+    final seconds = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
     _secondsUntilResend = seconds;
     if (seconds <= 0) return;
     final now = widget.clock ?? DateTime.now;
@@ -326,7 +325,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       ),
       child: Text(
         context.l10n.resendCode,
-        style: GoogleFonts.urbanist(fontSize: 13.5, fontWeight: FontWeight.w600),
+        style: GoogleFonts.urbanist(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
