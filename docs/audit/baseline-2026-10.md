@@ -15,7 +15,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 - [x] 6. Screen inventory
 - [x] 7. Code quality findings
 - [x] 8. Known issues N3–N10
-- [ ] 9. Untested features and risks
+- [x] 9. Untested features and risks
 - [ ] 10. Summary
 
 
@@ -258,3 +258,23 @@ sanitized (an `ApiError` with a server body could carry PII) — **NOT VERIFIED*
 | N8 Ride check end to end (rider side) | **Not verified** | 41 test files mention RideCheck; #407 wired it to the live server | E2E against server: Phase 3 |
 | N9 Early finish shows booked price | **Fixed** (poll carries projection `fare`; receipt shows server fare) | test/ride/n9_early_finish_fare_test.dart | Live re-check **NOT VERIFIED** |
 | N10 "Search again" after driver cancel / no-show; no "connection lost" over a finished trip; sheet text | **Fixed in code** | `ride_terminal_state_sheet.dart`, test/active_ride/n10_search_again_test.dart; l10n `searchAgain` en/sv/fr | Live **NOT VERIFIED** |
+
+
+## 9. Untested features and risks
+
+| # | Risk / untested area | Sev | Evidence |
+|---|---|---|---|
+| R1 | Most tests run the **mock dialect**, not the contract wire the live server speaks (`ApiClient.contractWire` false in test). Only 23 test files reference `contractWire`/staging flavor. Live-only bugs (N4, N9) were found by the owner, not tests | S1 | §1, `grep -rln contractWire test` |
+| R2 | Rider's contract copy is **v0.5.0**, contract is v0.5.5 | S2 | §7 |
+| R3 | All 4 `qa-*` browser workflows red on `main` (the only tests against the published live build) | S2 | §3 |
+| R4 | iPhone Safari crash/reload (N3) after #411 map reuse: untested on device | S1 | §8 |
+| R5 | Raise price live path (N4): unverified which server rule fails; #413 says gates not run for it | S2 | §8 |
+| R6 | Client-side money: cancel fee calculator, waiting-fee counter, raise arithmetic, double-kr wallet split | S2 | §7 |
+| R7 | No rider↔server↔driver end-to-end test (ride check N8, driver cancel/no-show, search expiry at 10 min) | S2 | no such test in repo; plan Phase 3 |
+| R8 | Pinch zoom faults while searching, tiny-route minimum span (N6 rest) | S3 | §8 |
+| R9 | Google Maps keys in git history; restriction unverified | S3 | §7 |
+| R10 | CI: no lockfile enforcement, no format/coverage/security, unpinned Flutter, 11 workflows without timeout, full suite ×5 per PR | S3 | §3 |
+| R11 | Native iOS/Android builds: only `apk --debug` on a path-filtered PR and a manual signed APK; no iOS build in CI | S3 | §3 |
+| R12 | Huge screen files (3 000+ lines) concentrate booking state; hard to test per control | S4 | §7 |
+| R13 | `RideCheckDemoPage` has no test; `DriverProfilePage`, `ReferAndEarn` one each | S4 | §6 |
+| R14 | Undisposed controller in account edit sheet | S4 | §7 |
