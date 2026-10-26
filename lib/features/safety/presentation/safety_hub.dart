@@ -79,6 +79,27 @@ class _SafetyHubState extends State<SafetyHub> {
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.4),
           ),
+          if (!_ctl.serverKeepsSettings) ...[
+            const SizedBox(height: 20),
+            Container(
+              key: const ValueKey<String>('safety-not-on-server'),
+              decoration: SafetyUi.cardDecoration(radius: 16),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline_rounded, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      context.l10n.safetyNotOnServer,
+                      style: SafetyUi.text(14, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 32),
           Text(
             context.l10n.safetyPreferences,

@@ -35,6 +35,10 @@ class SafetyController extends ChangeNotifier {
     this.audio.addListener(notifyListeners);
   }
 
+  /// False when the server keeps no Safety settings (P5-R3): the Safety
+  /// screens say so instead of offering changes that cannot be saved.
+  bool get serverKeepsSettings => _session.served;
+
   @override
   void dispose() {
     audio.removeListener(notifyListeners);

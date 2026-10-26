@@ -104,6 +104,9 @@ enum RouteChangeFailure {
 
   /// Q40: after accept the pickup may move only a short way.
   pickupTooFar,
+
+  /// P5-R4: the server does not offer route changes.
+  unavailable,
 }
 
 class RouteChangeException implements Exception {
@@ -120,6 +123,7 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.network => L10n.current.routeUpdateFailed,
     RouteChangeFailure.priceChanged => L10n.current.routePriceChanged,
     RouteChangeFailure.stale => rideJustChangedMessage,
+    RouteChangeFailure.unavailable => L10n.current.routeChangeUnavailable,
     RouteChangeFailure.pickupTooFar => L10n.current.routePickupTooFar(
       '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}',
     ),
@@ -144,6 +148,14 @@ class RouteChangeController {
   /// Without one, requests carry no `expectedVersion`.
   final RideSession? _session;
 
+  /// Audit Phase 5 (P5-R4): whether this server changes a booked route.
+  /// movera-server answers `POST /trips/{id}/route-quote` and
+  /// `PATCH /trips/{id}` with 404 `operation_not_enabled`, and this
+  /// controller still speaks the demo's `/rides/{id}` dialect, so on the
+  /// contract wire a change could never be priced: the rider is told so
+  /// before editing anything, and no request is sent.
+  bool get available => !_api.contractWire;
+
   /// The ride as last saved on this device, if any.
   static Future<RideSnapshot?> storedRide() => RideSnapshotStore.read();
 
@@ -158,6 +170,9 @@ class RouteChangeController {
     List<GeoPoint?> stopPoints = const [],
     int? maxPickupMoveMeters,
   }) async {
+    if (!available) {
+      throw const RouteChangeException(RouteChangeFailure.unavailable);
+    }
     final id = ride.rideId;
     if (id == null) {
       throw const RouteChangeException(RouteChangeFailure.network);
