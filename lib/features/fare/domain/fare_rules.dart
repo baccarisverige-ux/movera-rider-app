@@ -1,7 +1,12 @@
 class FareRules {
   static double minimum(double catalog) => (catalog * 0.65).roundToDouble();
 
-  static double maximum(double catalog) => (catalog * 1.8).roundToDouble();
+  /// Owner decision (2026-10-26): the rider may offer up to 2× the price,
+  /// the server's `dispatch.raisePrice.maxFactor` (it was 1.8× here).
+  static const maxFactor = 2.0;
+
+  static double maximum(double catalog) =>
+      (catalog * maxFactor).roundToDouble();
 
   static bool allowsTotal({
     required double total,

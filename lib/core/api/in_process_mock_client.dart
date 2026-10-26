@@ -2106,10 +2106,11 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// The highest fare a rider may offer for a ride priced [fareMinor] in
-  /// [code]: 1.8×, in whole major units (kronor, euros, dinars).
+  /// [code]: 2×, as movera-server (`dispatch.raisePrice.maxFactor`; owner
+  /// decision 2026-10-26), in whole major units (kronor, euros, dinars).
   static int _maxOfferMinorFor(int fareMinor, String code) {
     final unit = Money.minorPerMajor(code);
-    return (fareMinor * 1.8 / unit).round() * unit;
+    return (fareMinor * 2 / unit).round() * unit;
   }
 
   /// Money on the wire, in [code] (the home currency unless a trip or a
