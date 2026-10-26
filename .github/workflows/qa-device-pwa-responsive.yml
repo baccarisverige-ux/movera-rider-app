@@ -17,6 +17,7 @@ permissions:
 jobs:
   device-pwa-responsive:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 

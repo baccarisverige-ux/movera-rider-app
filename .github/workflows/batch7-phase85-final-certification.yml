@@ -1,4 +1,8 @@
-name: Batch 7 Phase 85 Final Release Certification
+# Audit Phase 2: the analyzer, full unit suite, integration UAT and release
+# builds that this workflow also ran now run once in ci.yml. What stays is the
+# check nothing else does: the demo build in headless Chromium and WebKit at
+# phone, tablet and landscape sizes (needs the Maps key secret).
+name: Batch 7 Phase 85 browser responsive matrix
 
 on:
   pull_request:
@@ -15,101 +19,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: phase85-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  analyzer-and-unit:
-    name: Analyzer + full unit/widget matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 55
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-
-      - name: Strict analyzer
-        run: flutter analyze
-
-      - name: Phase 85 action/effect classification
-        run: flutter test test/release/phase85_action_effect_matrix_test.dart
-
-      - name: Phase 85 adversarial lifecycle matrix
-        run: flutter test test/release/phase85_adversarial_matrix_test.dart
-
-      - name: One continuous Home-to-Home journey
-        run: flutter test test/journeys/book_to_home_test.dart
-
-      - name: Full unit + widget suite
-        run: flutter test
-
-  integration-uat:
-    name: Integration UAT
-    runs-on: ubuntu-latest
-    timeout-minutes: 55
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - name: Install Linux desktop + display dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev xvfb
-      - run: flutter pub get
-      - run: flutter config --enable-linux-desktop
-
-      - name: Ride booking integration
-        run: xvfb-run -a flutter test -d linux integration_test/ride_flow_test.dart
-      - name: Full Rider lifecycle UAT
-        run: xvfb-run -a flutter test -d linux integration_test/rider_full_uat_test.dart
-      - name: All Rider lifecycle paths
-        run: xvfb-run -a flutter test -d linux integration_test/pre15_all_lifecycle_paths_test.dart
-      - name: Booking wallet reservations profile UAT
-        run: xvfb-run -a flutter test -d linux integration_test/global_uat_flow_test.dart
-
-  release-builds:
-    name: Staging + production web builds
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-
-      - name: Exact release composition smoke
-        run: |
-          flutter test test/architecture/phase72_actual_release_composition_test.dart
-          flutter test test/architecture/transport_composition_test.dart
-          flutter test test/architecture/release_observability_test.dart
-
-      - name: Build staging
-        run: |
-          flutter build web --release             -t lib/main_staging.dart             --dart-define=MOVERA_FLAVOR=staging             --dart-define=MOVERA_API_BASE_URL=https://api.staging.movera.example
-          test -f build/web/main.dart.js
-          mkdir -p /tmp/movera-staging
-          cp -R build/web/. /tmp/movera-staging/
-
-      - name: Build production
-        run: |
-          rm -rf build/web
-          flutter build web --release             -t lib/main_production.dart             --dart-define=MOVERA_FLAVOR=production             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
-          test -f build/web/main.dart.js
-
-      - name: Record candidate SHA
-        run: |
-          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
-          printf '%s\n' "$GITHUB_SHA" > phase85-candidate-sha.txt
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: phase85-release-build-evidence
-          path: phase85-candidate-sha.txt
-
   responsive-browser:
     name: Local Chromium + WebKit responsive matrix
     runs-on: ubuntu-latest
@@ -119,8 +33,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.7'
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
 
       - name: Build exact candidate demo web
         run: |
@@ -362,27 +277,3 @@ jobs:
             phase85-browser-evidence.json
             phase85-*.png
           if-no-files-found: warn
-
-  final-candidate:
-    name: Exact candidate release gate
-    if: always()
-    needs:
-      - analyzer-and-unit
-      - integration-uat
-      - release-builds
-      - responsive-browser
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every Phase 85 gate on this SHA
-        env:
-          UNIT: ${{ needs.analyzer-and-unit.result }}
-          UAT: ${{ needs.integration-uat.result }}
-          BUILDS: ${{ needs.release-builds.result }}
-          BROWSER: ${{ needs.responsive-browser.result }}
-        run: |
-          echo "candidate=$GITHUB_SHA"
-          echo "unit=$UNIT uat=$UAT builds=$BUILDS browser=$BROWSER"
-          test "$UNIT" = success
-          test "$UAT" = success
-          test "$BUILDS" = success
-          test "$BROWSER" = success
