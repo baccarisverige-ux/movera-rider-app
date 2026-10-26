@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -85,8 +88,11 @@ void main() {
 
   Future<MockRideRealtime> pumpInTrip(
     WidgetTester tester,
-    String rideId,
-  ) async {
+    String rideId, {
+    // The live wire (contract TripProjection) may carry no driver position.
+    bool positions = true,
+    LocationRepository? location,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -112,7 +118,7 @@ void main() {
     );
     navigator.currentState!.push(
       MaterialPageRoute<void>(
-        builder: (_) => const WaitingForDriver(
+        builder: (_) => WaitingForDriver(
           pickupAddress: 'Stockholm pickup',
           destinationAddress: 'Solna centrum, 171 45 Solna',
           pickupPosition: _pickup,
@@ -120,6 +126,7 @@ void main() {
           rideType: 'Movera',
           price: 259,
           paymentMethod: 'Apple Pay',
+          location: location,
         ),
       ),
     );
@@ -135,8 +142,8 @@ void main() {
     ]) {
       realtime.emit(
         step,
-        latitude: _pickup.latitude,
-        longitude: _pickup.longitude,
+        latitude: positions ? _pickup.latitude : null,
+        longitude: positions ? _pickup.longitude : null,
       );
       await tester.pump();
       if (step == RideStatus.driverWaiting) {
@@ -251,6 +258,72 @@ void main() {
     },
   );
 
+  testWidgets(
+    'the driver ending the trip on board far from the drop-off opens the card, '
+    'before the "trip ended" sheet',
+    (tester) async {
+      const rideId = 'rc-ended-by-driver';
+      final realtime = await pumpInTrip(tester, rideId);
+
+      // Live: the driver's "End trip early" is a cancel on board; the server
+      // reports cancelled_by_driver with the car 3.6 km from Solna centrum.
+      realtime.emit(
+        RideStatus.endedByDriver,
+        latitude: _destination.latitude + 0.0324,
+        longitude: _destination.longitude,
+      );
+      await tester.pump();
+      expect(rideCheck.session?.trigger, RideCheckTrigger.droppedFar);
+      await frames(tester, 14);
+      expect(find.text('Is everything OK?'), findsOneWidget);
+      expect(find.text('I was left at the wrong place'), findsOneWidget);
+      // The "trip ended" sheet waits for the answer: it would cover the card.
+      expect(find.byType(RideTerminalStateSheet), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('ride-check-row-wrong_place')),
+      );
+      await frames(tester);
+      await tester.tap(find.byKey(const ValueKey<String>('ride-check-done')));
+      await frames(tester, 14);
+      expect(find.text('Is everything OK?'), findsNothing);
+      expect(
+        safetyMockForProcess().rideCheckAnswers.single['trigger'],
+        'dropped_far',
+      );
+      expect(find.byType(RideTerminalStateSheet), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a completion the wire reports without a driver position asks the phone '
+    'where the rider is',
+    (tester) async {
+      const rideId = 'rc-phone-end';
+      final phone = _PhoneFarAway();
+      final realtime = await pumpInTrip(
+        tester,
+        rideId,
+        positions: false,
+        location: phone,
+      );
+      realtime.emit(RideStatus.tripCompleted);
+      await tester.pump();
+      await frames(tester, 14);
+      expect(phone.reads, 1);
+      expect(rideCheck.session?.trigger, RideCheckTrigger.droppedFar);
+      expect(find.byType(RideCompleted), findsOneWidget);
+      expect(find.text('Is everything OK?'), findsOneWidget);
+      expect(
+        find.text(
+          'Your trip ended 3.6 km from Solna centrum',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('a trip that ends at the drop-off opens nothing', (tester) async {
     const rideId = 'rc-at-dropoff';
     final realtime = await pumpInTrip(tester, rideId);
@@ -275,5 +348,29 @@ class _PushLog extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     log.add(route.settings.name ?? route.runtimeType.toString());
+  }
+}
+
+/// The rider's phone, 3.6 km from Solna centrum when the trip ends.
+class _PhoneFarAway extends LocationRepository {
+  int reads = 0;
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async {
+    reads += 1;
+    return Position(
+      latitude: _destination.latitude + 0.0324,
+      longitude: _destination.longitude,
+      timestamp: DateTime.now(),
+      accuracy: 5,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
   }
 }

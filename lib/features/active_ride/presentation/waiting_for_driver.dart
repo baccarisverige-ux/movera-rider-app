@@ -19,6 +19,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -161,6 +162,7 @@ class WaitingForDriver extends StatefulWidget {
     this.onCancel,
     this.cancelFeeNote,
     this.controller,
+    this.location,
   });
 
   final String pickupAddress;
@@ -168,6 +170,11 @@ class WaitingForDriver extends StatefulWidget {
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final String rideType;
+
+  /// Where the rider's phone is, for a Ride check at the end of a trip the
+  /// live wire reports without a driver position (tests pass a fake). The
+  /// app's own repository when null.
+  final LocationRepository? location;
 
   /// The fare in whole units of [currency].
   final double price;
@@ -497,6 +504,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (replaced != null) _onDriverReplaced(replaced);
 
     if (status.isTerminal && !status.isCompletedSurface) {
+      // The driver ended the trip with the rider on board: for Ride check
+      // that is the trip's end too (was the rider left far from the
+      // drop-off?), decided before the "trip ended" sheet.
+      final rideId = _rideId?.trim();
+      if (status == RideStatus.endedByDriver &&
+          _rideCheckOnBoard &&
+          rideId != null &&
+          rideId.isNotEmpty) {
+        _rideCheckTripEnded(rideId);
+      }
       _queueStageNavigation(status);
       return;
     }
@@ -707,6 +724,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _leaving = true;
     setState(() {});
     _tracking.dispose();
+    if (status == RideStatus.endedByDriver) {
+      final rideId = _rideId?.trim();
+      if (rideId != null && rideId.isNotEmpty) await _awaitRideCheck(rideId);
+      if (!mounted) return;
+    }
 
     // rider-u52: `closed` is a finished trip once it is paid and rated (a
     // resync after a long disconnect in trip can jump straight there). It
@@ -1340,6 +1362,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   // ---- Ride check (RC1): live positions against the admin's triggers. ----
 
   bool _rideCheckEnded = false;
+
+  /// Whether this screen saw the rider on board: a driver's end of the trip
+  /// after that is a trip end for Ride check.
+  bool _rideCheckOnBoard = false;
+
+  /// The end-of-trip Ride check being decided (the phone may be asked).
+  Future<void>? _rideCheckEnding;
+
+  /// The longest the phone gets for a fix at the end of the trip.
+  static const rideCheckOwnFixTimeout = Duration(seconds: 8);
   bool _autoShareAsked = false;
   Timer? _rideCheckStillTimer;
   bool _liveFeedWasDown = false;
@@ -1466,20 +1498,76 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _autoShareAsked = true;
       unawaited(SafetyController.shared.autoShareRide(rideId));
     }
+    if (status.isCompletedSurface) {
+      _rideCheckTripEnded(rideId);
+      return;
+    }
+    if (!DriverEta.isInTrip(status)) return;
+    _rideCheckOnBoard = true;
     final eta = _tracking.eta;
     final lat = eta?.latitude;
     final lng = eta?.longitude;
     final at = eta?.locationAt;
     if (lat == null || lng == null || at == null) return;
-    final point = GeoPoint(lat, lng);
-    if (DriverEta.isInTrip(status)) {
-      rideCheck.addSample(
-        rideId,
-        RideCheckSample(point: point, at: at, etaSeconds: eta?.seconds),
-      );
-    } else if (status.isCompletedSurface && !_rideCheckEnded) {
-      _rideCheckEnded = true;
-      unawaited(rideCheck.tripEnded(rideId, point));
+    rideCheck.addSample(
+      rideId,
+      RideCheckSample(point: GeoPoint(lat, lng), at: at, etaSeconds: eta?.seconds),
+    );
+  }
+
+  /// The trip is over, completed or ended by the driver with the rider on
+  /// board: Ride check compares where it ended with the drop-off ("Finished
+  /// far from drop-off"). The end is the driver's last position on the
+  /// wire; without one (the live server sends none for an ended trip whose
+  /// driver already drove on) the rider's own phone says where the car
+  /// stopped. Never a saved old fix: that would be the pickup, a false
+  /// alarm on every trip.
+  void _rideCheckTripEnded(String rideId) {
+    if (_rideCheckEnded) return;
+    _rideCheckEnded = true;
+    final rideCheck = RideCheckController.shared;
+    final eta = _tracking.eta;
+    final lat = eta?.latitude;
+    final lng = eta?.longitude;
+    if (lat != null && lng != null) {
+      _rideCheckEnding = rideCheck.tripEnded(rideId, GeoPoint(lat, lng));
+      return;
+    }
+    _rideCheckEnding = rideCheck.tripEndedAt(rideId, _whereThePhoneIs);
+  }
+
+  Future<GeoPoint?> _whereThePhoneIs() async {
+    try {
+      final here = await (widget.location ?? AppScope.instance.location)
+          .getCurrentPosition()
+          .timeout(rideCheckOwnFixTimeout);
+      final point = GeoPoint(here.latitude, here.longitude);
+      return point.isValid ? point : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The driver ended the trip on board. The "trip ended" sheet is a route
+  /// above this screen's card layer and Home has no layer, so a Ride check
+  /// that is open, or still being decided, is answered first.
+  Future<void> _awaitRideCheck(String rideId) async {
+    final pending = _rideCheckEnding;
+    if (pending != null) await pending;
+    final rideCheck = RideCheckController.shared;
+    if (!rideCheck.blocks(rideId)) return;
+    final answered = Completer<void>();
+    void listen() {
+      if (!rideCheck.blocks(rideId) && !answered.isCompleted) {
+        answered.complete();
+      }
+    }
+
+    rideCheck.addListener(listen);
+    try {
+      await answered.future;
+    } finally {
+      rideCheck.removeListener(listen);
     }
   }
 
