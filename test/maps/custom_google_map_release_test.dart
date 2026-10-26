@@ -18,6 +18,9 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   /// so the widget never gets a controller.
   final bool createsView;
   final List<int> disposed = <int>[];
+
+  /// The configuration of the last view built (traffic layer, gestures…).
+  MapConfiguration? lastConfiguration;
   final StreamController<MapEvent<Object?>> _events =
       StreamController<MapEvent<Object?>>.broadcast();
 
@@ -35,6 +38,7 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
     MapConfiguration mapConfiguration = const MapConfiguration(),
     MapObjects mapObjects = const MapObjects(),
   }) {
+    lastConfiguration = mapConfiguration;
     if (createsView) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => onPlatformViewCreated(creationId),
@@ -195,6 +199,17 @@ void main() {
     expect(released, [created!.mapId]);
     expect(platform.disposed, [created!.mapId],
         reason: 'the plugin still disposes its own controller');
+  });
+
+  // Owner N5 (live test 2026-10-26): the green/red/yellow roads were
+  // Google's live traffic layer. The shared map widget never turns it on;
+  // the cloud Map ID is the only styling.
+  testWidgets('the map never turns on Google\'s traffic layer', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: CustomGoogleMap())),
+    );
+    await tester.pump();
+    expect(platform.lastConfiguration?.trafficEnabled, isFalse);
   });
 
   testWidgets('a map disposed before it was created releases nothing', (

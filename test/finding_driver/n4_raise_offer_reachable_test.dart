@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -126,6 +127,16 @@ void main() {
     final confirm = find.textContaining('Confirm');
     expect(confirm, findsOneWidget);
     expect(tester.getRect(confirm).bottom, lessThanOrEqualTo(844));
+  });
+
+  // Owner N6: the search map reads the route from above (no tilt with zoom).
+  testWidgets('N6: the search map stays flat', (tester) async {
+    await openFinding(tester);
+    final maps = find.byType(CustomGoogleMap);
+    expect(maps, findsWidgets);
+    for (final map in tester.widgetList<CustomGoogleMap>(maps)) {
+      expect(map.tiltWithZoom, isFalse);
+    }
   });
 
   testWidgets('a drag on the sheet body moves the sheet', (tester) async {

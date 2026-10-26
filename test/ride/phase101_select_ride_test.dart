@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -87,21 +88,25 @@ void main() {
     expect(inSelectRide, findsNothing);
   });
 
-  test('N6: the booking and trip maps stay flat (no tilt with zoom)', () {
+  testWidgets('N6: the Select ride map stays flat (no tilt with zoom)',
+      (tester) async {
     // Owner screenshot (Select ride, Klockarvägen 37, Södertälje): the fit
     // leaned the camera 67.5° at building level and the route line became a
-    // wedge. Select ride, Finding and the trip map read the route from
-    // above; Home keeps the driver app's tilt-with-zoom camera.
-    for (final file in [
-      'lib/features/ride_selection/presentation/select_ride.dart',
-      'lib/features/finding_driver/presentation/finding_drivers.dart',
-      'lib/features/active_ride/presentation/waiting_for_driver.dart',
-    ]) {
-      final src = File(file).readAsStringSync();
-      final map = src.indexOf('CustomGoogleMap(');
-      expect(map, greaterThan(-1), reason: file);
-      final block = src.substring(map, src.indexOf('onMapCreated', map));
-      expect(block, contains('tiltWithZoom: false'), reason: file);
+    // wedge. Select ride reads the route from above; Home keeps the driver
+    // app's tilt-with-zoom camera. (Finding and the trip map: their own
+    // screen tests.)
+    await openSelectRide(tester);
+    // The map mounts once the route transition has settled.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final maps = find.descendant(
+      of: find.byType(SelectRide),
+      matching: find.byType(CustomGoogleMap),
+    );
+    expect(maps, findsWidgets);
+    for (final map in tester.widgetList<CustomGoogleMap>(maps)) {
+      expect(map.tiltWithZoom, isFalse);
     }
   });
 

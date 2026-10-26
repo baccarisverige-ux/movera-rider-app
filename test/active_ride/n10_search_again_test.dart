@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'package:movera_rider/app/di.dart';
@@ -205,6 +206,17 @@ void main() {
     final finding = tester.widget<FindingDrivers>(find.byType(FindingDrivers));
     expect(finding.pickupPosition, _destination);
     expect(finding.destinationAddress, 'Solna centrum, 171 45 Solna');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Owner N6: the trip map reads the route from above (no tilt with zoom).
+  testWidgets('N6: the trip map stays flat', (tester) async {
+    await pumpTrip(tester, 'n6-trip-map', [RideStatus.driverArriving]);
+    final maps = find.byType(CustomGoogleMap);
+    expect(maps, findsWidgets);
+    for (final map in tester.widgetList<CustomGoogleMap>(maps)) {
+      expect(map.tiltWithZoom, isFalse);
+    }
     await tester.pumpWidget(const SizedBox());
   });
 
