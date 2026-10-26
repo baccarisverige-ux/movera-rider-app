@@ -256,6 +256,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         }
         setState(() {});
         _syncSheetOverlay();
+        _openSheetForPriceBump();
       },
       onMatched: () {
         if (!mounted || _leaving) return;
@@ -935,6 +936,32 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(cover);
   }
 
+  /// N4: the raise card is taller than the sheet's resting height (on a
+  /// 390 × 844 screen "Set new price" and "Keep waiting" sat below the
+  /// screen edge); when it appears the sheet opens to its top once, so the
+  /// whole card is in reach. The rider can still pull the sheet down.
+  bool _sheetOpenedForBump = false;
+
+  void _openSheetForPriceBump() {
+    final show = _match.showPriceBump && !_match.showStillLooking;
+    if (!show) {
+      _sheetOpenedForBump = false;
+      return;
+    }
+    if (_sheetOpenedForBump) return;
+    _sheetOpenedForBump = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.hasClient) return;
+      final media = MediaQuery.maybeOf(context);
+      if (media == null) return;
+      _sheetController.animateTo(
+        SheetOffset.absolute(_maxSheet(media)),
+        duration: MoveraDurations.large,
+        curve: MoveraCurves.open,
+      );
+    });
+  }
+
   void _setSheetExpanded(bool expanded) {
     // Sheet metrics can change mid-layout; never rebuild during a frame.
     if (SchedulerBinding.instance.schedulerPhase ==
@@ -1110,7 +1137,12 @@ class _FindingDriversState extends State<FindingDrivers> {
                   ],
                   minFlingSpeed: 520,
                 ),
-                scrollConfiguration: SheetScrollConfiguration.disabled,
+                // N4: a drag on the sheet body moves the sheet (and scrolls
+                // the body once the sheet is up). Disabled, the body's scroll
+                // view swallowed every swipe and only the 22 px handle could
+                // open the sheet, so the raise card's Confirm stayed off
+                // screen.
+                scrollConfiguration: const SheetScrollConfiguration(),
                 child: PointerInterceptor(
                   child: SizedBox(
                     height: _maxSheet(media),
@@ -1210,6 +1242,8 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   Widget _panelBody(double progress, String headline, String subtitle) {
     return SingleChildScrollView(
+      // N4: the sheet's own scroll controller, so the drag is shared.
+      primary: true,
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
