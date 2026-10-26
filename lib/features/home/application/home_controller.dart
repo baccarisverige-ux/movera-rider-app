@@ -514,8 +514,7 @@ class HomeLocationController extends ChangeNotifier {
             ),
           )
           .timeout(quickFixTimeout);
-      if (position.accuracy.isFinite &&
-          position.accuracy > quickFixMaxMeters) {
+      if (position.accuracy.isFinite && position.accuracy > quickFixMaxMeters) {
         return null;
       }
       final point = GeoPoint(position.latitude, position.longitude);
