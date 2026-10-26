@@ -73,6 +73,21 @@ void main() {
     expect(find.text("Tipping isn't available in this build."), findsOneWidget);
   });
 
+  testWidgets('p3x: against movera-server (no tips yet) no amount is '
+      'offered', (tester) async {
+    await pump(
+      tester,
+      RideCompletedAddTip(
+        controller: RideCompleteController(tipsOnServer: false),
+      ),
+    );
+
+    for (final amount in _sekTips) {
+      expect(find.text(amount), findsNothing);
+    }
+    expect(find.text('Tips unavailable'), findsOneWidget);
+  });
+
   testWidgets('the removed demo tipping UI stays gone', (tester) async {
     await pump(tester, const RideCompletedAddTip());
 

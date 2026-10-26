@@ -348,7 +348,10 @@ class AppScope {
   // initState, always after app startup), so this only matters for
   // correctness under construction order, not normal use.
   late final AuthController auth = AuthController();
-  late final RideCompleteController rideComplete = RideCompleteController();
+  // The contract wire (movera-server) has no tips yet: none are offered.
+  late final RideCompleteController rideComplete = RideCompleteController(
+    tipsOnServer: !api.contractWire,
+  );
   late final WalletController walletController = WalletController(
     balances: walletBalances,
     // rider-u232: the Payments tab's default is the one Select Ride uses.
