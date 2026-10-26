@@ -135,10 +135,7 @@ class RideRestoreCoordinator {
       try {
         moveraNavigatorKey.currentState?.popUntil((route) => route.isFirst);
       } catch (error) {
-        AppLog.warning(
-          'ride.restore.pop_failed',
-          extra: {'error': '$error'},
-        );
+        AppLog.warning('ride.restore.pop_failed', extra: {'error': '$error'});
       }
     }
     final page = pageFor(trip);
