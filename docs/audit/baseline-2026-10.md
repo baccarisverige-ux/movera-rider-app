@@ -278,3 +278,20 @@ sanitized (an `ApiError` with a server body could carry PII) — **NOT VERIFIED*
 | R12 | Huge screen files (3 000+ lines) concentrate booking state; hard to test per control | S4 | §7 |
 | R13 | `RideCheckDemoPage` has no test; `DriverProfilePage`, `ReferAndEarn` one each | S4 | §6 |
 | R14 | Undisposed controller in account edit sheet | S4 | §7 |
+
+
+## 4. Baseline run
+
+Machine: cloud container, 4 cores, Flutter at `/home/user/flutter/bin` (version in `flutter --version`, see below). Run on `main` `c1063fb8`.
+
+| Command | Result | Wall time |
+|---|---|---|
+| `flutter pub get --enforce-lockfile` | exit 0 ("69 packages have newer versions incompatible with dependency constraints") | 25 s |
+| `dart format --output=none --set-exit-if-changed .` | **exit 1 — 519 of 1 066 files would change** (lib 217, test 298, integration_test 4). Not applied | 6 s |
+| `flutter analyze --fatal-infos` | exit 0, "No issues found! (ran in 47.4s)" | 57 s |
+| `flutter test` (full, once) | exit 0, **+2958 ~3, 0 failed** ("All tests passed!") | **1 831 s (30.5 min)** |
+| tool/CI gates (batch5-phase69 integrity steps; rider-l10n ARB check), run locally by extracting the workflow `run:` blocks | all exit 0; "Legacy grep-style test cases: 39" (cap <40); "1427 messages in en, fr and sv" | <5 s |
+
+The 3 skipped tests are all in `test/e2e/live_server_booking_test.dart` (price→book→complete→rate→history; cancel while
+searching/after accept; end early) — they need a running movera-server and are skipped in every CI run, so the only
+contract-wire booking test never runs in CI. No failures, so no flakiness reruns were needed.
