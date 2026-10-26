@@ -67,7 +67,6 @@ import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/api/api_error.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
@@ -2146,16 +2145,8 @@ class _SelectRideState extends State<SelectRide>
   /// instead of the "check the fare" message, which sent the rider back to
   /// a price that was never the problem.
   Future<void> _openRideAlreadyGoing() async {
-    RideSnapshot? trip;
-    try {
-      trip = await (widget.activeTrips ?? AppScope.instance.activeTrips)
-          .fetchActive();
-    } catch (error) {
-      AppLog.warning(
-        'booking.active_trip_lookup_failed',
-        extra: {'error': '$error'},
-      );
-    }
+    final trip = await (widget.booking ?? BookingController())
+        .adoptRideAlreadyGoing(activeTrips: widget.activeTrips);
     if (!mounted) return;
     final coordinator = RideRestoreCoordinator.instance;
     final surface = coordinator.surfaceFor(trip);
@@ -2169,8 +2160,6 @@ class _SelectRideState extends State<SelectRide>
       return;
     }
     AppLog.info('booking.opened_active_trip', extra: {'rideId': trip.rideId});
-    await RideSnapshotStore.save(trip);
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.rideAlreadyGoingOpened)),
     );
