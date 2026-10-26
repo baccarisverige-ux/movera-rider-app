@@ -66,6 +66,9 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -99,6 +102,7 @@ class SelectRide extends StatefulWidget {
     this.pickupIsFallback = false,
     this.geocoding,
     this.nearbyCars,
+    this.activeTrips,
   });
 
   /// Whether [origin] has the exact points a return ride needs (CODE-5).
@@ -188,6 +192,10 @@ class SelectRide extends StatefulWidget {
   /// The free cars drawn around the pickup (contract v0.5.2 §13); defaults
   /// to the server's `GET /rider/nearby-vehicles`.
   final NearbyCarsSource? nearbyCars;
+
+  /// The rider's live trip on the server; defaults to the app's
+  /// `GET /rider/trips/active`.
+  final ActiveTripRepository? activeTrips;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -2051,6 +2059,10 @@ class _SelectRideState extends State<SelectRide>
           }
         } catch (error) {
           if (!mounted) return;
+          if (error is ApiError && error.detail == 'active_trip_exists') {
+            await _openRideAlreadyGoing();
+            return;
+          }
           // RC-09: a booking that may exist on the server is not "refused".
           final uncertain = BookingController.mayHaveBooked(error);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2126,6 +2138,59 @@ class _SelectRideState extends State<SelectRide>
         _releaseBookingLock();
       }
     });
+  }
+
+  /// Live test 2026-10-26: the server keeps one live ride per rider and
+  /// refuses a booking with `active_trip_exists` while one is still going,
+  /// for example a ride this device lost track of. That ride is opened
+  /// instead of the "check the fare" message, which sent the rider back to
+  /// a price that was never the problem.
+  Future<void> _openRideAlreadyGoing() async {
+    RideSnapshot? trip;
+    try {
+      trip = await (widget.activeTrips ?? AppScope.instance.activeTrips)
+          .fetchActive();
+    } catch (error) {
+      AppLog.warning(
+        'booking.active_trip_lookup_failed',
+        extra: {'error': '$error'},
+      );
+    }
+    if (!mounted) return;
+    final coordinator = RideRestoreCoordinator.instance;
+    final surface = coordinator.surfaceFor(trip);
+    if (trip == null ||
+        (surface != RestoredSurface.finding &&
+            surface != RestoredSurface.waiting)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.rideAlreadyGoing)),
+      );
+      unawaited(_loadQuotes());
+      return;
+    }
+    AppLog.info('booking.opened_active_trip', extra: {'rideId': trip.rideId});
+    await RideSnapshotStore.save(trip);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.rideAlreadyGoingOpened)),
+    );
+    final finding = surface == RestoredSurface.finding;
+    if (finding) SheetCoordinator.instance.open(RideSheet.finding);
+    try {
+      await Navigator.push(
+        context,
+        RideStageTransition(
+          coordinator.pageFor(trip),
+          settings: RouteSettings(
+            name: finding
+                ? AppRoutes.findingDriver
+                : AppRoutes.waitingForDriver,
+          ),
+        ),
+      );
+    } finally {
+      if (finding) SheetCoordinator.instance.close(RideSheet.finding);
+    }
   }
 
   @override

@@ -154,6 +154,8 @@
   "cardExpires": "Expire le {date}",
   "bookingUncertain": "Nous n’avons pas pu confirmer votre réservation. Vérifiez votre connexion et réessayez.",
   "bookingFailed": "Nous n’avons pas pu réserver cette course. Vérifiez le tarif et réessayez.",
+  "rideAlreadyGoing": "Vous avez déjà une course en cours. Réessayez dans un instant.",
+  "rideAlreadyGoingOpened": "Vous avez déjà une course en cours. La voici.",
   "showFewerRides": "Afficher moins de courses",
   "showAllRides": "Afficher toutes les courses",
   "chooseYourRide": "Choisissez votre course",

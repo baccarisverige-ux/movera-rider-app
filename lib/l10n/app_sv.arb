@@ -154,6 +154,8 @@
   "cardExpires": "Går ut {date}",
   "bookingUncertain": "Vi kunde inte bekräfta din bokning. Kontrollera din anslutning och försök igen.",
   "bookingFailed": "Vi kunde inte boka den här resan. Kontrollera priset och försök igen.",
+  "rideAlreadyGoing": "Du har redan en resa på gång. Försök igen om en stund.",
+  "rideAlreadyGoingOpened": "Du har redan en resa på gång. Här är den.",
   "showFewerRides": "Visa färre resor",
   "showAllRides": "Visa alla resor",
   "chooseYourRide": "Välj din resa",
