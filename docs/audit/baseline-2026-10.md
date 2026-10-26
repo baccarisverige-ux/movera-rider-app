@@ -14,7 +14,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 - [ ] 5. Coverage of critical logic
 - [x] 6. Screen inventory
 - [x] 7. Code quality findings
-- [ ] 8. Known issues N3–N10
+- [x] 8. Known issues N3–N10
 - [ ] 9. Untested features and risks
 - [ ] 10. Summary
 
@@ -241,3 +241,20 @@ CI reads the key from secrets (`publish-web-live.yml:44,111`). `test/architectur
 **Personal data in logs:** all logging goes through `AppLog` (`lib/core/logging/app_log.dart`), which runs `extra` through
 `Observability.sanitize` and prints to console only in `kDebugMode`. No raw `print(` in `lib/`. The `error` object is not
 sanitized (an `ApiError` with a server body could carry PII) — **NOT VERIFIED** whether it does.
+
+
+## 8. Known issues N3–N10 (HANDOFF.md §4.2)
+
+`main` (`c1063fb8`) and `rider-live-fixes-1` (`166fc8ab`) have identical trees, so the status is the same on both.
+"Code" = verified by reading/grepping `main`; "live" = behaviour on the iPhone / live server, not verified here.
+
+| Note | Status on main | Evidence | Still open |
+|---|---|---|---|
+| N3 Booking steps crash/reload on iPhone; Back on every screen | **Partly addressed** (map reuse #411; a stale index.html retries once) | docs/web-lifecycle-investigation.md; Back handlers listed in §6 | No per-screen Back test sweep; iPhone **NOT VERIFIED** (needs device); `qa-critical-rider-flow` red since #411 |
+| N4 Raise during long search fails | **Partly**: the raise card is now reachable (sheet opens, body drags) | test/finding_driver/n4_raise_offer_reachable_test.dart; #413 message says "WIP … full gates not run yet; live re-run of the raise probe still to do" | Which server rule (expired / 2× cap / `expectedVersion` / currency) rejects the live raise: **NOT VERIFIED**; owner decision D4 |
+| N5 Traffic layer | **Fixed** | `custom_google_map.dart:327` `trafficEnabled: false`; `web/rider_map_camera.js:614–625` only tracks a plugin TrafficLayer; test/maps/custom_google_map_release_test.dart | — |
+| N6 Tilt/zoom on tiny routes; pinch faults while searching | **Partly**: route fits capped at zoom 17 and booking/trip maps flat | `lib/core/maps/camera_tilt.dart:71` `routeFitMaxZoom = 17`; camera_tilt / phase101 tests (per #413) | "minimum map span" for tiny routes and the pinch-zoom faults while searching: no evidence of a fix found |
+| N7 Wrong first address after sign-in | **Fixed in code** (coarse >150 m fix not geocoded) | test/home/n7_coarse_first_fix_test.dart | Not reproducible in Chromium; phone **NOT VERIFIED** |
+| N8 Ride check end to end (rider side) | **Not verified** | 41 test files mention RideCheck; #407 wired it to the live server | E2E against server: Phase 3 |
+| N9 Early finish shows booked price | **Fixed** (poll carries projection `fare`; receipt shows server fare) | test/ride/n9_early_finish_fare_test.dart | Live re-check **NOT VERIFIED** |
+| N10 "Search again" after driver cancel / no-show; no "connection lost" over a finished trip; sheet text | **Fixed in code** | `ride_terminal_state_sheet.dart`, test/active_ride/n10_search_again_test.dart; l10n `searchAgain` en/sv/fr | Live **NOT VERIFIED** |
