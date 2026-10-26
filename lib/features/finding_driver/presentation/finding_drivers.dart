@@ -499,30 +499,8 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   /// rider-u107: the same "Price updated" question Select Ride asks.
-  Future<bool> _acceptNewPrice(Money shown, Money next) async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const ValueKey('rebook-price-updated'),
-        title: Text(context.l10n.priceUpdated),
-        content: Text(
-          context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(context.l10n.notNow),
-          ),
-          FilledButton(
-            key: const ValueKey('rebook-price-accept'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.bookForPrice(formatMoney(next))),
-          ),
-        ],
-      ),
-    );
-    return accepted == true;
-  }
+  Future<bool> _acceptNewPrice(Money shown, Money next) =>
+      showRebookPriceDialog(context, shown: shown, next: next);
 
   /// Takes over [ride]'s route on this screen (without telling the server,
   /// which already has it).
@@ -1389,4 +1367,36 @@ class _ResolvedRoute implements RoutingService {
   List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
     for (final point in points) GeoPoint(point.latitude, point.longitude),
   ];
+}
+
+/// A booking asked again is priced again: a price other than the one the
+/// rider last saw (a surge, their own raise) is booked only once they accept
+/// it (rider-u107). Used after "No driver found" and by "Search again".
+Future<bool> showRebookPriceDialog(
+  BuildContext context, {
+  required Money shown,
+  required Money next,
+}) async {
+  final accepted = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: const ValueKey('rebook-price-updated'),
+      title: Text(context.l10n.priceUpdated),
+      content: Text(
+        context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(context.l10n.notNow),
+        ),
+        FilledButton(
+          key: const ValueKey('rebook-price-accept'),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(context.l10n.bookForPrice(formatMoney(next))),
+        ),
+      ],
+    ),
+  );
+  return accepted == true;
 }
