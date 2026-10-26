@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
+import 'package:movera_rider/core/web/web_gpu.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -95,6 +97,12 @@ class CustomGoogleMap extends StatefulWidget {
   @visibleForTesting
   static bool? debugWaitForMaps;
 
+  /// Tests: the keys of every map widget mounted so far, in order. On the
+  /// web each mount is a new Google map the page keeps, so screens must
+  /// not mount one for a moment they are about to park again.
+  @visibleForTesting
+  static final List<Key?> debugMounted = <Key?>[];
+
   @override
   State<CustomGoogleMap> createState() => _CustomGoogleMapState();
 }
@@ -124,6 +132,10 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   @override
   void initState() {
     super.initState();
+    assert(() {
+      CustomGoogleMap.debugMounted.add(widget.key);
+      return true;
+    }());
     _webTouch = watchMapTouch(onDown: _fingerDown, onUp: _fingerUp);
   }
 
@@ -333,6 +345,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
             controller.mapId,
             _movedByHand,
           );
+          _logWebMapCreated(controller.mapId);
         }
         _syncView();
 
@@ -380,6 +393,27 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
 
   GoogleMapController? get mapController => _mapController;
 
+  /// Evidence for the web lifecycle: how many maps the page holds and
+  /// whether the browser has taken WebGL contexts away (see
+  /// docs/web-lifecycle-investigation.md). One line per map, info level.
+  void _logWebMapCreated(int mapId) {
+    final stats = RiderMapBridge.stats();
+    final gpu = webGlContextEvents();
+    AppLog.info(
+      'map.web_created',
+      extra: {
+        'mapId': mapId,
+        'liveMaps': stats?.live,
+        'createdMaps': stats?.created,
+        'recycledMaps': stats?.recycled,
+        'releasedMaps': stats?.released,
+        'releasedContexts': stats?.contextsReleased,
+        'webglLost': gpu.lost,
+        'webglRestored': gpu.restored,
+      },
+    );
+  }
+
   @override
   void dispose() {
     // GoogleMap owns and disposes its platform controller. Disposing the same
@@ -394,7 +428,15 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     _stopWebGestures = null;
     // A map replaced under a finger must not leave its camera held.
     if (_fingers > 0) _view?.touching = false;
+    final controller = _mapController;
     _mapController = null;
+    // The web layer takes the map back for the next screen once Flutter has
+    // removed its element; the plugin itself never does. Only the web (and
+    // a test standing in for the layer) wants the id: phone tests hand in
+    // bare fakes.
+    if (controller != null && RiderMapBridge.wantsRelease) {
+      RiderMapBridge.release(controller.mapId);
+    }
     super.dispose();
   }
 }
