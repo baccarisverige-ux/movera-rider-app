@@ -145972,7 +145972,9 @@ case 6:p=9
 s=12
 return A.e(n.a.kw(0,B.aCg).fe(0,B.ht),$async$Hc)
 case 12:l=b
-k=new A.aT(l.a,l.b)
+if(isFinite(l.f)&&l.f>1000){q=null
+s=1
+break}k=new A.aT(l.a,l.b)
 j=k.gcz()?A.ca(k.a,k.b):null
 q=j
 s=1
