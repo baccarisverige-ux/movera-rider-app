@@ -36,7 +36,16 @@ class RideCompleted extends StatefulWidget {
     this.onClose,
     this.controller,
     this.endedEarly,
+    this.autoCloseAfter = defaultAutoCloseAfter,
   });
+
+  /// Owner decision (live test 2026-10-26): the finished-trip screen goes
+  /// Home by itself after 2 minutes without a touch; the trip stays in
+  /// History.
+  static const defaultAutoCloseAfter = Duration(minutes: 2);
+
+  /// How long the screen waits without a touch before it goes Home.
+  final Duration autoCloseAfter;
 
   /// UI-01: the rider ended the trip on board. The summary says so and
   /// shows what they pay for the distance driven, instead of dropping them
@@ -93,10 +102,12 @@ class _RideCompletedState extends State<RideCompleted> {
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
   String? _acceptedFeedbackIntent;
   bool _walletChargeRequested = false;
+  Timer? _autoClose;
 
   @override
   void initState() {
     super.initState();
+    _armAutoClose();
     _status = widget.status;
     // An ended-early trip is terminal: no completion states will follow.
     if (widget.endedEarly != null) return;
@@ -217,8 +228,35 @@ class _RideCompletedState extends State<RideCompleted> {
 
   @override
   void dispose() {
+    _autoClose?.cancel();
     _completionSub?.cancel();
     super.dispose();
+  }
+
+  /// Every touch starts the 2 minutes again.
+  void _armAutoClose() {
+    _autoClose?.cancel();
+    _autoClose = Timer(widget.autoCloseAfter, _onAutoClose);
+  }
+
+  /// Goes Home without sending anything: a rating or tip the rider picked
+  /// but never confirmed with Done is not sent on their behalf. It waits
+  /// while the rider is typing, while a Ride check or a dialog is open,
+  /// and never leaves a failed payment the rider still has to see.
+  void _onAutoClose() {
+    if (!mounted || _leaving) return;
+    if (_status == RideStatus.paymentFailed) return;
+    final typing = FocusManager.instance.primaryFocus?.context
+            ?.findAncestorStateOfType<EditableTextState>() !=
+        null;
+    if (typing ||
+        RideCheckController.shared.blocks(widget.rideId) ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      _armAutoClose();
+      return;
+    }
+    AppLog.info('ride.complete.auto_close', extra: {'rideId': widget.rideId});
+    unawaited(_leave(submitFeedback: false));
   }
 
   Future<void> _closeAndHome() => _leave(submitFeedback: true);
@@ -352,7 +390,10 @@ class _RideCompletedState extends State<RideCompleted> {
             _status == RideStatus.tripCompleted);
     final showFeedbackSurface = widget.persistOnDemandState || canRate;
 
-    return PopScope(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _armAutoClose(),
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
@@ -497,6 +538,7 @@ class _RideCompletedState extends State<RideCompleted> {
           ),
         ),
       )),
+      ),
     );
   }
 
