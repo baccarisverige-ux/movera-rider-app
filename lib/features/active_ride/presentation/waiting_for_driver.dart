@@ -32,6 +32,7 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
@@ -294,6 +295,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       widget.realtime ?? AppScope.instance.rideRealtime;
   String? get _rideId => widget.rideId ?? AppScope.instance.ride.rideId;
 
+  /// The trip chat on the live wire, polled while this screen shows the
+  /// ride so the Message button's unread badge is current (contract
+  /// v0.5.4; the live transport never reads the event stream). Null in the
+  /// demo, which has no chat server.
+  MessagesController? _messages;
+
   @override
   void initState() {
     super.initState();
@@ -336,6 +343,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _startRideCheckStillTimer(rideId.trim());
       unawaited(_loadWaitingTerms());
       unawaited(_readArrivalAnnounced(rideId.trim()));
+      if (AppScope.instance.tripMessages case final transport?) {
+        _messages = MessagesController.forRide(rideId, transport: transport)
+          ..startPolling(MessagesController.tripPollInterval);
+      }
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -499,6 +510,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         unawaited(_researchAfterDriverCancel());
       }
       return;
+    }
+    // The chat ends with the trip: no more polling for its messages.
+    if (status.isTerminal || status.isCompletedSurface) {
+      _messages?.stopPolling();
     }
     final replaced = _tracking.takeReplacedDriver();
     if (replaced != null) _onDriverReplaced(replaced);
@@ -1617,6 +1632,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _sheetController.removeListener(_syncSheetOverlay);
     _settleTimer?.cancel();
     _rideCheckStillTimer?.cancel();
+    _messages?.dispose();
     _sheetController.dispose();
     _tracking.dispose();
     final rideId = _rideId?.trim();

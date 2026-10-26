@@ -215,6 +215,37 @@ class WaitingDriverCard extends StatefulWidget {
 class _WaitingDriverCardState extends State<WaitingDriverCard> {
   bool _openingChat = false;
 
+  /// The ride's conversation, for the unread badge. It follows what the
+  /// trip screen polls on the live wire (and what the demo ingests), so a
+  /// message that arrives while this card is up shows at once.
+  late MessagesController _messages =
+      MessagesController.forRide(widget.rideId);
+
+  @override
+  void initState() {
+    super.initState();
+    _messages.addListener(_onMessagesChanged);
+  }
+
+  @override
+  void didUpdateWidget(WaitingDriverCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rideId == widget.rideId) return;
+    _messages.dispose();
+    _messages = MessagesController.forRide(widget.rideId)
+      ..addListener(_onMessagesChanged);
+  }
+
+  @override
+  void dispose() {
+    _messages.dispose();
+    super.dispose();
+  }
+
+  void _onMessagesChanged() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _openChat(String? rideId, String driverName) async {
     if (_openingChat) return;
     _openingChat = true;
@@ -253,7 +284,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
       );
     }
     final d = driver;
-    final unreadMessages = MessagesController.forRide(rideId).unreadCount;
+    final unreadMessages = _messages.unreadCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
       decoration: BoxDecoration(

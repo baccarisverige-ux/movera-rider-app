@@ -1236,6 +1236,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chatSystemMessage': l.chatSystemMessage('<text>'),
   'chatCallUnavailable': l.chatCallUnavailable,
   'chatCall': l.chatCall,
+  'chatSendSemantics': l.chatSendSemantics,
+  'chatSendFailed': l.chatSendFailed,
+  'chatNotSentRetry': l.chatNotSentRetry,
+  'chatSupportSender': l.chatSupportSender,
   'resErrNoPriceEdit': l.resErrNoPriceEdit,
   'resErrNoPriceBook': l.resErrNoPriceBook,
   'resErrUnavailable': l.resErrUnavailable,
@@ -4099,6 +4103,14 @@ class _Exhaustive implements AppLocalizations {
   String get chatCallUnavailable => '';
   @override
   String get chatCall => '';
+  @override
+  String get chatSendSemantics => '';
+  @override
+  String get chatSendFailed => '';
+  @override
+  String get chatNotSentRetry => '';
+  @override
+  String get chatSupportSender => '';
   @override
   String get resErrNoPriceEdit => '';
   @override
