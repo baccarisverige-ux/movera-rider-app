@@ -273,11 +273,34 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (_homeHidden && !_mapParked.value) {
       _parkHomeMap();
     } else if (_homeIsCurrent && _mapParked.value) {
+      if (_routeFlowOpen) {
+        // Plan your ride has just closed and its flow is still deciding
+        // (normalising the route, the pickup street): within a frame or so
+        // it opens the categories screen and parks Home again. Creating a
+        // Google map for that moment cost a whole map per booking (on the
+        // web every map lives on in the plugin's registry), so Home waits a
+        // little; a slow lookup still gets its map back.
+        _routeFlowResumeTimer ??= Timer(routeFlowResumeGrace, () {
+          _routeFlowResumeTimer = null;
+          if (!mounted || _mapParkingGuard.isParked) return;
+          if (_homeIsCurrent && _mapParked.value) _resumeHomeMap();
+        });
+        return;
+      }
       _resumeHomeMap();
     }
   }
 
+  /// How long Home, back on top with its map parked while a route flow is
+  /// still running, waits for that flow to open the next screen before it
+  /// shows a map again (see [_syncRouteParking]).
+  @visibleForTesting
+  static Duration routeFlowResumeGrace = const Duration(milliseconds: 1500);
+  Timer? _routeFlowResumeTimer;
+
   void _parkHomeMap() {
+    _routeFlowResumeTimer?.cancel();
+    _routeFlowResumeTimer = null;
     if (_mapParked.value) return;
     setWebOverlayOpen(false);
     _webOverlayCovering = null;
@@ -342,6 +365,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
+    _routeFlowResumeTimer?.cancel();
     _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
@@ -917,7 +941,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _closeDestinationSheet();
         // NAV-3: the flow's page can be replaced by another one (Book for
         // later -> Ride scheduled). Stay parked until Home is on top again.
-        if (_homeIsCurrent) _resumeHomeMap();
+        // A route flow that goes on (Back on the categories screen reopens
+        // Plan your ride) gets the grace of [_syncRouteParking] instead of
+        // a map for the frame in between.
+        if (_homeIsCurrent) {
+          if (_routeFlowOpen) {
+            _syncRouteParking();
+          } else {
+            _resumeHomeMap();
+          }
+        }
       }
     }
   }
@@ -972,7 +1005,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       await flow();
     } finally {
       _routeFlowOpen = false;
-      if (mounted) _resetPickupLabel();
+      if (mounted) {
+        _resetPickupLabel();
+        // A flow that ended without opening another screen (Plan your ride
+        // closed) gives Home its map back now, not after the grace above.
+        _syncRouteParking();
+      }
     }
   }
 

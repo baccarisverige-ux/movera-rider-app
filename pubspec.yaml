@@ -64,6 +64,9 @@ dev_dependencies:
   crypto: ^3.0.6
   # Resilience tests drive the request timeouts with a fake clock.
   fake_async: ^1.3.3
+  # The map release test stands in a maps platform that creates its view,
+  # so the widget holds a controller with a map id as it does in a browser.
+  google_maps_flutter_platform_interface: ^2.14.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

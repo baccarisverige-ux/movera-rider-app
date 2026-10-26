@@ -50,6 +50,35 @@ void claim(int mapId) {
   _forMap(mapId)?.callMethod<JSAny?>('claim'.toJS, mapId.toJS);
 }
 
+void release(int mapId) {
+  final layer = _forMap(mapId);
+  if (layer == null || !layer.has('release')) return;
+  layer.callMethod<JSAny?>('release'.toJS, mapId.toJS);
+}
+
+({int live, int created, int recycled, int pooled, int released, int contextsReleased})?
+    stats() {
+  final layer = _layer;
+  if (layer == null || !layer.has('stats')) return null;
+  final result = layer.callMethod<JSAny?>('stats'.toJS);
+  if (result == null || !result.isA<JSObject>()) return null;
+  final object = result as JSObject;
+  int read(String key) {
+    final value = object.getProperty<JSAny?>(key.toJS);
+    return value != null && value.isA<JSNumber>()
+        ? (value as JSNumber).toDartInt
+        : 0;
+  }
+  return (
+    live: read('live'),
+    created: read('created'),
+    recycled: read('recycled'),
+    pooled: read('pooled'),
+    released: read('released'),
+    contextsReleased: read('contextsReleased'),
+  );
+}
+
 Future<bool>? flight(int mapId, double lat, double lng, double zoom,
         double heading, double tilt, int ms) =>
     _move('flight', mapId, lat, lng, zoom, heading, tilt, ms);

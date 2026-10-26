@@ -49,6 +49,18 @@ jobs:
             exit 1
           fi
           app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          # No service worker: web/flutter_bootstrap.js loads the app without
+          # serviceWorkerSettings, index.html unregisters old workers, and the
+          # flutter_service_worker.js this Flutter still writes is a stub that
+          # unregisters itself (--pwa-strategy is deprecated and only changes
+          # the default bootstrap, which this project does not use). Keep it
+          # that way: an installed iPhone web app running one build's
+          # main.dart.js against another deploy's files looks exactly like
+          # "crash, blank, back on Home". The remaining cache is GitHub
+          # Pages' own (about 10 minutes on index.html): a phone that opens a
+          # just-replaced index.html gets 404s for the old fingerprinted
+          # main.<sha>.dart.js until it expires; the boot screen then clears
+          # after 20 s to an empty page, not to Home.
           flutter build web --release \
             -t lib/main_staging.dart \
             --dart-define=MOVERA_FLAVOR=staging \
@@ -63,7 +75,7 @@ jobs:
 
           p = Path('build/web/index.html')
           s = p.read_text()
-          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
           key = os.environ.get('MAPS_WEB_API_KEY', '')
           if key and bootstrap in s and 'maps.googleapis.com/maps/api/js' not in s:
               s = s.replace(bootstrap, f'  <script src="https://maps.googleapis.com/maps/api/js?key={key}" async defer></script>\n' + bootstrap)
@@ -108,7 +120,7 @@ jobs:
 
           p = Path('build/web/index.html')
           s = p.read_text()
-          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
           # async matters: without it this is a render-blocking script sitting
           # ahead of the app, and the parser stops for ~0.9s of Maps JS before
           # Flutter even starts loading. Nothing reads google.maps until a map

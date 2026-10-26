@@ -34,6 +34,46 @@ abstract final class RiderMapBridge {
   /// The next camera position the app sends lands at once (no glide).
   static void claim(int mapId) => impl.claim(mapId);
 
+  /// The widget of this map is gone. google.maps.Map has no destroy(): the
+  /// Maps script and google_maps_flutter_web both keep every map for the
+  /// life of the page, so a map Flutter had removed kept its tiles,
+  /// listeners and (vector maps) its WebGL context: 5-6 maps a booking, and
+  /// Safari evicts the oldest WebGL contexts (often Flutter's own) past
+  /// about 16 a page. The layer takes the map back for the next screen
+  /// once Flutter has removed its element (web/rider_map_camera.js). A
+  /// no-op off the web.
+  static void release(int mapId) {
+    final fake = debugRelease;
+    if (fake != null) {
+      fake(mapId);
+      return;
+    }
+    impl.release(mapId);
+  }
+
+  /// Tests stand in for the web layer's [release].
+  @visibleForTesting
+  static void Function(int mapId)? debugRelease;
+
+  /// Whether a disposed map's id is wanted by [release]: on the web, and in
+  /// a test standing in for the layer. Phone tests hand in bare fakes
+  /// without an id.
+  static bool get wantsRelease => kIsWeb || debugRelease != null;
+
+  /// Live web maps, Google maps really created and taken back for another
+  /// screen, maps waiting in the layer's pool, maps gutted beyond it and
+  /// WebGL contexts given back since the page loaded; null off the web (or
+  /// before the layer is there).
+  static ({
+    int live,
+    int created,
+    int recycled,
+    int pooled,
+    int released,
+    int contextsReleased,
+  })?
+  stats() => impl.stats();
+
   /// Flies the camera to [to] over [duration] on the browser's frame clock
   /// (one camera move per painted frame, the flight ease of
   /// map_camera_motion.dart). Completes with true when it lands, false when
