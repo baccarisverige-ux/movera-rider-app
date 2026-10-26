@@ -116,7 +116,7 @@ void main() {
         destinationLat: 59.8586,
         destinationLng: 17.6389,
         price: 499,
-        // The route change's new ceiling (1.8 x 300 kr on the server).
+        // The route change's new ceiling, as the server stored it.
         maxOfferMinor: 54000,
         savedAt: DateTime.now(),
       ),
