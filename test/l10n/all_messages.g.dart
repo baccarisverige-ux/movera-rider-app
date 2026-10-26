@@ -160,6 +160,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cardExpires': l.cardExpires('<date>'),
   'bookingUncertain': l.bookingUncertain,
   'bookingFailed': l.bookingFailed,
+  'rideAlreadyGoing': l.rideAlreadyGoing,
+  'rideAlreadyGoingOpened': l.rideAlreadyGoingOpened,
   'showFewerRides': l.showFewerRides,
   'showAllRides': l.showAllRides,
   'chooseYourRide': l.chooseYourRide,
@@ -1952,6 +1954,10 @@ class _Exhaustive implements AppLocalizations {
   String get bookingUncertain => '';
   @override
   String get bookingFailed => '';
+  @override
+  String get rideAlreadyGoing => '';
+  @override
+  String get rideAlreadyGoingOpened => '';
   @override
   String get showFewerRides => '';
   @override
