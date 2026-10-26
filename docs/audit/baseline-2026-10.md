@@ -13,7 +13,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 - [ ] 4. Baseline run
 - [ ] 5. Coverage of critical logic
 - [x] 6. Screen inventory
-- [ ] 7. Code quality findings
+- [x] 7. Code quality findings
 - [ ] 8. Known issues N3–N10
 - [ ] 9. Untested features and risks
 - [ ] 10. Summary
@@ -181,3 +181,63 @@ WaitingForDriver (assigned/arriving/in-trip, same screen) → RideCompleted.
 | RideCompleted | `PopScope(canPop: false)` with async handler ride_completed.dart:355–357; back icon 372 |
 
 Browser Back on web goes through the same `PopScope`s; whether each behaves on iPhone Safari is **NOT VERIFIED** (needs device, N3).
+
+
+## 7. Code quality findings
+
+**Very large files (>1000 lines, `wc -l`, excl. generated l10n):** select_ride.dart 3 257, waiting_for_driver.dart 3 181,
+home.dart 2 858, in_process_mock_client.dart 2 787, finding_driver_controller.dart 2 013, set_pickup_page.dart 1 664,
+support.dart 1 474, wallet.dart 1 417, finding_drivers.dart 1 402, ride_check_card.dart 1 322, route_picker_page.dart 1 273,
+booking_coordinator.dart 1 062, home_controller.dart 1 061, mock_ride_realtime.dart 1 047. The three booking screens
+(SelectRide, WaitingForDriver, Home) hold most of the flow's UI state in one `State` each.
+
+**Business logic / money in widgets (client-side arithmetic, grep):**
+- `lib/features/active_ride/presentation/waiting_fee_counter.dart:42` computes the waiting fee live as
+  `perMin × overSeconds / 60` (display estimate; uses the server's `waiting.freeUntil` when present, line ~50). Whether the
+  settled fee shown afterwards always comes from the server: **NOT VERIFIED**.
+- `lib/core/contracts/cancel_fee.dart:62–96` `CancelFeeCalculator` re-implements the contract's `riderCancelFee()`
+  (replayed against `fixtures/cancel_fees.json`) — a second implementation that can drift from the server.
+- `lib/features/finding_driver/presentation/price_bump_card.dart:117–118,167` computes the raise amount and the 2× cap in the
+  widget; `finding_driver_controller.dart:908` builds the new fare `fare + increase` client-side (server re-validates, N4).
+- `lib/features/pickup/presentation/set_pickup_page.dart:101–112` wallet split in **`double` kr** (`totalKr - walletKr`), next
+  to an integer-minor version in `wallet/domain/wallet_split.dart:55`. Two representations of the same split.
+- `select_ride.dart:2681,2837` and `set_pickup_page.dart:1463` show "price before discount" as `total + discount` client-side.
+- N9 (early finish shows final server fare) was fixed in #413 (see §8).
+
+**Duplicated logic vs the driver app** (`/home/user/movera-driver-app`, checkout at `5006f6b4`, a WIP branch; line overlap =
+distinct trimmed lines ≥12 chars common to both files):
+| Rider | Driver | Lines | Common |
+|---|---|---|---|
+| `web/rider_map_camera.js` | `web/driver_map_camera.js` | 789 / 666 | 207 |
+| `lib/core/api/api_client.dart` | `lib/core/api/api_client.dart` | 371 / 406 | 118 |
+| `lib/shared/widgets/custom_google_map.dart` | `lib/widgets/custom_google_map.dart` | 443 / 510 | 96 |
+| `lib/core/contracts/money.dart` | `lib/core/money/money.dart` | 134 / 229 | 12 |
+| `lib/core/maps/camera_tilt.dart:7–23` (67.5° / 15.5 curve, "Same as the driver app") | `lib/core/navigation/driver_camera_controller.dart:172–186` | | same curve copied |
+No shared package; fixes (e.g. N5 traffic layer, N6 tilt) must be made twice.
+
+**Contract copy is stale:** `contracts/CONTRACT.md:1` and `contracts/openapi.yaml:5` say **v0.5.0** (last synced in #399,
+`7cff2fab`), while HANDOFF.md says the contract is v0.5.5. S2 risk: fields added in v0.5.1–v0.5.5 are not in the rider's copy/tests.
+
+**Controllers, streams, timers:** 51 `Timer(`/`Timer.periodic` sites, 18 `StreamController`s, 20 `.listen(` in `lib/`.
+Heuristic scan (files creating controllers/subscriptions/timers without a `dispose()`): only real leak found is
+`lib/features/profile/presentation/account_widgets.dart:310–311` — a `TextEditingController` and `ValueNotifier` created per
+edit sheet and never disposed (S4). `trip_detail.dart:114` disposes at line 198; `push_coordinator.dart:105–106` cancels in
+its own stop method. A full lifecycle review was **not** done (heuristic only).
+
+**Map/WebGL lifecycle on web:** `docs/web-lifecycle-investigation.md` measured one Google map per screen kept alive forever
+(≈1 400 DOM nodes, 870 listeners, 5 maps, ~8 MB per booking) and WebGL context loss on vector maps; #411 reuses one map
+(measured 2 maps instead of 15 over three bookings). Note: `qa-critical-rider-flow` has been red on `main` since #411 (§3) —
+cause **NOT VERIFIED** (logs not readable here). iPhone behaviour after #411: **NOT VERIFIED** (needs device).
+
+**Realtime by polling:** `ApiRideRealtime` polls every 2 s per active trip (api_ride_realtime.dart:29,110) — ~30 req/min per
+rider during a trip; fine for a test week, a cost/latency item for Phase 7.
+
+**Secrets:** `git grep AIza HEAD` → no match. History (`git log --all -S`): Google Maps key `AIzaSyB2…` was committed in
+`96df05f1` (2026-09-08, `android/app/src/main/AndroidManifest.xml`, `ios/Runner/AppDelegate.swift`) and removed in
+`72e4bb7a`; a second key `AIzaSyBJ…` appears in gh-pages publish commits (e.g. `be853f02`) — expected for a browser Maps key,
+which must therefore be HTTP-referrer restricted. Whether either key is restricted/rotated: **NOT VERIFIED** (Google console).
+CI reads the key from secrets (`publish-web-live.yml:44,111`). `test/architecture/guard_test.dart:46` guards against `sk_live`.
+
+**Personal data in logs:** all logging goes through `AppLog` (`lib/core/logging/app_log.dart`), which runs `extra` through
+`Observability.sanitize` and prints to console only in `kDebugMode`. No raw `print(` in `lib/`. The `error` object is not
+sanitized (an `ApiError` with a server body could carry PII) — **NOT VERIFIED** whether it does.
