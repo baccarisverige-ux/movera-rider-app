@@ -31,9 +31,10 @@ class AlwaysFailQuotes implements QuoteRepository {
 void main() {
   test('FareRules exposes and enforces one authoritative ceiling', () {
     expect(FareRules.minimum(100), 65);
-    expect(FareRules.maximum(100), 180);
-    expect(FareRules.allowsTotal(total: 180, catalog: 100), isTrue);
-    expect(FareRules.allowsTotal(total: 181, catalog: 100), isFalse);
+    // Owner decision 2026-10-26: 2× (the server's raisePrice.maxFactor).
+    expect(FareRules.maximum(100), 200);
+    expect(FareRules.allowsTotal(total: 200, catalog: 100), isTrue);
+    expect(FareRules.allowsTotal(total: 201, catalog: 100), isFalse);
   });
 
   testWidgets('typed delayed offer cannot exceed FareRules ceiling', (tester) async {

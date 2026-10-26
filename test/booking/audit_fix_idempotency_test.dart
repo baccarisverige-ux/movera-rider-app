@@ -265,7 +265,7 @@ void main() {
     final rideId = await book(booking, quote);
 
     final serverMax = mock.rides[rideId]!['maxOfferMinor'] as int;
-    expect(serverMax, ((quote.totalMinor / 100 * 1.8).round()) * 100);
+    expect(serverMax, ((quote.totalMinor / 100 * 2).round()) * 100);
     expect(AppScope.instance.ride.bookedMaxOfferMinor, serverMax);
     expect((await RideSnapshotStore.read())?.maxOfferMinor, serverMax);
   });

@@ -380,7 +380,7 @@ void main() {
       expect(saved?.price, 300);
       expect(saved?.maxOfferMinor, 36000);
       final restored = finding(mock, saved!);
-      expect(restored.maxOfferPrice, 360, reason: 'not 1.8 × 300');
+      expect(restored.maxOfferPrice, 360, reason: 'not 2 × 300');
       expect(await restored.confirmPriceIncrease(100), isFalse);
 
       // The server holds the ceiling on its own too.

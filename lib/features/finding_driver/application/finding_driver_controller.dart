@@ -147,6 +147,9 @@ class FindingDriverController {
   bool _disposed = false;
   bool _delayedLogged = false;
   bool _bumpDismissed = false;
+
+  /// The rider opened the raise card themself ([openPriceBump]).
+  bool _bumpOpened = false;
   bool _priceUpdated = false;
   bool _editInFlight = false;
   bool _assignmentPending = false;
@@ -214,14 +217,44 @@ class FindingDriverController {
       !_cancelQueued &&
       !_assignmentPending;
   bool get showPriceBump =>
-      elapsedSeconds >= priceBumpAfter.inSeconds &&
-      !_bumpDismissed &&
+      (_bumpOpened ||
+          (elapsedSeconds >= priceBumpAfter.inSeconds && !_bumpDismissed)) &&
       !_assigned &&
       !_assignmentPending &&
       !_cancelQueued &&
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
+
+  /// The rider opened the card from "Raise your offer": it shows even over
+  /// the still-looking card.
+  bool get priceBumpOpened => _bumpOpened && showPriceBump;
+
+  /// Owner, live test 2026-10-26: "while search and wait long time can't
+  /// add money". The card showed once, at 45 s, and never again after a
+  /// raise or Keep waiting, and the still-looking card hid it after 3 min.
+  /// While the search runs and the fare is below its ceiling the rider can
+  /// open it again at any time.
+  bool get canRaise =>
+      !_assigned &&
+      !_assignmentPending &&
+      !_cancelInFlight &&
+      !_cancelQueued &&
+      !_cancelled &&
+      !_terminated &&
+      _snapshot != null &&
+      currentPrice < maxOfferPrice;
+
+  /// "Raise your offer" shows while the card is closed.
+  bool get showRaiseEntry => canRaise && !showPriceBump;
+
+  void openPriceBump() {
+    if (!canRaise) return;
+    _bumpOpened = true;
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
+  }
 
   /// Q7: the currency of this trip (its pickup's zone). [currentPrice] and
   /// [maxOfferPrice] are whole units of it.
@@ -348,6 +381,7 @@ class FindingDriverController {
     _disposed = false;
     _delayedLogged = false;
     _bumpDismissed = false;
+    _bumpOpened = false;
     _priceUpdated = false;
     _editInFlight = false;
     _assignmentPending = false;
@@ -982,6 +1016,7 @@ class FindingDriverController {
       ride.observeProjection(response);
       if (_appliedEditDropped(editToken)) return false;
       _bumpDismissed = true;
+      _bumpOpened = false;
       final serverPrice = _serverPrice(response);
       if (serverPrice == null) {
         // Accepted, but the response did not say what the fare now is.
@@ -1025,7 +1060,7 @@ class FindingDriverController {
     } catch (error) {
       editFeedback = _staleEdit(error, _priceMutation)
           ? rideJustChangedMessage
-          : L10n.current.editOfferFailed;
+          : _raiseRefusal(error);
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return false;
@@ -1077,9 +1112,27 @@ class FindingDriverController {
     return value.isFinite && value > 0 ? value : null;
   }
 
+  /// What a refused raise tells the rider: the ride moved on (a driver
+  /// accepted, the search ended) or the offer is above its ceiling. Other
+  /// failures keep the general message.
+  String _raiseRefusal(Object error) {
+    if (error is! ApiError) return L10n.current.editOfferFailed;
+    switch (error.detail) {
+      case 'invalid_transition':
+        return rideJustChangedMessage;
+      case 'raise_too_high':
+        return L10n.current.bumpMaxPrice(
+          formatMoney(Money.fromLegacyMajor(maxOfferPrice, currency), whole: true),
+        );
+      default:
+        return L10n.current.editOfferFailed;
+    }
+  }
+
   void dismissPriceBump() {
     if (_terminated) return;
     _bumpDismissed = true;
+    _bumpOpened = false;
     _onTick?.call(elapsedSeconds);
     _reportQa();
   }

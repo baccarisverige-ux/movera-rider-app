@@ -91,6 +91,20 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   int get _currentMinor => _minorOf(widget.currentPrice);
 
+  int get _maxMinor => _minorOf(widget.maxPrice);
+
+  /// A step that keeps the fare within its ceiling.
+  bool _stepFits(int step) => _currentMinor + step * _unitMinor <= _maxMinor;
+
+  /// Owner, live test 2026-10-26 (+200 kr): a total above the ceiling left
+  /// Confirm grey with no reason; the card now says the most it can be.
+  bool get _overMax {
+    final total = _typedTotal;
+    if (total != null) return total * _unitMinor > _maxMinor;
+    final step = _selectedStep;
+    return step != null && !_stepFits(step);
+  }
+
   /// [amount] whole units of the trip's currency, as the fare is shown.
   String _money(num amount) => formatMajor(amount, widget.currency);
 
@@ -245,7 +259,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                   child: _Step(
                     label: '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
                     selected: _selectedStep == widget.steps[i],
-                    onTap: widget.busy
+                    onTap: widget.busy || !_stepFits(widget.steps[i])
                         ? null
                         : () => _selectStep(widget.steps[i]),
                   ),
@@ -310,6 +324,20 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             ),
           ),
         ),
+        if (_overMax) ...[
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.bumpMaxPrice(
+              formatMoney(Money(_maxMinor, widget.currency), whole: true),
+            ),
+            key: const ValueKey('price-bump-max'),
+            style: GoogleFonts.poppins(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFFB42318),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
@@ -395,7 +423,13 @@ class _Step extends StatelessWidget {
     return MoveraMotion.selection(
       selected: selected,
       child: Material(
-        color: selected ? MoveraTokens.ink : Colors.white,
+        // A step above the ceiling is off: greyed fill and border too, not
+        // only lighter text (owner screenshots, 2026-10-26).
+        color: selected
+            ? MoveraTokens.ink
+            : onTap == null
+            ? const Color(0xFFF1F3F5)
+            : Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -405,7 +439,11 @@ class _Step extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected ? MoveraTokens.ink : MoveraTokens.line,
+                color: selected
+                    ? MoveraTokens.ink
+                    : onTap == null
+                    ? const Color(0xFFF1F3F5)
+                    : MoveraTokens.line,
               ),
             ),
             child: Text(
@@ -414,7 +452,11 @@ class _Step extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : MoveraTokens.ink,
+                color: selected
+                    ? Colors.white
+                    : onTap == null
+                    ? MoveraTokens.subtleOnFill
+                    : MoveraTokens.ink,
               ),
             ),
           ),
