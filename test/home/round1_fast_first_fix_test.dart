@@ -13,11 +13,11 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 /// (the OS's cached fix, else a quick coarse one), binds the accurate fix
 /// before its address is known, and the push primer waits for the location
 /// answer.
-Position _position(double lat, double lng) => Position(
+Position _position(double lat, double lng, {double accuracy = 5}) => Position(
   latitude: lat,
   longitude: lng,
   timestamp: DateTime.utc(2026, 10, 25),
-  accuracy: 5,
+  accuracy: accuracy,
   altitude: 0,
   altitudeAccuracy: 0,
   heading: 0,
@@ -126,6 +126,41 @@ void main() {
     final detecting = controller.detectCurrent(onQuickFix: quick.add);
     await pumpEventQueue();
     expect(location.asked, [LocationAccuracy.high, LocationAccuracy.low]);
+    expect(quick, [const LatLng(59.31, 18.01)]);
+    location.accurate.complete(_position(59.3326, 18.0649));
+    await detecting;
+  });
+
+  test('a quick fix kilometres off is not shown; the accurate fix is the '
+      'first position', () async {
+    // Owner, live test 2026-10-26: Safari's quick answer put the puck in
+    // the sea south of Södertälje, 30 km from the rider.
+    final location = _Location()
+      ..coarse = _position(58.75, 17.95, accuracy: 6000);
+    final geo = _Geocoding()..answer.complete(null);
+    final controller = _controller(location, geo);
+    addTearDown(controller.dispose);
+    final quick = <LatLng>[];
+
+    final detecting = controller.detectCurrent(onQuickFix: quick.add);
+    await pumpEventQueue();
+    expect(location.asked, [LocationAccuracy.high, LocationAccuracy.low]);
+    expect(quick, isEmpty);
+    location.accurate.complete(_position(59.1954, 17.6252));
+    final detected = await detecting;
+    expect(detected.target, const LatLng(59.1954, 17.6252));
+    expect(quick, isEmpty);
+  });
+
+  test('a quick fix within a kilometre is still shown at once', () async {
+    final location = _Location()
+      ..coarse = _position(59.31, 18.01, accuracy: 900);
+    final geo = _Geocoding()..answer.complete(null);
+    final controller = _controller(location, geo);
+    addTearDown(controller.dispose);
+    final quick = <LatLng>[];
+    final detecting = controller.detectCurrent(onQuickFix: quick.add);
+    await pumpEventQueue();
     expect(quick, [const LatLng(59.31, 18.01)]);
     location.accurate.complete(_position(59.3326, 18.0649));
     await detecting;
