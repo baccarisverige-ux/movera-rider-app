@@ -36,7 +36,13 @@ class RideCompleted extends StatefulWidget {
     this.onClose,
     this.controller,
     this.endedEarly,
+    this.tipsAvailable,
   });
+
+  /// Owner decision 2026-10-26: no tip choice until the server takes tips
+  /// (`tips_not_available`): a tip picked on the live wire was never paid.
+  /// Null: offered only where tips are taken (the demo's mock server).
+  final bool? tipsAvailable;
 
   /// UI-01: the rider ended the trip on board. The summary says so and
   /// shows what they pay for the distance driven, instead of dropping them
@@ -418,13 +424,17 @@ class _RideCompletedState extends State<RideCompleted> {
                                     onRatingChanged: (rating) => _rating = rating,
                                   ),
                                 ),
-                                const SizedBox(height: 14),
-                                _SurfaceCard(
-                                  child: RideCompletedAddTip(
-                                    rideId: widget.rideId,
-                                    onTipChanged: (amount) => _tipMinor = amount,
+                                if (widget.tipsAvailable ??
+                                    !AppScope.instance.api.contractWire) ...[
+                                  const SizedBox(height: 14),
+                                  _SurfaceCard(
+                                    child: RideCompletedAddTip(
+                                      rideId: widget.rideId,
+                                      onTipChanged: (amount) =>
+                                          _tipMinor = amount,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
