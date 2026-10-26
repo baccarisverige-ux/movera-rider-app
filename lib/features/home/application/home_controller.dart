@@ -284,6 +284,13 @@ class HomeLocationController extends ChangeNotifier {
   /// the camera does not move the camera again.
   static const quickFixRefineMeters = 30.0;
 
+  /// Owner, live test 2026-10-26: a quick fix less sure than this (metres)
+  /// is not shown. In Safari on iPhone the quick low-accuracy answer can be
+  /// a Wi-Fi or network estimate kilometres off (the puck landed in the sea
+  /// south of Södertälje and the map centred there); the accurate fix comes
+  /// a moment later and is the first position shown instead.
+  static const quickFixMaxMeters = 1000.0;
+
   /// Owner, live test 2026-10-26 (N7): a first fix this uncertain (metres)
   /// is not named. Right after sign-in the phone's first "accurate" fix is
   /// often a cached or network one hundreds of metres off; its reverse
@@ -507,6 +514,10 @@ class HomeLocationController extends ChangeNotifier {
             ),
           )
           .timeout(quickFixTimeout);
+      if (position.accuracy.isFinite &&
+          position.accuracy > quickFixMaxMeters) {
+        return null;
+      }
       final point = GeoPoint(position.latitude, position.longitude);
       return point.isValid ? LatLng(point.latitude, point.longitude) : null;
     } catch (_) {
