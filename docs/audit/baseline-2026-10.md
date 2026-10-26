@@ -8,10 +8,10 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 
 ## Progress
 - [x] 1. Structure and architecture
-- [ ] 2. Dependencies
+- [x] 2. Dependencies
 - [x] 3. CI
-- [ ] 4. Baseline run
-- [ ] 5. Coverage of critical logic
+- [x] 4. Baseline run
+- [x] 5. Coverage of critical logic
 - [x] 6. Screen inventory
 - [x] 7. Code quality findings
 - [x] 8. Known issues N3–N10
@@ -282,7 +282,7 @@ sanitized (an `ApiError` with a server body could carry PII) — **NOT VERIFIED*
 
 ## 4. Baseline run
 
-Machine: cloud container, 4 cores, Flutter at `/home/user/flutter/bin` (version in `flutter --version`, see below). Run on `main` `c1063fb8`.
+Machine: cloud container, 4 cores, **Flutter 3.47.7 stable** (`/home/user/flutter/bin`). Run on `main` `c1063fb8`.
 
 | Command | Result | Wall time |
 |---|---|---|
@@ -290,8 +290,62 @@ Machine: cloud container, 4 cores, Flutter at `/home/user/flutter/bin` (version 
 | `dart format --output=none --set-exit-if-changed .` | **exit 1 — 519 of 1 066 files would change** (lib 217, test 298, integration_test 4). Not applied | 6 s |
 | `flutter analyze --fatal-infos` | exit 0, "No issues found! (ran in 47.4s)" | 57 s |
 | `flutter test` (full, once) | exit 0, **+2958 ~3, 0 failed** ("All tests passed!") | **1 831 s (30.5 min)** |
+| `flutter build web --release` | exit 0, "✓ Built build/web" (warning: CupertinoIcons font family referenced but not bundled) | 91 s |
 | tool/CI gates (batch5-phase69 integrity steps; rider-l10n ARB check), run locally by extracting the workflow `run:` blocks | all exit 0; "Legacy grep-style test cases: 39" (cap <40); "1427 messages in en, fr and sv" | <5 s |
 
 The 3 skipped tests are all in `test/e2e/live_server_booking_test.dart` (price→book→complete→rate→history; cancel while
 searching/after accept; end early) — they need a running movera-server and are skipped in every CI run, so the only
-contract-wire booking test never runs in CI. No failures, so no flakiness reruns were needed.
+contract-wire booking test never runs in CI. `tool/web_lifecycle_probe.mjs` and `tool/select_ride_sheet_probe.mjs` were **not run** (need a served build + Chromium session; NOT VERIFIED here). No failures, so no flakiness reruns were needed.
+
+
+## 2. Dependencies
+
+`pubspec.yaml`: SDK `^3.8.1`; 20 direct deps + 3 SDK, 5 dev deps. Usage = files in `lib/` importing `package:<name>/`.
+
+| Package | Locked | Latest (`flutter pub outdated`) | lib files |
+|---|---|---|---|
+| google_maps_flutter | 2.13.1 | 2.19.0 (upgradable in range; google_maps_flutter_web 0.5.14+2 → 0.6.5) | 29 |
+| firebase_core / firebase_messaging | 4.15.0 / 16.7.0 | 5.1.0 / 17.0.1 (major) | 1 / 1 |
+| flutter_secure_storage | 9.2.4 | 11.2.0 (major; `_macos` 3.1.3 transitive is **discontinued**) | 2 |
+| google_fonts | 8.2.1 | 9.0.0 | 56 |
+| pinput | 5.0.1 | 7.0.0 | 1 |
+| geolocator | 14.0.2 | 14.1.2 | 6 |
+| http | 1.5.0 | 1.6.0 | 8 |
+| smooth_sheets | 1.2.0 | 1.3.0 | 6 |
+| shared_preferences | 2.5.3 | 2.5.6 | 3 |
+| record / url_launcher / pointer_interceptor / web / dotted_line | 7.1.1 / 6.3.2 / 0.10.1+2 / 1.1.1 / 3.2.3 | 7.1.2 / 6.3.3 / 0.10.1+3 / 1.1.2 / 3.3.0 | 1 / 2 / 17 / 6 / 1 |
+| flutter_screenutil, flutter_svg, flutter_rating_bar, flutter_animate, intl, path_provider | current | — | 2, 7, 1, 1, 6, 1 |
+| dev: flutter_lints | 5.0.0 | 6.0.0 | — |
+
+- Unused direct deps: **none** (every direct dep is imported in `lib/`; dev deps crypto, fake_async, maps platform interface used in tests).
+  Light use: dotted_line, flutter_rating_bar, flutter_animate, pinput, record, path_provider each in 1 file.
+- 69 packages have newer versions outside the constraints (pub get output).
+- Advisories: **NOT VERIFIED** — no Dart advisory tool is installed and CI has none; `pub outdated` reports no "retracted"/security
+  markers for these versions (only the discontinued notice above).
+- `pubspec.lock` is committed; `--enforce-lockfile` passes locally but no CI uses it.
+
+## 5. Coverage of critical logic
+
+`flutter test --coverage` over the full suite (exit 0, +2958 ~3, **1 192 s**). lcov contains 442 of 491 `lib/` files (only files
+loaded by a test are listed, so untouched files are missing, not 0 %). Tests run on the Dart VM: web-only `*_web.dart`
+code and `web/*.js` are not measured. Coverage is from mock-dialect tests (R1), so a high % does not mean the live wire is tested.
+
+| Area | Lines hit / found | % |
+|---|---|---|
+| lib/ total | 37 348 / 41 140 | 90.8 |
+| lib/core | 4 693 / 5 052 | 92.9 |
+| core/api (ApiClient 97.9 %) | 1 682 / 1 751 | 96.1 |
+| core/auth (secure_token_store 87.9 %) | 68 / 78 | 87.2 |
+| core/realtime (api_ride_realtime 96.0 %) | 807 / 832 | 97.0 |
+| core/maps (**camera_tilt 69.4 %**, map_camera_motion 98.0 %) | 648 / 685 | 94.6 |
+| core/contracts (money 86.0 %, cancel_fee 97.6 %, trip_transitions 93.8 %) | 384 / 397 | 96.7 |
+| core/web (**rider_map_bridge 58.1 %**) | 50 / 78 | 64.1 |
+| features/booking (booking_coordinator 95.6 %) | 371 / 391 | 94.9 |
+| features/ride_booking (ride_session 95.6 %) | 1 017 / 1 096 | 92.8 |
+| features/finding_driver (controller 89.4 %) | 2 077 / 2 360 | 88.0 |
+| features/active_ride (waiting_fee_counter 100 %) | 2 523 / 2 926 | 86.2 |
+| features/auth (auth_controller 87.2 %) | 1 752 / 1 833 | 95.6 |
+| features/ride_complete / wallet / payments | 637/659, 770/869, 585/624 | 96.7 / 88.6 / 93.8 |
+
+Lowest in lib/core (≥40 lines): firebase_push_service 52.5 %, rider_map_bridge 58.1 %, camera_tilt 69.4 % (the N6 code),
+api_payment_gateway 83.6 %, money 86.0 %.
