@@ -16,7 +16,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 - [x] 7. Code quality findings
 - [x] 8. Known issues N3–N10
 - [x] 9. Untested features and risks
-- [ ] 10. Summary
+- [x] 10. Summary
 
 
 ## 1. Structure and architecture
@@ -349,3 +349,29 @@ code and `web/*.js` are not measured. Coverage is from mock-dialect tests (R1), 
 
 Lowest in lib/core (≥40 lines): firebase_push_service 52.5 %, rider_map_bridge 58.1 %, camera_tilt 69.4 % (the N6 code),
 api_payment_gateway 83.6 %, money 86.0 %.
+
+
+## 10. Summary: top 10 findings
+
+| # | Sev | Finding | Proposed action | Phase |
+|---|---|---|---|---|
+| 1 | S1 | Tests run the mock dialect; the only contract-wire booking tests (`test/e2e/live_server_booking_test.dart`, 3) are skipped everywhere (`MOVERA_E2E_API` unset) | Run them in CI against a local movera-server (Postgres service) | 3 |
+| 2 | S1 | iPhone crash/reload in booking (N3) not verified after the #411 map reuse | Owner device script + Chromium lifecycle probe in CI | 0 / 5 |
+| 3 | S2 | All 4 `qa-*` live-build workflows red on `main` (critical flow red since #411) | Read the logs, fix or re-baseline; make the useful one required | 0 / 2 |
+| 4 | S2 | Contract copy v0.5.0 vs contract v0.5.5 | `tool/sync_contract.sh` to v0.5.5, fix fallout | 2 / 3 |
+| 5 | S2 | N4 live raise rejection cause unknown; #413 shipped it as WIP | Reproduce against server, pin the failing rule; D4 | 0 / 3 |
+| 6 | S2 | Money computed client-side (cancel fee, waiting fee, raise sum, double-kr wallet split) | Show server amounts; keep calculators only as previews with tests vs fixtures | 3 / 4 |
+| 7 | S3 | CI: no lockfile, format (519 files), `--fatal-infos`, coverage, secret scan; Flutter unpinned; 11 workflows w/o timeout; full suite ×5 per PR (~10–13 min each) | Consolidate into one gate workflow per Phase 2 table; separate format PR | 2 |
+| 8 | S3 | N6 rest: pinch faults while searching, tiny-route minimum span; camera_tilt 69 % covered | Tests + fix | 6 |
+| 9 | S3 | Maps/WebGL/map code duplicated with driver app (JS bridge 207 common lines, ApiClient 118, map widget 96, same tilt curve) | Shared package or at least shared test fixtures; fix both apps together | later |
+| 10 | S3 | Google Maps keys in git history (`96df05f1`; gh-pages builds) | Confirm referrer/app restriction or rotate | 4 |
+
+Also: screens >3 000 lines (S4), one undisposed controller (S4), 3 screens with ≤1 test file (S4).
+
+### Not verified (and why)
+- QA workflow failure messages: Actions log download returns 403 via this machine's proxy.
+- Branch protection / required checks: not queried.
+- iPhone Safari behaviour, native builds, real GPS, live server behaviour for N4/N7/N8/N9/N10: need device / live run.
+- `tool/*.mjs` Chromium probes: not run in this phase.
+- Dart security advisories: no tool available.
+- Key restriction/rotation: needs the Google Cloud console.
