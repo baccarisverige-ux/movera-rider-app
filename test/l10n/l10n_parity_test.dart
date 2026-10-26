@@ -32,6 +32,8 @@ void main() {
       'pickupSpotParking',
       // Owner round 2: words French shares with English on Select ride.
       'ridesPremium', 'arriveEtaMin',
+      // The trip chat shows Movera support under the brand name.
+      'chatSupportSender',
     },
     'sv': {
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',
@@ -43,6 +45,7 @@ void main() {
       'compassNorth', 'compassSouth',
       // Owner round 2: words Swedish shares with English on Select ride.
       'ridesPremium', 'arriveEtaMin',
+      'chatSupportSender',
     },
   };
 
