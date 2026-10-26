@@ -8,7 +8,7 @@ Machine: cloud container, Flutter 3.47.7 stable. Plan: `movera-contracts` `docs/
 
 | # | Item | Status |
 |---|---|---|
-| 1 | One consolidated gate workflow | **Done** (CI result: see PR) |
+| 1 | One consolidated gate workflow | **Done**; green on PR #422 |
 | 2 | `dart format .` in its own commit + format check in the gate | **Done** |
 | 3 | The 4 `qa-*` live-build workflows red on `main` | **Diagnosed, not fixed** (needs the live site; see below) |
 | 4 | Contract copy v0.5.0 → v0.5.5 + test fallout | **Done** |
@@ -70,9 +70,27 @@ of the local full run on this branch (after the contract sync). Floor set to **9
 run-to-run noise from timers). Raise it, never lower it.
 
 **Evidence (local):** `flutter analyze --fatal-infos` → "No issues found!"; format check → "0 changed";
-`sha256sum --quiet -c CHECKSUMS` → exit 0; all workflow YAML parses. gitleaks was **not** run locally
-(downloading the binary was not permitted in this session) — its first run is the PR's CI.
-Full suite: see §"Full suite" below.
+`sha256sum --quiet -c CHECKSUMS` → exit 0; all workflow YAML parses. gitleaks was not run locally
+(downloading the binary was not permitted in this session).
+
+**Evidence (CI, PR #422, run 40362590881 on `851eb228`):** all six `CI gate` jobs success — static 0:52,
+test 14:47 (suite 13:47, TZ reruns 0:28, coverage floor passed), integration 3:15, web-build 2:39,
+secret-scan 0:06, gate. Artifact `coverage-lcov` uploaded. Wall time ≈ 15 min, against 5–6 suite runs of
+10–13 min each before.
+
+**Fallout found by the first CI runs and fixed:**
+- `batch7-phase82` grep guard `child: Text(_saving ? … : …)` failed after `dart format` wrapped the argument;
+  it now greps the file with whitespace collapsed (same text). Every grep-only step of the batch6/batch7
+  workflows was re-run locally afterwards: all exit 0.
+- gitleaks reported 6 `generic-api-key` findings; each line was read: made-up test keys and idempotency keys,
+  a preferences key name, and mock payment-intent ids in a recorded audit output. None is a credential. They
+  are listed by exact fingerprint (`file:rule:line`) in `.gitleaksignore`, so any new finding fails.
+  (Line-number fingerprints: an edit above one of those lines needs the ignore entry updated.)
+- `origin/main` moved twice during the work (#415, #416, #421, #418); merged in, and the files they added
+  were formatted in format-only commits. From now on a PR with unformatted Dart fails `static`.
+
+**On PR #422 `qa-critical-rider-flow` is red** (it runs on PRs that touch its file, and tests the published
+site at the PR's base SHA): the same live-build failure as on main (§3); not caused by this PR.
 
 ## 2. Formatting
 
@@ -161,4 +179,6 @@ whose `State.dispose` disposes each. The baseline's heuristic scan missed that w
 
 - Run 1 (after format + contract sync, before the fixes above): `+2954 ~3 -4` ("Some tests failed"): the 3 contract tests
   and phase99 (all fixed above). Wall 42m49s (4 cores, shared with a web build).
-- Run 2 (final tree): __RUN2__
+- Run 2 (after all fixes, before merging #418): `+2962 ~3: All tests passed!`, wall 28m35s; lib/core
+  coverage 92.90 % (4725/5086), same as run 1.
+- CI on the final tree: see §1 evidence (suite green, coverage floor passed).
