@@ -62,8 +62,10 @@ class ApiRideRealtime implements RideRealtime {
   final Map<String, ({RideStatus status, String? driverId})> _shown = {};
   bool _disposed = false;
 
+  /// Contract v0.5.4: on the live wire the rider's "I'm on the way" is
+  /// `POST /trips/{tripId}/on-the-way`; the mock transport has no signals.
   @override
-  bool get supportsRiderSignals => false;
+  bool get supportsRiderSignals => _api.contractWire;
 
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
@@ -450,10 +452,24 @@ class ApiRideRealtime implements RideRealtime {
     required String rideId,
     required RideRealtimeSignal signal,
     String? message,
-  }) {
-    throw UnsupportedError(
-      'Rider signals are not available on the polling transport.',
-    );
+  }) async {
+    if (!_api.contractWire) {
+      throw UnsupportedError(
+        'Rider signals are not available on the polling transport.',
+      );
+    }
+    switch (signal) {
+      case RideRealtimeSignal.riderOnTheWay:
+        // The driver hears it as a rider_on_the_way event on the trip's
+        // stream (contract v0.5.4). No body; the key makes a retry safe.
+        await _api.post(
+          '/api/v1/trips/${Uri.encodeComponent(rideId)}/on-the-way',
+          body: const <String, dynamic>{},
+          idempotencyKey: 'on-the-way-$rideId-${_clock().millisecondsSinceEpoch ~/ 10000}',
+        );
+      case RideRealtimeSignal.driverArrived:
+        throw UnsupportedError('Only the driver says they have arrived.');
+    }
   }
 
   @override

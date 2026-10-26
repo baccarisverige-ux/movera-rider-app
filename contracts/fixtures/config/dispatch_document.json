@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "publishedAt": "2026-10-24T09:00:00Z",
+  "zoneId": "Z001",
+  "country": "SE",
+  "timeZone": "Europe/Stockholm",
+  "radar": {
+    "on": true,
+    "drivers": 5,
+    "seconds": 15,
+    "then": "widen_then_exclusive"
+  },
+  "exclusive": {
+    "on": true,
+    "drivers": 3,
+    "seconds": 15,
+    "then": "widen_then_radar"
+  },
+  "choose": {
+    "how": "auto",
+    "radarAbove": 1.5,
+    "main": "exclusive",
+    "backup": "radar",
+    "times": [
+      {
+        "id": "t1",
+        "on": false,
+        "from": "22:00",
+        "to": "04:00",
+        "mode": "radar"
+      }
+    ]
+  },
+  "rulesFrom": "driver",
+  "radius": {
+    "steps": [
+      3,
+      5,
+      8
+    ],
+    "maxWaitMin": 10
+  },
+  "factors": [
+    {
+      "id": "eta",
+      "on": true,
+      "weight": 40
+    },
+    {
+      "id": "rating",
+      "on": true,
+      "weight": 15
+    },
+    {
+      "id": "acceptance",
+      "on": true,
+      "weight": 15
+    },
+    {
+      "id": "cancel",
+      "on": true,
+      "weight": 10
+    },
+    {
+      "id": "idle",
+      "on": true,
+      "weight": 10
+    },
+    {
+      "id": "finishing",
+      "on": true,
+      "weight": 5
+    },
+    {
+      "id": "favourite",
+      "on": true,
+      "weight": 5
+    }
+  ],
+  "finishing": {
+    "exclusive": true,
+    "withinMin": 3,
+    "withinKm": 1.5
+  },
+  "favourite": {
+    "on": true,
+    "maxKm": 4
+  },
+  "exclusiveWhileDriving": {
+    "on": true,
+    "count": 1
+  },
+  "waiting": [
+    {
+      "id": "w1",
+      "kind": "raise_price",
+      "on": true,
+      "afterMin": 1,
+      "message": "Drivers are busy. Raise your price to be picked up faster.",
+      "extraMin": null
+    },
+    {
+      "id": "w2",
+      "kind": "upgrade",
+      "on": true,
+      "afterMin": 2,
+      "message": "A Priority or Comfort car can come sooner. Upgrade?",
+      "extraMin": null
+    },
+    {
+      "id": "w3",
+      "kind": "alert_admin",
+      "on": true,
+      "afterMin": 3,
+      "message": "We are looking for a driver for you.",
+      "extraMin": null
+    },
+    {
+      "id": "w4",
+      "kind": "keep_waiting",
+      "on": true,
+      "afterMin": 5,
+      "message": "Still searching. Keep waiting?",
+      "extraMin": 3
+    },
+    {
+      "id": "w5",
+      "kind": "busy",
+      "on": true,
+      "afterMin": 8,
+      "message": "It is very busy right now. Please try again in a few minutes.",
+      "extraMin": null
+    }
+  ]
+}
