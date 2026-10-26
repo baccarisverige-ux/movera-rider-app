@@ -292,6 +292,11 @@ class ApiRideRealtime implements RideRealtime {
           if (serverLocationAt != null)
             'serverLocationAt': WireTime.format(serverLocationAt),
           if (ride['status'] is String) 'tripStatus': ride['status'],
+          // Owner, live test 2026-10-26 (N9): the fare the projection carries
+          // (the server's final fare once the trip ends, below the booked
+          // one when it ended early) travels with the status, so the
+          // summary and the receipt show what the rider pays.
+          if (ride['fare'] is Map) fareKey: ride['fare'],
           // Contract v0.4.0: when the driver accepted (Q12) and when the
           // waiting clock started (Q42), as the server stamped them.
           if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],

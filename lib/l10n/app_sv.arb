@@ -296,6 +296,7 @@
   "offerSentUnconfirmed": "Budet har skickats. Priset uppdateras när Movera bekräftar det.",
   "offerUpdatedTo": "Nytt bud: {amount}",
   "driverAlreadyAccepted": "En förare har redan accepterat din resa, så den avbröts inte.",
+  "searchAgain": "Sök igen",
   "rebookFailed": "Vi kunde inte beställa en ny resa. Välj din rutt och försök igen.",
   "minLineBreak": "{minutes}\nmin",
   "cancelOfflineQueued": "Vi kunde inte nå Movera. Vi avbryter din resa så fort du är online igen.",

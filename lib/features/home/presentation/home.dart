@@ -960,6 +960,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   int _pickupLabelGeneration = 0;
   LatLng? _pickupLabelAt;
 
+  /// N7: when the pickup label was last asked of the geocoder, so an unnamed
+  /// pickup is retried on the live fixes no more than every few seconds.
+  DateTime? _pickupLabelAskedAt;
+
   void _resetPickupLabel() {
     final here = _gpsPickup;
     final generation = ++_pickupLabelGeneration;
@@ -972,6 +976,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           : 'Current location';
     });
     if (here == null) return;
+    // N7: a coarse fix names no street; the next good fix relabels.
+    if (!HomeLocationController.nameable(_locationCtl.lastFixAccuracyMeters)) {
+      return;
+    }
+    _pickupLabelAskedAt = DateTime.now();
     unawaited(() async {
       String? address;
       try {
@@ -1034,7 +1043,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       fix.latitude,
       fix.longitude,
     );
-    if (moved > 75) _resetPickupLabel();
+    // N7: a pickup still unnamed (the first fix was too coarse to name)
+    // takes its street from the first fix that is good enough.
+    final askedAt = _pickupLabelAskedAt;
+    final unnamed =
+        isPlaceholderPickupLabel(_pickupAddress) &&
+        _pickupAddress != locationOffPickupLabel &&
+        HomeLocationController.nameable(_locationCtl.lastFixAccuracyMeters) &&
+        (askedAt == null ||
+            DateTime.now().difference(askedAt) > const Duration(seconds: 8));
+    if (moved > 75 || unnamed) _resetPickupLabel();
   }
 
   Future<PickupMapResult?> _openPickupMapPicker(

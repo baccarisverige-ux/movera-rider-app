@@ -178,6 +178,42 @@ void main() {
       expect(fake.calls.single.$2.first, 'newLatLngBounds');
     });
 
+    test('N6: a route of a few metres fits at the street zoom, flat, not at '
+        'building level with the full tilt', () async {
+      // Owner screenshot (Select ride, Klockarvägen 37, Södertälje): pickup
+      // and destination a few metres apart fitted at zoom ~21 with 67.5° of
+      // tilt, a street-level view with the route drawn as a wedge.
+      mapViewOf(fake)
+        ..size = const Size(390, 700)
+        ..tiltWithZoom = false;
+      await maps.fitBounds(
+        const GeoPoint(59.1962, 17.6279),
+        const GeoPoint(59.19625, 17.6281),
+      );
+      final pose = fake.poses.single;
+      expect(_zoom(pose), lessThanOrEqualTo(routeFitMaxZoom));
+      expect(_zoom(pose), greaterThan(routeFitMaxZoom - 1));
+      expect(_tilt(pose), 0);
+    });
+
+    test('N6: the same cap when the viewport is not known yet', () async {
+      await maps.fitBounds(
+        const GeoPoint(59.1962, 17.6279),
+        const GeoPoint(59.19625, 17.6281),
+      );
+      final call = fake.calls.single.$2;
+      expect(call.first, 'newLatLngZoom');
+      expect((call[2] as num).toDouble(), routeFitMaxZoom);
+      expect(
+        GoogleMapProvider.boundsFitPastStreetZoom(
+          const LatLng(59.3293, 18.0686),
+          const LatLng(59.3429, 18.0496),
+        ),
+        isFalse,
+        reason: 'a real route still gets the bounds fit',
+      );
+    });
+
     test('a map that stays flat never tilts', () async {
       mapViewOf(fake).tiltWithZoom = false;
       await maps.animateCamera(const GeoPoint(59.33, 18.06), zoom: 17);

@@ -150,6 +150,7 @@ class GoogleMapProvider implements MapProvider {
         width: size.width,
         height: size.height,
         padding: padding,
+        maxZoom: routeFitMaxZoom,
         tilted: view.tiltWithZoom,
       );
       if (fitted != null) {
@@ -163,6 +164,21 @@ class GoogleMapProvider implements MapProvider {
         return;
       }
     }
+    if (boundsFitPastStreetZoom(southwest, northeast, padding: padding)) {
+      // N6: the plain bounds fit has no zoom ceiling and takes a tiny span
+      // to building level. Frame the midpoint at the street zoom instead.
+      await runCameraUpdate(
+        map,
+        CameraUpdate.newLatLngZoom(
+          LatLng(
+            (southwest.latitude + northeast.latitude) / 2,
+            (southwest.longitude + northeast.longitude) / 2,
+          ),
+          routeFitMaxZoom,
+        ),
+      );
+      return;
+    }
     await runCameraUpdate(
       map,
       CameraUpdate.newLatLngBounds(
@@ -170,6 +186,27 @@ class GoogleMapProvider implements MapProvider {
         padding,
       ),
     );
+  }
+
+  /// Whether `newLatLngBounds(bounds, padding)` on a phone-sized map (the
+  /// viewport is not known here) would land past [routeFitMaxZoom] for
+  /// [southwest]..[northeast]: the flat fit of the same bounds on a
+  /// 390 × 700 logical-pixel map.
+  static bool boundsFitPastStreetZoom(
+    LatLng southwest,
+    LatLng northeast, {
+    double padding = 0,
+  }) {
+    final flat = tiltedFitCamera(
+      southwest: southwest,
+      northeast: northeast,
+      width: 390,
+      height: 700,
+      padding: padding,
+      maxZoom: 30,
+      tilted: false,
+    );
+    return flat != null && flat.zoom > routeFitMaxZoom;
   }
 
   @override

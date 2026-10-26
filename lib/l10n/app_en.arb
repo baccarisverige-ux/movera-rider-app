@@ -568,6 +568,7 @@
     }
   },
   "driverAlreadyAccepted": "A driver already accepted your ride, so it wasn’t cancelled.",
+  "searchAgain": "Search again",
   "rebookFailed": "We couldn’t request a new ride. Choose your route and try again.",
   "minLineBreak": "{minutes}\nmin",
   "@minLineBreak": {

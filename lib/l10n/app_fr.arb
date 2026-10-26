@@ -296,6 +296,7 @@
   "offerSentUnconfirmed": "Offre envoyée. Votre tarif sera mis à jour dès que Movera l’aura confirmé.",
   "offerUpdatedTo": "Nouvelle offre : {amount}",
   "driverAlreadyAccepted": "Un chauffeur a déjà accepté votre course, elle n’a donc pas été annulée.",
+  "searchAgain": "Relancer la recherche",
   "rebookFailed": "Nous n’avons pas pu demander une nouvelle course. Choisissez votre itinéraire et réessayez.",
   "minLineBreak": "{minutes}\nmin",
   "cancelOfflineQueued": "Impossible de joindre Movera. Nous annulerons votre course dès votre retour en ligne.",

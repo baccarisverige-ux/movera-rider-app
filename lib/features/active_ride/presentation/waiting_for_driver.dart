@@ -19,6 +19,11 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/booking/application/booking_controller.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
@@ -738,6 +743,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
     _leaving = true;
     setState(() {});
+    // "Search again" after a driver's end starts where the car stopped
+    // (the server's last position on the trip), so read it before the
+    // tracker lets go.
+    final carStop = _tracking.eta?.latitude != null &&
+            _tracking.eta?.longitude != null
+        ? GeoPoint(_tracking.eta!.latitude!, _tracking.eta!.longitude!)
+        : null;
     _tracking.dispose();
     if (status == RideStatus.endedByDriver) {
       final rideId = _rideId?.trim();
@@ -794,13 +806,151 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
 
+    // N10 (owner, 2026-10-26): after a no-show or a driver's end the same
+    // sheet offers "Search again" first, "Back to Home" second. The trip is
+    // read before the session files it as over.
+    final again = canSearchAgainAfter(status)
+        ? _searchAgainTrip(status == RideStatus.endedByDriver ? carStop : null)
+        : null;
     await _ride.markExternalTerminal(status);
     if (!mounted) return;
+    if (again != null) {
+      final searchAgain = await showRideEndedSearchAgainSheet(
+        context,
+        status: status,
+      );
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      if (searchAgain && await _searchAgain(again)) return;
+      if (!mounted) return;
+      RideNavigator.home(context, status: status);
+      return;
+    }
     await showRideTerminalStateSheet(context, status: status);
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
     RideNavigator.home(context, status: status);
+  }
+
+  /// The trip to ask for again, or null when its category or payment is not
+  /// known (an old snapshot): then only "Back to Home" is offered. After a
+  /// driver's end it starts where the car stopped ([carStop]); after a
+  /// no-show at the same pickup.
+  _SearchAgainTrip? _searchAgainTrip(GeoPoint? carStop) {
+    final session = AppScope.instance.ride;
+    final categoryId = widget.categoryId ?? session.bookedCategoryId;
+    final paymentMethodId = session.bookedPaymentMethodId;
+    if (categoryId == null || paymentMethodId == null) return null;
+    return _SearchAgainTrip(
+      categoryId: categoryId,
+      paymentMethodId: paymentMethodId,
+      pickupAddress: carStop == null ? _pickupAddress : '',
+      pickup: carStop == null
+          ? _pickupPosition
+          : LatLng(carStop.latitude, carStop.longitude),
+      destinationAddress: _destinationAddress,
+      destination: _destinationPosition,
+      stops: List<RouteStop>.from(_stops),
+      fare: Money.fromLegacyMajor(_price, widget.currency),
+    );
+  }
+
+  /// Books [trip] again as a new ride, priced again (a different price is
+  /// asked first, as after "No driver found"), and opens the search. False
+  /// when it did not happen; the caller then goes Home.
+  Future<bool> _searchAgain(_SearchAgainTrip trip) async {
+    final booking = BookingController();
+    final navigator = moveraNavigatorKey.currentState ??
+        Navigator.of(context, rootNavigator: true);
+    try {
+      final pickupAddress = await bookingPickupAddress(
+        label: trip.pickupAddress,
+        position: trip.pickup,
+        reverse: (p) => AppScope.instance.geocoding
+            .reverse(GeoPoint(p.latitude, p.longitude)),
+      );
+      final quote = await booking.freshQuote(
+        rideType: trip.categoryId,
+        pickupAddress: pickupAddress,
+        destinationAddress: trip.destinationAddress,
+        pickupLat: trip.pickup.latitude,
+        pickupLng: trip.pickup.longitude,
+        destinationLat: trip.destination.latitude,
+        destinationLng: trip.destination.longitude,
+        stops: trip.stops,
+      );
+      final next = Money(quote.totalMinor, quote.currency);
+      if (!mounted) return false;
+      if (next != trip.fare &&
+          !await showRebookPriceDialog(context, shown: trip.fare, next: next)) {
+        return false;
+      }
+      await booking.submitFinding(
+        pickupAddress: pickupAddress,
+        destinationAddress: trip.destinationAddress,
+        pickupLat: trip.pickup.latitude,
+        pickupLng: trip.pickup.longitude,
+        destinationLat: trip.destination.latitude,
+        destinationLng: trip.destination.longitude,
+        rideType: trip.categoryId,
+        price: next.major,
+        quoteId: quote.id,
+        quoteSignedPayload: quote.signedPayload,
+        quoteExpiresAt: quote.expiresAt,
+        quoteTotalMinor: quote.totalMinor,
+        quoteCurrency: quote.currency,
+        paymentMethod: trip.paymentMethodId,
+        rideTypeLabel: widget.rideType,
+        paymentMethodLabel: widget.paymentMethod,
+        notes: widget.notes,
+        stops: trip.stops,
+        useWalletFirst: widget.walletAmountMinor > 0,
+        walletAmountMinor: widget.walletAmountMinor,
+      );
+      final finding = FindingDrivers(
+        pickupAddress: pickupAddress,
+        destinationAddress: trip.destinationAddress,
+        pickupPosition: trip.pickup,
+        destinationPosition: trip.destination,
+        rideType: widget.rideType,
+        price: next.major,
+        currency: quote.currency,
+        paymentMethod: widget.paymentMethod,
+        walletAmountMinor: widget.walletAmountMinor,
+        notes: widget.notes,
+        stops: trip.stops,
+      );
+      // The new search starts from Home, as a booking from Select ride does:
+      // what this trip stacked above Home goes, and a trip restored at the
+      // root after a reload gives the root back to the search.
+      navigator.popUntil((route) => route.isFirst);
+      final coordinator = RideRestoreCoordinator.instance;
+      if (coordinator.showing != RestoredSurface.home &&
+          coordinator.replaceRootSurface(finding, RestoredSurface.finding)) {
+        return true;
+      }
+      SheetCoordinator.instance.open(RideSheet.finding);
+      unawaited(navigator
+          .push(RideStageTransition(
+            finding,
+            settings: const RouteSettings(name: AppRoutes.findingDriver),
+          ))
+          .whenComplete(() => SheetCoordinator.instance.close(RideSheet.finding)));
+      return true;
+    } catch (error) {
+      AppLog.warning('ride.search_again_failed', extra: {'error': '$error'});
+      if (mounted) {
+        MoveraToast.show(
+          context,
+          BookingController.mayHaveBooked(error)
+              ? context.l10n.bookingUncertain
+              : context.l10n.rebookFailed,
+        );
+      }
+      return false;
+    }
   }
 
   Future<void> _researchAfterDriverCancel() async {
@@ -923,7 +1073,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // rating events can arrive while the active map is parking; disposing the
     // tracker before that barrier creates a blind window and can strand the
     // completion UI at tripCompleted.
-    await _ride.markCompleted(status);
+    // N9: the fare the server settled the trip at (the booked fare, or
+    // less when the driver finished before the drop-off).
+    await _ride.markCompleted(status, charged: _tracking.fare);
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
@@ -1885,13 +2037,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.realtime == null)
+                      // N10: a trip that is over has no live feed to lose;
+                      // no "connection lost" over its end sheet.
+                      if (widget.realtime == null && !_leaving)
                         RealtimeConnectionBanner(
                           connection: AppScope.instance.realtime,
                         ),
                       // D-015: a dead ride feed used to look exactly like a
                       // stationary driver. Say so, and offer to reconnect.
-                      if (_tracking.connectionDegraded) ...[
+                      if (_tracking.connectionDegraded && !_leaving) ...[
                         if (widget.realtime == null) const SizedBox(height: 8),
                         LiveFeedDegradedBanner(onRetry: _retryLiveFeed),
                       ],
@@ -2042,6 +2196,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// Headline for the sheet: the arrival time during the trip, the stage
   /// name without an ETA, and the driver's ETA to the pickup before it.
   String _headlineFor(DriverEta? eta, RideStatus status) {
+    // N10: once the trip is over the sheet behind the end sheet says how it
+    // ended, never the driver's last distance ("Driver is almost there").
+    if (status.isTerminal && !status.isCompletedSurface) {
+      return RideTerminalStateSpec.fromStatus(status).title;
+    }
     final live = _tripHeadline(eta, status);
     if (live != null) return live;
     if (DriverEta.isInTrip(status)) {
@@ -2847,6 +3006,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   Widget _buildMap(Set<Marker> markers) {
     return CustomGoogleMap(
       key: const ValueKey('waiting-map'),
+      // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+      // flat; the route is read from above, never along a tilted horizon.
+      tiltWithZoom: false,
       initialPosition: widget.initialPosition,
       markers: markers,
       polylines: _polylines,
@@ -2855,7 +3017,6 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
-      trafficEnabled: true,
       buildingsEnabled: false,
       indoorViewEnabled: false,
       tiltGesturesEnabled: false,
@@ -2990,4 +3151,31 @@ class LiveFeedDegradedBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What "Search again" books: the ended trip's route, category, payment and
+/// the price the rider saw.
+class _SearchAgainTrip {
+  const _SearchAgainTrip({
+    required this.categoryId,
+    required this.paymentMethodId,
+    required this.pickupAddress,
+    required this.pickup,
+    required this.destinationAddress,
+    required this.destination,
+    required this.stops,
+    required this.fare,
+  });
+
+  final String categoryId;
+  final String paymentMethodId;
+
+  /// Empty when the pickup is where the car stopped: the street is looked
+  /// up when booking.
+  final String pickupAddress;
+  final LatLng pickup;
+  final String destinationAddress;
+  final LatLng destination;
+  final List<RouteStop> stops;
+  final Money fare;
 }

@@ -302,6 +302,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'offerSentUnconfirmed': l.offerSentUnconfirmed,
   'offerUpdatedTo': l.offerUpdatedTo('<amount>'),
   'driverAlreadyAccepted': l.driverAlreadyAccepted,
+  'searchAgain': l.searchAgain,
   'rebookFailed': l.rebookFailed,
   'minLineBreak': l.minLineBreak('<minutes>'),
   'cancelOfflineQueued': l.cancelOfflineQueued,
@@ -2235,6 +2236,8 @@ class _Exhaustive implements AppLocalizations {
   String offerUpdatedTo(String amount) => '';
   @override
   String get driverAlreadyAccepted => '';
+  @override
+  String get searchAgain => '';
   @override
   String get rebookFailed => '';
   @override

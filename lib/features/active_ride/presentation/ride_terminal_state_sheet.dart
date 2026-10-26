@@ -29,6 +29,43 @@ Future<void> showRideTerminalStateSheet(
   );
 }
 
+/// Whether [status] ends a trip the rider can simply ask for again: the
+/// driver marked a no-show, or ended the trip (owner, 2026-10-26: "only add
+/// Search again" to these end sheets).
+bool canSearchAgainAfter(RideStatus status) =>
+    status == RideStatus.noShow || status == RideStatus.endedByDriver;
+
+/// The end sheet of [status] with "Search again" first and "Back to Home"
+/// second. True when the rider chose to search again.
+Future<bool> showRideEndedSearchAgainSheet(
+  BuildContext context, {
+  required RideStatus status,
+}) async {
+  final base = RideTerminalStateSpec.fromStatus(status);
+  final again = await MoveraSheet.show<bool>(
+    context: context,
+    swipeDismissible: false,
+    barrierDismissible: false,
+    builder: (sheetContext) => RideTerminalStateSheet(
+      status: status,
+      spec: RideTerminalStateSpec(
+        eyebrow: base.eyebrow,
+        title: base.title,
+        message: base.message,
+        reassurance: base.reassurance,
+        primaryLabel: context.l10n.searchAgain,
+        icon: base.icon,
+        iconBackground: base.iconBackground,
+        iconColor: base.iconColor,
+      ),
+      onAcknowledge: () => Navigator.of(sheetContext).pop(true),
+      secondaryLabel: context.l10n.backToHome,
+      onSecondary: () => Navigator.of(sheetContext).pop(false),
+    ),
+  );
+  return again ?? false;
+}
+
 /// What the rider chose on the "No driver found" sheet (RIDE-19).
 enum NoDriverChoice { tryAgain, changeRoute }
 

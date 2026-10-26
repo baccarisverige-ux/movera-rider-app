@@ -63,6 +63,13 @@ double _latitudeForMercatorY(double y) {
   return math.atan((math.exp(n) - math.exp(-n)) / 2) * 180 / math.pi;
 }
 
+/// The closest a route fit goes (owner, live test 2026-10-26, N6). A route
+/// of a few metres (pickup and destination on the same street) used to fit
+/// at zoom 21 with the full 67.5° tilt: a street-level view in which the
+/// route line filled half the map as a wedge. A fit never goes past the
+/// street zoom; the two points keep a span on screen instead.
+const double routeFitMaxZoom = 17;
+
 /// The flat (untilted) camera that `newLatLngBounds(bounds, padding)` would
 /// produce on a map viewport of [width] × [height] logical pixels, with the
 /// tilt for its zoom applied, so a fit is a single smooth camera move

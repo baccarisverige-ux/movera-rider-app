@@ -256,6 +256,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         }
         setState(() {});
         _syncSheetOverlay();
+        _openSheetForPriceBump();
       },
       onMatched: () {
         if (!mounted || _leaving) return;
@@ -498,30 +499,8 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   /// rider-u107: the same "Price updated" question Select Ride asks.
-  Future<bool> _acceptNewPrice(Money shown, Money next) async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const ValueKey('rebook-price-updated'),
-        title: Text(context.l10n.priceUpdated),
-        content: Text(
-          context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(context.l10n.notNow),
-          ),
-          FilledButton(
-            key: const ValueKey('rebook-price-accept'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.bookForPrice(formatMoney(next))),
-          ),
-        ],
-      ),
-    );
-    return accepted == true;
-  }
+  Future<bool> _acceptNewPrice(Money shown, Money next) =>
+      showRebookPriceDialog(context, shown: shown, next: next);
 
   /// Takes over [ride]'s route on this screen (without telling the server,
   /// which already has it).
@@ -935,6 +914,32 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(cover);
   }
 
+  /// N4: the raise card is taller than the sheet's resting height (on a
+  /// 390 × 844 screen "Set new price" and "Keep waiting" sat below the
+  /// screen edge); when it appears the sheet opens to its top once, so the
+  /// whole card is in reach. The rider can still pull the sheet down.
+  bool _sheetOpenedForBump = false;
+
+  void _openSheetForPriceBump() {
+    final show = _match.showPriceBump && !_match.showStillLooking;
+    if (!show) {
+      _sheetOpenedForBump = false;
+      return;
+    }
+    if (_sheetOpenedForBump) return;
+    _sheetOpenedForBump = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.hasClient) return;
+      final media = MediaQuery.maybeOf(context);
+      if (media == null) return;
+      _sheetController.animateTo(
+        SheetOffset.absolute(_maxSheet(media)),
+        duration: MoveraDurations.large,
+        curve: MoveraCurves.open,
+      );
+    });
+  }
+
   void _setSheetExpanded(bool expanded) {
     // Sheet metrics can change mid-layout; never rebuild during a frame.
     if (SchedulerBinding.instance.schedulerPhase ==
@@ -994,6 +999,9 @@ class _FindingDriversState extends State<FindingDrivers> {
                     ? const ColoredBox(color: Color(0xFFF6F5F1))
                     : CustomGoogleMap(
                         key: const ValueKey('finding-map'),
+                        // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+                        // flat; the route is read from above, never along a tilted horizon.
+                        tiltWithZoom: false,
                         initialPosition: CameraPosition(
                           target: _pickupPosition,
                           zoom: 14.0,
@@ -1005,9 +1013,6 @@ class _FindingDriversState extends State<FindingDrivers> {
                         zoomControlsEnabled: false,
                         mapToolbarEnabled: false,
                         compassEnabled: false,
-                        // Green free-flow traffic hides the Waze road palette;
-                        // traffic stays on the active-trip map only.
-                        trafficEnabled: false,
                         buildingsEnabled: false,
                         indoorViewEnabled: false,
                         tiltGesturesEnabled: false,
@@ -1110,7 +1115,12 @@ class _FindingDriversState extends State<FindingDrivers> {
                   ],
                   minFlingSpeed: 520,
                 ),
-                scrollConfiguration: SheetScrollConfiguration.disabled,
+                // N4: a drag on the sheet body moves the sheet (and scrolls
+                // the body once the sheet is up). Disabled, the body's scroll
+                // view swallowed every swipe and only the 22 px handle could
+                // open the sheet, so the raise card's Confirm stayed off
+                // screen.
+                scrollConfiguration: const SheetScrollConfiguration(),
                 child: PointerInterceptor(
                   child: SizedBox(
                     height: _maxSheet(media),
@@ -1210,6 +1220,8 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   Widget _panelBody(double progress, String headline, String subtitle) {
     return SingleChildScrollView(
+      // N4: the sheet's own scroll controller, so the drag is shared.
+      primary: true,
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1355,4 +1367,36 @@ class _ResolvedRoute implements RoutingService {
   List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
     for (final point in points) GeoPoint(point.latitude, point.longitude),
   ];
+}
+
+/// A booking asked again is priced again: a price other than the one the
+/// rider last saw (a surge, their own raise) is booked only once they accept
+/// it (rider-u107). Used after "No driver found" and by "Search again".
+Future<bool> showRebookPriceDialog(
+  BuildContext context, {
+  required Money shown,
+  required Money next,
+}) async {
+  final accepted = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: const ValueKey('rebook-price-updated'),
+      title: Text(context.l10n.priceUpdated),
+      content: Text(
+        context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(context.l10n.notNow),
+        ),
+        FilledButton(
+          key: const ValueKey('rebook-price-accept'),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(context.l10n.bookForPrice(formatMoney(next))),
+        ),
+      ],
+    ),
+  );
+  return accepted == true;
 }

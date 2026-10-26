@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -85,6 +86,28 @@ void main() {
       ),
     );
     expect(inSelectRide, findsNothing);
+  });
+
+  testWidgets('N6: the Select ride map stays flat (no tilt with zoom)',
+      (tester) async {
+    // Owner screenshot (Select ride, Klockarvägen 37, Södertälje): the fit
+    // leaned the camera 67.5° at building level and the route line became a
+    // wedge. Select ride reads the route from above; Home keeps the driver
+    // app's tilt-with-zoom camera. (Finding and the trip map: their own
+    // screen tests.)
+    await openSelectRide(tester);
+    // The map mounts once the route transition has settled.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final maps = find.descendant(
+      of: find.byType(SelectRide),
+      matching: find.byType(CustomGoogleMap),
+    );
+    expect(maps, findsWidgets);
+    for (final map in tester.widgetList<CustomGoogleMap>(maps)) {
+      expect(map.tiltWithZoom, isFalse);
+    }
   });
 
   test('D-007: the map uses the confirmed pickup, not the constructor one', () {
