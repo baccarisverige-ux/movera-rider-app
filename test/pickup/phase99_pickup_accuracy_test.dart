@@ -66,7 +66,11 @@ void main() {
     });
 
     test('a GPS-seeded picker asks for a fresh fix', () {
-      expect(picker, contains('refreshCurrentLocation: chosen == null'));
+      // Whitespace-insensitive: `dart format` may break the line after the colon.
+      expect(
+        picker,
+        matches(RegExp(r'refreshCurrentLocation:\s+chosen == null')),
+      );
     });
 
     test('the booking pickup is cleared when the booking flow ends', () {
