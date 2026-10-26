@@ -26,6 +26,11 @@ class GoogleMapProvider implements MapProvider {
   @visibleForTesting
   void Function(String? owner, GeoPoint target)? debugOnCameraCommand;
 
+  /// Tests: told about every [fitBounds] request and the owner it would
+  /// frame, before the active map is checked.
+  @visibleForTesting
+  void Function(String? owner, GeoPoint a, GeoPoint b)? debugOnFitBounds;
+
   GoogleMapController? get controller =>
       _owners.isEmpty ? null : _owners.last.controller;
 
@@ -125,6 +130,7 @@ class GoogleMapProvider implements MapProvider {
     double padding = 56,
     bool follow = false,
   }) async {
+    debugOnFitBounds?.call(activeOwner, a, b);
     final map = controller;
     if (map == null || !_mayMove(map, follow)) return;
     final southwest = LatLng(

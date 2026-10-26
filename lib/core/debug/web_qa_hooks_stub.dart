@@ -23,6 +23,8 @@ void installMatchingQaHooks({
 
 void installRideCheckQaHook() {}
 
+void installFrameTimingQaHook() {}
+
 String? pendingRideCheckType() => null;
 
 String? pendingRideCheckDetail() => null;

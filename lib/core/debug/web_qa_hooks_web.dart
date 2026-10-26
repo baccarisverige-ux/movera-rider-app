@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/scheduler.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -11,10 +12,7 @@ void reportRestoreSurface(String surface) {
   globalContext.setProperty('moveraRestoreSurface'.toJS, surface.toJS);
   if (surface != 'hold') {
     _firstSurface ??= surface;
-    globalContext.setProperty(
-      'moveraFirstSurface'.toJS,
-      _firstSurface!.toJS,
-    );
+    globalContext.setProperty('moveraFirstSurface'.toJS, _firstSurface!.toJS);
   }
 }
 
@@ -205,4 +203,38 @@ void listenForRideCheckQa(void Function()? listener) {
 void reportRideCheckSnapshot(String json) {
   if (!moveraQaHooksEnabled) return;
   globalContext.setProperty('moveraRideCheckSnapshotJson'.toJS, json.toJS);
+}
+
+/// Frame timings for the sheet-performance probe
+/// (docs/select-ride-sheet-performance.md): MOVERA_QA builds only.
+/// `window.moveraFrameTimings()` returns the frames since the previous
+/// call as JSON `{"frames": n, "build": [ms], "raster": [ms],
+/// "total": [ms]}`, so a browser test can tell Dart build time from the
+/// engine's raster time per frame. The engine only records timings while a
+/// callback is registered, so none of this runs on a public build.
+final List<FrameTiming> _frameTimings = <FrameTiming>[];
+const int _frameTimingsKept = 4000;
+
+void installFrameTimingQaHook() {
+  if (!moveraQaHooksEnabled) return;
+  SchedulerBinding.instance.addTimingsCallback((timings) {
+    _frameTimings.addAll(timings);
+    if (_frameTimings.length > _frameTimingsKept) {
+      _frameTimings.removeRange(0, _frameTimings.length - _frameTimingsKept);
+    }
+  });
+  globalContext.setProperty(
+    'moveraFrameTimings'.toJS,
+    (() {
+      final taken = List<FrameTiming>.of(_frameTimings);
+      _frameTimings.clear();
+      double ms(Duration d) => d.inMicroseconds / 1000;
+      return jsonEncode({
+        'frames': taken.length,
+        'build': [for (final t in taken) ms(t.buildDuration)],
+        'raster': [for (final t in taken) ms(t.rasterDuration)],
+        'total': [for (final t in taken) ms(t.totalSpan)],
+      }).toJS;
+    }).toJS,
+  );
 }
