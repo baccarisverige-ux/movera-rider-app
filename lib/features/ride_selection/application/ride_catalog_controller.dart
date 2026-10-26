@@ -59,6 +59,17 @@ class RideCatalogController extends ChangeNotifier {
   }
 
   Future<List<RideCatalogItem>> _load() async {
+    // Audit Phase 4: `/ride-types` is not in the contract and movera-server
+    // answers 404, so the contract wire never asks; the categories it quotes
+    // come in each quote, and this list stays the cache or the built-in one.
+    if (!_api.contractWire) {
+      final fromServer = await _loadFromServer();
+      if (fromServer != null) return fromServer;
+    }
+    return _loadFallback();
+  }
+
+  Future<List<RideCatalogItem>?> _loadFromServer() async {
     try {
       final response = await _api.get(path);
       final rows = _rowsOf(response);
@@ -79,7 +90,10 @@ class RideCatalogController extends ChangeNotifier {
         extra: {'error': error.toString()},
       );
     }
+    return null;
+  }
 
+  Future<List<RideCatalogItem>> _loadFallback() async {
     // Only the built-in list is replaced by the cache. A list the server
     // gave earlier in this run is already better than anything cached.
     if (_source == RideCatalogSource.server) return _current;

@@ -8,7 +8,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 
 /// rider-r5-22: a failed refresh keeps the promotion already shown; only
-/// the server saying "none" removes it.
+/// the server saying "none" removes it. Runs on the demo wire: since audit
+/// Phase 4 the contract wire never asks for promotions (not in the contract).
 void main() {
   test('a failed lookup is not "no promotion"', () async {
     var up = true;
@@ -23,7 +24,7 @@ void main() {
     final controller = RiderPromotionController(
       ApiClient(
         env: const AppEnv(
-          flavor: AppFlavor.staging,
+          flavor: AppFlavor.demo,
           apiBaseUrl: 'https://x.invalid',
         ),
         client: MockClient(
