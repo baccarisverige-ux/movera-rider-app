@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -16,6 +17,9 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../mock_fare.dart';
+
+/// The contract wire (staging): the live server, not the in-process mock.
+const _env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
 
 RideSnapshot _snap() => RideSnapshot(
   status: RideStatus.findingDriver,
@@ -85,6 +89,59 @@ void main() {
       'offerIncrease': {'amountMinor': 2000, 'currency': 'SEK'},
     });
     expect(bodies.single.containsKey('price'), isFalse);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('on the live wire the raise is POST /trips/{id}/raise-price with the '
+      'version the rider last saw', () async {
+    // Contract v0.5.5 (owner decision 25): the server answers the
+    // TripProjection with the new fare.
+    final requests = <http.Request>[];
+    final api = ApiClient(
+      env: _env,
+      client: MockClient((request) async {
+        if (request.method == 'POST' &&
+            request.url.path.endsWith('/raise-price')) {
+          requests.add(request);
+          return http.Response(
+            jsonEncode({
+              'tripId': 'r1',
+              'rideId': 'r1',
+              'status': 'searching',
+              'version': 5,
+              'fare': {'amountMinor': 27900, 'currency': 'SEK'},
+              'updatedAt': '2026-10-26T06:00:00Z',
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'code': 'OK', 'vehicles': []}), 200);
+      }),
+    );
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    ride.observeProjectionVersion('r1', 4);
+    final controller = FindingDriverController(
+      realtime: rt,
+      ride: ride,
+      store: FindingDriverRepository(),
+      api: api,
+      delayedAfter: Duration.zero,
+    );
+    controller.start(snapshot: _snap(), onTick: (_) {}, onMatched: () {});
+
+    expect(await controller.confirmPriceIncrease(20), isTrue);
+
+    final request = requests.single;
+    expect(request.url.path, '/api/v1/trips/r1/raise-price');
+    expect(request.headers['Idempotency-Key'], isNotEmpty);
+    expect(jsonDecode(request.body), {
+      'increase': {'amountMinor': 2000, 'currency': 'SEK'},
+      'expectedVersion': 4,
+    });
+    expect(controller.currentPrice, 279);
+    expect(ride.projectionVersionOf('r1'), 5);
     controller.dispose();
     rt.dispose();
   });

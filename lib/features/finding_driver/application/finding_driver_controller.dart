@@ -945,15 +945,28 @@ class FindingDriverController {
         ride.projectionVersionOf(id),
       );
       final key = _priceMutation.keyFor(intent);
-      Future<Map<String, dynamic>> raise() => api.patch(
-        '/api/v1/rides/$id',
-        // Contract v0.3.0: the raise as Money, not kronor.
-        body: {
-          'offerIncrease': increase.toJson(),
-          'expectedVersion': ?version,
-        },
-        idempotencyKey: key,
-      );
+      // Contract v0.5.5 (owner decision 25): on the live wire the raise is
+      // its own command, with the trip version the rider last saw; the
+      // server answers the TripProjection with the new fare. The demo's
+      // mock keeps the pre-v0.5 PATCH.
+      Future<Map<String, dynamic>> raise() => api.contractWire
+          ? api.post(
+              '/api/v1/trips/${Uri.encodeComponent(id)}/raise-price',
+              body: {
+                'increase': increase.toJson(),
+                'expectedVersion': ?version,
+              },
+              idempotencyKey: key,
+            )
+          : api.patch(
+              '/api/v1/rides/$id',
+              // Contract v0.3.0: the raise as Money, not kronor.
+              body: {
+                'offerIncrease': increase.toJson(),
+                'expectedVersion': ?version,
+              },
+              idempotencyKey: key,
+            );
       Map<String, dynamic> response;
       try {
         response = await raise();
