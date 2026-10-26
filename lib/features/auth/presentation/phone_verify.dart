@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
@@ -21,6 +22,18 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// Step 2: enter the 4-digit code. Verify unlocks at four digits; resend
 /// unlocks when the server's retry window has passed.
 class PhoneVerification extends StatefulWidget {
+  /// Whether this build runs in a browser (tests set it).
+  @visibleForTesting
+  static bool? debugWeb;
+
+  /// iPhone Safari (and Chrome on Android) open the keyboard only for a
+  /// field the rider taps: a field the page focuses by itself gets no
+  /// keyboard, and the first tap then lands on a field that is already
+  /// focused, so nothing happens until a tap elsewhere and a second tap
+  /// (owner, live test 2026-10-26). In a browser the code field waits for
+  /// the tap; the installed apps open the keyboard at once.
+  static bool get autofocusCode => !(debugWeb ?? kIsWeb);
+
   const PhoneVerification({
     super.key,
     this.challenge,
@@ -210,7 +223,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             length: 4,
             controller: _pin,
             focusNode: _pinFocus,
-            autofocus: true,
+            autofocus: PhoneVerification.autofocusCode,
             keyboardType: TextInputType.number,
             forceErrorState: _error != null,
             onCompleted: (_) => setState(() {}),
