@@ -108,6 +108,9 @@ class RideRestoreCoordinator {
         return null;
       }
       if (expectedRideId != null && id != expectedRideId.trim()) return null;
+      // The rider's cancel of this trip is still on its way: it is not
+      // brought back.
+      if (await _pendingCancel(id) != null) return null;
       // The lookup may have been slow: a ride this device started meanwhile
       // keeps its own snapshot.
       if (await _reader() != null) return null;
@@ -124,6 +127,38 @@ class RideRestoreCoordinator {
       );
       return null;
     }
+  }
+
+  /// A stored ride this device still shows: a search or a trip.
+  bool _holdsLiveRide(RideSnapshot? snapshot) {
+    final surface = surfaceFor(snapshot);
+    return surface == RestoredSurface.finding ||
+        surface == RestoredSurface.waiting;
+  }
+
+  /// Opens the rider's live trip from the server in place of Home, also
+  /// when Where to or Select ride is on top: a rider with a ride going sees
+  /// it and cannot book a second one (owner, live test 2026-10-26). Never
+  /// over Sign in, and not when a ride already shows.
+  Widget? _showLiveRide(RideSnapshot trip) {
+    if (authRootShowing || !_holdsLiveRide(trip)) return null;
+    if (showing == RestoredSurface.finding ||
+        showing == RestoredSurface.waiting) {
+      return null;
+    }
+    if (!atRoot) {
+      try {
+        moveraNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+      } catch (error) {
+        AppLog.warning(
+          'ride.restore.pop_failed',
+          extra: {'error': '$error'},
+        );
+      }
+    }
+    final page = pageFor(trip);
+    onReplaceRoot?.call(page);
+    return page;
   }
 
   /// NAV-15: completes once the first [root] call has resolved, so a
@@ -607,15 +642,8 @@ class RideRestoreCoordinator {
   }
 
   void _openLateServerTrip(RideSnapshot? trip) {
-    if (trip == null ||
-        showing != RestoredSurface.home ||
-        authRootShowing ||
-        !atRoot) {
-      // Kept as the snapshot: the next resume opens it.
-      return;
-    }
-    if (surfaceFor(trip) == RestoredSurface.home) return;
-    onReplaceRoot?.call(pageFor(trip));
+    if (trip == null || showing != RestoredSurface.home) return;
+    _showLiveRide(trip);
   }
 
   bool get atRoot {
@@ -746,6 +774,13 @@ class RideRestoreCoordinator {
       }
     }
     snapshot = await _dropIfCancelQueued(snapshot);
+    // Back in the app with no live ride stored here: the server may hold
+    // one (booked before a reload, on another device, or a snapshot that
+    // went stale). It is shown instead of Home.
+    if (!_holdsLiveRide(snapshot) && showing == RestoredSurface.home) {
+      final live = await adoptServerActiveTrip();
+      if (live != null) return _showLiveRide(live);
+    }
     if (!atRoot) return null;
     // rider-67: the flag belongs to the ride that ended on this device. A
     // snapshot of another ride (one a push tap just adopted from the
