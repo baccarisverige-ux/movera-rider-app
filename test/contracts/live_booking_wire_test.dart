@@ -398,8 +398,9 @@ void main() {
           }),
         );
         AppScope.instance.ride.observeProjectionVersion('trp_1', 3);
-        await BookingCoordinator(api: api)
-            .cancel(rideId: 'trp_1', key: 'cancel-key-0123456789');
+        await BookingCoordinator(
+          api: api,
+        ).cancel(rideId: 'trp_1', key: 'cancel-key-0123456789');
         final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
         expect(requests.single.url.path, '/api/v1/rides/trp_1/cancel');
         expect(body['expectedVersion'], 3);
@@ -436,8 +437,9 @@ void main() {
         expect(jsonDecode(requests.single.body), {'stars': 5});
         // The mock keeps its own paths.
         expect(
-          ApiClient(client: MockClient((_) async => json({})))
-              .tripPath('r1', 'end-early'),
+          ApiClient(
+            client: MockClient((_) async => json({})),
+          ).tripPath('r1', 'end-early'),
           '/api/v1/rides/r1/end-early',
         );
       },

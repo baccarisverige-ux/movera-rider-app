@@ -240,8 +240,9 @@ class SafetyMockApi {
       contacts.add(created);
       return (status: 200, payload: {'code': 'OK', 'contact': created});
     }
-    final contactId = RegExp(r'^/api/v1/safety/contacts/([^/]+)$')
-        .firstMatch(path);
+    final contactId = RegExp(
+      r'^/api/v1/safety/contacts/([^/]+)$',
+    ).firstMatch(path);
     if (contactId != null && method == 'PATCH') {
       final id = contactId.group(1);
       final index = contacts.indexWhere((c) => c['id'] == id);
@@ -259,8 +260,9 @@ class SafetyMockApi {
       }
       return (status: 200, payload: {'code': 'OK'});
     }
-    final primary = RegExp(r'^/api/v1/safety/contacts/([^/]+)/primary$')
-        .firstMatch(path);
+    final primary = RegExp(
+      r'^/api/v1/safety/contacts/([^/]+)/primary$',
+    ).firstMatch(path);
     if (primary != null && method == 'POST') {
       final id = primary.group(1);
       for (final contact in contacts) {
@@ -330,8 +332,9 @@ class SafetyMockApi {
     if (path == '/api/v1/safety/ridecheck/answers' && method == 'POST') {
       return _rideCheckAnswer(body, requestId);
     }
-    final safetyEvents = RegExp(r'^/api/v1/rides/([^/]+)/safety-events$')
-        .firstMatch(path);
+    final safetyEvents = RegExp(
+      r'^/api/v1/rides/([^/]+)/safety-events$',
+    ).firstMatch(path);
     if (safetyEvents != null && method == 'POST') {
       final rideId = safetyEvents.group(1)!;
       final event = {
@@ -377,8 +380,9 @@ class SafetyMockApi {
           : 'acknowledged';
       return (status: 200, payload: {'code': 'OK', 'event': events[index]});
     }
-    final audioInit = RegExp(r'^/api/v1/rides/([^/]+)/safety-audio/init$')
-        .firstMatch(path);
+    final audioInit = RegExp(
+      r'^/api/v1/rides/([^/]+)/safety-audio/init$',
+    ).firstMatch(path);
     if (audioInit != null && method == 'POST') {
       final rec = {
         'id': 'aud_$requestId',

@@ -257,48 +257,51 @@ void main() {
   );
 
   // M-09
-  test('the mock moves the driver from pickup toward the destination during the trip', () async {
-    final realtime =
-        MockRideRealtime(
-            assignAfter: const Duration(milliseconds: 1),
-            boardAfter: const Duration(milliseconds: 1),
-            tripTick: const Duration(milliseconds: 5),
-            tripTicks: 4,
-          )
-          ..destinationLat = 59.35
-          ..destinationLng = 18.10;
-    addTearDown(realtime.dispose);
+  test(
+    'the mock moves the driver from pickup toward the destination during the trip',
+    () async {
+      final realtime =
+          MockRideRealtime(
+              assignAfter: const Duration(milliseconds: 1),
+              boardAfter: const Duration(milliseconds: 1),
+              tripTick: const Duration(milliseconds: 5),
+              tripTicks: 4,
+            )
+            ..destinationLat = 59.35
+            ..destinationLng = 18.10;
+      addTearDown(realtime.dispose);
 
-    final events = <RideRealtimeEvent>[];
-    final sub = realtime.subscribe('m09-ride').listen(events.add);
-    addTearDown(sub.cancel);
-    // The normal assignment timer would otherwise race markArrivedForTest
-    // and overwrite the trip it starts.
-    realtime.holdAssignment();
-    // markArrivedForTest is a test-only shortcut that skips the real
-    // pre-trip GPS walk (which needs the mock API this test doesn't stand
-    // up), so seed where the driver "was" at pickup for the trip to start
-    // moving from.
-    realtime.lastLat = 59.3293;
-    realtime.lastLng = 18.0686;
+      final events = <RideRealtimeEvent>[];
+      final sub = realtime.subscribe('m09-ride').listen(events.add);
+      addTearDown(sub.cancel);
+      // The normal assignment timer would otherwise race markArrivedForTest
+      // and overwrite the trip it starts.
+      realtime.holdAssignment();
+      // markArrivedForTest is a test-only shortcut that skips the real
+      // pre-trip GPS walk (which needs the mock API this test doesn't stand
+      // up), so seed where the driver "was" at pickup for the trip to start
+      // moving from.
+      realtime.lastLat = 59.3293;
+      realtime.lastLng = 18.0686;
 
-    realtime.markArrivedForTest();
-    // markArrivedForTest starts the trip immediately; wait until the last
-    // tick has completed the trip (a fixed wait flaked under load).
-    final deadline = DateTime.now().add(const Duration(seconds: 10));
-    while (!events.any((e) => e.status == RideStatus.tripCompleted) &&
-        DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
+      realtime.markArrivedForTest();
+      // markArrivedForTest starts the trip immediately; wait until the last
+      // tick has completed the trip (a fixed wait flaked under load).
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (!events.any((e) => e.status == RideStatus.tripCompleted) &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
 
-    final tripCompleted = events
-        .where((e) => e.status == RideStatus.tripCompleted)
-        .firstOrNull;
-    expect(tripCompleted, isNotNull);
-    expect(tripCompleted!.latitude, isNotNull);
-    expect(tripCompleted.longitude, isNotNull);
-    // Landed at (or essentially at) the destination, not still at pickup.
-    expect(tripCompleted.latitude, closeTo(59.35, 0.001));
-    expect(tripCompleted.longitude, closeTo(18.10, 0.001));
-  });
+      final tripCompleted = events
+          .where((e) => e.status == RideStatus.tripCompleted)
+          .firstOrNull;
+      expect(tripCompleted, isNotNull);
+      expect(tripCompleted!.latitude, isNotNull);
+      expect(tripCompleted.longitude, isNotNull);
+      // Landed at (or essentially at) the destination, not still at pickup.
+      expect(tripCompleted.latitude, closeTo(59.35, 0.001));
+      expect(tripCompleted.longitude, closeTo(18.10, 0.001));
+    },
+  );
 }

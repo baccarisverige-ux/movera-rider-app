@@ -327,8 +327,9 @@ void main() {
       }),
       env: AppEnv.current,
     );
-    final state = await AccountSecurityRepository(api: api)
-        .signOutOtherDevices();
+    final state = await AccountSecurityRepository(
+      api: api,
+    ).signOutOtherDevices();
     expect(state.sessions.map((s) => s.id), ['s1']);
   });
 }

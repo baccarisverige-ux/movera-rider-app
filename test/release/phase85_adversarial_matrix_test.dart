@@ -270,68 +270,71 @@ void main() {
     },
   );
 
-  test('Phase 85 scheduled ride persists, assigns, drops driver and reassigns same id', () async {
-    final now = DateTime(2026, 9, 27, 8);
-    final controller = ReservationController(
-      store: LocalReservationRepository(
-        storage: MemoryReservationStorage(),
-        nextId: () => 'phase85-reservation',
+  test(
+    'Phase 85 scheduled ride persists, assigns, drops driver and reassigns same id',
+    () async {
+      final now = DateTime(2026, 9, 27, 8);
+      final controller = ReservationController(
+        store: LocalReservationRepository(
+          storage: MemoryReservationStorage(),
+          nextId: () => 'phase85-reservation',
+          clock: () => now,
+        ),
         clock: () => now,
-      ),
-      clock: () => now,
-    );
+      );
 
-    final created = await controller.create(
-      ReservationDraft(
-        scheduledPickupAt: now.add(const Duration(minutes: 1)),
-        pickup: const ReservationPlace(label: 'Home'),
-        destination: const ReservationPlace(label: 'Arlanda Airport'),
-        categoryId: 'economy',
-        categoryName: 'Movera',
-        categoryImage: 'assets/images/rides/movera.webp',
-        price: 349,
-        paymentMethod: 'Apple Pay',
-      ),
-    );
-    expect(created.status, ReservationStatus.scheduled);
+      final created = await controller.create(
+        ReservationDraft(
+          scheduledPickupAt: now.add(const Duration(minutes: 1)),
+          pickup: const ReservationPlace(label: 'Home'),
+          destination: const ReservationPlace(label: 'Arlanda Airport'),
+          categoryId: 'economy',
+          categoryName: 'Movera',
+          categoryImage: 'assets/images/rides/movera.webp',
+          price: 349,
+          paymentMethod: 'Apple Pay',
+        ),
+      );
+      expect(created.status, ReservationStatus.scheduled);
 
-    await controller.startLiveIfDue(now: now);
-    expect(
-      controller.byId(created.reservationId)?.status,
-      ReservationStatus.driverAssignmentPending,
-    );
+      await controller.startLiveIfDue(now: now);
+      expect(
+        controller.byId(created.reservationId)?.status,
+        ReservationStatus.driverAssignmentPending,
+      );
 
-    const first = ReservationDriver(
-      firstName: 'Amina',
-      vehicle: 'Volvo EX40',
-      plate: 'ABC 123',
-    );
-    final assigned = await controller.applyDriverAssignment(
-      created.reservationId,
-      driver: first,
-    );
-    expect(assigned.reservationId, created.reservationId);
-    expect(assigned.driver?.firstName, 'Amina');
+      const first = ReservationDriver(
+        firstName: 'Amina',
+        vehicle: 'Volvo EX40',
+        plate: 'ABC 123',
+      );
+      final assigned = await controller.applyDriverAssignment(
+        created.reservationId,
+        driver: first,
+      );
+      expect(assigned.reservationId, created.reservationId);
+      expect(assigned.driver?.firstName, 'Amina');
 
-    final dropped = await controller.applyDriverCancellation(
-      created.reservationId,
-    );
-    expect(dropped.reservationId, created.reservationId);
-    expect(dropped.status, ReservationStatus.driverAssignmentPending);
-    expect(dropped.driver, isNull);
+      final dropped = await controller.applyDriverCancellation(
+        created.reservationId,
+      );
+      expect(dropped.reservationId, created.reservationId);
+      expect(dropped.status, ReservationStatus.driverAssignmentPending);
+      expect(dropped.driver, isNull);
 
-    const second = ReservationDriver(
-      firstName: 'Nora',
-      vehicle: 'Mercedes EQE',
-      plate: 'XYZ 789',
-    );
-    final reassigned = await controller.applyDriverAssignment(
-      created.reservationId,
-      driver: second,
-    );
-    expect(reassigned.reservationId, created.reservationId);
-    expect(reassigned.driver?.firstName, 'Nora');
-  });
+      const second = ReservationDriver(
+        firstName: 'Nora',
+        vehicle: 'Mercedes EQE',
+        plate: 'XYZ 789',
+      );
+      final reassigned = await controller.applyDriverAssignment(
+        created.reservationId,
+        driver: second,
+      );
+      expect(reassigned.reservationId, created.reservationId);
+      expect(reassigned.driver?.firstName, 'Nora');
+    },
+  );
 
   test(
     'Phase 85 offline reconnect resyncs the authoritative active ride',

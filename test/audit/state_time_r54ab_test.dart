@@ -516,8 +516,9 @@ void main() {
       FindingDriverController.active = null;
       owner.dispose();
     });
-    final kept = await BookingCoordinator(api: api)
-        .reconcileCreatedFinding('ride_duplicate');
+    final kept = await BookingCoordinator(
+      api: api,
+    ).reconcileCreatedFinding('ride_duplicate');
     expect(kept, 'ride_owner');
     expect(await PendingCancelStore.find('ride_duplicate'), isNotNull);
   });

@@ -118,20 +118,23 @@ void main() {
     expect(shown, isNull);
   });
 
-  test('replaceRootSurface updates a restored stage without replacing Navigator root', () {
-    final c = RideRestoreCoordinator(reader: () async => null);
-    Widget? shown;
-    c.onReplaceRoot = (page) => shown = page;
+  test(
+    'replaceRootSurface updates a restored stage without replacing Navigator root',
+    () {
+      final c = RideRestoreCoordinator(reader: () async => null);
+      Widget? shown;
+      c.onReplaceRoot = (page) => shown = page;
 
-    final replaced = c.replaceRootSurface(
-      const Home(),
-      RestoredSurface.finding,
-    );
+      final replaced = c.replaceRootSurface(
+        const Home(),
+        RestoredSurface.finding,
+      );
 
-    expect(replaced, isTrue);
-    expect(c.showing, RestoredSurface.finding);
-    expect(shown, isA<Home>());
-  });
+      expect(replaced, isTrue);
+      expect(c.showing, RestoredSurface.finding);
+      expect(shown, isA<Home>());
+    },
+  );
 
   test(
     'replaceRootSurface reports unavailable when restore gate is absent',

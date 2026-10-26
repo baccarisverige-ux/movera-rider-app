@@ -54,7 +54,8 @@ void main() {
     expect(
       find.text('beneath'),
       findsOneWidget,
-      reason: 'only ConfirmPickupSpot should have popped, not the screen beneath it',
+      reason:
+          'only ConfirmPickupSpot should have popped, not the screen beneath it',
     );
     expect(find.byType(ConfirmPickupSpot), findsNothing);
     expect(result, isNotNull);

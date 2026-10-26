@@ -31,7 +31,8 @@ const _riderA = <String, Object>{
   'movera_recent_addresses': <String>['Sveavagen 1'],
   'movera_previous_pickups_v1': '[]',
   'movera_on_demand_ride_history_v1': '[]',
-  'movera_saved_cards': '[{"id":"c1","brand":"visa","last4":"4242","expMonth":12,"expYear":2030,"holder":"Rider A"}]',
+  'movera_saved_cards':
+      '[{"id":"c1","brand":"visa","last4":"4242","expMonth":12,"expYear":2030,"holder":"Rider A"}]',
   'movera_default_payment': 'card:c1',
   'movera_payment_methods': '[]',
   'movera_payment_business': false,
@@ -123,8 +124,9 @@ void main() {
       const PushPayload(type: 'info', title: 'Hi Rider A', messageId: 'n1'),
       read: false,
     );
-    MessagesRepository.forRide('ride-a')
-        .add(const ChatMessage(text: 'At the door', fromRider: true));
+    MessagesRepository.forRide(
+      'ride-a',
+    ).add(const ChatMessage(text: 'At the door', fromRider: true));
     scope.ride.rideId = 'ride-a';
 
     await scope.auth.signOut();

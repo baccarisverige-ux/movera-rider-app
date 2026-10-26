@@ -13,10 +13,9 @@ JSObject? _forMap(int mapId) {
   return layer;
 }
 
-bool? supports3D(int mapId) =>
-    _forMap(mapId)
-        ?.callMethod<JSBoolean?>('supports3D'.toJS, mapId.toJS)
-        ?.toDart;
+bool? supports3D(int mapId) => _forMap(
+  mapId,
+)?.callMethod<JSBoolean?>('supports3D'.toJS, mapId.toJS)?.toDart;
 
 void gestures(int mapId, bool scroll, bool zoom, bool rotate, bool tilt) {
   _forMap(mapId)?.callMethodVarArgs<JSAny?>('gestures'.toJS, [
@@ -29,8 +28,9 @@ void gestures(int mapId, bool scroll, bool zoom, bool rotate, bool tilt) {
 }
 
 void tiltFollowsZoom(int mapId, bool enabled) {
-  _forMap(mapId)
-      ?.callMethod<JSAny?>('tiltFollowsZoom'.toJS, mapId.toJS, enabled.toJS);
+  _forMap(
+    mapId,
+  )?.callMethod<JSAny?>('tiltFollowsZoom'.toJS, mapId.toJS, enabled.toJS);
 }
 
 void Function() listen(int mapId, void Function() onGesture) {
@@ -154,8 +154,9 @@ void retarget(
 
 ({double lat, double lng, double zoom, double heading, double tilt})?
 cancelFlight(int mapId) {
-  final at = _forMap(mapId)
-      ?.callMethod<JSAny?>('cancelFlight'.toJS, mapId.toJS);
+  final at = _forMap(
+    mapId,
+  )?.callMethod<JSAny?>('cancelFlight'.toJS, mapId.toJS);
   if (at == null || !at.isA<JSObject>()) return null;
   final pose = at as JSObject;
   double? read(String key) {

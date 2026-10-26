@@ -10,12 +10,15 @@ import 'contract_fixtures.dart';
 /// Contract v0.4.0 per-zone settings in `RiderAppConfig` (CONTRACT.md §6,
 /// owner round 2): tips, raise-offer steps, payment methods, wallet, promo
 /// cap, pickup move limit, languages, country and waiting per category.
-Map<String, dynamic> _adminExport(String zone) => jsonDecode(
-  utf8.decode(
-    File('test/fixtures/admin_config/rider_app_config.$zone.json')
-        .readAsBytesSync(),
-  ),
-) as Map<String, dynamic>;
+Map<String, dynamic> _adminExport(String zone) =>
+    jsonDecode(
+          utf8.decode(
+            File(
+              'test/fixtures/admin_config/rider_app_config.$zone.json',
+            ).readAsBytesSync(),
+          ),
+        )
+        as Map<String, dynamic>;
 
 List<int> _minor(List<Money> amounts) => [
   for (final m in amounts) m.amountMinor,

@@ -132,8 +132,9 @@ void main() {
     expect(find.text('Trip ended early'), findsOneWidget);
     expect(find.byType(Home), findsNothing);
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
-    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!
-        .single;
+    final record = (await tester.runAsync(
+      OnDemandRideHistoryStore.read,
+    ))!.single;
     expect(record.endedEarly, isTrue);
 
     await tester.tap(find.byKey(const ValueKey('ride-completed-done')));

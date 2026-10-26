@@ -132,8 +132,9 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 30));
     expect(matches, 0);
     expect(await RideSnapshotStore.read(), isNull);
-    final page = await RideRestoreCoordinator(reader: RideSnapshotStore.read)
-        .root();
+    final page = await RideRestoreCoordinator(
+      reader: RideSnapshotStore.read,
+    ).root();
     expect(page, isA<Home>());
     controller.dispose();
     rt.dispose();

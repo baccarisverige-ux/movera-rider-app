@@ -30,7 +30,8 @@ void main() {
                   child: MoveraEmptyState(
                     icon: Icons.notifications_none,
                     title: 'No notifications yet',
-                    message: 'Ride and account updates will appear here when they arrive.',
+                    message:
+                        'Ride and account updates will appear here when they arrive.',
                   ),
                 ),
               ),

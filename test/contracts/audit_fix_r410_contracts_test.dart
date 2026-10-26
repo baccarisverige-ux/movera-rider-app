@@ -145,8 +145,9 @@ void main() {
       );
 
       final after = ApiClient();
-      await RideFeedbackRepository(api: after)
-          .submit(rideId: id, rating: 5, idempotencyKey: 'fb-reload');
+      await RideFeedbackRepository(
+        api: after,
+      ).submit(rideId: id, rating: 5, idempotencyKey: 'fb-reload');
       final read = (await after.get('/api/v1/rides/$id'))['ride'] as Map;
       expect(read['ratingStatus'], 'submitted');
     },

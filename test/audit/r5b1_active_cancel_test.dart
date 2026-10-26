@@ -24,8 +24,9 @@ void main() {
         return http.Response(jsonEncode({'code': 'unavailable'}), 503);
       }),
     );
-    final outcome = await ActiveRideController(api: api)
-        .cancelUntrackedRide(rideId: 'ride_r5_21');
+    final outcome = await ActiveRideController(
+      api: api,
+    ).cancelUntrackedRide(rideId: 'ride_r5_21');
     expect(outcome, RideCancelOutcome.unsent);
     expect(cancels, greaterThan(0));
   });

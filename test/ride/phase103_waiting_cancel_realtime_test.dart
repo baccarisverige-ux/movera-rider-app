@@ -172,8 +172,9 @@ void main() {
 
     test('a retried cancel reuses the queued idempotency key', () async {
       await _activeRide('w3', RideStatus.driverAssigned);
-      await ActiveRideController(api: ApiClient(client: _Offline()))
-          .markCancelled();
+      await ActiveRideController(
+        api: ApiClient(client: _Offline()),
+      ).markCancelled();
       final queuedKey = (await PendingCancelStore.all()).single.idempotencyKey;
 
       final seen = <http.Request>[];

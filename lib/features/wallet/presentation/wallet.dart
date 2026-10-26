@@ -726,8 +726,9 @@ class _WalletScreenState extends State<WalletScreen> {
     final zone = await currentRiderZone();
     List<String>? methods;
     try {
-      methods = (await AppScope.instance.riderConfig.forZone(zone.id))
-          .paymentMethods;
+      methods = (await AppScope.instance.riderConfig.forZone(
+        zone.id,
+      )).paymentMethods;
     } catch (_) {
       methods = null;
     }

@@ -11,10 +11,8 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 /// A street-name lookup outside the Movera backend (the web demo's
 /// OpenStreetMap fallback).
-typedef PublicReverseGeocoder = Future<String?> Function(
-  GeoPoint point, {
-  Duration timeout,
-});
+typedef PublicReverseGeocoder =
+    Future<String?> Function(GeoPoint point, {Duration timeout});
 
 class AppGeocoding implements GeocodingRepository {
   AppGeocoding({

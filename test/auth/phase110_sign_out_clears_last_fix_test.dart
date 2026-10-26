@@ -82,27 +82,30 @@ void main() {
     },
   );
 
-  test('session expiry (forced sign-out in the composed app) wipes the last good fix', () async {
-    // A request that carried an access token gets 401 and the refresh token
-    // is rejected: the composed ApiClient clears the session and runs the
-    // AppScope onSessionExpired handler (the only sign-out reachable today).
-    await AppScope.instance.tokens.save(
-      access: 'phase110-expired-access',
-      refresh: 'phase110-rejected-refresh',
-    );
-    await expectLater(
-      AppScope.instance.api.post(
-        '/api/v1/auth/refresh',
-        body: {'refreshToken': 'phase110-rejected-refresh'},
-      ),
-      throwsA(
-        isA<ApiError>().having((error) => error.statusCode, 'status', 401),
-      ),
-    );
-    expect(await AppScope.instance.tokens.readAccess(), isNull);
+  test(
+    'session expiry (forced sign-out in the composed app) wipes the last good fix',
+    () async {
+      // A request that carried an access token gets 401 and the refresh token
+      // is rejected: the composed ApiClient clears the session and runs the
+      // AppScope onSessionExpired handler (the only sign-out reachable today).
+      await AppScope.instance.tokens.save(
+        access: 'phase110-expired-access',
+        refresh: 'phase110-rejected-refresh',
+      );
+      await expectLater(
+        AppScope.instance.api.post(
+          '/api/v1/auth/refresh',
+          body: {'refreshToken': 'phase110-rejected-refresh'},
+        ),
+        throwsA(
+          isA<ApiError>().having((error) => error.statusCode, 'status', 401),
+        ),
+      );
+      expect(await AppScope.instance.tokens.readAccess(), isNull);
 
-    final after = await SharedPreferences.getInstance();
-    expect(after.getString(_key), isNull);
-    expect(after.getString(_unrelatedKey), 'kept');
-  });
+      final after = await SharedPreferences.getInstance();
+      expect(after.getString(_key), isNull);
+      expect(after.getString(_unrelatedKey), 'kept');
+    },
+  );
 }

@@ -113,8 +113,9 @@ void main() {
         ..restoreFromBackend(RideStatus.driverArriving, id: 'v1');
       await RideSnapshotStore.save(_snap('v1', RideStatus.driverArriving));
 
-      final outcome = await ActiveRideController(api: _staleServer(posts))
-          .markCancelled(reasonId: 'plans_changed');
+      final outcome = await ActiveRideController(
+        api: _staleServer(posts),
+      ).markCancelled(reasonId: 'plans_changed');
 
       expect(outcome, RideCancelOutcome.stale);
       expect(posts, ['/api/v1/rides/v1/cancel'], reason: 'sent once');

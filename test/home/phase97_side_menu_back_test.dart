@@ -184,14 +184,16 @@ void main() {
   });
 
   test('D-026: the menu turns that result into a booking, not the menu', () {
-    final menu = File('lib/features/home/presentation/side_menu.dart')
-        .readAsStringSync();
+    final menu = File(
+      'lib/features/home/presentation/side_menu.dart',
+    ).readAsStringSync();
     expect(menu, contains('result == RideHistory.startBookingResult'));
     expect(menu, contains('onStartBooking?.call();'));
     // The menu page itself leaves first, so booking starts over Home.
     expect(menu, contains('nav.pop();\n      onStartBooking?.call();'));
-    final home = File('lib/features/home/presentation/home.dart')
-        .readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     // NAV-6: Home starts the booking after the menu's park scope ends.
     expect(
       home,

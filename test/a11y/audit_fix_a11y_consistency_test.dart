@@ -35,8 +35,9 @@ Future<void> _pump(WidgetTester tester, Widget home, {double scale = 1}) async {
     MoveraScreenUtilInit(
       builder: (_, __) => MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
         home: home,

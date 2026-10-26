@@ -692,8 +692,9 @@ class _SelectRideState extends State<SelectRide>
     if (!mounted) return null;
     final current = _bookableQuote(ride.id);
     if (current != null) return current;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
     try {
       final stops = await _routeStops();
       await _selection.quoteFromPin(
@@ -1700,8 +1701,9 @@ class _SelectRideState extends State<SelectRide>
 
     final selected = _selectedRideOrNull;
     if (selected == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.noRideCategory)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.noRideCategory)));
       return;
     }
     if (!_selection.quoteIsAvailable(selected.id)) {
@@ -1920,8 +1922,9 @@ class _SelectRideState extends State<SelectRide>
     }
     final paymentItem = _selection.selectedPaymentItem();
     if (paymentItem == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.noPaymentMethod)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.noPaymentMethod)));
       _releaseBookingLock();
       return;
     }
@@ -2294,8 +2297,9 @@ class _SelectRideState extends State<SelectRide>
                   child: Material(
                     color: Colors.white,
                     elevation: 18,
-                    shadowColor: const Color(0xFF162C36)
-                        .withValues(alpha: 0.16),
+                    shadowColor: const Color(
+                      0xFF162C36,
+                    ).withValues(alpha: 0.16),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -2736,8 +2740,9 @@ class _SelectRideState extends State<SelectRide>
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF162C36)
-                              .withValues(alpha: 0.06),
+                          color: const Color(
+                            0xFF162C36,
+                          ).withValues(alpha: 0.06),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),

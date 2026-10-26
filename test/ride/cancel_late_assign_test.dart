@@ -245,48 +245,51 @@ void main() {
     },
   );
 
-  test('cancel-first bumps epoch so a late assigned snapshot save cannot revive Waiting', () async {
-    final rt = _rt;
-    final epochId = await _bookOnServer();
-    final ride = AppScope.instance.ride..rideId = epochId;
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: ride,
-      store: FindingDriverRepository(),
-    );
-    controller.start(
-      snapshot: findingSnap(rideId: epochId),
-      onTick: (_) {},
-      onMatched: () {},
-    );
-    rt.holdAssignment();
+  test(
+    'cancel-first bumps epoch so a late assigned snapshot save cannot revive Waiting',
+    () async {
+      final rt = _rt;
+      final epochId = await _bookOnServer();
+      final ride = AppScope.instance.ride..rideId = epochId;
+      final controller = FindingDriverController(
+        realtime: rt,
+        ride: ride,
+        store: FindingDriverRepository(),
+      );
+      controller.start(
+        snapshot: findingSnap(rideId: epochId),
+        onTick: (_) {},
+        onMatched: () {},
+      );
+      rt.holdAssignment();
 
-    // In-flight persist started before cancel-first (captures old epoch).
-    final pending = RideSnapshotStore.save(
-      findingSnap(rideId: epochId).copyWith(
-        status: RideStatus.driverAssigned,
-        savedAt: DateTime.now(),
-        driver: null,
-      ),
-    );
-    await controller.cancelSearch();
-    await pending;
+      // In-flight persist started before cancel-first (captures old epoch).
+      final pending = RideSnapshotStore.save(
+        findingSnap(rideId: epochId).copyWith(
+          status: RideStatus.driverAssigned,
+          savedAt: DateTime.now(),
+          driver: null,
+        ),
+      );
+      await controller.cancelSearch();
+      await pending;
 
-    expect(ride.status, RideStatus.cancelledByRider);
-    expect(ride.suppressRestore, isTrue);
-    expect(await RideSnapshotStore.read(), isNull);
+      expect(ride.status, RideStatus.cancelledByRider);
+      expect(ride.suppressRestore, isTrue);
+      expect(await RideSnapshotStore.read(), isNull);
 
-    rt.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(await RideSnapshotStore.read(), isNull);
+      rt.assignNow();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(await RideSnapshotStore.read(), isNull);
 
-    final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
-    expect(
-      restore.surfaceFor(await RideSnapshotStore.read()),
-      RestoredSurface.home,
-    );
-    expect(await restore.root(), isA<Home>());
+      final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
+      expect(
+        restore.surfaceFor(await RideSnapshotStore.read()),
+        RestoredSurface.home,
+      );
+      expect(await restore.root(), isA<Home>());
 
-    controller.dispose();
-  });
+      controller.dispose();
+    },
+  );
 }

@@ -11,12 +11,15 @@ import 'contract_fixtures.dart';
 /// X1: the Rider reads `RiderAppConfig` (CONTRACT.md §6) as the Admin app
 /// exports it. The three documents under `test/fixtures/admin_config/` are
 /// copies of Admin's `webapp/src/config/__fixtures__/rider_app_config.*`.
-Map<String, dynamic> _adminExport(String zone) => jsonDecode(
-  utf8.decode(
-    File('test/fixtures/admin_config/rider_app_config.$zone.json')
-        .readAsBytesSync(),
-  ),
-) as Map<String, dynamic>;
+Map<String, dynamic> _adminExport(String zone) =>
+    jsonDecode(
+          utf8.decode(
+            File(
+              'test/fixtures/admin_config/rider_app_config.$zone.json',
+            ).readAsBytesSync(),
+          ),
+        )
+        as Map<String, dynamic>;
 
 void main() {
   group('Admin export', () {

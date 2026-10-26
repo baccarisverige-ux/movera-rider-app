@@ -81,8 +81,9 @@ void main() {
         ),
       ),
     );
-    final quote = await ApiQuoteRepository(api: api)
-        .quote(rideType: 'economy', distanceMeters: 3000);
+    final quote = await ApiQuoteRepository(
+      api: api,
+    ).quote(rideType: 'economy', distanceMeters: 3000);
     final selection = controller()..adoptQuote('economy', quote);
 
     expect(selection.quoteIsFresh('economy'), isTrue);

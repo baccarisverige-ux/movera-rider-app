@@ -224,51 +224,54 @@ void main() {
     );
   });
 
-  test('an old stored ride reads to the same instant as before, in its pickup zone', () async {
-    // Saved before rides kept their zone: an offset-less device-local value
-    // (read as device-local, as written) and a UTC one.
-    final storage = MemoryReservationStorage(
-      jsonEncode([
-        for (final (id, at) in [
-          ('legacy', '2026-10-22T09:00:00.000'),
-          ('utc', '2026-10-22T08:00:00.000Z'),
-        ])
+  test(
+    'an old stored ride reads to the same instant as before, in its pickup zone',
+    () async {
+      // Saved before rides kept their zone: an offset-less device-local value
+      // (read as device-local, as written) and a UTC one.
+      final storage = MemoryReservationStorage(
+        jsonEncode([
+          for (final (id, at) in [
+            ('legacy', '2026-10-22T09:00:00.000'),
+            ('utc', '2026-10-22T08:00:00.000Z'),
+          ])
+            {
+              'reservationId': id,
+              'createdAt': '2026-10-20T10:00:00.000Z',
+              'scheduledPickupAt': at,
+              'pickup': tunisPickup.toJson(),
+              'destination': tunisDrop.toJson(),
+              'status': 'scheduled',
+            },
           {
-            'reservationId': id,
+            'reservationId': 'nopoint',
             'createdAt': '2026-10-20T10:00:00.000Z',
-            'scheduledPickupAt': at,
-            'pickup': tunisPickup.toJson(),
-            'destination': tunisDrop.toJson(),
-            'status': 'scheduled',
+            'scheduledPickupAt': '2026-10-22T09:00:00.000',
+            'pickup': 'Somewhere',
+            'destination': 'Elsewhere',
           },
-        {
-          'reservationId': 'nopoint',
-          'createdAt': '2026-10-20T10:00:00.000Z',
-          'scheduledPickupAt': '2026-10-22T09:00:00.000',
-          'pickup': 'Somewhere',
-          'destination': 'Elsewhere',
-        },
-      ]),
-    );
-    final repo = LocalReservationRepository(storage: storage);
-    await repo.hydrate();
-    final byId = {for (final r in repo.cached) r.reservationId: r};
-    expect(
-      byId['legacy']!.scheduledPickupAt.isAtSameMomentAs(
-        DateTime(2026, 10, 22, 9),
-      ),
-      isTrue,
-    );
-    expect(byId['legacy']!.timeZone, ZoneClock.tunis);
-    expect(
-      byId['utc']!.scheduledPickupAt.isAtSameMomentAs(
-        DateTime.utc(2026, 10, 22, 8),
-      ),
-      isTrue,
-    );
-    expect(ReservationFormat.time(byId['utc']!.pickupWallTime), '09:00');
-    // No pickup point: still the device's clock, as it always read.
-    expect(byId['nopoint']!.timeZone, isNull);
-    expect(ReservationFormat.time(byId['nopoint']!.pickupWallTime), '09:00');
-  });
+        ]),
+      );
+      final repo = LocalReservationRepository(storage: storage);
+      await repo.hydrate();
+      final byId = {for (final r in repo.cached) r.reservationId: r};
+      expect(
+        byId['legacy']!.scheduledPickupAt.isAtSameMomentAs(
+          DateTime(2026, 10, 22, 9),
+        ),
+        isTrue,
+      );
+      expect(byId['legacy']!.timeZone, ZoneClock.tunis);
+      expect(
+        byId['utc']!.scheduledPickupAt.isAtSameMomentAs(
+          DateTime.utc(2026, 10, 22, 8),
+        ),
+        isTrue,
+      );
+      expect(ReservationFormat.time(byId['utc']!.pickupWallTime), '09:00');
+      // No pickup point: still the device's clock, as it always read.
+      expect(byId['nopoint']!.timeZone, isNull);
+      expect(ReservationFormat.time(byId['nopoint']!.pickupWallTime), '09:00');
+    },
+  );
 }

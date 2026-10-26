@@ -281,8 +281,9 @@ void main() {
 
     await _tapDone(tester);
     expect(_submitError, findsNothing);
-    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!
-        .single;
+    final record = (await tester.runAsync(
+      OnDemandRideHistoryStore.read,
+    ))!.single;
     expect(record.paymentFailed, isTrue);
   });
 

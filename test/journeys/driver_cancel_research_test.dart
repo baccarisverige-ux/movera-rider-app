@@ -91,9 +91,9 @@ void main() {
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(
-        ModalRoute.of(tester.element(find.byType(WaitingForDriver)))
-            ?.settings
-            .name,
+        ModalRoute.of(
+          tester.element(find.byType(WaitingForDriver)),
+        )?.settings.name,
         AppRoutes.waitingForDriver,
       );
       expect(AppScope.instance.ride.rideId, rideId);

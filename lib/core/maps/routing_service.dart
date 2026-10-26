@@ -26,11 +26,12 @@ const Duration publicRoadRetryAfter = Duration(milliseconds: 400);
 
 /// Road geometry from a public router, or null when nothing usable came
 /// back (the caller decides whether to ask again).
-typedef PublicRoadRouter = Future<List<GeoPoint>?> Function(
-  GeoPoint from,
-  GeoPoint to, {
-  Duration timeout,
-});
+typedef PublicRoadRouter =
+    Future<List<GeoPoint>?> Function(
+      GeoPoint from,
+      GeoPoint to, {
+      Duration timeout,
+    });
 
 /// How many road lines [routing] keeps now.
 @visibleForTesting

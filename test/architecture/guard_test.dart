@@ -4,11 +4,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Iterable<File> dartUnder(String root) =>
-      Directory(root)
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart'));
+  Iterable<File> dartUnder(String root) => Directory(root)
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'));
 
   Iterable<File> presentation() =>
       dartUnder('lib/features').where((f) => f.path.contains('/presentation/'));
@@ -69,8 +68,9 @@ void main() {
   test('no SharedPreferences token storage', () {
     final token = File('lib/core/auth/token_store.dart').readAsStringSync();
     expect(token.contains("package:shared_preferences"), isFalse);
-    final secure = File('lib/core/auth/secure_token_store.dart')
-        .readAsStringSync();
+    final secure = File(
+      'lib/core/auth/secure_token_store.dart',
+    ).readAsStringSync();
     expect(secure.contains("package:shared_preferences"), isFalse);
   });
 
@@ -85,8 +85,9 @@ void main() {
 
   test('obsolete confirming and cancel dialogs are gone', () {
     expect(
-      File('lib/features/finding_driver/presentation/cancel_ride.dart')
-          .existsSync(),
+      File(
+        'lib/features/finding_driver/presentation/cancel_ride.dart',
+      ).existsSync(),
       isFalse,
     );
     for (final file in dartUnder('lib')) {
@@ -109,8 +110,9 @@ void main() {
   });
 
   test('page transitions use shared motion tokens', () {
-    final src = File('lib/shared/widgets/navigation_transition.dart')
-        .readAsStringSync();
+    final src = File(
+      'lib/shared/widgets/navigation_transition.dart',
+    ).readAsStringSync();
     expect(src.contains('milliseconds: 1000'), isFalse);
     expect(src.contains('MoveraDurations'), isTrue);
     expect(src.contains('child: page'), isFalse);
@@ -161,8 +163,9 @@ void main() {
         reason: file.path,
       );
       expect(
-        RegExp(r'_mapController\?\.dispose|_mapController\.dispose')
-            .hasMatch(src),
+        RegExp(
+          r'_mapController\?\.dispose|_mapController\.dispose',
+        ).hasMatch(src),
         isFalse,
         reason: file.path,
       );
@@ -239,8 +242,9 @@ void main() {
     for (final file in dartUnder('lib/features')) {
       final path = norm(file.path);
       if (!path.contains('/application/')) continue;
-      final hits = importsOf(file)
-          .where((uri) => uri.contains('/presentation/'));
+      final hits = importsOf(
+        file,
+      ).where((uri) => uri.contains('/presentation/'));
       if (hits.isNotEmpty) offenders.add(path);
     }
     expect(
@@ -267,8 +271,9 @@ void main() {
       expect(
         !reachesPool ||
             path.startsWith('lib/core/') ||
-            RegExp(r'^lib/features/[^/]+/data/mock_[^/]+\.dart$')
-                .hasMatch(path),
+            RegExp(
+              r'^lib/features/[^/]+/data/mock_[^/]+\.dart$',
+            ).hasMatch(path),
         isTrue,
         reason: '$path reaches MockDriverPool outside the API boundary',
       );
@@ -421,13 +426,14 @@ void main() {
   });
 
   test('side menu lists only currently reachable production destinations', () {
-    final source = File('lib/features/home/presentation/side_menu.dart')
-        .readAsStringSync();
+    final source = File(
+      'lib/features/home/presentation/side_menu.dart',
+    ).readAsStringSync();
     // Round 4: the labels live in l10n; check the English text the menu
     // shows next to its code.
-    final english = jsonDecode(
-      File('lib/l10n/app_en.arb').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final english =
+        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+            as Map<String, dynamic>;
     final menu = [
       source,
       for (final m in RegExp(r'l10n\.(\w+)').allMatches(source))
@@ -510,23 +516,27 @@ void main() {
 
   test('old scheduled confirmation screens are removed', () {
     expect(
-      File('lib/features/scheduled_rides/presentation/ride_confirmed.dart')
-          .existsSync(),
+      File(
+        'lib/features/scheduled_rides/presentation/ride_confirmed.dart',
+      ).existsSync(),
       isFalse,
     );
     expect(
-      File('lib/features/scheduled_rides/presentation/ride_pending.dart')
-          .existsSync(),
+      File(
+        'lib/features/scheduled_rides/presentation/ride_pending.dart',
+      ).existsSync(),
       isFalse,
     );
     expect(
-      File('lib/features/scheduled_rides/presentation/confirm_booking.dart')
-          .existsSync(),
+      File(
+        'lib/features/scheduled_rides/presentation/confirm_booking.dart',
+      ).existsSync(),
       isFalse,
     );
     expect(
-      File('lib/features/scheduled_rides/presentation/add_note.dart')
-          .existsSync(),
+      File(
+        'lib/features/scheduled_rides/presentation/add_note.dart',
+      ).existsSync(),
       isFalse,
     );
   });
@@ -585,34 +595,38 @@ void main() {
     expect(selectRide.contains('bookingMode: BookingMode.scheduled'), isTrue);
   });
 
-  test('history Schedule a ride still opens Plan your ride; Home Later uses Where to', () {
-    final history = File('lib/features/history/presentation/ride_history.dart')
-        .readAsStringSync();
-    expect(history.contains('ScheduleRide()'), isTrue);
-    expect(history.contains('SelectRide('), isFalse);
-    final home = homeScreenFiles
-        .map((p) => File(p).readAsStringSync())
-        .join('\n');
-    expect(home.contains('bookingMode: BookingMode.now'), isTrue);
-    // Book for later follows the Book now screens: Where to → date & time →
-    // scheduled categories → Set pickup. The old Plan your ride screen is
-    // only for editing a reservation and the history entry.
-    expect(home.contains('const ScheduleRide()'), isFalse);
-    expect(
-      home.contains(
-        "_showRouteAddressPicker(initialField: 'destination', scheduled: true)",
-      ),
-      isTrue,
-    );
-    expect(home.contains('ScheduleDateTimeSelector.choose('), isTrue);
-    expect(home.contains('BookingMode.scheduled'), isTrue);
-    expect(home.contains('_handleDestinationTap'), isTrue);
-    expect(home.contains('HomeReservationChrono'), isTrue);
-    expect(home.contains('_PickupMapPickerPage'), isFalse);
-    expect(home.contains('ConfirmPickupSpot.open'), isTrue);
-    expect(home.contains('AccountHomePage'), isTrue);
-    expect(home.contains('Uber account'), isFalse);
-  });
+  test(
+    'history Schedule a ride still opens Plan your ride; Home Later uses Where to',
+    () {
+      final history = File(
+        'lib/features/history/presentation/ride_history.dart',
+      ).readAsStringSync();
+      expect(history.contains('ScheduleRide()'), isTrue);
+      expect(history.contains('SelectRide('), isFalse);
+      final home = homeScreenFiles
+          .map((p) => File(p).readAsStringSync())
+          .join('\n');
+      expect(home.contains('bookingMode: BookingMode.now'), isTrue);
+      // Book for later follows the Book now screens: Where to → date & time →
+      // scheduled categories → Set pickup. The old Plan your ride screen is
+      // only for editing a reservation and the history entry.
+      expect(home.contains('const ScheduleRide()'), isFalse);
+      expect(
+        home.contains(
+          "_showRouteAddressPicker(initialField: 'destination', scheduled: true)",
+        ),
+        isTrue,
+      );
+      expect(home.contains('ScheduleDateTimeSelector.choose('), isTrue);
+      expect(home.contains('BookingMode.scheduled'), isTrue);
+      expect(home.contains('_handleDestinationTap'), isTrue);
+      expect(home.contains('HomeReservationChrono'), isTrue);
+      expect(home.contains('_PickupMapPickerPage'), isFalse);
+      expect(home.contains('ConfirmPickupSpot.open'), isTrue);
+      expect(home.contains('AccountHomePage'), isTrue);
+      expect(home.contains('Uber account'), isFalse);
+    },
+  );
 
   test('book now always opens Confirm pickup; GPS only prefills', () {
     final home = homeScreenFiles
@@ -651,9 +665,9 @@ void main() {
     () {
       // Round 4: screen copy lives in l10n; read each source with the
       // English text of the messages it uses.
-      final english = jsonDecode(
-        File('lib/l10n/app_en.arb').readAsStringSync(),
-      ) as Map<String, dynamic>;
+      final english =
+          jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+              as Map<String, dynamic>;
       String withEnglish(String path) {
         final source = File(path).readAsStringSync();
         return [
@@ -696,24 +710,28 @@ void main() {
     },
   );
 
-  test('scheduled booking flow test proves CTA, Ride scheduled, and no Finding Driver', () {
-    final src = File('test/reservations/scheduled_booking_flow_test.dart')
-        .readAsStringSync();
-    expect(src.contains('Schedule Movera'), isTrue);
-    expect(src.contains('Select Movera'), isTrue);
-    expect(src.contains('Ride scheduled'), isTrue);
-    expect(src.contains('FindingDriverController.active'), isTrue);
-    expect(src.contains('Connecting you with nearby drivers'), isTrue);
-    expect(src.contains('ScheduledRideBooking.confirm'), isTrue);
-    expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
-    expect(src.contains('When should we pick you up Continue'), isTrue);
-    expect(src.contains('editing a reservation keeps the same id'), isTrue);
-    expect(src.contains('checkout draft does not create'), isTrue);
-    expect(
-      src.contains('edit hydrates the saved payment instead of defaulting'),
-      isTrue,
-    );
-  });
+  test(
+    'scheduled booking flow test proves CTA, Ride scheduled, and no Finding Driver',
+    () {
+      final src = File(
+        'test/reservations/scheduled_booking_flow_test.dart',
+      ).readAsStringSync();
+      expect(src.contains('Schedule Movera'), isTrue);
+      expect(src.contains('Select Movera'), isTrue);
+      expect(src.contains('Ride scheduled'), isTrue);
+      expect(src.contains('FindingDriverController.active'), isTrue);
+      expect(src.contains('Connecting you with nearby drivers'), isTrue);
+      expect(src.contains('ScheduledRideBooking.confirm'), isTrue);
+      expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
+      expect(src.contains('When should we pick you up Continue'), isTrue);
+      expect(src.contains('editing a reservation keeps the same id'), isTrue);
+      expect(src.contains('checkout draft does not create'), isTrue);
+      expect(
+        src.contains('edit hydrates the saved payment instead of defaulting'),
+        isTrue,
+      );
+    },
+  );
 
   test('scheduled checkout confirms after pickup is already set', () {
     final checkout = File(
@@ -744,8 +762,9 @@ void main() {
   test(
     'book now uses the shared coordinator, CTA lock, and confirmed pickup',
     () {
-      final repo = File('lib/features/booking/data/booking_repository.dart')
-          .readAsStringSync();
+      final repo = File(
+        'lib/features/booking/data/booking_repository.dart',
+      ).readAsStringSync();
       expect(repo.contains('BookingCoordinator()'), isFalse);
       expect(repo.contains('AppScope.instance.booking'), isTrue);
       final src = File(

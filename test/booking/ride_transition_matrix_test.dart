@@ -123,35 +123,38 @@ void main() {
     RideStatus.ratingPending: {RideStatus.closed},
   };
 
-  test('every allowed ride transition succeeds and every inverse/illegal transition fails', () {
-    var allowedCount = 0;
-    var rejectedCount = 0;
+  test(
+    'every allowed ride transition succeeds and every inverse/illegal transition fails',
+    () {
+      var allowedCount = 0;
+      var rejectedCount = 0;
 
-    for (final from in RideStatus.values) {
-      for (final to in RideStatus.values) {
-        final shouldPass =
-            !from.isTerminal && (allowed[from]?.contains(to) ?? false);
-        if (shouldPass) {
-          expect(
-            transitionRide(from, to),
-            to,
-            reason: 'expected ${from.name} -> ${to.name} to be legal',
-          );
-          allowedCount += 1;
-        } else {
-          expect(
-            () => transitionRide(from, to),
-            throwsA(isA<InvalidRideTransition>()),
-            reason: 'expected ${from.name} -> ${to.name} to be rejected',
-          );
-          rejectedCount += 1;
+      for (final from in RideStatus.values) {
+        for (final to in RideStatus.values) {
+          final shouldPass =
+              !from.isTerminal && (allowed[from]?.contains(to) ?? false);
+          if (shouldPass) {
+            expect(
+              transitionRide(from, to),
+              to,
+              reason: 'expected ${from.name} -> ${to.name} to be legal',
+            );
+            allowedCount += 1;
+          } else {
+            expect(
+              () => transitionRide(from, to),
+              throwsA(isA<InvalidRideTransition>()),
+              reason: 'expected ${from.name} -> ${to.name} to be rejected',
+            );
+            rejectedCount += 1;
+          }
         }
       }
-    }
 
-    expect(allowedCount, greaterThan(0));
-    expect(rejectedCount, greaterThan(allowedCount));
-  });
+      expect(allowedCount, greaterThan(0));
+      expect(rejectedCount, greaterThan(allowedCount));
+    },
+  );
 
   test('all terminal states are immutable', () {
     final terminal = RideStatus.values.where((status) => status.isTerminal);

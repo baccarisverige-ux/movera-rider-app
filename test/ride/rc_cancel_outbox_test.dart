@@ -119,8 +119,9 @@ void main() {
         id: 'ride-9',
         version: 5,
       );
-      final outcome = await ActiveRideController(api: _offline())
-          .markCancelled(reasonId: 'changed_plans');
+      final outcome = await ActiveRideController(
+        api: _offline(),
+      ).markCancelled(reasonId: 'changed_plans');
       expect(outcome, RideCancelOutcome.pendingRetry);
       final queued = (await PendingCancelStore.all()).single;
       expect(queued.command, PendingCancelCommand.endEarly);

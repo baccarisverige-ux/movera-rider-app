@@ -87,65 +87,68 @@ void main() {
     },
   );
 
-  test('scheduled realtime maps authoritative lifecycle without fake payment states', () async {
-    final (controller, created) = await seeded(id: 'scheduled-map');
-    await controller.assignMockDriver(created.reservationId, driver: driverA);
-    await controller.update(
-      created.reservationId,
-      const ReservationPatch(status: ReservationStatus.driverEnRoute),
-    );
+  test(
+    'scheduled realtime maps authoritative lifecycle without fake payment states',
+    () async {
+      final (controller, created) = await seeded(id: 'scheduled-map');
+      await controller.assignMockDriver(created.reservationId, driver: driverA);
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.driverEnRoute),
+      );
 
-    final realtime = ReservationRideRealtime(
-      controller: controller,
-      reservationId: created.reservationId,
-    );
-    addTearDown(realtime.dispose);
-    expect(realtime.supportsRiderSignals, isFalse);
+      final realtime = ReservationRideRealtime(
+        controller: controller,
+        reservationId: created.reservationId,
+      );
+      addTearDown(realtime.dispose);
+      expect(realtime.supportsRiderSignals, isFalse);
 
-    final events = <RideStatus>[];
-    final signals = <String>[];
-    final sub = realtime.subscribe(created.reservationId).listen((event) {
-      events.add(event.status);
-      if (event.signal != null) signals.add(event.signal!.name);
-    });
-    addTearDown(sub.cancel);
+      final events = <RideStatus>[];
+      final signals = <String>[];
+      final sub = realtime.subscribe(created.reservationId).listen((event) {
+        events.add(event.status);
+        if (event.signal != null) signals.add(event.signal!.name);
+      });
+      addTearDown(sub.cancel);
 
-    await flush();
-    expect(events.last, RideStatus.driverArriving);
+      await flush();
+      expect(events.last, RideStatus.driverArriving);
 
-    await controller.update(
-      created.reservationId,
-      const ReservationPatch(status: ReservationStatus.driverArrived),
-    );
-    await flush();
-    expect(events.last, RideStatus.driverWaiting);
-    expect(signals, contains('driverArrived'));
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.driverArrived),
+      );
+      await flush();
+      expect(events.last, RideStatus.driverWaiting);
+      expect(signals, contains('driverArrived'));
 
-    await controller.update(
-      created.reservationId,
-      const ReservationPatch(status: ReservationStatus.inProgress),
-    );
-    await flush();
-    expect(events.last, RideStatus.tripInProgress);
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.inProgress),
+      );
+      await flush();
+      expect(events.last, RideStatus.tripInProgress);
 
-    await controller.update(
-      created.reservationId,
-      const ReservationPatch(status: ReservationStatus.completed),
-    );
-    await flush();
-    expect(events.last, RideStatus.tripCompleted);
-    expect(
-      events.where(
-        (status) =>
-            status == RideStatus.paymentProcessing ||
-            status == RideStatus.paymentFinalized ||
-            status == RideStatus.ratingPending,
-      ),
-      isEmpty,
-      reason:
-          'Reservation model has no authoritative payment/rating state yet.',
-    );
-  });
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.completed),
+      );
+      await flush();
+      expect(events.last, RideStatus.tripCompleted);
+      expect(
+        events.where(
+          (status) =>
+              status == RideStatus.paymentProcessing ||
+              status == RideStatus.paymentFinalized ||
+              status == RideStatus.ratingPending,
+        ),
+        isEmpty,
+        reason:
+            'Reservation model has no authoritative payment/rating state yet.',
+      );
+    },
+  );
 
   test(
     'scheduled driver cancel is transient and reassigns the same reservation',
@@ -196,55 +199,58 @@ void main() {
     },
   );
 
-  test('authoritative assignment updates Rider without reload and replacement stays on same reservation', () async {
-    final (controller, created) = await seeded(id: 'scheduled-authoritative');
-    await controller.startLiveIfDue(
-      now: created.scheduledPickupAt.subtract(const Duration(minutes: 1)),
-    );
+  test(
+    'authoritative assignment updates Rider without reload and replacement stays on same reservation',
+    () async {
+      final (controller, created) = await seeded(id: 'scheduled-authoritative');
+      await controller.startLiveIfDue(
+        now: created.scheduledPickupAt.subtract(const Duration(minutes: 1)),
+      );
 
-    final realtime = ReservationRideRealtime(
-      controller: controller,
-      reservationId: created.reservationId,
-    );
-    addTearDown(realtime.dispose);
+      final realtime = ReservationRideRealtime(
+        controller: controller,
+        reservationId: created.reservationId,
+      );
+      addTearDown(realtime.dispose);
 
-    final events = <RideRealtimeEvent>[];
-    final sub = realtime.subscribe(created.reservationId).listen(events.add);
-    addTearDown(sub.cancel);
-    await flush();
-    expect(events.last.status, RideStatus.findingDriver);
-    expect(events.last.driver, isNull);
+      final events = <RideRealtimeEvent>[];
+      final sub = realtime.subscribe(created.reservationId).listen(events.add);
+      addTearDown(sub.cancel);
+      await flush();
+      expect(events.last.status, RideStatus.findingDriver);
+      expect(events.last.driver, isNull);
 
-    final assigned = await controller.applyDriverAssignment(
-      created.reservationId,
-      driver: driverA,
-    );
-    await flush();
-    expect(assigned.reservationId, created.reservationId);
-    expect(assigned.status, ReservationStatus.driverAssigned);
-    expect(events.last.status, RideStatus.driverAssigned);
-    expect(events.last.driver?.firstName, 'Amina');
+      final assigned = await controller.applyDriverAssignment(
+        created.reservationId,
+        driver: driverA,
+      );
+      await flush();
+      expect(assigned.reservationId, created.reservationId);
+      expect(assigned.status, ReservationStatus.driverAssigned);
+      expect(events.last.status, RideStatus.driverAssigned);
+      expect(events.last.driver?.firstName, 'Amina');
 
-    final pending = await controller.applyDriverCancellation(
-      created.reservationId,
-    );
-    await flush();
-    expect(pending.reservationId, created.reservationId);
-    expect(pending.status, ReservationStatus.driverAssignmentPending);
-    expect(pending.driver, isNull);
-    expect(events.last.status, RideStatus.cancelledByDriver);
-    expect(events.last.driver, isNull);
+      final pending = await controller.applyDriverCancellation(
+        created.reservationId,
+      );
+      await flush();
+      expect(pending.reservationId, created.reservationId);
+      expect(pending.status, ReservationStatus.driverAssignmentPending);
+      expect(pending.driver, isNull);
+      expect(events.last.status, RideStatus.cancelledByDriver);
+      expect(events.last.driver, isNull);
 
-    final replacement = await controller.applyDriverAssignment(
-      created.reservationId,
-      driver: driverB,
-    );
-    await flush();
-    expect(replacement.reservationId, created.reservationId);
-    expect(replacement.status, ReservationStatus.driverAssigned);
-    expect(events.last.status, RideStatus.driverAssigned);
-    expect(events.last.driver?.firstName, 'Nora');
-  });
+      final replacement = await controller.applyDriverAssignment(
+        created.reservationId,
+        driver: driverB,
+      );
+      await flush();
+      expect(replacement.reservationId, created.reservationId);
+      expect(replacement.status, ReservationStatus.driverAssigned);
+      expect(events.last.status, RideStatus.driverAssigned);
+      expect(events.last.driver?.firstName, 'Nora');
+    },
+  );
 
   test(
     'unsolicited scheduled cancellation is external, not invented rider action',

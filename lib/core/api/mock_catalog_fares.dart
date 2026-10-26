@@ -137,8 +137,9 @@ class MockZoneRates {
     : _money = MockZoneCurrency.of(currency),
       currency = MockZoneCurrency.of(currency).currency,
       listMinor = MockZoneCurrency.of(currency).fromKronor(catalogKronor),
-      perKmMinor = MockZoneCurrency.of(currency)
-          .fromKronor(MockCategoryRates.perKmMajor);
+      perKmMinor = MockZoneCurrency.of(
+        currency,
+      ).fromKronor(MockCategoryRates.perKmMajor);
 
   final MockZoneCurrency _money;
   final String currency;

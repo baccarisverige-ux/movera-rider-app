@@ -1700,8 +1700,10 @@ class InProcessMockClient extends http.BaseClient {
     // Anything else typed is still offered, so demo bookings always work.
     final typed = query.trim();
     if (typedFallback && typed.length >= 3 && found.isEmpty) {
-      final hash = _fold(typed).codeUnits
-          .fold<int>(0, (value, unit) => ((value * 31) + unit) & 0x7fffffff);
+      final hash = _fold(typed).codeUnits.fold<int>(
+        0,
+        (value, unit) => ((value * 31) + unit) & 0x7fffffff,
+      );
       found.add({
         'title': typed,
         'subtitle': 'Sweden',

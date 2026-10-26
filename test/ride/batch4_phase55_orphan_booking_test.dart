@@ -168,7 +168,8 @@ void main() {
       expect(
         find.byType(FindingDrivers),
         findsOneWidget,
-        reason: 'a successful backend ride must get an immediate visible/recovery owner even if Select Ride unmounts',
+        reason:
+            'a successful backend ride must get an immediate visible/recovery owner even if Select Ride unmounts',
       );
       final snapshot = await RideSnapshotStore.read();
       expect(snapshot?.rideId, AppScope.instance.ride.rideId);
@@ -176,77 +177,81 @@ void main() {
       expect(transport.rideCreateCalls, 1);
     },
   );
-  test('a Finding owner appearing during create keeps its ride and stands down the duplicate', () async {
-    final transport = _GateRideCreateClient();
-    final api = ApiClient(client: transport);
-    final coordinator = BookingCoordinator(api: api);
+  test(
+    'a Finding owner appearing during create keeps its ride and stands down the duplicate',
+    () async {
+      final transport = _GateRideCreateClient();
+      final api = ApiClient(client: transport);
+      final coordinator = BookingCoordinator(api: api);
 
-    final creating = coordinator.submitFinding(
-      pickupAddress: 'Stockholm Central',
-      destinationAddress: 'Arlanda Airport',
-      pickupLat: 59.3300,
-      pickupLng: 18.0590,
-      destinationLat: 59.6519,
-      destinationLng: 17.9186,
-      rideType: 'economy',
-      price: 259,
-      paymentMethod: 'apple_pay',
-      rideTypeLabel: 'Movera',
-      paymentMethodLabel: 'Apple Pay',
-    );
-    await transport.rideCreateStarted.future;
+      final creating = coordinator.submitFinding(
+        pickupAddress: 'Stockholm Central',
+        destinationAddress: 'Arlanda Airport',
+        pickupLat: 59.3300,
+        pickupLng: 18.0590,
+        destinationLat: 59.6519,
+        destinationLng: 17.9186,
+        rideType: 'economy',
+        price: 259,
+        paymentMethod: 'apple_pay',
+        rideTypeLabel: 'Movera',
+        paymentMethodLabel: 'Apple Pay',
+      );
+      await transport.rideCreateStarted.future;
 
-    const existingRideId = 'phase55-existing-finding';
-    AppScope.instance.ride
-      ..rideId = existingRideId
-      ..status = RideStatus.findingDriver
-      ..suppressRestore = false
-      ..authoritativeVersion = null
-      ..authoritativeUpdatedAt = null;
+      const existingRideId = 'phase55-existing-finding';
+      AppScope.instance.ride
+        ..rideId = existingRideId
+        ..status = RideStatus.findingDriver
+        ..suppressRestore = false
+        ..authoritativeVersion = null
+        ..authoritativeUpdatedAt = null;
 
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
-    final active = FindingDriverController(realtime: realtime, api: api);
-    addTearDown(() {
-      active.dispose();
-      realtime.dispose();
-    });
-    active.startFrom(
-      pickupAddress: 'Existing pickup',
-      destinationAddress: 'Existing destination',
-      pickupLat: 59.32,
-      pickupLng: 18.06,
-      destinationLat: 59.34,
-      destinationLng: 18.08,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      onTick: (_) {},
-      onMatched: () {},
-    );
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final active = FindingDriverController(realtime: realtime, api: api);
+      addTearDown(() {
+        active.dispose();
+        realtime.dispose();
+      });
+      active.startFrom(
+        pickupAddress: 'Existing pickup',
+        destinationAddress: 'Existing destination',
+        pickupLat: 59.32,
+        pickupLng: 18.06,
+        destinationLat: 59.34,
+        destinationLng: 18.08,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+        onTick: (_) {},
+        onMatched: () {},
+      );
 
-    expect(FindingDriverController.active, same(active));
-    transport.allowRideCreate.complete();
-    final resolvedRideId = await creating;
+      expect(FindingDriverController.active, same(active));
+      transport.allowRideCreate.complete();
+      final resolvedRideId = await creating;
 
-    expect(
-      resolvedRideId,
-      existingRideId,
-      reason: 'the mounted Finding owner remains the authoritative ride',
-    );
-    expect(AppScope.instance.ride.rideId, existingRideId);
-    expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      expect(
+        resolvedRideId,
+        existingRideId,
+        reason: 'the mounted Finding owner remains the authoritative ride',
+      );
+      expect(AppScope.instance.ride.rideId, existingRideId);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
 
-    expect(transport.rides, hasLength(1));
-    final duplicate = transport.rides.values.single;
-    expect(
-      duplicate['status'],
-      'cancelled_by_rider',
-      reason: 'the newly created race loser must be explicitly stood down, never left searching invisibly',
-    );
-  });
+      expect(transport.rides, hasLength(1));
+      final duplicate = transport.rides.values.single;
+      expect(
+        duplicate['status'],
+        'cancelled_by_rider',
+        reason:
+            'the newly created race loser must be explicitly stood down, never left searching invisibly',
+      );
+    },
+  );
 
   testWidgets(
     'rapid double Book creates one authoritative ride and one Finding lifecycle',

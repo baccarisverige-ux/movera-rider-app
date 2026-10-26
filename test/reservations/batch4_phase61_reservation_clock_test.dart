@@ -35,18 +35,21 @@ void main() {
     await controller.create(draft());
   });
 
-  test('T-10 and T-1 keep one reservation and lifecycle drives countdown eligibility', () async {
-    await controller.startLiveIfDue();
-    expect(controller.byId('phase61')!.status, ReservationStatus.scheduled);
+  test(
+    'T-10 and T-1 keep one reservation and lifecycle drives countdown eligibility',
+    () async {
+      await controller.startLiveIfDue();
+      expect(controller.byId('phase61')!.status, ReservationStatus.scheduled);
 
-    clock = pickupAt.subtract(const Duration(minutes: 1));
-    await controller.startLiveIfDue();
-    expect(
-      controller.byId('phase61')!.status,
-      ReservationStatus.driverAssignmentPending,
-    );
-    expect(controller.upcoming(), hasLength(1));
-  });
+      clock = pickupAt.subtract(const Duration(minutes: 1));
+      await controller.startLiveIfDue();
+      expect(
+        controller.byId('phase61')!.status,
+        ReservationStatus.driverAssignmentPending,
+      );
+      expect(controller.upcoming(), hasLength(1));
+    },
+  );
 
   test(
     'T, T+30s and T+5m cannot resurrect or duplicate assignment lifecycle',

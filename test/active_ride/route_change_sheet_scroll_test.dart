@@ -52,8 +52,9 @@ void main() {
         MoveraScreenUtilInit(
           builder: (_, __) => MaterialApp(
             builder: (c, child) => MediaQuery(
-              data: MediaQuery.of(c)
-                  .copyWith(textScaler: TextScaler.linear(scale)),
+              data: MediaQuery.of(
+                c,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
               child: child!,
             ),
             home: Builder(

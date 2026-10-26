@@ -114,9 +114,9 @@ void main() {
       expect(created?.reservationId, 'journey-reservation-1');
       expect(find.text('Your ride is scheduled'), findsOneWidget);
       expect(
-        ModalRoute.of(tester.element(find.byType(RideScheduledPage)))
-            ?.settings
-            .name,
+        ModalRoute.of(
+          tester.element(find.byType(RideScheduledPage)),
+        )?.settings.name,
         AppRoutes.reservationScheduled,
       );
 
@@ -153,9 +153,9 @@ void main() {
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(
-        ModalRoute.of(tester.element(find.byType(WaitingForDriver)))
-            ?.settings
-            .name,
+        ModalRoute.of(
+          tester.element(find.byType(WaitingForDriver)),
+        )?.settings.name,
         AppRoutes.reservationLive,
       );
       expect(find.textContaining('Amina'), findsWidgets);
@@ -187,9 +187,9 @@ void main() {
 
       expect(find.byType(RideCompleted), findsOneWidget);
       expect(
-        ModalRoute.of(tester.element(find.byType(RideCompleted)))
-            ?.settings
-            .name,
+        ModalRoute.of(
+          tester.element(find.byType(RideCompleted)),
+        )?.settings.name,
         AppRoutes.rideCompleted,
       );
       expect(

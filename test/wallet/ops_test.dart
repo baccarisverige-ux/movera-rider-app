@@ -45,7 +45,8 @@ void main() {
 
   test('legacy unverified payment labels and defaults are removed', () async {
     SharedPreferences.setMockInitialValues({
-      'movera_payment_methods': '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
+      'movera_payment_methods':
+          '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
       'movera_default_payment': 'card_4242',
     });
     final store = WalletStore();

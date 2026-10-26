@@ -12,27 +12,30 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('unknown explicit lifecycle is rejected without breaking legacy missing status', () {
-    final raw = <String, dynamic>{
-      'reservationId': 'rsv-49',
-      'createdAt': '2026-09-24T00:00:00Z',
-      'scheduledPickupAt': '2026-09-25T10:00:00Z',
-      'pickup': {'label': 'Pickup'},
-      'destination': {'label': 'Destination'},
-      'categoryId': 'economy',
-      'categoryName': 'Movera',
-      'categoryImage': 'ride.webp',
-      'price': 200,
-      'paymentMethod': 'Card',
-      'status': 'future_backend_status',
-    };
+  test(
+    'unknown explicit lifecycle is rejected without breaking legacy missing status',
+    () {
+      final raw = <String, dynamic>{
+        'reservationId': 'rsv-49',
+        'createdAt': '2026-09-24T00:00:00Z',
+        'scheduledPickupAt': '2026-09-25T10:00:00Z',
+        'pickup': {'label': 'Pickup'},
+        'destination': {'label': 'Destination'},
+        'categoryId': 'economy',
+        'categoryName': 'Movera',
+        'categoryImage': 'ride.webp',
+        'price': 200,
+        'paymentMethod': 'Card',
+        'status': 'future_backend_status',
+      };
 
-    expect(ReservationStatus.tryParse('future_backend_status'), isNull);
-    expect(Reservation.tryParse(raw), isNull);
+      expect(ReservationStatus.tryParse('future_backend_status'), isNull);
+      expect(Reservation.tryParse(raw), isNull);
 
-    final legacy = Map<String, dynamic>.from(raw)..remove('status');
-    expect(Reservation.tryParse(legacy)?.status, ReservationStatus.scheduled);
-  });
+      final legacy = Map<String, dynamic>.from(raw)..remove('status');
+      expect(Reservation.tryParse(legacy)?.status, ReservationStatus.scheduled);
+    },
+  );
 
   test(
     'saved place shortcuts survive controller restart without demo data',

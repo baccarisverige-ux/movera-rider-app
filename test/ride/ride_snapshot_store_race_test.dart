@@ -59,16 +59,19 @@ void main() {
     expect(restored?.rideId, 'ride-fresh');
   });
 
-  test('concurrent saves resolve in invocation order without deleting the last write', () async {
-    final first = RideSnapshotStore.save(snapshot('ride-1'));
-    final second = RideSnapshotStore.save(snapshot('ride-2'));
-    final third = RideSnapshotStore.save(snapshot('ride-3'));
+  test(
+    'concurrent saves resolve in invocation order without deleting the last write',
+    () async {
+      final first = RideSnapshotStore.save(snapshot('ride-1'));
+      final second = RideSnapshotStore.save(snapshot('ride-2'));
+      final third = RideSnapshotStore.save(snapshot('ride-3'));
 
-    await Future.wait(<Future<void>>[first, second, third]);
+      await Future.wait(<Future<void>>[first, second, third]);
 
-    final restored = await RideSnapshotStore.read();
-    expect(restored?.rideId, 'ride-3');
-  });
+      final restored = await RideSnapshotStore.read();
+      expect(restored?.rideId, 'ride-3');
+    },
+  );
 
   test('terminal save never overwrites an active ride', () async {
     await RideSnapshotStore.save(snapshot('ride-active'));

@@ -101,9 +101,9 @@ final class GeocodeFailed<T> extends GeocodeOutcome<T> {
 }
 
 /// Whether [text] is a raw "lat, lng" coordinate string (D-004).
-bool isRawCoordinateLabel(String? text) =>
-    RegExp(r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$')
-        .hasMatch(text ?? '');
+bool isRawCoordinateLabel(String? text) => RegExp(
+  r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
+).hasMatch(text ?? '');
 
 /// Owner round 1: the location question comes before the push primer.
 /// Signing in [expect]s Home's first location request; the primer waits

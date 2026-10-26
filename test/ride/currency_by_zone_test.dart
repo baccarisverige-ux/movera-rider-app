@@ -388,8 +388,9 @@ void main() {
                 ))['ride']
                 as Map;
         final fee = Money.fromWire((cancelled['cancellation'] as Map)['fee'])!;
-        final rule = SeedRiderConfigRepository.seedFor(market.zoneId)
-            .liveFeeFor('economy')!;
+        final rule = SeedRiderConfigRepository.seedFor(
+          market.zoneId,
+        ).liveFeeFor('economy')!;
         expect(fee, Money(rule.value.toInt(), market.currency));
 
         // The preview the rider sees before confirming uses the same rule.

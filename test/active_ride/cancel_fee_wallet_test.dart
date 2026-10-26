@@ -65,8 +65,9 @@ void main() {
       ),
     );
 
-    await ActiveRideController(api: api)
-        .markCancelled(reasonId: 'plans_changed');
+    await ActiveRideController(
+      api: api,
+    ).markCancelled(reasonId: 'plans_changed');
 
     expect(await WalletStore().loadBalance(), 65);
   });

@@ -123,8 +123,9 @@ class ReservationController extends ChangeNotifier {
       _rules.cancelTermsFor(
         ride,
         now ?? _clock(),
-        categoryRule: _configFor(ride.currency)
-            ?.reservationFeeFor(ride.categoryId),
+        categoryRule: _configFor(
+          ride.currency,
+        )?.reservationFeeFor(ride.categoryId),
       );
 
   /// Q7: the config of the ride's own zone: the loaded one when it is in

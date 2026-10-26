@@ -73,7 +73,8 @@ void main() {
       expect(
         await pickup,
         'Normalized slow pickup',
-        reason: 'map-point geocoding must not mark an independent address normalization stale',
+        reason:
+            'map-point geocoding must not mark an independent address normalization stale',
       );
     },
   );
@@ -128,7 +129,8 @@ void main() {
           'Normalized Stop 1',
           'Normalized Stop 2',
         ],
-        reason: 'distinct route addresses are independent work and must not invalidate one another',
+        reason:
+            'distinct route addresses are independent work and must not invalidate one another',
       );
     },
   );

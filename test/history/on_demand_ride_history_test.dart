@@ -82,38 +82,41 @@ void main() {
     expect(await const OnDemandHistoryController().load(), isEmpty);
   });
 
-  test('completed Book Now ride archives while completion snapshot stays restorable', () async {
-    final active = snapshot(
-      rideId: 'ride-completed',
-      savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
-    );
-    await RideSnapshotStore.save(active);
-    expect(
-      await RideSnapshotStore.read(),
-      isNotNull,
-      reason:
-          'a 45-minute trip in progress is a real ride, not a stale '
-          'search, so it still resumes',
-    );
-    AppScope.instance.ride
-      ..rideId = 'ride-completed'
-      ..status = RideStatus.tripInProgress;
+  test(
+    'completed Book Now ride archives while completion snapshot stays restorable',
+    () async {
+      final active = snapshot(
+        rideId: 'ride-completed',
+        savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
+      );
+      await RideSnapshotStore.save(active);
+      expect(
+        await RideSnapshotStore.read(),
+        isNotNull,
+        reason:
+            'a 45-minute trip in progress is a real ride, not a stale '
+            'search, so it still resumes',
+      );
+      AppScope.instance.ride
+        ..rideId = 'ride-completed'
+        ..status = RideStatus.tripInProgress;
 
-    await ActiveRideController().markCompleted(RideStatus.tripCompleted);
+      await ActiveRideController().markCompleted(RideStatus.tripCompleted);
 
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history, hasLength(1));
-    expect(history.single.reservationId, 'ondemand-ride-completed');
-    expect(history.single.status, ReservationStatus.completed);
-    expect(history.single.pickup.label, 'Current location');
-    expect(history.single.destination.label, 'Stockholm Central Station');
-    expect(history.single.price, 259);
-    final completionSnapshot = await RideSnapshotStore.readForArchive();
-    expect(completionSnapshot, isNotNull);
-    expect(completionSnapshot!.status, RideStatus.tripCompleted);
-    expect(completionSnapshot.rideId, 'ride-completed');
-    expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
-  });
+      final history = await OnDemandRideHistoryStore.read();
+      expect(history, hasLength(1));
+      expect(history.single.reservationId, 'ondemand-ride-completed');
+      expect(history.single.status, ReservationStatus.completed);
+      expect(history.single.pickup.label, 'Current location');
+      expect(history.single.destination.label, 'Stockholm Central Station');
+      expect(history.single.price, 259);
+      final completionSnapshot = await RideSnapshotStore.readForArchive();
+      expect(completionSnapshot, isNotNull);
+      expect(completionSnapshot!.status, RideStatus.tripCompleted);
+      expect(completionSnapshot.rideId, 'ride-completed');
+      expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
+    },
+  );
 
   test('cancelled Book Now ride is archived with its reason', () async {
     final active = snapshot(rideId: 'ride-cancelled');

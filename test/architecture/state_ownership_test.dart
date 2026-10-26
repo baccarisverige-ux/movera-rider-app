@@ -14,31 +14,34 @@ void main() {
     expect(ride.status, RideStatus.idle);
   });
 
-  test('backend reconciliation accepts forward projection and rejects stale version', () {
-    final ride = RideSession();
+  test(
+    'backend reconciliation accepts forward projection and rejects stale version',
+    () {
+      final ride = RideSession();
 
-    expect(
-      ride.backendReconcile(
-        RideStatus.driverAssigned,
-        id: 'trip-26',
-        version: 5,
-        updatedAt: DateTime.utc(2026, 9, 23, 10),
-      ),
-      isTrue,
-    );
-    expect(ride.status, RideStatus.driverAssigned);
+      expect(
+        ride.backendReconcile(
+          RideStatus.driverAssigned,
+          id: 'trip-26',
+          version: 5,
+          updatedAt: DateTime.utc(2026, 9, 23, 10),
+        ),
+        isTrue,
+      );
+      expect(ride.status, RideStatus.driverAssigned);
 
-    expect(
-      ride.backendReconcile(
-        RideStatus.findingDriver,
-        id: 'trip-26',
-        version: 4,
-        updatedAt: DateTime.utc(2026, 9, 23, 11),
-      ),
-      isFalse,
-    );
-    expect(ride.status, RideStatus.driverAssigned);
-  });
+      expect(
+        ride.backendReconcile(
+          RideStatus.findingDriver,
+          id: 'trip-26',
+          version: 4,
+          updatedAt: DateTime.utc(2026, 9, 23, 11),
+        ),
+        isFalse,
+      );
+      expect(ride.status, RideStatus.driverAssigned);
+    },
+  );
 
   test('completed surfaces may be explicitly closed by the rider', () {
     for (final status in <RideStatus>[

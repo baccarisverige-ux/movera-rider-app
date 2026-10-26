@@ -33,16 +33,18 @@ void main() {
   );
 
   test('restoring a search adopts the ride id so Cancel has a ride', () {
-    RideRestoreCoordinator(skipRestore: () => false)
-        .pageFor(snapshotWith(RideStatus.findingDriver));
+    RideRestoreCoordinator(
+      skipRestore: () => false,
+    ).pageFor(snapshotWith(RideStatus.findingDriver));
 
     expect(AppScope.instance.ride.rideId, 'ride_restored_42');
     expect(AppScope.instance.ride.status, RideStatus.findingDriver);
   });
 
   test('restoring an assigned ride adopts its id too', () {
-    RideRestoreCoordinator(skipRestore: () => false)
-        .pageFor(snapshotWith(RideStatus.driverAssigned));
+    RideRestoreCoordinator(
+      skipRestore: () => false,
+    ).pageFor(snapshotWith(RideStatus.driverAssigned));
 
     expect(AppScope.instance.ride.rideId, 'ride_restored_42');
     expect(AppScope.instance.ride.status, RideStatus.driverAssigned);

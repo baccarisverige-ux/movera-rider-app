@@ -83,26 +83,29 @@ void main() {
       expect(t.offRouteKm, 2);
     });
 
-    test('the mock API serves the trigger defaults and the rider cannot change them', () async {
-      resetSafetyMockForProcess();
-      final api = ApiClient(client: InProcessMockClient());
-      final remote = ApiSafetyRemoteDataSource(api);
-      final policy = await remote.getRideCheck();
-      expect(policy.enabled, isTrue);
-      expect(
-        policy.triggers.toJson(),
-        const RideCheckTriggerSettings().toJson(),
-      );
+    test(
+      'the mock API serves the trigger defaults and the rider cannot change them',
+      () async {
+        resetSafetyMockForProcess();
+        final api = ApiClient(client: InProcessMockClient());
+        final remote = ApiSafetyRemoteDataSource(api);
+        final policy = await remote.getRideCheck();
+        expect(policy.enabled, isTrue);
+        expect(
+          policy.triggers.toJson(),
+          const RideCheckTriggerSettings().toJson(),
+        );
 
-      final patched = await remote.patchRideCheck(
-        policy.copyWith(
-          enabled: false,
-          triggers: const RideCheckTriggerSettings(droppedFarEnabled: false),
-        ),
-      );
-      expect(patched.enabled, isFalse);
-      expect(patched.triggers.droppedFarEnabled, isTrue);
-    });
+        final patched = await remote.patchRideCheck(
+          policy.copyWith(
+            enabled: false,
+            triggers: const RideCheckTriggerSettings(droppedFarEnabled: false),
+          ),
+        );
+        expect(patched.enabled, isFalse);
+        expect(patched.triggers.droppedFarEnabled, isTrue);
+      },
+    );
 
     test('QA and API names map to triggers', () {
       expect(parseRideCheckTrigger('droppedFar'), RideCheckTrigger.droppedFar);
@@ -510,11 +513,9 @@ void main() {
         'Are you in danger right now?',
       );
       expect(
-        rideCheckRow(RideCheckRowId.carBrokeDown)
-            .followUp
-            .questions
-            .single
-            .text,
+        rideCheckRow(
+          RideCheckRowId.carBrokeDown,
+        ).followUp.questions.single.text,
         'Can you continue the trip?',
       );
       expect(

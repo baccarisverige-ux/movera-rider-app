@@ -18,8 +18,10 @@ void main() {
       expect(RidePin.fromJson({'pin': '12345'}).pin, isEmpty);
       expect(RidePin.fromJson({'pin': '1234'}).serverAuthoritative, isFalse);
       expect(
-        RidePin.fromJson({'pin': '1234', 'serverAuthoritative': false})
-            .serverAuthoritative,
+        RidePin.fromJson({
+          'pin': '1234',
+          'serverAuthoritative': false,
+        }).serverAuthoritative,
         isFalse,
       );
     },

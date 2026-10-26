@@ -94,8 +94,9 @@ void main() {
       await ActiveRideController(api: api(fare: fare)).markCancelled();
       expect(await WalletStore().loadBalance(), 255);
       // A second confirmation of the same trip never charges again.
-      await ActiveRideController(api: api(fare: fare))
-          .completeServerConfirmedCancel();
+      await ActiveRideController(
+        api: api(fare: fare),
+      ).completeServerConfirmedCancel();
       expect(await WalletStore().loadBalance(), 255);
 
       SharedPreferences.setMockInitialValues(<String, Object>{
@@ -203,8 +204,9 @@ void main() {
       api: api(fare: {'amountMinor': 24500, 'currency': 'SEK'}),
     );
     await tester.runAsync(() => controller.markCancelled());
-    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!
-        .single;
+    final record = (await tester.runAsync(
+      OnDemandRideHistoryStore.read,
+    ))!.single;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

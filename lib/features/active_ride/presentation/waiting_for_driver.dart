@@ -2123,8 +2123,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       key: const ValueKey<String>('waiting-panel'),
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36)
-                          .withValues(alpha: 0.14),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
