@@ -544,7 +544,12 @@ class ActiveRideController {
     clearSearchLive(); // rider-r5-18: ended, not interrupted.
   }
 
-  Future<void> markCompleted(RideStatus status) async {
+  /// [charged] is the fare the server's completed projection carries
+  /// (owner, live test 2026-10-26, N9): a driver who finishes before the
+  /// drop-off ends the trip at the driven fare (km + minutes, never under the
+  /// minimum, never over the booked fare), and the summary, receipt and
+  /// History show that, not the price booked at the quote.
+  Future<void> markCompleted(RideStatus status, {Money? charged}) async {
     if (!status.isCompletedSurface) {
       throw ArgumentError.value(status, 'status', 'Expected a completed status.');
     }
@@ -558,13 +563,24 @@ class ActiveRideController {
     // the completion surface. This protects payment/rating state across reload,
     // crash, PWA eviction and app resume.
     final now = DateTime.now();
+    // Only a fare in the trip's currency is this trip's price.
+    final settled =
+        charged != null &&
+            charged.isPositive &&
+            charged.currency == snapshot.currency
+        ? charged
+        : null;
     final completed = snapshot.copyWith(
       status: status,
       savedAt: now,
       // rider-25: a repeat (a resync on the summary) keeps the first time.
       completedAt: snapshot.completedAt ?? now,
+      price: settled?.major ?? snapshot.price,
     );
-    LastCompletedRide.remember(completed);
+    LastCompletedRide.remember(
+      completed,
+      charged: settled ?? LastCompletedRide.charged,
+    );
     await _archive(completed, status, expectedRideId: id);
     await _store.save(completed);
   }

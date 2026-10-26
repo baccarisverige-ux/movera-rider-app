@@ -923,7 +923,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // rating events can arrive while the active map is parking; disposing the
     // tracker before that barrier creates a blind window and can strand the
     // completion UI at tripCompleted.
-    await _ride.markCompleted(status);
+    // N9: the fare the server settled the trip at (the booked fare, or
+    // less when the driver finished before the drop-off).
+    await _ride.markCompleted(status, charged: _tracking.fare);
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;

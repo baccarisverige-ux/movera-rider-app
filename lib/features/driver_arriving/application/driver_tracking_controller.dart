@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
@@ -40,6 +41,10 @@ class DriverTrackingController {
   RideStatus status = RideStatus.driverAssigned;
   RideRealtimeSignal? lastSignal;
   String? signalMessage;
+
+  /// N9: the trip's fare as the last accepted projection carried it (the
+  /// server's final fare once the trip ends). Null until the wire says.
+  Money? fare;
 
   /// Q12: when the driver accepted, from the projection's `acceptedAt`.
   /// Null when the server has not said (the caller falls back to when it
@@ -194,6 +199,7 @@ class DriverTrackingController {
             waitingSince = null;
             _clearWaitingDeadlines();
           }
+          fare = event.fare ?? fare;
           acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
           if (event.waitingArrivedAt != null) {
             waitingSince = _onDevice(event.waitingArrivedAt);

@@ -1,6 +1,7 @@
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
 enum RideRealtimeSignal {
@@ -16,6 +17,9 @@ const String reassignedByAdmin = 'admin';
 /// Payload keys of the projection's `acceptedAt` (Q12) and
 /// `waiting.arrivedAt` (Q42), as wire timestamps.
 const String acceptedAtKey = 'acceptedAt';
+
+/// N9: the projection's `fare` (Money) on a realtime event.
+const String fareKey = 'fare';
 const String waitingArrivedAtKey = 'waitingArrivedAt';
 
 /// rider-r4-13: the projection's `waiting.freeUntil` (when the waiting fee
@@ -88,6 +92,10 @@ class RideRealtimeEvent {
 
   /// Q13: an admin moved the trip back to searching (not a driver cancel).
   bool get isAdminReassign => payload[reassignedByKey] == reassignedByAdmin;
+
+  /// N9: the trip's `fare` as the projection carried it with this event
+  /// (the server's final fare once the trip ends). Null when absent.
+  Money? get fare => Money.fromWire(payload[fareKey]);
 
   /// When the driver accepted, as the server stamped it (Q12); null when
   /// the projection does not say.
