@@ -20,24 +20,36 @@ class AppGeocoding implements GeocodingRepository {
   AppGeocoding({
     ApiClient? api,
     this.cacheTtl = const Duration(minutes: 10),
-    this.requestTimeout = defaultRequestTimeout,
+    Duration? requestTimeout,
+    int? retries,
     this.retryDelay = defaultRetryDelay,
     this.allowPublicReverseFallback = false,
     PublicReverseGeocoder? publicReverse,
     bool? isWeb,
   })  : _api = api,
+        requestTimeout = requestTimeout ??
+            (api?.contractWire == true
+                ? liveRequestTimeout
+                : mockRequestTimeout),
+        retries = retries ?? (api?.contractWire == true ? 1 : 0),
         _publicReverse = publicReverse ?? openStreetMapReverse,
         _isWeb = isWeb ?? kIsWeb;
 
-  /// How long one address lookup may take. The live server is slow (a
+  /// How long one address lookup may take against movera-server (the
+  /// contract wire: staging, production). The live server is slow (a
   /// small instance that wakes from sleep in 30-50 s); the old 8 s turned
   /// a slow answer into "Couldn't reach Movera" on the address screen and
   /// the pin, while the screens show a progress indicator meanwhile.
-  static const defaultRequestTimeout = Duration(seconds: 25);
+  static const liveRequestTimeout = Duration(seconds: 25);
 
-  /// A lookup refused by a transient server fault (503 while it wakes,
-  /// 429, a dropped connection) is asked once more after this pause. A
-  /// timeout is not retried: the rider has waited long enough.
+  /// The limit with the in-process mock (demo, dev, test), which answers
+  /// at once; the tests of the pin and Set pickup wait this out.
+  static const mockRequestTimeout = Duration(seconds: 8);
+
+  /// On the contract wire, a lookup refused by a transient server fault
+  /// (503 while it wakes, 429, a dropped connection) is asked once more
+  /// after this pause. A timeout is not retried: the rider has waited
+  /// long enough. The mock has no such faults and gets no retry.
   static const defaultRetryDelay = Duration(seconds: 2);
 
   final ApiClient? _api;
@@ -52,6 +64,9 @@ class AppGeocoding implements GeocodingRepository {
   final bool _isWeb;
   final Duration cacheTtl;
   final Duration requestTimeout;
+
+  /// How many more times a lookup is tried after a transient fault.
+  final int retries;
   final Duration retryDelay;
   final Map<String, _CachedValue<PlaceResult?>> _forwardCache = {};
   final Map<String, _CachedValue<String?>> _reverseCache = {};
@@ -162,17 +177,20 @@ class AppGeocoding implements GeocodingRepository {
   static const String placeholderReverseLabel = 'Current location';
 
   /// Runs [request]; a transient server fault (5xx, 429, no connection)
-  /// gets one more try after [retryDelay]. A timeout or a definite answer
-  /// (4xx, a bad payload) is not tried again.
+  /// gets [retries] more tries, each after [retryDelay]. A timeout or a
+  /// definite answer (4xx, a bad payload) is not tried again.
   Future<Map<String, dynamic>> _onceMore(
     Future<Map<String, dynamic>> Function() request,
   ) async {
-    try {
-      return await request();
-    } catch (error) {
-      if (!isTransientFault(error)) rethrow;
-      await Future<void>.delayed(retryDelay);
-      return request();
+    var left = retries;
+    while (true) {
+      try {
+        return await request();
+      } catch (error) {
+        if (left <= 0 || !isTransientFault(error)) rethrow;
+        left -= 1;
+        await Future<void>.delayed(retryDelay);
+      }
     }
   }
 

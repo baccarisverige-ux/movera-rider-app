@@ -32,9 +32,15 @@ void main() {
     retryDelay: retryDelay,
   );
 
-  test('a lookup may take 25 s before it is given up', () {
-    expect(AppGeocoding.defaultRequestTimeout, const Duration(seconds: 25));
-    expect(AppGeocoding().requestTimeout, const Duration(seconds: 25));
+  test('a live lookup may take 25 s; the mock keeps its 8 s and no retry', () {
+    const demo = AppEnv(flavor: AppFlavor.demo, apiBaseUrl: 'https://x.invalid');
+    final onLive = AppGeocoding(api: ApiClient(client: MockClient((_) async => http.Response('{}', 200)), env: live));
+    expect(onLive.requestTimeout, const Duration(seconds: 25));
+    expect(onLive.retries, 1);
+    final onMock = AppGeocoding(api: ApiClient(client: MockClient((_) async => http.Response('{}', 200)), env: demo));
+    expect(onMock.requestTimeout, const Duration(seconds: 8));
+    expect(onMock.retries, 0);
+    expect(AppGeocoding().requestTimeout, const Duration(seconds: 8));
   });
 
   test('an answer after 20 s is an answer, not a failure', () {
@@ -65,7 +71,8 @@ void main() {
     });
     final place = await geo.forward('Medborgarplatsen');
     expect(calls, 2);
-    expect(place?.point, const GeoPoint(59.3143, 18.0735));
+    expect(place?.point.latitude, 59.3143);
+    expect(place?.point.longitude, 18.0735);
   });
 
   test('a reverse lookup retries a dropped connection once', () async {
