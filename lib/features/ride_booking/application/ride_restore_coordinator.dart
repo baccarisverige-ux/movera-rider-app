@@ -5,6 +5,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
@@ -42,7 +43,10 @@ class RideRestoreCoordinator {
     Future<PendingCancel?> Function(String rideId)? pendingCancel,
     Future<PendingCancelResult?> Function(String rideId)? flushCancel,
     Future<RideSnapshot?> Function()? serverActiveTrip,
+    Future<RideSnapshot?> Function()? serverRecentlyFinished,
   }) : _reader = reader ?? RideSnapshotStore.read,
+       _serverRecentlyFinished =
+           serverRecentlyFinished ?? _defaultServerRecentlyFinished,
        _flushCancel = flushCancel ?? _defaultFlushCancel,
        _serverActiveTrip = serverActiveTrip ?? _defaultServerActiveTrip,
        _pendingCancel = pendingCancel ?? PendingCancelStore.find,
@@ -63,6 +67,14 @@ class RideRestoreCoordinator {
   final Future<PendingCancel?> Function(String rideId) _pendingCancel;
   final Future<PendingCancelResult?> Function(String rideId) _flushCancel;
   final Future<RideSnapshot?> Function() _serverActiveTrip;
+  final Future<RideSnapshot?> Function() _serverRecentlyFinished;
+
+  static Future<RideSnapshot?> _defaultServerRecentlyFinished() {
+    final trips = AppScope.instance.activeTrips;
+    return trips is ApiActiveTripRepository
+        ? trips.fetchRecentlyFinished()
+        : Future<RideSnapshot?>.value();
+  }
 
   /// How long a cold restore waits for the server's answer to a queued
   /// cancel before it shows the ride as still cancelling.
@@ -550,7 +562,12 @@ class RideRestoreCoordinator {
           return RiderNameScreen(initialName: initialName);
         }
       }
-      return pageFor(snapshot ?? await _serverTripForColdStart());
+      if (snapshot != null) return pageFor(snapshot);
+      // Asked alongside the live trip, so a slow server costs no extra wait.
+      final finished = _recentlyFinishedLookup();
+      final live = await _serverTripForColdStart();
+      if (live != null) return pageFor(live);
+      return pageFor(await _adoptRecentlyFinished(await finished));
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
@@ -583,6 +600,45 @@ class RideRestoreCoordinator {
         return null;
       },
     );
+  }
+
+  /// The rider's last trip when it finished recently and is not yet rated
+  /// or skipped ([ApiActiveTripRepository.fetchRecentlyFinished]), within
+  /// [serverTripWait]; null on any failure.
+  Future<RideSnapshot?> _recentlyFinishedLookup() async {
+    try {
+      return await _serverRecentlyFinished()
+          .then<RideSnapshot?>((trip) => trip)
+          .timeout(serverTripWait, onTimeout: () => null);
+    } catch (error) {
+      AppLog.warning(
+        'restore.recent_finished_failed',
+        extra: {'error': '$error'},
+      );
+      return null;
+    }
+  }
+
+  /// Owner, live test 2026-10-26: the driver finished while the app was
+  /// closed and this phone holds no trip: the finished-trip / tip screen
+  /// opens (it goes Home by itself after 2 minutes). Saved as the ride so
+  /// closing it files it in History.
+  Future<RideSnapshot?> _adoptRecentlyFinished(RideSnapshot? trip) async {
+    if (trip == null || await _reader() != null) return null;
+    try {
+      await RideSnapshotStore.save(trip);
+    } catch (error) {
+      AppLog.warning(
+        'restore.recent_finished_save_failed',
+        extra: {'error': '$error'},
+      );
+      return null;
+    }
+    AppLog.info(
+      'ride.restore.server_recent_finished',
+      extra: {'rideId': trip.rideId, 'status': trip.status.name},
+    );
+    return trip;
   }
 
   void _openLateServerTrip(RideSnapshot? trip) {
