@@ -1,0 +1,2034 @@
+{
+  "version": "0.5.1",
+  "note": "Automatic dispatch (CONTRACT.md §3.6, contract.json#dispatch). Each case replays one search against fixtures/config/dispatch_document.json (Z001 defaults) with contract.json#dispatch score constants and fallbacks. Time is seconds from search start (the trip enters searching). control = DispatchControl at search start (default not paused, no forced mode); localTime = zone-local HH:MM for time rules; waitingRequests (the new trip included) and freeDrivers give busy. drivers: km to the pickup (already straight line x roadFactor, round1), optional rating / acceptancePct / cancelPct (fallbacks when missing), idleMin, favourite, finishing {inMin, dropKm}, categoryIds (default: allowed), freeFromSec (newly free). offerAnswers: a driver answers the nth offer they get (default 1st) afterSec seconds after it was sent; no answer = missed. riderAnswers: the rider answers a keep_waiting step. expect: the start mode, every offer sent (atSec, kind, radiusKm = the step, driverIds in rank order, expiresAtSec, reasonCode for Exclusive), the rider-waiting steps that fired, and how the search ended.",
+  "document": "fixtures/config/dispatch_document.json",
+  "cases": [
+    {
+      "id": "calm_start",
+      "note": "Calm zone (2 waiting / 4 free = 0.5 < radarAbove 1.5): Exclusive, one driver at a time, 3 per radius step (3, 5, 8 km), then Radar to 5 drivers at 8 km, then Exclusive once more. When the admin steps are used up, each round at the widest step is Exclusive to a driver not yet asked if there is one, else Radar to the top 5 (owner decision 22): D13 becomes free at 200 s and gets the next round as an Exclusive. raise_price and upgrade are skipped (test week); busy at 8 min ends the search: expire.",
+      "localTime": "14:10",
+      "waitingRequests": 2,
+      "freeDrivers": 4,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D01",
+          "km": 1.2,
+          "rating": 4.9,
+          "idleMin": 12
+        },
+        {
+          "driverId": "D02",
+          "km": 2.0,
+          "rating": 4.8
+        },
+        {
+          "driverId": "D03",
+          "km": 2.6,
+          "acceptancePct": 95
+        },
+        {
+          "driverId": "D04",
+          "km": 2.9,
+          "rating": 4.2,
+          "cancelPct": 12
+        },
+        {
+          "driverId": "D05",
+          "km": 3.8
+        },
+        {
+          "driverId": "D06",
+          "km": 4.4,
+          "rating": 4.95,
+          "idleMin": 25
+        },
+        {
+          "driverId": "D07",
+          "km": 4.9
+        },
+        {
+          "driverId": "D08",
+          "km": 5.6
+        },
+        {
+          "driverId": "D09",
+          "km": 6.3,
+          "favourite": true
+        },
+        {
+          "driverId": "D10",
+          "km": 7.2
+        },
+        {
+          "driverId": "D11",
+          "km": 7.9,
+          "cancelPct": 20
+        },
+        {
+          "driverId": "D12",
+          "km": 9.5
+        },
+        {
+          "driverId": "D13",
+          "km": 1.8,
+          "freeFromSec": 200
+        },
+        {
+          "driverId": "D14",
+          "km": 2.2,
+          "categoryIds": [
+            "premium"
+          ]
+        }
+      ],
+      "expect": {
+        "busy": 0.5,
+        "mode": "exclusive",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D01"
+            ],
+            "expiresAtSec": 15,
+            "reasonCode": "best-match"
+          },
+          {
+            "atSec": 15,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D02"
+            ],
+            "expiresAtSec": 30,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 30,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D03"
+            ],
+            "expiresAtSec": 45,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 45,
+            "kind": "exclusive",
+            "radiusKm": 5,
+            "driverIds": [
+              "D06"
+            ],
+            "expiresAtSec": 60,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 60,
+            "kind": "exclusive",
+            "radiusKm": 5,
+            "driverIds": [
+              "D05"
+            ],
+            "expiresAtSec": 75,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 75,
+            "kind": "exclusive",
+            "radiusKm": 5,
+            "driverIds": [
+              "D04"
+            ],
+            "expiresAtSec": 90,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 90,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D07"
+            ],
+            "expiresAtSec": 105,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 105,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D08"
+            ],
+            "expiresAtSec": 120,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 120,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D09"
+            ],
+            "expiresAtSec": 135,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 135,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D06",
+              "D03",
+              "D05"
+            ],
+            "expiresAtSec": 150
+          },
+          {
+            "atSec": 150,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D10"
+            ],
+            "expiresAtSec": 165,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 165,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D11"
+            ],
+            "expiresAtSec": 180,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 180,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D06",
+              "D03",
+              "D05"
+            ],
+            "expiresAtSec": 195
+          },
+          {
+            "atSec": 195,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D06",
+              "D03",
+              "D05"
+            ],
+            "expiresAtSec": 210
+          },
+          {
+            "atSec": 210,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D13"
+            ],
+            "expiresAtSec": 225,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 225,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 240
+          },
+          {
+            "atSec": 240,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 255
+          },
+          {
+            "atSec": 255,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 270
+          },
+          {
+            "atSec": 270,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 285
+          },
+          {
+            "atSec": 285,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 300
+          },
+          {
+            "atSec": 300,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 315
+          },
+          {
+            "atSec": 315,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 330
+          },
+          {
+            "atSec": 330,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 345
+          },
+          {
+            "atSec": 345,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 360
+          },
+          {
+            "atSec": 360,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 375
+          },
+          {
+            "atSec": 375,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 390
+          },
+          {
+            "atSec": 390,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 405
+          },
+          {
+            "atSec": 405,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 420
+          },
+          {
+            "atSec": 420,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 435
+          },
+          {
+            "atSec": 435,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 450
+          },
+          {
+            "atSec": 450,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 465
+          },
+          {
+            "atSec": 465,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D01",
+              "D02",
+              "D13",
+              "D06",
+              "D03"
+            ],
+            "expiresAtSec": 480
+          }
+        ],
+        "searchSteps": [
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "atSec": 180
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "atSec": 300
+          },
+          {
+            "id": "w5",
+            "kind": "busy",
+            "atSec": 480
+          }
+        ],
+        "end": {
+          "atSec": 480,
+          "outcome": "expired"
+        }
+      }
+    },
+    {
+      "id": "busy_start",
+      "note": "Busy zone (9 / 4 = 2.3 >= 1.5): Radar. Nobody is within 3 km, so that round moves on at once; Radar at 5 and 8 km, Exclusive to the 3 best at 8 km (Radar did not ask anyone), Radar again at 8 km, then, the steps used up, every round is Exclusive to a driver not yet asked (D23, D24) and after that Radar at the widest step every radar.seconds until the search ends (owner decision 22). A driver who declined Radar is shown it again on later rounds (owner decision 23).",
+      "localTime": "17:40",
+      "waitingRequests": 9,
+      "freeDrivers": 4,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D21",
+          "km": 3.4
+        },
+        {
+          "driverId": "D22",
+          "km": 4.1,
+          "rating": 4.9
+        },
+        {
+          "driverId": "D23",
+          "km": 6.0
+        },
+        {
+          "driverId": "D24",
+          "km": 7.7,
+          "idleMin": 30
+        },
+        {
+          "driverId": "D25",
+          "km": 12.0
+        },
+        {
+          "driverId": "D26",
+          "km": 0.9,
+          "finishing": {
+            "inMin": 2,
+            "dropKm": 0.9
+          }
+        }
+      ],
+      "offerAnswers": [
+        {
+          "driverId": "D22",
+          "nth": 1,
+          "answer": "decline",
+          "afterSec": 3
+        }
+      ],
+      "expect": {
+        "busy": 2.3,
+        "mode": "radar",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "radar",
+            "radiusKm": 5,
+            "driverIds": [
+              "D21",
+              "D22"
+            ],
+            "expiresAtSec": 15
+          },
+          {
+            "atSec": 15,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 30
+          },
+          {
+            "atSec": 30,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D26"
+            ],
+            "expiresAtSec": 45,
+            "reasonCode": "finishing-nearby"
+          },
+          {
+            "atSec": 45,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21"
+            ],
+            "expiresAtSec": 60,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 60,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D22"
+            ],
+            "expiresAtSec": 75,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 75,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 90
+          },
+          {
+            "atSec": 90,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D24"
+            ],
+            "expiresAtSec": 105,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 105,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D23"
+            ],
+            "expiresAtSec": 120,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 120,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 135
+          },
+          {
+            "atSec": 135,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 150
+          },
+          {
+            "atSec": 150,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 165
+          },
+          {
+            "atSec": 165,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 180
+          },
+          {
+            "atSec": 180,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 195
+          },
+          {
+            "atSec": 195,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 210
+          },
+          {
+            "atSec": 210,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 225
+          },
+          {
+            "atSec": 225,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 240
+          },
+          {
+            "atSec": 240,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 255
+          },
+          {
+            "atSec": 255,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 270
+          },
+          {
+            "atSec": 270,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 285
+          },
+          {
+            "atSec": 285,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 300
+          },
+          {
+            "atSec": 300,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 315
+          },
+          {
+            "atSec": 315,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 330
+          },
+          {
+            "atSec": 330,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 345
+          },
+          {
+            "atSec": 345,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 360
+          },
+          {
+            "atSec": 360,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 375
+          },
+          {
+            "atSec": 375,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 390
+          },
+          {
+            "atSec": 390,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 405
+          },
+          {
+            "atSec": 405,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 420
+          },
+          {
+            "atSec": 420,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 435
+          },
+          {
+            "atSec": 435,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 450
+          },
+          {
+            "atSec": 450,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 465
+          },
+          {
+            "atSec": 465,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D21",
+              "D22",
+              "D24",
+              "D23"
+            ],
+            "expiresAtSec": 480
+          }
+        ],
+        "searchSteps": [
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "atSec": 180
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "atSec": 300
+          },
+          {
+            "id": "w5",
+            "kind": "busy",
+            "atSec": 480
+          }
+        ],
+        "end": {
+          "atSec": 480,
+          "outcome": "expired"
+        }
+      }
+    },
+    {
+      "id": "declined_then_accepted",
+      "note": "Exclusive: a driver finishing a ride 0.8 km away in 2 min ranks first (finishing-nearby), declines after 4 s and the next driver is asked at once (not at the 15 s timer); D32 accepts after 7 s: the trip is accepted and the search ends.",
+      "localTime": "11:00",
+      "waitingRequests": 1,
+      "freeDrivers": 5,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D31",
+          "km": 0.8,
+          "finishing": {
+            "inMin": 2,
+            "dropKm": 0.8
+          }
+        },
+        {
+          "driverId": "D32",
+          "km": 1.5
+        },
+        {
+          "driverId": "D33",
+          "km": 2.4
+        }
+      ],
+      "offerAnswers": [
+        {
+          "driverId": "D31",
+          "answer": "decline",
+          "afterSec": 4
+        },
+        {
+          "driverId": "D32",
+          "answer": "accept",
+          "afterSec": 7
+        }
+      ],
+      "expect": {
+        "busy": 0.2,
+        "mode": "exclusive",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D31"
+            ],
+            "expiresAtSec": 15,
+            "reasonCode": "finishing-nearby"
+          },
+          {
+            "atSec": 4,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D32"
+            ],
+            "expiresAtSec": 19,
+            "reasonCode": "nearby"
+          }
+        ],
+        "searchSteps": [],
+        "end": {
+          "atSec": 11,
+          "outcome": "accepted",
+          "driverId": "D32"
+        }
+      }
+    },
+    {
+      "id": "keep_waiting_wait",
+      "note": "Two drivers, nobody accepts. The rider answers \"Keep waiting\" to w4 at 310 s: the search end moves from 8 to 11 min (extraMin 3) and busy moves with it (owner decision 24). Offers keep going until then: with both drivers asked, Radar rounds every 15 s fill the time (no silent gap).",
+      "localTime": "09:30",
+      "waitingRequests": 1,
+      "freeDrivers": 2,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D41",
+          "km": 2.2
+        },
+        {
+          "driverId": "D42",
+          "km": 6.5
+        }
+      ],
+      "riderAnswers": [
+        {
+          "stepId": "w4",
+          "atSec": 310,
+          "answer": "wait"
+        }
+      ],
+      "expect": {
+        "busy": 0.5,
+        "mode": "exclusive",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D41"
+            ],
+            "expiresAtSec": 15,
+            "reasonCode": "best-match"
+          },
+          {
+            "atSec": 15,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D42"
+            ],
+            "expiresAtSec": 30,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 30,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 45
+          },
+          {
+            "atSec": 45,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 60
+          },
+          {
+            "atSec": 60,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 75
+          },
+          {
+            "atSec": 75,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 90
+          },
+          {
+            "atSec": 90,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 105
+          },
+          {
+            "atSec": 105,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 120
+          },
+          {
+            "atSec": 120,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 135
+          },
+          {
+            "atSec": 135,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 150
+          },
+          {
+            "atSec": 150,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 165
+          },
+          {
+            "atSec": 165,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 180
+          },
+          {
+            "atSec": 180,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 195
+          },
+          {
+            "atSec": 195,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 210
+          },
+          {
+            "atSec": 210,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 225
+          },
+          {
+            "atSec": 225,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 240
+          },
+          {
+            "atSec": 240,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 255
+          },
+          {
+            "atSec": 255,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 270
+          },
+          {
+            "atSec": 270,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 285
+          },
+          {
+            "atSec": 285,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 300
+          },
+          {
+            "atSec": 300,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 315
+          },
+          {
+            "atSec": 315,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 330
+          },
+          {
+            "atSec": 330,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 345
+          },
+          {
+            "atSec": 345,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 360
+          },
+          {
+            "atSec": 360,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 375
+          },
+          {
+            "atSec": 375,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 390
+          },
+          {
+            "atSec": 390,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 405
+          },
+          {
+            "atSec": 405,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 420
+          },
+          {
+            "atSec": 420,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 435
+          },
+          {
+            "atSec": 435,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 450
+          },
+          {
+            "atSec": 450,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 465
+          },
+          {
+            "atSec": 465,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 480
+          },
+          {
+            "atSec": 480,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 495
+          },
+          {
+            "atSec": 495,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 510
+          },
+          {
+            "atSec": 510,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 525
+          },
+          {
+            "atSec": 525,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 540
+          },
+          {
+            "atSec": 540,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 555
+          },
+          {
+            "atSec": 555,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 570
+          },
+          {
+            "atSec": 570,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 585
+          },
+          {
+            "atSec": 585,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 600
+          },
+          {
+            "atSec": 600,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 615
+          },
+          {
+            "atSec": 615,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 630
+          },
+          {
+            "atSec": 630,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 645
+          },
+          {
+            "atSec": 645,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 660
+          }
+        ],
+        "searchSteps": [
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "atSec": 180
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "atSec": 300
+          },
+          {
+            "id": "w5",
+            "kind": "busy",
+            "atSec": 660
+          }
+        ],
+        "end": {
+          "atSec": 660,
+          "outcome": "expired"
+        }
+      }
+    },
+    {
+      "id": "keep_waiting_stop",
+      "note": "The rider answers \"Stop\" to w4 at 320 s: the normal free rider cancel (no driver accepted), offers withdrawn.",
+      "localTime": "09:30",
+      "waitingRequests": 1,
+      "freeDrivers": 2,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D41",
+          "km": 2.2
+        },
+        {
+          "driverId": "D42",
+          "km": 6.5
+        }
+      ],
+      "riderAnswers": [
+        {
+          "stepId": "w4",
+          "atSec": 320,
+          "answer": "stop"
+        }
+      ],
+      "expect": {
+        "busy": 0.5,
+        "mode": "exclusive",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "exclusive",
+            "radiusKm": 3,
+            "driverIds": [
+              "D41"
+            ],
+            "expiresAtSec": 15,
+            "reasonCode": "best-match"
+          },
+          {
+            "atSec": 15,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D42"
+            ],
+            "expiresAtSec": 30,
+            "reasonCode": "nearby"
+          },
+          {
+            "atSec": 30,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 45
+          },
+          {
+            "atSec": 45,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 60
+          },
+          {
+            "atSec": 60,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 75
+          },
+          {
+            "atSec": 75,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 90
+          },
+          {
+            "atSec": 90,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 105
+          },
+          {
+            "atSec": 105,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 120
+          },
+          {
+            "atSec": 120,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 135
+          },
+          {
+            "atSec": 135,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 150
+          },
+          {
+            "atSec": 150,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 165
+          },
+          {
+            "atSec": 165,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 180
+          },
+          {
+            "atSec": 180,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 195
+          },
+          {
+            "atSec": 195,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 210
+          },
+          {
+            "atSec": 210,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 225
+          },
+          {
+            "atSec": 225,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 240
+          },
+          {
+            "atSec": 240,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 255
+          },
+          {
+            "atSec": 255,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 270
+          },
+          {
+            "atSec": 270,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 285
+          },
+          {
+            "atSec": 285,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 300
+          },
+          {
+            "atSec": 300,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 315
+          },
+          {
+            "atSec": 315,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D41",
+              "D42"
+            ],
+            "expiresAtSec": 330
+          }
+        ],
+        "searchSteps": [
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "atSec": 180
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "atSec": 300
+          }
+        ],
+        "end": {
+          "atSec": 320,
+          "outcome": "cancelled_by_rider"
+        }
+      }
+    },
+    {
+      "id": "thin_zone_chain_ends_in_exclusive",
+      "note": "A thin calm zone: one free driver, at 7 km. Exclusive finds nobody at 3 and 5 km (no time passes) and asks D71 at 8 km; Radar shows it at 15 s; the switch back to Exclusive at 30 s finds nobody new, so the chain ends in Exclusive. The search never goes silent (owner decision 22): every later round at 8 km is Radar to D71, unless a driver not yet asked is in range: D72, free from 100 s, gets an Exclusive at the 107 s round. D71 declines the 30 s round (the round ends at once, all shown declined) and accepts its 12th look at 173 s.",
+      "localTime": "15:00",
+      "waitingRequests": 1,
+      "freeDrivers": 1,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D71",
+          "km": 7.0
+        },
+        {
+          "driverId": "D72",
+          "km": 2.0,
+          "freeFromSec": 100
+        }
+      ],
+      "offerAnswers": [
+        {
+          "driverId": "D71",
+          "nth": 3,
+          "answer": "decline",
+          "afterSec": 2
+        },
+        {
+          "driverId": "D71",
+          "nth": 12,
+          "answer": "accept",
+          "afterSec": 6
+        }
+      ],
+      "expect": {
+        "busy": 1.0,
+        "mode": "exclusive",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 15,
+            "reasonCode": "best-match"
+          },
+          {
+            "atSec": 15,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 30
+          },
+          {
+            "atSec": 30,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 45
+          },
+          {
+            "atSec": 32,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 47
+          },
+          {
+            "atSec": 47,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 62
+          },
+          {
+            "atSec": 62,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 77
+          },
+          {
+            "atSec": 77,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 92
+          },
+          {
+            "atSec": 92,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D71"
+            ],
+            "expiresAtSec": 107
+          },
+          {
+            "atSec": 107,
+            "kind": "exclusive",
+            "radiusKm": 8,
+            "driverIds": [
+              "D72"
+            ],
+            "expiresAtSec": 122,
+            "reasonCode": "best-match"
+          },
+          {
+            "atSec": 122,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D72",
+              "D71"
+            ],
+            "expiresAtSec": 137
+          },
+          {
+            "atSec": 137,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D72",
+              "D71"
+            ],
+            "expiresAtSec": 152
+          },
+          {
+            "atSec": 152,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D72",
+              "D71"
+            ],
+            "expiresAtSec": 167
+          },
+          {
+            "atSec": 167,
+            "kind": "radar",
+            "radiusKm": 8,
+            "driverIds": [
+              "D72",
+              "D71"
+            ],
+            "expiresAtSec": 182
+          }
+        ],
+        "searchSteps": [],
+        "end": {
+          "atSec": 173,
+          "outcome": "accepted",
+          "driverId": "D71"
+        }
+      }
+    },
+    {
+      "id": "paused_zone",
+      "note": "Dispatch paused in the zone (DispatchControl.paused): no automatic offers; the rider-waiting steps and the search end keep running, so the rider is not stuck: expire at 8 min unless an admin assigns.",
+      "control": {
+        "paused": true,
+        "mode": null
+      },
+      "localTime": "22:30",
+      "waitingRequests": 3,
+      "freeDrivers": 3,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D51",
+          "km": 1.0
+        }
+      ],
+      "expect": {
+        "busy": 1.0,
+        "mode": null,
+        "offers": [],
+        "searchSteps": [
+          {
+            "id": "w3",
+            "kind": "alert_admin",
+            "atSec": 180
+          },
+          {
+            "id": "w4",
+            "kind": "keep_waiting",
+            "atSec": 300
+          },
+          {
+            "id": "w5",
+            "kind": "busy",
+            "atSec": 480
+          }
+        ],
+        "end": {
+          "atSec": 480,
+          "outcome": "expired"
+        }
+      }
+    },
+    {
+      "id": "forced_radar",
+      "note": "An admin forced Radar (DispatchControl.mode) in a calm zone: the search starts on Radar whatever the busy level.",
+      "control": {
+        "paused": false,
+        "mode": "radar"
+      },
+      "localTime": "12:00",
+      "waitingRequests": 1,
+      "freeDrivers": 6,
+      "categoryId": "economy",
+      "drivers": [
+        {
+          "driverId": "D61",
+          "km": 1.0
+        },
+        {
+          "driverId": "D62",
+          "km": 2.5
+        }
+      ],
+      "offerAnswers": [
+        {
+          "driverId": "D62",
+          "nth": 1,
+          "answer": "accept",
+          "afterSec": 5
+        }
+      ],
+      "expect": {
+        "busy": 0.2,
+        "mode": "radar",
+        "offers": [
+          {
+            "atSec": 0,
+            "kind": "radar",
+            "radiusKm": 3,
+            "driverIds": [
+              "D61",
+              "D62"
+            ],
+            "expiresAtSec": 15
+          }
+        ],
+        "searchSteps": [],
+        "end": {
+          "atSec": 5,
+          "outcome": "accepted",
+          "driverId": "D62"
+        }
+      }
+    }
+  ]
+}

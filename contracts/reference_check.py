@@ -1,4 +1,5 @@
-"""Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json and surge.json.
+"""Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json, surge.json,
+fares.json and dispatch.json, and checks the pricing and dispatch sample documents agree with contract.json#configDefaults.
 Each app's contract tests must give the same answers."""
 import json, sys
 c = json.load(open('contract.json'))
@@ -87,4 +88,192 @@ sj = json.load(open('fixtures/surge.json'))
 for case in sj['cases']:
     got = surge_at(sj['schedule'], case['at'])
     if got != case['multiplier']: bad += 1; print('SURGE', case['at'], 'expected', case['multiplier'], 'got', got)
+# ---- v0.5.1: fares (contract.json#pricing, CONTRACT.md §3.5)
+from fractions import Fraction as Fr
+def _hu(x): return math.floor(x + Fr(1, 2))
+def _merge(a, b):
+    if isinstance(a, dict) and isinstance(b, dict): return {**a, **{k: _merge(a[k], v) if k in a else v for k, v in b.items()}}
+    return b
+def price(doc, inp):
+    """Every line exact until rounded half-up to a minor unit; the total rounded once to priceStep; outstanding_fee after that."""
+    cat, amt, lines = doc['categories'][inp['categoryId']], (lambda m: Fr(m['amountMinor'])), []
+    add = lambda code, v, keep=False: lines.append((code, v)) if (v != 0 or keep) else None
+    ee = inp.get('endEarly')
+    km, mins = Fr(str(ee['kmDriven'] if ee else inp['km'])), Fr(str(ee['minutesOnBoard'] if ee else inp['minutes']))
+    route = None if ee else next((r for r in doc['fixedRoutes'] if r['id'] == inp.get('fixedRouteId') and r['categoryId'] == inp['categoryId']), None)
+    if route: ride = amt(route['price']); add('fixed_route', ride, True)
+    else:
+        parts = [('base', amt(cat['base'])), ('distance', amt(cat['perKm']) * km), ('time', amt(cat['perMin']) * mins)]
+        for code, v in parts: add(code, v, True)
+        ride = sum(v for _, v in parts)
+        mult = min(max(Fr(str(inp.get('surgeMultiplier', 1))), Fr(1)), Fr(str(min(doc['surge']['maxMultiplier'], c['pricing']['maxMultiplier']))))
+        if mult > 1: add('surge', ride * (mult - 1)); ride *= mult
+        if ride < amt(cat['minimum']): add('minimum_adjust', amt(cat['minimum']) - ride); ride = amt(cat['minimum'])
+        if cat['maximum'] is not None and ride > amt(cat['maximum']): add('maximum_adjust', amt(cat['maximum']) - ride); ride = amt(cat['maximum'])
+    pct = Fr(str(cat['appFeePct'])) / 100
+    fee = cat['riderPickupFee']['reservation' if inp['kind'] == 'scheduled' else 'live']
+    fee = amt(fee) if fee else Fr(0)
+    extras = waiting = Fr(0); wait_lines = 0
+    if ee:
+        cap = (amt(ee['bookedFare']) - fee) / (1 + pct)
+        if ride > cap: add('maximum_adjust', cap - ride); ride = cap
+    else:
+        free = doc['stopFreeWaitMin'] * 60; stops = inp.get('stopWaitSeconds', [])
+        w = Fr(inp.get('waitingChargedSeconds', 0)) / 60 * amt(cat['waiting']['perMin'])
+        sw = Fr(sum(max(0, x - free) for x in stops)) / 60 * amt(cat['stopWaitPerMin'])
+        f = doc['fees']
+        for code, v in [('waiting', w), ('stops', len(stops) * amt(cat['extraStopFee'])), ('stop_waiting', sw),
+                        ('extras', inp.get('babySeats', 0) * amt(cat['babySeatFee']) + inp.get('childSeats', 0) * amt(cat['childSeatFee'])),
+                        ('airport', (amt(f['airportPickup']) if inp.get('airportPickup') else 0) + (amt(f['airportDropoff']) if inp.get('airportDropoff') else 0)),
+                        ('reservation_fee', amt(f['reservationFee']) if inp['kind'] == 'scheduled' else 0)]:
+            if v > 0: add(code, v); extras += v
+        waiting, wait_lines = w + sw, _hu(w) + _hu(sw)
+    before = ride + extras
+    add('app_fee', before * pct); add('pickup_fee', fee)
+    step = amt(doc['priceStep'])
+    total = _hu((before + before * pct + fee) / step) * step
+    out = [{'code': k, 'amount': int(_hu(v))} for k, v in lines]
+    if total != sum(l['amount'] for l in out): out.append({'code': 'rounding', 'amount': int(total - sum(l['amount'] for l in out))})
+    driver = int(min(total, _hu((before - waiting) * (1 - Fr(str(cat['commissionPct'])) / 100)) + wait_lines))
+    owed = inp.get('outstandingFee')
+    if owed: out.append({'code': 'outstanding_fee', 'amount': owed['amountMinor']}); total += owed['amountMinor']
+    return int(total), out, driver
+riders = set(c['fareLines']['rider'])
+fj = json.load(open('fixtures/fares.json')); pdoc = json.load(open(fj['document']))
+for f in fj['cases']:
+    total, lines, driver = price(_merge(pdoc, f.get('overrides', {})), f['input'])
+    e = f['expect']
+    want = [{'code': l['code'], 'amount': l['amount']['amountMinor']} for l in e['fareLines']]
+    if (total, lines, driver, total - driver) != (e['total']['amountMinor'], want, e['driverEarnings']['amountMinor'], e['moveraShare']['amountMinor']) \
+            or not all(l['code'] in riders for l in want) or sum(l['amount'] for l in want) != total:
+        bad += 1; print('FARE', f['id'], 'expected', e['total']['amountMinor'], want, e['driverEarnings']['amountMinor'], 'got', total, lines, driver)
+se = c['configDefaults']['pricing']['countries']['SE']
+for cid, row in se['categories'].items():
+    x = pdoc['categories'][cid]
+    got = {'base': x['base'], 'perKm': x['perKm'], 'perMin': x['perMin'], 'minimum': x['minimum'], 'maximum': x['maximum'], 'extraStopFee': x['extraStopFee'],
+           'stopWaitPerMin': x['stopWaitPerMin'], 'babySeatFee': x['babySeatFee'], 'childSeatFee': x['childSeatFee'], 'waitPerMin': x['waiting']['perMin'], 'noShowFee': x['waiting']['noShowFee']}
+    got = {k: (v['amountMinor'] if v else None) for k, v in got.items()}
+    got.update(appFeePct=x['appFeePct'], commissionPct=x['commissionPct'], freeWaitMin=x['waiting']['freeWaitMin'])
+    if got != dict(row) or x['waiting']['noShowAfterMin'] != x['waiting']['freeWaitMin']: bad += 1; print('PRICING DEFAULTS', cid, got, row)
+if (pdoc['priceStep']['amountMinor'], pdoc['stopFreeWaitMin'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled'], pdoc['fleetCommissionPct']) != \
+        (se['priceStep'], se['stopFreeWaitMin'], se['surgeMaxMultiplier'], se['smartSurge'], se['fleetCommissionPct']): bad += 1; print('PRICING DEFAULTS zone')
+# ---- v0.5.1: automatic dispatch (contract.json#dispatch, CONTRACT.md §3.6)
+def _round1(x): return math.floor(x * 10 + 0.5) / 10
+def search(doc, case):
+    """One search from t = 0: the start mode, every offer, the rider-waiting steps that fired and the end."""
+    K, ctl = c['dispatch'], case.get('control') or c['dispatch']['control']['default']
+    busy = _round1(case['waitingRequests'] / max(1, case['freeDrivers']))
+    hm = lambda s: int(s[:2]) * 60 + int(s[3:])
+    def in_time(r):
+        now, a, b = hm(case['localTime']), hm(r['from']), hm(r['to'])
+        return a <= now < b if a < b else (now >= a or now < b)
+    ch = doc['choose']
+    timed = next((r for r in ch['times'] if r['on'] and doc[r['mode']]['on'] and in_time(r)), None)
+    if ctl['paused']: mode = None
+    elif ctl['mode']: mode = ctl['mode']
+    elif timed: mode = timed['mode']
+    elif ch['how'] == 'auto' and doc['radar']['on'] and doc['exclusive']['on']: mode = 'radar' if busy >= ch['radarAbove'] else 'exclusive'
+    else: mode = ch['main'] if doc[ch['main']]['on'] else 'radar' if doc['radar']['on'] else 'exclusive' if doc['exclusive']['on'] else None
+    sc, fb, fin = K['score'], K['fallbacks'], doc['finishing']
+    weights = {f['id']: f['weight'] for f in doc['factors'] if f['on']}; wsum = sum(weights.values()) or 1
+    steps = doc['radius']['steps']
+    rows = []
+    for d in case['drivers']:
+        f = d.get('finishing')
+        near = bool(f) and fin['exclusive'] and 'finishing' in weights and f['inMin'] <= fin['withinMin'] and f['dropKm'] <= fin['withinKm']
+        km = f['dropKm'] if f else d['km']
+        eta = max(1, _half_up(km / sc['pickupKmh'] * 60) + (f['inMin'] if f else 0))
+        fav = bool(d.get('favourite')) and doc['favourite']['on'] and km <= doc['favourite']['maxKm']
+        ratios = {'eta': 1 - eta / sc['etaFullMin'], 'rating': (d.get('rating', fb['rating']) - sc['ratingFloor']) / sc['ratingSpan'],
+                  'acceptance': d.get('acceptancePct', fb['acceptancePct']) / 100, 'cancel': 1 - d.get('cancelPct', fb['cancelPct']) / sc['cancelZeroPct'],
+                  'idle': d.get('idleMin', 0) / sc['idleFullMin'], 'finishing': 1 if near else None, 'favourite': 1 if fav else None}
+        score = sum(_half_up(w / wsum * 100 * max(0.0, min(1.0, ratios[k]))) for k, w in weights.items() if w and ratios[k] is not None)
+        out = (f and not near) or case['categoryId'] not in d.get('categoryIds', [case['categoryId']]) or km > steps[-1]
+        rows.append({'id': d['driverId'], 'km': km, 'score': score, 'fav': fav and weights.get('favourite'), 'near': near, 'riding': bool(f), 'from': d.get('freeFromSec', 0), 'out': out})
+    rows.sort(key=lambda r: (-r['score'], r['km'], r['id']))
+    def in_range(m, t, km): return [r for r in rows if not r['out'] and r['from'] <= t and r['km'] <= km and
+                                    (not r['riding'] or (m == 'exclusive' and fin['exclusive'] and doc['exclusiveWhileDriving']['on']))]
+    waits = sorted([dict(w, at=w['afterMin'] * 60) for w in doc['waiting'] if w['on'] and w['kind'] not in K['skippedWaitingKinds']], key=lambda w: w['afterMin'])
+    S = {'end': min([doc['radius']['maxWaitMin'] * 60] + [w['at'] for w in waits if w['kind'] == 'busy']), 'outcome': None, 'fired': [], 'done': set()}
+    answers = case.get('riderAnswers', [])
+    def run_until(upto):
+        while S['outcome'] is None:
+            fired = {f['id'] for f in S['fired']}
+            items = [(w['at'], 0, w) for w in waits if w['id'] not in S['done']] + [(a['atSec'], 1, a) for a in answers if a['stepId'] in fired and id(a) not in S['done']]
+            if not items: return
+            at, kind, it = min(items, key=lambda x: (x[0], x[1]))
+            if at > upto or at > S['end']: return
+            if kind == 0:
+                S['done'].add(it['id']); S['fired'].append({'id': it['id'], 'kind': it['kind'], 'atSec': at})
+                if it['kind'] == 'busy': S['end'] = at
+            else:
+                S['done'].add(id(it))
+                if it['answer'] == 'stop': S['outcome'], S['end'] = ('cancelled_by_rider', at, None), at
+                else:
+                    S['end'] += next(w for w in waits if w['id'] == it['stepId'])['extraMin'] * 60
+                    for w in waits:
+                        if w['kind'] == 'busy' and w['id'] not in S['done']: w['at'] = max(w['at'], S['end'])
+    offers, nth = [], {}
+    def offer(kind, t, km, ids, reason=None):
+        exp = min(t + doc[kind]['seconds'], S['end'])
+        offers.append({'atSec': t, 'kind': kind, 'radiusKm': km, 'driverIds': ids, 'expiresAtSec': exp, **({'reasonCode': reason} if reason else {})})
+        won, declined = None, {}
+        for i in ids:
+            nth[i] = nth.get(i, 0) + 1
+            for a in case.get('offerAnswers', []):
+                at = t + a['afterSec']
+                if a['driverId'] == i and a.get('nth', 1) == nth[i] and at < exp:
+                    if a['answer'] == 'accept' and (won is None or at < won[0]): won = (at, i)
+                    if a['answer'] == 'decline': declined[i] = at
+        if won:
+            run_until(won[0])
+            if S['outcome'] is None: S['outcome'] = ('accepted', won[0], won[1])
+            return won[0]
+        nxt = max(declined.values()) if len(declined) == len(ids) else exp
+        run_until(nxt)
+        return nxt
+    t, step, cur, tried, asked, switched, repeat = 0, 0, mode, 0, set(), set(), False
+    while mode:
+        run_until(t)
+        if S['outcome'] or t >= S['end']: break
+        if repeat:  # steps used up (owner decision 22): Exclusive to a driver not yet asked, else a Radar round, else wait and look again
+            km = steps[-1]; ex = in_range('exclusive', t, km); nxt = next((r for r in ex if r['id'] not in asked), None)
+            shown = in_range('radar', t, km)[:doc['radar']['drivers']]
+            if doc['exclusive']['on'] and nxt:
+                asked.add(nxt['id'])
+                t = offer('exclusive', t, km, [nxt['id']], 'favourite' if nxt['fav'] else 'finishing-nearby' if nxt['near'] else 'best-match' if nxt is ex[0] else 'nearby')
+            elif doc['radar']['on'] and shown: t = offer('radar', t, km, [r['id'] for r in shown])
+            else: t += doc['radar']['seconds'] if doc['radar']['on'] else doc['exclusive']['seconds']
+            continue
+        km = steps[step]; ring = in_range(cur, t, km); widest = step == len(steps) - 1
+        if cur == 'radar':
+            shown = ring[:doc['radar']['drivers']]
+            if shown: t = offer('radar', t, km, [r['id'] for r in shown])
+            then = doc['radar']['then']
+            if then in ('widen', 'widen_then_exclusive') and not widest: step += 1
+            elif then in ('exclusive', 'widen_then_exclusive') and doc['exclusive']['on'] and 'exclusive' not in switched: switched.add('exclusive'); cur, tried = 'exclusive', 0
+            elif not widest: step += 1
+            else: repeat = True
+        else:
+            nxt = next((r for r in ring if r['id'] not in asked), None)
+            if nxt and tried < doc['exclusive']['drivers']:
+                asked.add(nxt['id']); tried += 1
+                t = offer('exclusive', t, km, [nxt['id']], 'favourite' if nxt['fav'] else 'finishing-nearby' if nxt['near'] else 'best-match' if nxt is ring[0] else 'nearby')
+                continue
+            then = doc['exclusive']['then']
+            if then in ('widen', 'widen_then_radar') and not widest: step, tried = step + 1, 0
+            elif then in ('radar', 'widen_then_radar') and doc['radar']['on'] and 'radar' not in switched: switched.add('radar'); cur = 'radar'
+            elif not widest: step, tried = step + 1, 0
+            else: repeat = True
+    run_until(S['end'])
+    outcome, at, who = S['outcome'] or ('expired', S['end'], None)
+    return {'busy': busy, 'mode': mode, 'offers': offers, 'searchSteps': S['fired'], 'end': {'atSec': at, 'outcome': outcome, **({'driverId': who} if who else {})}}
+dj = json.load(open('fixtures/dispatch.json')); ddoc = json.load(open(dj['document']))
+for case in dj['cases']:
+    got = search(ddoc, case)
+    if got != case['expect']: bad += 1; print('DISPATCH', case['id'], 'expected', case['expect'], 'got', got)
+dz = c['configDefaults']['dispatch']['zone']
+if any(ddoc[k] != v for k, v in dz.items()): bad += 1; print('DISPATCH DEFAULTS differ from fixtures/config/dispatch_document.json')
+# configDocs.mustMatch binds the documents the admin publishes for one zone; it is not checked against the older
+# illustrative samples fixtures/config/rider_app_config.json and driver_app_config.json (aligned in v0.6).
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

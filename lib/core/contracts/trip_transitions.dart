@@ -61,14 +61,14 @@ class TripTransition {
 }
 
 /// The single trip state machine, a pure mirror of
-/// `contract.json#transitions` (v0.5.0). A contract test checks this table
+/// `contract.json#transitions` (v0.5.5). A contract test checks this table
 /// row by row against the shipped `contracts/contract.json` and replays
 /// `fixtures/scenarios.json` through [TripStateMachine.apply].
 ///
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.5.0';
+  static const contractVersion = '0.5.5';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -86,9 +86,20 @@ abstract final class TripStateMachine {
     }, TripStatus.quoted),
     TripTransition('request', TripActor.rider, {TripStatus.quoted}, _rq),
     TripTransition('start_search', TripActor.system, {_rq}, _s),
+    // v0.5.5 (§3.6): the rider raises their offer while searching.
+    TripTransition('raise_price', TripActor.rider, {_o, _s}, _s),
     TripTransition('send_offer', TripActor.system, {_s}, _o),
     TripTransition('offer_lapsed', TripActor.system, {_o}, _s),
-    TripTransition('accept', TripActor.driver, {_o, _rq}, _a),
+    // v0.5.1: a live trip is accepted only from offered; from requested
+    // only a scheduled trip the driver claims early.
+    TripTransition('accept', TripActor.driver, {_o}, _a),
+    TripTransition(
+      'accept',
+      TripActor.driver,
+      {_rq},
+      _a,
+      when: TripKind.scheduled,
+    ),
     TripTransition('assign', TripActor.admin, {_rq, _s, _o}, _o),
     TripTransition('head_to_pickup', TripActor.driver, {_a}, _dp),
     TripTransition('arrive', TripActor.driver, {_dp}, _ar),

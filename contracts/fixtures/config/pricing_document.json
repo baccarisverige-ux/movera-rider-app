@@ -1,0 +1,644 @@
+{
+  "version": 1,
+  "publishedAt": "2026-10-24T09:00:00Z",
+  "zoneId": "Z001",
+  "currency": "SEK",
+  "country": "SE",
+  "timeZone": "Europe/Stockholm",
+  "priceStep": {
+    "amountMinor": 100,
+    "currency": "SEK"
+  },
+  "categories": {
+    "economy": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 2900,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1200,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 400,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 4900,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 150000,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 1500,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "comfort": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 3600,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1500,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 6100,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 187500,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 1900,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 600,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "premium": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 5200,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 2200,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 700,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 8800,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 270000,
+        "currency": "SEK"
+      },
+      "appFeePct": 12,
+      "commissionPct": 22,
+      "extraStopFee": {
+        "amountMinor": 2700,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 900,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1690,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "priority": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 3900,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1600,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 6600,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 202500,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 2000,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 700,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "xl": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 4400,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1800,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 600,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 7400,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 225000,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 2300,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 800,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 3,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "electric": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 3200,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1300,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 400,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 5400,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 165000,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 1700,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 600,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "pet": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 3300,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1400,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 5600,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 172500,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 1700,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 600,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    },
+    "child_seat": {
+      "enabled": true,
+      "base": {
+        "amountMinor": 3500,
+        "currency": "SEK"
+      },
+      "perKm": {
+        "amountMinor": 1400,
+        "currency": "SEK"
+      },
+      "perMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "minimum": {
+        "amountMinor": 5900,
+        "currency": "SEK"
+      },
+      "maximum": {
+        "amountMinor": 180000,
+        "currency": "SEK"
+      },
+      "appFeePct": 10,
+      "commissionPct": 20,
+      "extraStopFee": {
+        "amountMinor": 1800,
+        "currency": "SEK"
+      },
+      "stopWaitPerMin": {
+        "amountMinor": 600,
+        "currency": "SEK"
+      },
+      "babySeatFee": {
+        "amountMinor": 1500,
+        "currency": "SEK"
+      },
+      "childSeatFee": {
+        "amountMinor": 1500,
+        "currency": "SEK"
+      },
+      "waiting": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "riderPickupFee": {
+        "live": null,
+        "reservation": null
+      }
+    }
+  },
+  "fees": {
+    "airportPickup": {
+      "amountMinor": 0,
+      "currency": "SEK"
+    },
+    "airportDropoff": {
+      "amountMinor": 0,
+      "currency": "SEK"
+    },
+    "reservationFee": {
+      "amountMinor": 2500,
+      "currency": "SEK"
+    },
+    "cleaningFee": {
+      "amountMinor": 30000,
+      "currency": "SEK"
+    },
+    "tollsPassThrough": true
+  },
+  "stopFreeWaitMin": 3,
+  "fixedRoutes": [],
+  "surge": {
+    "maxMultiplier": 3.0,
+    "smart": {
+      "enabled": false,
+      "activeFrom": "00:00",
+      "activeTo": "00:00",
+      "checkEveryMin": 1,
+      "holdMin": 3,
+      "stopAfterMin": 5,
+      "cooldownMin": 2,
+      "profiles": [
+        {
+          "id": "weekend-night",
+          "name": "Weekend night",
+          "days": [
+            4,
+            5
+          ],
+          "windows": [
+            {
+              "from": "22:00",
+              "to": "05:00"
+            }
+          ],
+          "steps": [
+            {
+              "ratio": 1.5,
+              "multiplier": 1.3
+            },
+            {
+              "ratio": 2,
+              "multiplier": 1.7
+            },
+            {
+              "ratio": 3,
+              "multiplier": 2.2
+            }
+          ],
+          "cap": 3,
+          "isDefault": false
+        },
+        {
+          "id": "rush",
+          "name": "Rush hour",
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "windows": [
+            {
+              "from": "07:00",
+              "to": "09:00"
+            },
+            {
+              "from": "16:00",
+              "to": "18:00"
+            }
+          ],
+          "steps": [
+            {
+              "ratio": 1.5,
+              "multiplier": 1.3
+            },
+            {
+              "ratio": 2,
+              "multiplier": 1.6
+            },
+            {
+              "ratio": 3,
+              "multiplier": 2.2
+            }
+          ],
+          "cap": 2.5,
+          "isDefault": false
+        },
+        {
+          "id": "night",
+          "name": "Night",
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": [
+            {
+              "from": "22:00",
+              "to": "04:00"
+            }
+          ],
+          "steps": [
+            {
+              "ratio": 1.5,
+              "multiplier": 1.2
+            },
+            {
+              "ratio": 2,
+              "multiplier": 1.5
+            },
+            {
+              "ratio": 3,
+              "multiplier": 1.8
+            }
+          ],
+          "cap": 2,
+          "isDefault": false
+        },
+        {
+          "id": "normal",
+          "name": "Normal",
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": [
+            {
+              "from": "00:00",
+              "to": "00:00"
+            }
+          ],
+          "steps": [
+            {
+              "ratio": 1.5,
+              "multiplier": 1.2
+            },
+            {
+              "ratio": 2,
+              "multiplier": 1.5
+            },
+            {
+              "ratio": 3,
+              "multiplier": 2
+            }
+          ],
+          "cap": 2.5,
+          "isDefault": true
+        }
+      ]
+    },
+    "scheduled": []
+  },
+  "fleetCommissionPct": 5
+}

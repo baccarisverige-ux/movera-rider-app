@@ -110,7 +110,9 @@ S["FareLineCode"] = s("Fare line codes (contract.json#fareLines). x-rider lines 
                       "shown to the driver and admin only and never paid by the rider. v0.4 documents named the rider's pickup line pickup_pay: x-aliases.",
                       enum=FL["rider"] + FL["driverOnly"], **{"x-rider": FL["rider"], "x-driver-only": FL["driverOnly"],
                                                                "x-aliases": {k: v for k, v in FL["aliases"].items() if k != "note"}})
-S["FareLine"] = obj({"code": ref("FareLineCode"), "amount": ref("Money")}, ["code", "amount"])
+S["FareLine"] = obj({"code": ref("FareLineCode"), "amount": ref("Money"),
+                     "sourceTripId": {"allOf": [ref("Id")], "description": "outstanding_fee only: the earlier trip whose unpaid fee this is (v0.5.1, CONTRACT.md §3.7)."}},
+                    ["code", "amount"], "One fare line; the meaning of each code: contract.json#fareLines.meaning (v0.5.1).")
 
 # --- trip
 S["QuoteRef"] = obj({"quoteId": ref("Id"), "total": ref("Money"), "expiresAt": ref("Timestamp")}, ["quoteId", "total", "expiresAt"])
@@ -118,7 +120,9 @@ S["Waiting"] = obj({"arrivedAt": ref("Timestamp"), "freeUntil": ref("Timestamp")
                     "chargedSeconds": ref("DurationSeconds")}, ["arrivedAt", "freeUntil", "noShowAt", "chargedSeconds"])
 S["Cancellation"] = obj({"actor": ref("Actor"), "reasonCode": ref("CancelReasonCode"), "at": ref("Timestamp"),
                          "fee": {"description": "Rider cancel / no-show fee. null = not decided yet or none.", **nullable("Money")},
-                         "note": s(maxLength=1000)}, ["actor", "reasonCode", "at", "fee"])
+                         "note": s(maxLength=1000),
+                         "feeStatus": s("v0.5.1 (CONTRACT.md §3.7): owed = an unpaid cash fee, in Rider.outstanding and the next trip's outstanding_fee line.", enum=C["outstandingFee"]["feeStatus"])},
+                        ["actor", "reasonCode", "at", "fee"])
 S["VehicleSummary"] = obj({"vehicleId": ref("Id"), "make": s(), "model": s(), "color": s(), "plate": s(),
                            "categoryId": ref("CategoryId")})
 S["DriverSummary"] = obj({"driverId": ref("Id"), "firstName": s(minLength=1), "rating": n(minimum=0, maximum=5),
@@ -150,9 +154,11 @@ S["TripProjection"] = obj(OrderedDict([
     ("driver", ref("DriverSummary")), ("driverLocation", ref("GeoFix")), ("etaSeconds", ref("DurationSeconds")),
     ("waiting", ref("Waiting")), ("cancellation", ref("Cancellation")),
     ("pinRequired", b("Driver must verify the rider PIN before `board`.")),
+    ("searchStep", {"allOf": [ref("SearchStep")], "description": "v0.5.1 (CONTRACT.md §3.6): the latest rider-waiting step while searching (rider view). Changing it does not change version."}),
 ]), ["tripId", "status", "version", "sequence", "kind", "createdAt", "updatedAt", "riderId", "zoneId", "categoryId",
      "pickup", "dropoff", "stops", "fare", "paymentMethod", "ratingStatus", "pinRequired"],
-    "Authoritative trip state. Field visibility depends on the actor (e.g. driverEarnings/commission are not shown to riders).")
+    "Authoritative trip state. Field visibility depends on the actor (e.g. driverEarnings/commission are not shown to riders). "
+    "v0.5.1: fare and fareLines follow contract.json#pricing (CONTRACT.md §3.5); commission is Movera's share of the fare (fare − driverEarnings).")
 
 S["Offer"] = obj(OrderedDict([
     ("offerId", ref("Id")), ("tripId", ref("Id")), ("kind", ref("OfferKind")), ("status", ref("OfferStatus")),
@@ -196,7 +202,10 @@ S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
                       "(owner decision 5, v0.4.3): a booked stop is counted once and offer raises stay.")
 
 S["Rider"] = obj({"riderId": ref("Id"), "firstName": s(), "phone": s(pattern=r"^\+[1-9]\d{6,14}$"), "email": s(format="email"),
-                  "rating": n(minimum=0, maximum=5), "status": s(enum=["active", "suspended"]), "version": i(minimum=1)},
+                  "rating": n(minimum=0, maximum=5), "status": s(enum=["active", "suspended"]), "version": i(minimum=1),
+                  "outstanding": {"oneOf": [ref("Money"), {"type": "null"}], "description": "v0.5.1 (CONTRACT.md §3.7): unpaid cash fees the rider owes (positive); null or missing = none. On GET /rider/profile and the admin rider view."},
+                  "language": s("v0.5.1: the rider's app language (also sets the reverse-geocode language).", pattern="^[a-z]{2}(-[A-Z]{2})?$"),
+                  "consents": {"allOf": [ref("RiderConsents")], "description": "v0.5.1: the rider's message consents."}},
                  ["riderId", "firstName", "status", "version"])
 S["DocumentStatus"] = s(enum=["missing", "in_review", "approved", "rejected", "expired"])
 S["DocumentType"] = s("Document type id, e.g. driver_license, insurance, vehicle_registration, national_id, taxi_permit.",
@@ -211,7 +220,9 @@ S["Driver"] = obj({"driverId": ref("Id"), "accountStatus": ref("DriverAccountSta
                    "moving": b("Mirror of the latest GeoFix.moving the driver app sent (contract.json#driverMotion, v0.5.0); decides the offer limits while driving."),
                    "firstName": s(), "rating": n(minimum=0, maximum=5), "zoneIds": arr(ref("Id")),
                    "categoryIds": arr(ref("CategoryId")), "vehicleId": ref("Id"), "documents": arr(ref("DocumentSummary")),
-                   "activeTripId": ref("Id"), "scheduledRides": ref("DriverScheduledRides"), "version": i(minimum=1)},
+                   "activeTripId": ref("Id"), "scheduledRides": ref("DriverScheduledRides"), "version": i(minimum=1),
+                   "location": {"allOf": [ref("GeoFix")], "description": "v0.5.1, admin view only: the latest fix (CONTRACT.md §12)."},
+                   "lastFixAt": {"allOf": [ref("Timestamp")], "description": "v0.5.1, admin view only: when the latest fix was received."}},
                   ["driverId", "accountStatus", "onlineStatus", "firstName", "zoneIds", "categoryIds", "documents", "version"])
 S["DriverScheduledRides"] = obj({"on": b("false = no new reservations for this driver; true = on, and the late-cancel pause is skipped while it lasts."),
                                  "until": {"description": "When the admin's choice ends; null = until an admin changes it.", **nullable("Timestamp")}},
@@ -222,6 +233,75 @@ S["Vehicle"] = obj({"vehicleId": ref("Id"), "make": s(), "model": s(), "year": i
                     "plate": s(), "seats": i(minimum=1, maximum=20), "categoryIds": arr(ref("CategoryId")),
                     "status": ref("VehicleStatus"), "version": i(minimum=1)},
                    ["vehicleId", "make", "model", "year", "color", "plate", "seats", "categoryIds", "status", "version"])
+# ---- v0.5.3 (CONTRACT.md §14): driver onboarding, fleets and documents
+DO = C["driverOnboarding"]
+S["DriverAccountType"] = s("v0.5.3: driver = works for a fleet; fleet = a company with cars and drivers (its owner may drive too).",
+                           enum=DO["accountTypes"])
+S["DriverCountry"] = s("v0.5.3: ISO 3166-1 alpha-2 of the countries the driver app offers (contract.json#driverOnboarding.countries); "
+                       "only an open one is accepted on POST /driver/onboarding (else 400 invalid_request, reason country_not_open).",
+                       enum=list(DO["countries"].keys()))
+S["FleetStatus"] = s("pending until an admin reviews the fleet; approved gives it a code.", enum=["pending", "approved", "rejected", "blocked"])
+S["FleetLink"] = obj({"fleetId": ref("Id"), "name": s(), "role": s(enum=["owner", "member"]), "status": ref("FleetStatus"),
+                      "linkedAt": ref("Timestamp")}, ["fleetId", "name", "role", "status", "linkedAt"],
+                     "v0.5.3: the fleet this driver belongs to (owner = the fleet account itself).")
+S["Fleet"] = obj({"fleetId": ref("Id"), "name": s(), "orgNumber": s("Organisationsnummer (SE) or SIREN / SIRET (FR)."), "address": s(),
+                  "country": ref("DriverCountry"), "cityId": s(), "ownerDriverId": ref("Id"), "ownerName": s("The owner's first and last name."),
+                  "ownerEmail": s("Owner and admin views only.", format="email"), "status": ref("FleetStatus"),
+                  "code": s("The join code (contract.json#driverOnboarding.fleetCode); only after approval, and only to the owner and admins.",
+                            pattern="^MV-[A-Z2-9]{5}$"),
+                  "driverCount": i(minimum=0), "vehicleCount": i(minimum=0), "createdAt": ref("Timestamp"), "version": i(minimum=1)},
+                 ["fleetId", "name", "orgNumber", "country", "cityId", "ownerDriverId", "ownerName", "status", "driverCount", "vehicleCount",
+                  "createdAt", "version"], "v0.5.3: a fleet (company) account's company.")
+S["FleetDriver"] = obj({"driverId": ref("Id"), "firstName": s(), "lastName": s(), "accountStatus": ref("DriverAccountStatus"),
+                        "onlineStatus": ref("DriverOnlineStatus"), "vehicleId": ref("Id"), "linkedAt": ref("Timestamp")},
+                       ["driverId", "firstName", "accountStatus", "onlineStatus", "linkedAt"])
+S["FleetInvitationStatus"] = s(enum=["pending", "accepted", "declined", "cancelled", "expired"])
+S["FleetInvitation"] = obj({"invitationId": ref("Id"), "fleetId": ref("Id"), "fleetName": s(),
+                            "direction": s("driver_request: the driver asked with the code; owner_invite: the owner invited a phone number.", enum=["driver_request", "owner_invite"]),
+                            "driverId": {"allOf": [ref("Id")], "description": "The driver concerned; missing while an owner_invite waits for a number without an account."},
+                            "driverName": s(), "phone": s("owner_invite: the invited number (owner and admin views)."),
+                            "status": ref("FleetInvitationStatus"), "createdAt": ref("Timestamp"), "expiresAt": ref("Timestamp"),
+                            "decidedAt": ref("Timestamp"), "version": i(minimum=1)},
+                           ["invitationId", "fleetId", "fleetName", "direction", "status", "createdAt", "expiresAt", "version"],
+                           "v0.5.3 (contract.json#driverOnboarding.fleetInvitations): one side asks, the other accepts.")
+S["FleetInvitationList"] = obj({"items": arr(ref("FleetInvitation"))}, ["items"])
+S["FleetInviteRequest"] = obj({"phone": s("E.164; the driver's sign-in number.", pattern=r"^\+[1-9]\d{6,14}$")}, ["phone"], "v0.5.3: the owner invites a number.")
+S["FleetView"] = obj({"fleet": ref("Fleet"), "drivers": arr(ref("FleetDriver")), "vehicles": arr(ref("Vehicle")),
+                      "invitations": arr(ref("FleetInvitation"), description="v0.5.3: the pending invitations and requests (owner and admins; a member gets none).")},
+                     ["fleet", "drivers", "vehicles"],
+                     "v0.5.3: the fleet with its drivers (owner and admins; a member gets an empty list) and its cars.")
+S["FleetDriverEarnings"] = obj({"driverId": ref("Id"), "firstName": s(), "lastName": s(), "trips": i(minimum=0), "earnings": ref("Money")},
+                               ["driverId", "firstName", "trips", "earnings"])
+S["FleetEarnings"] = obj({"from": ref("Timestamp"), "to": ref("Timestamp"), "items": arr(ref("FleetDriverEarnings")), "total": ref("Money")},
+                         ["from", "to", "items", "total"], "v0.5.3: every driver's earnings in the period, for the fleet owner.")
+S["Driver"]["properties"].update({
+    "accountType": {"allOf": [ref("DriverAccountType")], "description": "v0.5.3; missing before POST /driver/onboarding."},
+    "lastName": s("v0.5.3"), "dateOfBirth": s("v0.5.3: YYYY-MM-DD; at least contract.json#driverOnboarding.minAge years.", format="date"),
+    "email": s("v0.5.3", format="email"), "country": {"allOf": [ref("DriverCountry")], "description": "v0.5.3"},
+    "cityId": s("v0.5.3: a cityId of the country (contract.json#driverOnboarding.countries); sets zoneIds."),
+    "language": s("v0.5.3: the driver's app language.", pattern="^[a-z]{2}(-[A-Z]{2})?$"),
+    "termsAcceptedAt": {"allOf": [ref("Timestamp")], "description": "v0.5.3: when the terms were accepted (POST /driver/onboarding)."},
+    "fleet": {"allOf": [ref("FleetLink")], "description": "v0.5.3: the fleet this driver belongs to; missing = none (a driver account waits for a fleet)."},
+    "payoutTo": s("v0.5.3: who Movera pays (contract.json#driverOnboarding.payouts): fleet for a driver linked to a fleet, self for a fleet account.",
+                  enum=["self", "fleet"]),
+    "requiredDocuments": arr(ref("DocumentType"), description="v0.5.3: the person's documents this account must have approved (contract.json#driverOnboarding.documents.required[country].driver)."),
+    "requiredFleetDocuments": arr(ref("DocumentType"), description="v0.5.3: fleet accounts only: the company's documents (…required[country].fleet)."),
+    "pendingFleetInvitations": i("v0.5.3: pending invitations waiting for this account's answer (a driver's incoming invites, or an owner's incoming requests), for the badge.", minimum=0),
+})
+S["Vehicle"]["properties"].update({
+    "fleetId": {"allOf": [ref("Id")], "description": "v0.5.3: the fleet that owns the car."},
+    "driverId": {"allOf": [ref("Id")], "description": "v0.5.3: the driver who has the car picked now (PATCH /driver/profile { vehicleId }); missing = free."},
+    "inUse": b("v0.5.3: that driver is online or on a trip, so another driver cannot pick the car (409 conflict, vehicle_in_use)."),
+    "documents": arr(ref("DocumentSummary"), description="v0.5.3: the car's documents."),
+    "requiredDocuments": arr(ref("DocumentType"), description="v0.5.3: contract.json#driverOnboarding.documents.required[country].vehicle."),
+})
+S["Document"]["properties"].update({
+    "fileName": s("v0.5.3: the uploaded file's name, for display."), "mediaType": s("v0.5.3: one of contract.json#driverOnboarding.documents.upload.mediaTypes."),
+    "uploadedAt": {"allOf": [ref("Timestamp")], "description": "v0.5.3"},
+    "reviewedAt": {"allOf": [ref("Timestamp")], "description": "v0.5.3: when an admin decided."},
+})
+S["Document"]["properties"]["fileUrl"]["description"] = ("v0.5.3: the path of the file endpoint (GET /driver/documents/{documentId}/file for the owner, "
+                                                          "GET /admin/documents/{documentId}/file for admins), never a public link; missing for terms and admin checks.")
 S["PaymentIntent"] = obj({"paymentId": ref("Id"), "tripId": ref("Id"), "amount": ref("Money"), "method": ref("PaymentMethod"),
                           "paymentMethodId": ref("Id"), "purpose": s(enum=["trip", "wallet_topup", "tip"]),
                           "status": ref("PaymentStatus"), "failureCode": s(),
@@ -272,6 +352,7 @@ S["Payout"] = obj({"payoutId": ref("Id"), "driverId": ref("Id"), "amount": ref("
 S["EarningsPeriod"] = obj({"periodStart": ref("Timestamp"), "periodEnd": ref("Timestamp"), "tripCount": i(minimum=0),
                            "gross": ref("Money"), "commission": ref("Money"), "pickupPay": ref("Money"),
                            "tips": ref("Money"), "adjustments": ref("Money"), "cashCollected": ref("Money"),
+                           "fees": {"allOf": [ref("Money")], "description": "v0.5.1: the driver's shares of cancel and no-show fees credited in the period, also those the rider still owes (CONTRACT.md §3.7)."},
                            "net": ref("Money")},
                           ["periodStart", "periodEnd", "tripCount", "gross", "commission", "tips", "adjustments", "net"])
 S["EarningsReport"] = obj({"driverId": ref("Id"), "period": s(enum=["day", "week", "month"]), "timeZone": s(),
@@ -287,7 +368,7 @@ S["AdminRole"] = s(enum=["viewer", "support", "dispatcher", "compliance", "finan
 S["PendingApproval"] = obj({"status": s(const="pending_approval"), "approvalId": ref("Id"),
                             "action": s(examples=["trip.refund", "config.publish"]), "targetId": ref("Id"),
                             "requestedAt": ref("Timestamp")}, ["status", "approvalId", "action", "targetId", "requestedAt"],
-                           "Returned with 202 when the action needs a second admin (two-person rule).")
+                           "Returned with 202 when the action needs a second admin (two-person rule). Never for a Super admin (AdminMe.approvalExempt, owner decision 14, v0.5.1).")
 S["Approval"] = obj({"approvalId": ref("Id"), "action": s(), "targetType": s(enum=["trip", "payment", "refund", "payout", "config", "driver", "rider"]),
                      "targetId": ref("Id"), "amount": ref("Money"), "reason": s(),
                      "status": s(enum=["pending_approval", "approved", "rejected", "expired"]),
@@ -301,11 +382,12 @@ S["AuditEntry"] = obj({"auditId": ref("Id"), "at": ref("Timestamp"), "actor": re
                        "after": {"description": "Server-written snapshot after the change."},
                        "requestId": s(), "idempotencyKey": s()},
                       ["auditId", "at", "actor", "actorId", "action", "targetType", "targetId", "result", "requestId"])
-S["ConfigDocName"] = s(enum=["rider_app_config", "driver_app_config"])
+S["ConfigDocName"] = s("app documents are served to the apps; pricing and dispatch (v0.5.1) are server-only (x-server-only, contract.json#configDocs).",
+                        enum=C["configDocs"]["app"] + C["configDocs"]["serverOnly"], **{"x-server-only": C["configDocs"]["serverOnly"]})
 S["ConfigDraft"] = obj({"doc": ref("ConfigDocName"), "zoneId": ref("Id"),
                         "version": i("Draft version (expectedVersion for PUT/publish).", minimum=1),
                         "liveVersion": i("Version of the published document the apps read.", minimum=0),
-                        "document": {"oneOf": [ref("RiderAppConfig"), ref("DriverAppConfig")]},
+                        "document": {"oneOf": [ref("RiderAppConfig"), ref("DriverAppConfig"), ref("PricingDocument"), ref("DispatchDocument")]},
                         "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
                        ["doc", "zoneId", "version", "liveVersion", "document", "updatedAt"])
 S["ConfigPublication"] = obj({"doc": ref("ConfigDocName"), "zoneId": ref("Id"), "version": i(minimum=1),
@@ -463,7 +545,9 @@ S["AuthTokens"] = obj({"accessToken": s("JWT bearer token.", minLength=1), "refr
                       ["accessToken", "refreshToken"], "Signed in. Actor, subject id and zone scope are inside the access token.")
 S["ProviderSignInRequest"] = obj({"provider": s(enum=AU["providers"]), "idToken": s("The provider's identity token, verified server-side.", minLength=1),
                                   "app": s(enum=["rider", "driver"]), "name": s(maxLength=120)}, ["provider", "idToken", "app"])
-S["PhoneRequired"] = obj({"code": s(const="PHONE_REQUIRED"), "linkToken": s(minLength=1), "name": s()}, ["code", "linkToken"],
+S["PhoneRequired"] = obj({"code": s(const="PHONE_REQUIRED"), "linkToken": s(minLength=1), "name": s(),
+                          "firstName": s("v0.5.3: what the provider gave, for the driver's details screen; editable."), "lastName": s("v0.5.3"),
+                          "email": s("v0.5.3: may be Apple's hidden relay address; editable.", format="email")}, ["code", "linkToken"],
                          "No account is linked to this provider identity yet: verify a phone with this linkToken on the OTP calls and the account is created linked.")
 S["ProviderSignInResult"] = {"oneOf": [ref("AuthTokens"), ref("PhoneRequired")], "description": AU["providerNote"]}
 S["RefreshRequest"] = obj({"refreshToken": s(minLength=1)}, ["refreshToken"])
@@ -530,6 +614,175 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
 ]), ["version", "publishedAt", "zoneId", "currency", "timeZone"],
     "Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to the app seed.")
 
+# --- v0.5.1: server-only pricing and dispatch documents, admin sign-in, locations and routes, telemetry, live drivers, outstanding fee
+PR, DP, CD = C["pricing"], C["dispatch"], C["configDocs"]
+def money(desc): return {"allOf": [ref("Money")], "description": desc}
+S["CategoryPricingWaiting"] = obj({"freeWaitMin": n(minimum=0, maximum=30), "perMin": money("Per minute after the free wait, charged per second (contract.json#pricing.waiting)."),
+                                   "noShowAfterMin": n("Equals freeWaitMin (owner Q41).", minimum=0), "noShowFee": ref("Money")},
+                                  ["freeWaitMin", "perMin", "noShowAfterMin", "noShowFee"], "Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same values.")
+S["CategoryPricing"] = obj(OrderedDict([
+    ("enabled", b("The category is offered in this zone.")),
+    ("base", ref("Money")), ("perKm", money("Per km; minor units, e.g. 1200 = 12 kr/km.")), ("perMin", ref("Money")),
+    ("minimum", money("The ride part is raised to this (minimum_adjust line).")),
+    ("maximum", {"oneOf": [ref("Money"), {"type": "null"}], "description": "The ride part is lowered to this (maximum_adjust line); null = no maximum (the admin's 0)."}),
+    ("appFeePct", n("Added to the rider's price: % of ride part + extras. Movera keeps it.", minimum=0, maximum=50)),
+    ("commissionPct", n("Movera's commission on the ride part and the extras except waiting (owner decisions 17, 18).", minimum=0, maximum=60)),
+    ("extraStopFee", ref("Money")), ("stopWaitPerMin", money("Waiting at a stop after stopFreeWaitMin, per minute, charged per second.")),
+    ("babySeatFee", ref("Money")), ("childSeatFee", ref("Money")),
+    ("waiting", ref("CategoryPricingWaiting")),
+    ("riderPickupFee", ref("RiderPickupFee")),
+]), ["enabled", "base", "perKm", "perMin", "minimum", "maximum", "appFeePct", "commissionPct", "extraStopFee", "stopWaitPerMin", "babySeatFee", "childSeatFee", "waiting", "riderPickupFee"],
+    "One category's prices in a zone (admin Pricing; zonePricing.ts CategoryPrice + commission + rider pickup fee).")
+S["PricingFees"] = obj({"airportPickup": ref("Money"), "airportDropoff": ref("Money"), "reservationFee": money("Added to kind=scheduled trips (reservation_fee line)."),
+                        "cleaningFee": money("Charged afterwards by an admin adjust; not in the fare formula."), "tollsPassThrough": b("Tolls added to the fare; no tolls are priced in v0.5.1.")},
+                       ["airportPickup", "airportDropoff", "reservationFee", "cleaningFee", "tollsPassThrough"])
+S["FixedRoute"] = obj({"id": ref("Id"), "from": s(minLength=1), "to": s(minLength=1), "categoryId": ref("CategoryId"), "price": ref("Money")},
+                      ["id", "from", "to", "categoryId", "price"], "A fixed price between two admin-named places: replaces base + distance + time; no surge, minimum or maximum.")
+S["SurgeStep"] = obj({"ratio": n("Requests per free driver at which this step starts.", exclusiveMinimum=0), "multiplier": n(minimum=1)}, ["ratio", "multiplier"])
+S["SurgeProfile"] = obj({"id": s(minLength=1), "name": s(), "days": arr(i(minimum=0, maximum=6), description="0 = Monday … 6 = Sunday."),
+                         "windows": arr(obj({"from": s(pattern=r"^\d\d:\d\d$"), "to": s(pattern=r"^\d\d:\d\d$")}, ["from", "to"])),
+                         "steps": arr(ref("SurgeStep")), "cap": n(minimum=1), "isDefault": b()},
+                        ["id", "name", "days", "windows", "steps", "cap", "isDefault"])
+S["SmartSurge"] = obj({"enabled": b("Automatic surge; false in the test week (owner decision 21)."), "activeFrom": s(pattern=r"^\d\d:\d\d$"), "activeTo": s(pattern=r"^\d\d:\d\d$"),
+                       "checkEveryMin": i(minimum=1, maximum=15), "holdMin": i(minimum=1, maximum=30), "stopAfterMin": i(minimum=1, maximum=60), "cooldownMin": i(minimum=1, maximum=30),
+                       "profiles": arr(ref("SurgeProfile"))},
+                      ["enabled", "profiles"], "The admin's smart surge settings, kept in the document; the algorithm is not normative in v0.5.1.")
+S["ScheduledSurge"] = obj({"id": s(minLength=1), "name": s(), "multiplier": n(minimum=1), "startsAt": ref("Timestamp"), "endsAt": ref("Timestamp")},
+                          ["id", "multiplier", "startsAt", "endsAt"], "A flat surge for a time window, from the pricing document.")
+S["PricingSurge"] = obj({"maxMultiplier": {**n(minimum=1, maximum=PR["maxMultiplier"]), "default": PR["maxMultiplier"], "description": "Owner decision 21: at most ×3 (the admin slider allows 6)."},
+                         "smart": ref("SmartSurge"), "scheduled": arr(ref("ScheduledSurge"))}, ["maxMultiplier", "smart", "scheduled"],
+                        "Surge sources after the zone's surge schedule (§3.4): " + PR["surgeSource"])
+S["PricingDocument"] = obj(OrderedDict([
+    ("version", i("Admin revision of the zone's live pricing document (contract.json#configVersion).", minimum=1)), ("publishedAt", ref("Timestamp")),
+    ("zoneId", ref("Id")), ("currency", ref("CurrencyCode")), ("country", ref("CountryCode")), ("timeZone", s(pattern=r"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$")),
+    ("priceStep", money("The total is rounded once, half-up, to a multiple of this (admin fees.rounding).")),
+    ("categories", {"type": "object", "propertyNames": ref("CategoryId"), "additionalProperties": ref("CategoryPricing")}),
+    ("fees", ref("PricingFees")),
+    ("stopFreeWaitMin", {**n(minimum=0, maximum=30), "default": 3, "description": "Free minutes at each stop (owner decision 20)."}),
+    ("fixedRoutes", arr(ref("FixedRoute"))),
+    ("surge", ref("PricingSurge")),
+    ("fleetCommissionPct", n("Fleet owner's share (admin Pricing); not in the rider's fare.", minimum=0, maximum=30)),
+]), ["version", "publishedAt", "zoneId", "currency", "country", "priceStep", "categories", "fees", "stopFreeWaitMin", "fixedRoutes", "surge", "fleetCommissionPct"],
+    "Server-only (contract.json#configDocs): the zone's prices, read by the server's quote engine. Never served to the apps. " + PR["note"] + " Sample: fixtures/config/pricing_document.json.",
+    **{"x-server-only": True})
+S["DispatchModeRules"] = obj({"on": b(), "drivers": i(minimum=1, maximum=30, description="radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10)."),
+                              "seconds": i(minimum=5, maximum=120, description="radar 5-120, exclusive 5-60."), "then": s(enum=sorted(set(DP["then"]["radar"] + DP["then"]["exclusive"])))},
+                             ["on", "drivers", "seconds", "then"], "Radar: then is widen | exclusive | widen_then_exclusive. Exclusive: then is radar | widen | widen_then_radar.")
+S["DispatchTimeRule"] = obj({"id": s(minLength=1), "on": b(), "from": s(pattern=r"^\d\d:\d\d$"), "to": s(pattern=r"^\d\d:\d\d$"), "mode": s(enum=DP["modes"])},
+                            ["id", "on", "from", "to", "mode"], "Zone-local [from, to); wraps midnight when from > to.")
+S["DispatchChoose"] = obj({"how": s(enum=DP["chooseHow"]), "radarAbove": n("Busy level (requests per free driver) from which Auto uses Radar.", exclusiveMinimum=0, maximum=10),
+                           "main": s(enum=DP["modes"]), "backup": s(enum=DP["modes"] + ["none"], description="Ignored in v0.5.1: `then` decides fallbacks."),
+                           "times": arr(ref("DispatchTimeRule"))}, ["how", "radarAbove", "main", "backup", "times"])
+S["DispatchFactor"] = obj({"id": s(enum=["eta", "rating", "acceptance", "cancel", "idle", "finishing", "favourite"]), "on": b(), "weight": n(minimum=0)}, ["id", "on", "weight"])
+S["DispatchWaitingStep"] = obj({"id": s(minLength=1), "kind": s(enum=DP["waitingKinds"], **{"x-skipped-in-test-week": DP["skippedWaitingKinds"]}), "on": b(),
+                                "afterMin": n("From search start.", minimum=0, maximum=30), "message": s(), "extraMin": {"type": ["number", "null"], "description": "keep_waiting: minutes added on Keep waiting."}},
+                               ["id", "kind", "on", "afterMin", "message"])
+S["DispatchDocument"] = obj(OrderedDict([
+    ("version", i("Admin revision of the zone's live dispatch document (contract.json#configVersion).", minimum=1)), ("publishedAt", ref("Timestamp")),
+    ("zoneId", ref("Id")), ("country", ref("CountryCode")), ("timeZone", s("IANA zone for the time rules.", pattern=r"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$")),
+    ("radar", ref("DispatchModeRules")), ("exclusive", ref("DispatchModeRules")), ("choose", ref("DispatchChoose")),
+    ("rulesFrom", s("Kept, ignored in v0.5.1: the pickup zone's document governs the search.", enum=["driver", "pickup"])),
+    ("radius", obj({"steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, description="km, strictly increasing."), "maxWaitMin": i(minimum=1, maximum=30)}, ["steps", "maxWaitMin"])),
+    ("factors", arr(ref("DispatchFactor"), minItems=1)),
+    ("finishing", obj({"exclusive": b(), "withinMin": n(minimum=0), "withinKm": n(minimum=0)}, ["exclusive", "withinMin", "withinKm"])),
+    ("favourite", obj({"on": b(), "maxKm": n(minimum=0)}, ["on", "maxKm"])),
+    ("exclusiveWhileDriving", ref("ExclusiveWhileDriving")),
+    ("waiting", arr(ref("DispatchWaitingStep"))),
+]), ["version", "publishedAt", "zoneId", "country", "timeZone", "radar", "exclusive", "choose", "radius", "factors", "finishing", "favourite", "exclusiveWhileDriving", "waiting"],
+    "Server-only (contract.json#configDocs): the zone's automatic dispatch rules (admin Dispatch, a subset of the movera.dispatch.rules export, admin field names). "
+    "Never served to the apps; DriverAppConfig.offers timers must equal radar/exclusive seconds and on. Algorithm: contract.json#dispatch, CONTRACT.md §3.6. Sample: fixtures/config/dispatch_document.json.",
+    **{"x-server-only": True, "x-ranges": DP["ranges"]})
+S["DispatchControl"] = obj({"zoneId": ref("Id"), "paused": b("No automatic offers; waiting steps and the search end keep running."),
+                            "mode": {"oneOf": [s(enum=DP["modes"]), {"type": "null"}], "description": "Forced mode for new searches; null = the rules."},
+                            "by": ref("Id"), "at": ref("Timestamp"), "version": i(minimum=0)},
+                           ["zoneId", "paused", "mode", "version"], "Live dispatch switch of a zone (outside publishing). " + DP["control"]["note"])
+S["DispatchControlCommand"] = obj({"expectedVersion": i("Version of the control being replaced; 0 when the zone has none.", minimum=0), "paused": b(),
+                                   "mode": {"oneOf": [s(enum=DP["modes"]), {"type": "null"}]}, "note": s(maxLength=1000)},
+                                  ["expectedVersion", "paused", "mode"])
+S["SearchStep"] = obj({"id": s(minLength=1), "kind": s(enum=[k for k in DP["waitingKinds"] if k not in DP["skippedWaitingKinds"]]), "message": s(),
+                       "extraMin": {"type": ["number", "null"]}, "at": ref("Timestamp")}, ["id", "kind", "message", "extraMin", "at"],
+                      "The latest rider-waiting step of the search (v0.5.1, contract.json#dispatch.searchStep). keep_waiting: the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended.")
+S["RaisePriceCommand"] = obj({"expectedVersion": i(minimum=1), "increase": ref("Money")}, ["expectedVersion", "increase"],
+                             "The rider raises their offer while the search is on (owner decision 25, contract.json#dispatch.raisePrice): a positive amount in the trip's currency; "
+                             "the new fare may not pass raisePrice.maxFactor × the quoted fare.")
+S["KeepWaitingCommand"] = obj({"expectedVersion": i("Optional; the answer does not change the version.", minimum=1), "answer": s(enum=DP["keepWaitingAnswers"])}, ["answer"],
+                              "Answer to a keep_waiting step: wait = the search end moves by the step's extraMin; stop = the normal free rider cancel (owner decision 24).")
+AA = C["auth"]["admin"]
+S["AdminPermission"] = s(C["adminPermissions"]["note"], enum=C["adminPermissions"]["values"], **{"x-groups": C["adminPermissions"]["groups"], "x-v050": {k: v for k, v in C["adminPermissions"]["v050"].items() if k != "note"}})
+S["AdminScope"] = obj({"zones": {"oneOf": [s(const="all"), arr(ref("Id"))], "description": "\"all\" or the zone ids the admin may act in."},
+                       "countries": arr(ref("CountryCode")), "fleetPartnerId": ref("Id")}, ["zones"])
+S["AdminMe"] = obj(OrderedDict([("adminId", ref("Id")), ("email", s(format="email")), ("name", s()), ("role", ref("AdminRole")),
+                                ("permissions", arr(ref("AdminPermission"), uniqueItems=True, description="Fully expanded; super has all of them.")),
+                                ("scope", ref("AdminScope")), ("language", ref("Language")),
+                                ("idleTimeoutSeconds", {**i(minimum=AA["idleTimeoutMinutesRange"][0] * 60, maximum=AA["idleTimeoutMinutesRange"][1] * 60), "default": AA["idleTimeoutSecondsDefault"]}),
+                                ("approvalExempt", b("True for Super admin: changes go live at once, never 202 pending_approval (owner decision 14)."))]),
+                   ["adminId", "email", "name", "role", "permissions", "scope", "idleTimeoutSeconds", "approvalExempt"], "The signed-in admin (maps 1:1 onto the panel's Agent; adminId = id).")
+S["AdminSession"] = obj({"accessToken": s(minLength=1), "refreshToken": s("Opaque, rotated on every refresh.", minLength=1),
+                         "expiresIn": {**i(minimum=1), "default": AA["accessExpiresSeconds"]}, "actor": s(const="admin"), "admin": ref("AdminMe")},
+                        ["accessToken", "refreshToken", "expiresIn", "actor", "admin"], AA["note"])
+S["AdminSignInRequest"] = obj({"email": s(format="email", maxLength=254), "password": s(minLength=1, maxLength=256, writeOnly=True)}, ["email", "password"])
+S["SetupPasswordRequest"] = obj({"setupToken": s(minLength=16), "password": s(minLength=AA["passwordMinLength"], maxLength=256, writeOnly=True)}, ["setupToken", "password"],
+                                f"One-time link token (single use, {AA['setupLinkHours']} h). Password at least {AA['passwordMinLength']} characters, stored as argon2id.")
+S["SetupTokenRequest"] = obj({"setupToken": s(minLength=16)}, ["setupToken"])
+S["SetupLinkInfo"] = obj({"email": s(format="email"), "name": s(), "expiresAt": ref("Timestamp")}, ["email", "name", "expiresAt"])
+S["SetupLink"] = obj({"url": s(format="uri"), "expiresAt": ref("Timestamp")}, ["url", "expiresAt"], "A one-time password setup link for an admin; send it to them out of band.")
+MP = C["maps"]
+S["AutocompleteRequest"] = obj({"query": s(minLength=1, maxLength=200), "latitude": n(minimum=-90, maximum=90), "longitude": n(minimum=-180, maximum=180),
+                                "limit": i(minimum=1, maximum=MP["autocompleteMaxSuggestions"], default=MP["autocompleteMaxSuggestions"])}, ["query"],
+                               "latitude / longitude: the bias point (wire exception, contract.json#wire.location.locationsException).")
+S["AddressSuggestion"] = obj({"title": s(minLength=1), "subtitle": s(), "latitude": n(minimum=-90, maximum=90), "longitude": n(minimum=-180, maximum=180),
+                              "placeId": s("Provider place id; send it to /locations/geocode to resolve a suggestion without coordinates.")}, ["title"])
+S["AddressSuggestionList"] = obj({"suggestions": arr(ref("AddressSuggestion"), maxItems=MP["autocompleteMaxSuggestions"], description="Empty = nothing found.")}, ["suggestions"])
+S["GeocodeRequest"] = obj({"query": s(minLength=1, maxLength=300), "placeId": s()}, ["query"])
+S["GeocodeResult"] = obj({"address": s(), "latitude": n(minimum=-90, maximum=90), "longitude": n(minimum=-180, maximum=180), "placeId": s()},
+                         desc="No coordinates = no match (200, never 404).")
+S["ReverseGeocodeRequest"] = obj({"latitude": n(minimum=-90, maximum=90), "longitude": n(minimum=-180, maximum=180)}, ["latitude", "longitude"])
+S["ReverseGeocodeResult"] = obj({"address": {"type": ["string", "null"], "description": "null or blank = no name for this point."},
+                                 "latitude": n(minimum=-90, maximum=90), "longitude": n(minimum=-180, maximum=180)}, ["address", "latitude", "longitude"],
+                                "The address in the caller's profile language (or Accept-Language when sent).")
+S["LatLng"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180)}, ["lat", "lng"])
+S["RouteRequest"] = obj({"mode": s(enum=MP["routeModes"]), "from": ref("LatLng"), "to": ref("LatLng")}, ["mode", "from", "to"])
+S["RoadRoute"] = obj({"points": arr(ref("LatLng"), minItems=2, description="The road geometry, in order."), "distanceMeters": i(minimum=0),
+                      "durationSeconds": ref("DurationSeconds"), "provider": s(examples=["osrm"])}, ["points"],
+                     "Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.")
+S["OsrmManeuver"] = obj({"type": s(), "modifier": s(), "location": arr(n(), minItems=2, maxItems=2, description="[lng, lat]"), "exit": i(), "bearing_before": n(), "bearing_after": n()},
+                        ["type", "location"])
+S["OsrmIntersection"] = obj({"classes": arr(s()), "lanes": arr(obj({"indications": arr(s()), "valid": b()}))})
+S["OsrmStep"] = obj({"name": s(), "ref": s(), "destinations": s(), "exits": s(), "driving_side": s(), "distance": n(minimum=0), "duration": n(minimum=0),
+                     "maneuver": ref("OsrmManeuver"), "intersections": arr(ref("OsrmIntersection"))}, ["distance", "maneuver"])
+S["OsrmRoute"] = obj({"geometry": obj({"type": s(const="LineString"), "coordinates": arr(arr(n(), minItems=2, maxItems=2), minItems=2, description="[lng, lat] pairs")}, ["coordinates"]),
+                      "distance": n(minimum=0), "duration": n(minimum=0), "legs": arr(obj({"steps": arr(ref("OsrmStep")), "distance": n(), "duration": n()}))},
+                     ["geometry", "distance", "duration"])
+S["OsrmRouteResponse"] = obj({"code": s("Ok, or NoRoute (still 200).", examples=["Ok", "NoRoute"]), "routes": arr(ref("OsrmRoute")), "waypoints": arr({"type": "object"})}, ["code", "routes"],
+                             "OSRM v5 route response passed through from Movera's OSRM; only the documented subset is contract, other fields may appear.")
+TL = C["telemetry"]
+S["TelemetryLog"] = obj({"level": s(enum=TL["levels"]), "event": s(minLength=1, maxLength=200), "extra": {"type": "object"}, "error": s(maxLength=4000)}, ["level", "event"])
+S["TelemetryEvent"] = obj({"event": s(minLength=1, maxLength=200), "extra": {"type": "object"}}, ["event"])
+S["TelemetryCrash"] = obj({"error": s(maxLength=4000), "stack": s(maxLength=12000), "extra": {"type": "object"}}, ["error"])
+LD = C["liveDrivers"]
+S["LiveDriver"] = obj(OrderedDict([("driverId", ref("Id")), ("firstName", s()), ("onlineStatus", ref("DriverOnlineStatus")), ("moving", b()),
+                                   ("location", ref("GeoFix")), ("lastFixAt", ref("Timestamp")),
+                                   ("stale", b(f"No fix for more than staleAfterSeconds ({LD['staleAfterSeconds']} s).")), ("activeTripId", ref("Id")),
+                                   ("tripStatus", ref("TripStatus")), ("vehicleId", ref("Id")), ("plate", s()), ("zoneId", ref("Id"))]),
+                      ["driverId", "firstName", "onlineStatus", "stale", "zoneId"])
+S["LiveDriverList"] = obj({"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp")},
+                          ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
+S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
+                     f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
+RN = C["riderNearby"]
+S["NearbyVehicle"] = obj(OrderedDict([
+    ("key", s("Opaque, the same for one car through the day (it changes every day), so the app can move the car smoothly between answers. Not a driver or vehicle id.", minLength=6, maxLength=32)),
+    ("lat", n(f"Rounded to {RN['roundDecimals']} decimals.", minimum=-90, maximum=90)),
+    ("lng", n(f"Rounded to {RN['roundDecimals']} decimals.", minimum=-180, maximum=180)),
+    ("heading", n("Degrees clockwise from north, from the latest fix; absent when unknown.", minimum=0, maximum=360)),
+]), ["key", "lat", "lng"], "A free car near the rider (v0.5.2). Nothing that tells who drives it.")
+S["NearbyVehicleList"] = obj({"items": arr(ref("NearbyVehicle"), maxItems=RN["maxVehicles"], description="Nearest first."),
+                              "refreshSeconds": {**i(minimum=1), "default": RN["refreshSeconds"]},
+                              "radiusMeters": {**i(minimum=1), "default": RN["radiusMeters"]}},
+                             ["items", "refreshSeconds"], "CONTRACT.md §13: " + RN["note"])
+S["AccountDeletion"] = obj({"status": s(enum=C["accountDeletion"]["status"])}, ["status"], C["accountDeletion"]["note"])
+S["RiderConsents"] = obj({"rideUpdates": b(), "emailUpdates": b(), "promotions": b()})
+
 # --- realtime
 S["RealtimeEvent"] = obj(OrderedDict([
     ("eventId", {"allOf": [ref("Id")], "description": "Server-assigned, unique per committed change (dedupe key)."}),
@@ -576,7 +829,7 @@ S["Page"] = obj({"items": arr({}), "nextCursor": {"type": ["string", "null"], "d
                 ["items", "nextCursor"], "Generic cursor page Page<T>. Concrete pages below narrow `items`.")
 PAGES = ["TripProjection", "Offer", "Rider", "Driver", "Vehicle", "Document", "PaymentIntent", "Refund", "Payout",
          "WalletEntry", "Notification", "Message", "SupportTicket", "Incident", "AuditEntry", "Approval",
-         "SavedPlace", "SavedPaymentMethod", "RealtimeEvent", "Quote", "AdminDispatchEvent"]
+         "SavedPlace", "SavedPaymentMethod", "RealtimeEvent", "Quote", "AdminDispatchEvent", "Fleet"]
 for p in PAGES:
     S[f"{p}Page"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref(p))}}],
                      "description": f"Page<{p}>"}
@@ -607,9 +860,11 @@ S["CreateTripRequest"] = obj({"quoteId": ref("Id"), "categoryId": ref("CategoryI
                              ["quoteId", "categoryId", "pickup", "dropoff", "stops", "kind", "paymentMethod"],
                              "Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes.")
 S["UpdateTripRequest"] = obj(dict(EV, routeQuoteId=ref("Id"), dropoff=ref("Place"), stops=arr(ref("Place")),
-                                  paymentMethod=ref("PaymentMethod"), paymentMethodId=ref("Id")),
+                                  paymentMethod=ref("PaymentMethod"), paymentMethodId=ref("Id"),
+                                  pickup={"allOf": [ref("Place")], "description": "v0.5.1, optional: move the pickup, at most booking.maxPickupMoveMeters after accept."}),
                              ["expectedVersion"], "Route change (needs routeQuoteId from /route-quote) and/or payment method change.")
-S["RouteQuoteRequest"] = obj(dict(EV, dropoff=ref("Place"), stops=arr(ref("Place"))), ["expectedVersion", "stops"])
+S["RouteQuoteRequest"] = obj(dict(EV, dropoff=ref("Place"), stops=arr(ref("Place")),
+                                  pickup={"allOf": [ref("Place")], "description": "v0.5.1, optional: price a moved pickup."}), ["expectedVersion", "stops"])
 S["RatingRequest"] = obj({"stars": i("Whole stars (contract.json#ratings).", minimum=C["ratings"]["min"], maximum=C["ratings"]["max"]), "tags": arr(s(pattern="^[a-z][a-z0-9_]{0,63}$")),
                           "comment": s(maxLength=2000), "skip": b("Skip rating (ratingStatus → skipped)."),
                           "tip": {"allOf": [ref("Money")], "description": "Rider only; creates a tip PaymentIntent."}},
@@ -684,7 +939,29 @@ S["VehicleReviewCommand"] = obj(dict(EV, decision=s(enum=["approved", "rejected"
 S["DocumentReviewCommand"] = obj({"decision": s(enum=["approved", "rejected"]), "expiresAt": ref("Timestamp"),
                                   "note": s(maxLength=1000)}, ["decision"],
                                  "Document has no version in CONTRACT.md §2; Idempotency-Key only.")
-S["ConfigDraftUpdate"] = obj(dict(EV, zoneId=ref("Id"), document={"oneOf": [ref("RiderAppConfig"), ref("DriverAppConfig")]}),
+S["FleetCompany"] = obj({"name": s(minLength=1, maxLength=120), "orgNumber": s("Organisationsnummer (SE) or SIREN / SIRET (FR).", minLength=5, maxLength=20),
+                         "address": s(minLength=1, maxLength=200)}, ["name", "orgNumber", "address"], "v0.5.3: the company of a fleet account.")
+S["FleetJoinRequest"] = obj({"code": s("Case-insensitive; spaces and a missing MV- are forgiven.", minLength=5, maxLength=12),
+                             "ownerName": s("The fleet owner's first and last name as registered (case and spaces are forgiven).", minLength=1, maxLength=120),
+                             "ownerEmail": s("The fleet owner's e-mail as registered (case is forgiven).", format="email")},
+                            ["code", "ownerName", "ownerEmail"],
+                            "v0.5.3: all three must match one approved fleet; any mismatch is 400 invalid_request with reason fleet_join_mismatch "
+                            "(one message for all three). Limited to contract.json#driverOnboarding.fleetCode.joinAttemptsPerHour, then 429.")
+S["DriverOnboardingRequest"] = obj({"firstName": s(minLength=1, maxLength=60), "lastName": s(minLength=1, maxLength=60),
+                                    "dateOfBirth": s("YYYY-MM-DD; younger than minAge → 400 invalid_request (under_age).", format="date"),
+                                    "email": s(format="email"), "country": ref("DriverCountry"),
+                                    "cityId": s("A cityId of the country (invalid_city)."), "language": s(pattern="^[a-z]{2}(-[A-Z]{2})?$"),
+                                    "accountType": ref("DriverAccountType"),
+                                    "termsAccepted": {"type": "boolean", "const": True, "description": "Must be true (terms_required); stored as the terms document, approved."},
+                                    "company": {"allOf": [ref("FleetCompany")], "description": "Required for accountType fleet (company_required); ignored for driver."},
+                                    "fleetJoin": {"allOf": [ref("FleetJoinRequest")], "description": "Optional for accountType driver: join a fleet now (or later with POST /driver/fleet/join)."}},
+                                   ["firstName", "lastName", "dateOfBirth", "email", "country", "cityId", "language", "accountType", "termsAccepted"],
+                                   "v0.5.3: the details screen after the first sign-in. Allowed while accountStatus is pending or on_hold "
+                                   "(a resend replaces the details); active or suspended → 409 invalid_transition. Moves pending → on_hold.")
+S["FleetCodeCommand"] = obj(EV, ["expectedVersion"], "v0.5.3: POST /admin/fleets/{fleetId}/code.")
+S["FleetReviewCommand"] = obj(dict(EV, decision=s(enum=["approved", "rejected", "blocked"]), note=s(maxLength=1000)), ["expectedVersion", "decision"],
+                              "v0.5.3: approved makes the fleet code (first approval) and lets drivers join; blocked takes every linked driver offline and withdraws their offers.")
+S["ConfigDraftUpdate"] = obj(dict(EV, zoneId=ref("Id"), document={"oneOf": [ref("RiderAppConfig"), ref("DriverAppConfig"), ref("PricingDocument"), ref("DispatchDocument")]}),
                              ["expectedVersion", "zoneId", "document"])
 S["ConfigPublishCommand"] = obj(dict(EV, zoneId=ref("Id"), note=s(maxLength=1000)), ["expectedVersion", "zoneId"])
 S["ApprovalDecision"] = obj({"note": s(maxLength=1000)})
@@ -696,10 +973,11 @@ def path_id(name, desc=None):
     if desc: p["description"] = desc
     return p
 for nm in ["tripId", "offerId", "paymentId", "paymentMethodId", "placeId", "notificationId", "driverId", "riderId",
-           "vehicleId", "documentId", "approvalId"]:
+           "vehicleId", "documentId", "approvalId", "fleetId", "invitationId"]:
     PARAMS[nm[0].upper() + nm[1:]] = path_id(nm)
 PARAMS["RideId"] = path_id("rideId", "Deprecated alias of tripId.")
 PARAMS["ZoneId"] = path_id("zoneId")
+PARAMS["AdminId"] = path_id("adminId")
 PARAMS["ConfigDoc"] = {"name": "doc", "in": "path", "required": True, "schema": ref("ConfigDocName")}
 PARAMS["IdempotencyKey"] = {"name": "Idempotency-Key", "in": "header", "required": True,
                             "description": "Required on every mutation. Bound to actor + route + body hash; the same key replays the committed response, a different body under the same key is 409 conflict.",
@@ -746,7 +1024,7 @@ TAGS = OrderedDict()
 
 def op(method, path, opId, summary, actors, tag, params=(), body=None, ok=(200, None), mutation=False,
        transition=None, approval=False, deprecated=False, permission=None, desc=None, ok_desc=None, content=None,
-       body_type="application/json"):
+       body_type="application/json", permission_v050=None, read_only=False, ext=None):
     TAGS.setdefault(tag, None)
     o = OrderedDict()
     o["operationId"] = opId
@@ -757,6 +1035,9 @@ def op(method, path, opId, summary, actors, tag, params=(), body=None, ok=(200, 
     o["x-actor"] = list(actors)
     if transition: o["x-transition"] = transition
     if permission: o["x-permission"] = permission
+    if permission_v050: o["x-permission-v050"] = permission_v050
+    if read_only: o["x-read-only"] = True
+    for k, v in (ext or {}).items(): o[k] = v
     ps = list(params)
     if mutation: ps.append(pref("IdempotencyKey"))
     ps += [pref("RequestId"), pref("ApiVersion")]
@@ -836,6 +1117,12 @@ op("post", "/trips/{tripId}/cancel-reason", "setCancelReason", "Rider tells the 
         "cancellation.reasonCode is still something_else (the code a cancel-first names): sets cancellation.reasonCode and "
         "cancellation.note. Not a lifecycle transition: status, version, sequence, fee and fare do not change and no realtime event "
         "is sent. Any other state (also a reason already told) → 409 invalid_transition; a code outside the rider group → 400 invalid_request.")
+op("post", "/trips/{tripId}/on-the-way", "riderOnTheWay", "Rider says they are on their way to the car", ["rider"], "Rider · Booking",
+   params=TID, ok=(200, TP), mutation=True,
+   desc="v0.5.4, CONTRACT.md §4. The rider's \"I'm on the way\" (shown once the driver has arrived, also while the driver is "
+        "coming) reaches the driver as a `rider_on_the_way` realtime event carrying the current projection. Not a lifecycle "
+        "transition: status and version do not change. Allowed while the trip is accepted, driver_to_pickup or arrived; any "
+        "other state → 409 invalid_transition. No request body.")
 op("get", "/trips/{tripId}/events", "streamTripEvents", "Trip realtime stream (SSE / WebSocket) or JSON replay",
    ["rider", "driver", "admin"], "Realtime", params=TID + [pref("After"), pref("Limit"), pref("LastEventId")],
    content=sse("Server-sent events. A WebSocket upgrade on the same URL carries the same JSON frames.", "RealtimeEvent", "RealtimeEventPage"),
@@ -854,6 +1141,12 @@ op("get", "/rider/trips", "listRiderTrips", "Rider trip history and reservations
 op("get", "/rider/trips/active", "getRiderActiveTrip", "The rider's current non-terminal live trip", ["rider"], "Rider · Booking",
    ok=(200, TP), desc="204 when there is none.")
 PATHS["/rider/trips/active"]["get"]["responses"]["204"] = {"description": "No active trip", "headers": HDR_REQ}
+op("get", "/rider/nearby-vehicles", "getRiderNearbyVehicles", "Free cars near a point, for the rider's map", ["rider"], "Rider · Booking",
+   params=[{**q("lat", n(minimum=-90, maximum=90)), "required": True}, {**q("lng", n(minimum=-180, maximum=180)), "required": True}],
+   ok=(200, "NearbyVehicleList"), read_only=True,
+   desc=f"CONTRACT.md §13 (v0.5.2). Drivers online and free within {RN['radiusMeters']} m of the point with a fix not older than "
+        f"{RN['freshSeconds']} s, nearest first, at most {RN['maxVehicles']}. No id, name, plate or trip; positions rounded to "
+        f"{RN['roundDecimals']} decimals. The app asks again every refreshSeconds while the rider chooses a ride. An empty list is normal.")
 op("get", "/rider/config", "getRiderConfig", "Published RiderAppConfig for a zone", ["rider"], "Config",
    params=[pref("ZoneIdQuery")], ok=(200, "RiderAppConfig"))
 op("get", "/rider/config/stream", "streamRiderConfig", "config_published events for the rider document", ["rider"], "Realtime",
@@ -958,6 +1251,41 @@ op("get", "/driver/documents", "listDriverDocuments", "Own and vehicle documents
 op("post", "/driver/documents", "uploadDriverDocument", "Upload a document (status in_review)", ["driver"], "Driver · Account",
    body="DocumentUpload", body_type="multipart/form-data", ok=(201, "Document"), mutation=True)
 
+# ---- v0.5.3 (CONTRACT.md §14): onboarding, fleets, document files
+FILE_CONTENT = {mt: {"schema": {"type": "string", "format": "binary"}} for mt in DO["documents"]["upload"]["mediaTypes"]}
+op("post", "/driver/onboarding", "submitDriverOnboarding", "Send the sign-up details (once; the account goes on hold)", ["driver"], "Driver · Account",
+   body="DriverOnboardingRequest", ok=(200, "Driver"), mutation=True,
+   desc="v0.5.3. Validation reasons: under_age, country_not_open, invalid_city, invalid_email, terms_required, company_required, fleet_join_mismatch. "
+        "A fleet account gets a Fleet in status pending; a driver account with fleetJoin is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). "
+        "accountStatus pending → on_hold.")
+op("get", "/driver/fleet", "getDriverFleet", "Own fleet: company, drivers and cars", ["driver"], "Driver · Fleet", ok=(200, "FleetView"),
+   desc="v0.5.3. The owner sees the code (after approval), the drivers and the cars; a member sees the company and the cars, no code and no drivers. No fleet → 404.")
+op("post", "/driver/fleet/join", "joinFleet", "Ask to join a fleet with its code, the owner's name and e-mail", ["driver"], "Driver · Fleet",
+   body="FleetJoinRequest", ok=(201, "FleetInvitation"), mutation=True,
+   desc="v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations); a pending request already open → 200 with it. "
+        "Driver accounts only (a fleet account → 409 invalid_transition, fleet_account); already in a fleet → 409 invalid_transition (already_in_fleet).")
+op("post", "/driver/fleet/invite", "inviteFleetDriver", "Owner: invite a driver by phone number", ["driver"], "Driver · Fleet",
+   body="FleetInviteRequest", ok=(201, "FleetInvitation"), mutation=True,
+   desc="v0.5.3. Owner of an approved fleet only (else 403 / 409 fleet_not_approved). A number already in a fleet → 409 invalid_transition (already_in_fleet); the owner's own number → 400. An open invite to the same number → 200 with it.")
+op("get", "/driver/fleet/invitations", "listFleetInvitations", "Pending invitations: incoming and own", ["driver"], "Driver · Fleet",
+   ok=(200, "FleetInvitationList"), desc="v0.5.3. A driver account: owner invites waiting for him and his own open request; an owner: his fleet's open requests and invites.")
+for seg, opid, summ, d in [
+    ("accept", "acceptFleetInvitation", "Accept (the driver an invite, the owner a request)", "Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired)."),
+    ("decline", "declineFleetInvitation", "Decline (the driver an invite, the owner a request)", "Closed; the sender is told."),
+    ("cancel", "cancelFleetInvitation", "Cancel one's own request or invite", "Only the side that created it."),
+]:
+    op("post", f"/driver/fleet/invitations/{{invitationId}}/{seg}", opid, summ, ["driver"], "Driver · Fleet",
+       params=[pref("InvitationId")], ok=(200, "FleetInvitation"), mutation=True, desc=f"v0.5.3. {d} Not pending → 409 invalid_transition.")
+op("post", "/driver/fleet/leave", "leaveFleet", "Leave the fleet (not during a trip)", ["driver"], "Driver · Fleet", ok=(200, "Driver"), mutation=True,
+   desc="v0.5.3. The car is released and the driver goes offline if online; on a trip → 409 invalid_transition (on_trip); the owner cannot leave (fleet_owner).")
+op("post", "/driver/fleet/drivers/{driverId}/remove", "removeFleetDriver", "Owner: remove a driver from the fleet", ["driver"], "Driver · Fleet",
+   params=[pref("DriverId")], ok=(204, None), mutation=True,
+   desc="v0.5.3. Owner only (else 403). The driver's car is released and he goes offline; on a trip → 409 invalid_transition (on_trip).")
+op("get", "/driver/fleet/earnings", "getFleetEarnings", "Owner: every driver's earnings in a period", ["driver"], "Driver · Fleet",
+   params=[pref("From"), pref("To")], ok=(200, "FleetEarnings"), desc="v0.5.3. Owner only (else 403). Defaults to the current week (zone time).")
+op("get", "/driver/documents/{documentId}/file", "getDriverDocumentFile", "The uploaded file (own or own fleet's)", ["driver"], "Driver · Account",
+   params=[pref("DocumentId")], content=FILE_CONTENT, ok=(200, None), ok_desc="The file, with its media type.",
+   desc="v0.5.3. The owner of the document, or the fleet owner for his drivers' and cars' documents; anyone else → 404.")
 # ---- Admin
 AL = [pref("Cursor"), pref("Limit")]
 lists = {
@@ -967,40 +1295,45 @@ lists = {
     "riders": ("RiderPage", "riders.read", [q("status", {"type": "string", "enum": ["active", "suspended"]}), pref("ZoneIdQuery"), pref("Q")]),
     "drivers": ("DriverPage", "drivers.read", [q("accountStatus", ref("DriverAccountStatus"), multi=True),
                 q("onlineStatus", ref("DriverOnlineStatus"), multi=True), pref("ZoneIdQuery"), q("categoryId", ref("CategoryId")), pref("Q")]),
-    "vehicles": ("VehiclePage", "fleet.read", [q("status", ref("VehicleStatus"), multi=True), q("driverId", ref("Id")),
+    "fleets": ("FleetPage", "drivers.read", [q("status", ref("FleetStatus"), multi=True), q("country", ref("DriverCountry")), pref("ZoneIdQuery"), pref("Q")]),
+    "vehicles": ("VehiclePage", "drivers.read", [q("status", ref("VehicleStatus"), multi=True), q("driverId", ref("Id")), q("fleetId", ref("Id")),
                  q("categoryId", ref("CategoryId")), pref("Q")]),
-    "payments": ("PaymentIntentPage", "payments.read", [q("status", ref("PaymentStatus"), multi=True), q("method", ref("PaymentMethod")),
+    "payments": ("PaymentIntentPage", "finance.read", [q("status", ref("PaymentStatus"), multi=True), q("method", ref("PaymentMethod")),
                  q("tripId", ref("Id")), q("riderId", ref("Id")), pref("ZoneIdQuery"), pref("From"), pref("To")]),
-    "refunds": ("RefundPage", "payments.read", [q("status", ref("RefundStatus"), multi=True), q("paymentId", ref("Id")), q("tripId", ref("Id")),
+    "refunds": ("RefundPage", "finance.read", [q("status", ref("RefundStatus"), multi=True), q("paymentId", ref("Id")), q("tripId", ref("Id")),
                 pref("From"), pref("To")]),
-    "payouts": ("PayoutPage", "payments.read", [q("status", {"type": "string", "enum": ["pending", "pending_approval", "paid", "failed", "held"]}, multi=True),
+    "payouts": ("PayoutPage", "finance.read", [q("status", {"type": "string", "enum": ["pending", "pending_approval", "paid", "failed", "held"]}, multi=True),
                 q("driverId", ref("Id")), pref("From"), pref("To")]),
-    "tickets": ("SupportTicketPage", "support.read", [q("status", {"type": "string", "enum": ["open", "pending", "resolved", "closed"]}, multi=True),
+    "tickets": ("SupportTicketPage", "support.reply", [q("status", {"type": "string", "enum": ["open", "pending", "resolved", "closed"]}, multi=True),
                 q("priority", {"type": "string", "enum": ["low", "normal", "high", "urgent"]}), q("tripId", ref("Id")),
                 q("riderId", ref("Id")), q("driverId", ref("Id")), pref("Q")]),
-    "incidents": ("IncidentPage", "safety.read", [q("status", {"type": "string", "enum": ["open", "investigating", "resolved", "dismissed"]}, multi=True),
+    "incidents": ("IncidentPage", "incidents.read", [q("status", {"type": "string", "enum": ["open", "investigating", "resolved", "dismissed"]}, multi=True),
                   q("severity", {"type": "string", "enum": ["low", "medium", "high", "critical"]}), q("kind", {"type": "string"}),
                   q("tripId", ref("Id")), pref("ZoneIdQuery"), pref("From"), pref("To")]),
 }
+PERM_V050 = {"vehicles": "fleet.read", "payments": "payments.read", "refunds": "payments.read", "payouts": "payments.read",
+             "tickets": "support.read", "incidents": "safety.read"}
 for name, (page, perm, filt) in lists.items():
     op("get", f"/admin/{name}", f"adminList{name.capitalize()}", f"List {name} (cursor paging)", ["admin"], "Admin · Lists",
-       params=AL + filt, ok=(200, page), permission=perm,
+       params=AL + filt, ok=(200, page), permission=perm, permission_v050=PERM_V050.get(name),
        desc="Results are limited to the zones in the admin's token scope.")
 op("get", "/admin/trips/{tripId}", "adminGetTrip", "Trip detail incl. money split", ["admin"], "Admin · Trips",
    params=TID, ok=(200, TP), permission="trips.read")
 for seg, cmd, opid, body, summ, perm, appr, okc in [
-        ("cancel", "cancel", "adminCancelTrip", "AdminCancelCommand", "Cancel any non-terminal trip", "trips.edit", False, (200, TP)),
-        ("reassign", "reassign", "adminReassignTrip", "AdminReassignCommand", "Take the trip from its driver, back to searching", "trips.edit", False, (200, TP)),
-        ("assign", "assign", "adminAssignTrip", "AdminAssignCommand", "Direct assign: exclusive offer to one driver (Assigned by Movera)", "trips.edit", False, (200, TP)),
-        ("radar-group", "assign", "adminSendRadarGroup", "AdminRadarGroupCommand", "Send the trip to a radar group of up to 10 drivers", "trips.edit", False, (200, "AdminRadarGroup")),
-        ("no-show", "no_show", "adminMarkNoShow", "AdminNoShowCommand", "Mark rider no-show", "trips.edit", False, (200, TP)),
-        ("complete", "complete", "adminCompleteTrip", "AdminCompleteCommand", "Force-complete a stuck onboard trip", "trips.edit", False, (200, TP)),
-        ("refund", None, "adminRefundTrip", "AdminRefundCommand", "Refund (full or partial)", "payments.edit", True, (201, "Refund")),
-        ("adjust", None, "adminAdjustTrip", "AdminAdjustCommand", "Adjust fare / waiting / waive cancel fee", "trips.edit", True, (200, TP)),
-        ("driver-bonus", None, "adminAddDriverBonus", "AdminDriverBonusCommand", "Add money to the trip for the driver (paid by Movera)", "trips.edit", False, (200, TP))]:
+        ("cancel", "cancel", "adminCancelTrip", "AdminCancelCommand", "Cancel any non-terminal trip", "trips.intervene", False, (200, TP)),
+        ("reassign", "reassign", "adminReassignTrip", "AdminReassignCommand", "Take the trip from its driver, back to searching", "trips.intervene", False, (200, TP)),
+        ("assign", "assign", "adminAssignTrip", "AdminAssignCommand", "Direct assign: exclusive offer to one driver (Assigned by Movera)", "trips.intervene", False, (200, TP)),
+        ("radar-group", "assign", "adminSendRadarGroup", "AdminRadarGroupCommand", "Send the trip to a radar group of up to 10 drivers", "trips.intervene", False, (200, "AdminRadarGroup")),
+        ("no-show", "no_show", "adminMarkNoShow", "AdminNoShowCommand", "Mark rider no-show", "trips.intervene", False, (200, TP)),
+        ("complete", "complete", "adminCompleteTrip", "AdminCompleteCommand", "Force-complete a stuck onboard trip", "trips.intervene", False, (200, TP)),
+        ("refund", None, "adminRefundTrip", "AdminRefundCommand", "Refund (full or partial)", "payments.refund", True, (201, "Refund")),
+        ("adjust", None, "adminAdjustTrip", "AdminAdjustCommand", "Adjust fare / waiting / waive cancel fee", "trips.intervene", True, (200, TP)),
+        ("driver-bonus", None, "adminAddDriverBonus", "AdminDriverBonusCommand", "Add money to the trip for the driver (paid by Movera)", "trips.intervene", False, (200, TP))]:
     op("post", f"/admin/trips/{{tripId}}/{seg}", opid, summ, ["admin"], "Admin · Trips", params=TID, body=body, ok=okc,
-       mutation=True, transition=cmd, approval=appr, permission=perm,
-       desc=None if cmd else "Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).")
+       mutation=True, transition=cmd, approval=appr, permission=perm, permission_v050="payments.edit" if seg == "refund" else "trips.edit",
+       desc=(None if cmd else "Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).")
+            if not appr else ("Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection). " if not cmd else "")
+            + "Above the role limit → 202 pending_approval, except for a Super admin (approvalExempt): 200 / 201 at once, written in the audit (owner decision 14).")
 op("get", "/admin/trips/{tripId}/offers", "adminListTripOffers", "Offers of a trip (who has it, countdown)", ["admin"], "Admin · Dispatch",
    params=TID + AL, ok=(200, "OfferPage"), permission="trips.read")
 op("get", "/admin/trips/{tripId}/nearby-drivers", "adminNearbyDrivers", "Active drivers near the trip's pickup", ["admin"], "Admin · Dispatch",
@@ -1012,39 +1345,143 @@ op("get", "/admin/dispatch/stream", "adminStreamDispatch", "Admin dispatch feed 
    params=[pref("ZoneIdQuery"), pref("After"), pref("LastEventId")], content=sse("Server-sent events.", "AdminDispatchEvent", "AdminDispatchEventPage"),
    permission="trips.read")
 op("post", "/admin/drivers/{driverId}/status", "adminSetDriverStatus", "Set driver account status", ["admin"], "Admin · People",
-   params=[pref("DriverId")], body="DriverStatusCommand", ok=(200, "Driver"), mutation=True, permission="drivers.edit")
+   params=[pref("DriverId")], body="DriverStatusCommand", ok=(200, "Driver"), mutation=True, permission="drivers.activate", permission_v050="drivers.edit")
 op("post", "/admin/riders/{riderId}/status", "adminSetRiderStatus", "Set rider status", ["admin"], "Admin · People",
-   params=[pref("RiderId")], body="RiderStatusCommand", ok=(200, "Rider"), mutation=True, permission="riders.edit")
+   params=[pref("RiderId")], body="RiderStatusCommand", ok=(200, "Rider"), mutation=True, permission="riders.block", permission_v050="riders.edit")
 op("post", "/admin/vehicles/{vehicleId}/review", "adminReviewVehicle", "Approve / reject / block a vehicle", ["admin"], "Admin · People",
-   params=[pref("VehicleId")], body="VehicleReviewCommand", ok=(200, "Vehicle"), mutation=True, permission="fleet.edit")
+   params=[pref("VehicleId")], body="VehicleReviewCommand", ok=(200, "Vehicle"), mutation=True, permission="vehicles.edit", permission_v050="fleet.edit")
 op("post", "/admin/documents/{documentId}/review", "adminReviewDocument", "Approve / reject a document", ["admin"], "Admin · People",
-   params=[pref("DocumentId")], body="DocumentReviewCommand", ok=(200, "Document"), mutation=True, permission="drivers.edit")
+   params=[pref("DocumentId")], body="DocumentReviewCommand", ok=(200, "Document"), mutation=True, permission="documents.approve", permission_v050="drivers.edit")
+# ---- v0.5.3 (CONTRACT.md §14): fleets and document files
+op("get", "/admin/drivers/{driverId}", "adminGetDriver", "Driver detail (details, fleet, documents)", ["admin"], "Admin · People",
+   params=[pref("DriverId")], ok=(200, "Driver"), permission="drivers.read", desc="v0.5.3.")
+op("get", "/admin/fleets/{fleetId}", "adminGetFleet", "Fleet detail: company, code, drivers and cars", ["admin"], "Admin · People",
+   params=[pref("FleetId")], ok=(200, "FleetView"), permission="drivers.read", desc="v0.5.3.")
+op("post", "/admin/fleets/{fleetId}/review", "adminReviewFleet", "Approve / reject / block a fleet", ["admin"], "Admin · People",
+   params=[pref("FleetId")], body="FleetReviewCommand", ok=(200, "Fleet"), mutation=True, permission="drivers.activate",
+   desc="v0.5.3. The first approval makes the join code (contract.json#driverOnboarding.fleetCode). Approving the fleet does not activate its owner as a driver: POST /admin/drivers/{driverId}/status does, when his own documents are approved.")
+op("post", "/admin/fleets/{fleetId}/code", "adminRenewFleetCode", "Make a new join code (the old one stops working)", ["admin"], "Admin · People",
+   params=[pref("FleetId")], body="FleetCodeCommand", ok=(200, "Fleet"), mutation=True, permission="drivers.activate", desc="v0.5.3. Approved fleets only (409 invalid_transition).")
+for seg, opid, summ in [("accept", "adminAcceptFleetInvitation", "Accept a pending invitation or request for the fleet"), ("cancel", "adminCancelFleetInvitation", "Cancel a pending invitation or request")]:
+    op("post", f"/admin/fleets/{{fleetId}}/invitations/{{invitationId}}/{seg}", opid, summ, ["admin"], "Admin · People",
+       params=[pref("FleetId"), pref("InvitationId")], ok=(200, "FleetInvitation"), mutation=True, permission="drivers.activate",
+       desc="v0.5.3. The same effect as the driver's or owner's answer; written in the audit.")
+op("post", "/admin/fleets/{fleetId}/drivers/{driverId}/remove", "adminRemoveFleetDriver", "Remove a driver from a fleet", ["admin"], "Admin · People",
+   params=[pref("FleetId"), pref("DriverId")], ok=(204, None), mutation=True, permission="drivers.activate",
+   desc="v0.5.3. Same effect as the owner's POST /driver/fleet/drivers/{driverId}/remove; written in the audit.")
+op("get", "/admin/documents/{documentId}/file", "adminGetDocumentFile", "The uploaded file", ["admin"], "Admin · People",
+   params=[pref("DocumentId")], content=FILE_CONTENT, ok=(200, None), ok_desc="The file, with its media type.", permission="documents.approve",
+   desc="v0.5.3. Read in the admin's zones only; every read is written in the audit.")
 op("get", "/admin/config/{doc}", "adminGetConfigDraft", "Get the config draft for a zone", ["admin"], "Admin · Config",
-   params=[pref("ConfigDoc"), pref("ZoneIdRequired")], ok=(200, "ConfigDraft"), permission="config.read")
+   params=[pref("ConfigDoc"), pref("ZoneIdRequired")], ok=(200, "ConfigDraft"), permission="settings.read", permission_v050="config.read",
+   desc="pricing and dispatch (v0.5.1) are server-only documents: only admins with settings.read read them; GET /rider/config and /driver/config never include them.")
 op("put", "/admin/config/{doc}", "adminPutConfigDraft", "Replace the config draft", ["admin"], "Admin · Config",
-   params=[pref("ConfigDoc")], body="ConfigDraftUpdate", ok=(200, "ConfigDraft"), mutation=True, permission="config.edit")
+   params=[pref("ConfigDoc")], body="ConfigDraftUpdate", ok=(200, "ConfigDraft"), mutation=True, permission="settings.edit", permission_v050="config.edit",
+   ext={"x-permission-by-doc": {"rider_app_config": "settings.edit", "driver_app_config": "settings.edit", "pricing": "settings.edit", "dispatch": "dispatch.edit"}},
+   desc="The draft's document must be the doc's schema (pricing → PricingDocument, dispatch → DispatchDocument, v0.5.1). x-permission-by-doc: the admin panel saves dispatch rules with dispatch.edit.")
 op("post", "/admin/config/{doc}/publish", "adminPublishConfig", "Publish the draft (two-person approval)", ["admin"], "Admin · Config",
    params=[pref("ConfigDoc")], body="ConfigPublishCommand", ok=(200, "ConfigPublication"), mutation=True, approval=True,
-   permission="config.edit", desc="Normally 202 pending_approval; 200 when the approver publishes directly. Emits config_published.")
+   permission="settings.publish", permission_v050="config.edit",
+   ext={"x-permission-by-doc": {"rider_app_config": "settings.publish", "driver_app_config": "settings.publish", "pricing": "settings.publish", "dispatch": "dispatch.edit"},
+        "x-approver-permission-by-doc": {"rider_app_config": "settings.publish", "driver_app_config": "settings.publish", "pricing": "settings.publish", "dispatch": "dispatch.approve"}},
+   desc="Normally 202 pending_approval; 200 when the approver publishes directly, and always 200 for a Super admin (approvalExempt, owner decision 14, v0.5.1). "
+        "Emits config_published on the app streams for rider_app_config and driver_app_config only; pricing and dispatch (server-only) are published with the same version rule but never reach the apps.")
 op("get", "/admin/zones/{zoneId}/surge", "adminGetSurge", "The zone's current surge schedule", ["admin"], "Admin · Config",
-   params=[pref("ZoneId")], ok=(200, "SurgeSchedule"), permission="pricing.read", desc="204 when the zone has none (flat ×1.0).")
+   params=[pref("ZoneId")], ok=(200, "SurgeSchedule"), permission="settings.read", permission_v050="pricing.read", desc="204 when the zone has none (flat ×1.0).")
 PATHS["/admin/zones/{zoneId}/surge"]["get"]["responses"]["204"] = {"description": "No surge schedule", "headers": HDR_REQ}
 op("put", "/admin/zones/{zoneId}/surge", "adminPutSurge", "Create or replace the zone's surge schedule (curve)", ["admin"], "Admin · Config",
-   params=[pref("ZoneId")], body="SurgeScheduleCommand", ok=(200, "SurgeSchedule"), mutation=True, approval=True, permission="pricing.edit",
+   params=[pref("ZoneId")], body="SurgeScheduleCommand", ok=(200, "SurgeSchedule"), mutation=True, approval=True, permission="settings.publish", permission_v050="pricing.edit",
    desc="contract.json#surge, CONTRACT.md §3.4. Points above the zone's cap → 400 invalid_request. Above the role limit → 202 pending_approval. New quotes price from it at once; quotes already given keep their multiplier.")
 op("post", "/admin/zones/{zoneId}/surge/end", "adminEndSurge", "End the schedule now (back to ×1.0)", ["admin"], "Admin · Config",
-   params=[pref("ZoneId")], body="ConfigPublishCommand", ok=(200, "SurgeSchedule"), mutation=True, permission="pricing.edit")
+   params=[pref("ZoneId")], body="ConfigPublishCommand", ok=(200, "SurgeSchedule"), mutation=True, permission="settings.publish", permission_v050="pricing.edit")
 op("get", "/admin/audit", "adminListAudit", "Server-written audit log", ["admin"], "Admin · Governance",
    params=AL + [q("actorId", ref("Id")), q("targetType", {"type": "string"}), q("targetId", ref("Id")), q("action", {"type": "string"}),
                 q("result", {"type": "string", "enum": ["committed", "rejected", "denied", "conflict", "pending_approval"]}), pref("From"), pref("To")],
    ok=(200, "AuditEntryPage"), permission="audit.read")
 op("get", "/admin/approvals", "adminListApprovals", "Approval queue", ["admin"], "Admin · Governance",
    params=AL + [q("status", {"type": "string", "enum": ["pending_approval", "approved", "rejected", "expired"]}, multi=True),
-                q("targetType", {"type": "string"})], ok=(200, "ApprovalPage"), permission="approval.read")
+                q("targetType", {"type": "string"})], ok=(200, "ApprovalPage"), permission="approval.decide", permission_v050="approval.read")
 for d in ["approve", "reject"]:
     op("post", f"/admin/approvals/{{approvalId}}/{d}", f"adminApproval{d.capitalize()}", f"{d.capitalize()} a pending action (not the requester)",
        ["admin"], "Admin · Governance", params=[pref("ApprovalId")], body="ApprovalDecision", ok=(200, "Approval"), mutation=True,
        permission="approval.decide")
+
+# ---- v0.5.1
+# Admin sign-in (CONTRACT.md §9, owner decisions 9 and 14). No bearer token on sign-in, setup and refresh.
+AU_A = C["auth"]["admin"]
+for o in [
+    op("post", "/admin/auth/sign-in", "adminSignIn", "Admin sign-in with e-mail and password", ["admin"], "Admin · Auth",
+       body="AdminSignInRequest", ok=(200, "AdminSession"),
+       desc="Unknown e-mail, wrong password or deactivated account → 401 unauthenticated with reason invalid_credentials (one generic answer). "
+            "Failed attempts are slowed, then locked: 429 rate_limited with Retry-After. No second factor in v0.5.1; a SECOND_FACTOR_REQUIRED answer is reserved for later (contract.json#auth.admin.secondFactor)."),
+    op("post", "/admin/auth/setup-password", "adminSetupPassword", "Choose the password from a one-time setup link", ["admin"], "Admin · Auth",
+       body="SetupPasswordRequest", ok=(200, "AdminSession"),
+       desc=f"Password shorter than {AU_A['passwordMinLength']} → 400 invalid_request (weak_password); unknown token → 400 invalid_request (invalid_setup_token); "
+            f"a link older than {AU_A['setupLinkHours']} h → 410 otp_expired (setup_link_expired); used already → 410 otp_expired (setup_link_used). Signs the admin in."),
+    op("post", "/admin/auth/setup-password/check", "adminCheckSetupLink", "Who a setup link is for, before the password form", ["admin"], "Admin · Auth",
+       body="SetupTokenRequest", ok=(200, "SetupLinkInfo"), read_only=True, desc="Read-only: the link stays unused. Same 400 / 410 answers as setup-password."),
+    op("post", "/admin/auth/refresh", "adminRefresh", "Rotate the admin refresh token", ["admin"], "Admin · Auth",
+       body="RefreshRequest", ok=(200, "AdminSession"), desc=f"Rotated on every call; lives at most {AU_A['refreshExpiresHours']} h. A used, revoked or unknown token → 401 unauthenticated. Separate from /auth/refresh (rider and driver)."),
+]:
+    o["security"] = []
+for p in ["/admin/auth/setup-password", "/admin/auth/setup-password/check"]:
+    PATHS[p]["post"]["responses"]["410"] = err("otp_expired: the setup link expired (setup_link_expired) or was used (setup_link_used); ask for a new link.")
+op("post", "/admin/auth/sign-out", "adminSignOut", "End this admin session", ["admin"], "Admin · Auth", ok=(204, None), desc="Revokes the refresh token; idempotent.")
+op("get", "/admin/auth/me", "adminMe", "The signed-in admin: role, expanded permissions, scope", ["admin"], "Admin · Auth", ok=(200, "AdminMe"))
+op("post", "/admin/agents/{adminId}/setup-link", "adminIssueSetupLink", "Issue a one-time password setup link for an admin", ["admin"], "Admin · Auth",
+   params=[pref("AdminId")], ok=(201, "SetupLink"), mutation=True, permission="team.edit",
+   desc=f"Single use, {AU_A['setupLinkHours']} h; a new link revokes the admin's earlier unused one. The first Super admin's link comes from the server seed / CLI.")
+# Locations and routes (CONTRACT.md §10, owner decision 4). Read-only POSTs: no Idempotency-Key.
+op("post", "/locations/autocomplete", "autocompleteAddress", "Address suggestions while typing", ["rider"], "Maps",
+   body="AutocompleteRequest", ok=(200, "AddressSuggestionList"), read_only=True,
+   desc="Body uses latitude / longitude (wire exception). Google Places through the server; the server keeps its own session tokens and cache. An empty list = nothing found.")
+op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address or a suggestion", ["rider"], "Maps",
+   body="GeocodeRequest", ok=(200, "GeocodeResult"), read_only=True, desc="No match → 200 without coordinates (never 404).")
+op("post", "/locations/reverse-geocode", "reverseGeocode", "Address of a point", ["rider", "driver"], "Maps",
+   body="ReverseGeocodeRequest", ok=(200, "ReverseGeocodeResult"), read_only=True, desc="Bad coordinates → 400 invalid_request (invalid_coordinates).")
+op("post", "/routes", "routeBetween", "Road route between two points (Movera OSRM)", ["rider", "driver"], "Maps",
+   body="RouteRequest", ok=(200, "RoadRoute"), read_only=True, desc="No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere else.")
+op("get", "/routes/driving/{coordinates}", "osrmDrivingRoute", "Turn-by-turn route for driver navigation (OSRM v5 pass-through)", ["driver"], "Maps",
+   params=[{"name": "coordinates", "in": "path", "required": True, "description": C["maps"]["osrm"]["coordinates"],
+            "schema": {"type": "string", "pattern": r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?){1,9}$"}},
+           q("overview", {"type": "string", "enum": ["full", "simplified", "false"], "default": "full"}),
+           q("geometries", {"type": "string", "enum": C["maps"]["osrm"]["geometries"], "default": "geojson"}),
+           q("steps", {"type": "boolean", "default": True}), q("annotations", {"type": "boolean", "default": False}),
+           q("alternatives", {"type": "boolean", "default": False})],
+   ok=(200, "OsrmRouteResponse"),
+   desc=f"Same path syntax and query as OSRM /route/v1/driving. No route → 200 {{code: \"NoRoute\", routes: []}}. About {C['maps']['osrm']['rateLimitPerMinute']} per minute per driver (429). Auth and rate errors use Error.")
+# Telemetry (CONTRACT.md §11): no auth required, no Idempotency-Key, standard headers optional.
+for path, opid, summ, body in [("/telemetry/logs", "postTelemetryLog", "App log line", "TelemetryLog"),
+                               ("/telemetry/analytics", "postTelemetryAnalytics", "App analytics event", "TelemetryEvent"),
+                               ("/telemetry/crashes", "postTelemetryCrash", "App crash report", "TelemetryCrash")]:
+    o = op("post", path, opid, summ, ["rider", "driver", "admin"], "Telemetry", body=body, ok=(202, None), read_only=True, ok_desc="Accepted (empty body)",
+           desc=f"Fire-and-forget. Body at most {C['telemetry']['maxBodyBytes']} bytes (else 400 invalid_request, payload_too_large); rate limited per address and device; "
+                f"scrubbed again by the server and kept {C['telemetry']['keepDays']} days. A bearer token is used when sent.")
+    o["security"] = [{}, {"bearerAuth": []}]
+# Rider: keep waiting, account deletion
+op("post", "/trips/{tripId}/raise-price", "raisePrice", "Raise the offer while searching", ["rider"], "Rider · Booking",
+   params=TID, body="RaisePriceCommand", ok=(200, TP), mutation=True, transition="raise_price",
+   desc="Owner decision 25 (CONTRACT.md §3.6). While the trip is searching or offered: the fare grows by increase (a rider_raise fare line), the whole raise goes to the driver's "
+        "earnings, open offers are withdrawn and a new search starts in which drivers who already declined are asked again at the new price; version + 1. "
+        "Otherwise 409 invalid_transition with the projection. A raise in another currency or a fare above dispatch.raisePrice.maxFactor × the quoted fare is 400 invalid_request.")
+op("post", "/trips/{tripId}/keep-waiting", "answerKeepWaiting", "Answer the Keep waiting? step while searching", ["rider"], "Rider · Booking",
+   params=TID, body="KeepWaitingCommand", ok=(200, TP), mutation=True,
+   desc="Owner decision 24 (CONTRACT.md §3.6). Only while the trip is searching or offered and its searchStep is an unanswered keep_waiting: wait → the search end moves by extraMin; "
+        "stop → the normal free rider cancel (cancel → cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection.")
+op("post", "/account/deletion", "requestAccountDeletion", "Ask to delete the rider account", ["rider"], "Rider · Account",
+   ok=(202, "AccountDeletion"), mutation=True, ok_desc="Accepted; the server erases the account on its own schedule.")
+# Admin: dispatch control, live drivers, trip trace
+op("get", "/admin/zones/{zoneId}/dispatch-control", "adminGetDispatchControl", "The zone's live dispatch switch", ["admin"], "Admin · Dispatch",
+   params=[pref("ZoneId")], ok=(200, "DispatchControl"), permission="trips.read")
+op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "Pause dispatch or force a mode in a zone", ["admin"], "Admin · Dispatch",
+   params=[pref("ZoneId")], body="DispatchControlCommand", ok=(200, "DispatchControl"), mutation=True, approval=True, permission="dispatch.edit",
+   desc="CONTRACT.md §3.6. Pause or force a mode: Super admin at once (200), others 202 pending_approval (owner decision 14). Resume / back to rules (paused false, mode null): 200 for everyone. "
+        "Forcing a mode that is off → 400 invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.")
+op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
+   params=[pref("ZoneIdQuery")], ok=(200, "LiveDriverList"), permission="trips.read",
+   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds.")
+op("get", "/admin/trips/{tripId}/trace", "adminTripTrace", "The trip's GPS trace", ["admin"], "Admin · Trips",
+   params=TID, ok=(200, "TripTrace"), permission="trips.read", desc="Traces are deleted 30 days after the trip (owner decision 11): 404 after that.")
 
 # ---- Deprecated aliases
 o = op("get", "/rides/{rideId}", "getRideDeprecated", "Deprecated alias of GET /trips/{tripId}", ["rider"], "Deprecated",
@@ -1053,7 +1490,9 @@ o = op("post", "/rides/{rideId}/cancel", "cancelRideDeprecated", "Deprecated ali
        params=[pref("RideId")], body="CancelCommand", ok=(200, TP), mutation=True, transition="cancel", deprecated=True)
 
 # ---------------------------------------------------------------- document
-TAG_DESC = {"Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
+TAG_DESC = {"Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
+            "Maps": "Address search, geocoding and road routes through the server (v0.5.1); read-only, no Idempotency-Key",
+            "Telemetry": "Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
             "Deprecated": "Legacy /rides aliases kept for one release"}
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
@@ -1070,9 +1509,11 @@ doc["info"] = {
         "version is `409 version_mismatch` and a command not allowed from the current status is `409 invalid_transition`, both with the current "
         "`projection`.\n\n"
         "Extensions: `x-actor` = actors allowed (derived from the token); `x-transition` = contract.json transition command; "
-        "`x-permission` = admin permission; `x-terminal` on TripStatus = terminal set.\n\n"
+        "`x-permission` = admin permission (AdminPermission, v0.5.1); `x-permission-v050` = the v0.5.0 value it replaced; `x-permission-by-doc` = the permission per config document; "
+        "`x-read-only` = a POST that changes nothing and takes no Idempotency-Key (v0.5.1); `x-server-only` = a document the apps never get; `x-terminal` on TripStatus = terminal set.\n\n"
         "Auth: bearer JWT. Actor (rider|driver|admin), subject id, zone scope and admin role/permissions come from the token, never from the body. "
-        "Token issuance: the Auth tag (v0.5.0, contract.json#auth): phone + SMS code, Apple / Google, refresh rotation; test numbers accept a fixed code outside production."),
+        "Token issuance: the Auth tag (v0.5.0, contract.json#auth): phone + SMS code, Apple / Google, refresh rotation; test numbers accept a fixed code outside production. "
+        "Admin: the Admin · Auth tag (v0.5.1, contract.json#auth.admin): e-mail and password, a one-time setup link, refresh rotation."),
 }
 doc["servers"] = [{"url": "https://api.dev.movera.invalid/api/v1", "description": "Placeholder; no backend exists."}]
 doc["security"] = [{"bearerAuth": []}]

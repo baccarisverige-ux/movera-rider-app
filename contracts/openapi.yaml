@@ -1,11 +1,11 @@
-# Movera API v0.5.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.5.5 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.5.0
+  version: 0.5.5
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.5.0 in this folder; this file must agree with them.
+    v0.5.5 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -19,12 +19,15 @@ info:
 
 
     Extensions: `x-actor` = actors allowed (derived from the token); `x-transition` = contract.json transition command; `x-permission`
-    = admin permission; `x-terminal` on TripStatus = terminal set.
+    = admin permission (AdminPermission, v0.5.1); `x-permission-v050` = the v0.5.0 value it replaced; `x-permission-by-doc`
+    = the permission per config document; `x-read-only` = a POST that changes nothing and takes no Idempotency-Key (v0.5.1);
+    `x-server-only` = a document the apps never get; `x-terminal` on TripStatus = terminal set.
 
 
     Auth: bearer JWT. Actor (rider|driver|admin), subject id, zone scope and admin role/permissions come from the token, never
     from the body. Token issuance: the Auth tag (v0.5.0, contract.json#auth): phone + SMS code, Apple / Google, refresh rotation;
-    test numbers accept a fixed code outside production.'
+    test numbers accept a fixed code outside production. Admin: the Admin · Auth tag (v0.5.1, contract.json#auth.admin): e-mail
+    and password, a one-time setup link, refresh rotation.'
 servers:
 - url: https://api.dev.movera.invalid/api/v1
   description: Placeholder; no backend exists.
@@ -48,17 +51,24 @@ tags:
 - name: Driver · Trip
 - name: Driver · Money
 - name: Driver · Account
+- name: Driver · Fleet
 - name: Admin · Lists
 - name: Admin · Trips
 - name: Admin · Dispatch
 - name: Admin · People
 - name: Admin · Config
 - name: Admin · Governance
+- name: Admin · Auth
+  description: Admin panel sign-in with e-mail and password (v0.5.1)
+- name: Maps
+  description: Address search, geocoding and road routes through the server (v0.5.1); read-only, no Idempotency-Key
+- name: Telemetry
+  description: Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required
 - name: Deprecated
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.5.0
+  version: 0.5.5
   source: contract.json
 paths:
   /auth/otp/request:
@@ -737,6 +747,49 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/on-the-way:
+    post:
+      operationId: riderOnTheWay
+      summary: Rider says they are on their way to the car
+      description: 'v0.5.4, CONTRACT.md §4. The rider''s "I''m on the way" (shown once the driver has arrived, also while
+        the driver is coming) reaches the driver as a `rider_on_the_way` realtime event carrying the current projection. Not
+        a lifecycle transition: status and version do not change. Allowed while the trip is accepted, driver_to_pickup or
+        arrived; any other state → 409 invalid_transition. No request body.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /trips/{tripId}/events:
     get:
       operationId: streamTripEvents
@@ -968,6 +1021,59 @@ paths:
               description: Echo of the request id (server-generated if absent).
               schema:
                 type: string
+  /rider/nearby-vehicles:
+    get:
+      operationId: getRiderNearbyVehicles
+      summary: Free cars near a point, for the rider's map
+      description: CONTRACT.md §13 (v0.5.2). Drivers online and free within 3000 m of the point with a fix not older than
+        120 s, nearest first, at most 15. No id, name, plate or trip; positions rounded to 4 decimals. The app asks again
+        every refreshSeconds while the rider chooses a ride. An empty list is normal.
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      x-read-only: true
+      parameters:
+      - name: lat
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearbyVehicleList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /rider/config:
     get:
       operationId: getRiderConfig
@@ -2956,6 +3062,508 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/onboarding:
+    post:
+      operationId: submitDriverOnboarding
+      summary: Send the sign-up details (once; the account goes on hold)
+      description: 'v0.5.3. Validation reasons: under_age, country_not_open, invalid_city, invalid_email, terms_required,
+        company_required, fleet_join_mismatch. A fleet account gets a Fleet in status pending; a driver account with fleetJoin
+        is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). accountStatus pending → on_hold.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverOnboardingRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet:
+    get:
+      operationId: getDriverFleet
+      summary: 'Own fleet: company, drivers and cars'
+      description: v0.5.3. The owner sees the code (after approval), the drivers and the cars; a member sees the company and
+        the cars, no code and no drivers. No fleet → 404.
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/join:
+    post:
+      operationId: joinFleet
+      summary: Ask to join a fleet with its code, the owner's name and e-mail
+      description: v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations);
+        a pending request already open → 200 with it. Driver accounts only (a fleet account → 409 invalid_transition, fleet_account);
+        already in a fleet → 409 invalid_transition (already_in_fleet).
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetJoinRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/invite:
+    post:
+      operationId: inviteFleetDriver
+      summary: 'Owner: invite a driver by phone number'
+      description: v0.5.3. Owner of an approved fleet only (else 403 / 409 fleet_not_approved). A number already in a fleet
+        → 409 invalid_transition (already_in_fleet); the owner's own number → 400. An open invite to the same number → 200
+        with it.
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetInviteRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/invitations:
+    get:
+      operationId: listFleetInvitations
+      summary: 'Pending invitations: incoming and own'
+      description: 'v0.5.3. A driver account: owner invites waiting for him and his own open request; an owner: his fleet''s
+        open requests and invites.'
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitationList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/invitations/{invitationId}/accept:
+    post:
+      operationId: acceptFleetInvitation
+      summary: Accept (the driver an invite, the owner a request)
+      description: v0.5.3. Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already
+        in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired). Not pending → 409 invalid_transition.
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/InvitationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/invitations/{invitationId}/decline:
+    post:
+      operationId: declineFleetInvitation
+      summary: Decline (the driver an invite, the owner a request)
+      description: v0.5.3. Closed; the sender is told. Not pending → 409 invalid_transition.
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/InvitationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/invitations/{invitationId}/cancel:
+    post:
+      operationId: cancelFleetInvitation
+      summary: Cancel one's own request or invite
+      description: v0.5.3. Only the side that created it. Not pending → 409 invalid_transition.
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/InvitationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/leave:
+    post:
+      operationId: leaveFleet
+      summary: Leave the fleet (not during a trip)
+      description: v0.5.3. The car is released and the driver goes offline if online; on a trip → 409 invalid_transition (on_trip);
+        the owner cannot leave (fleet_owner).
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/drivers/{driverId}/remove:
+    post:
+      operationId: removeFleetDriver
+      summary: 'Owner: remove a driver from the fleet'
+      description: v0.5.3. Owner only (else 403). The driver's car is released and he goes offline; on a trip → 409 invalid_transition
+        (on_trip).
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/fleet/earnings:
+    get:
+      operationId: getFleetEarnings
+      summary: 'Owner: every driver''s earnings in a period'
+      description: v0.5.3. Owner only (else 403). Defaults to the current week (zone time).
+      tags:
+      - Driver · Fleet
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetEarnings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/documents/{documentId}/file:
+    get:
+      operationId: getDriverDocumentFile
+      summary: The uploaded file (own or own fleet's)
+      description: v0.5.3. The owner of the document, or the fleet owner for his drivers' and cars' documents; anyone else
+        → 404.
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/DocumentId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: The file, with its media type.
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/heic:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/trips:
     get:
       operationId: adminListTrips
@@ -3146,6 +3754,61 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/fleets:
+    get:
+      operationId: adminListFleets
+      summary: List fleets (cursor paging)
+      description: Results are limited to the zones in the admin's token scope.
+      tags:
+      - Admin · Lists
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetStatus'
+        style: form
+        explode: true
+      - name: country
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/DriverCountry'
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/vehicles:
     get:
       operationId: adminListVehicles
@@ -3155,7 +3818,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: fleet.read
+      x-permission: drivers.read
+      x-permission-v050: fleet.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3169,6 +3833,11 @@ paths:
         style: form
         explode: true
       - name: driverId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: fleetId
         in: query
         required: false
         schema:
@@ -3214,7 +3883,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: payments.read
+      x-permission: finance.read
+      x-permission-v050: payments.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3280,7 +3950,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: payments.read
+      x-permission: finance.read
+      x-permission-v050: payments.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3340,7 +4011,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: payments.read
+      x-permission: finance.read
+      x-permission-v050: payments.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3401,7 +4073,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: support.read
+      x-permission: support.reply
+      x-permission-v050: support.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3480,7 +4153,8 @@ paths:
       - Admin · Lists
       x-actor:
       - admin
-      x-permission: safety.read
+      x-permission: incidents.read
+      x-permission-v050: safety.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -3593,7 +4267,8 @@ paths:
       x-actor:
       - admin
       x-transition: cancel
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3640,7 +4315,8 @@ paths:
       x-actor:
       - admin
       x-transition: reassign
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3687,7 +4363,8 @@ paths:
       x-actor:
       - admin
       x-transition: assign
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3734,7 +4411,8 @@ paths:
       x-actor:
       - admin
       x-transition: assign
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3781,7 +4459,8 @@ paths:
       x-actor:
       - admin
       x-transition: no_show
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3828,7 +4507,8 @@ paths:
       x-actor:
       - admin
       x-transition: complete
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3870,12 +4550,15 @@ paths:
     post:
       operationId: adminRefundTrip
       summary: Refund (full or partial)
-      description: Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
+      description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
+        Above the role limit → 202 pending_approval, except for a Super admin (approvalExempt): 200 / 201 at once, written
+        in the audit (owner decision 14).'
       tags:
       - Admin · Trips
       x-actor:
       - admin
-      x-permission: payments.edit
+      x-permission: payments.refund
+      x-permission-v050: payments.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3919,12 +4602,15 @@ paths:
     post:
       operationId: adminAdjustTrip
       summary: Adjust fare / waiting / waive cancel fee
-      description: Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
+      description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
+        Above the role limit → 202 pending_approval, except for a Super admin (approvalExempt): 200 / 201 at once, written
+        in the audit (owner decision 14).'
       tags:
       - Admin · Trips
       x-actor:
       - admin
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3973,7 +4659,8 @@ paths:
       - Admin · Trips
       x-actor:
       - admin
-      x-permission: trips.edit
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4162,7 +4849,8 @@ paths:
       - Admin · People
       x-actor:
       - admin
-      x-permission: drivers.edit
+      x-permission: drivers.activate
+      x-permission-v050: drivers.edit
       parameters:
       - $ref: '#/components/parameters/DriverId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4208,7 +4896,8 @@ paths:
       - Admin · People
       x-actor:
       - admin
-      x-permission: riders.edit
+      x-permission: riders.block
+      x-permission-v050: riders.edit
       parameters:
       - $ref: '#/components/parameters/RiderId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4254,7 +4943,8 @@ paths:
       - Admin · People
       x-actor:
       - admin
-      x-permission: fleet.edit
+      x-permission: vehicles.edit
+      x-permission-v050: fleet.edit
       parameters:
       - $ref: '#/components/parameters/VehicleId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4300,7 +4990,8 @@ paths:
       - Admin · People
       x-actor:
       - admin
-      x-permission: drivers.edit
+      x-permission: documents.approve
+      x-permission-v050: drivers.edit
       parameters:
       - $ref: '#/components/parameters/DocumentId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4338,15 +5029,363 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}:
+    get:
+      operationId: adminGetDriver
+      summary: Driver detail (details, fleet, documents)
+      description: v0.5.3.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}:
+    get:
+      operationId: adminGetFleet
+      summary: 'Fleet detail: company, code, drivers and cars'
+      description: v0.5.3.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/review:
+    post:
+      operationId: adminReviewFleet
+      summary: Approve / reject / block a fleet
+      description: 'v0.5.3. The first approval makes the join code (contract.json#driverOnboarding.fleetCode). Approving the
+        fleet does not activate its owner as a driver: POST /admin/drivers/{driverId}/status does, when his own documents
+        are approved.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetReviewCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/code:
+    post:
+      operationId: adminRenewFleetCode
+      summary: Make a new join code (the old one stops working)
+      description: v0.5.3. Approved fleets only (409 invalid_transition).
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetCodeCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/invitations/{invitationId}/accept:
+    post:
+      operationId: adminAcceptFleetInvitation
+      summary: Accept a pending invitation or request for the fleet
+      description: v0.5.3. The same effect as the driver's or owner's answer; written in the audit.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/InvitationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/invitations/{invitationId}/cancel:
+    post:
+      operationId: adminCancelFleetInvitation
+      summary: Cancel a pending invitation or request
+      description: v0.5.3. The same effect as the driver's or owner's answer; written in the audit.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/InvitationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetInvitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/drivers/{driverId}/remove:
+    post:
+      operationId: adminRemoveFleetDriver
+      summary: Remove a driver from a fleet
+      description: v0.5.3. Same effect as the owner's POST /driver/fleet/drivers/{driverId}/remove; written in the audit.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/documents/{documentId}/file:
+    get:
+      operationId: adminGetDocumentFile
+      summary: The uploaded file
+      description: v0.5.3. Read in the admin's zones only; every read is written in the audit.
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: documents.approve
+      parameters:
+      - $ref: '#/components/parameters/DocumentId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: The file, with its media type.
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/heic:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/config/{doc}:
     get:
       operationId: adminGetConfigDraft
       summary: Get the config draft for a zone
+      description: 'pricing and dispatch (v0.5.1) are server-only documents: only admins with settings.read read them; GET
+        /rider/config and /driver/config never include them.'
       tags:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: config.read
+      x-permission: settings.read
+      x-permission-v050: config.read
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
       - $ref: '#/components/parameters/ZoneIdRequired'
@@ -4379,11 +5418,19 @@ paths:
     put:
       operationId: adminPutConfigDraft
       summary: Replace the config draft
+      description: 'The draft''s document must be the doc''s schema (pricing → PricingDocument, dispatch → DispatchDocument,
+        v0.5.1). x-permission-by-doc: the admin panel saves dispatch rules with dispatch.edit.'
       tags:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: config.edit
+      x-permission: settings.edit
+      x-permission-v050: config.edit
+      x-permission-by-doc:
+        rider_app_config: settings.edit
+        driver_app_config: settings.edit
+        pricing: settings.edit
+        dispatch: dispatch.edit
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4425,12 +5472,25 @@ paths:
     post:
       operationId: adminPublishConfig
       summary: Publish the draft (two-person approval)
-      description: Normally 202 pending_approval; 200 when the approver publishes directly. Emits config_published.
+      description: Normally 202 pending_approval; 200 when the approver publishes directly, and always 200 for a Super admin
+        (approvalExempt, owner decision 14, v0.5.1). Emits config_published on the app streams for rider_app_config and driver_app_config
+        only; pricing and dispatch (server-only) are published with the same version rule but never reach the apps.
       tags:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: config.edit
+      x-permission: settings.publish
+      x-permission-v050: config.edit
+      x-permission-by-doc:
+        rider_app_config: settings.publish
+        driver_app_config: settings.publish
+        pricing: settings.publish
+        dispatch: dispatch.edit
+      x-approver-permission-by-doc:
+        rider_app_config: settings.publish
+        driver_app_config: settings.publish
+        pricing: settings.publish
+        dispatch: dispatch.approve
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4479,7 +5539,8 @@ paths:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: pricing.read
+      x-permission: settings.read
+      x-permission-v050: pricing.read
       parameters:
       - $ref: '#/components/parameters/ZoneId'
       - $ref: '#/components/parameters/RequestId'
@@ -4524,7 +5585,8 @@ paths:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: pricing.edit
+      x-permission: settings.publish
+      x-permission-v050: pricing.edit
       parameters:
       - $ref: '#/components/parameters/ZoneId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4572,7 +5634,8 @@ paths:
       - Admin · Config
       x-actor:
       - admin
-      x-permission: pricing.edit
+      x-permission: settings.publish
+      x-permission-v050: pricing.edit
       parameters:
       - $ref: '#/components/parameters/ZoneId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -4689,7 +5752,8 @@ paths:
       - Admin · Governance
       x-actor:
       - admin
-      x-permission: approval.read
+      x-permission: approval.decide
+      x-permission-v050: approval.read
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
@@ -4826,6 +5890,1008 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/auth/sign-in:
+    post:
+      operationId: adminSignIn
+      summary: Admin sign-in with e-mail and password
+      description: 'Unknown e-mail, wrong password or deactivated account → 401 unauthenticated with reason invalid_credentials
+        (one generic answer). Failed attempts are slowed, then locked: 429 rate_limited with Retry-After. No second factor
+        in v0.5.1; a SECOND_FACTOR_REQUIRED answer is reserved for later (contract.json#auth.admin.secondFactor).'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSignInRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /admin/auth/setup-password:
+    post:
+      operationId: adminSetupPassword
+      summary: Choose the password from a one-time setup link
+      description: Password shorter than 10 → 400 invalid_request (weak_password); unknown token → 400 invalid_request (invalid_setup_token);
+        a link older than 72 h → 410 otp_expired (setup_link_expired); used already → 410 otp_expired (setup_link_used). Signs
+        the admin in.
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupPasswordRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '410':
+          description: 'otp_expired: the setup link expired (setup_link_expired) or was used (setup_link_used); ask for a
+            new link.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /admin/auth/setup-password/check:
+    post:
+      operationId: adminCheckSetupLink
+      summary: Who a setup link is for, before the password form
+      description: 'Read-only: the link stays unused. Same 400 / 410 answers as setup-password.'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupTokenRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupLinkInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '410':
+          description: 'otp_expired: the setup link expired (setup_link_expired) or was used (setup_link_used); ask for a
+            new link.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /admin/auth/refresh:
+    post:
+      operationId: adminRefresh
+      summary: Rotate the admin refresh token
+      description: Rotated on every call; lives at most 12 h. A used, revoked or unknown token → 401 unauthenticated. Separate
+        from /auth/refresh (rider and driver).
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /admin/auth/sign-out:
+    post:
+      operationId: adminSignOut
+      summary: End this admin session
+      description: Revokes the refresh token; idempotent.
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/auth/me:
+    get:
+      operationId: adminMe
+      summary: 'The signed-in admin: role, expanded permissions, scope'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/agents/{adminId}/setup-link:
+    post:
+      operationId: adminIssueSetupLink
+      summary: Issue a one-time password setup link for an admin
+      description: Single use, 72 h; a new link revokes the admin's earlier unused one. The first Super admin's link comes
+        from the server seed / CLI.
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      x-permission: team.edit
+      parameters:
+      - $ref: '#/components/parameters/AdminId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /locations/autocomplete:
+    post:
+      operationId: autocompleteAddress
+      summary: Address suggestions while typing
+      description: Body uses latitude / longitude (wire exception). Google Places through the server; the server keeps its
+        own session tokens and cache. An empty list = nothing found.
+      tags:
+      - Maps
+      x-actor:
+      - rider
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutocompleteRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressSuggestionList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /locations/geocode:
+    post:
+      operationId: geocodeAddress
+      summary: Coordinates for an address or a suggestion
+      description: No match → 200 without coordinates (never 404).
+      tags:
+      - Maps
+      x-actor:
+      - rider
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeocodeRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeocodeResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /locations/reverse-geocode:
+    post:
+      operationId: reverseGeocode
+      summary: Address of a point
+      description: Bad coordinates → 400 invalid_request (invalid_coordinates).
+      tags:
+      - Maps
+      x-actor:
+      - rider
+      - driver
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseGeocodeRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReverseGeocodeResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /routes:
+    post:
+      operationId: routeBetween
+      summary: Road route between two points (Movera OSRM)
+      description: No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
+        else.
+      tags:
+      - Maps
+      x-actor:
+      - rider
+      - driver
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoadRoute'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /routes/driving/{coordinates}:
+    get:
+      operationId: osrmDrivingRoute
+      summary: Turn-by-turn route for driver navigation (OSRM v5 pass-through)
+      description: 'Same path syntax and query as OSRM /route/v1/driving. No route → 200 {code: "NoRoute", routes: []}. About
+        30 per minute per driver (429). Auth and rate errors use Error.'
+      tags:
+      - Maps
+      x-actor:
+      - driver
+      parameters:
+      - name: coordinates
+        in: path
+        required: true
+        description: lng,lat;lng,lat (2 to 10 points, OSRM order)
+        schema:
+          type: string
+          pattern: ^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?){1,9}$
+      - name: overview
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - full
+          - simplified
+          - 'false'
+          default: full
+      - name: geometries
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - geojson
+          default: geojson
+      - name: steps
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+      - name: annotations
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: alternatives
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OsrmRouteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /telemetry/logs:
+    post:
+      operationId: postTelemetryLog
+      summary: App log line
+      description: Fire-and-forget. Body at most 16384 bytes (else 400 invalid_request, payload_too_large); rate limited per
+        address and device; scrubbed again by the server and kept 30 days. A bearer token is used when sent.
+      tags:
+      - Telemetry
+      x-actor:
+      - rider
+      - driver
+      - admin
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryLog'
+      responses:
+        '202':
+          description: Accepted (empty body)
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - {}
+      - bearerAuth: []
+  /telemetry/analytics:
+    post:
+      operationId: postTelemetryAnalytics
+      summary: App analytics event
+      description: Fire-and-forget. Body at most 16384 bytes (else 400 invalid_request, payload_too_large); rate limited per
+        address and device; scrubbed again by the server and kept 30 days. A bearer token is used when sent.
+      tags:
+      - Telemetry
+      x-actor:
+      - rider
+      - driver
+      - admin
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryEvent'
+      responses:
+        '202':
+          description: Accepted (empty body)
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - {}
+      - bearerAuth: []
+  /telemetry/crashes:
+    post:
+      operationId: postTelemetryCrash
+      summary: App crash report
+      description: Fire-and-forget. Body at most 16384 bytes (else 400 invalid_request, payload_too_large); rate limited per
+        address and device; scrubbed again by the server and kept 30 days. A bearer token is used when sent.
+      tags:
+      - Telemetry
+      x-actor:
+      - rider
+      - driver
+      - admin
+      x-read-only: true
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryCrash'
+      responses:
+        '202':
+          description: Accepted (empty body)
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - {}
+      - bearerAuth: []
+  /trips/{tripId}/raise-price:
+    post:
+      operationId: raisePrice
+      summary: Raise the offer while searching
+      description: 'Owner decision 25 (CONTRACT.md §3.6). While the trip is searching or offered: the fare grows by increase
+        (a rider_raise fare line), the whole raise goes to the driver''s earnings, open offers are withdrawn and a new search
+        starts in which drivers who already declined are asked again at the new price; version + 1. Otherwise 409 invalid_transition
+        with the projection. A raise in another currency or a fare above dispatch.raisePrice.maxFactor × the quoted fare is
+        400 invalid_request.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      x-transition: raise_price
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RaisePriceCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/keep-waiting:
+    post:
+      operationId: answerKeepWaiting
+      summary: Answer the Keep waiting? step while searching
+      description: 'Owner decision 24 (CONTRACT.md §3.6). Only while the trip is searching or offered and its searchStep is
+        an unanswered keep_waiting: wait → the search end moves by extraMin; stop → the normal free rider cancel (cancel →
+        cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeepWaitingCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/deletion:
+    post:
+      operationId: requestAccountDeletion
+      summary: Ask to delete the rider account
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '202':
+          description: Accepted; the server erases the account on its own schedule.
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/dispatch-control:
+    get:
+      operationId: adminGetDispatchControl
+      summary: The zone's live dispatch switch
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchControl'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutDispatchControl
+      summary: Pause dispatch or force a mode in a zone
+      description: 'CONTRACT.md §3.6. Pause or force a mode: Super admin at once (200), others 202 pending_approval (owner
+        decision 14). Resume / back to rules (paused false, mode null): 200 for everyone. Forcing a mode that is off → 400
+        invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.'
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchControlCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchControl'
+        '202':
+          $ref: '#/components/responses/PendingApproval'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/live/drivers:
+    get:
+      operationId: adminLiveDrivers
+      summary: Driver positions for the admin live map
+      description: Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/trace:
+    get:
+      operationId: adminTripTrace
+      summary: The trip's GPS trace
+      description: 'Traces are deleted 30 days after the trip (owner decision 11): 404 after that.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripTrace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -4989,6 +7055,18 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Id'
+    FleetId:
+      name: fleetId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
     RideId:
       name: rideId
       in: path
@@ -4998,6 +7076,12 @@ components:
       description: Deprecated alias of tripId.
     ZoneId:
       name: zoneId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    AdminId:
+      name: adminId
       in: path
       required: true
       schema:
@@ -5723,6 +7807,17 @@ components:
       - surge
       - discount
       - cancel_fee
+      - app_fee
+      - minimum_adjust
+      - maximum_adjust
+      - stop_waiting
+      - extras
+      - airport
+      - reservation_fee
+      - fixed_route
+      - rounding
+      - outstanding_fee
+      - rider_raise
       - pickup_pay
       - driver_bonus
       x-rider:
@@ -5735,6 +7830,17 @@ components:
       - surge
       - discount
       - cancel_fee
+      - app_fee
+      - minimum_adjust
+      - maximum_adjust
+      - stop_waiting
+      - extras
+      - airport
+      - reservation_fee
+      - fixed_route
+      - rounding
+      - outstanding_fee
+      - rider_raise
       x-driver-only:
       - pickup_pay
       - driver_bonus
@@ -5745,6 +7851,7 @@ components:
         pickup line pickup_pay: x-aliases.'
     FareLine:
       type: object
+      description: 'One fare line; the meaning of each code: contract.json#fareLines.meaning (v0.5.1).'
       required:
       - code
       - amount
@@ -5753,6 +7860,10 @@ components:
           $ref: '#/components/schemas/FareLineCode'
         amount:
           $ref: '#/components/schemas/Money'
+        sourceTripId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'outstanding_fee only: the earlier trip whose unpaid fee this is (v0.5.1, CONTRACT.md §3.7).'
     QuoteRef:
       type: object
       required:
@@ -5804,6 +7915,14 @@ components:
         note:
           type: string
           maxLength: 1000
+        feeStatus:
+          type: string
+          enum:
+          - paid
+          - owed
+          - waived
+          description: 'v0.5.1 (CONTRACT.md §3.7): owed = an unpaid cash fee, in Rider.outstanding and the next trip''s outstanding_fee
+            line.'
     VehicleSummary:
       type: object
       properties:
@@ -5846,8 +7965,9 @@ components:
           $ref: '#/components/schemas/VehicleSummary'
     TripProjection:
       type: object
-      description: Authoritative trip state. Field visibility depends on the actor (e.g. driverEarnings/commission are not
-        shown to riders).
+      description: 'Authoritative trip state. Field visibility depends on the actor (e.g. driverEarnings/commission are not
+        shown to riders). v0.5.1: fare and fareLines follow contract.json#pricing (CONTRACT.md §3.5); commission is Movera''s
+        share of the fare (fare − driverEarnings).'
       required:
       - tripId
       - status
@@ -5963,6 +8083,11 @@ components:
         pinRequired:
           type: boolean
           description: Driver must verify the rider PIN before `board`.
+        searchStep:
+          allOf:
+          - $ref: '#/components/schemas/SearchStep'
+          description: 'v0.5.1 (CONTRACT.md §3.6): the latest rider-waiting step while searching (rider view). Changing it
+            does not change version.'
     Offer:
       type: object
       description: One driver's offer for a trip. One trip has many offers; offerId is never a tripId.
@@ -6175,6 +8300,20 @@ components:
         version:
           type: integer
           minimum: 1
+        outstanding:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+          description: 'v0.5.1 (CONTRACT.md §3.7): unpaid cash fees the rider owes (positive); null or missing = none. On
+            GET /rider/profile and the admin rider view.'
+        language:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+          description: 'v0.5.1: the rider''s app language (also sets the reverse-geocode language).'
+        consents:
+          allOf:
+          - $ref: '#/components/schemas/RiderConsents'
+          description: 'v0.5.1: the rider''s message consents.'
     DocumentStatus:
       type: string
       enum:
@@ -6227,11 +8366,27 @@ components:
           type: string
           format: uri
           readOnly: true
+          description: 'v0.5.3: the path of the file endpoint (GET /driver/documents/{documentId}/file for the owner, GET
+            /admin/documents/{documentId}/file for admins), never a public link; missing for terms and admin checks.'
         reviewNote:
           type: string
         version:
           type: integer
           minimum: 1
+        fileName:
+          type: string
+          description: 'v0.5.3: the uploaded file''s name, for display.'
+        mediaType:
+          type: string
+          description: 'v0.5.3: one of contract.json#driverOnboarding.documents.upload.mediaTypes.'
+        uploadedAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: v0.5.3
+        reviewedAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.5.3: when an admin decided.'
     Driver:
       type: object
       required:
@@ -6281,6 +8436,70 @@ components:
         version:
           type: integer
           minimum: 1
+        location:
+          allOf:
+          - $ref: '#/components/schemas/GeoFix'
+          description: 'v0.5.1, admin view only: the latest fix (CONTRACT.md §12).'
+        lastFixAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.5.1, admin view only: when the latest fix was received.'
+        accountType:
+          allOf:
+          - $ref: '#/components/schemas/DriverAccountType'
+          description: v0.5.3; missing before POST /driver/onboarding.
+        lastName:
+          type: string
+          description: v0.5.3
+        dateOfBirth:
+          type: string
+          format: date
+          description: 'v0.5.3: YYYY-MM-DD; at least contract.json#driverOnboarding.minAge years.'
+        email:
+          type: string
+          format: email
+          description: v0.5.3
+        country:
+          allOf:
+          - $ref: '#/components/schemas/DriverCountry'
+          description: v0.5.3
+        cityId:
+          type: string
+          description: 'v0.5.3: a cityId of the country (contract.json#driverOnboarding.countries); sets zoneIds.'
+        language:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+          description: 'v0.5.3: the driver''s app language.'
+        termsAcceptedAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.5.3: when the terms were accepted (POST /driver/onboarding).'
+        fleet:
+          allOf:
+          - $ref: '#/components/schemas/FleetLink'
+          description: 'v0.5.3: the fleet this driver belongs to; missing = none (a driver account waits for a fleet).'
+        payoutTo:
+          type: string
+          enum:
+          - self
+          - fleet
+          description: 'v0.5.3: who Movera pays (contract.json#driverOnboarding.payouts): fleet for a driver linked to a fleet,
+            self for a fleet account.'
+        requiredDocuments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+          description: 'v0.5.3: the person''s documents this account must have approved (contract.json#driverOnboarding.documents.required[country].driver).'
+        requiredFleetDocuments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+          description: 'v0.5.3: fleet accounts only: the company''s documents (…required[country].fleet).'
+        pendingFleetInvitations:
+          type: integer
+          minimum: 0
+          description: 'v0.5.3: pending invitations waiting for this account''s answer (a driver''s incoming invites, or an
+            owner''s incoming requests), for the badge.'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -6345,6 +8564,285 @@ components:
         version:
           type: integer
           minimum: 1
+        fleetId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.5.3: the fleet that owns the car.'
+        driverId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.5.3: the driver who has the car picked now (PATCH /driver/profile { vehicleId }); missing = free.'
+        inUse:
+          type: boolean
+          description: 'v0.5.3: that driver is online or on a trip, so another driver cannot pick the car (409 conflict, vehicle_in_use).'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSummary'
+          description: 'v0.5.3: the car''s documents.'
+        requiredDocuments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+          description: 'v0.5.3: contract.json#driverOnboarding.documents.required[country].vehicle.'
+    DriverAccountType:
+      type: string
+      enum:
+      - driver
+      - fleet
+      description: 'v0.5.3: driver = works for a fleet; fleet = a company with cars and drivers (its owner may drive too).'
+    DriverCountry:
+      type: string
+      enum:
+      - SE
+      - FR
+      - TN
+      description: 'v0.5.3: ISO 3166-1 alpha-2 of the countries the driver app offers (contract.json#driverOnboarding.countries);
+        only an open one is accepted on POST /driver/onboarding (else 400 invalid_request, reason country_not_open).'
+    FleetStatus:
+      type: string
+      enum:
+      - pending
+      - approved
+      - rejected
+      - blocked
+      description: pending until an admin reviews the fleet; approved gives it a code.
+    FleetLink:
+      type: object
+      description: 'v0.5.3: the fleet this driver belongs to (owner = the fleet account itself).'
+      required:
+      - fleetId
+      - name
+      - role
+      - status
+      - linkedAt
+      properties:
+        fleetId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+          - owner
+          - member
+        status:
+          $ref: '#/components/schemas/FleetStatus'
+        linkedAt:
+          $ref: '#/components/schemas/Timestamp'
+    Fleet:
+      type: object
+      description: 'v0.5.3: a fleet (company) account''s company.'
+      required:
+      - fleetId
+      - name
+      - orgNumber
+      - country
+      - cityId
+      - ownerDriverId
+      - ownerName
+      - status
+      - driverCount
+      - vehicleCount
+      - createdAt
+      - version
+      properties:
+        fleetId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        orgNumber:
+          type: string
+          description: Organisationsnummer (SE) or SIREN / SIRET (FR).
+        address:
+          type: string
+        country:
+          $ref: '#/components/schemas/DriverCountry'
+        cityId:
+          type: string
+        ownerDriverId:
+          $ref: '#/components/schemas/Id'
+        ownerName:
+          type: string
+          description: The owner's first and last name.
+        ownerEmail:
+          type: string
+          format: email
+          description: Owner and admin views only.
+        status:
+          $ref: '#/components/schemas/FleetStatus'
+        code:
+          type: string
+          pattern: ^MV-[A-Z2-9]{5}$
+          description: The join code (contract.json#driverOnboarding.fleetCode); only after approval, and only to the owner
+            and admins.
+        driverCount:
+          type: integer
+          minimum: 0
+        vehicleCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        version:
+          type: integer
+          minimum: 1
+    FleetDriver:
+      type: object
+      required:
+      - driverId
+      - firstName
+      - accountStatus
+      - onlineStatus
+      - linkedAt
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+        lastName:
+          type: string
+        accountStatus:
+          $ref: '#/components/schemas/DriverAccountStatus'
+        onlineStatus:
+          $ref: '#/components/schemas/DriverOnlineStatus'
+        vehicleId:
+          $ref: '#/components/schemas/Id'
+        linkedAt:
+          $ref: '#/components/schemas/Timestamp'
+    FleetInvitationStatus:
+      type: string
+      enum:
+      - pending
+      - accepted
+      - declined
+      - cancelled
+      - expired
+    FleetInvitation:
+      type: object
+      description: 'v0.5.3 (contract.json#driverOnboarding.fleetInvitations): one side asks, the other accepts.'
+      required:
+      - invitationId
+      - fleetId
+      - fleetName
+      - direction
+      - status
+      - createdAt
+      - expiresAt
+      - version
+      properties:
+        invitationId:
+          $ref: '#/components/schemas/Id'
+        fleetId:
+          $ref: '#/components/schemas/Id'
+        fleetName:
+          type: string
+        direction:
+          type: string
+          enum:
+          - driver_request
+          - owner_invite
+          description: 'driver_request: the driver asked with the code; owner_invite: the owner invited a phone number.'
+        driverId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: The driver concerned; missing while an owner_invite waits for a number without an account.
+        driverName:
+          type: string
+        phone:
+          type: string
+          description: 'owner_invite: the invited number (owner and admin views).'
+        status:
+          $ref: '#/components/schemas/FleetInvitationStatus'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        decidedAt:
+          $ref: '#/components/schemas/Timestamp'
+        version:
+          type: integer
+          minimum: 1
+    FleetInvitationList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetInvitation'
+    FleetInviteRequest:
+      type: object
+      description: 'v0.5.3: the owner invites a number.'
+      required:
+      - phone
+      properties:
+        phone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+          description: E.164; the driver's sign-in number.
+    FleetView:
+      type: object
+      description: 'v0.5.3: the fleet with its drivers (owner and admins; a member gets an empty list) and its cars.'
+      required:
+      - fleet
+      - drivers
+      - vehicles
+      properties:
+        fleet:
+          $ref: '#/components/schemas/Fleet'
+        drivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDriver'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetInvitation'
+          description: 'v0.5.3: the pending invitations and requests (owner and admins; a member gets none).'
+    FleetDriverEarnings:
+      type: object
+      required:
+      - driverId
+      - firstName
+      - trips
+      - earnings
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+        lastName:
+          type: string
+        trips:
+          type: integer
+          minimum: 0
+        earnings:
+          $ref: '#/components/schemas/Money'
+    FleetEarnings:
+      type: object
+      description: 'v0.5.3: every driver''s earnings in the period, for the fleet owner.'
+      required:
+      - from
+      - to
+      - items
+      - total
+      properties:
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDriverEarnings'
+        total:
+          $ref: '#/components/schemas/Money'
     PaymentIntent:
       type: object
       description: tripId is required for purpose=trip|tip and absent for wallet_topup.
@@ -6731,6 +9229,11 @@ components:
           $ref: '#/components/schemas/Money'
         cashCollected:
           $ref: '#/components/schemas/Money'
+        fees:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.5.1: the driver''s shares of cancel and no-show fees credited in the period, also those the rider
+            still owes (CONTRACT.md §3.7).'
         net:
           $ref: '#/components/schemas/Money'
     EarningsReport:
@@ -6808,7 +9311,8 @@ components:
       - super
     PendingApproval:
       type: object
-      description: Returned with 202 when the action needs a second admin (two-person rule).
+      description: Returned with 202 when the action needs a second admin (two-person rule). Never for a Super admin (AdminMe.approvalExempt,
+        owner decision 14, v0.5.1).
       required:
       - status
       - approvalId
@@ -6930,6 +9434,12 @@ components:
       enum:
       - rider_app_config
       - driver_app_config
+      - pricing
+      - dispatch
+      x-server-only:
+      - pricing
+      - dispatch
+      description: app documents are served to the apps; pricing and dispatch (v0.5.1) are server-only (x-server-only, contract.json#configDocs).
     ConfigDraft:
       type: object
       required:
@@ -6956,6 +9466,8 @@ components:
           oneOf:
           - $ref: '#/components/schemas/RiderAppConfig'
           - $ref: '#/components/schemas/DriverAppConfig'
+          - $ref: '#/components/schemas/PricingDocument'
+          - $ref: '#/components/schemas/DispatchDocument'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
         updatedBy:
@@ -7811,13 +10323,26 @@ components:
           minLength: 1
         name:
           type: string
+        firstName:
+          type: string
+          description: 'v0.5.3: what the provider gave, for the driver''s details screen; editable.'
+        lastName:
+          type: string
+          description: v0.5.3
+        email:
+          type: string
+          format: email
+          description: 'v0.5.3: may be Apple''s hidden relay address; editable.'
     ProviderSignInResult:
       oneOf:
       - $ref: '#/components/schemas/AuthTokens'
       - $ref: '#/components/schemas/PhoneRequired'
-      description: 'POST /auth/provider { provider, idToken } signs in a linked account, or answers { code: PHONE_REQUIRED,
-        linkToken, name? } for a new one: the phone is then verified with the linkToken on the OTP calls, and the account
-        is created linked.'
+      description: 'POST /auth/provider { provider, idToken, app } signs in an account already linked to that Apple / Google
+        identity (AuthTokens), or answers { code: PHONE_REQUIRED, linkToken, firstName?, lastName?, email? } for a new one:
+        the app then verifies a phone with the linkToken on the OTP calls (the phone is confirmed once, the first time), the
+        account is created linked, and the driver app prefills its details screen with the names and e-mail the provider gave
+        (Apple gives them only the first time and may give a hidden relay e-mail; all stay editable). Unset provider keys
+        on the server answer 503 unavailable (provider_not_configured).'
     RefreshRequest:
       type: object
       required:
@@ -8179,6 +10704,1467 @@ components:
           type: object
         appUpdate:
           $ref: '#/components/schemas/AppUpdate'
+    CategoryPricingWaiting:
+      type: object
+      description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
+        values.
+      required:
+      - freeWaitMin
+      - perMin
+      - noShowAfterMin
+      - noShowFee
+      properties:
+        freeWaitMin:
+          type: number
+          minimum: 0
+          maximum: 30
+        perMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Per minute after the free wait, charged per second (contract.json#pricing.waiting).
+        noShowAfterMin:
+          type: number
+          minimum: 0
+          description: Equals freeWaitMin (owner Q41).
+        noShowFee:
+          $ref: '#/components/schemas/Money'
+    CategoryPricing:
+      type: object
+      description: One category's prices in a zone (admin Pricing; zonePricing.ts CategoryPrice + commission + rider pickup
+        fee).
+      required:
+      - enabled
+      - base
+      - perKm
+      - perMin
+      - minimum
+      - maximum
+      - appFeePct
+      - commissionPct
+      - extraStopFee
+      - stopWaitPerMin
+      - babySeatFee
+      - childSeatFee
+      - waiting
+      - riderPickupFee
+      properties:
+        enabled:
+          type: boolean
+          description: The category is offered in this zone.
+        base:
+          $ref: '#/components/schemas/Money'
+        perKm:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Per km; minor units, e.g. 1200 = 12 kr/km.
+        perMin:
+          $ref: '#/components/schemas/Money'
+        minimum:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: The ride part is raised to this (minimum_adjust line).
+        maximum:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+          description: The ride part is lowered to this (maximum_adjust line); null = no maximum (the admin's 0).
+        appFeePct:
+          type: number
+          minimum: 0
+          maximum: 50
+          description: 'Added to the rider''s price: % of ride part + extras. Movera keeps it.'
+        commissionPct:
+          type: number
+          minimum: 0
+          maximum: 60
+          description: Movera's commission on the ride part and the extras except waiting (owner decisions 17, 18).
+        extraStopFee:
+          $ref: '#/components/schemas/Money'
+        stopWaitPerMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Waiting at a stop after stopFreeWaitMin, per minute, charged per second.
+        babySeatFee:
+          $ref: '#/components/schemas/Money'
+        childSeatFee:
+          $ref: '#/components/schemas/Money'
+        waiting:
+          $ref: '#/components/schemas/CategoryPricingWaiting'
+        riderPickupFee:
+          $ref: '#/components/schemas/RiderPickupFee'
+    PricingFees:
+      type: object
+      required:
+      - airportPickup
+      - airportDropoff
+      - reservationFee
+      - cleaningFee
+      - tollsPassThrough
+      properties:
+        airportPickup:
+          $ref: '#/components/schemas/Money'
+        airportDropoff:
+          $ref: '#/components/schemas/Money'
+        reservationFee:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Added to kind=scheduled trips (reservation_fee line).
+        cleaningFee:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Charged afterwards by an admin adjust; not in the fare formula.
+        tollsPassThrough:
+          type: boolean
+          description: Tolls added to the fare; no tolls are priced in v0.5.1.
+    FixedRoute:
+      type: object
+      description: 'A fixed price between two admin-named places: replaces base + distance + time; no surge, minimum or maximum.'
+      required:
+      - id
+      - from
+      - to
+      - categoryId
+      - price
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          minLength: 1
+        to:
+          type: string
+          minLength: 1
+        categoryId:
+          $ref: '#/components/schemas/CategoryId'
+        price:
+          $ref: '#/components/schemas/Money'
+    SurgeStep:
+      type: object
+      required:
+      - ratio
+      - multiplier
+      properties:
+        ratio:
+          type: number
+          exclusiveMinimum: 0
+          description: Requests per free driver at which this step starts.
+        multiplier:
+          type: number
+          minimum: 1
+    SurgeProfile:
+      type: object
+      required:
+      - id
+      - name
+      - days
+      - windows
+      - steps
+      - cap
+      - isDefault
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+        days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          description: 0 = Monday … 6 = Sunday.
+        windows:
+          type: array
+          items:
+            type: object
+            required:
+            - from
+            - to
+            properties:
+              from:
+                type: string
+                pattern: ^\d\d:\d\d$
+              to:
+                type: string
+                pattern: ^\d\d:\d\d$
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgeStep'
+        cap:
+          type: number
+          minimum: 1
+        isDefault:
+          type: boolean
+    SmartSurge:
+      type: object
+      description: The admin's smart surge settings, kept in the document; the algorithm is not normative in v0.5.1.
+      required:
+      - enabled
+      - profiles
+      properties:
+        enabled:
+          type: boolean
+          description: Automatic surge; false in the test week (owner decision 21).
+        activeFrom:
+          type: string
+          pattern: ^\d\d:\d\d$
+        activeTo:
+          type: string
+          pattern: ^\d\d:\d\d$
+        checkEveryMin:
+          type: integer
+          minimum: 1
+          maximum: 15
+        holdMin:
+          type: integer
+          minimum: 1
+          maximum: 30
+        stopAfterMin:
+          type: integer
+          minimum: 1
+          maximum: 60
+        cooldownMin:
+          type: integer
+          minimum: 1
+          maximum: 30
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgeProfile'
+    ScheduledSurge:
+      type: object
+      description: A flat surge for a time window, from the pricing document.
+      required:
+      - id
+      - multiplier
+      - startsAt
+      - endsAt
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+        multiplier:
+          type: number
+          minimum: 1
+        startsAt:
+          $ref: '#/components/schemas/Timestamp'
+        endsAt:
+          $ref: '#/components/schemas/Timestamp'
+    PricingSurge:
+      type: object
+      description: 'Surge sources after the zone''s surge schedule (§3.4): first match: the zone''s active surge schedule
+        (§3.4, PUT /admin/zones/{zoneId}/surge), then a pricing.surge.scheduled window in force, then smart surge when smart.enabled;
+        else 1.0. The quote keeps its multiplier.'
+      required:
+      - maxMultiplier
+      - smart
+      - scheduled
+      properties:
+        maxMultiplier:
+          type: number
+          minimum: 1
+          maximum: 3.0
+          default: 3.0
+          description: 'Owner decision 21: at most ×3 (the admin slider allows 6).'
+        smart:
+          $ref: '#/components/schemas/SmartSurge'
+        scheduled:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledSurge'
+    PricingDocument:
+      type: object
+      description: 'Server-only (contract.json#configDocs): the zone''s prices, read by the server''s quote engine. Never
+        served to the apps. v0.5.1 (CONTRACT.md §3.5). The server prices every quote and fare from the zone''s pricing document
+        (admin Pricing, the order of quoteRide), with owner decisions 16-21 applied. Amounts are exact until they become a
+        fare line. Cases: fixtures/fares.json. Sample: fixtures/config/pricing_document.json.'
+      required:
+      - version
+      - publishedAt
+      - zoneId
+      - currency
+      - country
+      - priceStep
+      - categories
+      - fees
+      - stopFreeWaitMin
+      - fixedRoutes
+      - surge
+      - fleetCommissionPct
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Admin revision of the zone's live pricing document (contract.json#configVersion).
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        timeZone:
+          type: string
+          pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
+        priceStep:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: The total is rounded once, half-up, to a multiple of this (admin fees.rounding).
+        categories:
+          type: object
+          propertyNames:
+            $ref: '#/components/schemas/CategoryId'
+          additionalProperties:
+            $ref: '#/components/schemas/CategoryPricing'
+        fees:
+          $ref: '#/components/schemas/PricingFees'
+        stopFreeWaitMin:
+          type: number
+          minimum: 0
+          maximum: 30
+          default: 3
+          description: Free minutes at each stop (owner decision 20).
+        fixedRoutes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FixedRoute'
+        surge:
+          $ref: '#/components/schemas/PricingSurge'
+        fleetCommissionPct:
+          type: number
+          minimum: 0
+          maximum: 30
+          description: Fleet owner's share (admin Pricing); not in the rider's fare.
+      x-server-only: true
+    DispatchModeRules:
+      type: object
+      description: 'Radar: then is widen | exclusive | widen_then_exclusive. Exclusive: then is radar | widen | widen_then_radar.'
+      required:
+      - 'on'
+      - drivers
+      - seconds
+      - then
+      properties:
+        'on':
+          type: boolean
+        drivers:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: 'radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10).'
+        seconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+          description: radar 5-120, exclusive 5-60.
+        then:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - widen
+          - widen_then_exclusive
+          - widen_then_radar
+    DispatchTimeRule:
+      type: object
+      description: Zone-local [from, to); wraps midnight when from > to.
+      required:
+      - id
+      - 'on'
+      - from
+      - to
+      - mode
+      properties:
+        id:
+          type: string
+          minLength: 1
+        'on':
+          type: boolean
+        from:
+          type: string
+          pattern: ^\d\d:\d\d$
+        to:
+          type: string
+          pattern: ^\d\d:\d\d$
+        mode:
+          type: string
+          enum:
+          - radar
+          - exclusive
+    DispatchChoose:
+      type: object
+      required:
+      - how
+      - radarAbove
+      - main
+      - backup
+      - times
+      properties:
+        how:
+          type: string
+          enum:
+          - auto
+          - manual
+        radarAbove:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 10
+          description: Busy level (requests per free driver) from which Auto uses Radar.
+        main:
+          type: string
+          enum:
+          - radar
+          - exclusive
+        backup:
+          type: string
+          enum:
+          - radar
+          - exclusive
+          - none
+          description: 'Ignored in v0.5.1: `then` decides fallbacks.'
+        times:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchTimeRule'
+    DispatchFactor:
+      type: object
+      required:
+      - id
+      - 'on'
+      - weight
+      properties:
+        id:
+          type: string
+          enum:
+          - eta
+          - rating
+          - acceptance
+          - cancel
+          - idle
+          - finishing
+          - favourite
+        'on':
+          type: boolean
+        weight:
+          type: number
+          minimum: 0
+    DispatchWaitingStep:
+      type: object
+      required:
+      - id
+      - kind
+      - 'on'
+      - afterMin
+      - message
+      properties:
+        id:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum:
+          - raise_price
+          - upgrade
+          - alert_admin
+          - keep_waiting
+          - busy
+          x-skipped-in-test-week:
+          - raise_price
+          - upgrade
+        'on':
+          type: boolean
+        afterMin:
+          type: number
+          minimum: 0
+          maximum: 30
+          description: From search start.
+        message:
+          type: string
+        extraMin:
+          type:
+          - number
+          - 'null'
+          description: 'keep_waiting: minutes added on Keep waiting.'
+    DispatchDocument:
+      type: object
+      description: 'Server-only (contract.json#configDocs): the zone''s automatic dispatch rules (admin Dispatch, a subset
+        of the movera.dispatch.rules export, admin field names). Never served to the apps; DriverAppConfig.offers timers must
+        equal radar/exclusive seconds and on. Algorithm: contract.json#dispatch, CONTRACT.md §3.6. Sample: fixtures/config/dispatch_document.json.'
+      required:
+      - version
+      - publishedAt
+      - zoneId
+      - country
+      - timeZone
+      - radar
+      - exclusive
+      - choose
+      - radius
+      - factors
+      - finishing
+      - favourite
+      - exclusiveWhileDriving
+      - waiting
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Admin revision of the zone's live dispatch document (contract.json#configVersion).
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        timeZone:
+          type: string
+          pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
+          description: IANA zone for the time rules.
+        radar:
+          $ref: '#/components/schemas/DispatchModeRules'
+        exclusive:
+          $ref: '#/components/schemas/DispatchModeRules'
+        choose:
+          $ref: '#/components/schemas/DispatchChoose'
+        rulesFrom:
+          type: string
+          enum:
+          - driver
+          - pickup
+          description: 'Kept, ignored in v0.5.1: the pickup zone''s document governs the search.'
+        radius:
+          type: object
+          required:
+          - steps
+          - maxWaitMin
+          properties:
+            steps:
+              type: array
+              items:
+                type: number
+                exclusiveMinimum: 0
+                maximum: 50
+              minItems: 1
+              description: km, strictly increasing.
+            maxWaitMin:
+              type: integer
+              minimum: 1
+              maximum: 30
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchFactor'
+          minItems: 1
+        finishing:
+          type: object
+          required:
+          - exclusive
+          - withinMin
+          - withinKm
+          properties:
+            exclusive:
+              type: boolean
+            withinMin:
+              type: number
+              minimum: 0
+            withinKm:
+              type: number
+              minimum: 0
+        favourite:
+          type: object
+          required:
+          - 'on'
+          - maxKm
+          properties:
+            'on':
+              type: boolean
+            maxKm:
+              type: number
+              minimum: 0
+        exclusiveWhileDriving:
+          $ref: '#/components/schemas/ExclusiveWhileDriving'
+        waiting:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchWaitingStep'
+      x-server-only: true
+      x-ranges:
+        radar.drivers:
+        - 1
+        - 30
+        radar.seconds:
+        - 5
+        - 120
+        exclusive.drivers:
+        - 1
+        - 10
+        exclusive.seconds:
+        - 5
+        - 60
+        choose.radarAbove: '> 0 and <= 10'
+        radius.steps: '> 0 and <= 50 km, strictly increasing'
+        radius.maxWaitMin:
+        - 1
+        - 30
+        waiting[].afterMin:
+        - 0
+        - 30
+        factors: at least one on with weight > 0
+        exclusiveWhileDriving.count:
+        - 1
+        - 5
+        other: auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode
+          on
+    DispatchControl:
+      type: object
+      description: 'Live dispatch switch of a zone (outside publishing). DispatchControl { zoneId, paused, mode: radar | exclusive
+        | null, by, at, version } is live state, outside publishing. PUT /admin/zones/{zoneId}/dispatch-control (dispatch.edit).
+        Pausing or forcing a mode by an admin who is not Super admin is 202 pending_approval (owner decision 14); resume and
+        back to rules apply at once for everyone (the admin panel''s rule).'
+      required:
+      - zoneId
+      - paused
+      - mode
+      - version
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        paused:
+          type: boolean
+          description: No automatic offers; waiting steps and the search end keep running.
+        mode:
+          oneOf:
+          - type: string
+            enum:
+            - radar
+            - exclusive
+          - type: 'null'
+          description: Forced mode for new searches; null = the rules.
+        by:
+          $ref: '#/components/schemas/Id'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        version:
+          type: integer
+          minimum: 0
+    DispatchControlCommand:
+      type: object
+      required:
+      - expectedVersion
+      - paused
+      - mode
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+          description: Version of the control being replaced; 0 when the zone has none.
+        paused:
+          type: boolean
+        mode:
+          oneOf:
+          - type: string
+            enum:
+            - radar
+            - exclusive
+          - type: 'null'
+        note:
+          type: string
+          maxLength: 1000
+    SearchStep:
+      type: object
+      description: 'The latest rider-waiting step of the search (v0.5.1, contract.json#dispatch.searchStep). keep_waiting:
+        the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended.'
+      required:
+      - id
+      - kind
+      - message
+      - extraMin
+      - at
+      properties:
+        id:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum:
+          - alert_admin
+          - keep_waiting
+          - busy
+        message:
+          type: string
+        extraMin:
+          type:
+          - number
+          - 'null'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    RaisePriceCommand:
+      type: object
+      description: 'The rider raises their offer while the search is on (owner decision 25, contract.json#dispatch.raisePrice):
+        a positive amount in the trip''s currency; the new fare may not pass raisePrice.maxFactor × the quoted fare.'
+      required:
+      - expectedVersion
+      - increase
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        increase:
+          $ref: '#/components/schemas/Money'
+    KeepWaitingCommand:
+      type: object
+      description: 'Answer to a keep_waiting step: wait = the search end moves by the step''s extraMin; stop = the normal
+        free rider cancel (owner decision 24).'
+      required:
+      - answer
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Optional; the answer does not change the version.
+        answer:
+          type: string
+          enum:
+          - wait
+          - stop
+    AdminPermission:
+      type: string
+      enum:
+      - overview.read
+      - trips.read
+      - riders.read
+      - drivers.read
+      - zones.read
+      - finance.read
+      - incidents.read
+      - audit.read
+      - team.read
+      - system.read
+      - riders.viewSensitive
+      - drivers.viewSensitive
+      - trips.annotate
+      - trips.intervene
+      - support.reply
+      - safety.edit
+      - riders.block
+      - riders.promotions
+      - drivers.activate
+      - drivers.bonuses
+      - documents.approve
+      - vehicles.edit
+      - alerts.manage
+      - payments.refund
+      - finance.edit
+      - zones.edit
+      - zones.publish
+      - dispatch.edit
+      - dispatch.approve
+      - settings.read
+      - settings.edit
+      - settings.publish
+      - approval.decide
+      - team.edit
+      x-groups:
+        look:
+        - overview.read
+        - trips.read
+        - riders.read
+        - drivers.read
+        - zones.read
+        - finance.read
+        - incidents.read
+        - audit.read
+        - team.read
+        - system.read
+        privateData:
+        - riders.viewSensitive
+        - drivers.viewSensitive
+        act:
+        - trips.annotate
+        - trips.intervene
+        - support.reply
+        - safety.edit
+        - riders.block
+        - riders.promotions
+        - drivers.activate
+        - drivers.bonuses
+        - documents.approve
+        - vehicles.edit
+        - alerts.manage
+        - payments.refund
+        - finance.edit
+        setup:
+        - zones.edit
+        - zones.publish
+        - dispatch.edit
+        - dispatch.approve
+        - settings.read
+        - settings.edit
+        - settings.publish
+        - approval.decide
+        - team.edit
+      x-v050:
+        fleet.read: drivers.read
+        payments.read: finance.read
+        support.read: support.reply
+        safety.read: incidents.read
+        trips.edit: trips.intervene
+        payments.edit: payments.refund
+        drivers.edit: drivers.activate (status) | documents.approve (document review)
+        riders.edit: riders.block
+        fleet.edit: vehicles.edit
+        config.read: settings.read
+        config.edit: settings.edit (draft) | settings.publish (publish)
+        pricing.read: settings.read
+        pricing.edit: settings.publish
+        approval.read: approval.decide
+      description: 'v0.5.1 (CONTRACT.md §9): the admin panel''s 34 permission ids (platform/team.ts). Every admin operation
+        names one in x-permission; where v0.5.1 changed a v0.5.0 value, openapi.yaml keeps the old one under x-permission-v050.
+        Roles: AdminRole; super has all of them.'
+    AdminScope:
+      type: object
+      required:
+      - zones
+      properties:
+        zones:
+          oneOf:
+          - type: string
+            const: all
+          - type: array
+            items:
+              $ref: '#/components/schemas/Id'
+          description: '"all" or the zone ids the admin may act in.'
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryCode'
+        fleetPartnerId:
+          $ref: '#/components/schemas/Id'
+    AdminMe:
+      type: object
+      description: The signed-in admin (maps 1:1 onto the panel's Agent; adminId = id).
+      required:
+      - adminId
+      - email
+      - name
+      - role
+      - permissions
+      - scope
+      - idleTimeoutSeconds
+      - approvalExempt
+      properties:
+        adminId:
+          $ref: '#/components/schemas/Id'
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/AdminRole'
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPermission'
+          uniqueItems: true
+          description: Fully expanded; super has all of them.
+        scope:
+          $ref: '#/components/schemas/AdminScope'
+        language:
+          $ref: '#/components/schemas/Language'
+        idleTimeoutSeconds:
+          type: integer
+          minimum: 300
+          maximum: 14400
+          default: 900
+        approvalExempt:
+          type: boolean
+          description: 'True for Super admin: changes go live at once, never 202 pending_approval (owner decision 14).'
+    AdminSession:
+      type: object
+      description: 'v0.5.1 (CONTRACT.md §9), owner decisions 9 and 14 (2026-10-24): the admin panel signs in with e-mail and
+        password through the server; this replaces "outside this contract" in auth.note for the admin. No second factor in
+        v0.5.1.'
+      required:
+      - accessToken
+      - refreshToken
+      - expiresIn
+      - actor
+      - admin
+      properties:
+        accessToken:
+          type: string
+          minLength: 1
+        refreshToken:
+          type: string
+          minLength: 1
+          description: Opaque, rotated on every refresh.
+        expiresIn:
+          type: integer
+          minimum: 1
+          default: 900
+        actor:
+          type: string
+          const: admin
+        admin:
+          $ref: '#/components/schemas/AdminMe'
+    AdminSignInRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 256
+          writeOnly: true
+    SetupPasswordRequest:
+      type: object
+      description: One-time link token (single use, 72 h). Password at least 10 characters, stored as argon2id.
+      required:
+      - setupToken
+      - password
+      properties:
+        setupToken:
+          type: string
+          minLength: 16
+        password:
+          type: string
+          minLength: 10
+          maxLength: 256
+          writeOnly: true
+    SetupTokenRequest:
+      type: object
+      required:
+      - setupToken
+      properties:
+        setupToken:
+          type: string
+          minLength: 16
+    SetupLinkInfo:
+      type: object
+      required:
+      - email
+      - name
+      - expiresAt
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+    SetupLink:
+      type: object
+      description: A one-time password setup link for an admin; send it to them out of band.
+      required:
+      - url
+      - expiresAt
+      properties:
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+    AutocompleteRequest:
+      type: object
+      description: 'latitude / longitude: the bias point (wire exception, contract.json#wire.location.locationsException).'
+      required:
+      - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 200
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 8
+          default: 8
+    AddressSuggestion:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+        subtitle:
+          type: string
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        placeId:
+          type: string
+          description: Provider place id; send it to /locations/geocode to resolve a suggestion without coordinates.
+    AddressSuggestionList:
+      type: object
+      required:
+      - suggestions
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressSuggestion'
+          maxItems: 8
+          description: Empty = nothing found.
+    GeocodeRequest:
+      type: object
+      required:
+      - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 300
+        placeId:
+          type: string
+    GeocodeResult:
+      type: object
+      description: No coordinates = no match (200, never 404).
+      properties:
+        address:
+          type: string
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        placeId:
+          type: string
+    ReverseGeocodeRequest:
+      type: object
+      required:
+      - latitude
+      - longitude
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    ReverseGeocodeResult:
+      type: object
+      description: The address in the caller's profile language (or Accept-Language when sent).
+      required:
+      - address
+      - latitude
+      - longitude
+      properties:
+        address:
+          type:
+          - string
+          - 'null'
+          description: null or blank = no name for this point.
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    LatLng:
+      type: object
+      required:
+      - lat
+      - lng
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+    RouteRequest:
+      type: object
+      required:
+      - mode
+      - from
+      - to
+      properties:
+        mode:
+          type: string
+          enum:
+          - driving
+        from:
+          $ref: '#/components/schemas/LatLng'
+        to:
+          $ref: '#/components/schemas/LatLng'
+    RoadRoute:
+      type: object
+      description: Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.
+      required:
+      - points
+      properties:
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/LatLng'
+          minItems: 2
+          description: The road geometry, in order.
+        distanceMeters:
+          type: integer
+          minimum: 0
+        durationSeconds:
+          $ref: '#/components/schemas/DurationSeconds'
+        provider:
+          type: string
+          examples:
+          - osrm
+    OsrmManeuver:
+      type: object
+      required:
+      - type
+      - location
+      properties:
+        type:
+          type: string
+        modifier:
+          type: string
+        location:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: '[lng, lat]'
+        exit:
+          type: integer
+        bearing_before:
+          type: number
+        bearing_after:
+          type: number
+    OsrmIntersection:
+      type: object
+      properties:
+        classes:
+          type: array
+          items:
+            type: string
+        lanes:
+          type: array
+          items:
+            type: object
+            properties:
+              indications:
+                type: array
+                items:
+                  type: string
+              valid:
+                type: boolean
+    OsrmStep:
+      type: object
+      required:
+      - distance
+      - maneuver
+      properties:
+        name:
+          type: string
+        ref:
+          type: string
+        destinations:
+          type: string
+        exits:
+          type: string
+        driving_side:
+          type: string
+        distance:
+          type: number
+          minimum: 0
+        duration:
+          type: number
+          minimum: 0
+        maneuver:
+          $ref: '#/components/schemas/OsrmManeuver'
+        intersections:
+          type: array
+          items:
+            $ref: '#/components/schemas/OsrmIntersection'
+    OsrmRoute:
+      type: object
+      required:
+      - geometry
+      - distance
+      - duration
+      properties:
+        geometry:
+          type: object
+          required:
+          - coordinates
+          properties:
+            type:
+              type: string
+              const: LineString
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+                minItems: 2
+                maxItems: 2
+              minItems: 2
+              description: '[lng, lat] pairs'
+        distance:
+          type: number
+          minimum: 0
+        duration:
+          type: number
+          minimum: 0
+        legs:
+          type: array
+          items:
+            type: object
+            properties:
+              steps:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OsrmStep'
+              distance:
+                type: number
+              duration:
+                type: number
+    OsrmRouteResponse:
+      type: object
+      description: OSRM v5 route response passed through from Movera's OSRM; only the documented subset is contract, other
+        fields may appear.
+      required:
+      - code
+      - routes
+      properties:
+        code:
+          type: string
+          examples:
+          - Ok
+          - NoRoute
+          description: Ok, or NoRoute (still 200).
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/OsrmRoute'
+        waypoints:
+          type: array
+          items:
+            type: object
+    TelemetryLog:
+      type: object
+      required:
+      - level
+      - event
+      properties:
+        level:
+          type: string
+          enum:
+          - debug
+          - info
+          - warning
+          - error
+          - fatal
+        event:
+          type: string
+          minLength: 1
+          maxLength: 200
+        extra:
+          type: object
+        error:
+          type: string
+          maxLength: 4000
+    TelemetryEvent:
+      type: object
+      required:
+      - event
+      properties:
+        event:
+          type: string
+          minLength: 1
+          maxLength: 200
+        extra:
+          type: object
+    TelemetryCrash:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          maxLength: 4000
+        stack:
+          type: string
+          maxLength: 12000
+        extra:
+          type: object
+    LiveDriver:
+      type: object
+      required:
+      - driverId
+      - firstName
+      - onlineStatus
+      - stale
+      - zoneId
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+        onlineStatus:
+          $ref: '#/components/schemas/DriverOnlineStatus'
+        moving:
+          type: boolean
+        location:
+          $ref: '#/components/schemas/GeoFix'
+        lastFixAt:
+          $ref: '#/components/schemas/Timestamp'
+        stale:
+          type: boolean
+          description: No fix for more than staleAfterSeconds (120 s).
+        activeTripId:
+          $ref: '#/components/schemas/Id'
+        tripStatus:
+          $ref: '#/components/schemas/TripStatus'
+        vehicleId:
+          $ref: '#/components/schemas/Id'
+        plate:
+          type: string
+        zoneId:
+          $ref: '#/components/schemas/Id'
+    LiveDriverList:
+      type: object
+      description: Drivers on the admin live map; the panel polls about every 5 s.
+      required:
+      - items
+      - staleAfterSeconds
+      - serverTime
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiveDriver'
+        staleAfterSeconds:
+          type: integer
+          minimum: 1
+          default: 120
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+    TripTrace:
+      type: object
+      description: The trip's GPS trace; deleted 30 days after the trip (owner decision 11).
+      required:
+      - tripId
+      - fixes
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        fixes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeoFix'
+          description: In time order.
+        keptUntil:
+          $ref: '#/components/schemas/Timestamp'
+    NearbyVehicle:
+      type: object
+      description: A free car near the rider (v0.5.2). Nothing that tells who drives it.
+      required:
+      - key
+      - lat
+      - lng
+      properties:
+        key:
+          type: string
+          minLength: 6
+          maxLength: 32
+          description: Opaque, the same for one car through the day (it changes every day), so the app can move the car smoothly
+            between answers. Not a driver or vehicle id.
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Rounded to 4 decimals.
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Rounded to 4 decimals.
+        heading:
+          type: number
+          minimum: 0
+          maximum: 360
+          description: Degrees clockwise from north, from the latest fix; absent when unknown.
+    NearbyVehicleList:
+      type: object
+      description: 'CONTRACT.md §13: v0.5.2 (CONTRACT.md §13): the free cars near the rider, drawn on the rider''s map while
+        it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day.'
+      required:
+      - items
+      - refreshSeconds
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NearbyVehicle'
+          maxItems: 15
+          description: Nearest first.
+        refreshSeconds:
+          type: integer
+          minimum: 1
+          default: 5
+        radiusMeters:
+          type: integer
+          minimum: 1
+          default: 3000
+    AccountDeletion:
+      type: object
+      description: 'v0.5.1: POST /account/deletion (rider) answers 202 { status: requested }; the server erases the account
+        on its own schedule (legal retention, open payments).'
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - requested
+    RiderConsents:
+      type: object
+      properties:
+        rideUpdates:
+          type: boolean
+        emailUpdates:
+          type: boolean
+        promotions:
+          type: boolean
     RealtimeEvent:
       type: object
       description: 'Trip event envelope (contract.json#realtime). Client gate: reject sequence < 1 or blank tripId; drop a
@@ -8569,6 +12555,16 @@ components:
             items:
               $ref: '#/components/schemas/AdminDispatchEvent'
       description: Page<AdminDispatchEvent>
+    FleetPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Fleet'
+      description: Page<Fleet>
     TripCommand:
       type: object
       description: Body of driver trip commands.
@@ -8748,6 +12744,10 @@ components:
           $ref: '#/components/schemas/PaymentMethod'
         paymentMethodId:
           $ref: '#/components/schemas/Id'
+        pickup:
+          allOf:
+          - $ref: '#/components/schemas/Place'
+          description: 'v0.5.1, optional: move the pickup, at most booking.maxPickupMoveMeters after accept.'
     RouteQuoteRequest:
       type: object
       required:
@@ -8764,6 +12764,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Place'
+        pickup:
+          allOf:
+          - $ref: '#/components/schemas/Place'
+          description: 'v0.5.1, optional: price a moved pickup.'
     RatingRequest:
       type: object
       description: stars required unless skip=true.
@@ -9410,6 +13414,133 @@ components:
         note:
           type: string
           maxLength: 1000
+    FleetCompany:
+      type: object
+      description: 'v0.5.3: the company of a fleet account.'
+      required:
+      - name
+      - orgNumber
+      - address
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        orgNumber:
+          type: string
+          minLength: 5
+          maxLength: 20
+          description: Organisationsnummer (SE) or SIREN / SIRET (FR).
+        address:
+          type: string
+          minLength: 1
+          maxLength: 200
+    FleetJoinRequest:
+      type: object
+      description: 'v0.5.3: all three must match one approved fleet; any mismatch is 400 invalid_request with reason fleet_join_mismatch
+        (one message for all three). Limited to contract.json#driverOnboarding.fleetCode.joinAttemptsPerHour, then 429.'
+      required:
+      - code
+      - ownerName
+      - ownerEmail
+      properties:
+        code:
+          type: string
+          minLength: 5
+          maxLength: 12
+          description: Case-insensitive; spaces and a missing MV- are forgiven.
+        ownerName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: The fleet owner's first and last name as registered (case and spaces are forgiven).
+        ownerEmail:
+          type: string
+          format: email
+          description: The fleet owner's e-mail as registered (case is forgiven).
+    DriverOnboardingRequest:
+      type: object
+      description: 'v0.5.3: the details screen after the first sign-in. Allowed while accountStatus is pending or on_hold
+        (a resend replaces the details); active or suspended → 409 invalid_transition. Moves pending → on_hold.'
+      required:
+      - firstName
+      - lastName
+      - dateOfBirth
+      - email
+      - country
+      - cityId
+      - language
+      - accountType
+      - termsAccepted
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 60
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 60
+        dateOfBirth:
+          type: string
+          format: date
+          description: YYYY-MM-DD; younger than minAge → 400 invalid_request (under_age).
+        email:
+          type: string
+          format: email
+        country:
+          $ref: '#/components/schemas/DriverCountry'
+        cityId:
+          type: string
+          description: A cityId of the country (invalid_city).
+        language:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+        accountType:
+          $ref: '#/components/schemas/DriverAccountType'
+        termsAccepted:
+          type: boolean
+          const: true
+          description: Must be true (terms_required); stored as the terms document, approved.
+        company:
+          allOf:
+          - $ref: '#/components/schemas/FleetCompany'
+          description: Required for accountType fleet (company_required); ignored for driver.
+        fleetJoin:
+          allOf:
+          - $ref: '#/components/schemas/FleetJoinRequest'
+          description: 'Optional for accountType driver: join a fleet now (or later with POST /driver/fleet/join).'
+    FleetCodeCommand:
+      type: object
+      description: 'v0.5.3: POST /admin/fleets/{fleetId}/code.'
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+    FleetReviewCommand:
+      type: object
+      description: 'v0.5.3: approved makes the fleet code (first approval) and lets drivers join; blocked takes every linked
+        driver offline and withdraws their offers.'
+      required:
+      - expectedVersion
+      - decision
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        decision:
+          type: string
+          enum:
+          - approved
+          - rejected
+          - blocked
+        note:
+          type: string
+          maxLength: 1000
     ConfigDraftUpdate:
       type: object
       required:
@@ -9427,6 +13558,8 @@ components:
           oneOf:
           - $ref: '#/components/schemas/RiderAppConfig'
           - $ref: '#/components/schemas/DriverAppConfig'
+          - $ref: '#/components/schemas/PricingDocument'
+          - $ref: '#/components/schemas/DispatchDocument'
     ConfigPublishCommand:
       type: object
       required:
