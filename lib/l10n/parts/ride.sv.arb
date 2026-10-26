@@ -74,6 +74,8 @@
   "bumpConfirm": "Bekräfta {amount}",
   "bumpSetNewPrice": "Ange nytt pris",
   "bumpServerConfirms": "Movera bekräftar ditt slutliga pris när du har höjt budet.",
+  "raiseOfferEntry": "Höj ditt bud",
+  "bumpMaxPrice": "Ditt bud kan vara högst {amount}.",
   "driver": "Förare",
   "driverTrips": "Resor",
   "driverRating": "Betyg",

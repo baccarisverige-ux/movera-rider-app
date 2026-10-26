@@ -111,6 +111,7 @@ extension _FindingDriverRaise on FindingDriverController {
       ride.observeProjection(response);
       if (_appliedEditDropped(editToken)) return false;
       _bumpDismissed = true;
+      _bumpOpened = false;
       final serverPrice = _serverPrice(response);
       if (serverPrice == null) {
         // Accepted, but the response did not say what the fare now is.

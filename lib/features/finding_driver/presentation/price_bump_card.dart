@@ -124,6 +124,15 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
     currency: widget.currency,
   );
 
+  /// Owner, live test 2026-10-26 (+200 kr): a total above the ceiling left
+  /// Confirm grey with no reason; the card now says the most it can be.
+  /// Only a typed price can go over it: a step above the limit is not
+  /// shown (G4-E4).
+  bool get _overMax {
+    final total = _typedTotal;
+    return total != null && total * _unitMinor > _maxMinor;
+  }
+
   /// [amount] whole units of the trip's currency, as the fare is shown.
   String _money(num amount) => formatMajor(amount, widget.currency);
 
@@ -336,6 +345,20 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             ),
           ),
         ),
+        if (_overMax) ...[
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.bumpMaxPrice(
+              formatMoney(Money(_maxMinor, widget.currency), whole: true),
+            ),
+            key: const ValueKey('price-bump-max'),
+            style: GoogleFonts.poppins(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFFB42318),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,

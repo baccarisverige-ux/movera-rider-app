@@ -44,6 +44,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
@@ -914,7 +915,8 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _sheetOpenedForBump = false;
 
   void _openSheetForPriceBump() {
-    final show = _match.showPriceBump && !_match.showStillLooking;
+    final show = _match.showPriceBump &&
+        (!_match.showStillLooking || _match.priceBumpOpened);
     if (!show) {
       _sheetOpenedForBump = false;
       return;
@@ -1380,7 +1382,8 @@ class _FindingDriversState extends State<FindingDrivers> {
               onCancel: _confirmCancel,
             ),
           ],
-          if (_match.showPriceBump && !_match.showStillLooking) ...[
+          if (_match.showPriceBump &&
+        (!_match.showStillLooking || _match.priceBumpOpened)) ...[
             const SizedBox(height: 16),
             PriceBumpCard(
               currentPrice: _match.currentPrice,
@@ -1396,6 +1399,35 @@ class _FindingDriversState extends State<FindingDrivers> {
                 _match.dismissPriceBump();
                 setState(() {});
               },
+            ),
+          ],
+          if (_match.showRaiseEntry) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const ValueKey('raise-offer-entry'),
+                onPressed: () {
+                  _match.openPriceBump();
+                  setState(() {});
+                },
+                icon: const Icon(Icons.trending_up_rounded, size: 20),
+                label: Text(
+                  context.l10n.raiseOfferEntry,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MoveraTokens.ink,
+                  side: const BorderSide(color: MoveraTokens.line),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 16),
