@@ -134,72 +134,66 @@ void main() {
   });
 
   group('Phase 135: restore must seed authoritativeVersion', () {
-    test(
-      'reproduces the bug: without a seeded version, a freshly-reconnected '
-      "transport's low-numbered reset event is wrongly accepted, regressing "
-      'a restored ride back to findingDriver',
-      () {
-        final session = RideSession();
-        // The old RideRestoreCoordinator.pageFor call: no version, no
-        // updatedAt, so authoritativeVersion stays null after this.
-        session.backendReconcile(RideStatus.driverAssigned, id: 'ride-1');
-        expect(session.authoritativeVersion, isNull);
+    test('reproduces the bug: without a seeded version, a freshly-reconnected '
+        "transport's low-numbered reset event is wrongly accepted, regressing "
+        'a restored ride back to findingDriver', () {
+      final session = RideSession();
+      // The old RideRestoreCoordinator.pageFor call: no version, no
+      // updatedAt, so authoritativeVersion stays null after this.
+      session.backendReconcile(RideStatus.driverAssigned, id: 'ride-1');
+      expect(session.authoritativeVersion, isNull);
 
-        // A fresh MockRideRealtime construction resets its own sequence
-        // counter to 0, so its first real event after reconnect carries a
-        // low version number - 1, in this case - even though this ride had
-        // already progressed further before the reload.
-        final regressed = session.backendReconcile(
-          RideStatus.findingDriver,
-          id: 'ride-1',
-          version: 1,
-          updatedAt: DateTime.now(),
-        );
+      // A fresh MockRideRealtime construction resets its own sequence
+      // counter to 0, so its first real event after reconnect carries a
+      // low version number - 1, in this case - even though this ride had
+      // already progressed further before the reload.
+      final regressed = session.backendReconcile(
+        RideStatus.findingDriver,
+        id: 'ride-1',
+        version: 1,
+        updatedAt: DateTime.now(),
+      );
 
-        expect(
-          regressed,
-          isTrue,
-          reason:
-              'nothing was seeded to compare against, so the stale reset '
-              'was wrongly accepted - this is the bug',
-        );
-        expect(session.status, RideStatus.findingDriver);
-      },
-    );
+      expect(
+        regressed,
+        isTrue,
+        reason:
+            'nothing was seeded to compare against, so the stale reset '
+            'was wrongly accepted - this is the bug',
+      );
+      expect(session.status, RideStatus.findingDriver);
+    });
 
-    test(
-      'fixed: seeding authoritativeVersion from the restored snapshot '
-      "rejects that same low-numbered reset event",
-      () {
-        final session = RideSession();
-        // The fixed RideRestoreCoordinator.pageFor call: seeds version from
-        // the snapshot's own persisted ordering number.
-        session.backendReconcile(
-          RideStatus.driverAssigned,
-          id: 'ride-1',
-          version: 5,
-          updatedAt: DateTime.utc(2026, 9, 23, 10),
-        );
-        expect(session.authoritativeVersion, 5);
+    test('fixed: seeding authoritativeVersion from the restored snapshot '
+        "rejects that same low-numbered reset event", () {
+      final session = RideSession();
+      // The fixed RideRestoreCoordinator.pageFor call: seeds version from
+      // the snapshot's own persisted ordering number.
+      session.backendReconcile(
+        RideStatus.driverAssigned,
+        id: 'ride-1',
+        version: 5,
+        updatedAt: DateTime.utc(2026, 9, 23, 10),
+      );
+      expect(session.authoritativeVersion, 5);
 
-        final regressed = session.backendReconcile(
-          RideStatus.findingDriver,
-          id: 'ride-1',
-          version: 1,
-          updatedAt: DateTime.now(),
-        );
+      final regressed = session.backendReconcile(
+        RideStatus.findingDriver,
+        id: 'ride-1',
+        version: 1,
+        updatedAt: DateTime.now(),
+      );
 
-        expect(
-          regressed,
-          isFalse,
-          reason: 'version 1 is older than the seeded version 5',
-        );
-        expect(
-          session.status,
-          RideStatus.driverAssigned,
-          reason: 'the restored ride must not regress',
-        );
-      },
-    );
+      expect(
+        regressed,
+        isFalse,
+        reason: 'version 1 is older than the seeded version 5',
+      );
+      expect(
+        session.status,
+        RideStatus.driverAssigned,
+        reason: 'the restored ride must not regress',
+      );
+    });
   });
 }

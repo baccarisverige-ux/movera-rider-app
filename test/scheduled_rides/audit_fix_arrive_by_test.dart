@@ -254,9 +254,7 @@ void main() {
     },
   );
 
-  testWidgets('rider-90: the time sheet caption is translated', (
-    tester,
-  ) async {
+  testWidgets('rider-90: the time sheet caption is translated', (tester) async {
     phone(tester);
     addTearDown(() => L10n.use('en'));
     L10n.use('fr');

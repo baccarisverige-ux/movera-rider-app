@@ -105,9 +105,8 @@ void main() {
       MoveraScreenUtilInit(
         builder: (_, __) => MaterialApp(
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
           home: home,
@@ -128,11 +127,7 @@ void main() {
     expect(tester.getSize(share).shortestSide, greaterThanOrEqualTo(44));
     expect(
       tester.getSemantics(share),
-      isSemantics(
-        label: 'Share trip',
-        isButton: true,
-        hasTapAction: true,
-      ),
+      isSemantics(label: 'Share trip', isButton: true, hasTapAction: true),
     );
     handle.dispose();
   });
@@ -317,8 +312,9 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('rider-68: the driver card reads the plate in the app language',
-      (tester) async {
+  testWidgets('rider-68: the driver card reads the plate in the app language', (
+    tester,
+  ) async {
     L10n.use('sv');
     addTearDown(() => L10n.use('en'));
     final handle = tester.ensureSemantics();
@@ -338,66 +334,72 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('rider-u191: Select ride tiles announce selection, headings are headings',
-      (tester) async {
-    final selection = RideSelectionController(
-      catalog: RideCatalogController(
-        api: ApiClient(
-          client: MockClient(
-            (_) async => http.Response(jsonEncode({'code': 'X'}), 500),
+  testWidgets(
+    'rider-u191: Select ride tiles announce selection, headings are headings',
+    (tester) async {
+      final selection = RideSelectionController(
+        catalog: RideCatalogController(
+          api: ApiClient(
+            client: MockClient(
+              (_) async => http.Response(jsonEncode({'code': 'X'}), 500),
+            ),
+          ),
+          cache: MemoryRideCatalogCache(),
+        ),
+        quotes: _Quotes(),
+        flags: FeatureFlags(),
+      );
+      addTearDown(selection.dispose);
+      final handle = tester.ensureSemantics();
+      await pump(
+        tester,
+        SelectRide(
+          pickupAddress: 'Klockarvägen 37',
+          destinationAddress: 'Arlanda Airport',
+          pickupPosition: const LatLng(59.3293, 18.0686),
+          destinationPosition: const LatLng(59.6519, 17.9186),
+          geocoding: _Geocoder(),
+          selection: selection,
+          reservations: ReservationController(
+            store: LocalReservationRepository(
+              storage: MemoryReservationStorage(),
+            ),
           ),
         ),
-        cache: MemoryRideCatalogCache(),
-      ),
-      quotes: _Quotes(),
-      flags: FeatureFlags(),
-    );
-    addTearDown(selection.dispose);
-    final handle = tester.ensureSemantics();
-    await pump(
-      tester,
-      SelectRide(
-        pickupAddress: 'Klockarvägen 37',
-        destinationAddress: 'Arlanda Airport',
-        pickupPosition: const LatLng(59.3293, 18.0686),
-        destinationPosition: const LatLng(59.6519, 17.9186),
-        geocoding: _Geocoder(),
-        selection: selection,
-        reservations: ReservationController(
-          store: LocalReservationRepository(storage: MemoryReservationStorage()),
-        ),
-      ),
-    );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    SemanticsNode nodeOf(Finder text) => tester.getSemantics(text.first);
+      );
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      SemanticsNode nodeOf(Finder text) => tester.getSemantics(text.first);
 
-    // Fully open (owner round 2: no filter chips any more; the two
-    // group headings are announced as headings).
-    await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(find.text('Faster'), findsNothing);
-    final heading = find.byKey(const ValueKey('select-ride-heading-Rides for you'));
-    expect(heading, findsOneWidget);
-    expect(nodeOf(heading), isSemantics(isHeader: true));
+      // Fully open (owner round 2: no filter chips any more; the two
+      // group headings are announced as headings).
+      await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Faster'), findsNothing);
+      final heading = find.byKey(
+        const ValueKey('select-ride-heading-Rides for you'),
+      );
+      expect(heading, findsOneWidget);
+      expect(nodeOf(heading), isSemantics(isHeader: true));
 
-    // The chosen category's tile is selected; another one is not.
-    final chosen = selection.rideById(selection.selectedRideId).name;
-    final tiles = find.ancestor(
-      of: find.text(chosen),
-      matching: find.byType(InkWell),
-    );
-    expect(
-      tester.getSemantics(tiles.first),
-      isSemantics(isButton: true, isSelected: true, hasTapAction: true),
-    );
-    handle.dispose();
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 10));
-  });
+      // The chosen category's tile is selected; another one is not.
+      final chosen = selection.rideById(selection.selectedRideId).name;
+      final tiles = find.ancestor(
+        of: find.text(chosen),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        tester.getSemantics(tiles.first),
+        isSemantics(isButton: true, isSelected: true, hasTapAction: true),
+      );
+      handle.dispose();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 10));
+    },
+  );
 
   testWidgets('rider-u216: the Safety Kit sheet scrolls at 2x text instead '
       'of clipping Safety preferences', (tester) async {
@@ -431,14 +433,22 @@ void main() {
       'keyboard up and the error shown', (tester) async {
     tester.view.viewInsets = const FakeViewPadding(bottom: 260);
     addTearDown(tester.view.resetViewInsets);
-    await pump(tester, const AddPlace(), size: const Size(320, 568), textScale: 1.3);
+    await pump(
+      tester,
+      const AddPlace(),
+      size: const Size(320, 568),
+      textScale: 1.3,
+    );
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.text('Add both a name and a location.'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
     await tester.ensureVisible(find.text('Save'));
     await tester.pump();
-    expect(tester.getRect(find.text('Save')).bottom, lessThanOrEqualTo(568 - 260));
+    expect(
+      tester.getRect(find.text('Save')).bottom,
+      lessThanOrEqualTo(568 - 260),
+    );
   });
 
   testWidgets('rider-u224: the saved-place picker close is a named 44 px '

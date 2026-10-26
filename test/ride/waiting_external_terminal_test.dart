@@ -113,73 +113,75 @@ void main() {
   // A driver dropping the ride before pickup is not the rider's ride ending:
   // dispatch looks again, so Waiting goes back to searching rather than Home,
   // and the ride is not filed away as cancelled.
-  testWidgets('driver cancellation reverses Waiting to its existing parent route', (
-    tester,
-  ) async {
-    const rideId = 'waiting-driver-cancel-research';
-    final snapshot = waitingSnapshot(rideId);
-    await RideSnapshotStore.save(snapshot);
-    AppScope.instance.ride.restoreFromBackend(
-      RideStatus.driverAssigned,
-      id: rideId,
-    );
+  testWidgets(
+    'driver cancellation reverses Waiting to its existing parent route',
+    (tester) async {
+      const rideId = 'waiting-driver-cancel-research';
+      final snapshot = waitingSnapshot(rideId);
+      await RideSnapshotStore.save(snapshot);
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.driverAssigned,
+        id: rideId,
+      );
 
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: const Scaffold(body: Center(child: Text('audit-root'))),
-      ),
-    );
-
-    navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(
-        builder: (_) => const WaitingForDriver(
-          pickupAddress: 'Stockholm pickup',
-          destinationAddress: 'Stockholm destination',
-          pickupPosition: LatLng(59.3293, 18.0686),
-          destinationPosition: LatLng(59.3326, 18.0649),
-          rideType: 'Movera',
-          price: 259,
-          paymentMethod: 'Apple Pay',
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: Center(child: Text('audit-root'))),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(WaitingForDriver), findsOneWidget);
+      );
 
-    (AppScope.instance.rideRealtime as MockRideRealtime)
-        .emit(RideStatus.cancelledByDriver);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const WaitingForDriver(
+            pickupAddress: 'Stockholm pickup',
+            destinationAddress: 'Stockholm destination',
+            pickupPosition: LatLng(59.3293, 18.0686),
+            destinationPosition: LatLng(59.3326, 18.0649),
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(WaitingForDriver), findsOneWidget);
 
-    // The rider is told what happened, and is not asked anything.
-    expect(find.byType(DriverCancelledNotice), findsWidgets);
-    expect(find.text('Keep searching'), findsNothing);
-    await tester.pumpAndSettle(const Duration(milliseconds: 400));
-    expect(find.text('Your driver cancelled'), findsOneWidget);
+      (AppScope.instance.rideRealtime as MockRideRealtime).emit(
+        RideStatus.cancelledByDriver,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
-    // Normal navigation reverses one level instead of stacking a second
-    // Finding route. This isolated host uses audit-root as the parent; in the
-    // production stack that parent is the already parked Finding route.
-    expect(find.byType(WaitingForDriver), findsNothing);
-    expect(find.text('audit-root'), findsOneWidget);
-    expect(find.byType(FindingDrivers), findsNothing);
-    expect(navigatorKey.currentState!.canPop(), isFalse);
+      // The rider is told what happened, and is not asked anything.
+      expect(find.byType(DriverCancelledNotice), findsWidgets);
+      expect(find.text('Keep searching'), findsNothing);
+      await tester.pumpAndSettle(const Duration(milliseconds: 400));
+      expect(find.text('Your driver cancelled'), findsOneWidget);
 
-    // The ride is still theirs: nothing archived, nothing wiped.
-    expect(await OnDemandRideHistoryStore.read(), isEmpty);
-    final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
-    expect(realtime.lastStatus, RideStatus.findingDriver);
-    expect(AppScope.instance.ride.status, RideStatus.findingDriver);
-    // researchAfterDriverCancel intentionally starts the next assignment timer.
-    // This test only certifies the reverse route topology, so stop that future
-    // mock assignment before Flutter verifies there are no leaked timers.
-    realtime.holdAssignment();
-    await tester.pump(driverCancelledNoticeDuration);
-    await tester.pumpAndSettle();
-  });
+      // Normal navigation reverses one level instead of stacking a second
+      // Finding route. This isolated host uses audit-root as the parent; in the
+      // production stack that parent is the already parked Finding route.
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(find.text('audit-root'), findsOneWidget);
+      expect(find.byType(FindingDrivers), findsNothing);
+      expect(navigatorKey.currentState!.canPop(), isFalse);
+
+      // The ride is still theirs: nothing archived, nothing wiped.
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
+      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+      expect(realtime.lastStatus, RideStatus.findingDriver);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      // researchAfterDriverCancel intentionally starts the next assignment timer.
+      // This test only certifies the reverse route topology, so stop that future
+      // mock assignment before Flutter verifies there are no leaked timers.
+      realtime.holdAssignment();
+      await tester.pump(driverCancelledNoticeDuration);
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'driver-arrived popup waits until a child route returns to the active ride',
@@ -221,9 +223,8 @@ void main() {
 
       navigatorKey.currentState!.push(
         MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('temporary-child')),
-          ),
+          builder: (_) =>
+              const Scaffold(body: Center(child: Text('temporary-child'))),
         ),
       );
       await tester.pumpAndSettle();
@@ -261,36 +262,42 @@ void main() {
     await expectWaitingLeavesOn(tester, RideStatus.cancelledBySystem);
   });
 
-  test('external terminal cleanup never rewrites status as rider cancellation', () async {
-    final snapshot = waitingSnapshot('waiting-controller-terminal');
-    await RideSnapshotStore.save(snapshot);
-    AppScope.instance.ride.restoreFromBackend(
-      RideStatus.driverAssigned,
-      id: snapshot.rideId,
-    );
-
-    await ActiveRideController().markExternalTerminal(
-      RideStatus.cancelledByDriver,
-    );
-
-    expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
-    expect(await RideSnapshotStore.read(), isNull);
-  });
-
-  test('external terminal cleanup rejects non-external terminal inputs', () async {
-    for (final status in <RideStatus>[
-      RideStatus.driverAssigned,
-      RideStatus.tripCompleted,
-      RideStatus.cancelledByRider,
-      RideStatus.closed,
-    ]) {
-      await expectLater(
-        ActiveRideController().markExternalTerminal(status),
-        throwsA(isA<ArgumentError>()),
-        reason: status.name,
+  test(
+    'external terminal cleanup never rewrites status as rider cancellation',
+    () async {
+      final snapshot = waitingSnapshot('waiting-controller-terminal');
+      await RideSnapshotStore.save(snapshot);
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.driverAssigned,
+        id: snapshot.rideId,
       );
-    }
-  });
+
+      await ActiveRideController().markExternalTerminal(
+        RideStatus.cancelledByDriver,
+      );
+
+      expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
+      expect(await RideSnapshotStore.read(), isNull);
+    },
+  );
+
+  test(
+    'external terminal cleanup rejects non-external terminal inputs',
+    () async {
+      for (final status in <RideStatus>[
+        RideStatus.driverAssigned,
+        RideStatus.tripCompleted,
+        RideStatus.cancelledByRider,
+        RideStatus.closed,
+      ]) {
+        await expectLater(
+          ActiveRideController().markExternalTerminal(status),
+          throwsA(isA<ArgumentError>()),
+          reason: status.name,
+        );
+      }
+    },
+  );
 
   testWidgets(
     'waiting stages keep the same map, panel and ride State mounted',

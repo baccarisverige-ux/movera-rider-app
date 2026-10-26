@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/core/contracts/wire_time.dart';
+
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -265,7 +266,8 @@ class MockRideRealtime implements RideRealtime {
       _adoptPickup(ride);
       _acceptedAt = WireTime.tryParse(ride['acceptedAt']);
       final waiting = ride['waiting'];
-      if (waiting is Map) _waitingSince = WireTime.tryParse(waiting['arrivedAt']);
+      if (waiting is Map)
+        _waitingSince = WireTime.tryParse(waiting['arrivedAt']);
     }
     _pickupLat ??= _fallbackPickup.$1;
     _pickupLng ??= _fallbackPickup.$2;
@@ -341,10 +343,7 @@ class MockRideRealtime implements RideRealtime {
     if (pickupKnown) _spawnDriver();
     // Matching is what knows the driver. Assign before persisting so the
     // stored ride, every later resync, and a restored session all agree.
-    lastDriver ??= MockDriverPool.forRide(
-      rideId,
-      attempt: _assignmentAttempt,
-    );
+    lastDriver ??= MockDriverPool.forRide(rideId, attempt: _assignmentAttempt);
 
     final accepted = await _persistAssignment(rideId);
 
@@ -855,9 +854,7 @@ class MockRideRealtime implements RideRealtime {
       RideStatus.driverWaiting ||
       RideStatus.tripStarted ||
       RideStatus.tripInProgress ||
-      RideStatus.approachingDropoff => {
-        'status': status.tripStatus.wireName,
-      },
+      RideStatus.approachingDropoff => {'status': status.tripStatus.wireName},
       RideStatus.tripCompleted => null, // _persistCompletion carries it.
       RideStatus.paymentProcessing => {'paymentStatus': 'authorized'},
       RideStatus.paymentFinalized => {'paymentStatus': 'captured'},
@@ -954,11 +951,7 @@ class MockRideRealtime implements RideRealtime {
     String? message,
   }) async {
     if (_rideId != rideId || disposed || cancelled) return;
-    emit(
-      lastStatus,
-      signal: signal,
-      message: message,
-    );
+    emit(lastStatus, signal: signal, message: message);
   }
 
   @override

@@ -2,7 +2,7 @@ import 'package:movera_rider/features/destination/data/destination_repository.da
 
 class DestinationController {
   DestinationController({DestinationRepository? store})
-      : _store = store ?? DestinationRepository.instance;
+    : _store = store ?? DestinationRepository.instance;
   final DestinationRepository _store;
 
   void remember({String? address, double? lat, double? lng}) {

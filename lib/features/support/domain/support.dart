@@ -21,6 +21,7 @@ class SupportRide {
 
   final String title;
   final DateTime when;
+
   /// Whole units of [currency] (the ride's).
   final double price;
   final String currency;

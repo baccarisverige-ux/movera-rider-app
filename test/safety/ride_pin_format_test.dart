@@ -15,9 +15,21 @@ void main() {
   });
 
   test('isAvailable and fromJson still key off the same 4-digit shape', () {
-    expect(const RidePin(pinId: 'p', userId: 'u', pin: '9821').isAvailable, isTrue);
-    expect(const RidePin(pinId: 'p', userId: 'u', pin: '98a1').isAvailable, isFalse);
-    expect(RidePin.fromJson({'pinId': 'p', 'userId': 'u', 'pin': '4471'}).pin, '4471');
-    expect(RidePin.fromJson({'pinId': 'p', 'userId': 'u', 'pin': 'bad'}).pin, '');
+    expect(
+      const RidePin(pinId: 'p', userId: 'u', pin: '9821').isAvailable,
+      isTrue,
+    );
+    expect(
+      const RidePin(pinId: 'p', userId: 'u', pin: '98a1').isAvailable,
+      isFalse,
+    );
+    expect(
+      RidePin.fromJson({'pinId': 'p', 'userId': 'u', 'pin': '4471'}).pin,
+      '4471',
+    );
+    expect(
+      RidePin.fromJson({'pinId': 'p', 'userId': 'u', 'pin': 'bad'}).pin,
+      '',
+    );
   });
 }

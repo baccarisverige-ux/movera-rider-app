@@ -3,10 +3,7 @@ class FareRules {
 
   static double maximum(double catalog) => (catalog * 1.8).roundToDouble();
 
-  static bool allowsTotal({
-    required double total,
-    required double catalog,
-  }) {
+  static bool allowsTotal({required double total, required double catalog}) {
     return total >= minimum(catalog) && total <= maximum(catalog);
   }
 

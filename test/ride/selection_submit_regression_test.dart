@@ -23,41 +23,46 @@ void main() {
       ..status = RideStatus.idle;
   });
 
-  test('category and payment survive sub-flow changes and reach Book Now snapshot', () async {
-    final selection = RideSelectionController(flags: const FeatureFlags());
-    final xl = selection.rideById('xl');
-    selection.selectRide(xl.id, xl.price);
-    selection.selectPaymentNamed('Card');
-    final selectedPayment = selection.payments()[selection.selectedPayment].name;
+  test(
+    'category and payment survive sub-flow changes and reach Book Now snapshot',
+    () async {
+      final selection = RideSelectionController(flags: const FeatureFlags());
+      final xl = selection.rideById('xl');
+      selection.selectRide(xl.id, xl.price);
+      selection.selectPaymentNamed('Card');
+      final selectedPayment = selection
+          .payments()[selection.selectedPayment]
+          .name;
 
-    // Simulate entering/leaving the booking-time sub-flow without rebuilding
-    // a second source of selection truth.
-    selection.setBookingMode(BookingMode.scheduled);
-    selection.scheduleFor(DateTime(2026, 9, 17, 10));
-    selection.setBookingMode(BookingMode.now);
+      // Simulate entering/leaving the booking-time sub-flow without rebuilding
+      // a second source of selection truth.
+      selection.setBookingMode(BookingMode.scheduled);
+      selection.scheduleFor(DateTime(2026, 9, 17, 10));
+      selection.setBookingMode(BookingMode.now);
 
-    expect(selection.selectedRideId, 'xl');
-    expect(selectedPayment, 'Card');
+      expect(selection.selectedRideId, 'xl');
+      expect(selectedPayment, 'Card');
 
-    final booking = BookingCoordinator(
-      api: ApiClient(client: InProcessMockClient()),
-    );
-    final rideId = await booking.submitFinding(
-      pickupAddress: 'Pickup',
-      destinationAddress: 'Destination',
-      pickupLat: 59.3293,
-      pickupLng: 18.0686,
-      destinationLat: 59.3326,
-      destinationLng: 18.0649,
-      rideType: selection.selectedRideId,
-      price: selection.priceFor(xl.id, xl.price),
-      paymentMethod: selectedPayment,
-    );
+      final booking = BookingCoordinator(
+        api: ApiClient(client: InProcessMockClient()),
+      );
+      final rideId = await booking.submitFinding(
+        pickupAddress: 'Pickup',
+        destinationAddress: 'Destination',
+        pickupLat: 59.3293,
+        pickupLng: 18.0686,
+        destinationLat: 59.3326,
+        destinationLng: 18.0649,
+        rideType: selection.selectedRideId,
+        price: selection.priceFor(xl.id, xl.price),
+        paymentMethod: selectedPayment,
+      );
 
-    final snapshot = await RideSnapshotStore.readForArchive();
-    expect(snapshot, isNotNull);
-    expect(snapshot!.rideId, rideId);
-    expect(snapshot.rideType, 'xl');
-    expect(snapshot.paymentMethod, 'Card');
-  });
+      final snapshot = await RideSnapshotStore.readForArchive();
+      expect(snapshot, isNotNull);
+      expect(snapshot!.rideId, rideId);
+      expect(snapshot.rideType, 'xl');
+      expect(snapshot.paymentMethod, 'Card');
+    },
+  );
 }

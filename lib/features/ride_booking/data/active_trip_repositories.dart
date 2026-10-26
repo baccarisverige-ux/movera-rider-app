@@ -18,7 +18,7 @@ class DeviceOnlyActiveTripRepository implements ActiveTripRepository {
 class ApiActiveTripRepository
     implements ActiveTripRepository, ServerBackedRepository {
   ApiActiveTripRepository({required ApiClient api, this.categoryLabel})
-      : _api = api;
+    : _api = api;
 
   static const path = '/api/v1/rider/trips/active';
 

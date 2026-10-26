@@ -1,4 +1,5 @@
 import 'package:movera_rider/l10n/l10n.dart';
+
 final _postcodeLikeToken = RegExp(r'^\d{3,}(\s?\d{2})?$');
 
 /// Shortens a comma-separated place/address string to its first two

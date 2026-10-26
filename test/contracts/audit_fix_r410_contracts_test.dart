@@ -48,9 +48,11 @@ void main() {
         'plate': 'MVR 204',
       });
       expect(MatchedDriver.fromJson(json)?.vehicleLabel, 'White Volvo XC40');
-      final legacy = MatchedDriver.fromJson(
-        {'id': 'd1', 'firstName': 'Ana', 'plate': 'ABC 123'},
-      );
+      final legacy = MatchedDriver.fromJson({
+        'id': 'd1',
+        'firstName': 'Ana',
+        'plate': 'ABC 123',
+      });
       expect(legacy?.id, 'd1');
       expect(legacy?.plate, 'ABC 123');
     });
@@ -58,73 +60,95 @@ void main() {
 
   group('rider-u19 every rider cancel names a contract reasonCode', () {
     test('cancel-first (no reason picked yet) still sends one', () {
-      expect(
-        const PendingCancel(rideId: 'r1', expectedVersion: 3).body(),
-        {'reasonCode': 'something_else', 'expectedVersion': 3},
-      );
+      expect(const PendingCancel(rideId: 'r1', expectedVersion: 3).body(), {
+        'reasonCode': 'something_else',
+        'expectedVersion': 3,
+      });
     });
 
     test('a 400 refusal is final instead of staying queued', () {
       expect(
-        isPermanentCancelFailure(const ApiError(
-          code: 'invalid_request',
-          message: 'reasonCode is required',
-          statusCode: 400,
-        )),
+        isPermanentCancelFailure(
+          const ApiError(
+            code: 'invalid_request',
+            message: 'reasonCode is required',
+            statusCode: 400,
+          ),
+        ),
         isTrue,
       );
     });
 
-    test('the stand-in server requires it like openapi CancelCommand',
-        () async {
-      final server = InProcessMockClient();
-      final api = ApiClient(client: server);
-      for (final id in ['r1', 'r2']) {
-        server.rides[id] = {'id': id, 'tripId': id, 'status': 'searching'};
-      }
-      await expectLater(
-        api.post('/api/v1/rides/r1/cancel', body: {}),
-        throwsA(isA<ApiError>().having((e) => e.statusCode, 'status', 400)),
-      );
-      // The booking stand-down cancel names one too.
-      await BookingCoordinator(api: api).cancel(rideId: 'r2', key: 'k2');
-      expect(server.rides['r2']!['status'], 'cancelled_by_rider');
-    });
-  });
-
-  test('rider-u10: after a reload the demo server still knows the ride',
+    test(
+      'the stand-in server requires it like openapi CancelCommand',
       () async {
-    SharedPreferences.setMockInitialValues({});
-    // The app's own demo transport, before and after the page reload.
-    final before = ApiClient();
-    expect(before.usesMockTransport, isTrue);
-    final quote = (await before.post('/api/v1/quotes', body: {
-      'rideType': 'economy',
-      'pickupLat': 59.3293,
-      'pickupLng': 18.0686,
-      'destinationLat': 59.3326,
-      'destinationLng': 18.0649,
-    }))['quote'] as Map;
-    final ride = (await before.post('/api/v1/rides', body: {
-      'categoryId': 'economy',
-      'fare': {'amountMinor': quote['totalMinor'], 'currency': 'SEK'},
-      'paymentMethodId': 'cash',
-      'pickupLat': 59.3293,
-      'pickupLng': 18.0686,
-      'destinationLat': 59.3326,
-      'destinationLng': 18.0649,
-      'quoteId': quote['id'],
-      'quoteSignedPayload': quote['signedPayload'],
-      'quoteExpiresAt': quote['expiresAt'],
-      'quoteTotalMinor': quote['totalMinor'],
-    }))['ride'] as Map;
-    final id = ride['id'] as String;
-    await before.post('/api/v1/rides/$id/status', body: {'status': 'completed'});
-
-    final after = ApiClient();
-    await RideFeedbackRepository(api: after)
-        .submit(rideId: id, rating: 5, idempotencyKey: 'fb-reload');
-    final read = (await after.get('/api/v1/rides/$id'))['ride'] as Map;
-    expect(read['ratingStatus'], 'submitted');
+        final server = InProcessMockClient();
+        final api = ApiClient(client: server);
+        for (final id in ['r1', 'r2']) {
+          server.rides[id] = {'id': id, 'tripId': id, 'status': 'searching'};
+        }
+        await expectLater(
+          api.post('/api/v1/rides/r1/cancel', body: {}),
+          throwsA(isA<ApiError>().having((e) => e.statusCode, 'status', 400)),
+        );
+        // The booking stand-down cancel names one too.
+        await BookingCoordinator(api: api).cancel(rideId: 'r2', key: 'k2');
+        expect(server.rides['r2']!['status'], 'cancelled_by_rider');
+      },
+    );
   });
+
+  test(
+    'rider-u10: after a reload the demo server still knows the ride',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      // The app's own demo transport, before and after the page reload.
+      final before = ApiClient();
+      expect(before.usesMockTransport, isTrue);
+      final quote =
+          (await before.post(
+                '/api/v1/quotes',
+                body: {
+                  'rideType': 'economy',
+                  'pickupLat': 59.3293,
+                  'pickupLng': 18.0686,
+                  'destinationLat': 59.3326,
+                  'destinationLng': 18.0649,
+                },
+              ))['quote']
+              as Map;
+      final ride =
+          (await before.post(
+                '/api/v1/rides',
+                body: {
+                  'categoryId': 'economy',
+                  'fare': {
+                    'amountMinor': quote['totalMinor'],
+                    'currency': 'SEK',
+                  },
+                  'paymentMethodId': 'cash',
+                  'pickupLat': 59.3293,
+                  'pickupLng': 18.0686,
+                  'destinationLat': 59.3326,
+                  'destinationLng': 18.0649,
+                  'quoteId': quote['id'],
+                  'quoteSignedPayload': quote['signedPayload'],
+                  'quoteExpiresAt': quote['expiresAt'],
+                  'quoteTotalMinor': quote['totalMinor'],
+                },
+              ))['ride']
+              as Map;
+      final id = ride['id'] as String;
+      await before.post(
+        '/api/v1/rides/$id/status',
+        body: {'status': 'completed'},
+      );
+
+      final after = ApiClient();
+      await RideFeedbackRepository(api: after)
+          .submit(rideId: id, rating: 5, idempotencyKey: 'fb-reload');
+      final read = (await after.get('/api/v1/rides/$id'))['ride'] as Map;
+      expect(read['ratingStatus'], 'submitted');
+    },
+  );
 }

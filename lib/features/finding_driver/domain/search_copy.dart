@@ -1,4 +1,5 @@
 import 'package:movera_rider/l10n/l10n.dart';
+
 /// Rotating search copy. Changes with elapsed time, not every few seconds.
 class SearchCopy {
   const SearchCopy({required this.headline, required this.subtitle});

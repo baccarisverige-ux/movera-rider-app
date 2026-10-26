@@ -84,10 +84,23 @@ void main() {
   group('RideCatalogJson', () {
     test('maps rows, drops disabled, sorts by order, falls back on keys', () {
       final items = RideCatalogJson.parseAll([
-        _row('van', 'Van', seats: 8, etaMin: 14, price: 449,
-            description: 'Groups and luggage', imageKey: 'xl', order: 3),
-        _row('rocket', 'Rocket', glyph: 'rocket', imageKey: 'spaceship',
-            order: 2),
+        _row(
+          'van',
+          'Van',
+          seats: 8,
+          etaMin: 14,
+          price: 449,
+          description: 'Groups and luggage',
+          imageKey: 'xl',
+          order: 3,
+        ),
+        _row(
+          'rocket',
+          'Rocket',
+          glyph: 'rocket',
+          imageKey: 'spaceship',
+          order: 2,
+        ),
         _row('hidden', 'Hidden', order: 1, enabled: false),
         _row('electric', 'Electric', glyph: 'bolt', order: 1),
       ]);
@@ -128,30 +141,33 @@ void main() {
   });
 
   group('RideCatalogController', () {
-    test('starts on the built-in list and switches to the server list', () async {
-      final cache = MemoryRideCatalogCache();
-      final controller = RideCatalogController(
-        api: _apiServing([
-          _row('economy', 'Movera', order: 1, badge: 'RECOMMENDED'),
-          _row('van', 'Van', price: 449, order: 2, imageKey: 'xl'),
-        ]),
-        cache: cache,
-        builtIn: _builtIn,
-      );
-      var notified = 0;
-      controller.addListener(() => notified++);
+    test(
+      'starts on the built-in list and switches to the server list',
+      () async {
+        final cache = MemoryRideCatalogCache();
+        final controller = RideCatalogController(
+          api: _apiServing([
+            _row('economy', 'Movera', order: 1, badge: 'RECOMMENDED'),
+            _row('van', 'Van', price: 449, order: 2, imageKey: 'xl'),
+          ]),
+          cache: cache,
+          builtIn: _builtIn,
+        );
+        var notified = 0;
+        controller.addListener(() => notified++);
 
-      expect(controller.current.map((item) => item.id), ['economy']);
-      expect(controller.source, RideCatalogSource.builtIn);
+        expect(controller.current.map((item) => item.id), ['economy']);
+        expect(controller.source, RideCatalogSource.builtIn);
 
-      final loaded = await controller.load();
+        final loaded = await controller.load();
 
-      expect(loaded.map((item) => item.id), ['economy', 'van']);
-      expect(controller.current, loaded);
-      expect(controller.source, RideCatalogSource.server);
-      expect(notified, 1);
-      expect(cache.rows?.map((row) => row['id']), ['economy', 'van']);
-    });
+        expect(loaded.map((item) => item.id), ['economy', 'van']);
+        expect(controller.current, loaded);
+        expect(controller.source, RideCatalogSource.server);
+        expect(notified, 1);
+        expect(cache.rows?.map((row) => row['id']), ['economy', 'van']);
+      },
+    );
 
     test('falls back to the cached list when the API throws', () async {
       final controller = RideCatalogController(
@@ -169,18 +185,21 @@ void main() {
       expect(controller.source, RideCatalogSource.cache);
     });
 
-    test('falls back to the built-in list when API and cache both fail', () async {
-      final controller = RideCatalogController(
-        api: _apiFailing(),
-        cache: _ThrowingCache(),
-        builtIn: _builtIn,
-      );
+    test(
+      'falls back to the built-in list when API and cache both fail',
+      () async {
+        final controller = RideCatalogController(
+          api: _apiFailing(),
+          cache: _ThrowingCache(),
+          builtIn: _builtIn,
+        );
 
-      final loaded = await controller.load();
+        final loaded = await controller.load();
 
-      expect(loaded.map((item) => item.id), ['economy']);
-      expect(controller.source, RideCatalogSource.builtIn);
-    });
+        expect(loaded.map((item) => item.id), ['economy']);
+        expect(controller.source, RideCatalogSource.builtIn);
+      },
+    );
 
     test('an empty cache does not hide the built-in list', () async {
       final controller = RideCatalogController(

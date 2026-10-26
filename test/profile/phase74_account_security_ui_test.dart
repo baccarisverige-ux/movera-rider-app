@@ -94,18 +94,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('unsupported security controls are read-only and truthful',
-      (tester) async {
+  testWidgets('unsupported security controls are read-only and truthful', (
+    tester,
+  ) async {
     final security = await securityController();
-    await pump(
-      tester,
-      SecurityPage(securityController: security),
-    );
+    await pump(tester, SecurityPage(securityController: security));
 
-    expect(
-      find.text('Coming soon'),
-      findsAtLeastNWidgets(5),
-    );
+    expect(find.text('Coming soon'), findsAtLeastNWidgets(5));
     expect(find.byType(Switch), findsNothing);
     expect(find.text('Connect'), findsNothing);
     expect(find.text('Disconnect'), findsNothing);
@@ -125,31 +120,28 @@ void main() {
     expect(find.text('Sign out others'), findsNothing);
   });
 
-  testWidgets('Account Check uses server verification metadata', (tester) async {
+  testWidgets('Account Check uses server verification metadata', (
+    tester,
+  ) async {
     final security = await securityController();
     final profile = await profileController();
     await pump(
       tester,
-      AccountCheckupPage(
-        controller: profile,
-        securityController: security,
-      ),
+      AccountCheckupPage(controller: profile, securityController: security),
     );
 
     expect(find.text('+46701234567 · Not verified'), findsOneWidget);
     expect(find.text('Unavailable'), findsAtLeastNWidgets(2));
   });
 
-  testWidgets('Personal Info cannot locally edit phone or email',
-      (tester) async {
+  testWidgets('Personal Info cannot locally edit phone or email', (
+    tester,
+  ) async {
     final security = await securityController();
     final profile = await profileController();
     await pump(
       tester,
-      PersonalInfoPage(
-        controller: profile,
-        securityController: security,
-      ),
+      PersonalInfoPage(controller: profile, securityController: security),
     );
 
     expect(find.text('+46701234567 · Not verified'), findsOneWidget);
@@ -165,16 +157,14 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('fresh reauth allows server-verified session revocation',
-      (tester) async {
+  testWidgets('fresh reauth allows server-verified session revocation', (
+    tester,
+  ) async {
     final security = await securityController(
       reauthenticationSupported: true,
       freshlyReauthenticated: true,
     );
-    await pump(
-      tester,
-      SecurityPage(securityController: security),
-    );
+    await pump(tester, SecurityPage(securityController: security));
 
     final otherDevice = find.text('Other device');
     await tester.scrollUntilVisible(otherDevice, 300);

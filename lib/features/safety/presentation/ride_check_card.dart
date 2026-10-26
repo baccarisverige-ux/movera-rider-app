@@ -1032,70 +1032,71 @@ class _RecordAudioState extends State<_RecordAudio> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showButton) Semantics(
-          button: true,
-          label: recording
-              ? context.l10n.rcStopRecordingSemantics
-              : context.l10n.rcRecordAudioSemantics,
-          onTap: widget.controller.toggleRecording,
-          excludeSemantics: true,
-          child: Material(
-            key: const ValueKey<String>('ride-check-record'),
-            color: RideCheckColors.fill,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              onTap: widget.controller.toggleRecording,
+        if (showButton)
+          Semantics(
+            button: true,
+            label: recording
+                ? context.l10n.rcStopRecordingSemantics
+                : context.l10n.rcRecordAudioSemantics,
+            onTap: widget.controller.toggleRecording,
+            excludeSemantics: true,
+            child: Material(
+              key: const ValueKey<String>('ride-check-record'),
+              color: RideCheckColors.fill,
               borderRadius: BorderRadius.circular(14),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 9,
-                  ),
-                  child: Row(
-                    children: [
-                      AppIconAsset(
-                        recording
-                            ? AppAssets.solarStopCircle
-                            : AppAssets.solarMicrophone,
-                        size: 18,
-                        color: recording
-                            ? RideCheckColors.redIcon
-                            : Colors.white,
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            style: _text(
-                              13.5,
-                              color: const Color(0x99FFFFFF),
-                              height: 1.3,
+              child: InkWell(
+                onTap: widget.controller.toggleRecording,
+                borderRadius: BorderRadius.circular(14),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 9,
+                    ),
+                    child: Row(
+                      children: [
+                        AppIconAsset(
+                          recording
+                              ? AppAssets.solarStopCircle
+                              : AppAssets.solarMicrophone,
+                          size: 18,
+                          color: recording
+                              ? RideCheckColors.redIcon
+                              : Colors.white,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              style: _text(
+                                13.5,
+                                color: const Color(0x99FFFFFF),
+                                height: 1.3,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: recording
+                                      ? context.l10n.rcRecordingClock(clock)
+                                      : context.l10n.rcRecordAudio,
+                                  style: _text(13.5, weight: FontWeight.w600),
+                                ),
+                                TextSpan(
+                                  text: recording
+                                      ? context.l10n.rcTapToStop
+                                      : context.l10n.rcSavedOnPhone,
+                                ),
+                              ],
                             ),
-                            children: [
-                              TextSpan(
-                                text: recording
-                                    ? context.l10n.rcRecordingClock(clock)
-                                    : context.l10n.rcRecordAudio,
-                                style: _text(13.5, weight: FontWeight.w600),
-                              ),
-                              TextSpan(
-                                text: recording
-                                    ? context.l10n.rcTapToStop
-                                    : context.l10n.rcSavedOnPhone,
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
         if (note != null) ...[
           if (showButton) const SizedBox(height: 6),
           _Note(note),

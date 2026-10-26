@@ -47,32 +47,35 @@ void main() {
     expect(selection.savedCardFor('cards'), isNull);
   });
 
-  test('a saved card can be chosen by name and is the booking method', () async {
-    final cards = SavedCardsController(store: MemorySavedCardsStore([visa]));
-    final memory = MemoryDefaultPaymentStore();
-    final selection = RideSelectionController(
-      savedCards: cards,
-      paymentStore: memory,
-    );
-    await selection.loadSavedCards();
+  test(
+    'a saved card can be chosen by name and is the booking method',
+    () async {
+      final cards = SavedCardsController(store: MemorySavedCardsStore([visa]));
+      final memory = MemoryDefaultPaymentStore();
+      final selection = RideSelectionController(
+        savedCards: cards,
+        paymentStore: memory,
+      );
+      await selection.loadSavedCards();
 
-    selection.selectPaymentNamed('Visa •••• 4242');
-    expect(selection.selectedPaymentItem()?.brand, 'card:c1');
+      selection.selectPaymentNamed('Visa •••• 4242');
+      expect(selection.selectedPaymentItem()?.brand, 'card:c1');
 
-    selection.selectPayment(
-      selection.payments().indexWhere((p) => p.brand == 'card:c1'),
-    );
-    expect(memory.value, 'card:c1');
+      selection.selectPayment(
+        selection.payments().indexWhere((p) => p.brand == 'card:c1'),
+      );
+      expect(memory.value, 'card:c1');
 
-    // The remembered default comes back as the same card.
-    final again = RideSelectionController(
-      savedCards: cards,
-      paymentStore: memory,
-    );
-    await again.loadSavedCards();
-    await again.restoreDefaultPayment();
-    expect(again.selectedPaymentItem()?.brand, 'card:c1');
-  });
+      // The remembered default comes back as the same card.
+      final again = RideSelectionController(
+        savedCards: cards,
+        paymentStore: memory,
+      );
+      await again.loadSavedCards();
+      await again.restoreDefaultPayment();
+      expect(again.selectedPaymentItem()?.brand, 'card:c1');
+    },
+  );
 
   test('removing the chosen card falls back to a valid method', () async {
     final cards = SavedCardsController(store: MemorySavedCardsStore([visa]));

@@ -6,7 +6,8 @@ import 'package:movera_rider/core/logging/app_log.dart';
 /// Sends optional post-trip feedback through the same API transport as the ride.
 /// An acknowledgement is required before the completion screen closes.
 class RideFeedbackRepository {
-  RideFeedbackRepository({ApiClient? api}) : _api = api ?? AppScope.instance.api;
+  RideFeedbackRepository({ApiClient? api})
+    : _api = api ?? AppScope.instance.api;
 
   final ApiClient _api;
 

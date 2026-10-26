@@ -138,8 +138,7 @@ class MoveraVehicleMarker {
     final outputSize = 48.0 * scale;
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)
-      ..scale(markerPixelRatio, markerPixelRatio);
+    final canvas = Canvas(recorder)..scale(markerPixelRatio, markerPixelRatio);
     if (heading != 0) {
       final centre = outputSize / 2;
       canvas
@@ -162,11 +161,7 @@ class MoveraVehicleMarker {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFFFFFFF),
-          Color(0xFFF1F4F2),
-          Color(0xFFC9D0CD),
-        ],
+        colors: [Color(0xFFFFFFFF), Color(0xFFF1F4F2), Color(0xFFC9D0CD)],
         stops: [0.0, 0.55, 1.0],
       ).createShader(bodyRect.outerRect);
     canvas.drawRRect(bodyRect, bodyPaint);
@@ -253,7 +248,9 @@ class RouteEndpointMarker {
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder)
         ..scale(markerPixelRatio, markerPixelRatio);
-      final color = pickup ? RiderRouteStyle.pickup : RiderRouteStyle.destination;
+      final color = pickup
+          ? RiderRouteStyle.pickup
+          : RiderRouteStyle.destination;
       const center = Offset(size / 2, size / 2);
       canvas.drawCircle(
         center,
@@ -314,7 +311,9 @@ class RouteTimeMarker {
   }) {
     return _cache.putIfAbsent('$pickup|$label', () async {
       const scale = 3.0;
-      final color = pickup ? RiderRouteStyle.pickup : RiderRouteStyle.destination;
+      final color = pickup
+          ? RiderRouteStyle.pickup
+          : RiderRouteStyle.destination;
       final lines = label.split('\n');
       final painters = [
         for (var i = 0; i < lines.length; i++)
@@ -331,7 +330,10 @@ class RouteTimeMarker {
             textDirection: TextDirection.ltr,
           )..layout(),
       ];
-      final textW = painters.fold<double>(0, (w, p) => w > p.width ? w : p.width);
+      final textW = painters.fold<double>(
+        0,
+        (w, p) => w > p.width ? w : p.width,
+      );
       final textH = painters.fold<double>(0, (h, p) => h + p.height);
       final bubbleW = pickup
           ? (textH + 18 * scale).clamp(textW + 14 * scale, double.infinity)
@@ -369,11 +371,19 @@ class RouteTimeMarker {
         canvas.drawCircle(dotCenter, dot * 0.5, Paint()..color = Colors.white);
       } else {
         canvas.drawRect(
-          Rect.fromCenter(center: dotCenter, width: dot * 1.8, height: dot * 1.8),
+          Rect.fromCenter(
+            center: dotCenter,
+            width: dot * 1.8,
+            height: dot * 1.8,
+          ),
           Paint()..color = color,
         );
         canvas.drawRect(
-          Rect.fromCenter(center: dotCenter, width: dot * 0.8, height: dot * 0.8),
+          Rect.fromCenter(
+            center: dotCenter,
+            width: dot * 0.8,
+            height: dot * 0.8,
+          ),
           Paint()..color = Colors.white,
         );
       }
@@ -415,8 +425,18 @@ class NearbyCarMarker {
   static Future<({BitmapDescriptor right, BitmapDescriptor left})> icons() {
     return _icons ??= () async {
       const config = ImageConfiguration(size: Size(width, height));
-      final right = await BitmapDescriptor.asset(config, rightAsset, width: width, height: height);
-      final left = await BitmapDescriptor.asset(config, leftAsset, width: width, height: height);
+      final right = await BitmapDescriptor.asset(
+        config,
+        rightAsset,
+        width: width,
+        height: height,
+      );
+      final left = await BitmapDescriptor.asset(
+        config,
+        leftAsset,
+        width: width,
+        height: height,
+      );
       return (right: right, left: left);
     }();
   }

@@ -12,10 +12,7 @@ void main() {
       stops: ['Odenplan'],
     );
     final when = DateTime.utc(2099, 9, 23, 10, 30);
-    session.captureSchedule(
-      when,
-      timezone: 'Europe/Stockholm',
-    );
+    session.captureSchedule(when, timezone: 'Europe/Stockholm');
     session.captureNote('Ring the bell');
     session.capturePayment('Cash');
     session.captureRideType('economy');

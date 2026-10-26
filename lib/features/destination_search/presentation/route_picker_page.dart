@@ -143,7 +143,6 @@ class RoutePickerPage extends StatefulWidget {
   final Future<Map<String, dynamic>?> Function(RoutePickerSelection selection)
   onFinish;
 
-
   @override
   State<RoutePickerPage> createState() => _RoutePickerPageState();
 }
@@ -201,13 +200,16 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return full != null && compactAddress(full) == clean ? full : clean;
   }
 
-  late final TextEditingController _pickup = _shortField(widget.pickupAddress ?? '');
+  late final TextEditingController _pickup = _shortField(
+    widget.pickupAddress ?? '',
+  );
 
   TextEditingController _shortField(String address) {
     final field = TextEditingController();
     _show(field, address);
     return field;
   }
+
   late final TextEditingController _destination = TextEditingController(
     text: widget.destinationAddress,
   );
@@ -524,13 +526,14 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       ..showSnackBar(
         SnackBar(
           key: const ValueKey('route-picker-finish-failed'),
-          content: Text(
-            context.l10n.routeCouldNotReach,
-          ),
+          content: Text(context.l10n.routeCouldNotReach),
           behavior: SnackBarBehavior.floating,
           // Long enough to read and tap after a 25 s wait on a slow server.
           duration: const Duration(seconds: 8),
-          action: SnackBarAction(label: context.l10n.tryAgain, onPressed: _finish),
+          action: SnackBarAction(
+            label: context.l10n.tryAgain,
+            onPressed: _finish,
+          ),
         ),
       );
   }

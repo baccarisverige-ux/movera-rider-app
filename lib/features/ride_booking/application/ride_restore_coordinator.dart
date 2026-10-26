@@ -100,16 +100,13 @@ class RideRestoreCoordinator {
       // keeps its own snapshot.
       if (await _reader() != null) return null;
       await RideSnapshotStore.save(trip);
-      AppLog.info('ride.restore.server_active_trip', extra: {
-        'rideId': id,
-        'status': trip.status.name,
-      });
+      AppLog.info(
+        'ride.restore.server_active_trip',
+        extra: {'rideId': id, 'status': trip.status.name},
+      );
       return await _reader() ?? trip;
     } catch (error) {
-      AppLog.warning(
-        'restore.active_trip_failed',
-        extra: {'error': '$error'},
-      );
+      AppLog.warning('restore.active_trip_failed', extra: {'error': '$error'});
       return null;
     }
   }
@@ -152,10 +149,10 @@ class RideRestoreCoordinator {
         extra: {'rideId': id, 'error': '$error'},
       );
     }
-    AppLog.info('ride.restore.cancel_queued', extra: {
-      'rideId': id,
-      'answer': answer?.name ?? 'none',
-    });
+    AppLog.info(
+      'ride.restore.cancel_queued',
+      extra: {'rideId': id, 'answer': answer?.name ?? 'none'},
+    );
     // An end-early that went through ends the trip, it does not cancel it:
     // the restored trip resyncs and shows how the server closed it. So does
     // a trip the server had already closed some other way (rider-r4-24:
@@ -232,6 +229,7 @@ class RideRestoreCoordinator {
     if (!_authRequired()) return const Home();
     return _AuthenticatedHomeGate(hasSession: _hasSession);
   }
+
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
@@ -435,10 +433,7 @@ class RideRestoreCoordinator {
         // still-owned snapshot so driver/vehicle/route/booked-price cards are
         // truthful after reload or process death.
         LastCompletedRide.remember(snapshot);
-        return RideCompleted(
-          status: snapshot.status,
-          rideId: snapshot.rideId,
-        );
+        return RideCompleted(status: snapshot.status, rideId: snapshot.rideId);
       case RestoredSurface.home:
         return const Home();
     }
@@ -702,7 +697,9 @@ class RideRestoreCoordinator {
     }
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
-    final page = next == RestoredSurface.home ? _gatedHome() : pageFor(snapshot);
+    final page = next == RestoredSurface.home
+        ? _gatedHome()
+        : pageFor(snapshot);
     onReplaceRoot?.call(page);
     return page;
   }
@@ -710,7 +707,6 @@ class RideRestoreCoordinator {
 
 typedef RideSnapshotStoreReader = Future<RideSnapshot?> Function();
 typedef RideRealtimeResync = Future<void> Function(String rideId);
-
 
 class _RideRecoveryBarrier extends StatelessWidget {
   const _RideRecoveryBarrier();
@@ -729,7 +725,6 @@ class _RideRecoveryBarrier extends StatelessWidget {
     );
   }
 }
-
 
 class _AuthenticatedHomeGate extends StatefulWidget {
   const _AuthenticatedHomeGate({required this.hasSession});

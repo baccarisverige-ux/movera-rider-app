@@ -6,7 +6,10 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _TrackingQuotes implements QuoteRepository {
-  _TrackingQuotes({this.failRideId, this.delay = const Duration(milliseconds: 20)});
+  _TrackingQuotes({
+    this.failRideId,
+    this.delay = const Duration(milliseconds: 20),
+  });
 
   final String? failRideId;
   final Duration delay;

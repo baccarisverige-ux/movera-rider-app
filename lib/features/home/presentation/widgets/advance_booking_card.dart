@@ -71,8 +71,7 @@ class AdvanceBookingCard extends StatelessWidget {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
               child: TextWidget(
-                text:
-                    context.l10n.advanceBody,
+                text: context.l10n.advanceBody,
                 color: _premiumMuted,
                 fontSize: 11,
                 fontWeight: fwNormal,

@@ -15,49 +15,48 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets(
-    'a double-tap on Confirm pickup spot only pops once',
-    (tester) async {
-      final navigatorKey = GlobalKey<NavigatorState>();
-      await tester.pumpWidget(
-        MaterialApp(
-          navigatorKey: navigatorKey,
-          home: const Scaffold(body: Center(child: Text('beneath'))),
-        ),
-      );
+  testWidgets('a double-tap on Confirm pickup spot only pops once', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Center(child: Text('beneath'))),
+      ),
+    );
 
-      ConfirmPickupResult? result;
-      unawaited(
-        navigatorKey.currentState!
-            .push<ConfirmPickupResult?>(
-              MaterialPageRoute(
-                builder: (_) => const ConfirmPickupSpot(
-                  initialPosition: LatLng(59.19, 17.62),
-                  initialAddress: 'Klockarvägen 37',
-                ),
+    ConfirmPickupResult? result;
+    unawaited(
+      navigatorKey.currentState!
+          .push<ConfirmPickupResult?>(
+            MaterialPageRoute(
+              builder: (_) => const ConfirmPickupSpot(
+                initialPosition: LatLng(59.19, 17.62),
+                initialAddress: 'Klockarvägen 37',
               ),
-            )
-            .then((value) => result = value),
-      );
-      await tester.pumpAndSettle();
+            ),
+          )
+          .then((value) => result = value),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('beneath'), findsNothing);
-      expect(find.byType(ConfirmPickupSpot), findsOneWidget);
+    expect(find.text('beneath'), findsNothing);
+    expect(find.byType(ConfirmPickupSpot), findsOneWidget);
 
-      final confirmButton = find.widgetWithText(FilledButton, 'Confirm pickup');
-      // Two taps back to back, before any frame is pumped in between - the
-      // same conditions a fast double-tap produces.
-      await tester.tap(confirmButton, warnIfMissed: false);
-      await tester.tap(confirmButton, warnIfMissed: false);
-      await tester.pumpAndSettle();
+    final confirmButton = find.widgetWithText(FilledButton, 'Confirm pickup');
+    // Two taps back to back, before any frame is pumped in between - the
+    // same conditions a fast double-tap produces.
+    await tester.tap(confirmButton, warnIfMissed: false);
+    await tester.tap(confirmButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
 
-      expect(
-        find.text('beneath'),
-        findsOneWidget,
-        reason: 'only ConfirmPickupSpot should have popped, not the screen beneath it',
-      );
-      expect(find.byType(ConfirmPickupSpot), findsNothing);
-      expect(result, isNotNull);
-    },
-  );
+    expect(
+      find.text('beneath'),
+      findsOneWidget,
+      reason: 'only ConfirmPickupSpot should have popped, not the screen beneath it',
+    );
+    expect(find.byType(ConfirmPickupSpot), findsNothing);
+    expect(result, isNotNull);
+  });
 }

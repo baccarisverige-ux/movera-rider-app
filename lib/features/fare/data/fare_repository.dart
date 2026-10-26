@@ -6,10 +6,6 @@ class FareRepository {
     required double catalog,
     required int delta,
   }) {
-    return FareRules.nudge(
-      current: current,
-      catalog: catalog,
-      delta: delta,
-    );
+    return FareRules.nudge(current: current, catalog: catalog, delta: delta);
   }
 }

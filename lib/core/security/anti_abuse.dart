@@ -1,4 +1,3 @@
-
 class AntiAbuse {
   static bool impossibleTravel({
     required double meters,

@@ -71,16 +71,81 @@ void main() {
     expect(later, isNot(changed));
   });
 
-  test('booking rejects response with missing trip id instead of creating "null"', () async {
-    final transport = _JsonClient(<String, dynamic>{
-      'ride': <String, dynamic>{'status': 'findingDriver'},
-    });
-    final booking = BookingCoordinator(
-      api: ApiClient(client: transport),
-    );
+  test(
+    'booking rejects response with missing trip id instead of creating "null"',
+    () async {
+      final transport = _JsonClient(<String, dynamic>{
+        'ride': <String, dynamic>{'status': 'findingDriver'},
+      });
+      final booking = BookingCoordinator(api: ApiClient(client: transport));
 
-    await expectLater(
-      booking.submitFinding(
+      await expectLater(
+        booking.submitFinding(
+          pickupAddress: 'A',
+          destinationAddress: 'B',
+          pickupLat: 59.3,
+          pickupLng: 18.0,
+          destinationLat: 59.4,
+          destinationLng: 18.1,
+          rideType: 'economy',
+          price: 259,
+          paymentMethod: 'apple',
+          quoteId: 'q-1',
+          quoteSignedPayload: 'signed',
+          quoteExpiresAt: DateTime.now().add(const Duration(minutes: 2)),
+          quoteTotalMinor: 25900,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+
+      expect(AppScope.instance.ride.rideId, isNull);
+      expect(AppScope.instance.ride.rideId, isNot('null'));
+    },
+  );
+
+  test(
+    'expired quote is rejected before any booking request is sent',
+    () async {
+      final transport = _JsonClient(<String, dynamic>{});
+      final booking = BookingCoordinator(api: ApiClient(client: transport));
+
+      await expectLater(
+        booking.submitFinding(
+          pickupAddress: 'A',
+          destinationAddress: 'B',
+          pickupLat: 59.3,
+          pickupLng: 18.0,
+          destinationLat: 59.4,
+          destinationLng: 18.1,
+          rideType: 'economy',
+          price: 259,
+          paymentMethod: 'apple',
+          quoteId: 'q-expired',
+          quoteSignedPayload: 'signed',
+          quoteExpiresAt: DateTime.now().subtract(const Duration(seconds: 1)),
+          quoteTotalMinor: 25900,
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(transport.sends, 0);
+    },
+  );
+
+  test(
+    'Book Now stores the exact authoritative quote binding on the trip',
+    () async {
+      final transport = InProcessMockClient();
+      final api = ApiClient(client: transport);
+      final quote = await ApiQuoteRepository(api: api).quote(
+        rideType: 'economy',
+        distanceMeters: 3000,
+        pickup: 'A',
+        destination: 'B',
+      );
+      final booking = BookingCoordinator(api: api);
+
+      final tripId = await booking.submitFinding(
         pickupAddress: 'A',
         destinationAddress: 'B',
         pickupLat: 59.3,
@@ -88,105 +153,50 @@ void main() {
         destinationLat: 59.4,
         destinationLng: 18.1,
         rideType: 'economy',
-        price: 259,
+        price: quote.totalMinor / 100,
         paymentMethod: 'apple',
-        quoteId: 'q-1',
-        quoteSignedPayload: 'signed',
-        quoteExpiresAt: DateTime.now().add(const Duration(minutes: 2)),
-        quoteTotalMinor: 25900,
-      ),
-      throwsA(isA<FormatException>()),
-    );
+        quoteId: quote.id,
+        quoteSignedPayload: quote.signedPayload!,
+        quoteExpiresAt: quote.expiresAt,
+        quoteTotalMinor: quote.totalMinor,
+      );
 
-    expect(AppScope.instance.ride.rideId, isNull);
-    expect(AppScope.instance.ride.rideId, isNot('null'));
-  });
+      final response = await api.get('/api/v1/rides/$tripId');
+      final ride = Map<String, dynamic>.from(response['ride'] as Map);
 
-  test('expired quote is rejected before any booking request is sent', () async {
-    final transport = _JsonClient(<String, dynamic>{});
-    final booking = BookingCoordinator(api: ApiClient(client: transport));
+      expect(ride['id'], tripId);
+      expect(ride['quoteId'], quote.id);
+      expect(ride['quoteSignedPayload'], quote.signedPayload);
+      expect(ride['quoteTotalMinor'], quote.totalMinor);
+      expect(ride['quoteExpiresAt'], quote.expiresAt.toUtc().toIso8601String());
 
-    await expectLater(
-      booking.submitFinding(
-        pickupAddress: 'A',
-        destinationAddress: 'B',
-        pickupLat: 59.3,
-        pickupLng: 18.0,
-        destinationLat: 59.4,
-        destinationLng: 18.1,
-        rideType: 'economy',
-        price: 259,
-        paymentMethod: 'apple',
-        quoteId: 'q-expired',
-        quoteSignedPayload: 'signed',
-        quoteExpiresAt: DateTime.now().subtract(const Duration(seconds: 1)),
-        quoteTotalMinor: 25900,
-      ),
-      throwsA(isA<StateError>()),
-    );
+      final snapshot = await RideSnapshotStore.read();
+      expect(snapshot?.rideId, tripId);
+    },
+  );
 
-    expect(transport.sends, 0);
-  });
+  test(
+    'mock backend rejects an on-demand booking without a quote binding',
+    () async {
+      final api = ApiClient(client: InProcessMockClient());
 
-  test('Book Now stores the exact authoritative quote binding on the trip', () async {
-    final transport = InProcessMockClient();
-    final api = ApiClient(client: transport);
-    final quote = await ApiQuoteRepository(api: api).quote(
-      rideType: 'economy',
-      distanceMeters: 3000,
-      pickup: 'A',
-      destination: 'B',
-    );
-    final booking = BookingCoordinator(api: api);
-
-    final tripId = await booking.submitFinding(
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3,
-      pickupLng: 18.0,
-      destinationLat: 59.4,
-      destinationLng: 18.1,
-      rideType: 'economy',
-      price: quote.totalMinor / 100,
-      paymentMethod: 'apple',
-      quoteId: quote.id,
-      quoteSignedPayload: quote.signedPayload!,
-      quoteExpiresAt: quote.expiresAt,
-      quoteTotalMinor: quote.totalMinor,
-    );
-
-    final response = await api.get('/api/v1/rides/$tripId');
-    final ride = Map<String, dynamic>.from(response['ride'] as Map);
-
-    expect(ride['id'], tripId);
-    expect(ride['quoteId'], quote.id);
-    expect(ride['quoteSignedPayload'], quote.signedPayload);
-    expect(ride['quoteTotalMinor'], quote.totalMinor);
-    expect(ride['quoteExpiresAt'], quote.expiresAt.toUtc().toIso8601String());
-
-    final snapshot = await RideSnapshotStore.read();
-    expect(snapshot?.rideId, tripId);
-  });
-
-  test('mock backend rejects an on-demand booking without a quote binding', () async {
-    final api = ApiClient(client: InProcessMockClient());
-
-    await expectLater(
-      api.post(
-        '/api/v1/rides',
-        body: <String, dynamic>{
-          'pickupAddress': 'A',
-          'destinationAddress': 'B',
-          'pickupLat': 59.3,
-          'pickupLng': 18.0,
-          'destinationLat': 59.4,
-          'destinationLng': 18.1,
-          'categoryId': 'economy',
-          'price': 259,
-          'paymentMethodId': 'apple',
-        },
-      ),
-      throwsA(isA<Object>()),
-    );
-  });
+      await expectLater(
+        api.post(
+          '/api/v1/rides',
+          body: <String, dynamic>{
+            'pickupAddress': 'A',
+            'destinationAddress': 'B',
+            'pickupLat': 59.3,
+            'pickupLng': 18.0,
+            'destinationLat': 59.4,
+            'destinationLng': 18.1,
+            'categoryId': 'economy',
+            'price': 259,
+            'paymentMethodId': 'apple',
+          },
+        ),
+        throwsA(isA<Object>()),
+      );
+    },
+  );
 }

@@ -4,8 +4,10 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 /// Writes one reservation lifecycle step. Returns false when the ride has
 /// already moved on by other means (rider cancelled, driver dropped, record
 /// gone), which stops the trip.
-typedef ReservationStepWriter =
-    Future<bool> Function(ReservationStatus from, ReservationStatus to);
+typedef ReservationStepWriter = Future<bool> Function(
+  ReservationStatus from,
+  ReservationStatus to,
+);
 
 /// Who assigns drivers to scheduled rides and moves them through the trip.
 ///

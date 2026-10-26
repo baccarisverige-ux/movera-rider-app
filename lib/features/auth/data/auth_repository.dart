@@ -7,8 +7,8 @@ import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStore? tokens})
-      : _api = api ?? AppScope.instance.api,
-        _tokens = tokens ?? AppScope.instance.tokens;
+    : _api = api ?? AppScope.instance.api,
+      _tokens = tokens ?? AppScope.instance.tokens;
 
   final ApiClient _api;
   final TokenStore _tokens;

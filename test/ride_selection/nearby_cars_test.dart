@@ -92,7 +92,10 @@ void main() {
       // compete with the trip calls. Whatever the server says, the app
       // keeps to 5-8 s between requests.
       expect(NearbyCarsRepository.minRefresh, const Duration(seconds: 5));
-      expect(NearbyCarsRepository.defaultRefresh.inSeconds, inInclusiveRange(5, 8));
+      expect(
+        NearbyCarsRepository.defaultRefresh.inSeconds,
+        inInclusiveRange(5, 8),
+      );
       expect(
         NearbyCarsRepository.parse({'refreshSeconds': 1}).refresh,
         const Duration(seconds: 5),

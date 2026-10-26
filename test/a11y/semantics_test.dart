@@ -24,12 +24,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  
-
-  
-
-  
-
   testWidgets('empty state, wallet retry, and profile rows are labeled', (
     tester,
   ) async {

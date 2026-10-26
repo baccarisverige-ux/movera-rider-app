@@ -45,7 +45,7 @@ class SavedPlaceData {
 /// Home presentation only paints.
 class HomePlacesController {
   HomePlacesController({HomeAddressRepository? store})
-      : _store = store ?? HomeAddressRepository();
+    : _store = store ?? HomeAddressRepository();
 
   final HomeAddressRepository _store;
 

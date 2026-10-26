@@ -99,8 +99,10 @@ void main() {
         idempotencyKey: 'top-a',
       );
       expect((retry as TopUpCredited).balance, 250);
-      expect(gateway.keys, ['top-a', 'top-a'],
-          reason: 'the retry reached the provider instead of being skipped');
+      expect(gateway.keys, [
+        'top-a',
+        'top-a',
+      ], reason: 'the retry reached the provider instead of being skipped');
       expect(store.balance, 250);
     });
 
@@ -127,28 +129,32 @@ void main() {
       expect(AppScope.instance.wallet.entries.length, ledgerBefore + 1);
     });
 
-    test('a lost confirmation that did not go through charges nothing',
-        () async {
-      final gateway = _ScriptedGateway()
-        ..confirmError = TimeoutException('confirm')
-        ..statusValue = 'requires_payment_method';
-      final wallet = WalletController(store: _MemWallet(), gateway: gateway);
-      final outcome = await wallet.topUp(previous: 0, amount: 100);
-      expect(outcome, isA<TopUpNotCharged>());
-      expect((outcome as TopUpNotCharged).declined, isFalse);
-    });
+    test(
+      'a lost confirmation that did not go through charges nothing',
+      () async {
+        final gateway = _ScriptedGateway()
+          ..confirmError = TimeoutException('confirm')
+          ..statusValue = 'requires_payment_method';
+        final wallet = WalletController(store: _MemWallet(), gateway: gateway);
+        final outcome = await wallet.topUp(previous: 0, amount: 100);
+        expect(outcome, isA<TopUpNotCharged>());
+        expect((outcome as TopUpNotCharged).declined, isFalse);
+      },
+    );
 
-    test('a confirmation nobody can check is unconfirmed, never "not charged"',
-        () async {
-      final store = _MemWallet();
-      final gateway = _ScriptedGateway()
-        ..confirmError = TimeoutException('confirm')
-        ..statusError = _offline;
-      final wallet = WalletController(store: store, gateway: gateway);
-      final outcome = await wallet.topUp(previous: 0, amount: 100);
-      expect(outcome, isA<TopUpUnconfirmed>());
-      expect(store.balance, 0);
-    });
+    test(
+      'a confirmation nobody can check is unconfirmed, never "not charged"',
+      () async {
+        final store = _MemWallet();
+        final gateway = _ScriptedGateway()
+          ..confirmError = TimeoutException('confirm')
+          ..statusError = _offline;
+        final wallet = WalletController(store: store, gateway: gateway);
+        final outcome = await wallet.topUp(previous: 0, amount: 100);
+        expect(outcome, isA<TopUpUnconfirmed>());
+        expect(store.balance, 0);
+      },
+    );
   });
 
   group('messages say whether the rider was charged', () {
@@ -164,8 +170,11 @@ void main() {
         TopUpNotCharged(error: StateError('bug')),
         const TopUpNotCharged(declined: true),
       ]) {
-        expect(topUpMessage(outcome), contains("weren't charged"),
-            reason: '$outcome');
+        expect(
+          topUpMessage(outcome),
+          contains("weren't charged"),
+          reason: '$outcome',
+        );
       }
     });
 
@@ -195,8 +204,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a lost creation response does not claim no charge',
-      (tester) async {
+  testWidgets('a lost creation response does not claim no charge', (
+    tester,
+  ) async {
     final store = _MemWallet()..balance = 50;
     final gateway = _ScriptedGateway()..createError = _offline;
     await tester.pumpWidget(
@@ -237,8 +247,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await openAndSimulate(tester);
-    expect(find.textContaining("We couldn't confirm your top-up"),
-        findsOneWidget);
+    expect(
+      find.textContaining("We couldn't confirm your top-up"),
+      findsOneWidget,
+    );
     expect(store.balance, 0);
     await dismissMessage(tester);
 
@@ -250,8 +262,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(gateway.keys, hasLength(2));
-    expect(gateway.keys.last, gateway.keys.first,
-        reason: 'the retry carries the first attempt\'s idempotency key');
+    expect(
+      gateway.keys.last,
+      gateway.keys.first,
+      reason: 'the retry carries the first attempt\'s idempotency key',
+    );
     expect(store.balance, 200);
 
     // A later, separate top-up gets a fresh key.

@@ -1,6 +1,7 @@
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
+
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
@@ -205,9 +206,10 @@ class RideSelectionController {
   /// choice, or 0. Paying the whole ride from the wallet is its own method
   /// and is not a split.
   /// [priceKr] is in whole units of [currency].
-  double walletAppliedKr(double priceKr) =>
-      Money(walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor, currency)
-          .major;
+  double walletAppliedKr(double priceKr) => Money(
+    walletSplitFor(moneyOf(priceKr).amountMinor).walletMinor,
+    currency,
+  ).major;
 
   /// Whether the wallet alone can pay [priceKr] (whole units of
   /// [currency]): a balance of the trip's currency of at least the fare.
@@ -241,8 +243,10 @@ class RideSelectionController {
     }
     return WalletSplit.of(
       totalMinor: totalMinor,
-      balanceMinor: Money.fromLegacyMajor(walletBalance, walletCurrency)
-          .amountMinor,
+      balanceMinor: Money.fromLegacyMajor(
+        walletBalance,
+        walletCurrency,
+      ).amountMinor,
       currency: currency,
     );
   }
@@ -282,36 +286,42 @@ class RideSelectionController {
     final mobile =
         platform == TargetPlatform.iOS || platform == TargetPlatform.android;
     final cards = savedCardItems();
-    return _store.payments().expand<RidePaymentItem>((item) {
-      // The generic "Card" row becomes the saved cards once there are any.
-      if (item.brand == 'cards') {
-        if (cards.isNotEmpty) return cards;
-        // Without Add card (staging/production until a payment partner
-        // holds cards) the generic row would lead nowhere.
-        return CardEntryPolicy.enabled ? [item] : const <RidePaymentItem>[];
-      }
-      return [item];
-    }).where((item) {
-      final zoneMethod = zoneMethodOf(item.brand);
-      if (zoneMethod != null && !zonePaymentMethods.contains(zoneMethod)) {
-        return false;
-      }
-      if (item.brand == 'cash') return _flags.enableCash;
-      // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
-      if (item.brand == 'apple') {
-        return _flags.enableApplePay &&
-            (!mobile || platform == TargetPlatform.iOS);
-      }
-      if (item.brand == 'google') {
-        return _flags.enableGooglePay &&
-            (!mobile || platform == TargetPlatform.android);
-      }
-      if (item.brand == 'wallet') {
-        // Q8: the balance of the trip's own currency; no conversion.
-        return _flags.enableWallet && walletBalance > 0 && walletMatchesTrip;
-      }
-      return true;
-    }).toList();
+    return _store
+        .payments()
+        .expand<RidePaymentItem>((item) {
+          // The generic "Card" row becomes the saved cards once there are any.
+          if (item.brand == 'cards') {
+            if (cards.isNotEmpty) return cards;
+            // Without Add card (staging/production until a payment partner
+            // holds cards) the generic row would lead nowhere.
+            return CardEntryPolicy.enabled ? [item] : const <RidePaymentItem>[];
+          }
+          return [item];
+        })
+        .where((item) {
+          final zoneMethod = zoneMethodOf(item.brand);
+          if (zoneMethod != null && !zonePaymentMethods.contains(zoneMethod)) {
+            return false;
+          }
+          if (item.brand == 'cash') return _flags.enableCash;
+          // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
+          if (item.brand == 'apple') {
+            return _flags.enableApplePay &&
+                (!mobile || platform == TargetPlatform.iOS);
+          }
+          if (item.brand == 'google') {
+            return _flags.enableGooglePay &&
+                (!mobile || platform == TargetPlatform.android);
+          }
+          if (item.brand == 'wallet') {
+            // Q8: the balance of the trip's own currency; no conversion.
+            return _flags.enableWallet &&
+                walletBalance > 0 &&
+                walletMatchesTrip;
+          }
+          return true;
+        })
+        .toList();
   }
 
   /// Cash is the default until the rider picks something else.
@@ -807,7 +817,6 @@ class RideSelectionController {
     return next;
   }
 }
-
 
 class _QuoteLoadCancelled implements Exception {
   const _QuoteLoadCancelled();

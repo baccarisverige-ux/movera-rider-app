@@ -22,13 +22,13 @@ class SafetyCache {
     RideCheckPolicy? rideCheck,
     List<RideCheckEvent>? events,
     List<AudioRecording>? recordings,
-  })  : preferences = preferences ?? const SafetyPreferences(),
-        pin = pin ?? RidePin.unavailable,
-        contacts = contacts ?? <EmergencyContact>[],
-        shares = shares ?? <String, TripShare>{},
-        rideCheck = rideCheck ?? const RideCheckPolicy(),
-        events = events ?? <RideCheckEvent>[],
-        recordings = recordings ?? <AudioRecording>[];
+  }) : preferences = preferences ?? const SafetyPreferences(),
+       pin = pin ?? RidePin.unavailable,
+       contacts = contacts ?? <EmergencyContact>[],
+       shares = shares ?? <String, TripShare>{},
+       rideCheck = rideCheck ?? const RideCheckPolicy(),
+       events = events ?? <RideCheckEvent>[],
+       recordings = recordings ?? <AudioRecording>[];
 
   SafetyPreferences preferences;
   RidePin pin;
@@ -39,14 +39,14 @@ class SafetyCache {
   List<AudioRecording> recordings;
 
   Map<String, dynamic> toJson() => {
-        'preferences': preferences.toJson(),
-        'pin': pin.toJson(),
-        'contacts': contacts.map((c) => c.toJson()).toList(),
-        'shares': shares.map((key, value) => MapEntry(key, value.toJson())),
-        'rideCheck': rideCheck.toJson(),
-        'events': events.map((e) => e.toJson()).toList(),
-        'recordings': recordings.map((r) => r.toJson()).toList(),
-      };
+    'preferences': preferences.toJson(),
+    'pin': pin.toJson(),
+    'contacts': contacts.map((c) => c.toJson()).toList(),
+    'shares': shares.map((key, value) => MapEntry(key, value.toJson())),
+    'rideCheck': rideCheck.toJson(),
+    'events': events.map((e) => e.toJson()).toList(),
+    'recordings': recordings.map((r) => r.toJson()).toList(),
+  };
 
   factory SafetyCache.fromJson(Map<String, dynamic>? json) {
     if (json == null) return SafetyCache();
@@ -55,7 +55,9 @@ class SafetyCache {
     if (rawContacts is List) {
       for (final item in rawContacts) {
         if (item is Map) {
-          contacts.add(EmergencyContact.fromJson(Map<String, dynamic>.from(item)));
+          contacts.add(
+            EmergencyContact.fromJson(Map<String, dynamic>.from(item)),
+          );
         }
       }
     }
@@ -82,7 +84,9 @@ class SafetyCache {
     if (rawRec is List) {
       for (final item in rawRec) {
         if (item is Map) {
-          recordings.add(AudioRecording.fromJson(Map<String, dynamic>.from(item)));
+          recordings.add(
+            AudioRecording.fromJson(Map<String, dynamic>.from(item)),
+          );
         }
       }
     }
@@ -93,7 +97,9 @@ class SafetyCache {
             : null,
       ),
       pin: RidePin.fromJson(
-        json['pin'] is Map ? Map<String, dynamic>.from(json['pin'] as Map) : null,
+        json['pin'] is Map
+            ? Map<String, dynamic>.from(json['pin'] as Map)
+            : null,
       ),
       contacts: contacts,
       shares: shares,
@@ -193,7 +199,8 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
   }) async {
     final store = prefs ?? await PreferencesStore.load();
     if (_pinStore.keepsPinOutOfPreferences) {
-      final scrubbed = _copy(cache)..pin = cache.pin.copyWith(pin: _pinPlaceholder);
+      final scrubbed = _copy(cache)
+        ..pin = cache.pin.copyWith(pin: _pinPlaceholder);
       await store.setString(cacheKey, jsonEncode(scrubbed.toJson()));
     } else if (raw == null || raw.isEmpty) {
       // Only re-write on a fresh/empty cache load; save() always persists.
@@ -220,32 +227,46 @@ abstract class SafetyRemoteDataSource {
   Future<EmergencyContact> updateContact(EmergencyContact contact);
   Future<void> deleteContact(String id);
   Future<List<EmergencyContact>> setPrimary(String id);
-  Future<TripShare> startShare(String rideId, {List<String>? contactIds, String? idempotencyKey});
+  Future<TripShare> startShare(
+    String rideId, {
+    List<String>? contactIds,
+    String? idempotencyKey,
+  });
   Future<TripShare?> getShare(String rideId);
   Future<TripShare> patchShare(String rideId, TripShare share);
   Future<void> stopShare(String rideId);
   Future<RideCheckPolicy> getRideCheck();
   Future<RideCheckPolicy> patchRideCheck(RideCheckPolicy policy);
-  Future<RideCheckEvent> postSafetyEvent(RideCheckEvent event, {String? idempotencyKey});
+  Future<RideCheckEvent> postSafetyEvent(
+    RideCheckEvent event, {
+    String? idempotencyKey,
+  });
   Future<List<RideCheckEvent>> listSafetyEvents(String rideId);
   Future<RideCheckEvent> respondSafetyEvent({
     required String rideId,
     required String eventId,
     required String action,
   });
+
   /// RC4: the rider's Ride check answers, with rider, driver and trip
   /// details. Alerts the Movera safety team when [submission] says so.
   Future<RideCheckReceipt> postRideCheckAnswers(
     RideCheckSubmission submission, {
     String? idempotencyKey,
   });
-  Future<AudioRecording> initAudio({required String rideId, String? idempotencyKey});
+  Future<AudioRecording> initAudio({
+    required String rideId,
+    String? idempotencyKey,
+  });
   Future<AudioRecording> completeAudio({
     required String rideId,
     required String recordingId,
     required int durationMs,
   });
-  Future<void> deleteAudio({required String rideId, required String recordingId});
+  Future<void> deleteAudio({
+    required String rideId,
+    required String recordingId,
+  });
 }
 
 class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
@@ -433,7 +454,8 @@ class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
     final json = await _api.post(
       '/api/v1/safety/ridecheck/answers',
       body: submission.toJson(),
-      idempotencyKey: idempotencyKey ?? newIdempotencyKey('safety-ridecheck-answers'),
+      idempotencyKey:
+          idempotencyKey ?? newIdempotencyKey('safety-ridecheck-answers'),
     );
     return RideCheckReceipt.fromJson(json);
   }
@@ -481,7 +503,9 @@ class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
-        .map((item) => EmergencyContact.fromJson(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => EmergencyContact.fromJson(Map<String, dynamic>.from(item)),
+        )
         .toList();
   }
 }

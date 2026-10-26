@@ -79,7 +79,6 @@ Future<void> waitFor(
   }
 }
 
-
 /// rider-u29: books a live ride on the stand-in server (quote, then ride)
 /// and answers its server-made id, so the mock's accept is the real one.
 /// The mock no longer shows a driver the server refused, as it did for
@@ -137,7 +136,8 @@ void main() {
         expect(
           path,
           isNotNull,
-          reason: 'Every canonical status must be reachable from idle: ${target.name}',
+          reason:
+              'Every canonical status must be reachable from idle: ${target.name}',
         );
         final session = applyPath(path!, rideId: 'pre15-${target.name}');
         expect(session.status, target);
@@ -347,10 +347,10 @@ void main() {
       ];
 
       for (var i = 0; i < suffixes.length; i += 1) {
-        final session = applyPath(
-          <RideStatus>[...common, ...suffixes[i]],
-          rideId: 'pre15-matched-$i',
-        );
+        final session = applyPath(<RideStatus>[
+          ...common,
+          ...suffixes[i],
+        ], rideId: 'pre15-matched-$i');
         expect(session.status, suffixes[i].last);
         expect(session.status.isTerminal, isTrue);
       }
@@ -378,32 +378,26 @@ void main() {
         RideStatus.tripCompleted,
       ];
 
-      final failAtCompletion = applyPath(
-        <RideStatus>[...toTripComplete, RideStatus.paymentFailed],
-        rideId: 'pre15-payment-fail-complete',
-      );
+      final failAtCompletion = applyPath(<RideStatus>[
+        ...toTripComplete,
+        RideStatus.paymentFailed,
+      ], rideId: 'pre15-payment-fail-complete');
       expect(failAtCompletion.status, RideStatus.paymentFailed);
 
-      final failDuringProcessing = applyPath(
-        <RideStatus>[
-          ...toTripComplete,
-          RideStatus.paymentProcessing,
-          RideStatus.paymentFailed,
-        ],
-        rideId: 'pre15-payment-fail-processing',
-      );
+      final failDuringProcessing = applyPath(<RideStatus>[
+        ...toTripComplete,
+        RideStatus.paymentProcessing,
+        RideStatus.paymentFailed,
+      ], rideId: 'pre15-payment-fail-processing');
       expect(failDuringProcessing.status, RideStatus.paymentFailed);
 
-      final success = applyPath(
-        <RideStatus>[
-          ...toTripComplete,
-          RideStatus.paymentProcessing,
-          RideStatus.paymentFinalized,
-          RideStatus.ratingPending,
-          RideStatus.closed,
-        ],
-        rideId: 'pre15-payment-success',
-      );
+      final success = applyPath(<RideStatus>[
+        ...toTripComplete,
+        RideStatus.paymentProcessing,
+        RideStatus.paymentFinalized,
+        RideStatus.ratingPending,
+        RideStatus.closed,
+      ], rideId: 'pre15-payment-success');
       expect(success.status, RideStatus.closed);
     },
   );
@@ -438,12 +432,12 @@ void main() {
         final expected = status.isTerminal
             ? RestoredSurface.home
             : finding.contains(status)
-                ? RestoredSurface.finding
-                : waiting.contains(status)
-                    ? RestoredSurface.waiting
-                    : complete.contains(status)
-                        ? RestoredSurface.complete
-                        : RestoredSurface.home;
+            ? RestoredSurface.finding
+            : waiting.contains(status)
+            ? RestoredSurface.waiting
+            : complete.contains(status)
+            ? RestoredSurface.complete
+            : RestoredSurface.home;
 
         expect(
           coordinator.surfaceFor(snapshotFor(status)),
@@ -462,16 +456,14 @@ void main() {
   testWidgets(
     'PRE15 realtime: driver cancel re-search retains ride identity and assigns another driver',
     (tester) async {
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(days: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
       addTearDown(realtime.dispose);
 
       const rideId = 'pre15-driver-research';
       final events = <RideStatus>[];
-      final sub = realtime.subscribe(rideId).listen(
-        (event) => events.add(event.status),
-      );
+      final sub = realtime
+          .subscribe(rideId)
+          .listen((event) => events.add(event.status));
       addTearDown(sub.cancel);
 
       realtime.assignNow();
@@ -507,9 +499,7 @@ void main() {
   testWidgets(
     'PRE15 realtime: rider cancel prevents late assignment resurrection',
     (tester) async {
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(days: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
       addTearDown(realtime.dispose);
 
       realtime.subscribe('pre15-rider-cancel').listen((_) {});
@@ -633,7 +623,10 @@ void main() {
       );
       expect(completed.reservationId, created.reservationId);
       expect(completed.status, ReservationStatus.completed);
-      expect(controller.completed().single.reservationId, created.reservationId);
+      expect(
+        controller.completed().single.reservationId,
+        created.reservationId,
+      );
     },
   );
 

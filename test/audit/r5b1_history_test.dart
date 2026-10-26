@@ -32,7 +32,9 @@ void main() {
         ),
       ),
     );
-    final ride = (await ApiRideHistoryRepository(api: api).loadOnDemand()).single;
+    final ride = (await ApiRideHistoryRepository(
+      api: api,
+    ).loadOnDemand()).single;
     expect(ride.endedEarly, isTrue);
     expect(ride.chargedFare, const Money(3550, 'SEK'));
   });

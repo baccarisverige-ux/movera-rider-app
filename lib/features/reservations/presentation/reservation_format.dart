@@ -8,7 +8,6 @@ import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 abstract final class ReservationFormat {
-
   /// What the rider pays: the server's final amount when known (an
   /// ended-early trip), else the booked price.
   static String price(Reservation ride) {
@@ -127,10 +126,14 @@ abstract final class ReservationFormat {
     final hours = left.inHours % 24;
     final minutes = left.inMinutes % 60;
     if (days > 0) {
-      return hours > 0 ? L10n.current.durDaysHours('$days', '$hours') : L10n.current.durDays('$days');
+      return hours > 0
+          ? L10n.current.durDaysHours('$days', '$hours')
+          : L10n.current.durDays('$days');
     }
     if (hours > 0) {
-      return minutes > 0 ? L10n.current.durHoursMinutes('$hours', '$minutes') : L10n.current.durHours('$hours');
+      return minutes > 0
+          ? L10n.current.durHoursMinutes('$hours', '$minutes')
+          : L10n.current.durHours('$hours');
     }
     return L10n.current.durMinutes('$minutes');
   }
@@ -147,7 +150,10 @@ abstract final class ReservationFormat {
     final hours = left.inHours % 24;
     final minutes = left.inMinutes % 60;
     if (days > 0) {
-      return (primary: L10n.current.durDays('$days'), secondary: hours > 0 ? L10n.current.durHours('$hours') : null);
+      return (
+        primary: L10n.current.durDays('$days'),
+        secondary: hours > 0 ? L10n.current.durHours('$hours') : null,
+      );
     }
     if (hours > 0) {
       return (
@@ -173,9 +179,11 @@ abstract final class ReservationFormat {
     return weekdayDate(when);
   }
 
-  static String pickupAt(DateTime when) => L10n.current.pickupAtTime(time(when));
+  static String pickupAt(DateTime when) =>
+      L10n.current.pickupAtTime(time(when));
 
-  static String dropoffAt(DateTime when) => L10n.current.dropoffAround(time(when));
+  static String dropoffAt(DateTime when) =>
+      L10n.current.dropoffAround(time(when));
 
   static String statusTitle(Reservation ride) {
     switch (ride.status) {
@@ -208,7 +216,9 @@ abstract final class ReservationFormat {
         return ride.cancellationReason == null ||
                 ride.cancellationReason!.isEmpty
             ? L10n.current.resBodyCancelled
-            : L10n.current.resBodyCancelledReason(reasonLabel(ride.cancellationReason!));
+            : L10n.current.resBodyCancelledReason(
+                reasonLabel(ride.cancellationReason!),
+              );
       case ReservationStatus.completed:
         return L10n.current.resBodyCompleted;
       case ReservationStatus.driverAssigned:
@@ -310,7 +320,10 @@ abstract final class ReservationFormat {
     if (!rules.lateCancelFee.isPositive) {
       return L10n.current.scheduledCancelFree;
     }
-    return L10n.current.cancelRuleText(window(rules.freeCancelWindow), money(rules.lateCancelFee));
+    return L10n.current.cancelRuleText(
+      window(rules.freeCancelWindow),
+      money(rules.lateCancelFee),
+    );
   }
 
   /// The cancel rule [terms] apply (rider-u169): the ride's own window
@@ -319,7 +332,10 @@ abstract final class ReservationFormat {
     if (!terms.lateFee.isPositive) {
       return L10n.current.scheduledCancelFree;
     }
-    return L10n.current.cancelRuleText(window(terms.window), money(terms.lateFee));
+    return L10n.current.cancelRuleText(
+      window(terms.window),
+      money(terms.lateFee),
+    );
   }
 
   static String get driverChangedTitle => L10n.current.driverChangedTitle;
@@ -328,7 +344,10 @@ abstract final class ReservationFormat {
     ReservationDriver previous,
     ReservationDriver current,
   ) {
-    return L10n.current.driverChangedBody(previous.displayFirstName, current.displayFirstName);
+    return L10n.current.driverChangedBody(
+      previous.displayFirstName,
+      current.displayFirstName,
+    );
   }
 
   static String get driverLeftTitle => L10n.current.driverLeftTitle;

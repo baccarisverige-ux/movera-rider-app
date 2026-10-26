@@ -47,9 +47,7 @@ void main() {
     'Waiting driver card does not crash when matching supplies an empty firstName',
     (tester) async {
       await tester.pumpWidget(
-        waitingCardHost(
-          const MatchedDriver(id: 'driver-empty', firstName: ''),
-        ),
+        waitingCardHost(const MatchedDriver(id: 'driver-empty', firstName: '')),
       );
 
       expect(tester.takeException(), isNull);
@@ -127,9 +125,7 @@ void main() {
         id: rideId,
       );
 
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(hours: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(hours: 1));
       final navigatorKey = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
         MaterialApp(

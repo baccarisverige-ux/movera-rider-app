@@ -40,7 +40,10 @@ class ProfileController extends ChangeNotifier {
     try {
       await update(profile.copyWith(language: code));
     } catch (error) {
-      AppLog.warning('language.profile_save_failed', extra: {'error': '$error'});
+      AppLog.warning(
+        'language.profile_save_failed',
+        extra: {'error': '$error'},
+      );
     }
   }
 

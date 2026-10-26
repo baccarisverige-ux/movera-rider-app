@@ -31,7 +31,9 @@ String formatMoney(Money money, {bool whole = false}) {
       final major = money.majorString;
       final isWhole = money.amountMinor % Money.minorPerMajor('SEK') == 0;
       // rider-r4-16: öre with a comma, like euros and dinars ("35,50 kr").
-      final shown = isWhole ? major.split('.').first : major.replaceFirst('.', ',');
+      final shown = isWhole
+          ? major.split('.').first
+          : major.replaceFirst('.', ',');
       return '$shown kr';
     case 'EUR':
       return '${money.majorString.replaceFirst('.', ',')} €';

@@ -17,7 +17,10 @@ class Money {
   /// A legacy whole-unit amount (`price: 259.0`) converted once, here,
   /// with the currency's ISO exponent (RC-07: 1.5 TND is 1500 millimes,
   /// 1.5 SEK is 150 öre).
-  factory Money.fromLegacyMajor(num major, [String currency = defaultCurrency]) {
+  factory Money.fromLegacyMajor(
+    num major, [
+    String currency = defaultCurrency,
+  ]) {
     final code = normalizeCurrency(currency) ?? defaultCurrency;
     return Money((major * _pow10(exponentOf(code))).round(), code);
   }

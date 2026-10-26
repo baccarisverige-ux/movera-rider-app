@@ -1,5 +1,11 @@
-
-enum AppPermission { location, notifications, camera, photos, microphone, contacts }
+enum AppPermission {
+  location,
+  notifications,
+  camera,
+  photos,
+  microphone,
+  contacts,
+}
 
 enum PermissionPhase { notDetermined, granted, denied, permanentlyDenied }
 

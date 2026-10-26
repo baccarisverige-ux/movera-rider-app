@@ -47,7 +47,11 @@ class WaitingFeeState {
 
   /// The free wait: up to the projection's `waiting.freeUntil` when the
   /// server says (rider-r4-13), else the zone's [freeWaitMin] minutes.
-  static Duration freeWait(DateTime since, int freeWaitMin, DateTime? freeUntil) {
+  static Duration freeWait(
+    DateTime since,
+    int freeWaitMin,
+    DateTime? freeUntil,
+  ) {
     if (freeUntil == null) return Duration(minutes: freeWaitMin);
     final free = freeUntil.difference(since);
     return free.isNegative ? Duration.zero : free;
@@ -147,7 +151,11 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
         ? context.l10n.waitingFeeAmount(formatMoney(state.fee, whole: true))
         : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
     final detail = charging
-        ? context.l10n.afterFreeWait(formatWaitClock(state.over), '$freeMin', rate)
+        ? context.l10n.afterFreeWait(
+            formatWaitClock(state.over),
+            '$freeMin',
+            rate,
+          )
         : context.l10n.thenWaitingFee(rate);
     return Semantics(
       container: true,
@@ -162,13 +170,17 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
             color: charging ? const Color(0xFFFDF1EE) : const Color(0xFFF1F5F7),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: charging ? const Color(0xFFF2D3CB) : const Color(0xFFE2E7EB),
+              color: charging
+                  ? const Color(0xFFF2D3CB)
+                  : const Color(0xFFE2E7EB),
             ),
           ),
           child: Row(
             children: [
               Icon(
-                charging ? Icons.timer_outlined : Icons.hourglass_bottom_rounded,
+                charging
+                    ? Icons.timer_outlined
+                    : Icons.hourglass_bottom_rounded,
                 size: 18,
                 color: charging ? warm : muted,
               ),

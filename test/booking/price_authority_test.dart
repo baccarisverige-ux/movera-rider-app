@@ -36,7 +36,9 @@ void main() {
     expect(FareRules.allowsTotal(total: 181, catalog: 100), isFalse);
   });
 
-  testWidgets('typed delayed offer cannot exceed FareRules ceiling', (tester) async {
+  testWidgets('typed delayed offer cannot exceed FareRules ceiling', (
+    tester,
+  ) async {
     int? confirmed;
     await tester.pumpWidget(
       MaterialApp(
@@ -64,23 +66,24 @@ void main() {
     expect(confirmed, 80);
   });
 
-  test('API quote failure is surfaced instead of silently falling back', () async {
-    final transport = InProcessMockClient()..failNext = true;
-    final quotes = ApiQuoteRepository(
-      api: ApiClient(client: transport),
-    );
+  test(
+    'API quote failure is surfaced instead of silently falling back',
+    () async {
+      final transport = InProcessMockClient()..failNext = true;
+      final quotes = ApiQuoteRepository(api: ApiClient(client: transport));
 
-    await expectLater(
-      quotes.quote(
-        rideType: 'economy',
-        distanceMeters: 3000,
-        pickup: 'A',
-        destination: 'B',
-      ),
-      throwsA(isA<ApiError>()),
-    );
-    expect(quotes.lastUsedFallback, isFalse);
-  });
+      await expectLater(
+        quotes.quote(
+          rideType: 'economy',
+          distanceMeters: 3000,
+          pickup: 'A',
+          destination: 'B',
+        ),
+        throwsA(isA<ApiError>()),
+      );
+      expect(quotes.lastUsedFallback, isFalse);
+    },
+  );
 
   test('selection marks failed quotes unavailable and not bookable', () async {
     final selection = RideSelectionController(quotes: AlwaysFailQuotes());

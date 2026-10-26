@@ -64,9 +64,8 @@ Future<String> resolveCurrentAddress({
   }
   String? address;
   try {
-    address = await lookup(
-      GeoPoint(position.latitude, position.longitude),
-    ).timeout(const Duration(seconds: 10));
+    address = await lookup(GeoPoint(position.latitude, position.longitude))
+        .timeout(const Duration(seconds: 10));
   } catch (_) {
     // rider-r5-38: no answer from the lookup (offline, timed out, server
     // error) is not an answer of "no address here".

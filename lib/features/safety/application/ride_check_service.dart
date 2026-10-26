@@ -48,10 +48,7 @@ class RideCheckService {
         rideId: rideId,
         type: RideCheckEventType.manualSafetyCheck,
         at: DateTime.now().toUtc(),
-        payload: const {
-          'kind': 'sos',
-          'action': 'call_112',
-        },
+        payload: const {'kind': 'sos', 'action': 'call_112'},
       ),
     );
   }

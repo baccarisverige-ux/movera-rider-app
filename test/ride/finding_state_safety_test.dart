@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 RideSnapshot _snapshot({
@@ -67,41 +68,44 @@ void main() {
     RideSnapshotStore.epoch = 0;
   });
 
-  test('price commit before assignment stays applied without rollback', () async {
-    final transport = InProcessMockClient(
-      latency: const Duration(milliseconds: 60),
-    )..rides['r1'] = _rideJson();
-    final api = ApiClient(client: transport);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(milliseconds: 10),
-      api: api,
-    );
-    final ride = RideSession()..rideId = 'r1';
-    final controller = _controller(realtime: realtime, ride: ride, api: api);
-    var matches = 0;
+  test(
+    'price commit before assignment stays applied without rollback',
+    () async {
+      final transport = InProcessMockClient(
+        latency: const Duration(milliseconds: 60),
+      )..rides['r1'] = _rideJson();
+      final api = ApiClient(client: transport);
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(milliseconds: 10),
+        api: api,
+      );
+      final ride = RideSession()..rideId = 'r1';
+      final controller = _controller(realtime: realtime, ride: ride, api: api);
+      var matches = 0;
 
-    controller.start(
-      snapshot: _snapshot(),
-      onTick: (_) {},
-      onMatched: () => matches += 1,
-    );
+      controller.start(
+        snapshot: _snapshot(),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
 
-    final changed = await controller.confirmPriceIncrease(20);
-    await Future<void>.delayed(const Duration(milliseconds: 90));
+      final changed = await controller.confirmPriceIncrease(20);
+      await Future<void>.delayed(const Duration(milliseconds: 90));
 
-    expect(changed, isTrue);
-    expect(controller.currentPrice, 279);
-    expect(mockFareKr(transport.rides['r1']), 279);
-    expect(transport.rides['r1']?['status'], 'accepted');
-    expect(ride.status, RideStatus.driverAssigned);
-    expect(matches, 1);
-    final stored = await RideSnapshotStore.read();
-    expect(stored?.price, 279);
-    expect(stored?.status, RideStatus.driverAssigned);
+      expect(changed, isTrue);
+      expect(controller.currentPrice, 279);
+      expect(mockFareKr(transport.rides['r1']), 279);
+      expect(transport.rides['r1']?['status'], 'accepted');
+      expect(ride.status, RideStatus.driverAssigned);
+      expect(matches, 1);
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.price, 279);
+      expect(stored?.status, RideStatus.driverAssigned);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 
   test('mock PATCH rejects edits after a ride is already assigned', () async {
     final transport = InProcessMockClient()
@@ -118,47 +122,46 @@ void main() {
     expect(mockFareKr(transport.rides['r1']), 259);
   });
 
-  test('pickup edit updates snapshot, mock ride and nearby search together', () async {
-    final transport = InProcessMockClient()..rides['r1'] = _rideJson();
-    final api = ApiClient(client: transport);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
-    final ride = RideSession()..rideId = 'r1';
-    final controller = _controller(realtime: realtime, ride: ride, api: api);
+  test(
+    'pickup edit updates snapshot, mock ride and nearby search together',
+    () async {
+      final transport = InProcessMockClient()..rides['r1'] = _rideJson();
+      final api = ApiClient(client: transport);
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final ride = RideSession()..rideId = 'r1';
+      final controller = _controller(realtime: realtime, ride: ride, api: api);
 
-    controller.start(
-      snapshot: _snapshot(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+      controller.start(snapshot: _snapshot(), onTick: (_) {}, onMatched: () {});
 
-    final changed = await controller.updatePickup(
-      address: 'Pickup B',
-      latitude: 59.35,
-      longitude: 18.07,
-    );
+      final changed = await controller.updatePickup(
+        address: 'Pickup B',
+        latitude: 59.35,
+        longitude: 18.07,
+      );
 
-    expect(changed, isTrue);
-    expect(controller.pickupAddress, 'Pickup B');
-    expect(controller.pickupLat, 59.35);
-    expect(controller.pickupLng, 18.07);
-    expect(transport.rides['r1']?['pickupAddress'], 'Pickup B');
-    expect(transport.rides['r1']?['pickupLat'], 59.35);
-    expect(transport.rides['r1']?['pickupLng'], 18.07);
-    expect(controller.nearby, hasLength(3));
-    expect(controller.nearby.first.latitude, closeTo(59.3521, 0.000001));
-    expect(controller.nearby.first.longitude, closeTo(18.0686, 0.000001));
+      expect(changed, isTrue);
+      expect(controller.pickupAddress, 'Pickup B');
+      expect(controller.pickupLat, 59.35);
+      expect(controller.pickupLng, 18.07);
+      expect(transport.rides['r1']?['pickupAddress'], 'Pickup B');
+      expect(transport.rides['r1']?['pickupLat'], 59.35);
+      expect(transport.rides['r1']?['pickupLng'], 18.07);
+      expect(controller.nearby, hasLength(3));
+      expect(controller.nearby.first.latitude, closeTo(59.3521, 0.000001));
+      expect(controller.nearby.first.longitude, closeTo(18.0686, 0.000001));
 
-    final stored = await RideSnapshotStore.read();
-    expect(stored?.pickupAddress, 'Pickup B');
-    expect(stored?.pickupLat, 59.35);
-    expect(stored?.pickupLng, 18.07);
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.pickupAddress, 'Pickup B');
+      expect(stored?.pickupLat, 59.35);
+      expect(stored?.pickupLng, 18.07);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 
   test('late nearby response after cancel cannot mutate the search', () async {
     final transport = InProcessMockClient(

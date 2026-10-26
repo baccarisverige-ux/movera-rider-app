@@ -36,9 +36,15 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// at [zoom] (Web Mercator). The map fills the screen like every other map
 /// screen; the pin sits a third of the way down, so the pickup is this far
 /// north of the camera centre. Works the same on phones and on the web.
-LatLng setPickupPointAbove(LatLng target, double zoom, double pixelsAboveCentre) {
+LatLng setPickupPointAbove(
+  LatLng target,
+  double zoom,
+  double pixelsAboveCentre,
+) {
   final metersPerPixel =
-      156543.03392 * math.cos(target.latitude * math.pi / 180) / math.pow(2, zoom);
+      156543.03392 *
+      math.cos(target.latitude * math.pi / 180) /
+      math.pow(2, zoom);
   final degreesPerPixel = metersPerPixel / 111320.0;
   return LatLng(
     (target.latitude + pixelsAboveCentre * degreesPerPixel).clamp(-85.0, 85.0),
@@ -48,9 +54,15 @@ LatLng setPickupPointAbove(LatLng target, double zoom, double pixelsAboveCentre)
 
 /// The camera centre that puts [pickup] at the pin (inverse of
 /// [setPickupPointAbove]).
-LatLng setPickupCameraFor(LatLng pickup, double zoom, double pixelsAboveCentre) {
+LatLng setPickupCameraFor(
+  LatLng pickup,
+  double zoom,
+  double pixelsAboveCentre,
+) {
   final metersPerPixel =
-      156543.03392 * math.cos(pickup.latitude * math.pi / 180) / math.pow(2, zoom);
+      156543.03392 *
+      math.cos(pickup.latitude * math.pi / 180) /
+      math.pow(2, zoom);
   final degreesPerPixel = metersPerPixel / 111320.0;
   return LatLng(
     (pickup.latitude - pixelsAboveCentre * degreesPerPixel).clamp(-85.0, 85.0),
@@ -480,7 +492,10 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (scheduled != null) {
       return context.l10n.pickupAtArriveAt(_clock(scheduled), _arriveClock);
     }
-    return context.l10n.driverArrivesInArriveAt('${widget.ride.etaMin}', _arriveClock);
+    return context.l10n.driverArrivesInArriveAt(
+      '${widget.ride.etaMin}',
+      _arriveClock,
+    );
   }
 
   bool _isAwayFrom(LatLng a, LatLng b) =>
@@ -685,9 +700,7 @@ class _SetPickupPageState extends State<SetPickupPage>
     final position = result.position;
     if (position == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.locationUnavailableMoveMap),
-        ),
+        SnackBar(content: Text(context.l10n.locationUnavailableMoveMap)),
       );
       return;
     }
@@ -696,7 +709,9 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   Future<void> _useSpot(PickupSpot spot) async {
     if (_selectedSpot?.id == spot.id) return;
-    final street = _spotStreet.isNotEmpty ? _spotStreet : pickupSpotStreet(_address);
+    final street = _spotStreet.isNotEmpty
+        ? _spotStreet
+        : pickupSpotStreet(_address);
     if (_spotStreet.isEmpty) _spotStreet = street;
     await _glideTo(
       spot.position,
@@ -722,7 +737,10 @@ class _SetPickupPageState extends State<SetPickupPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(context.l10n.pickupAddress, style: _text(18, weight: FontWeight.w600)),
+              Text(
+                context.l10n.pickupAddress,
+                style: _text(18, weight: FontWeight.w600),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -1039,7 +1057,12 @@ class _SetPickupPageState extends State<SetPickupPage>
               key: const ValueKey('set-pickup-sheet'),
               width: double.infinity,
               constraints: BoxConstraints(maxHeight: media.size.height * 0.72),
-              padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + media.padding.bottom),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                10,
+                20,
+                16 + media.padding.bottom,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1070,7 +1093,10 @@ class _SetPickupPageState extends State<SetPickupPage>
                               key: const ValueKey('set-pickup-handle'),
                               onTap: () => _settleSheet(_sheet.value < 0.5),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 24,
+                                ),
                                 color: Colors.transparent,
                                 child: Container(
                                   width: 40,
@@ -1090,7 +1116,11 @@ class _SetPickupPageState extends State<SetPickupPage>
                               Expanded(
                                 child: Text(
                                   context.l10n.pickupSpot,
-                                  style: _text(13.5, weight: FontWeight.w600, color: _muted),
+                                  style: _text(
+                                    13.5,
+                                    weight: FontWeight.w600,
+                                    color: _muted,
+                                  ),
                                 ),
                               ),
                               _shortBagsChip(),
@@ -1179,8 +1209,19 @@ class _SetPickupPageState extends State<SetPickupPage>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.person_outline_rounded, size: 16, color: _muted),
-                    Text('${ride.seats}', style: _text(13.5, weight: FontWeight.w600, color: _muted)),
+                    const Icon(
+                      Icons.person_outline_rounded,
+                      size: 16,
+                      color: _muted,
+                    ),
+                    Text(
+                      '${ride.seats}',
+                      style: _text(
+                        13.5,
+                        weight: FontWeight.w600,
+                        color: _muted,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -1216,7 +1257,11 @@ class _SetPickupPageState extends State<SetPickupPage>
           ),
           child: Row(
             children: [
-              const Icon(Icons.location_on_rounded, color: RiderRouteStyle.pickup, size: 24),
+              const Icon(
+                Icons.location_on_rounded,
+                color: RiderRouteStyle.pickup,
+                size: 24,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1238,7 +1283,10 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(context.l10n.change, style: _text(14, weight: FontWeight.w600, color: _accent)),
+              Text(
+                context.l10n.change,
+                style: _text(14, weight: FontWeight.w600, color: _accent),
+              ),
             ],
           ),
         ),
@@ -1272,7 +1320,10 @@ class _SetPickupPageState extends State<SetPickupPage>
                   Icon(icon, size: 16, color: fg),
                   const SizedBox(width: 5),
                 ],
-                Text(label, style: _text(13.5, weight: FontWeight.w500, color: fg)),
+                Text(
+                  label,
+                  style: _text(13.5, weight: FontWeight.w500, color: fg),
+                ),
               ],
             ),
           ),
@@ -1311,7 +1362,11 @@ class _SetPickupPageState extends State<SetPickupPage>
                   key: ValueKey('set-pickup-spot-${spot.id}'),
                 ),
               ),
-            _chip(context.l10n.onMap, () => _settleSheet(false), icon: Icons.add_rounded),
+            _chip(
+              context.l10n.onMap,
+              () => _settleSheet(false),
+              icon: Icons.add_rounded,
+            ),
           ],
         ),
       ),
@@ -1359,7 +1414,9 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _bags == 0 ? context.l10n.notesBags : context.l10n.bagsCount(_bagLabels[_bags]),
+                  _bags == 0
+                      ? context.l10n.notesBags
+                      : context.l10n.bagsCount(_bagLabels[_bags]),
                   style: _text(
                     12.5,
                     weight: FontWeight.w600,
@@ -1382,7 +1439,12 @@ class _SetPickupPageState extends State<SetPickupPage>
         children: [
           const Icon(Icons.luggage_rounded, color: _accent, size: 22),
           const SizedBox(width: 8),
-          Expanded(child: Text(context.l10n.bagsQuestion, style: _text(15, weight: FontWeight.w600))),
+          Expanded(
+            child: Text(
+              context.l10n.bagsQuestion,
+              style: _text(15, weight: FontWeight.w600),
+            ),
+          ),
           for (var i = 0; i < labels.length; i++)
             Padding(
               padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
@@ -1397,7 +1459,10 @@ class _SetPickupPageState extends State<SetPickupPage>
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: _bags == i ? _accent : Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -1435,12 +1500,20 @@ class _SetPickupPageState extends State<SetPickupPage>
           Expanded(
             child: Text(
               label,
-              style: _text(14.5, weight: bold ? FontWeight.w700 : FontWeight.w400, color: color),
+              style: _text(
+                14.5,
+                weight: bold ? FontWeight.w700 : FontWeight.w400,
+                color: color,
+              ),
             ),
           ),
           Text(
             value,
-            style: _text(14.5, weight: bold ? FontWeight.w700 : FontWeight.w500, color: color),
+            style: _text(
+              14.5,
+              weight: bold ? FontWeight.w700 : FontWeight.w500,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -1460,7 +1533,10 @@ class _SetPickupPageState extends State<SetPickupPage>
       child: Column(
         children: [
           if (hasDiscount) ...[
-            _priceRow(context.l10n.ridePrice, fare.format(fare.totalKr + fare.discountKr)),
+            _priceRow(
+              context.l10n.ridePrice,
+              fare.format(fare.totalKr + fare.discountKr),
+            ),
             _priceRow(
               fare.promotionPercent == null
                   ? context.l10n.promotion
@@ -1513,7 +1589,11 @@ class _SetPickupPageState extends State<SetPickupPage>
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             children: [
-              SizedBox(width: 40, height: 32, child: Center(child: widget.brandMark(_payment.brand))),
+              SizedBox(
+                width: 40,
+                height: 32,
+                child: Center(child: widget.brandMark(_payment.brand)),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1535,7 +1615,10 @@ class _SetPickupPageState extends State<SetPickupPage>
                 ),
               ),
               if (widget.onChangePayment != null)
-                Text(context.l10n.changeArrow, style: _text(14, weight: FontWeight.w600, color: _accent)),
+                Text(
+                  context.l10n.changeArrow,
+                  style: _text(14, weight: FontWeight.w600, color: _accent),
+                ),
             ],
           ),
         ),
@@ -1552,7 +1635,9 @@ class _SetPickupPageState extends State<SetPickupPage>
         onPressed: _usable ? () => unawaited(_confirm()) : null,
         style: FilledButton.styleFrom(
           backgroundColor: _cta,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
         ),
         child: _confirmWaiting
             ? const SizedBox(
@@ -1626,7 +1711,9 @@ class _PickupPin extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: RiderRouteStyle.pickup.withValues(alpha: 0.35),
+                            color: RiderRouteStyle.pickup.withValues(
+                              alpha: 0.35,
+                            ),
                             blurRadius: 10 + 8 * t,
                             offset: Offset(0, 4 + 6 * t),
                           ),
@@ -1643,7 +1730,11 @@ class _PickupPin extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Container(width: 3, height: _stem, color: RiderRouteStyle.pickup),
+                    Container(
+                      width: 3,
+                      height: _stem,
+                      color: RiderRouteStyle.pickup,
+                    ),
                     Container(
                       width: 8,
                       height: 8,

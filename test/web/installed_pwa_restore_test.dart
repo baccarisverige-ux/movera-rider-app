@@ -43,9 +43,7 @@ void main() {
 
   test('public Safari tab also comes back to Finding', () async {
     final snapshot = searching();
-    final coordinator = RideRestoreCoordinator(
-      reader: () async => snapshot,
-    );
+    final coordinator = RideRestoreCoordinator(reader: () async => snapshot);
 
     final page = await coordinator.root();
 

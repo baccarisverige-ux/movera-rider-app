@@ -81,11 +81,7 @@ void main() {
     );
     addTearDown(controller.dispose);
 
-    controller.start(
-      snapshot: snapshot,
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snapshot, onTick: (_) {}, onMatched: () {});
 
     // rider-32: a driver drop no longer ends the search; a system cancel is
     // the terminal end that archives.

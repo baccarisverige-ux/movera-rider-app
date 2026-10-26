@@ -67,11 +67,7 @@ void main() {
 
   testWidgets('Confirm pickup renders on a GPS fix', (tester) async {
     await phone(tester);
-    await showPickup(
-      tester,
-      initial: gpsFix,
-      address: 'Current location',
-    );
+    await showPickup(tester, initial: gpsFix, address: 'Current location');
     expect(find.text('Confirm pickup spot'), findsOneWidget);
     expect(find.text('Drag map to move pin'), findsOneWidget);
     expect(find.text('Confirm pickup'), findsOneWidget);
@@ -127,43 +123,42 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.idle);
   });
 
-  testWidgets(
-    'Confirm pickup returns the confirmed spot to its caller',
-    (tester) async {
-      await phone(tester);
-      ConfirmPickupResult? spot;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: TextButton(
-                  onPressed: () async {
-                    spot = await ConfirmPickupSpot.open(
-                      context,
-                      initialPosition: gpsFix,
-                      initialAddress: 'Current location',
-                    );
-                  },
-                  child: const Text('open-pickup'),
-                ),
-              );
-            },
-          ),
+  testWidgets('Confirm pickup returns the confirmed spot to its caller', (
+    tester,
+  ) async {
+    await phone(tester);
+    ConfirmPickupResult? spot;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  spot = await ConfirmPickupSpot.open(
+                    context,
+                    initialPosition: gpsFix,
+                    initialAddress: 'Current location',
+                  );
+                },
+                child: const Text('open-pickup'),
+              ),
+            );
+          },
         ),
-      );
-      await tester.tap(find.text('open-pickup'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('Confirm pickup spot'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm pickup'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(spot, isNotNull);
-      expect(spot!.position.latitude, isNonZero);
-      expect(spot!.address, 'Pickup location');
-    },
-  );
+      ),
+    );
+    await tester.tap(find.text('open-pickup'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Confirm pickup spot'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm pickup'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(spot, isNotNull);
+    expect(spot!.position.latitude, isNonZero);
+    expect(spot!.address, 'Pickup location');
+  });
 
   test('Select Movera submitFinding marks Finding Driver', () async {
     SharedPreferences.setMockInitialValues({});

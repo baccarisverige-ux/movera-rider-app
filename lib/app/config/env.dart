@@ -12,8 +12,9 @@ class AppEnv {
     this.firebaseMessagingSenderId = '',
     this.firebaseProjectId = '',
     this.firebaseVapidKey = '',
-  }) : authRequired = authRequired ??
-            (flavor == AppFlavor.staging || flavor == AppFlavor.production);
+  }) : authRequired =
+           authRequired ??
+           (flavor == AppFlavor.staging || flavor == AppFlavor.production);
 
   final AppFlavor flavor;
   final String apiBaseUrl;
@@ -65,7 +66,8 @@ class AppEnv {
 
   /// Explicit web preview of the mock sign-in flow; never enables it in release builds.
   bool get authPreview =>
-      kIsWeb && flavor == AppFlavor.demo &&
+      kIsWeb &&
+      flavor == AppFlavor.demo &&
       Uri.base.queryParameters['auth_preview'] == '1';
 
   bool get isProduction => flavor == AppFlavor.production;

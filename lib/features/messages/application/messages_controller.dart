@@ -17,10 +17,10 @@ class MessagesController extends ChangeNotifier {
     DateTime Function()? now,
     TripMessagesTransport? transport,
     String? rideId,
-  })  : _store = store ?? MessagesRepository(),
-        _now = now ?? DateTime.now,
-        _transport = transport,
-        _rideId = rideId?.trim() ?? '' {
+  }) : _store = store ?? MessagesRepository(),
+       _now = now ?? DateTime.now,
+       _transport = transport,
+       _rideId = rideId?.trim() ?? '' {
     _store.addListener(notifyListeners);
   }
 
@@ -115,10 +115,10 @@ class MessagesController extends ChangeNotifier {
       _store.confirm(localId, sent);
     } catch (error) {
       if (_disposed) return;
-      AppLog.warning('messages.send_failed', extra: {
-        'rideId': _rideId,
-        'error': error.toString(),
-      });
+      AppLog.warning(
+        'messages.send_failed',
+        extra: {'rideId': _rideId, 'error': error.toString()},
+      );
       _store.setDelivery(localId, ChatDelivery.failed);
       onSendFailed?.call(local, error);
     }
@@ -159,10 +159,10 @@ class MessagesController extends ChangeNotifier {
       if (_disposed) return;
       _store.merge(fromServer);
     } catch (error) {
-      AppLog.warning('messages.poll_failed', extra: {
-        'rideId': _rideId,
-        'error': error.toString(),
-      });
+      AppLog.warning(
+        'messages.poll_failed',
+        extra: {'rideId': _rideId, 'error': error.toString()},
+      );
     } finally {
       _refreshing = false;
     }

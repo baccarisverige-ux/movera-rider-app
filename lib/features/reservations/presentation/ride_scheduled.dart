@@ -36,7 +36,11 @@ class RideScheduledPage extends StatefulWidget {
       settings: const RouteSettings(name: AppRoutes.reservationScheduled),
     );
     if (untilHome) {
-      return Navigator.pushAndRemoveUntil(context, route, AppRoutes.isHomeRoute);
+      return Navigator.pushAndRemoveUntil(
+        context,
+        route,
+        AppRoutes.isHomeRoute,
+      );
     }
     if (replace) {
       return Navigator.pushReplacement(context, route);

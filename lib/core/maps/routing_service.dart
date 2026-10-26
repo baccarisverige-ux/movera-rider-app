@@ -26,12 +26,11 @@ const Duration publicRoadRetryAfter = Duration(milliseconds: 400);
 
 /// Road geometry from a public router, or null when nothing usable came
 /// back (the caller decides whether to ask again).
-typedef PublicRoadRouter =
-    Future<List<GeoPoint>?> Function(
-      GeoPoint from,
-      GeoPoint to, {
-      Duration timeout,
-    });
+typedef PublicRoadRouter = Future<List<GeoPoint>?> Function(
+  GeoPoint from,
+  GeoPoint to, {
+  Duration timeout,
+});
 
 /// How many road lines [routing] keeps now.
 @visibleForTesting
@@ -144,14 +143,8 @@ extension RoadRoutingService on RoutingService {
         '/api/v1/routes',
         body: <String, dynamic>{
           'mode': 'driving',
-          'from': <String, double>{
-            'lat': from.latitude,
-            'lng': from.longitude,
-          },
-          'to': <String, double>{
-            'lat': to.latitude,
-            'lng': to.longitude,
-          },
+          'from': <String, double>{'lat': from.latitude, 'lng': from.longitude},
+          'to': <String, double>{'lat': to.latitude, 'lng': to.longitude},
         },
       );
       final raw = json['points'];

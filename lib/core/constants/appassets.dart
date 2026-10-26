@@ -48,7 +48,8 @@ class AppAssets {
   // Ride check card (Solar only).
   static const String solarShieldWarning =
       'assets/icons/solar_shield_warning.svg';
-  static const String solarPhoneCalling = 'assets/icons/solar_phone_calling.svg';
+  static const String solarPhoneCalling =
+      'assets/icons/solar_phone_calling.svg';
   static const String solarDangerTriangle =
       'assets/icons/solar_danger_triangle.svg';
   static const String solarDanger = 'assets/icons/solar_danger.svg';

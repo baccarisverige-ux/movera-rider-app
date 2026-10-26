@@ -87,7 +87,11 @@ void main() {
       ),
       throwsA(
         isA<RouteChangeException>()
-            .having((e) => e.failure, 'failure', RouteChangeFailure.pickupTooFar)
+            .having(
+              (e) => e.failure,
+              'failure',
+              RouteChangeFailure.pickupTooFar,
+            )
             .having((e) => e.message, 'message', contains('cancel this ride')),
       ),
     );

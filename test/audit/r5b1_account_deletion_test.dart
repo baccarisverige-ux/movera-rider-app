@@ -28,6 +28,7 @@ class _Push implements PushService {
     calls.add('unregister');
     throw StateError('offline');
   }
+
   @override
   Stream<PushPayload> get foregroundMessages => const Stream.empty();
   @override
@@ -37,15 +38,17 @@ class _Push implements PushService {
 }
 
 void main() {
-  test('rider-r5-43: account deletion unregisters push before the wipe',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final auth = _Auth();
-    await AccountDeletionController(
-      repository: _Repo(),
-      auth: auth,
-      push: _Push(auth.calls),
-    ).requestDeletion();
-    expect(auth.calls, ['unregister', 'wipe']);
-  });
+  test(
+    'rider-r5-43: account deletion unregisters push before the wipe',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final auth = _Auth();
+      await AccountDeletionController(
+        repository: _Repo(),
+        auth: auth,
+        push: _Push(auth.calls),
+      ).requestDeletion();
+      expect(auth.calls, ['unregister', 'wipe']);
+    },
+  );
 }

@@ -34,21 +34,24 @@ void main() {
     );
   }
 
-  test('markCompleted keeps a restorable completion snapshot until Done', () async {
-    final snapshot = activeSnapshot();
-    await RideSnapshotStore.save(snapshot);
-    AppScope.instance.ride
-      ..rideId = snapshot.rideId
-      ..status = RideStatus.tripInProgress;
+  test(
+    'markCompleted keeps a restorable completion snapshot until Done',
+    () async {
+      final snapshot = activeSnapshot();
+      await RideSnapshotStore.save(snapshot);
+      AppScope.instance.ride
+        ..rideId = snapshot.rideId
+        ..status = RideStatus.tripInProgress;
 
-    await ActiveRideController().markCompleted(RideStatus.tripCompleted);
+      await ActiveRideController().markCompleted(RideStatus.tripCompleted);
 
-    expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
-    final stored = await RideSnapshotStore.read();
-    expect(stored, isNotNull);
-    expect(stored!.status, RideStatus.tripCompleted);
-    expect(stored.rideId, snapshot.rideId);
-  });
+      expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
+      final stored = await RideSnapshotStore.read();
+      expect(stored, isNotNull);
+      expect(stored!.status, RideStatus.tripCompleted);
+      expect(stored.rideId, snapshot.rideId);
+    },
+  );
 
   test('persistCompletedStatus advances the saved completion state', () async {
     final snapshot = activeSnapshot();
@@ -87,23 +90,29 @@ void main() {
     expect(await RideSnapshotStore.read(), isNull);
   });
 
-  test('completion close restores missing History before clearing the snapshot', () async {
-    final snapshot = activeSnapshot();
-    await RideSnapshotStore.save(snapshot);
-    AppScope.instance.ride
-      ..rideId = snapshot.rideId
-      ..status = RideStatus.tripInProgress;
-    final controller = ActiveRideController();
-    await controller.markCompleted(RideStatus.ratingPending);
-    await OnDemandRideHistoryStore.clear();
+  test(
+    'completion close restores missing History before clearing the snapshot',
+    () async {
+      final snapshot = activeSnapshot();
+      await RideSnapshotStore.save(snapshot);
+      AppScope.instance.ride
+        ..rideId = snapshot.rideId
+        ..status = RideStatus.tripInProgress;
+      final controller = ActiveRideController();
+      await controller.markCompleted(RideStatus.ratingPending);
+      await OnDemandRideHistoryStore.clear();
 
-    await controller.closeCompletedRide(snapshot.rideId!);
+      await controller.closeCompletedRide(snapshot.rideId!);
 
-    expect(await RideSnapshotStore.read(), isNull);
-    expect(AppScope.instance.ride.status, RideStatus.closed);
-    final history = await OnDemandRideHistoryStore.read();
-    expect(history.map((ride) => ride.reservationId), contains('ondemand-${snapshot.rideId}'));
-  });
+      expect(await RideSnapshotStore.read(), isNull);
+      expect(AppScope.instance.ride.status, RideStatus.closed);
+      final history = await OnDemandRideHistoryStore.read();
+      expect(
+        history.map((ride) => ride.reservationId),
+        contains('ondemand-${snapshot.rideId}'),
+      );
+    },
+  );
 
   test('markCompleted rejects non-completed statuses', () async {
     await expectLater(

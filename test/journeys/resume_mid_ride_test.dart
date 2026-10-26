@@ -21,9 +21,7 @@ void main() {
       ..rideId = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.idle);
-    restore = RideRestoreCoordinator(
-      resync: (_) async {},
-    );
+    restore = RideRestoreCoordinator(resync: (_) async {});
     restore.showing = RestoredSurface.home;
     restore.debugAtRoot = () => true;
     restore.onReplaceRoot = null;
@@ -59,9 +57,7 @@ void main() {
       const MaterialApp(home: Scaffold(body: Text('resume-host'))),
     );
 
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.paused,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     expect((await RideSnapshotStore.read())?.rideId, ride.rideId);
 

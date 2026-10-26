@@ -31,9 +31,7 @@ void main() {
     'Waiting -> driver cancels -> search restarts by itself -> replacement driver',
     (tester) async {
       const rideId = 'journey-driver-research';
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(days: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
       addTearDown(realtime.dispose);
 
       realtime.subscribe(rideId);

@@ -11,15 +11,12 @@ import 'contract_fixtures.dart';
 /// X1: the Rider reads `RiderAppConfig` (CONTRACT.md §6) as the Admin app
 /// exports it. The three documents under `test/fixtures/admin_config/` are
 /// copies of Admin's `webapp/src/config/__fixtures__/rider_app_config.*`.
-Map<String, dynamic> _adminExport(String zone) =>
-    jsonDecode(
-          utf8.decode(
-            File(
-              'test/fixtures/admin_config/rider_app_config.$zone.json',
-            ).readAsBytesSync(),
-          ),
-        )
-        as Map<String, dynamic>;
+Map<String, dynamic> _adminExport(String zone) => jsonDecode(
+  utf8.decode(
+    File('test/fixtures/admin_config/rider_app_config.$zone.json')
+        .readAsBytesSync(),
+  ),
+) as Map<String, dynamic>;
 
 void main() {
   group('Admin export', () {
@@ -68,8 +65,10 @@ void main() {
       final economy = config.liveFeeFor('economy')!;
       expect(economy.type, FeeType.fixed);
       expect(economy.value, 10500);
-      expect(Money(economy.value.toInt(), config.currency).majorString,
-          '10.500');
+      expect(
+        Money(economy.value.toInt(), config.currency).majorString,
+        '10.500',
+      );
       final premium = config.reservationFeeFor('premium')!;
       expect(premium.min, const Money(24000, 'TND'));
       // 25% of a 300.000 DT fare, inside the free window: 75.000 DT.
@@ -156,7 +155,10 @@ void main() {
           {'code': 'plans_changed', 'title': 'Plans changed'},
           {'code': 'something_else'},
         ],
-        'rideCheck': {'stopMinutes': 2, 'nested': {'a': 1}},
+        'rideCheck': {
+          'stopMinutes': 2,
+          'nested': {'a': 1},
+        },
         'appUpdate': 'soon',
         'futureSection': {'anything': true},
       })!;
@@ -168,7 +170,10 @@ void main() {
       // Not a list: the contract's four zone methods (owner Q7).
       expect(config.paymentMethods, ZoneDefaults.paymentMethods);
       expect(config.maxStops, RiderAppConfig.defaultMaxStops);
-      expect(config.bookingHorizonDays, RiderAppConfig.defaultBookingHorizonDays);
+      expect(
+        config.bookingHorizonDays,
+        RiderAppConfig.defaultBookingHorizonDays,
+      );
       expect(config.liveFeeFor('economy')!.value, 300);
       // A bound in another currency is not this zone's rule.
       expect(config.liveFeeFor('comfort'), isNull);
@@ -182,10 +187,14 @@ void main() {
     test('not a config document: null, so the last good one stays', () {
       expect(RiderAppConfig.fromJson(null), isNull);
       expect(RiderAppConfig.fromJson('{}'), isNull);
-      expect(RiderAppConfig.fromJson({'version': '12', 'currency': 'SEK'}),
-          isNull);
-      expect(RiderAppConfig.fromJson({'version': 12, 'currency': 'sek'}),
-          isNull);
+      expect(
+        RiderAppConfig.fromJson({'version': '12', 'currency': 'SEK'}),
+        isNull,
+      );
+      expect(
+        RiderAppConfig.fromJson({'version': 12, 'currency': 'sek'}),
+        isNull,
+      );
     });
   });
 

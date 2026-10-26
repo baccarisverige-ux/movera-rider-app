@@ -57,20 +57,28 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   }) async {}
 
   @override
-  Future<void> updateMarkers(MarkerUpdates markerUpdates,
-          {required int mapId}) async {}
+  Future<void> updateMarkers(
+    MarkerUpdates markerUpdates, {
+    required int mapId,
+  }) async {}
 
   @override
-  Future<void> updatePolygons(PolygonUpdates polygonUpdates,
-          {required int mapId}) async {}
+  Future<void> updatePolygons(
+    PolygonUpdates polygonUpdates, {
+    required int mapId,
+  }) async {}
 
   @override
-  Future<void> updatePolylines(PolylineUpdates polylineUpdates,
-          {required int mapId}) async {}
+  Future<void> updatePolylines(
+    PolylineUpdates polylineUpdates, {
+    required int mapId,
+  }) async {}
 
   @override
-  Future<void> updateCircles(CircleUpdates circleUpdates,
-          {required int mapId}) async {}
+  Future<void> updateCircles(
+    CircleUpdates circleUpdates, {
+    required int mapId,
+  }) async {}
 
   @override
   Future<void> updateTileOverlays({
@@ -85,8 +93,10 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   }) async {}
 
   @override
-  Future<void> updateHeatmaps(HeatmapUpdates heatmapUpdates,
-          {required int mapId}) async {}
+  Future<void> updateHeatmaps(
+    HeatmapUpdates heatmapUpdates, {
+    required int mapId,
+  }) async {}
 
   @override
   Future<void> updateGroundOverlays(
@@ -98,12 +108,16 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   Future<String?> getStyleError({required int mapId}) async => null;
 
   @override
-  Future<void> animateCamera(CameraUpdate cameraUpdate,
-          {required int mapId}) async {}
+  Future<void> animateCamera(
+    CameraUpdate cameraUpdate, {
+    required int mapId,
+  }) async {}
 
   @override
-  Future<void> moveCamera(CameraUpdate cameraUpdate,
-          {required int mapId}) async {}
+  Future<void> moveCamera(
+    CameraUpdate cameraUpdate, {
+    required int mapId,
+  }) async {}
 
   @override
   Future<void> setMapStyle(String? mapStyle, {required int mapId}) async {}
@@ -197,8 +211,9 @@ void main() {
     await tester.pump();
 
     expect(released, [created!.mapId]);
-    expect(platform.disposed, [created!.mapId],
-        reason: 'the plugin still disposes its own controller');
+    expect(platform.disposed, [
+      created!.mapId,
+    ], reason: 'the plugin still disposes its own controller');
   });
 
   // Owner N5 (live test 2026-10-26): the green/red/yellow roads were
@@ -240,10 +255,10 @@ void main() {
         home: Scaffold(body: CustomGoogleMap(key: ValueKey('second'))),
       ),
     );
-    expect(
-      CustomGoogleMap.debugMounted,
-      const [ValueKey('first'), ValueKey('second')],
-    );
+    expect(CustomGoogleMap.debugMounted, const [
+      ValueKey('first'),
+      ValueKey('second'),
+    ]);
     CustomGoogleMap.debugMounted.clear();
   });
 }

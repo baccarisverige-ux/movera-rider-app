@@ -75,7 +75,9 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       return unavailableLabel;
     }
     if (value.trim().isEmpty) return context.l10n.notAdded;
-    return verified ? context.l10n.valueVerified(value) : context.l10n.valueNotVerified(value);
+    return verified
+        ? context.l10n.valueVerified(value)
+        : context.l10n.valueNotVerified(value);
   }
 
   @override

@@ -260,7 +260,9 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          inTrip ? context.l10n.endingTrip : context.l10n.cancelling,
+                          inTrip
+                              ? context.l10n.endingTrip
+                              : context.l10n.cancelling,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -270,7 +272,9 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                       ],
                     )
                   : Text(
-                      inTrip ? context.l10n.endTripHere : context.l10n.cancelRequest,
+                      inTrip
+                          ? context.l10n.endTripHere
+                          : context.l10n.cancelRequest,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,

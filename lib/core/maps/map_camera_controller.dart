@@ -10,7 +10,7 @@ const double recenterZoom = 15;
 
 class MapCameraController {
   MapCameraController(this._maps, {LocationRepository? location})
-      : _location = location ?? LocationRepository();
+    : _location = location ?? LocationRepository();
   final GoogleMapProvider _maps;
   final LocationRepository _location;
   final stale = StaleGuard();

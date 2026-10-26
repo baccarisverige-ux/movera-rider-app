@@ -16,5 +16,4 @@ void main() {
     final acrossKm = metresPerPoint * 402 / 1000;
     expect(acrossKm, inInclusiveRange(9, 11));
   });
-
 }

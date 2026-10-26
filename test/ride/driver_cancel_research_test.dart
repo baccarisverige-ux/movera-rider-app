@@ -53,9 +53,11 @@ void main() {
 
     rt.cancelByDriver();
     rt.researchAfterDriverCancel();
-    await _until(() =>
-        rt.lastStatus == RideStatus.driverAssigned &&
-        rt.lastDriver?.id != first?.id);
+    await _until(
+      () =>
+          rt.lastStatus == RideStatus.driverAssigned &&
+          rt.lastDriver?.id != first?.id,
+    );
 
     expect(first, isNotNull);
     expect(rt.lastDriver, isNotNull);

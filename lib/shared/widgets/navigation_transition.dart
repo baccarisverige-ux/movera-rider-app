@@ -7,41 +7,41 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 
 class BottomToTopTransition<T> extends PageRouteBuilder<T> {
   BottomToTopTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: MoveraDurations.large,
-          reverseTransitionDuration: MoveraDurations.normal,
-          transitionsBuilder: (context, animation, secondary, child) {
-            return _sheetCover(context, animation, child);
-          },
-        );
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: MoveraDurations.large,
+        reverseTransitionDuration: MoveraDurations.normal,
+        transitionsBuilder: (context, animation, secondary, child) {
+          return _sheetCover(context, animation, child);
+        },
+      );
 }
 
 class TopToBottomTransition<T> extends PageRouteBuilder<T> {
   TopToBottomTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: MoveraDurations.large,
-          reverseTransitionDuration: MoveraDurations.normal,
-          transitionsBuilder: (context, animation, secondary, child) {
-            if (MoveraMotion.reduced(context)) return child;
-            return _Curved(
-              animation: animation,
-              curve: MoveraCurves.open,
-              reverseCurve: MoveraCurves.close,
-              builder: (curved) => FadeTransition(
-                opacity: curved,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, -0.06),
-                    end: Offset.zero,
-                  ).animate(curved),
-                  child: child,
-                ),
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: MoveraDurations.large,
+        reverseTransitionDuration: MoveraDurations.normal,
+        transitionsBuilder: (context, animation, secondary, child) {
+          if (MoveraMotion.reduced(context)) return child;
+          return _Curved(
+            animation: animation,
+            curve: MoveraCurves.open,
+            reverseCurve: MoveraCurves.close,
+            builder: (curved) => FadeTransition(
+              opacity: curved,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, -0.06),
+                  end: Offset.zero,
+                ).animate(curved),
+                child: child,
               ),
-            );
-          },
-        );
+            ),
+          );
+        },
+      );
 }
 
 /// Full-screen ride lifecycle stages use a deliberately quiet transition.
@@ -52,66 +52,66 @@ class TopToBottomTransition<T> extends PageRouteBuilder<T> {
 /// stack back to Home is instantaneous so intermediate stages never flash.
 class RideStageTransition<T> extends PageRouteBuilder<T> {
   RideStageTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: const Duration(milliseconds: 120),
-          reverseTransitionDuration: Duration.zero,
-          transitionsBuilder: (context, animation, secondary, child) {
-            if (MoveraMotion.reduced(context)) return child;
-            // Never fade the incoming ride stage itself. Fading the whole
-            // child exposes the previous stage underneath for a few frames,
-            // which is especially visible after that stage has already parked
-            // its map. Keep an opaque neutral surface behind the new stage and
-            // fade only a very light veil over the new screen.
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                const ColoredBox(color: Color(0xFFF6F5F1)),
-                child,
-                IgnorePointer(
-                  child: _Curved(
-                    animation: animation,
-                    curve: Curves.easeOutCubic,
-                    builder: (curved) => FadeTransition(
-                      opacity: Tween<double>(begin: 0.12, end: 0).animate(curved),
-                      child: const ColoredBox(color: Color(0xFFF6F5F1)),
-                    ),
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: const Duration(milliseconds: 120),
+        reverseTransitionDuration: Duration.zero,
+        transitionsBuilder: (context, animation, secondary, child) {
+          if (MoveraMotion.reduced(context)) return child;
+          // Never fade the incoming ride stage itself. Fading the whole
+          // child exposes the previous stage underneath for a few frames,
+          // which is especially visible after that stage has already parked
+          // its map. Keep an opaque neutral surface behind the new stage and
+          // fade only a very light veil over the new screen.
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const ColoredBox(color: Color(0xFFF6F5F1)),
+              child,
+              IgnorePointer(
+                child: _Curved(
+                  animation: animation,
+                  curve: Curves.easeOutCubic,
+                  builder: (curved) => FadeTransition(
+                    opacity: Tween<double>(begin: 0.12, end: 0).animate(curved),
+                    child: const ColoredBox(color: Color(0xFFF6F5F1)),
                   ),
                 ),
-              ],
-            );
-          },
-        );
+              ),
+            ],
+          );
+        },
+      );
 }
 
 class SwitchTransition<T> extends PageRouteBuilder<T> {
   SwitchTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: MoveraDurations.normal,
-          reverseTransitionDuration: MoveraDurations.micro,
-          transitionsBuilder: (context, animation, secondary, child) {
-            if (MoveraMotion.reduced(context)) return child;
-            return _Curved(
-              animation: animation,
-              curve: MoveraCurves.open,
-              reverseCurve: MoveraCurves.close,
-              builder: (curved) => FadeTransition(opacity: curved, child: child),
-            );
-          },
-        );
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: MoveraDurations.normal,
+        reverseTransitionDuration: MoveraDurations.micro,
+        transitionsBuilder: (context, animation, secondary, child) {
+          if (MoveraMotion.reduced(context)) return child;
+          return _Curved(
+            animation: animation,
+            curve: MoveraCurves.open,
+            reverseCurve: MoveraCurves.close,
+            builder: (curved) => FadeTransition(opacity: curved, child: child),
+          );
+        },
+      );
 }
 
 class LeftToRightTransition<T> extends PageRouteBuilder<T> {
   LeftToRightTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: MoveraDurations.normal,
-          reverseTransitionDuration: MoveraDurations.micro,
-          transitionsBuilder: (context, animation, secondary, child) {
-            return _sideCover(context, animation, child, const Offset(-0.06, 0));
-          },
-        );
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: MoveraDurations.normal,
+        reverseTransitionDuration: MoveraDurations.micro,
+        transitionsBuilder: (context, animation, secondary, child) {
+          return _sideCover(context, animation, child, const Offset(-0.06, 0));
+        },
+      );
 }
 
 /// The forward page push for non-ride pages (menu, account, wallet, help).
@@ -123,14 +123,14 @@ class LeftToRightTransition<T> extends PageRouteBuilder<T> {
 /// is history back.
 class RightToLeftTransition<T> extends PageRouteBuilder<T> {
   RightToLeftTransition(Widget page, {super.settings})
-      : super(
-          pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: MoveraDurations.normal,
-          reverseTransitionDuration: MoveraDurations.micro,
-          transitionsBuilder: (context, animation, secondary, child) {
-            return _sideCover(context, animation, child, const Offset(0.06, 0));
-          },
-        );
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: MoveraDurations.normal,
+        reverseTransitionDuration: MoveraDurations.micro,
+        transitionsBuilder: (context, animation, secondary, child) {
+          return _sideCover(context, animation, child, const Offset(0.06, 0));
+        },
+      );
 
   bool _iosBackSwipe(BuildContext context) =>
       !kIsWeb && Theme.of(context).platform == TargetPlatform.iOS;
@@ -160,7 +160,11 @@ class RightToLeftTransition<T> extends PageRouteBuilder<T> {
   }
 }
 
-Widget _sheetCover(BuildContext context, Animation<double> animation, Widget child) {
+Widget _sheetCover(
+  BuildContext context,
+  Animation<double> animation,
+  Widget child,
+) {
   if (MoveraMotion.reduced(context)) return child;
   return _Curved(
     animation: animation,
@@ -252,7 +256,6 @@ class _CurvedState extends State<_Curved> {
   Widget build(BuildContext context) => widget.builder(_curved);
 }
 
-
 /// Closes the current modal/page route and waits until its exit transition has
 /// fully finished before another route is pushed.
 ///
@@ -271,7 +274,6 @@ Future<void> popCurrentRouteAndWaitForExit(BuildContext context) async {
     await WidgetsBinding.instance.endOfFrame;
   }
 }
-
 
 /// Wait until the current route's forward transition has fully settled.
 ///

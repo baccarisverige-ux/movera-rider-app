@@ -48,21 +48,23 @@ void main() {
     expect(PriceBumpCard.stepsFor(null, 'TND'), [2, 4, 6, 8]);
   });
 
-  test('admin edits: a disabled step is hidden; another currency never shows',
-      () async {
-    final config = await EditedZoneConfigs({
-      'FR-PC': {
-        'raiseSteps': [
-          {'amount': wireMoney(200, 'EUR'), 'enabled': false},
-          {'amount': wireMoney(300, 'EUR'), 'enabled': true},
-          {'amount': wireMoney(1000, 'EUR')},
-        ],
-      },
-    }).forZone('FR-PC');
-    expect(PriceBumpCard.stepsFor(config, 'EUR'), [3, 10]);
-    // A kronor trip never takes the euro zone's steps.
-    expect(PriceBumpCard.stepsFor(config, 'SEK'), [50, 100, 150, 200]);
-  });
+  test(
+    'admin edits: a disabled step is hidden; another currency never shows',
+    () async {
+      final config = await EditedZoneConfigs({
+        'FR-PC': {
+          'raiseSteps': [
+            {'amount': wireMoney(200, 'EUR'), 'enabled': false},
+            {'amount': wireMoney(300, 'EUR'), 'enabled': true},
+            {'amount': wireMoney(1000, 'EUR')},
+          ],
+        },
+      }).forZone('FR-PC');
+      expect(PriceBumpCard.stepsFor(config, 'EUR'), [3, 10]);
+      // A kronor trip never takes the euro zone's steps.
+      expect(PriceBumpCard.stepsFor(config, 'SEK'), [50, 100, 150, 200]);
+    },
+  );
 
   test('a step that is not a whole unit is left out', () {
     expect(
@@ -81,7 +83,10 @@ void main() {
       tester,
       price: 24.6,
       currency: 'EUR',
-      steps: PriceBumpCard.stepsFor(SeedRiderConfigRepository.seedFor('FR-PC'), 'EUR'),
+      steps: PriceBumpCard.stepsFor(
+        SeedRiderConfigRepository.seedFor('FR-PC'),
+        'EUR',
+      ),
       onRaise: (increase) => raised = increase,
     );
     for (final label in ['+2 €', '+4 €', '+6 €', '+8 €']) {

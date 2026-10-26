@@ -103,63 +103,69 @@ void main() {
     FindingDriverController.active = null;
   });
 
-  test('Waiting: stale is its own outcome; nothing committed or re-sent',
-      () async {
-    final posts = <String>[];
-    AppScope.instance.ride
-      ..rideId = null
-      ..suppressRestore = false
-      ..restoreFromBackend(RideStatus.driverArriving, id: 'v1');
-    await RideSnapshotStore.save(_snap('v1', RideStatus.driverArriving));
+  test(
+    'Waiting: stale is its own outcome; nothing committed or re-sent',
+    () async {
+      final posts = <String>[];
+      AppScope.instance.ride
+        ..rideId = null
+        ..suppressRestore = false
+        ..restoreFromBackend(RideStatus.driverArriving, id: 'v1');
+      await RideSnapshotStore.save(_snap('v1', RideStatus.driverArriving));
 
-    final outcome = await ActiveRideController(
-      api: _staleServer(posts),
-    ).markCancelled(reasonId: 'plans_changed');
+      final outcome = await ActiveRideController(api: _staleServer(posts))
+          .markCancelled(reasonId: 'plans_changed');
 
-    expect(outcome, RideCancelOutcome.stale);
-    expect(posts, ['/api/v1/rides/v1/cancel'], reason: 'sent once');
-    expect(AppScope.instance.ride.status, RideStatus.driverArriving);
-    expect(await RideSnapshotStore.read(), isNotNull);
-    expect(await OnDemandRideHistoryStore.read(), isEmpty);
-    expect(await PendingCancelStore.all(), isEmpty,
-        reason: 'the outbox does not resend a refused cancel later');
-  });
+      expect(outcome, RideCancelOutcome.stale);
+      expect(posts, ['/api/v1/rides/v1/cancel'], reason: 'sent once');
+      expect(AppScope.instance.ride.status, RideStatus.driverArriving);
+      expect(await RideSnapshotStore.read(), isNotNull);
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
+      expect(
+        await PendingCancelStore.all(),
+        isEmpty,
+        reason: 'the outbox does not resend a refused cancel later',
+      );
+    },
+  );
 
-  test('Finding: the search resumes and resyncs; the rider decides again',
-      () async {
-    final posts = <String>[];
-    final realtime = _Realtime();
-    addTearDown(realtime.dispose);
-    final ride = RideSession()
-      ..rideId = 'v1'
-      ..status = RideStatus.findingDriver;
-    final store = FindingDriverRepository();
-    await store.save(_snap('v1', RideStatus.findingDriver));
-    final controller = FindingDriverController(
-      realtime: realtime,
-      ride: ride,
-      store: store,
-      api: _staleServer(posts, status: 'searching'),
-    );
-    addTearDown(controller.dispose);
-    final terminal = <RideStatus>[];
-    controller.start(
-      snapshot: _snap('v1', RideStatus.findingDriver),
-      onTick: (_) {},
-      onMatched: () {},
-      onTerminal: terminal.add,
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+  test(
+    'Finding: the search resumes and resyncs; the rider decides again',
+    () async {
+      final posts = <String>[];
+      final realtime = _Realtime();
+      addTearDown(realtime.dispose);
+      final ride = RideSession()
+        ..rideId = 'v1'
+        ..status = RideStatus.findingDriver;
+      final store = FindingDriverRepository();
+      await store.save(_snap('v1', RideStatus.findingDriver));
+      final controller = FindingDriverController(
+        realtime: realtime,
+        ride: ride,
+        store: store,
+        api: _staleServer(posts, status: 'searching'),
+      );
+      addTearDown(controller.dispose);
+      final terminal = <RideStatus>[];
+      controller.start(
+        snapshot: _snap('v1', RideStatus.findingDriver),
+        onTick: (_) {},
+        onMatched: () {},
+        onTerminal: terminal.add,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(await controller.cancelSearch(), SearchCancelResult.stale);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(await controller.cancelSearch(), SearchCancelResult.stale);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(posts, ['/api/v1/rides/v1/cancel']);
-    expect(controller.cancelled, isFalse);
-    expect(controller.cancelQueued, isFalse);
-    expect(terminal, isEmpty);
-    expect(realtime.resyncs, ['v1']);
-    expect(await PendingCancelStore.all(), isEmpty);
-    expect(await RideSnapshotStore.read(), isNotNull);
-  });
+      expect(posts, ['/api/v1/rides/v1/cancel']);
+      expect(controller.cancelled, isFalse);
+      expect(controller.cancelQueued, isFalse);
+      expect(terminal, isEmpty);
+      expect(realtime.resyncs, ['v1']);
+      expect(await PendingCancelStore.all(), isEmpty);
+      expect(await RideSnapshotStore.read(), isNotNull);
+    },
+  );
 }

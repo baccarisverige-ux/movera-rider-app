@@ -15,10 +15,10 @@ class PushCoordinator {
     required RidePushOpener openRide,
     required NotificationsPushOpener openNotifications,
     NotificationsController? notifications,
-  })  : _push = push,
-        _openRide = openRide,
-        _openNotifications = openNotifications,
-        _notifications = notifications ?? NotificationsController();
+  }) : _push = push,
+       _openRide = openRide,
+       _openNotifications = openNotifications,
+       _notifications = notifications ?? NotificationsController();
 
   final PushService _push;
   final RidePushOpener _openRide;
@@ -64,10 +64,7 @@ class PushCoordinator {
     _notifications.ingest(payload, read: false);
     AppLog.info(
       'push.foreground',
-      extra: {
-        'type': payload.type,
-        'rideId': payload.routedRideId ?? '',
-      },
+      extra: {'type': payload.type, 'rideId': payload.routedRideId ?? ''},
     );
   }
 
@@ -76,7 +73,9 @@ class PushCoordinator {
     // before this rider signed in on the device is the previous rider's:
     // it never enters this rider's feed or routing.
     final sentAt = payload.sentAt;
-    final started = sentAt == null ? null : await UserDataWipe.sessionStartedAt();
+    final started = sentAt == null
+        ? null
+        : await UserDataWipe.sessionStartedAt();
     if (sentAt != null && started != null && sentAt.isBefore(started)) {
       AppLog.info('push.opened_before_session', extra: {'type': payload.type});
       return;

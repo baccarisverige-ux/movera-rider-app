@@ -49,10 +49,8 @@ void main() {
           designSize: const Size(390, 844),
           minTextAdapt: true,
           splitScreenMode: true,
-          builder: (_, __) => MaterialApp(
-            navigatorKey: moveraNavigatorKey,
-            home: const Home(),
-          ),
+          builder: (_, __) =>
+              MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
         ),
       );
       for (var i = 0; i < 8; i++) {
@@ -62,9 +60,11 @@ void main() {
 
       // "Later" opens the same Where to as Book now, not the old screen.
       await tester.tap(find.text('Later'));
-      for (var i = 0;
-          i < 40 && find.byType(TextField).evaluate().length < 2;
-          i++) {
+      for (
+        var i = 0;
+        i < 40 && find.byType(TextField).evaluate().length < 2;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.text('Plan your ride'), findsOneWidget);
@@ -76,7 +76,10 @@ void main() {
       await tester.pump();
       await tester.enterText(find.byType(TextField).at(1), 'Arlanda');
       await tester.pump();
-      final pick = find.textContaining('Stockholm Arlanda Airport', findRichText: true);
+      final pick = find.textContaining(
+        'Stockholm Arlanda Airport',
+        findRichText: true,
+      );
       await waitFor(tester, pick);
       await tester.tap(pick.first);
 

@@ -147,12 +147,20 @@ class _RideCheckPageState extends State<RideCheckPage> {
                 const SizedBox(height: 10),
                 Text(
                   context.l10n.rcWhatHappensBody1,
-                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                  style: SafetyUi.text(
+                    13.5,
+                    color: SafetyUi.muted,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   context.l10n.rcWhatHappensBody2,
-                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                  style: SafetyUi.text(
+                    13.5,
+                    color: SafetyUi.muted,
+                    height: 1.45,
+                  ),
                 ),
               ],
             ),
@@ -248,7 +256,11 @@ class _DemoLine extends StatelessWidget {
 }
 
 class _TriggerLine extends StatelessWidget {
-  const _TriggerLine({required this.title, required this.body, required this.on});
+  const _TriggerLine({
+    required this.title,
+    required this.body,
+    required this.on,
+  });
 
   final String title;
   final String body;

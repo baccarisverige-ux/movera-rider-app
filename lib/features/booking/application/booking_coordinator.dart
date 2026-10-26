@@ -35,8 +35,9 @@ class BookingCoordinator {
 
   final ApiClient? _api;
   final ActiveTripRepository? _activeTrips;
-  final MutationAttempt _duplicateCancelMutation =
-      MutationAttempt('duplicate-ride-cancel');
+  final MutationAttempt _duplicateCancelMutation = MutationAttempt(
+    'duplicate-ride-cancel',
+  );
   Future<String>? _inflight;
   BookingAttempt? _attempt;
   String? _autoQuoteIntent;
@@ -63,10 +64,7 @@ class BookingCoordinator {
     return next;
   }
 
-  void _releaseWhenDone(
-    Future<String> started,
-    BookingAttempt attempt,
-  ) {
+  void _releaseWhenDone(Future<String> started, BookingAttempt attempt) {
     started.then<void>(
       (_) {
         if (identical(_inflight, started)) _inflight = null;
@@ -254,8 +252,7 @@ class BookingCoordinator {
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
       },
-      if (destinationAddress != null)
-        'destinationAddress': destinationAddress,
+      if (destinationAddress != null) 'destinationAddress': destinationAddress,
       if (destinationLat != null && destinationLng != null) ...{
         'destinationLat': destinationLat,
         'destinationLng': destinationLng,
@@ -491,7 +488,12 @@ class BookingCoordinator {
       final replay = attempt.replay;
       String id;
       if (replay != null) {
-        id = await _sendOrRecover(attempt, replay, destinationLat, destinationLng);
+        id = await _sendOrRecover(
+          attempt,
+          replay,
+          destinationLat,
+          destinationLng,
+        );
       } else {
         final binding = await _resolveQuoteBinding(
           baseIntent: baseIntent,
@@ -542,7 +544,12 @@ class BookingCoordinator {
           isReplay: isReplay,
           onSending: () => attempt.replay ??= () => send(isReplay: true),
         );
-        id = await _sendOrRecover(attempt, send, destinationLat, destinationLng);
+        id = await _sendOrRecover(
+          attempt,
+          send,
+          destinationLat,
+          destinationLng,
+        );
       }
       if (identical(_attempt, attempt)) _attempt = null;
       if (_autoQuoteIntent == baseIntent) {
@@ -589,9 +596,8 @@ class BookingCoordinator {
 
   /// A failure after which the server may still have created the ride: a
   /// timeout, a dropped connection or a 5xx (never a refusal).
-  static bool maybeCreated(Object error) => error is ApiError
-      ? error.isRetryable
-      : error is http.ClientException;
+  static bool maybeCreated(Object error) =>
+      error is ApiError ? error.isRetryable : error is http.ClientException;
 
   /// The rider's live trip on the server, when it is the booking being
   /// made (same destination): adopted as the created ride. Null otherwise.
@@ -607,7 +613,8 @@ class BookingCoordinator {
   }) async {
     RideSnapshot? trip;
     try {
-      trip = await (_activeTrips ?? AppScope.instance.activeTrips).fetchActive();
+      trip = await (_activeTrips ?? AppScope.instance.activeTrips)
+          .fetchActive();
     } catch (error) {
       AppLog.warning('booking.active_trip_failed', extra: {'error': '$error'});
       if (anyDestination && maybeCreated(error)) rethrow;
@@ -621,8 +628,8 @@ class BookingCoordinator {
         trip.status.tripStatus.isTerminal) {
       return null;
     }
-    final same = _intentPoint(trip.destinationLat, trip.destinationLng)
-            ?.join(',') ==
+    final same =
+        _intentPoint(trip.destinationLat, trip.destinationLng)?.join(',') ==
         _intentPoint(destinationLat, destinationLng)?.join(',');
     if (!same && !anyDestination) return null;
     final collision = await _standDownIfFindingOwned(createdRideId: id);
@@ -733,7 +740,8 @@ class BookingCoordinator {
     final lat2 = destinationLat * math.pi / 180;
     final dLat = (destinationLat - pickupLat) * math.pi / 180;
     final dLng = (destinationLng - pickupLng) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1) *
             math.cos(lat2) *
             math.sin(dLng / 2) *
@@ -803,35 +811,36 @@ class BookingCoordinator {
             idempotencyKey: key,
           )
         : await _client.post(
-      '/api/v1/rides',
-      body: {
-        'pickupAddress': pickupAddress,
-        'destinationAddress': destinationAddress,
-        'pickupLat': pickupLat,
-        'pickupLng': pickupLng,
-        'destinationLat': destinationLat,
-        'destinationLng': destinationLng,
-        'categoryId': rideType,
-        // Contract v0.3.0: the confirmed fare as Money (it equals the
-        // quote, in the quote's currency).
-        'fare': Money(quoteTotalMinor, quoteCurrency).toJson(),
-        'paymentMethodId': paymentMethod,
-        'quoteId': quoteId,
-        'quoteSignedPayload': quoteSignedPayload,
-        'quoteExpiresAt': quoteExpiresAt.toUtc().toIso8601String(),
-        'quoteTotalMinor': quoteTotalMinor,
-        // Bags, pet, baby and child are accessibility and safety options, not
-        // cosmetics: the driver needs them before accepting, so they travel
-        // with the booking rather than stopping at the selection screen.
-        'notes': notes.toJson(),
-        if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
-        // ARCH-5 / contract C-3: the wallet split the rider was shown is a
-        // booking intent the server applies, not presentation state.
-        'useWalletFirst': useWalletFirst,
-        'walletAmountMinor': walletAmountMinor,
-      },
-      idempotencyKey: key,
-    );
+            '/api/v1/rides',
+            body: {
+              'pickupAddress': pickupAddress,
+              'destinationAddress': destinationAddress,
+              'pickupLat': pickupLat,
+              'pickupLng': pickupLng,
+              'destinationLat': destinationLat,
+              'destinationLng': destinationLng,
+              'categoryId': rideType,
+              // Contract v0.3.0: the confirmed fare as Money (it equals the
+              // quote, in the quote's currency).
+              'fare': Money(quoteTotalMinor, quoteCurrency).toJson(),
+              'paymentMethodId': paymentMethod,
+              'quoteId': quoteId,
+              'quoteSignedPayload': quoteSignedPayload,
+              'quoteExpiresAt': quoteExpiresAt.toUtc().toIso8601String(),
+              'quoteTotalMinor': quoteTotalMinor,
+              // Bags, pet, baby and child are accessibility and safety options, not
+              // cosmetics: the driver needs them before accepting, so they travel
+              // with the booking rather than stopping at the selection screen.
+              'notes': notes.toJson(),
+              if (stops.isNotEmpty)
+                'stops': [for (final stop in stops) stop.toJson()],
+              // ARCH-5 / contract C-3: the wallet split the rider was shown is a
+              // booking intent the server applies, not presentation state.
+              'useWalletFirst': useWalletFirst,
+              'walletAmountMinor': walletAmountMinor,
+            },
+            idempotencyKey: key,
+          );
     final id = _requireRideId(json);
     if (contract) ApiQuoteRepository.markBooked(quoteId);
     // Booking → Finding only on the server's word: the response must say
@@ -844,7 +853,9 @@ class BookingCoordinator {
 
     // R-O2: known before a race-losing duplicate is stood down below.
     AppScope.instance.ride.observeProjection(json);
-    final collisionBeforeCommit = await _standDownIfFindingOwned(createdRideId: id);
+    final collisionBeforeCommit = await _standDownIfFindingOwned(
+      createdRideId: id,
+    );
     if (collisionBeforeCommit != null) return collisionBeforeCommit;
 
     final version = _rideVersion(json);
@@ -860,8 +871,10 @@ class BookingCoordinator {
     // from the booked fare, once; a raised offer never moves it.
     final maxOfferMinor =
         _maxOfferMinorFrom(json) ??
-        Money.fromLegacyMajor(FareRules.maximum(price), quoteCurrency)
-            .amountMinor;
+        Money.fromLegacyMajor(
+          FareRules.maximum(price),
+          quoteCurrency,
+        ).amountMinor;
     session
       ..bookedCategoryId = rideType
       ..bookedPaymentMethodId = paymentMethod
@@ -900,7 +913,9 @@ class BookingCoordinator {
     // The snapshot save crosses an async boundary. A Finding surface can
     // become authoritative while persistence is in flight, so close that
     // second race window before returning the created id to presentation.
-    final collisionAfterCommit = await _standDownIfFindingOwned(createdRideId: id);
+    final collisionAfterCommit = await _standDownIfFindingOwned(
+      createdRideId: id,
+    );
     if (collisionAfterCommit != null) return collisionAfterCommit;
 
     return id;
@@ -982,10 +997,7 @@ class BookingCoordinator {
 
     // Restore the visible owner's identity after the duplicate create response
     // may have temporarily projected the new id into the process-wide session.
-    AppScope.instance.ride.backendReconcile(
-      ownerSnapshot.status,
-      id: ownerId,
-    );
+    AppScope.instance.ride.backendReconcile(ownerSnapshot.status, id: ownerId);
     await RideSnapshotStore.save(
       ownerSnapshot.copyWith(savedAt: DateTime.now()),
     );
@@ -1021,7 +1033,6 @@ class BookingCoordinator {
   }
 }
 
-
 class _BookingQuoteBinding {
   const _BookingQuoteBinding({
     required this.id,
@@ -1056,7 +1067,9 @@ class _BookingQuoteBinding {
     if (requestedPrice != null &&
         Money.fromLegacyMajor(requestedPrice, currency).amountMinor !=
             totalMinor) {
-      throw StateError('Selected fare no longer matches the authoritative quote');
+      throw StateError(
+        'Selected fare no longer matches the authoritative quote',
+      );
     }
   }
 }

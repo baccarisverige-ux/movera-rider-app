@@ -87,122 +87,134 @@ const _production = AppEnv(
 );
 
 void main() {
-  test('Phase 78 registers, rotates and unregisters the authoritative push token',
-      () async {
-    final backend = InProcessMockClient();
-    final gateway = _FakeGateway();
-    addTearDown(gateway.dispose);
-    final service = FirebasePushService(
-      api: ApiClient(env: _production, client: backend),
-      environment: _production,
-      gateway: gateway,
-    );
-    addTearDown(service.dispose);
+  test(
+    'Phase 78 registers, rotates and unregisters the authoritative push token',
+    () async {
+      final backend = InProcessMockClient();
+      final gateway = _FakeGateway();
+      addTearDown(gateway.dispose);
+      final service = FirebasePushService(
+        api: ApiClient(env: _production, client: backend),
+        environment: _production,
+        gateway: gateway,
+      );
+      addTearDown(service.dispose);
 
-    await service.register();
+      await service.register();
 
-    expect(gateway.initializeCalls, 1);
-    expect(backend.pushDevices['fcm-token-a']?['platform'], isNotEmpty);
+      expect(gateway.initializeCalls, 1);
+      expect(backend.pushDevices['fcm-token-a']?['platform'], isNotEmpty);
 
-    gateway.refresh.add('fcm-token-b');
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      gateway.refresh.add('fcm-token-b');
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(backend.pushDevices.containsKey('fcm-token-a'), isFalse);
-    expect(backend.pushDevices['fcm-token-b']?['provider'], 'fcm');
+      expect(backend.pushDevices.containsKey('fcm-token-a'), isFalse);
+      expect(backend.pushDevices['fcm-token-b']?['provider'], 'fcm');
 
-    await service.unregister();
+      await service.unregister();
 
-    expect(backend.pushDevices, isEmpty);
-    expect(gateway.deleteCalls, 1);
-  });
+      expect(backend.pushDevices, isEmpty);
+      expect(gateway.deleteCalls, 1);
+    },
+  );
 
-  test('Phase 78 fails closed when notification permission is denied', () async {
-    final backend = InProcessMockClient();
-    final gateway = _FakeGateway()
-      ..authorization = PushAuthorizationStatus.denied;
-    addTearDown(gateway.dispose);
-    final service = FirebasePushService(
-      api: ApiClient(env: _production, client: backend),
-      environment: _production,
-      gateway: gateway,
-    );
-    addTearDown(service.dispose);
+  test(
+    'Phase 78 fails closed when notification permission is denied',
+    () async {
+      final backend = InProcessMockClient();
+      final gateway = _FakeGateway()
+        ..authorization = PushAuthorizationStatus.denied;
+      addTearDown(gateway.dispose);
+      final service = FirebasePushService(
+        api: ApiClient(env: _production, client: backend),
+        environment: _production,
+        gateway: gateway,
+      );
+      addTearDown(service.dispose);
 
-    await expectLater(
-      service.register(),
-      throwsA(isA<PushPermissionDeniedException>()),
-    );
+      await expectLater(
+        service.register(),
+        throwsA(isA<PushPermissionDeniedException>()),
+      );
 
-    expect(backend.pushDevices, isEmpty);
-  });
+      expect(backend.pushDevices, isEmpty);
+    },
+  );
 
-  test('Phase 78 release push rejects missing Firebase configuration', () async {
-    const missing = AppEnv(
-      flavor: AppFlavor.production,
-      apiBaseUrl: 'https://api.movera.example',
-    );
-    final gateway = _FakeGateway();
-    addTearDown(gateway.dispose);
-    final service = FirebasePushService(
-      api: ApiClient(env: missing, client: InProcessMockClient()),
-      environment: missing,
-      gateway: gateway,
-    );
-    addTearDown(service.dispose);
+  test(
+    'Phase 78 release push rejects missing Firebase configuration',
+    () async {
+      const missing = AppEnv(
+        flavor: AppFlavor.production,
+        apiBaseUrl: 'https://api.movera.example',
+      );
+      final gateway = _FakeGateway();
+      addTearDown(gateway.dispose);
+      final service = FirebasePushService(
+        api: ApiClient(env: missing, client: InProcessMockClient()),
+        environment: missing,
+        gateway: gateway,
+      );
+      addTearDown(service.dispose);
 
-    await expectLater(
-      service.register(),
-      throwsA(isA<PushConfigurationException>()),
-    );
-    expect(gateway.initializeCalls, 0);
-  });
+      await expectLater(
+        service.register(),
+        throwsA(isA<PushConfigurationException>()),
+      );
+      expect(gateway.initializeCalls, 0);
+    },
+  );
 
-  test('Phase 78 deletes the local FCM token when server unregister fails',
-      () async {
-    final backend = InProcessMockClient();
-    final gateway = _FakeGateway();
-    addTearDown(gateway.dispose);
-    final service = FirebasePushService(
-      api: ApiClient(env: _production, client: backend),
-      environment: _production,
-      gateway: gateway,
-    );
-    addTearDown(service.dispose);
+  test(
+    'Phase 78 deletes the local FCM token when server unregister fails',
+    () async {
+      final backend = InProcessMockClient();
+      final gateway = _FakeGateway();
+      addTearDown(gateway.dispose);
+      final service = FirebasePushService(
+        api: ApiClient(env: _production, client: backend),
+        environment: _production,
+        gateway: gateway,
+      );
+      addTearDown(service.dispose);
 
-    await service.register();
-    backend.failNext = true;
+      await service.register();
+      backend.failNext = true;
 
-    await expectLater(service.unregister(), throwsA(anything));
+      await expectLater(service.unregister(), throwsA(anything));
 
-    expect(gateway.deleteCalls, 1);
-  });
+      expect(gateway.deleteCalls, 1);
+    },
+  );
 
-  test('rider-u21: inbound pushes still route when the token POST fails',
-      () async {
-    const launch = PushPayload(type: 'ride_update', rideId: 'r1');
-    const tap = PushPayload(type: 'driver_arrived', rideId: 'r1');
-    final backend = InProcessMockClient()..failNext = true;
-    final gateway = _FakeGateway()..initial = launch;
-    addTearDown(gateway.dispose);
-    final service = FirebasePushService(
-      api: ApiClient(env: _production, client: backend),
-      environment: _production,
-      gateway: gateway,
-    );
-    addTearDown(service.dispose);
-    final opened = <PushPayload>[];
-    final sub = service.openedMessages.listen(opened.add);
-    addTearDown(sub.cancel);
+  test(
+    'rider-u21: inbound pushes still route when the token POST fails',
+    () async {
+      const launch = PushPayload(type: 'ride_update', rideId: 'r1');
+      const tap = PushPayload(type: 'driver_arrived', rideId: 'r1');
+      final backend = InProcessMockClient()..failNext = true;
+      final gateway = _FakeGateway()..initial = launch;
+      addTearDown(gateway.dispose);
+      final service = FirebasePushService(
+        api: ApiClient(env: _production, client: backend),
+        environment: _production,
+        gateway: gateway,
+      );
+      addTearDown(service.dispose);
+      final opened = <PushPayload>[];
+      final sub = service.openedMessages.listen(opened.add);
+      addTearDown(sub.cancel);
 
-    await expectLater(service.register(), throwsA(anything));
+      await expectLater(service.register(), throwsA(anything));
 
-    expect(backend.pushDevices, isEmpty);
-    expect(await service.takeInitialMessage(), same(launch));
-    gateway.opened.add(tap);
-    await pumpEventQueue();
-    expect(opened, [same(tap)]);
-  });
+      expect(backend.pushDevices, isEmpty);
+      expect(await service.takeInitialMessage(), same(launch));
+      gateway.opened.add(tap);
+      await pumpEventQueue();
+      expect(opened, [same(tap)]);
+    },
+  );
 
   test('rider-r4-23: a failed unregister of the old token still registers '
       'the rotated one', () async {

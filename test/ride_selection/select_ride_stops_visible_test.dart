@@ -128,8 +128,10 @@ void main() {
       quotes: quotes,
     );
 
-    expect(find.byKey(const ValueKey('select-ride-stops-left-out')),
-        findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('select-ride-stops-left-out')),
+      findsOneWidget,
+    );
     expect(find.textContaining('“Qwxzv Plats 999”'), findsOneWidget);
     expect(quotes.stopsSeen.last, ['Odenplan, Stockholm']);
 

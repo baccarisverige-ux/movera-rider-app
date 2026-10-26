@@ -168,8 +168,8 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
       final extra = extraMinor ~/ _unitMinor;
       _selectedStep =
           extraMinor % _unitMinor == 0 && widget.steps.contains(extra)
-              ? extra
-              : null;
+          ? extra
+          : null;
     });
   }
 
@@ -243,7 +243,8 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 if (i > row) const SizedBox(width: 8),
                 Expanded(
                   child: _Step(
-                    label: '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
+                    label:
+                        '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
                     selected: _selectedStep == widget.steps[i],
                     onTap: widget.busy
                         ? null
@@ -334,7 +335,15 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                   )
                 : Text(
                     _canConfirm
-                        ? context.l10n.bumpConfirm(formatMoney(Money(_currentMinor + _increase!, widget.currency), whole: true))
+                        ? context.l10n.bumpConfirm(
+                            formatMoney(
+                              Money(
+                                _currentMinor + _increase!,
+                                widget.currency,
+                              ),
+                              whole: true,
+                            ),
+                          )
                         : context.l10n.bumpSetNewPrice,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,

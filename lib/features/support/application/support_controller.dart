@@ -10,9 +10,9 @@ class SupportController {
     SupportRepository? store,
     Future<List<Reservation>> Function()? onDemand,
     List<Reservation> Function()? scheduled,
-  })  : _store = store ?? SupportRepository(),
-        _onDemand = onDemand,
-        _scheduled = scheduled;
+  }) : _store = store ?? SupportRepository(),
+       _onDemand = onDemand,
+       _scheduled = scheduled;
   final SupportRepository _store;
   final Future<List<Reservation>> Function()? _onDemand;
   final List<Reservation> Function()? _scheduled;

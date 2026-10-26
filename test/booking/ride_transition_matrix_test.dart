@@ -5,7 +5,10 @@ import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 void main() {
   const allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.idle: {RideStatus.pickupSelected},
-    RideStatus.pickupSelected: {RideStatus.destinationSelected, RideStatus.idle},
+    RideStatus.pickupSelected: {
+      RideStatus.destinationSelected,
+      RideStatus.idle,
+    },
     RideStatus.destinationSelected: {
       RideStatus.quoteLoading,
       RideStatus.pickupSelected,
@@ -116,10 +119,7 @@ void main() {
       RideStatus.paymentFailed,
       RideStatus.closed,
     },
-    RideStatus.paymentFinalized: {
-      RideStatus.ratingPending,
-      RideStatus.closed,
-    },
+    RideStatus.paymentFinalized: {RideStatus.ratingPending, RideStatus.closed},
     RideStatus.ratingPending: {RideStatus.closed},
   };
 
@@ -129,14 +129,21 @@ void main() {
 
     for (final from in RideStatus.values) {
       for (final to in RideStatus.values) {
-        final shouldPass = !from.isTerminal && (allowed[from]?.contains(to) ?? false);
+        final shouldPass =
+            !from.isTerminal && (allowed[from]?.contains(to) ?? false);
         if (shouldPass) {
-          expect(transitionRide(from, to), to,
-              reason: 'expected ${from.name} -> ${to.name} to be legal');
+          expect(
+            transitionRide(from, to),
+            to,
+            reason: 'expected ${from.name} -> ${to.name} to be legal',
+          );
           allowedCount += 1;
         } else {
-          expect(() => transitionRide(from, to), throwsA(isA<InvalidRideTransition>()),
-              reason: 'expected ${from.name} -> ${to.name} to be rejected');
+          expect(
+            () => transitionRide(from, to),
+            throwsA(isA<InvalidRideTransition>()),
+            reason: 'expected ${from.name} -> ${to.name} to be rejected',
+          );
           rejectedCount += 1;
         }
       }
@@ -165,8 +172,11 @@ void main() {
 
     for (final from in terminal) {
       for (final to in RideStatus.values) {
-        expect(() => transitionRide(from, to), throwsA(isA<InvalidRideTransition>()),
-            reason: 'terminal ${from.name} must not transition to ${to.name}');
+        expect(
+          () => transitionRide(from, to),
+          throwsA(isA<InvalidRideTransition>()),
+          reason: 'terminal ${from.name} must not transition to ${to.name}',
+        );
       }
     }
   });
@@ -185,11 +195,14 @@ void main() {
       RideStatus.tripInProgress,
       RideStatus.approachingDropoff,
     });
-    expect(RideStatus.values.where((status) => status.isCompletedSurface).toSet(), {
-      RideStatus.tripCompleted,
-      RideStatus.paymentProcessing,
-      RideStatus.paymentFinalized,
-      RideStatus.ratingPending,
-    });
+    expect(
+      RideStatus.values.where((status) => status.isCompletedSurface).toSet(),
+      {
+        RideStatus.tripCompleted,
+        RideStatus.paymentProcessing,
+        RideStatus.paymentFinalized,
+        RideStatus.ratingPending,
+      },
+    );
   });
 }

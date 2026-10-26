@@ -48,60 +48,78 @@ void main() {
     expect(controller.upcoming(), hasLength(1));
   });
 
-  test('T, T+30s and T+5m cannot resurrect or duplicate assignment lifecycle', () async {
-    clock = pickupAt;
-    await controller.startLiveIfDue();
-    expect(controller.byId('phase61')!.status, ReservationStatus.driverAssignmentPending);
-
-    for (final offset in [
-      const Duration(seconds: 30),
-      const Duration(minutes: 5),
-    ]) {
-      clock = pickupAt.add(offset);
+  test(
+    'T, T+30s and T+5m cannot resurrect or duplicate assignment lifecycle',
+    () async {
+      clock = pickupAt;
       await controller.startLiveIfDue();
-      expect(controller.byId('phase61')!.status, ReservationStatus.driverAssignmentPending);
+      expect(
+        controller.byId('phase61')!.status,
+        ReservationStatus.driverAssignmentPending,
+      );
+
+      for (final offset in [
+        const Duration(seconds: 30),
+        const Duration(minutes: 5),
+      ]) {
+        clock = pickupAt.add(offset);
+        await controller.startLiveIfDue();
+        expect(
+          controller.byId('phase61')!.status,
+          ReservationStatus.driverAssignmentPending,
+        );
+        expect(controller.all, hasLength(1));
+      }
+    },
+  );
+
+  test(
+    'passed active scheduled ride is never deleted or clock-advanced',
+    () async {
+      await controller.assignMockDriver('phase61', driver: driver);
+      await controller.update(
+        'phase61',
+        const ReservationPatch(status: ReservationStatus.inProgress),
+      );
+
+      clock = pickupAt.add(const Duration(minutes: 5));
+      await controller.startLiveIfDue();
+
+      final ride = controller.byId('phase61')!;
+      expect(ride.status, ReservationStatus.inProgress);
+      expect(ride.driver?.firstName, 'Amina');
       expect(controller.all, hasLength(1));
-    }
-  });
+    },
+  );
 
-  test('passed active scheduled ride is never deleted or clock-advanced', () async {
-    await controller.assignMockDriver('phase61', driver: driver);
-    await controller.update(
-      'phase61',
-      const ReservationPatch(status: ReservationStatus.inProgress),
-    );
+  test(
+    'background across T converges to the same lifecycle on resume tick',
+    () async {
+      clock = pickupAt.subtract(const Duration(minutes: 10));
+      await controller.startLiveIfDue();
+      expect(controller.byId('phase61')!.status, ReservationStatus.scheduled);
 
-    clock = pickupAt.add(const Duration(minutes: 5));
-    await controller.startLiveIfDue();
+      clock = pickupAt.add(const Duration(seconds: 30));
+      await controller.startLiveIfDue();
 
-    final ride = controller.byId('phase61')!;
-    expect(ride.status, ReservationStatus.inProgress);
-    expect(ride.driver?.firstName, 'Amina');
-    expect(controller.all, hasLength(1));
-  });
+      expect(
+        controller.byId('phase61')!.status,
+        ReservationStatus.driverAssignmentPending,
+      );
+    },
+  );
 
-  test('background across T converges to the same lifecycle on resume tick', () async {
-    clock = pickupAt.subtract(const Duration(minutes: 10));
-    await controller.startLiveIfDue();
-    expect(controller.byId('phase61')!.status, ReservationStatus.scheduled);
+  test(
+    'real assigned driver advances en-route without changing identity',
+    () async {
+      await controller.assignMockDriver('phase61', driver: driver);
+      clock = pickupAt.add(const Duration(minutes: 5));
 
-    clock = pickupAt.add(const Duration(seconds: 30));
-    await controller.startLiveIfDue();
+      await controller.startLiveIfDue();
 
-    expect(
-      controller.byId('phase61')!.status,
-      ReservationStatus.driverAssignmentPending,
-    );
-  });
-
-  test('real assigned driver advances en-route without changing identity', () async {
-    await controller.assignMockDriver('phase61', driver: driver);
-    clock = pickupAt.add(const Duration(minutes: 5));
-
-    await controller.startLiveIfDue();
-
-    final ride = controller.byId('phase61')!;
-    expect(ride.status, ReservationStatus.driverEnRoute);
-    expect(ride.driver?.firstName, 'Amina');
-  });
+      final ride = controller.byId('phase61')!;
+      expect(ride.status, ReservationStatus.driverEnRoute);
+      expect(ride.driver?.firstName, 'Amina');
+    },
+  );
 }

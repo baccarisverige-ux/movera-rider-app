@@ -80,7 +80,10 @@ void main() {
     final maps = GoogleMapProvider();
     await maps.animateCamera(const GeoPoint(59.3, 18.0));
     await maps.moveCamera(const GeoPoint(59.3, 18.0));
-    await maps.fitBounds(const GeoPoint(59.3, 18.0), const GeoPoint(59.4, 18.1));
+    await maps.fitBounds(
+      const GeoPoint(59.3, 18.0),
+      const GeoPoint(59.4, 18.1),
+    );
     expect(maps.controller, isNull);
   });
 
@@ -134,23 +137,26 @@ void main() {
     );
   });
 
-  test('older nested screen disposing later cannot steal the current owner', () {
-    final maps = GoogleMapProvider();
-    maps.debugAttach(MapOwners.home);
-    maps.debugAttach(MapOwners.pickup);
-    maps.debugAttach(MapOwners.selectRide);
-    maps.debugAttach(MapOwners.finding);
-    maps.debugAttach(MapOwners.waiting);
-    final generation = maps.generation;
-    maps.detach(owner: MapOwners.home);
-    maps.detach(owner: MapOwners.pickup);
-    maps.detach(owner: MapOwners.selectRide);
-    maps.detach(owner: MapOwners.finding);
-    expect(maps.activeOwner, MapOwners.waiting);
-    expect(maps.generation, generation);
-    maps.detach(owner: MapOwners.waiting);
-    expect(maps.activeOwner, isNull);
-  });
+  test(
+    'older nested screen disposing later cannot steal the current owner',
+    () {
+      final maps = GoogleMapProvider();
+      maps.debugAttach(MapOwners.home);
+      maps.debugAttach(MapOwners.pickup);
+      maps.debugAttach(MapOwners.selectRide);
+      maps.debugAttach(MapOwners.finding);
+      maps.debugAttach(MapOwners.waiting);
+      final generation = maps.generation;
+      maps.detach(owner: MapOwners.home);
+      maps.detach(owner: MapOwners.pickup);
+      maps.detach(owner: MapOwners.selectRide);
+      maps.detach(owner: MapOwners.finding);
+      expect(maps.activeOwner, MapOwners.waiting);
+      expect(maps.generation, generation);
+      maps.detach(owner: MapOwners.waiting);
+      expect(maps.activeOwner, isNull);
+    },
+  );
 
   test('ride-stage handoffs never expose overlapping map owners', () {
     final maps = GoogleMapProvider();

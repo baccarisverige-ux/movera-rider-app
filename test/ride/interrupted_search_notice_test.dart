@@ -35,9 +35,7 @@ void main() {
   });
 
   test('a dropped search is reported once', () async {
-    final coordinator = coordinatorFor(
-      snapshotWith(RideStatus.findingDriver),
-    );
+    final coordinator = coordinatorFor(snapshotWith(RideStatus.findingDriver));
 
     await coordinator.root();
 
@@ -47,9 +45,7 @@ void main() {
   });
 
   test('a delayed search counts as interrupted too', () async {
-    final coordinator = coordinatorFor(
-      snapshotWith(RideStatus.searchDelayed),
-    );
+    final coordinator = coordinatorFor(snapshotWith(RideStatus.searchDelayed));
 
     await coordinator.root();
 
@@ -57,9 +53,7 @@ void main() {
   });
 
   test('an assigned driver counts as interrupted', () async {
-    final coordinator = coordinatorFor(
-      snapshotWith(RideStatus.driverAssigned),
-    );
+    final coordinator = coordinatorFor(snapshotWith(RideStatus.driverAssigned));
 
     await coordinator.root();
 
@@ -75,9 +69,7 @@ void main() {
   });
 
   test('a finished ride is not an interrupted search', () async {
-    final coordinator = coordinatorFor(
-      snapshotWith(RideStatus.tripCompleted),
-    );
+    final coordinator = coordinatorFor(snapshotWith(RideStatus.tripCompleted));
 
     await coordinator.root();
 

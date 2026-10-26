@@ -25,9 +25,7 @@ void main() {
         designSize: const Size(390, 844),
         minTextAdapt: true,
         splitScreenMode: true,
-        builder: (_, __) => const MaterialApp(
-          home: NotificationScreen(),
-        ),
+        builder: (_, __) => const MaterialApp(home: NotificationScreen()),
       ),
     );
     await tester.pumpAndSettle();

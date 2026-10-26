@@ -58,17 +58,17 @@ class AudioRecording {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'rideId': rideId,
-        'localPath': localPath,
-        'durationMs': durationMs,
-        'createdAt': createdAt?.toIso8601String(),
-        'endedAt': endedAt?.toIso8601String(),
-        'uploadStatus': uploadStatus.name,
-        'remoteId': remoteId,
-        'encryptionState': encryptionState.name,
-        if (deviceOnly) 'deviceOnly': true,
-      };
+    'id': id,
+    'rideId': rideId,
+    'localPath': localPath,
+    'durationMs': durationMs,
+    'createdAt': createdAt?.toIso8601String(),
+    'endedAt': endedAt?.toIso8601String(),
+    'uploadStatus': uploadStatus.name,
+    'remoteId': remoteId,
+    'encryptionState': encryptionState.name,
+    if (deviceOnly) 'deviceOnly': true,
+  };
 
   factory AudioRecording.fromJson(Map<String, dynamic> json) {
     return AudioRecording(

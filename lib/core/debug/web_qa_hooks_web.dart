@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/scheduler.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
+
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 

@@ -59,26 +59,26 @@ const Set<TripStatus> tripRiderOnboardStatuses = {
 
 extension TripStatusWire on TripStatus {
   String get wireName => switch (this) {
-        TripStatus.draft => 'draft',
-        TripStatus.quoted => 'quoted',
-        TripStatus.requested => 'requested',
-        TripStatus.searching => 'searching',
-        TripStatus.offered => 'offered',
-        TripStatus.accepted => 'accepted',
-        TripStatus.driverToPickup => 'driver_to_pickup',
-        TripStatus.arrived => 'arrived',
-        TripStatus.riderOnboard => 'rider_onboard',
-        TripStatus.inTrip => 'in_trip',
-        TripStatus.approachingDropoff => 'approaching_dropoff',
-        TripStatus.completed => 'completed',
-        TripStatus.cancelledByRider => 'cancelled_by_rider',
-        TripStatus.cancelledByDriver => 'cancelled_by_driver',
-        TripStatus.cancelledByAdmin => 'cancelled_by_admin',
-        TripStatus.cancelledBySystem => 'cancelled_by_system',
-        TripStatus.noShow => 'no_show',
-        TripStatus.expired => 'expired',
-        TripStatus.failed => 'failed',
-      };
+    TripStatus.draft => 'draft',
+    TripStatus.quoted => 'quoted',
+    TripStatus.requested => 'requested',
+    TripStatus.searching => 'searching',
+    TripStatus.offered => 'offered',
+    TripStatus.accepted => 'accepted',
+    TripStatus.driverToPickup => 'driver_to_pickup',
+    TripStatus.arrived => 'arrived',
+    TripStatus.riderOnboard => 'rider_onboard',
+    TripStatus.inTrip => 'in_trip',
+    TripStatus.approachingDropoff => 'approaching_dropoff',
+    TripStatus.completed => 'completed',
+    TripStatus.cancelledByRider => 'cancelled_by_rider',
+    TripStatus.cancelledByDriver => 'cancelled_by_driver',
+    TripStatus.cancelledByAdmin => 'cancelled_by_admin',
+    TripStatus.cancelledBySystem => 'cancelled_by_system',
+    TripStatus.noShow => 'no_show',
+    TripStatus.expired => 'expired',
+    TripStatus.failed => 'failed',
+  };
 
   bool get isTerminal => tripTerminalStatuses.contains(this);
 
@@ -103,43 +103,38 @@ extension RideStatusAsTripStatus on RideStatus {
   /// projection's payment and rating fields, see
   /// [RideStatusWire.fromProjection].
   TripStatus get tripStatus => switch (this) {
-        RideStatus.idle ||
-        RideStatus.pickupSelected ||
-        RideStatus.destinationSelected =>
-          TripStatus.draft,
-        RideStatus.quoteLoading ||
-        RideStatus.rideOptionsReady ||
-        RideStatus.rideSelected ||
-        RideStatus.paymentSelected =>
-          TripStatus.quoted,
-        RideStatus.bookingRequested => TripStatus.requested,
-        RideStatus.findingDriver ||
-        RideStatus.searchDelayed =>
-          TripStatus.searching,
-        RideStatus.driverAssigned => TripStatus.accepted,
-        RideStatus.driverArriving => TripStatus.driverToPickup,
-        RideStatus.driverWaiting => TripStatus.arrived,
-        RideStatus.tripStarted => TripStatus.riderOnboard,
-        RideStatus.tripInProgress => TripStatus.inTrip,
-        RideStatus.approachingDropoff => TripStatus.approachingDropoff,
-        RideStatus.tripCompleted ||
-        RideStatus.paymentProcessing ||
-        RideStatus.paymentFinalized ||
-        RideStatus.ratingPending ||
-        RideStatus.paymentFailed ||
-        RideStatus.closed =>
-          TripStatus.completed,
-        RideStatus.cancelledByRider => TripStatus.cancelledByRider,
-        // The reassignment notice: the trip itself is back in dispatch.
-        RideStatus.cancelledByDriver => TripStatus.searching,
-        RideStatus.endedByDriver => TripStatus.cancelledByDriver,
-        RideStatus.cancelledByAdmin => TripStatus.cancelledByAdmin,
-        RideStatus.cancelledBySystem => TripStatus.cancelledBySystem,
-        RideStatus.noShow => TripStatus.noShow,
-        RideStatus.tripFailed => TripStatus.failed,
-        RideStatus.noDriverFound || RideStatus.bookingExpired =>
-          TripStatus.expired,
-      };
+    RideStatus.idle ||
+    RideStatus.pickupSelected ||
+    RideStatus.destinationSelected => TripStatus.draft,
+    RideStatus.quoteLoading ||
+    RideStatus.rideOptionsReady ||
+    RideStatus.rideSelected ||
+    RideStatus.paymentSelected => TripStatus.quoted,
+    RideStatus.bookingRequested => TripStatus.requested,
+    RideStatus.findingDriver ||
+    RideStatus.searchDelayed => TripStatus.searching,
+    RideStatus.driverAssigned => TripStatus.accepted,
+    RideStatus.driverArriving => TripStatus.driverToPickup,
+    RideStatus.driverWaiting => TripStatus.arrived,
+    RideStatus.tripStarted => TripStatus.riderOnboard,
+    RideStatus.tripInProgress => TripStatus.inTrip,
+    RideStatus.approachingDropoff => TripStatus.approachingDropoff,
+    RideStatus.tripCompleted ||
+    RideStatus.paymentProcessing ||
+    RideStatus.paymentFinalized ||
+    RideStatus.ratingPending ||
+    RideStatus.paymentFailed ||
+    RideStatus.closed => TripStatus.completed,
+    RideStatus.cancelledByRider => TripStatus.cancelledByRider,
+    // The reassignment notice: the trip itself is back in dispatch.
+    RideStatus.cancelledByDriver => TripStatus.searching,
+    RideStatus.endedByDriver => TripStatus.cancelledByDriver,
+    RideStatus.cancelledByAdmin => TripStatus.cancelledByAdmin,
+    RideStatus.cancelledBySystem => TripStatus.cancelledBySystem,
+    RideStatus.noShow => TripStatus.noShow,
+    RideStatus.tripFailed => TripStatus.failed,
+    RideStatus.noDriverFound || RideStatus.bookingExpired => TripStatus.expired,
+  };
 }
 
 /// The one inbound adapter from the wire to the Rider UI enum (ARCH-10).
@@ -155,26 +150,26 @@ extension RideStatusWire on RideStatus {
     TripPaymentStatus? paymentStatus,
     TripRatingStatus? ratingStatus,
   }) => switch (trip) {
-        TripStatus.draft => RideStatus.idle,
-        TripStatus.quoted => RideStatus.rideOptionsReady,
-        TripStatus.requested => RideStatus.bookingRequested,
-        // An offer sent to one driver is still a search for the rider.
-        TripStatus.searching || TripStatus.offered => RideStatus.findingDriver,
-        TripStatus.accepted => RideStatus.driverAssigned,
-        TripStatus.driverToPickup => RideStatus.driverArriving,
-        TripStatus.arrived => RideStatus.driverWaiting,
-        TripStatus.riderOnboard => RideStatus.tripStarted,
-        TripStatus.inTrip => RideStatus.tripInProgress,
-        TripStatus.approachingDropoff => RideStatus.approachingDropoff,
-        TripStatus.completed => _afterCompletion(paymentStatus, ratingStatus),
-        TripStatus.cancelledByRider => RideStatus.cancelledByRider,
-        TripStatus.cancelledByDriver => RideStatus.endedByDriver,
-        TripStatus.cancelledByAdmin => RideStatus.cancelledByAdmin,
-        TripStatus.cancelledBySystem => RideStatus.cancelledBySystem,
-        TripStatus.noShow => RideStatus.noShow,
-        TripStatus.failed => RideStatus.tripFailed,
-        TripStatus.expired => RideStatus.noDriverFound,
-      };
+    TripStatus.draft => RideStatus.idle,
+    TripStatus.quoted => RideStatus.rideOptionsReady,
+    TripStatus.requested => RideStatus.bookingRequested,
+    // An offer sent to one driver is still a search for the rider.
+    TripStatus.searching || TripStatus.offered => RideStatus.findingDriver,
+    TripStatus.accepted => RideStatus.driverAssigned,
+    TripStatus.driverToPickup => RideStatus.driverArriving,
+    TripStatus.arrived => RideStatus.driverWaiting,
+    TripStatus.riderOnboard => RideStatus.tripStarted,
+    TripStatus.inTrip => RideStatus.tripInProgress,
+    TripStatus.approachingDropoff => RideStatus.approachingDropoff,
+    TripStatus.completed => _afterCompletion(paymentStatus, ratingStatus),
+    TripStatus.cancelledByRider => RideStatus.cancelledByRider,
+    TripStatus.cancelledByDriver => RideStatus.endedByDriver,
+    TripStatus.cancelledByAdmin => RideStatus.cancelledByAdmin,
+    TripStatus.cancelledBySystem => RideStatus.cancelledBySystem,
+    TripStatus.noShow => RideStatus.noShow,
+    TripStatus.failed => RideStatus.tripFailed,
+    TripStatus.expired => RideStatus.noDriverFound,
+  };
 
   static RideStatus _afterCompletion(
     TripPaymentStatus? payment,
@@ -185,8 +180,8 @@ extension RideStatusWire on RideStatus {
     if (!payment.isSettled) return RideStatus.paymentProcessing;
     return switch (rating) {
       TripRatingStatus.pending => RideStatus.ratingPending,
-      TripRatingStatus.submitted || TripRatingStatus.skipped =>
-        RideStatus.closed,
+      TripRatingStatus.submitted ||
+      TripRatingStatus.skipped => RideStatus.closed,
       TripRatingStatus.notRequested || null => RideStatus.paymentFinalized,
     };
   }
@@ -225,10 +220,9 @@ extension RideStatusWire on RideStatus {
 
   /// The UI state of a trip projection: `status` plus `paymentStatus` and
   /// `ratingStatus`.
-  static RideStatus? fromProjection(Map<dynamic, dynamic> projection) =>
-      parse(
-        projection['status'],
-        paymentStatus: projection['paymentStatus'],
-        ratingStatus: projection['ratingStatus'],
-      );
+  static RideStatus? fromProjection(Map<dynamic, dynamic> projection) => parse(
+    projection['status'],
+    paymentStatus: projection['paymentStatus'],
+    ratingStatus: projection['ratingStatus'],
+  );
 }

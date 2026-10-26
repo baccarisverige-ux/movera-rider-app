@@ -46,47 +46,51 @@ void main() {
     expect(service.explicitCallCount, 1);
   });
 
-  test('real emergency adapter fails when platform refuses the tel URI', () async {
-    final dialer = SystemEmergencyDialer(
-      launcher: (_) async => false,
-    );
+  test(
+    'real emergency adapter fails when platform refuses the tel URI',
+    () async {
+      final dialer = SystemEmergencyDialer(launcher: (_) async => false);
 
-    await expectLater(
-      dialer.open('112'),
-      throwsA(isA<EmergencyCallException>()),
-    );
-  });
+      await expectLater(
+        dialer.open('112'),
+        throwsA(isA<EmergencyCallException>()),
+      );
+    },
+  );
 
-  test('SOS records locally and posts through the safety backend contract', () async {
-    final store = SafetyStore(
-      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(
-        ApiClient(client: InProcessMockClient()),
-      ),
-    );
-    final controller = SafetyController(session: store);
-    await controller.load();
+  test(
+    'SOS records locally and posts through the safety backend contract',
+    () async {
+      final store = SafetyStore(
+        local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+        remote: ApiSafetyRemoteDataSource(
+          ApiClient(client: InProcessMockClient()),
+        ),
+      );
+      final controller = SafetyController(session: store);
+      await controller.load();
 
-    await controller.sos(rideId: 'ride_phase71');
+      await controller.sos(rideId: 'ride_phase71');
 
-    expect(
-      controller.events.any(
-        (event) =>
-            event.kind == SafetyKind.sos && event.rideId == 'ride_phase71',
-      ),
-      isTrue,
-    );
-    final backendEvents = controller.rideCheck.events();
-    expect(
-      backendEvents.any(
-        (event) =>
-            event.rideId == 'ride_phase71' &&
-            event.payload['kind'] == 'sos' &&
-            event.payload['action'] == 'call_112',
-      ),
-      isTrue,
-    );
-  });
+      expect(
+        controller.events.any(
+          (event) =>
+              event.kind == SafetyKind.sos && event.rideId == 'ride_phase71',
+        ),
+        isTrue,
+      );
+      final backendEvents = controller.rideCheck.events();
+      expect(
+        backendEvents.any(
+          (event) =>
+              event.rideId == 'ride_phase71' &&
+              event.payload['kind'] == 'sos' &&
+              event.payload['action'] == 'call_112',
+        ),
+        isTrue,
+      );
+    },
+  );
 
   // rider-u241: the real WaitingForDriver wires Call (waiting card and
   // in-trip panel); a callback written in the test would prove nothing.

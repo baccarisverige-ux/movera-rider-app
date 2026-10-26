@@ -58,11 +58,7 @@ void enterMoveraApp(BuildContext context) {
 ///
 /// Returns true when the root gate showed [page]. Hosts without the gate
 /// (isolated widget tests) get [page] as the only route instead.
-bool showMoveraRoot(
-  Widget page, {
-  NavigatorState? navigator,
-  String? name,
-}) {
+bool showMoveraRoot(Widget page, {NavigatorState? navigator, String? name}) {
   final nav = navigator ?? moveraNavigatorKey.currentState;
   final coordinator = RideRestoreCoordinator.instance;
   if (coordinator.replaceRootSurface(page, RestoredSurface.home)) {

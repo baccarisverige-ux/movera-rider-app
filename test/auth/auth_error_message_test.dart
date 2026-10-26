@@ -10,11 +10,11 @@ import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 /// failure, including no connection. Each cause now has its own message.
 void main() {
   ApiError api(String code, {int? status, Duration? retryAfter}) => ApiError(
-        code: code,
-        message: 'x',
-        statusCode: status,
-        retryAfter: retryAfter,
-      );
+    code: code,
+    message: 'x',
+    statusCode: status,
+    retryAfter: retryAfter,
+  );
 
   group('authErrorMessage', () {
     test('no connection is never blamed on the code', () {
@@ -34,7 +34,10 @@ void main() {
 
     test('a wrong code and an expired code are told apart', () {
       expect(
-        authErrorMessage(api('INVALID_OTP', status: 401), AuthAction.verifyCode),
+        authErrorMessage(
+          api('INVALID_OTP', status: 401),
+          AuthAction.verifyCode,
+        ),
         "That code isn't right. Check it and try again.",
       );
       for (final code in ['OTP_EXPIRED', 'INVALID_OTP_SESSION']) {
@@ -48,7 +51,11 @@ void main() {
     test('rate limits say how long to wait', () {
       expect(
         authErrorMessage(
-          api('RATE_LIMITED', status: 429, retryAfter: const Duration(seconds: 45)),
+          api(
+            'RATE_LIMITED',
+            status: 429,
+            retryAfter: const Duration(seconds: 45),
+          ),
           AuthAction.sendCode,
         ),
         'Too many tries. Try again in 45 seconds.',
@@ -68,15 +75,24 @@ void main() {
 
     test('server trouble is not blamed on the rider', () {
       expect(
-        authErrorMessage(api('SERVER_ERROR', status: 503), AuthAction.verifyCode),
+        authErrorMessage(
+          api('SERVER_ERROR', status: 503),
+          AuthAction.verifyCode,
+        ),
         'Movera is having trouble right now. Try again in a moment.',
       );
     });
 
     test('anything else falls back to the step the rider was on', () {
       final other = StateError('odd');
-      expect(authErrorMessage(other, AuthAction.sendCode), "Couldn't send the code. Try again.");
-      expect(authErrorMessage(other, AuthAction.verifyCode), "Couldn't check the code. Try again.");
+      expect(
+        authErrorMessage(other, AuthAction.sendCode),
+        "Couldn't send the code. Try again.",
+      );
+      expect(
+        authErrorMessage(other, AuthAction.verifyCode),
+        "Couldn't check the code. Try again.",
+      );
       expect(
         authErrorMessage(other, AuthAction.providerSignIn, provider: 'Google'),
         "Couldn't sign in with Google. Try again.",

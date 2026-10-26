@@ -58,11 +58,7 @@ class _SavedPlacesState extends State<SavedPlaces> {
     final result = await Navigator.push<PlaceShortcut>(
       context,
       RightToLeftTransition(
-        AddPlace(
-          controller: _places,
-          initial: place,
-          kind: kind,
-        ),
+        AddPlace(controller: _places, initial: place, kind: kind),
       ),
     );
     if (result != null) await _reload();
@@ -173,7 +169,11 @@ class _SavedPlacesState extends State<SavedPlaces> {
                   Icons.bookmark_outline_rounded,
                 ),
               if (!shortcuts.any((item) => item.kind == 'gym'))
-                _addRow(context.l10n.spAddGym, 'gym', Icons.fitness_center_rounded),
+                _addRow(
+                  context.l10n.spAddGym,
+                  'gym',
+                  Icons.fitness_center_rounded,
+                ),
               _addRow(
                 context.l10n.spAddAnother,
                 null,

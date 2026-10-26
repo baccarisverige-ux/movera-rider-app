@@ -33,8 +33,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
       return MoveraEmptyState(
         icon: Icons.person_search_outlined,
         title: context.l10n.driverDetailsUnavailable,
-        message:
-            context.l10n.driverDetailsUnavailableReceipt,
+        message: context.l10n.driverDetailsUnavailableReceipt,
         compact: true,
       );
     }

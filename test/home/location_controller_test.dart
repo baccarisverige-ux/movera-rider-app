@@ -15,10 +15,7 @@ class _SlowGeo extends AppGeocoding {
   @override
   Future<PlaceResult?> forward(String address) async {
     await Future<void>.delayed(delay);
-    return PlaceResult(
-      point: const GeoPoint(59.33, 18.06),
-      address: resolved,
-    );
+    return PlaceResult(point: const GeoPoint(59.33, 18.06), address: resolved);
   }
 }
 
@@ -29,7 +26,8 @@ class _DeniedLocation extends LocationRepository {
   Future<bool> isLocationServiceEnabled() async => true;
 
   @override
-  Future<LocationPermission> checkPermission() async => LocationPermission.denied;
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.denied;
 
   @override
   Future<LocationPermission> requestPermission() async {
@@ -46,7 +44,10 @@ class _DeniedLocation extends LocationRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  HomeLocationController controllerOf(_SlowGeo geo, {LocationRepository? location}) {
+  HomeLocationController controllerOf(
+    _SlowGeo geo, {
+    LocationRepository? location,
+  }) {
     return HomeLocationController(
       location: location ?? LocationRepository(),
       geocoding: geo,
@@ -63,19 +64,22 @@ void main() {
     ctl.dispose();
   });
 
-  test('permission denied during detection returns a usable no-GPS state', () async {
-    final location = _DeniedLocation();
-    final ctl = controllerOf(_SlowGeo(), location: location);
+  test(
+    'permission denied during detection returns a usable no-GPS state',
+    () async {
+      final location = _DeniedLocation();
+      final ctl = controllerOf(_SlowGeo(), location: location);
 
-    final detected = await ctl.detectCurrent();
+      final detected = await ctl.detectCurrent();
 
-    expect(location.permissionRequests, 1);
-    expect(detected.denied, isTrue);
-    expect(detected.target, isNull);
-    expect(detected.address, locationOffPickupLabel);
-    expect(detected.heading, 0);
-    ctl.dispose();
-  });
+      expect(location.permissionRequests, 1);
+      expect(detected.denied, isTrue);
+      expect(detected.target, isNull);
+      expect(detected.address, locationOffPickupLabel);
+      expect(detected.heading, 0);
+      ctl.dispose();
+    },
+  );
 
   test('geocode result after dispose is ignored', () async {
     final geo = _SlowGeo();

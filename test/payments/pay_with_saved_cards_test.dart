@@ -22,11 +22,8 @@ void main() {
     holder: 'Anna Berg',
   );
 
-  Widget brandMark(String brand) => SizedBox(
-    key: ValueKey('mark-$brand'),
-    width: 42,
-    height: 38,
-  );
+  Widget brandMark(String brand) =>
+      SizedBox(key: ValueKey('mark-$brand'), width: 42, height: 38);
 
   Future<void> pumpPayWith(
     WidgetTester tester, {
@@ -75,7 +72,11 @@ void main() {
         name: visa.displayName,
         detail: 'Expires ${visa.expiryLabel}',
       ),
-      const PayWithMethod(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),
+      const PayWithMethod(
+        brand: 'cards',
+        name: 'Card',
+        detail: 'Visa, Mastercard',
+      ),
       const PayWithMethod(brand: 'cash', name: 'Cash', detail: 'Cash'),
     ];
     String? popped;
@@ -192,7 +193,10 @@ void main() {
           .text,
       '4242 4242 4242 4242',
     );
-    await tester.enterText(find.byKey(const ValueKey('add-card-expiry')), '0828');
+    await tester.enterText(
+      find.byKey(const ValueKey('add-card-expiry')),
+      '0828',
+    );
     await tester.enterText(find.byKey(const ValueKey('add-card-cvc')), '123');
     await tester.enterText(
       find.byKey(const ValueKey('add-card-holder')),
@@ -228,14 +232,18 @@ void main() {
     expect(popped, 'card:${cards.list().single.id}');
   });
 
-  testWidgets('Add card rejects other brands and expired dates', (tester) async {
+  testWidgets('Add card rejects other brands and expired dates', (
+    tester,
+  ) async {
     final cards = SavedCardsController(store: MemorySavedCardsStore());
     tester.view.physicalSize = const Size(390, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      MaterialApp(home: AddCardPage(cards: cards, now: DateTime(2026, 10, 13))),
+      MaterialApp(
+        home: AddCardPage(cards: cards, now: DateTime(2026, 10, 13)),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -250,7 +258,10 @@ void main() {
       find.byKey(const ValueKey('add-card-number')),
       '4242424242424242',
     );
-    await tester.enterText(find.byKey(const ValueKey('add-card-expiry')), '0925');
+    await tester.enterText(
+      find.byKey(const ValueKey('add-card-expiry')),
+      '0925',
+    );
     await tester.pump();
     expect(find.text('We accept Visa and Mastercard'), findsNothing);
     expect(find.text('This card has expired'), findsOneWidget);

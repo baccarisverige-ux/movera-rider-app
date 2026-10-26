@@ -73,9 +73,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(
-      events.any((event) =>
-          event.signal == RideRealtimeSignal.riderOnTheWay &&
-          event.message == "I'm on the way"),
+      events.any(
+        (event) =>
+            event.signal == RideRealtimeSignal.riderOnTheWay &&
+            event.message == "I'm on the way",
+      ),
       isTrue,
     );
     await sub.cancel();

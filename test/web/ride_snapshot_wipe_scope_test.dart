@@ -9,8 +9,10 @@ void main() {
 
   test('wipe is not invoked on document load', () {
     expect(
-      wipe.contains('if (!isInstalledApp()) '
-          'window.moveraWipeRideSnapshotStorage();'),
+      wipe.contains(
+        'if (!isInstalledApp()) '
+        'window.moveraWipeRideSnapshotStorage();',
+      ),
       isFalse,
     );
     expect(
@@ -32,6 +34,4 @@ void main() {
       isTrue,
     );
   });
-
-  
 }

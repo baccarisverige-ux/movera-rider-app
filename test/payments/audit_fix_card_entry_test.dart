@@ -19,10 +19,8 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(() => CardEntryPolicy.debugOverride = null);
 
-  AppEnv env(AppFlavor flavor) => AppEnv(
-    flavor: flavor,
-    apiBaseUrl: 'https://api.movera.example',
-  );
+  AppEnv env(AppFlavor flavor) =>
+      AppEnv(flavor: flavor, apiBaseUrl: 'https://api.movera.example');
 
   test('Add card is allowed only where mock transport is', () {
     expect(CardEntryPolicy.allowedFor(env(AppFlavor.demo)), isTrue);

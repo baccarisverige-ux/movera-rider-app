@@ -19,7 +19,8 @@ void main() {
     WidgetTester tester, {
     required bool pickupLocked,
     bool openWithNewStop = false,
-    required Future<Map<String, dynamic>?> Function(RoutePickerSelection) onFinish,
+    required Future<Map<String, dynamic>?> Function(RoutePickerSelection)
+    onFinish,
   }) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
@@ -50,11 +51,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a locked pickup is shown but cannot be edited or swapped',
-      (tester) async {
+  testWidgets('a locked pickup is shown but cannot be edited or swapped', (
+    tester,
+  ) async {
     await pump(tester, pickupLocked: true, onFinish: (_) async => null);
     expect(find.text('Change route'), findsOneWidget);
-    expect(find.byKey(const ValueKey('route-picker-pickup-locked')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('route-picker-pickup-locked')),
+      findsOneWidget,
+    );
     final pickupField = tester.widget<TextField>(
       find.byWidgetPredicate(
         (w) => w is TextField && w.controller?.text == 'Sergels torg 1',
@@ -63,14 +68,18 @@ void main() {
     expect(pickupField.enabled, isFalse);
     // Q1: with a stop the only swap is last stop <-> destination, which
     // never moves the locked pickup.
-    expect(find.widgetWithIcon(IconButton, Icons.swap_vert_rounded), findsNothing);
+    expect(
+      find.widgetWithIcon(IconButton, Icons.swap_vert_rounded),
+      findsNothing,
+    );
     await tester.tap(find.byKey(const ValueKey('route-picker-swap-stop')));
     await tester.pump();
     expect(pickupField.controller?.text, 'Sergels torg 1');
   });
 
-  testWidgets('See new price sends the current route with its stops',
-      (tester) async {
+  testWidgets('See new price sends the current route with its stops', (
+    tester,
+  ) async {
     RoutePickerSelection? sent;
     await pump(
       tester,
@@ -103,8 +112,9 @@ void main() {
     expect(newStop.focusNode?.hasFocus, isTrue);
   });
 
-  testWidgets('rider-u41: a stop chosen from a suggestion keeps its point',
-      (tester) async {
+  testWidgets('rider-u41: a stop chosen from a suggestion keeps its point', (
+    tester,
+  ) async {
     RoutePickerSelection? sent;
     await pump(
       tester,

@@ -17,7 +17,11 @@ class PickupSchedule {
   /// The schedule of the zone a pickup at [lat], [lng] is in, in the time
   /// zone its config names ([config] when the caller has the zone's
   /// document, else the built-in seed's).
-  factory PickupSchedule.at(double? lat, double? lng, {RiderAppConfig? config}) {
+  factory PickupSchedule.at(
+    double? lat,
+    double? lng, {
+    RiderAppConfig? config,
+  }) {
     final zone = RiderZones.at(lat, lng);
     final document = config != null && config.zoneId == zone.id
         ? config

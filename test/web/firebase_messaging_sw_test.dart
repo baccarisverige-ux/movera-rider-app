@@ -35,9 +35,7 @@ void main() {
     final visible = await _push('visible');
     expect(visible['shown'], isEmpty);
     // The Firebase JS SDK's page side only fires onMessage for this shape.
-    expect(visible['posted'], [
-      containsPair('isFirebaseMessaging', true),
-    ]);
+    expect(visible['posted'], [containsPair('isFirebaseMessaging', true)]);
     final message = (visible['posted'] as List).single as Map;
     expect(message['messageType'], 'push-received');
     expect(message['notification'], {

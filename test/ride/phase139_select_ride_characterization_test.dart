@@ -54,7 +54,10 @@ void main() {
     addTearDown(selection.dispose);
     final nav = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(navigatorKey: nav, home: const Scaffold(body: Text('home'))),
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('home')),
+      ),
     );
     Widget page(BuildContext _) => SelectRide(
       pickupAddress: 'Stockholm Central',
@@ -105,7 +108,11 @@ void main() {
 
       final catalog = selection.rides().toList();
       final names = catalog.map((r) => r.name).toList();
-      expect(names.toSet().length, names.length, reason: 'names must be unique');
+      expect(
+        names.toSet().length,
+        names.length,
+        reason: 'names must be unique',
+      );
       const premium = {'premium', 'business', 'electric', 'pet', 'kids'};
       final expected = [
         for (final r in catalog)
@@ -129,12 +136,17 @@ void main() {
       expect(order, hasLength(names.length));
       expect(order, expected);
       final list = find.byKey(const ValueKey('select-ride-list'));
-      final forYou = find.byKey(const ValueKey('select-ride-heading-Rides for you'));
-      final premiumHeading = find.byKey(const ValueKey('select-ride-heading-Premium'));
+      final forYou = find.byKey(
+        const ValueKey('select-ride-heading-Rides for you'),
+      );
+      final premiumHeading = find.byKey(
+        const ValueKey('select-ride-heading-Premium'),
+      );
       expect(forYou, findsOneWidget);
       expect(premiumHeading, findsOneWidget);
       final firstPremium = expected.firstWhere(
-        (name) => premium.contains(catalog.firstWhere((r) => r.name == name).id),
+        (name) =>
+            premium.contains(catalog.firstWhere((r) => r.name == name).id),
       );
       final firstPremiumY = tester
           .getTopLeft(
@@ -147,36 +159,35 @@ void main() {
     },
   );
 
-  testWidgets(
-    'shows the painted route placeholder until the live map mounts',
-    (tester) async {
-      await openSelectRide(tester, instantRoute: true);
-      await tester.pump();
+  testWidgets('shows the painted route placeholder until the live map mounts', (
+    tester,
+  ) async {
+    await openSelectRide(tester, instantRoute: true);
+    await tester.pump();
 
-      // A painted surface filling the map area: full width, anchored top-left.
-      int paintedMapArea() => find
-          .descendant(
-            of: find.byType(SelectRide),
-            matching: find.byWidgetPredicate(
-              (w) => w is CustomPaint && w.painter != null,
-            ),
-          )
-          .evaluate()
-          .where((e) {
-            final box = e.renderObject! as RenderBox;
-            return box.localToGlobal(Offset.zero) == Offset.zero &&
-                box.size.width == 390;
-          })
-          .length;
+    // A painted surface filling the map area: full width, anchored top-left.
+    int paintedMapArea() => find
+        .descendant(
+          of: find.byType(SelectRide),
+          matching: find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter != null,
+          ),
+        )
+        .evaluate()
+        .where((e) {
+          final box = e.renderObject! as RenderBox;
+          return box.localToGlobal(Offset.zero) == Offset.zero &&
+              box.size.width == 390;
+        })
+        .length;
 
-      expect(find.byType(SelectRide), findsOneWidget);
-      expect(find.byKey(const ValueKey('select-ride-map')), findsNothing);
-      expect(paintedMapArea(), 1);
+    expect(find.byType(SelectRide), findsOneWidget);
+    expect(find.byKey(const ValueKey('select-ride-map')), findsNothing);
+    expect(paintedMapArea(), 1);
 
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pump(const Duration(seconds: 1));
-      expect(find.byKey(const ValueKey('select-ride-map')), findsOneWidget);
-      expect(paintedMapArea(), 0);
-    },
-  );
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('select-ride-map')), findsOneWidget);
+    expect(paintedMapArea(), 0);
+  });
 }

@@ -25,7 +25,10 @@ class SharedPreferencesPreviousPickupsStore implements PreviousPickupsStore {
         final lng = item['lng'];
         final address = item['address'];
         final savedAt = DateTime.tryParse('${item['savedAt']}');
-        if (lat is! num || lng is! num || address is! String || savedAt == null) {
+        if (lat is! num ||
+            lng is! num ||
+            address is! String ||
+            savedAt == null) {
           continue;
         }
         result.add(

@@ -52,9 +52,8 @@ void main() {
         MoveraScreenUtilInit(
           builder: (_, __) => MaterialApp(
             builder: (c, child) => MediaQuery(
-              data: MediaQuery.of(
-                c,
-              ).copyWith(textScaler: TextScaler.linear(scale)),
+              data: MediaQuery.of(c)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
               child: child!,
             ),
             home: Builder(
@@ -87,9 +86,10 @@ void main() {
         final center = tester.getCenter(target);
         expect(center.dy, lessThan(size.height), reason: 'on screen');
         expect(
-          tester.hitTestOnBinding(center).path.any(
-            (entry) => entry.target == tester.renderObject(target),
-          ),
+          tester
+              .hitTestOnBinding(center)
+              .path
+              .any((entry) => entry.target == tester.renderObject(target)),
           isTrue,
           reason: 'tappable',
         );

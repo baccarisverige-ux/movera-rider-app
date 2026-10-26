@@ -17,6 +17,7 @@ class SecureTokenStore implements TokenStore {
   final TokenStore? _override;
   final MemoryTokenStore _memory = MemoryTokenStore();
   late final TokenStore? _web = kIsWeb ? webSessionTokenStore() : null;
+
   /// One entry holding both tokens as JSON (native).
   static const sessionKey = 'movera_session';
 
@@ -61,7 +62,11 @@ class SecureTokenStore implements TokenStore {
     try {
       await _active.save(access: access, refresh: refresh);
     } catch (error, stackTrace) {
-      AppLog.error('auth.token.secure_save_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'auth.token.secure_save_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       await _memory.save(access: access, refresh: refresh);
     }
   }
@@ -71,7 +76,11 @@ class SecureTokenStore implements TokenStore {
     try {
       return await _active.readAccess();
     } catch (error, stackTrace) {
-      AppLog.error('auth.token.secure_read_access_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'auth.token.secure_read_access_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return _memory.readAccess();
     }
   }
@@ -81,7 +90,11 @@ class SecureTokenStore implements TokenStore {
     try {
       return await _active.readRefresh();
     } catch (error, stackTrace) {
-      AppLog.error('auth.token.secure_read_refresh_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'auth.token.secure_read_refresh_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return _memory.readRefresh();
     }
   }
@@ -91,7 +104,11 @@ class SecureTokenStore implements TokenStore {
     try {
       await _active.clear();
     } catch (error, stackTrace) {
-      AppLog.error('auth.token.secure_clear_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'auth.token.secure_clear_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       await _memory.clear();
     }
   }

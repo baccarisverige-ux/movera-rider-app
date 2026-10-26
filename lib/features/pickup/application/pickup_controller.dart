@@ -17,10 +17,10 @@ class PickupCurrentPositionResult {
   const PickupCurrentPositionResult._({this.position, this.failure});
 
   const PickupCurrentPositionResult.success(LatLng position)
-      : this._(position: position);
+    : this._(position: position);
 
   const PickupCurrentPositionResult.failure(PickupLocationFailure failure)
-      : this._(failure: failure);
+    : this._(failure: failure);
 
   final LatLng? position;
   final PickupLocationFailure? failure;
@@ -35,10 +35,7 @@ class PickupMapFix {
 }
 
 class PickupMapController {
-  PickupMapController({
-    required this.location,
-    required this.geocoding,
-  });
+  PickupMapController({required this.location, required this.geocoding});
 
   final LocationRepository location;
   final AppGeocoding geocoding;

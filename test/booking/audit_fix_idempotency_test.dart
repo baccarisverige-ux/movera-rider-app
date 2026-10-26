@@ -108,37 +108,34 @@ void main() {
   );
 
   group('RIDE-3: one idempotency key per booking intent', () {
-    test(
-      'a retry after a timeout reuses the key and resends the first body '
-      'although the quote was refreshed and the pin moved a step (RC-04); '
-      'the server keeps one ride',
-      () async {
-        final mock = InProcessMockClient();
-        // RC-09: the booking retries once itself, so both time out.
-        final backend = _Backend(mock)..timeOutBookings = 2;
-        final api = ApiClient(client: backend);
-        final booking = BookingCoordinator(api: api);
+    test('a retry after a timeout reuses the key and resends the first body '
+        'although the quote was refreshed and the pin moved a step (RC-04); '
+        'the server keeps one ride', () async {
+      final mock = InProcessMockClient();
+      // RC-09: the booking retries once itself, so both time out.
+      final backend = _Backend(mock)..timeOutBookings = 2;
+      final api = ApiClient(client: backend);
+      final booking = BookingCoordinator(api: api);
 
-        final first = await freshQuote(api);
-        await expectLater(book(booking, first), throwsA(isA<ApiError>()));
-        expect(mock.rides, hasLength(1), reason: 'the server did create it');
+      final first = await freshQuote(api);
+      await expectLater(book(booking, first), throwsA(isA<ApiError>()));
+      expect(mock.rides, hasLength(1), reason: 'the server did create it');
 
-        // SelectRide refreshes the quotes after the failure; Set pickup
-        // confirms a pin a couple of metres away.
-        const nudged = GeoPoint(59.33261, 18.06491);
-        final second = await freshQuote(api, from: nudged);
-        expect(second.id, isNot(first.id));
-        final rideId = await book(booking, second, from: nudged);
+      // SelectRide refreshes the quotes after the failure; Set pickup
+      // confirms a pin a couple of metres away.
+      const nudged = GeoPoint(59.33261, 18.06491);
+      final second = await freshQuote(api, from: nudged);
+      expect(second.id, isNot(first.id));
+      final rideId = await book(booking, second, from: nudged);
 
-        expect(backend.bookingKeys, hasLength(3));
-        expect(backend.bookingKeys.toSet(), hasLength(1));
-        for (final body in backend.bookingBodies) {
-          expect(jsonEncode(body), jsonEncode(backend.bookingBodies.first));
-        }
-        expect(mock.rides, hasLength(1), reason: 'no second ride');
-        expect(rideId, mock.rides.keys.single);
-      },
-    );
+      expect(backend.bookingKeys, hasLength(3));
+      expect(backend.bookingKeys.toSet(), hasLength(1));
+      for (final body in backend.bookingBodies) {
+        expect(jsonEncode(body), jsonEncode(backend.bookingBodies.first));
+      }
+      expect(mock.rides, hasLength(1), reason: 'no second ride');
+      expect(rideId, mock.rides.keys.single);
+    });
 
     test(
       'a refused booking (4xx) is not a ride: the next try gets a new key',

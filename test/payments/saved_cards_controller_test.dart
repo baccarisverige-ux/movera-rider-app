@@ -195,33 +195,35 @@ void main() {
       expect(notified, greaterThanOrEqualTo(3));
     });
 
-    test('cards persist across controller instances (SharedPreferences)',
-        () async {
-      SharedPreferences.setMockInitialValues({});
-      final first = SavedCardsController();
-      final card = await first.add(
-        number: '4242424242424242',
-        expMonth: 8,
-        expYear: 2028,
-        holder: 'Anna Berg',
-        now: now,
-      );
+    test(
+      'cards persist across controller instances (SharedPreferences)',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final first = SavedCardsController();
+        final card = await first.add(
+          number: '4242424242424242',
+          expMonth: 8,
+          expYear: 2028,
+          holder: 'Anna Berg',
+          now: now,
+        );
 
-      final second = SavedCardsController();
-      expect(second.list(), isEmpty);
-      await second.load();
-      expect(second.list().single.id, card.id);
-      expect(second.list().single.displayName, 'Visa •••• 4242');
-      expect(second.list().single.expiryLabel, '08/28');
-      expect(second.list().single.holder, 'Anna Berg');
+        final second = SavedCardsController();
+        expect(second.list(), isEmpty);
+        await second.load();
+        expect(second.list().single.id, card.id);
+        expect(second.list().single.displayName, 'Visa •••• 4242');
+        expect(second.list().single.expiryLabel, '08/28');
+        expect(second.list().single.holder, 'Anna Berg');
 
-      await second.remove(card.id);
-      final third = SavedCardsController();
-      await third.load();
-      expect(third.list(), isEmpty);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(PrefsSavedCardsStore.key), isNull);
-    });
+        await second.remove(card.id);
+        final third = SavedCardsController();
+        await third.load();
+        expect(third.list(), isEmpty);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(PrefsSavedCardsStore.key), isNull);
+      },
+    );
 
     test('a corrupt store reads as no cards', () async {
       SharedPreferences.setMockInitialValues({

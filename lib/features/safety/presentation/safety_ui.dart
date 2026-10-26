@@ -103,7 +103,10 @@ class SafetyScaffold extends StatelessWidget {
                               size: 20,
                               color: SafetyUi.ink,
                             )
-                          : const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                          : const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                            ),
                       color: SafetyUi.ink,
                       tooltip: context.l10n.back,
                     ),
@@ -196,10 +199,7 @@ class SafetyRow extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: SafetyUi.text(
-                              15.5,
-                              weight: FontWeight.w500,
-                            ),
+                            style: SafetyUi.text(15.5, weight: FontWeight.w500),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -251,18 +251,15 @@ class SafetyRow extends StatelessWidget {
 }
 
 class SafetyPinCadre extends StatelessWidget {
-  const SafetyPinCadre({
-    super.key,
-    required this.pin,
-    required this.caption,
-  });
+  const SafetyPinCadre({super.key, required this.pin, required this.caption});
 
   final String pin;
   final String caption;
 
   @override
   Widget build(BuildContext context) {
-    final digits = (pin.length >= 4 ? pin.substring(0, 4) : pin.padRight(4)).split('');
+    final digits = (pin.length >= 4 ? pin.substring(0, 4) : pin.padRight(4))
+        .split('');
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
@@ -291,18 +288,20 @@ class SafetyPinCadre extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            LayoutBuilder(builder: (context, constraints) => FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < digits.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 10),
-                    _PinDigit(digits[i]),
+            LayoutBuilder(
+              builder: (context, constraints) => FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < digits.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      _PinDigit(digits[i]),
+                    ],
                   ],
-                ],
+                ),
               ),
-            )),
+            ),
             const SizedBox(height: 18),
             Text(
               caption,

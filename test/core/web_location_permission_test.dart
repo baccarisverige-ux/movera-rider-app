@@ -46,10 +46,7 @@ void main() {
   }
 
   test('a dismissed web prompt is not a block', () async {
-    expect(
-      await request(LocationPermission.denied),
-      LocationPermission.denied,
-    );
+    expect(await request(LocationPermission.denied), LocationPermission.denied);
     expect(
       await request(LocationPermission.whileInUse),
       LocationPermission.whileInUse,

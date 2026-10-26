@@ -236,10 +236,7 @@ void main() {
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text("Driver’s name"), findsNothing);
     expect(find.text('No messages yet'), findsOneWidget);
-    expect(
-      find.textContaining('when the ride is connected'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('when the ride is connected'), findsOneWidget);
   });
 
   testWidgets('waiting driver card is designed when no driver is matched', (
@@ -475,7 +472,10 @@ void main() {
     );
 
     expect(find.text('Couldn’t load wallet'), findsOneWidget);
-    expect(find.text('Your balance couldn’t be read. Try again.'), findsOneWidget);
+    expect(
+      find.text('Your balance couldn’t be read. Try again.'),
+      findsOneWidget,
+    );
     expect(find.text('Retry'), findsOneWidget);
     expect(find.textContaining('disk-corrupt-xyz'), findsNothing);
     expect(find.textContaining('StateError'), findsNothing);
@@ -678,12 +678,7 @@ void main() {
       'Verified driver and vehicle information will appear here when matching confirms them.',
       null,
     ),
-    (
-      'Tip',
-      'Tips unavailable',
-      "Tipping isn't available in this build.",
-      null,
-    ),
+    ('Tip', 'Tips unavailable', "Tipping isn't available in this build.", null),
     (
       'Receipt',
       'Trip details unavailable',
@@ -717,11 +712,7 @@ void main() {
       testWidgets(
         '$name empty state fits ${viewport.width.toInt()}x${viewport.height.toInt()}',
         (tester) async {
-          await pumpScreen(
-            tester,
-            screenFor(name)(),
-            viewport: viewport,
-          );
+          await pumpScreen(tester, screenFor(name)(), viewport: viewport);
           expect(
             tester.takeException(),
             isNull,

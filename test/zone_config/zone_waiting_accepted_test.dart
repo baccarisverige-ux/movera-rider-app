@@ -64,16 +64,18 @@ void main() {
     });
 
     Future<String> book() async {
-      final quote = (await api.post(
-        '/api/v1/quotes',
-        body: {
-          'rideType': 'economy',
-          'pickupLat': 59.3293,
-          'pickupLng': 18.0686,
-          'destinationLat': 59.3326,
-          'destinationLng': 18.0649,
-        },
-      ))['quote'] as Map;
+      final quote =
+          (await api.post(
+                '/api/v1/quotes',
+                body: {
+                  'rideType': 'economy',
+                  'pickupLat': 59.3293,
+                  'pickupLng': 18.0686,
+                  'destinationLat': 59.3326,
+                  'destinationLng': 18.0649,
+                },
+              ))['quote']
+              as Map;
       final created = await api.post(
         '/api/v1/rides',
         body: {
@@ -98,32 +100,39 @@ void main() {
     Future<void> simulate(String id, Map<String, dynamic> body) =>
         api.post('/api/v1/rides/$id/status', body: body);
 
-    test('the demo server stamps acceptedAt, and clears it on a new search',
-        () async {
-      final id = await book();
-      expect(server.rides[id]!.containsKey('acceptedAt'), isTrue);
-      expect(server.rides[id]!['acceptedAt'], isNull);
+    test(
+      'the demo server stamps acceptedAt, and clears it on a new search',
+      () async {
+        final id = await book();
+        expect(server.rides[id]!.containsKey('acceptedAt'), isTrue);
+        expect(server.rides[id]!['acceptedAt'], isNull);
 
-      await simulate(id, {'status': 'accepted'});
-      final accepted = WireTime.tryParse(server.rides[id]!['acceptedAt']);
-      expect(accepted, isNotNull);
-      expect(DateTime.now().toUtc().difference(accepted!).inSeconds, lessThan(5));
+        await simulate(id, {'status': 'accepted'});
+        final accepted = WireTime.tryParse(server.rides[id]!['acceptedAt']);
+        expect(accepted, isNotNull);
+        expect(
+          DateTime.now().toUtc().difference(accepted!).inSeconds,
+          lessThan(5),
+        );
 
-      // The driver drops the trip: back to searching, no accept yet.
-      await simulate(id, {'command': 'cancel', 'actor': 'driver'});
-      expect(server.rides[id]!['status'], 'searching');
-      expect(server.rides[id]!['acceptedAt'], isNull);
-    });
+        // The driver drops the trip: back to searching, no accept yet.
+        await simulate(id, {'command': 'cancel', 'actor': 'driver'});
+        expect(server.rides[id]!['status'], 'searching');
+        expect(server.rides[id]!['acceptedAt'], isNull);
+      },
+    );
 
-    test('arrival starts the waiting clock with the category free wait',
-        () async {
-      final id = await book();
-      await simulate(id, {'status': 'arrived'});
-      final waiting = server.rides[id]!['waiting'] as Map;
-      final arrived = WireTime.tryParse(waiting['arrivedAt'])!;
-      final freeUntil = WireTime.tryParse(waiting['freeUntil'])!;
-      expect(freeUntil.difference(arrived), const Duration(minutes: 5));
-    });
+    test(
+      'arrival starts the waiting clock with the category free wait',
+      () async {
+        final id = await book();
+        await simulate(id, {'status': 'arrived'});
+        final waiting = server.rides[id]!['waiting'] as Map;
+        final arrived = WireTime.tryParse(waiting['arrivedAt'])!;
+        final freeUntil = WireTime.tryParse(waiting['freeUntil'])!;
+        expect(freeUntil.difference(arrived), const Duration(minutes: 5));
+      },
+    );
 
     test('the rider app reads acceptedAt off the polled projection', () async {
       final id = await book();
@@ -141,7 +150,10 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       final last = events.last;
-      expect(last.acceptedAt, WireTime.tryParse(server.rides[id]!['acceptedAt']));
+      expect(
+        last.acceptedAt,
+        WireTime.tryParse(server.rides[id]!['acceptedAt']),
+      );
       expect(
         last.waitingArrivedAt,
         WireTime.tryParse((server.rides[id]!['waiting'] as Map)['arrivedAt']),
@@ -160,31 +172,37 @@ void main() {
       tracking.start(rideId: 'r1');
       final acceptedAt = DateTime.utc(2026, 10, 20, 8, 0, 0);
 
-      feed.events.add(RideRealtimeEvent(
-        tripId: 'r1',
-        status: RideStatus.driverAssigned,
-        sequence: 1,
-        payload: {acceptedAtKey: WireTime.format(acceptedAt)},
-      ));
+      feed.events.add(
+        RideRealtimeEvent(
+          tripId: 'r1',
+          status: RideStatus.driverAssigned,
+          sequence: 1,
+          payload: {acceptedAtKey: WireTime.format(acceptedAt)},
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
       expect(tracking.acceptedAt, acceptedAt);
 
       // A later event without it keeps the accept time.
-      feed.events.add(RideRealtimeEvent(
-        tripId: 'r1',
-        status: RideStatus.driverWaiting,
-        sequence: 2,
-      ));
+      feed.events.add(
+        RideRealtimeEvent(
+          tripId: 'r1',
+          status: RideStatus.driverWaiting,
+          sequence: 2,
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
       expect(tracking.acceptedAt, acceptedAt);
       expect(tracking.waitingSince, isNotNull);
 
       // The driver dropped the trip: both clocks start again later.
-      feed.events.add(RideRealtimeEvent(
-        tripId: 'r1',
-        status: RideStatus.cancelledByDriver,
-        sequence: 3,
-      ));
+      feed.events.add(
+        RideRealtimeEvent(
+          tripId: 'r1',
+          status: RideStatus.cancelledByDriver,
+          sequence: 3,
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
       expect(tracking.acceptedAt, isNull);
       expect(tracking.waitingSince, isNull);
@@ -254,7 +272,10 @@ void main() {
       now = since.add(const Duration(minutes: 6, seconds: 5));
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('Waiting fee 3,55 €'), findsOneWidget);
-      expect(find.text('3:05 after the free 3 min · 1,15 €/min'), findsOneWidget);
+      expect(
+        find.text('3:05 after the free 3 min · 1,15 €/min'),
+        findsOneWidget,
+      );
     });
 
     test('each category has its own free wait and rate', () async {

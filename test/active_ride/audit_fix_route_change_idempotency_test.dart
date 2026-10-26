@@ -18,6 +18,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 class _Geo implements GeocodingRepository {
@@ -81,10 +82,7 @@ class _Backend extends http.BaseClient {
   }
 }
 
-const _env = AppEnv(
-  flavor: AppFlavor.staging,
-  apiBaseUrl: 'https://x.invalid',
-);
+const _env = AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

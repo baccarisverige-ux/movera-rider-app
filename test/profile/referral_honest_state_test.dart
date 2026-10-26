@@ -21,10 +21,11 @@ void main() {
 
     expect(find.byIcon(Icons.group_add_outlined), findsOneWidget);
     expect(find.text('Referrals aren’t available yet'), findsOneWidget);
-    expect(find.textContaining('when the Movera referral programme launches'), findsOneWidget);
+    expect(
+      find.textContaining('when the Movera referral programme launches'),
+      findsOneWidget,
+    );
     expect(find.textContaining(r'$5'), findsNothing);
     expect(find.textContaining('Referral code copied'), findsNothing);
   });
-
-  
 }

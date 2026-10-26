@@ -17,14 +17,16 @@ class _Feed extends RideRealtime {
   final events = StreamController<RideRealtimeEvent>.broadcast();
   var _seq = 0;
   void add(RideStatus status, MatchedDriver driver, {RealtimeKind? kind}) =>
-      events.add(RideRealtimeEvent(
-        rideId: 'r5-26',
-        status: status,
-        sequence: ++_seq,
-        version: _seq,
-        driver: driver,
-        kind: kind,
-      ));
+      events.add(
+        RideRealtimeEvent(
+          rideId: 'r5-26',
+          status: status,
+          sequence: ++_seq,
+          version: _seq,
+          driver: driver,
+          kind: kind,
+        ),
+      );
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) => events.stream;
   @override

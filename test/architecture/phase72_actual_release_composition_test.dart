@@ -15,52 +15,49 @@ void main() {
   tearDown(Observability.reset);
 
   test('compile-time release env parser distinguishes demo and production', () {
-    expect(
-      AppEnv.parseFlavor('demo'),
-      AppFlavor.demo,
-    );
-    expect(
-      AppEnv.parseFlavor('production'),
-      AppFlavor.production,
-    );
+    expect(AppEnv.parseFlavor('demo'), AppFlavor.demo);
+    expect(AppEnv.parseFlavor('production'), AppFlavor.production);
   });
 
-  test('actual production AppScope composition contains no mock/no-op surfaces', () async {
-    const production = AppEnv(
-      flavor: AppFlavor.production,
-      apiBaseUrl: 'https://api.movera.example',
-    );
+  test(
+    'actual production AppScope composition contains no mock/no-op surfaces',
+    () async {
+      const production = AppEnv(
+        flavor: AppFlavor.production,
+        apiBaseUrl: 'https://api.movera.example',
+      );
 
-    final scope = AppScope.composeForEnvironment(production);
-    addTearDown(scope.disposeForTest);
+      final scope = AppScope.composeForEnvironment(production);
+      addTearDown(scope.disposeForTest);
 
-    expect(scope.environment.flavor, AppFlavor.production);
-    expect(scope.api.usesMockTransport, isFalse);
-    expect(scope.rideRealtime, isNot(isA<MockRideRealtime>()));
-    expect(scope.paymentGateway, isA<ApiPaymentGateway>());
-    expect(scope.push, isA<FirebasePushService>());
-    expect(scope.emergencyDialer, isNot(isA<RecordingEmergencyDialer>()));
-    expect(Observability.logger, isNot(isA<NoopLoggerSink>()));
-    expect(Observability.analytics, isNot(isA<NoopAnalyticsSink>()));
-    expect(Observability.crashes, isNot(isA<NoopCrashSink>()));
-    // ARCH-6 / ARCH-7: no device-only rider repository either.
-    for (final repository in <Object>[
-      scope.walletBalances,
-      scope.reservationRepository,
-      scope.savedCardsStore,
-    ]) {
-      expect(repository, isA<FeatureOffRepository>());
-    }
-    for (final repository in <Object>[
-      scope.payments,
-      scope.defaultPayment,
-      scope.rideHistory,
-      scope.activeTrips,
-      scope.profile.repository,
-    ]) {
-      expect(repository, isA<ServerBackedRepository>());
-    }
-  });
+      expect(scope.environment.flavor, AppFlavor.production);
+      expect(scope.api.usesMockTransport, isFalse);
+      expect(scope.rideRealtime, isNot(isA<MockRideRealtime>()));
+      expect(scope.paymentGateway, isA<ApiPaymentGateway>());
+      expect(scope.push, isA<FirebasePushService>());
+      expect(scope.emergencyDialer, isNot(isA<RecordingEmergencyDialer>()));
+      expect(Observability.logger, isNot(isA<NoopLoggerSink>()));
+      expect(Observability.analytics, isNot(isA<NoopAnalyticsSink>()));
+      expect(Observability.crashes, isNot(isA<NoopCrashSink>()));
+      // ARCH-6 / ARCH-7: no device-only rider repository either.
+      for (final repository in <Object>[
+        scope.walletBalances,
+        scope.reservationRepository,
+        scope.savedCardsStore,
+      ]) {
+        expect(repository, isA<FeatureOffRepository>());
+      }
+      for (final repository in <Object>[
+        scope.payments,
+        scope.defaultPayment,
+        scope.rideHistory,
+        scope.activeTrips,
+        scope.profile.repository,
+      ]) {
+        expect(repository, isA<ServerBackedRepository>());
+      }
+    },
+  );
 
   test('demo AppScope is explicitly allowed to use mock transports', () {
     const demo = AppEnv(

@@ -59,11 +59,7 @@ void main() {
     ],
     'expiresAt': soon.toIso8601String(),
     'pickup': {'lat': 59.3326, 'lng': 18.0649, 'address': 'Sergels torg'},
-    'dropoff': {
-      'lat': 59.3143,
-      'lng': 18.0735,
-      'address': 'Medborgarplatsen',
-    },
+    'dropoff': {'lat': 59.3143, 'lng': 18.0735, 'address': 'Medborgarplatsen'},
     'stops': <Object>[],
     'surgeMultiplier': 1,
   };
@@ -89,11 +85,7 @@ void main() {
     'zoneId': 'Z001',
     'categoryId': 'economy',
     'pickup': {'lat': 59.3326, 'lng': 18.0649, 'address': 'Sergels torg'},
-    'dropoff': {
-      'lat': 59.3143,
-      'lng': 18.0735,
-      'address': 'Medborgarplatsen',
-    },
+    'dropoff': {'lat': 59.3143, 'lng': 18.0735, 'address': 'Medborgarplatsen'},
     'stops': <Object>[],
     'fare': {'amountMinor': 9500, 'currency': 'SEK'},
     'fareLines': <Object>[],
@@ -179,7 +171,10 @@ void main() {
       final request = requests.single;
       expect(request.url.path, '/api/v1/quotes');
       expect(request.headers['Idempotency-Key'], isNotNull);
-      expect(request.headers['Idempotency-Key']!.length, greaterThanOrEqualTo(16));
+      expect(
+        request.headers['Idempotency-Key']!.length,
+        greaterThanOrEqualTo(16),
+      );
       expect(request.headers['X-Api-Version'], '0.5');
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body, {
@@ -262,27 +257,30 @@ void main() {
       expect(second.id, isNot(first.id));
     });
 
-    test('a server refusal is the quote failing, never a made-up price', () async {
-      final api = ApiClient(
-        env: staging,
-        client: MockClient(
-          (_) async => json({
-            'code': 'forbidden',
-            'message': 'Movera is not available here yet.',
-            'reason': 'service_not_available',
-          }, 403),
-        ),
-      );
-      await expectLater(
-        ApiQuoteRepository(api: api).quote(
-          rideType: 'economy',
-          distanceMeters: 1,
-          pickupPoint: pickup,
-          destinationPoint: dropoff,
-        ),
-        throwsA(anything),
-      );
-    });
+    test(
+      'a server refusal is the quote failing, never a made-up price',
+      () async {
+        final api = ApiClient(
+          env: staging,
+          client: MockClient(
+            (_) async => json({
+              'code': 'forbidden',
+              'message': 'Movera is not available here yet.',
+              'reason': 'service_not_available',
+            }, 403),
+          ),
+        );
+        await expectLater(
+          ApiQuoteRepository(api: api).quote(
+            rideType: 'economy',
+            distanceMeters: 1,
+            pickupPoint: pickup,
+            destinationPoint: dropoff,
+          ),
+          throwsA(anything),
+        );
+      },
+    );
   });
 
   group('booking', () {
@@ -378,131 +376,149 @@ void main() {
       expect(body.containsKey('notes'), isFalse);
     });
 
-    test('the rider cancel goes out with expectedVersion and a reasonCode', () async {
-      final requests = <http.Request>[];
-      final api = ApiClient(
-        env: staging,
-        client: MockClient((request) async {
-          requests.add(request);
-          return json(
-            trip(
-              status: 'cancelled_by_rider',
-              version: 4,
-              cancellation: {
-                'actor': 'rider',
-                'reasonCode': 'something_else',
-                'fee': null,
-              },
-            ),
-          );
-        }),
-      );
-      AppScope.instance.ride.observeProjectionVersion('trp_1', 3);
-      await BookingCoordinator(api: api).cancel(rideId: 'trp_1', key: 'cancel-key-0123456789');
-      final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
-      expect(requests.single.url.path, '/api/v1/rides/trp_1/cancel');
-      expect(body['expectedVersion'], 3);
-      expect(body['reasonCode'], 'something_else');
-    });
+    test(
+      'the rider cancel goes out with expectedVersion and a reasonCode',
+      () async {
+        final requests = <http.Request>[];
+        final api = ApiClient(
+          env: staging,
+          client: MockClient((request) async {
+            requests.add(request);
+            return json(
+              trip(
+                status: 'cancelled_by_rider',
+                version: 4,
+                cancellation: {
+                  'actor': 'rider',
+                  'reasonCode': 'something_else',
+                  'fee': null,
+                },
+              ),
+            );
+          }),
+        );
+        AppScope.instance.ride.observeProjectionVersion('trp_1', 3);
+        await BookingCoordinator(api: api)
+            .cancel(rideId: 'trp_1', key: 'cancel-key-0123456789');
+        final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
+        expect(requests.single.url.path, '/api/v1/rides/trp_1/cancel');
+        expect(body['expectedVersion'], 3);
+        expect(body['reasonCode'], 'something_else');
+      },
+    );
 
-    test('end-early and rating use the /trips paths movera-server serves', () async {
-      final requests = <http.Request>[];
-      final api = ApiClient(
-        env: staging,
-        client: MockClient((request) async {
-          requests.add(request);
-          return json({
-            'tripId': 'trp_1',
-            'from': 'rider',
-            'stars': 5,
-            'tags': <Object>[],
-          }, 201);
-        }),
-      );
-      expect(
-        api.tripPath('trp_1', PendingCancelCommand.endEarly.pathSegment),
-        '/api/v1/trips/trp_1/end-early',
-      );
-      await RideFeedbackRepository(api: api).submit(
-        rideId: 'trp_1',
-        rating: 5,
-        idempotencyKey: 'rating-key-0123456789',
-      );
-      expect(requests.single.url.path, '/api/v1/trips/trp_1/rating');
-      expect(jsonDecode(requests.single.body), {'stars': 5});
-      // The mock keeps its own paths.
-      expect(
-        ApiClient(client: MockClient((_) async => json({}))).tripPath(
-          'r1',
-          'end-early',
-        ),
-        '/api/v1/rides/r1/end-early',
-      );
-    });
+    test(
+      'end-early and rating use the /trips paths movera-server serves',
+      () async {
+        final requests = <http.Request>[];
+        final api = ApiClient(
+          env: staging,
+          client: MockClient((request) async {
+            requests.add(request);
+            return json({
+              'tripId': 'trp_1',
+              'from': 'rider',
+              'stars': 5,
+              'tags': <Object>[],
+            }, 201);
+          }),
+        );
+        expect(
+          api.tripPath('trp_1', PendingCancelCommand.endEarly.pathSegment),
+          '/api/v1/trips/trp_1/end-early',
+        );
+        await RideFeedbackRepository(api: api).submit(
+          rideId: 'trp_1',
+          rating: 5,
+          idempotencyKey: 'rating-key-0123456789',
+        );
+        expect(requests.single.url.path, '/api/v1/trips/trp_1/rating');
+        expect(jsonDecode(requests.single.body), {'stars': 5});
+        // The mock keeps its own paths.
+        expect(
+          ApiClient(client: MockClient((_) async => json({})))
+              .tripPath('r1', 'end-early'),
+          '/api/v1/rides/r1/end-early',
+        );
+      },
+    );
   });
 
   group('reads', () {
-    test('GET /rider/trips/active: 204 is no trip, a bare projection is it', () async {
-      var answer = http.Response('', 204);
-      final api = ApiClient(
-        env: staging,
-        client: MockClient((_) async => answer),
-      );
-      final repository = ApiActiveTripRepository(api: api);
-      expect(await repository.fetchActive(), isNull);
+    test(
+      'GET /rider/trips/active: 204 is no trip, a bare projection is it',
+      () async {
+        var answer = http.Response('', 204);
+        final api = ApiClient(
+          env: staging,
+          client: MockClient((_) async => answer),
+        );
+        final repository = ApiActiveTripRepository(api: api);
+        expect(await repository.fetchActive(), isNull);
 
-      answer = json(trip(status: 'accepted', version: 5, driver: driver));
-      final active = await repository.fetchActive();
-      expect(active?.rideId, 'trp_1');
-      expect(active?.status, RideStatus.driverAssigned);
-      expect(active?.version, 5);
-      expect(active?.price, 95);
-      expect(active?.driver?.firstName, 'Test');
-      expect(active?.driver?.plate, 'TST 001');
-      expect(active?.pickupAddress, 'Sergels torg');
-      expect(active?.destinationLat, 59.3143);
-    });
+        answer = json(trip(status: 'accepted', version: 5, driver: driver));
+        final active = await repository.fetchActive();
+        expect(active?.rideId, 'trp_1');
+        expect(active?.status, RideStatus.driverAssigned);
+        expect(active?.version, 5);
+        expect(active?.price, 95);
+        expect(active?.driver?.firstName, 'Test');
+        expect(active?.driver?.plate, 'TST 001');
+        expect(active?.pickupAddress, 'Sergels torg');
+        expect(active?.destinationLat, 59.3143);
+      },
+    );
 
-    test('a completed trip waits for the rating; history reads TripPage items', () async {
-      final api = ApiClient(
-        env: staging,
-        client: MockClient(
-          (_) async => json({
-            'items': [
-              trip(
-                status: 'completed',
-                version: 10,
-                driver: driver,
-                paymentStatus: 'captured',
-                ratingStatus: 'pending',
-              ),
-            ],
-            'nextCursor': null,
-          }),
-        ),
-      );
-      final history = await ApiRideHistoryRepository(api: api).loadOnDemand();
-      expect(history, hasLength(1));
-      expect(history.single.reservationId, 'ondemand-trp_1');
-    });
+    test(
+      'a completed trip waits for the rating; history reads TripPage items',
+      () async {
+        final api = ApiClient(
+          env: staging,
+          client: MockClient(
+            (_) async => json({
+              'items': [
+                trip(
+                  status: 'completed',
+                  version: 10,
+                  driver: driver,
+                  paymentStatus: 'captured',
+                  ratingStatus: 'pending',
+                ),
+              ],
+              'nextCursor': null,
+            }),
+          ),
+        );
+        final history = await ApiRideHistoryRepository(api: api).loadOnDemand();
+        expect(history, hasLength(1));
+        expect(history.single.reservationId, 'ondemand-trp_1');
+      },
+    );
 
-    test('GET /payment-methods reads the contract page and its default', () async {
-      final api = ApiClient(
-        env: staging,
-        client: MockClient(
-          (_) async => json({
-            'items': [
-              {'paymentMethodId': 'cash', 'method': 'cash', 'isDefault': true},
-            ],
-            'nextCursor': null,
-          }),
-        ),
-      );
-      final repository = ApiPaymentMethodRepository(api: api);
-      final methods = await repository.listMethods();
-      expect(methods.single.id, 'cash');
-      expect(methods.single.label, 'Cash');
-      expect(await repository.read(), 'cash');
-    });
+    test(
+      'GET /payment-methods reads the contract page and its default',
+      () async {
+        final api = ApiClient(
+          env: staging,
+          client: MockClient(
+            (_) async => json({
+              'items': [
+                {
+                  'paymentMethodId': 'cash',
+                  'method': 'cash',
+                  'isDefault': true,
+                },
+              ],
+              'nextCursor': null,
+            }),
+          ),
+        );
+        final repository = ApiPaymentMethodRepository(api: api);
+        final methods = await repository.listMethods();
+        expect(methods.single.id, 'cash');
+        expect(methods.single.label, 'Cash');
+        expect(await repository.read(), 'cash');
+      },
+    );
   });
 }

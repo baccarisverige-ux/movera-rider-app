@@ -40,38 +40,44 @@ class _NoNetwork implements Exception {
 
 /// Records every cancel request and answers with [status]. The outbox reads
 /// the trip first (R-O2): a GET answers with the ride still live.
-MockClient _answering(int status, List<http.Request> seen) =>
-    MockClient((request) async {
-      if (request.method == 'GET') {
-        final id = request.url.pathSegments.last;
-        return http.Response(jsonEncode({'tripId': id, 'status': 'accepted'}), 200);
-      }
-      seen.add(request);
-      return http.Response(
-        jsonEncode(
-          status < 400
-              ? {'code': 'OK', 'ride': {'status': 'cancelledByRider'}}
-              : {'code': 'RIDE_NOT_CANCELLABLE'},
-        ),
-        status,
-      );
-    });
+MockClient _answering(int status, List<http.Request> seen) => MockClient((
+  request,
+) async {
+  if (request.method == 'GET') {
+    final id = request.url.pathSegments.last;
+    return http.Response(jsonEncode({'tripId': id, 'status': 'accepted'}), 200);
+  }
+  seen.add(request);
+  return http.Response(
+    jsonEncode(
+      status < 400
+          ? {
+              'code': 'OK',
+              'ride': {'status': 'cancelledByRider'},
+            }
+          : {'code': 'RIDE_NOT_CANCELLABLE'},
+    ),
+    status,
+  );
+});
 
-RideSnapshot _snapshot(String rideId, {RideStatus status = RideStatus.driverAssigned}) =>
-    RideSnapshot(
-      status: status,
-      savedAt: DateTime.now(),
-      pickupAddress: 'Pickup',
-      destinationAddress: 'Destination',
-      pickupLat: 59.3293,
-      pickupLng: 18.0686,
-      destinationLat: 59.3326,
-      destinationLng: 18.0649,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: rideId,
-    );
+RideSnapshot _snapshot(
+  String rideId, {
+  RideStatus status = RideStatus.driverAssigned,
+}) => RideSnapshot(
+  status: status,
+  savedAt: DateTime.now(),
+  pickupAddress: 'Pickup',
+  destinationAddress: 'Destination',
+  pickupLat: 59.3293,
+  pickupLng: 18.0686,
+  destinationLat: 59.3326,
+  destinationLng: 18.0649,
+  rideType: 'Movera',
+  price: 259,
+  paymentMethod: 'Apple Pay',
+  rideId: rideId,
+);
 
 Future<void> _activeRide(String rideId, RideStatus status) async {
   await RideSnapshotStore.save(_snapshot(rideId, status: status));
@@ -124,38 +130,45 @@ void main() {
   });
 
   group('D-013 Waiting/in-trip cancel is server-first', () {
-    test('an unreachable server leaves the ride live and queues the cancel',
-        () async {
-      await _activeRide('w1', RideStatus.driverAssigned);
-      final offline = _Offline();
-      final controller = ActiveRideController(api: ApiClient(client: offline));
+    test(
+      'an unreachable server leaves the ride live and queues the cancel',
+      () async {
+        await _activeRide('w1', RideStatus.driverAssigned);
+        final offline = _Offline();
+        final controller = ActiveRideController(
+          api: ApiClient(client: offline),
+        );
 
-      final outcome = await controller.markCancelled(reasonId: 'plans');
+        final outcome = await controller.markCancelled(reasonId: 'plans');
 
-      expect(outcome, RideCancelOutcome.pendingRetry);
-      // Nothing committed ahead of the server's answer.
-      expect(AppScope.instance.ride.status, RideStatus.driverAssigned);
-      expect(await RideSnapshotStore.readForArchive(), isNotNull);
-      // ...but the intent is durable, with one key for later retries.
-      final pending = await PendingCancelStore.all();
-      expect(pending.single.rideId, 'w1');
-      expect(pending.single.reasonId, 'plans');
-      expect(pending.single.idempotencyKey, isNotNull);
-      expect(offline.calls, 2, reason: 'one in-session retry');
-    });
+        expect(outcome, RideCancelOutcome.pendingRetry);
+        // Nothing committed ahead of the server's answer.
+        expect(AppScope.instance.ride.status, RideStatus.driverAssigned);
+        expect(await RideSnapshotStore.readForArchive(), isNotNull);
+        // ...but the intent is durable, with one key for later retries.
+        final pending = await PendingCancelStore.all();
+        expect(pending.single.rideId, 'w1');
+        expect(pending.single.reasonId, 'plans');
+        expect(pending.single.idempotencyKey, isNotNull);
+        expect(offline.calls, 2, reason: 'one in-session retry');
+      },
+    );
 
-    test('an in-trip cancel is also queued, not committed, when offline',
-        () async {
-      await _activeRide('w2', RideStatus.tripInProgress);
-      final controller =
-          ActiveRideController(api: ApiClient(client: _Offline()));
+    test(
+      'an in-trip cancel is also queued, not committed, when offline',
+      () async {
+        await _activeRide('w2', RideStatus.tripInProgress);
+        final controller = ActiveRideController(
+          api: ApiClient(client: _Offline()),
+        );
 
-      final outcome = await controller.markCancelled();
+        final outcome = await controller.markCancelled();
 
-      expect(outcome, RideCancelOutcome.pendingRetry);
-      expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
-      expect((await PendingCancelStore.all()).single.rideId, 'w2');
-    });
+        expect(outcome, RideCancelOutcome.pendingRetry);
+        expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
+        expect((await PendingCancelStore.all()).single.rideId, 'w2');
+      },
+    );
 
     test('a retried cancel reuses the queued idempotency key', () async {
       await _activeRide('w3', RideStatus.driverAssigned);
@@ -172,59 +185,69 @@ void main() {
       expect(seen.single.headers['Idempotency-Key'], queuedKey);
     });
 
-    test('a server-acknowledged cancel commits locally and clears the outbox',
-        () async {
-      await _activeRide('w4', RideStatus.driverAssigned);
-      final backend = InProcessMockClient();
-      backend.rides['w4'] = {'id': 'w4', 'status': 'driverAssigned'};
+    test(
+      'a server-acknowledged cancel commits locally and clears the outbox',
+      () async {
+        await _activeRide('w4', RideStatus.driverAssigned);
+        final backend = InProcessMockClient();
+        backend.rides['w4'] = {'id': 'w4', 'status': 'driverAssigned'};
 
-      final outcome = await ActiveRideController(
-        api: ApiClient(client: backend),
-      ).markCancelled(reasonId: 'plans');
+        final outcome = await ActiveRideController(
+          api: ApiClient(client: backend),
+        ).markCancelled(reasonId: 'plans');
 
-      expect(outcome, RideCancelOutcome.confirmed);
-      expect(backend.rides['w4']!['status'], 'cancelled_by_rider');
-      expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
-      expect(await RideSnapshotStore.readForArchive(), isNull);
-      expect(await PendingCancelStore.all(), isEmpty);
-    });
+        expect(outcome, RideCancelOutcome.confirmed);
+        expect(backend.rides['w4']!['status'], 'cancelled_by_rider');
+        expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
+        expect(await RideSnapshotStore.readForArchive(), isNull);
+        expect(await PendingCancelStore.all(), isEmpty);
+      },
+    );
 
-    test('a 409 refusal is reported and never committed as cancelled',
-        () async {
-      await _activeRide('w5', RideStatus.tripInProgress);
-      final seen = <http.Request>[];
+    test(
+      'a 409 refusal is reported and never committed as cancelled',
+      () async {
+        await _activeRide('w5', RideStatus.tripInProgress);
+        final seen = <http.Request>[];
 
-      final outcome = await ActiveRideController(
-        api: ApiClient(client: _answering(409, seen)),
-      ).markCancelled();
+        final outcome = await ActiveRideController(
+          api: ApiClient(client: _answering(409, seen)),
+        ).markCancelled();
 
-      expect(outcome, RideCancelOutcome.rejected);
-      expect(seen, hasLength(1), reason: 'a permanent refusal is not retried');
-      expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
-      expect(await PendingCancelStore.all(), isEmpty);
-    });
+        expect(outcome, RideCancelOutcome.rejected);
+        expect(
+          seen,
+          hasLength(1),
+          reason: 'a permanent refusal is not retried',
+        );
+        expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
+        expect(await PendingCancelStore.all(), isEmpty);
+      },
+    );
   });
 
   group('D-014 leaving an untracked ride', () {
-    test('cancels server-side with the ride id recovered from the snapshot',
-        () async {
-      await RideSnapshotStore.save(_snapshot('orphan-1'));
-      AppScope.instance.ride.rideId = null;
-      final seen = <http.Request>[];
+    test(
+      'cancels server-side with the ride id recovered from the snapshot',
+      () async {
+        await RideSnapshotStore.save(_snapshot('orphan-1'));
+        AppScope.instance.ride.rideId = null;
+        final seen = <http.Request>[];
 
-      final outcome = await ActiveRideController(
-        api: ApiClient(client: _answering(200, seen)),
-      ).cancelUntrackedRide();
+        final outcome = await ActiveRideController(
+          api: ApiClient(client: _answering(200, seen)),
+        ).cancelUntrackedRide();
 
-      expect(outcome, RideCancelOutcome.confirmed);
-      expect(seen.single.url.path, '/api/v1/rides/orphan-1/cancel');
-      // rider-r4-25: the cancelled ride stays in History, as on every other
-      // cancel path, before the snapshot is cleared.
-      expect(
-        (await OnDemandRideHistoryStore.read()).single.reservationId,
-        'ondemand-orphan-1',
-      );
-    });
+        expect(outcome, RideCancelOutcome.confirmed);
+        expect(seen.single.url.path, '/api/v1/rides/orphan-1/cancel');
+        // rider-r4-25: the cancelled ride stays in History, as on every other
+        // cancel path, before the snapshot is cleared.
+        expect(
+          (await OnDemandRideHistoryStore.read()).single.reservationId,
+          'ondemand-orphan-1',
+        );
+      },
+    );
 
     test('keeps the cancel queued when the server cannot be reached', () async {
       await RideSnapshotStore.save(_snapshot('orphan-2'));
@@ -270,28 +293,34 @@ void main() {
       expect(await PendingCancelStore.all(), isEmpty);
     });
 
-    test('keeps entries on transient failure and reuses one key per entry',
-        () async {
-      await PendingCancelStore.add(const PendingCancel(rideId: 'legacy'));
+    test(
+      'keeps entries on transient failure and reuses one key per entry',
+      () async {
+        await PendingCancelStore.add(const PendingCancel(rideId: 'legacy'));
 
-      await FindingDriverController.flushPendingCancels(
-        api: ApiClient(client: _Offline()),
-      );
-      final minted = (await PendingCancelStore.all()).single.idempotencyKey;
-      expect(minted, isNotNull, reason: 'legacy entries get one key, persisted');
+        await FindingDriverController.flushPendingCancels(
+          api: ApiClient(client: _Offline()),
+        );
+        final minted = (await PendingCancelStore.all()).single.idempotencyKey;
+        expect(
+          minted,
+          isNotNull,
+          reason: 'legacy entries get one key, persisted',
+        );
 
-      await FindingDriverController.flushPendingCancels(
-        api: ApiClient(client: _Offline()),
-      );
-      expect((await PendingCancelStore.all()).single.idempotencyKey, minted);
+        await FindingDriverController.flushPendingCancels(
+          api: ApiClient(client: _Offline()),
+        );
+        expect((await PendingCancelStore.all()).single.idempotencyKey, minted);
 
-      final seen = <http.Request>[];
-      await FindingDriverController.flushPendingCancels(
-        api: ApiClient(client: _answering(200, seen)),
-      );
-      expect(seen.single.headers['Idempotency-Key'], minted);
-      expect(await PendingCancelStore.all(), isEmpty);
-    });
+        final seen = <http.Request>[];
+        await FindingDriverController.flushPendingCancels(
+          api: ApiClient(client: _answering(200, seen)),
+        );
+        expect(seen.single.headers['Idempotency-Key'], minted);
+        expect(await PendingCancelStore.all(), isEmpty);
+      },
+    );
 
     test('flushes again when the realtime connection comes back', () async {
       final connection = RealtimeConnection();
@@ -316,22 +345,25 @@ void main() {
   });
 
   group('D-015 degraded realtime feed is visible', () {
-    test('a stream error marks the feed degraded; a fresh start clears it',
-        () async {
-      final tracking = DriverTrackingController(
-        realtime: _DeadFeed(),
-        pickupLat: 59.3,
-        pickupLng: 18.0,
-        persistRideSnapshot: false,
-      );
-      tracking.start(rideId: 'dead');
-      await Future<void>.delayed(Duration.zero);
-      expect(tracking.connectionDegraded, isTrue);
-      tracking.dispose();
-    });
+    test(
+      'a stream error marks the feed degraded; a fresh start clears it',
+      () async {
+        final tracking = DriverTrackingController(
+          realtime: _DeadFeed(),
+          pickupLat: 59.3,
+          pickupLng: 18.0,
+          persistRideSnapshot: false,
+        );
+        tracking.start(rideId: 'dead');
+        await Future<void>.delayed(Duration.zero);
+        expect(tracking.connectionDegraded, isTrue);
+        tracking.dispose();
+      },
+    );
 
-    testWidgets('Waiting renders a banner when the ride feed dies',
-        (tester) async {
+    testWidgets('Waiting renders a banner when the ride feed dies', (
+      tester,
+    ) async {
       await RideSnapshotStore.save(_snapshot('dead-feed'));
       AppScope.instance.ride.restoreFromBackend(
         RideStatus.driverAssigned,
@@ -367,8 +399,7 @@ void main() {
   });
 
   group('D-018 camera padding is bottom-only', () {
-    test('frames the points above the sheet instead of padding every side',
-        () {
+    test('frames the points above the sheet instead of padding every side', () {
       const driver = GeoPoint(59.34, 18.05);
       const pickup = GeoPoint(59.33, 18.07);
       final fit = waitingCameraFit(

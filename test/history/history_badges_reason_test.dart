@@ -73,8 +73,14 @@ void main() {
       ReservationFormat.reasonLabel('wait_too_long'),
       'The wait is taking too long',
     );
-    expect(ReservationFormat.reasonLabel('system_no_driver'), 'No driver found');
-    expect(ReservationFormat.reasonLabel('admin_safety'), 'Cancelled by Movera');
+    expect(
+      ReservationFormat.reasonLabel('system_no_driver'),
+      'No driver found',
+    );
+    expect(
+      ReservationFormat.reasonLabel('admin_safety'),
+      'Cancelled by Movera',
+    );
     expect(ReservationFormat.reasonLabel('No driver found'), 'No driver found');
     expect(ReservationFormat.reasonLabel('some_new_code'), 'Some new code');
   });

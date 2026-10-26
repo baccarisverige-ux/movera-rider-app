@@ -47,11 +47,11 @@ class RideCheckPolicy {
   }
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
-        'userId': userId,
-        'updatedAt': updatedAt?.toIso8601String(),
-        'triggers': triggers.toJson(),
-      };
+    'enabled': enabled,
+    'userId': userId,
+    'updatedAt': updatedAt?.toIso8601String(),
+    'triggers': triggers.toJson(),
+  };
 
   factory RideCheckPolicy.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const RideCheckPolicy();
@@ -104,15 +104,15 @@ class RideCheckEvent {
   }
 
   Map<String, dynamic> toJson() => {
-        'eventId': eventId,
-        'rideId': rideId,
-        'type': type.name,
-        'at': at.toIso8601String(),
-        'status': status.name,
-        'userId': userId,
-        'payload': payload,
-        'serverAuthoritative': true,
-      };
+    'eventId': eventId,
+    'rideId': rideId,
+    'type': type.name,
+    'at': at.toIso8601String(),
+    'status': status.name,
+    'userId': userId,
+    'payload': payload,
+    'serverAuthoritative': true,
+  };
 
   factory RideCheckEvent.fromJson(Map<String, dynamic> json) {
     return RideCheckEvent(
@@ -122,7 +122,9 @@ class RideCheckEvent {
         (value) => value.name == json['type'],
         orElse: () => RideCheckEventType.manualSafetyCheck,
       ),
-      at: DateTime.tryParse('${json['at']}') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      at:
+          DateTime.tryParse('${json['at']}') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       status: RideCheckStatus.values.firstWhere(
         (value) => value.name == json['status'],
         orElse: () => RideCheckStatus.pending,
@@ -154,8 +156,8 @@ class RideCheckResponse {
   final DateTime at;
 
   Map<String, dynamic> toJson() => {
-        'eventId': eventId,
-        'action': action,
-        'at': at.toIso8601String(),
-      };
+    'eventId': eventId,
+    'action': action,
+    'at': at.toIso8601String(),
+  };
 }

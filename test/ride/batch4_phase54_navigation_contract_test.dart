@@ -51,14 +51,10 @@ class _RecordingObserver extends NavigatorObserver {
   }
 
   @override
-  void didReplace({
-    Route<dynamic>? newRoute,
-    Route<dynamic>? oldRoute,
-  }) {
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (newRoute != null) pushed.add(newRoute);
   }
 }
-
 
 class _NeverQuotes implements QuoteRepository {
   int calls = 0;
@@ -310,9 +306,7 @@ void main() {
         flags: const FeatureFlags(),
       );
       final booking = BookingController(
-        store: BookingRepository(
-          coordinator: BookingCoordinator(api: api),
-        ),
+        store: BookingRepository(coordinator: BookingCoordinator(api: api)),
       );
       final realtime = MockRideRealtime(
         assignAfter: const Duration(days: 1),
@@ -385,7 +379,11 @@ void main() {
 
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm pickup'));
       await tester.pump();
-      for (var i = 0; i < 20 && find.byType(SelectRide).evaluate().isEmpty; i++) {
+      for (
+        var i = 0;
+        i < 20 && find.byType(SelectRide).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(SelectRide), findsOneWidget);
@@ -396,9 +394,11 @@ void main() {
       await tester.tap(find.text('Select Movera'));
       await tester.pump();
       // Book now opens Set pickup; confirming it starts the search.
-      for (var i = 0;
-          i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(SetPickupPage), findsOneWidget);
@@ -589,9 +589,7 @@ void main() {
             reservationId: created.reservationId,
             controller: controller,
           ),
-          settings: const RouteSettings(
-            name: AppRoutes.reservationUpcoming,
-          ),
+          settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
         ),
       );
       await tester.pump();
@@ -610,10 +608,7 @@ void main() {
         vehicle: 'Volvo EX40',
         plate: 'ABC 123',
       );
-      await controller.assignMockDriver(
-        created.reservationId,
-        driver: driver,
-      );
+      await controller.assignMockDriver(created.reservationId, driver: driver);
       await tester.pump();
       expect(find.byType(UpcomingReservationPage), findsOneWidget);
 
@@ -711,9 +706,7 @@ void main() {
         ..authoritativeVersion = null
         ..authoritativeUpdatedAt = null;
 
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(days: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
       addTearDown(realtime.dispose);
 
       final observer = _RecordingObserver();
@@ -823,5 +816,4 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
-
 }

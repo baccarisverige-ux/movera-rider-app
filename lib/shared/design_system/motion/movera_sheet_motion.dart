@@ -18,8 +18,7 @@ class MoveraSheetMotion {
   final Curve reverseCurve;
 
   static MoveraSheetMotion of(BuildContext context) {
-    final reduced =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (reduced) {
       return const MoveraSheetMotion(
         forward: MoveraDurations.reduced,

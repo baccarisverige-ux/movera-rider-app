@@ -8,19 +8,19 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot _snapshot(String id) => RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'Pickup',
-      destinationAddress: 'Destination',
-      pickupLat: 59.33,
-      pickupLng: 18.06,
-      destinationLat: 59.32,
-      destinationLng: 18.07,
-      rideType: 'Movera',
-      price: 259,
-      paymentMethod: 'Apple Pay',
-      rideId: id,
-    );
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'Pickup',
+  destinationAddress: 'Destination',
+  pickupLat: 59.33,
+  pickupLng: 18.06,
+  destinationLat: 59.32,
+  destinationLng: 18.07,
+  rideType: 'Movera',
+  price: 259,
+  paymentMethod: 'Apple Pay',
+  rideId: id,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,72 +31,78 @@ void main() {
     FindingDriverController.active = null;
   });
 
-  test('driver assignment enters matched state exactly once with same ride id', () async {
-    const rideId = 'match-once';
-    final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final ride = RideSession()..rideId = rideId;
-    final store = FindingDriverRepository();
-    final controller = FindingDriverController(
-      realtime: realtime,
-      ride: ride,
-      store: store,
-    );
-    var matches = 0;
+  test(
+    'driver assignment enters matched state exactly once with same ride id',
+    () async {
+      const rideId = 'match-once';
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final ride = RideSession()..rideId = rideId;
+      final store = FindingDriverRepository();
+      final controller = FindingDriverController(
+        realtime: realtime,
+        ride: ride,
+        store: store,
+      );
+      var matches = 0;
 
-    controller.start(
-      snapshot: _snapshot(rideId),
-      onTick: (_) {},
-      onMatched: () => matches += 1,
-    );
+      controller.start(
+        snapshot: _snapshot(rideId),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
 
-    realtime.emit(RideStatus.driverAssigned, sequence: 2);
-    realtime.emit(RideStatus.driverAssigned, sequence: 3);
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+      realtime.emit(RideStatus.driverAssigned, sequence: 2);
+      realtime.emit(RideStatus.driverAssigned, sequence: 3);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    expect(matches, 1);
-    expect(controller.matchCount, 1);
-    expect(ride.rideId, rideId);
-    expect(ride.status, RideStatus.driverAssigned);
-    final stored = await RideSnapshotStore.read();
-    expect(stored?.rideId, rideId);
-    expect(stored?.status, RideStatus.driverAssigned);
+      expect(matches, 1);
+      expect(controller.matchCount, 1);
+      expect(ride.rideId, rideId);
+      expect(ride.status, RideStatus.driverAssigned);
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.rideId, rideId);
+      expect(stored?.status, RideStatus.driverAssigned);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 
-  test('cancel is idempotent and a late assignment cannot resurrect the ride', () async {
-    const rideId = 'cancel-twice';
-    final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final ride = RideSession()..rideId = rideId;
-    final store = FindingDriverRepository();
-    await store.save(_snapshot(rideId));
-    final controller = FindingDriverController(
-      realtime: realtime,
-      ride: ride,
-      store: store,
-    );
-    var matches = 0;
+  test(
+    'cancel is idempotent and a late assignment cannot resurrect the ride',
+    () async {
+      const rideId = 'cancel-twice';
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final ride = RideSession()..rideId = rideId;
+      final store = FindingDriverRepository();
+      await store.save(_snapshot(rideId));
+      final controller = FindingDriverController(
+        realtime: realtime,
+        ride: ride,
+        store: store,
+      );
+      var matches = 0;
 
-    controller.start(
-      snapshot: _snapshot(rideId),
-      onTick: (_) {},
-      onMatched: () => matches += 1,
-    );
+      controller.start(
+        snapshot: _snapshot(rideId),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
 
-    await controller.cancelSearch(reasonId: 'plans_changed');
-    await controller.cancelSearch(reasonId: 'plans_changed');
-    realtime.emit(RideStatus.driverAssigned, sequence: 99);
-    realtime.assignNow();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+      await controller.cancelSearch(reasonId: 'plans_changed');
+      await controller.cancelSearch(reasonId: 'plans_changed');
+      realtime.emit(RideStatus.driverAssigned, sequence: 99);
+      realtime.assignNow();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    expect(ride.status, RideStatus.cancelledByRider);
-    expect(ride.suppressRestore, isTrue);
-    expect(controller.matchCount, 0);
-    expect(matches, 0);
-    expect(await RideSnapshotStore.read(), isNull);
+      expect(ride.status, RideStatus.cancelledByRider);
+      expect(ride.suppressRestore, isTrue);
+      expect(controller.matchCount, 0);
+      expect(matches, 0);
+      expect(await RideSnapshotStore.read(), isNull);
 
-    controller.dispose();
-    realtime.dispose();
-  });
+      controller.dispose();
+      realtime.dispose();
+    },
+  );
 }

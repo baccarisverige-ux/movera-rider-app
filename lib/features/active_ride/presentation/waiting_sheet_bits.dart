@@ -124,6 +124,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
 
   /// ISO-4217 code of [price] (the trip's zone).
   final String currency;
+
   /// Null where the route cannot change (rider-u55): no ⋯ button.
   final VoidCallback? onMore;
 
@@ -152,7 +153,9 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   inTrip && destinationAddress?.trim().isNotEmpty == true
-                      ? context.l10n.toPlace(shortPickupPlace(destinationAddress!))
+                      ? context.l10n.toPlace(
+                          shortPickupPlace(destinationAddress!),
+                        )
                       : context.l10n.meetAt(shortPickupPlace(pickupAddress)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -205,6 +208,7 @@ class WaitingDriverCard extends StatefulWidget {
   final String? rideId;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
+
   /// Null where the route cannot change (rider-u55): no ⋯ button.
   final VoidCallback? onMore;
 
@@ -218,8 +222,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
   /// The ride's conversation, for the unread badge. It follows what the
   /// trip screen polls on the live wire (and what the demo ingests), so a
   /// message that arrives while this card is up shows at once.
-  late MessagesController _messages =
-      MessagesController.forRide(widget.rideId);
+  late MessagesController _messages = MessagesController.forRide(widget.rideId);
 
   @override
   void initState() {
@@ -277,8 +280,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
         child: MoveraEmptyState(
           icon: Icons.person_search_outlined,
           title: context.l10n.driverDetailsUnavailable,
-          message:
-              context.l10n.driverDetailsUnavailableBody,
+          message: context.l10n.driverDetailsUnavailableBody,
           compact: true,
         ),
       );
@@ -570,8 +572,10 @@ class WaitingNotesAndPin extends StatelessWidget {
         notesContent,
         if (safety.loading || !safety.hasLoaded) ...[
           const SizedBox(height: 12),
-          Text(context.l10n.loadingPin,
-              style: waitingText(12, color: const Color(0xFF5C656C))),
+          Text(
+            context.l10n.loadingPin,
+            style: waitingText(12, color: const Color(0xFF5C656C)),
+          ),
         ] else if (safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
           Container(
@@ -591,8 +595,10 @@ class WaitingNotesAndPin extends StatelessWidget {
                   style: waitingText(12, color: const Color(0xFF5C656C)),
                 ),
                 if (safety.pin.isAvailable)
-                  Text(safety.pin.pin,
-                      style: waitingText(22, weight: FontWeight.w700)),
+                  Text(
+                    safety.pin.pin,
+                    style: waitingText(22, weight: FontWeight.w700),
+                  ),
               ],
             ),
           ),

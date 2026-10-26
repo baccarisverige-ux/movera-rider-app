@@ -81,11 +81,7 @@ void main() {
         tripMinutes: 12,
       ),
       fare: const SetPickupFare(totalKr: 259),
-      payment: const SetPickupPayment(
-        brand: 'cash',
-        name: 'Cash',
-        detail: '',
-      ),
+      payment: const SetPickupPayment(brand: 'cash', name: 'Cash', detail: ''),
       brandMark: (_) => const SizedBox(),
     ),
     'FindingDrivers': () => const FindingDrivers(

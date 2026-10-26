@@ -70,7 +70,8 @@ class _SecurityPageState extends State<SecurityPage> {
                 AccountTile(
                   mark: const AccountIcon(Icons.shield_outlined),
                   title: context.l10n.securityUnavailable,
-                  body: _security.errorMessage ??
+                  body:
+                      _security.errorMessage ??
                       context.l10n.securityUnavailableBody,
                   showDivider: false,
                   onTap: _security.loading
@@ -90,7 +91,10 @@ class _SecurityPageState extends State<SecurityPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          AccountHeadline(context.l10n.accountSecurity, body: context.l10n.securityBody),
+          AccountHeadline(
+            context.l10n.accountSecurity,
+            body: context.l10n.securityBody,
+          ),
           const SizedBox(height: 18),
           AccountGroup(
             children: [
@@ -99,32 +103,31 @@ class _SecurityPageState extends State<SecurityPage> {
                 title: context.l10n.passkeys,
                 body: caps.passkeys
                     ? (security.passkeyEnabled
-                        ? context.l10n.passkeyReady
-                        : context.l10n.noPasskey)
+                          ? context.l10n.passkeyReady
+                          : context.l10n.noPasskey)
                     : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.password_outlined),
                 title: context.l10n.password,
-                body: _passwordLine(
-                  security.passwordUpdatedAt,
-                  caps.password,
-                ),
+                body: _passwordLine(security.passwordUpdatedAt, caps.password),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phonelink_lock_outlined),
                 title: context.l10n.authenticator,
                 body: caps.authenticator
                     ? (security.authenticatorEnabled
-                        ? context.l10n.otpOn
-                        : context.l10n.notConfigured)
+                          ? context.l10n.otpOn
+                          : context.l10n.notConfigured)
                     : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.security_outlined),
                 title: context.l10n.twoStep,
                 body: caps.twoStep
-                    ? (security.twoStepEnabled ? context.l10n.on : context.l10n.off)
+                    ? (security.twoStepEnabled
+                          ? context.l10n.on
+                          : context.l10n.off)
                     : context.l10n.comingSoon,
               ),
               AccountTile(
@@ -155,14 +158,18 @@ class _SecurityPageState extends State<SecurityPage> {
                 mark: Image.asset(AppAssets.google, height: 20),
                 title: 'Google',
                 body: caps.connectedAccounts
-                    ? (security.googleConnected ? context.l10n.connected : context.l10n.notConnected)
+                    ? (security.googleConnected
+                          ? context.l10n.connected
+                          : context.l10n.notConnected)
                     : context.l10n.comingSoon,
               ),
               AccountTile(
                 mark: Image.asset(AppAssets.apple, height: 20),
                 title: 'Apple',
                 body: caps.connectedAccounts
-                    ? (security.appleConnected ? context.l10n.connected : context.l10n.notConnected)
+                    ? (security.appleConnected
+                          ? context.l10n.connected
+                          : context.l10n.notConnected)
                     : context.l10n.comingSoon,
                 showDivider: false,
               ),
@@ -207,12 +214,13 @@ class _SecurityPageState extends State<SecurityPage> {
                 body: !caps.signOutOtherDevices
                     ? context.l10n.comingSoon
                     : !caps.reauthentication
-                        ? context.l10n.comingSoon
-                        : !security.hasFreshReauthentication
-                            ? context.l10n.reauthBeforeRevoke
-                            : context.l10n.serverRevokesOthers,
+                    ? context.l10n.comingSoon
+                    : !security.hasFreshReauthentication
+                    ? context.l10n.reauthBeforeRevoke
+                    : context.l10n.serverRevokesOthers,
                 showDivider: false,
-                onTap: caps.signOutOtherDevices &&
+                onTap:
+                    caps.signOutOtherDevices &&
                         caps.reauthentication &&
                         security.hasFreshReauthentication &&
                         !_security.loading
@@ -262,11 +270,12 @@ class _LoginTile extends StatelessWidget {
       title: session.device,
       body: session.current
           ? (place.isEmpty
-              ? context.l10n.thisSessionOnly
-              : context.l10n.thisSession(place))
-          : [place, session.source.trim()]
-              .where((part) => part.isNotEmpty)
-              .join('  ·  '),
+                ? context.l10n.thisSessionOnly
+                : context.l10n.thisSession(place))
+          : [
+              place,
+              session.source.trim(),
+            ].where((part) => part.isNotEmpty).join('  ·  '),
       showDivider: showDivider,
     );
   }

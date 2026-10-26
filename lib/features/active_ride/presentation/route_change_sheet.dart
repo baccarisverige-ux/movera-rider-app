@@ -131,23 +131,40 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           : context.l10n.lessCash(_kr(-diff));
     } else if (diff > 0) {
       // rider-u231: the method's name in the app language.
-      priceNote =
-          context.l10n.moreCharged(_kr(diff), paymentLabelFor(paymentMethod));
+      priceNote = context.l10n.moreCharged(
+        _kr(diff),
+        paymentLabelFor(paymentMethod),
+      );
     } else {
-      priceNote =
-          context.l10n.lessReturned(_kr(-diff), paymentLabelFor(paymentMethod));
+      priceNote = context.l10n.lessReturned(
+        _kr(-diff),
+        paymentLabelFor(paymentMethod),
+      );
     }
     return _step(
       key: const ValueKey('route-change-step-route'),
       body: [
         Text(
           context.l10n.newRoute,
-          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
         ),
         const SizedBox(height: 14),
-        _row(Icons.radio_button_checked, const Color(0xFF079A60), quote.pickupAddress),
+        _row(
+          Icons.radio_button_checked,
+          const Color(0xFF079A60),
+          quote.pickupAddress,
+        ),
         for (var i = 0; i < quote.stops.length; i++)
-          _row(Icons.circle_outlined, _ink, quote.stops[i].address, label: context.l10n.stopNumber('${i + 1}')),
+          _row(
+            Icons.circle_outlined,
+            _ink,
+            quote.stops[i].address,
+            label: context.l10n.stopNumber('${i + 1}'),
+          ),
         _row(Icons.square, const Color(0xFF1769E8), quote.destinationAddress),
       ],
       // The new price stays next to Confirm; only the route list scrolls.
@@ -167,10 +184,17 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                   children: [
                     Text(
                       context.l10n.newPrice,
-                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: _muted),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _muted,
+                      ),
                     ),
                     const SizedBox(height: 2),
-                    Text(priceNote, style: GoogleFonts.poppins(fontSize: 12.5, color: _muted)),
+                    Text(
+                      priceNote,
+                      style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
+                    ),
                   ],
                 ),
               ),
@@ -180,7 +204,11 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                 children: [
                   Text(
                     _kr(quote.newPriceKr),
-                    style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
                   ),
                   if (quote.changesPrice)
                     Text(
@@ -199,7 +227,9 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-confirm'),
-          label: _cash || !quote.changesPrice ? context.l10n.confirmChange : context.l10n.confirmNextPayment,
+          label: _cash || !quote.changesPrice
+              ? context.l10n.confirmChange
+              : context.l10n.confirmNextPayment,
           onPressed: _confirmRoute,
         ),
         const SizedBox(height: 8),
@@ -219,13 +249,15 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
       body: [
         Text(
           more ? context.l10n.confirmPayment : context.l10n.chooseRefund,
-          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
-          more
-              ? context.l10n.routeChargedNow
-              : context.l10n.routeCostsLess,
+          more ? context.l10n.routeChargedNow : context.l10n.routeCostsLess,
           style: GoogleFonts.poppins(fontSize: 13.5, color: _muted),
         ),
         const SizedBox(height: 16),
@@ -259,8 +291,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
               RefundDestination.wallet,
               key: const ValueKey('refund-to-wallet'),
               title: context.l10n.moveraWallet,
-              subtitle:
-                  context.l10n.refundWalletBody,
+              subtitle: context.l10n.refundWalletBody,
               icon: Icons.account_balance_wallet_outlined,
             ),
           ],
@@ -269,8 +300,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             RefundDestination.originalMethod,
             key: const ValueKey('refund-to-original'),
             title: paymentMethod,
-            subtitle:
-                context.l10n.refundOriginalBody,
+            subtitle: context.l10n.refundOriginalBody,
             icon: Icons.credit_card_outlined,
           ),
         ],
@@ -287,7 +317,10 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           onPressed: _confirmPayment,
         ),
         const SizedBox(height: 8),
-        _secondary(context.l10n.back, () => setState(() => _paymentStep = false)),
+        _secondary(
+          context.l10n.back,
+          () => setState(() => _paymentStep = false),
+        ),
       ],
     );
   }
@@ -355,10 +388,17 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.poppins(fontSize: 14.5, fontWeight: FontWeight.w600, color: _ink),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
                     ),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: GoogleFonts.poppins(fontSize: 12.5, color: _muted)),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
+                    ),
                   ],
                 ),
               ),
@@ -375,7 +415,11 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
     );
   }
 
-  Widget _primary({required Key key, required String label, required VoidCallback onPressed}) {
+  Widget _primary({
+    required Key key,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     // A minimum height, not a fixed one: a long label at large text wraps
     // inside the button instead of being clipped (UI-05).
     return ConstrainedBox(
@@ -389,12 +433,18 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF11181D),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -407,7 +457,10 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(foregroundColor: _accent),
-        child: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15)),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
       ),
     );
   }
@@ -421,7 +474,11 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           Expanded(
             child: Text(
               left,
-              style: GoogleFonts.poppins(fontSize: 14, color: bold ? _ink : _muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: bold ? _ink : _muted,
+                fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -430,7 +487,11 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             child: Text(
               right,
               textAlign: TextAlign.end,
-              style: GoogleFonts.poppins(fontSize: bold ? 16 : 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: _ink),
+              style: GoogleFonts.poppins(
+                fontSize: bold ? 16 : 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+                color: _ink,
+              ),
             ),
           ),
         ],

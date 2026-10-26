@@ -240,31 +240,34 @@ void main() {
     });
   });
 
-  test('CODE-2 the RideCheck simulator is installed only behind the QA gate', () {
-    final html = _read('web/index.html');
-    expect(html, isNot(contains('window.moveraSimulateRideCheck =')));
-    expect(html, isNot(contains('_moveraPendingRideCheck')));
-    final hooks = _read('lib/core/debug/web_qa_hooks_web.dart');
-    final install = hooks.substring(
-      hooks.indexOf('void installRideCheckQaHook()'),
-    );
-    expect(
-      install.substring(0, install.indexOf('globalContext')),
-      contains('if (!moveraQaHooksEnabled) return;'),
-    );
-    final pending = hooks.substring(
-      hooks.indexOf('String? pendingRideCheckType()'),
-    );
-    expect(
-      pending.substring(0, pending.indexOf('globalContext')),
-      contains('if (!moveraQaHooksEnabled) return null;'),
-    );
-    final bootstrap = _read('lib/app/bootstrap.dart');
-    expect(
-      RegExp(
-        r'if \(moveraQaHooksEnabled\) \{\s*registerWebQaHooks\(\);\s*installRideCheckQaHook\(\);',
-      ).hasMatch(bootstrap),
-      isTrue,
-    );
-  });
+  test(
+    'CODE-2 the RideCheck simulator is installed only behind the QA gate',
+    () {
+      final html = _read('web/index.html');
+      expect(html, isNot(contains('window.moveraSimulateRideCheck =')));
+      expect(html, isNot(contains('_moveraPendingRideCheck')));
+      final hooks = _read('lib/core/debug/web_qa_hooks_web.dart');
+      final install = hooks.substring(
+        hooks.indexOf('void installRideCheckQaHook()'),
+      );
+      expect(
+        install.substring(0, install.indexOf('globalContext')),
+        contains('if (!moveraQaHooksEnabled) return;'),
+      );
+      final pending = hooks.substring(
+        hooks.indexOf('String? pendingRideCheckType()'),
+      );
+      expect(
+        pending.substring(0, pending.indexOf('globalContext')),
+        contains('if (!moveraQaHooksEnabled) return null;'),
+      );
+      final bootstrap = _read('lib/app/bootstrap.dart');
+      expect(
+        RegExp(
+          r'if \(moveraQaHooksEnabled\) \{\s*registerWebQaHooks\(\);\s*installRideCheckQaHook\(\);',
+        ).hasMatch(bootstrap),
+        isTrue,
+      );
+    },
+  );
 }

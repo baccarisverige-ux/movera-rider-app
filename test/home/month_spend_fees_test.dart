@@ -25,10 +25,14 @@ void main() {
   test('charged fares and cancel fees count as spent', () {
     final stats = MonthRideStats.fromRides([
       ride('a', ReservationStatus.completed),
-      ride('b', ReservationStatus.cancelled)
-          .copyWith(endedEarly: true, chargedFare: const Money(12000)),
-      ride('c', ReservationStatus.cancelled)
-          .copyWith(cancellationFee: const Money(3500)),
+      ride(
+        'b',
+        ReservationStatus.cancelled,
+      ).copyWith(endedEarly: true, chargedFare: const Money(12000)),
+      ride(
+        'c',
+        ReservationStatus.cancelled,
+      ).copyWith(cancellationFee: const Money(3500)),
       ride('d', ReservationStatus.cancelled),
     ], DateTime(2026, 10, 14, 12));
     expect(stats.pillText, '1 ride · 414 kr');

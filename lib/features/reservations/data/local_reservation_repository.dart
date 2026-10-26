@@ -25,7 +25,11 @@ class PrefsReservationStorage implements ReservationStorage {
       final prefs = await PreferencesStore.load();
       return prefs.getString(key);
     } catch (error, stackTrace) {
-      AppLog.error('reservation.storage.read_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'reservation.storage.read_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }
@@ -36,7 +40,11 @@ class PrefsReservationStorage implements ReservationStorage {
       final prefs = await PreferencesStore.load();
       await prefs.setString(key, json);
     } catch (error, stackTrace) {
-      AppLog.error('reservation.storage.write_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'reservation.storage.write_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
   }
@@ -68,6 +76,7 @@ class LocalReservationRepository implements ReservationRepository {
        _clock = clock ?? DateTime.now;
 
   final ReservationStorage _storage;
+
   /// Null: [ReservationPolicyCatalog.current], in the app language.
   final ReservationPolicy? _policy;
   final String Function() _nextId;
@@ -214,7 +223,8 @@ class LocalReservationRepository implements ReservationRepository {
       // new time (ReservationController.startLiveIfDue) instead of
       // showing "searching" until then.
       final movedPickup = patch.scheduledPickupAt;
-      final status = patch.status ??
+      final status =
+          patch.status ??
           (movedPickup != null &&
                   current.status == ReservationStatus.driverAssignmentPending &&
                   current.driver == null &&

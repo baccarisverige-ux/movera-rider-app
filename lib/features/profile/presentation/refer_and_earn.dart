@@ -86,8 +86,7 @@ class ReferAndEarn extends StatelessWidget {
                     8.height,
                     TextWidget(
                       textAlign: TextAlign.center,
-                      text:
-                          context.l10n.referNotYetBody,
+                      text: context.l10n.referNotYetBody,
                       color: AppColor.subtitle,
                       fontSize: 13,
                       fontWeight: fwNormal,

@@ -17,10 +17,7 @@ class TripCancellation {
 }
 
 class TripSchedule {
-  const TripSchedule({
-    required this.scheduledFor,
-    this.parentTripId,
-  });
+  const TripSchedule({required this.scheduledFor, this.parentTripId});
 
   final DateTime scheduledFor;
   final String? parentTripId;

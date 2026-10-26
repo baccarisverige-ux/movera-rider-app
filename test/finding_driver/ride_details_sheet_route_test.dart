@@ -10,12 +10,21 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   const stops = [
-    RouteStop(address: 'Hötorget 1, Stockholm', latitude: 59.33, longitude: 18.06),
-    RouteStop(address: 'Odenplan 2, Stockholm', latitude: 59.34, longitude: 18.05),
+    RouteStop(
+      address: 'Hötorget 1, Stockholm',
+      latitude: 59.33,
+      longitude: 18.06,
+    ),
+    RouteStop(
+      address: 'Odenplan 2, Stockholm',
+      latitude: 59.34,
+      longitude: 18.05,
+    ),
   ];
 
-  testWidgets('shows pickup, stops in order and destination as plain rows',
-      (tester) async {
+  testWidgets('shows pickup, stops in order and destination as plain rows', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -42,7 +51,10 @@ void main() {
     expect(find.byKey(const ValueKey('ride-details-pickup')), findsOneWidget);
     expect(find.byKey(const ValueKey('ride-details-stop-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('ride-details-stop-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('ride-details-destination')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ride-details-destination')),
+      findsOneWidget,
+    );
     expect(find.textContaining('Hötorget'), findsOneWidget);
     expect(find.text('Stop 2'), findsOneWidget);
     // The route is changed on the route screen, not here.

@@ -11,6 +11,7 @@ class RidePin {
 
   final String pinId;
   final String userId;
+
   /// Rider-facing digits; empty when the server did not issue a valid PIN.
   final String pin;
   final bool requiredForStart;
@@ -46,14 +47,14 @@ class RidePin {
   }
 
   Map<String, dynamic> toJson() => {
-        'pinId': pinId,
-        'userId': userId,
-        'pin': pin,
-        'required': requiredForStart,
-        'rotatedAt': rotatedAt?.toIso8601String(),
-        'version': version,
-        'serverAuthoritative': serverAuthoritative,
-      };
+    'pinId': pinId,
+    'userId': userId,
+    'pin': pin,
+    'required': requiredForStart,
+    'rotatedAt': rotatedAt?.toIso8601String(),
+    'version': version,
+    'serverAuthoritative': serverAuthoritative,
+  };
 
   factory RidePin.fromJson(Map<String, dynamic>? json) {
     if (json == null) return unavailable;
@@ -63,10 +64,12 @@ class RidePin {
       pinId: json['pinId'] as String? ?? '',
       userId: json['userId'] as String? ?? '',
       pin: pin,
-      requiredForStart: json['required'] == true || json['requiredForStart'] == true,
+      requiredForStart:
+          json['required'] == true || json['requiredForStart'] == true,
       rotatedAt: DateTime.tryParse('${json['rotatedAt'] ?? ''}'),
       version: json['version'] is int ? json['version'] as int : 1,
-      serverAuthoritative: json['serverAuthoritative'] == true && pin.isNotEmpty,
+      serverAuthoritative:
+          json['serverAuthoritative'] == true && pin.isNotEmpty,
     );
   }
 }

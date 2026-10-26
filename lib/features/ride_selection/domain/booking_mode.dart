@@ -1,4 +1,5 @@
 import 'package:movera_rider/l10n/l10n.dart';
+
 /// Shared booking context for the one Movera category selector.
 ///
 /// Book now and Book for later use the same ride cards. Only the next

@@ -545,9 +545,9 @@ void main() {
     expect(first.session, isNull);
     expect(
       await _eventually(
-        () async => (await store.cachedRideCheckEvents(
-          'ride_u197',
-        )).any((e) => e.status == RideCheckStatus.resolved),
+        () async =>
+            (await store.cachedRideCheckEvents('ride_u197'))
+                .any((e) => e.status == RideCheckStatus.resolved),
       ),
       isTrue,
     );

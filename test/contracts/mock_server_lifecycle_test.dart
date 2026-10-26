@@ -19,16 +19,18 @@ void main() {
   });
 
   Future<Map<String, dynamic>> book({String category = 'movera'}) async {
-    final quote = (await api.post(
-      '/api/v1/quotes',
-      body: {
-        'rideType': category,
-        'pickupLat': 59.3293,
-        'pickupLng': 18.0686,
-        'destinationLat': 59.3326,
-        'destinationLng': 18.0649,
-      },
-    ))['quote'] as Map;
+    final quote =
+        (await api.post(
+              '/api/v1/quotes',
+              body: {
+                'rideType': category,
+                'pickupLat': 59.3293,
+                'pickupLng': 18.0686,
+                'destinationLat': 59.3326,
+                'destinationLng': 18.0649,
+              },
+            ))['quote']
+            as Map;
     final created = await api.post(
       '/api/v1/rides',
       body: {
@@ -53,37 +55,43 @@ void main() {
   Future<Map<String, dynamic>> simulate(
     String id,
     Map<String, dynamic> body,
-  ) async =>
-      Map<String, dynamic>.from(
-        (await api.post('/api/v1/rides/$id/status', body: body))['ride']
-            as Map,
-      );
+  ) async => Map<String, dynamic>.from(
+    (await api.post('/api/v1/rides/$id/status', body: body))['ride'] as Map,
+  );
 
-  test('a live booking is created searching, with tripId and economy', () async {
-    final ride = await book();
-    expect(ride['status'], 'searching');
-    expect(ride['tripId'], ride['id']);
-    expect(ride['rideId'], ride['id']);
-    expect(ride['categoryId'], 'economy', reason: 'movera is an alias');
-    expect(ride['ratingStatus'], 'not_requested');
-  });
+  test(
+    'a live booking is created searching, with tripId and economy',
+    () async {
+      final ride = await book();
+      expect(ride['status'], 'searching');
+      expect(ride['tripId'], ride['id']);
+      expect(ride['rideId'], ride['id']);
+      expect(ride['categoryId'], 'economy', reason: 'movera is an alias');
+      expect(ride['ratingStatus'], 'not_requested');
+    },
+  );
 
-  test('cancel after completion is 409 invalid_transition with projection',
-      () async {
-    final ride = await book();
-    final id = ride['id'] as String;
-    final done = await simulate(id, {'status': 'completed'});
-    expect(done['status'], 'completed');
-    expect(done['version'], greaterThan(ride['version'] as int));
+  test(
+    'cancel after completion is 409 invalid_transition with projection',
+    () async {
+      final ride = await book();
+      final id = ride['id'] as String;
+      final done = await simulate(id, {'status': 'completed'});
+      expect(done['status'], 'completed');
+      expect(done['version'], greaterThan(ride['version'] as int));
 
-    final error = await api
-        .post('/api/v1/rides/$id/cancel', body: {'reasonCode': 'plans_changed'})
-        .then<ApiError?>((_) => null, onError: (Object e) => e as ApiError);
-    expect(error, isNotNull);
-    expect(error!.statusCode, 409);
-    expect(error.code, 'invalid_transition');
-    expect(server.rides[id]!['status'], 'completed');
-  });
+      final error = await api
+          .post(
+            '/api/v1/rides/$id/cancel',
+            body: {'reasonCode': 'plans_changed'},
+          )
+          .then<ApiError?>((_) => null, onError: (Object e) => e as ApiError);
+      expect(error, isNotNull);
+      expect(error!.statusCode, 409);
+      expect(error.code, 'invalid_transition');
+      expect(server.rides[id]!['status'], 'completed');
+    },
+  );
 
   test('rider cancel before boarding; end-early once on board', () async {
     final first = await book();
@@ -103,7 +111,9 @@ void main() {
         '/api/v1/rides/$id/cancel',
         body: {'reasonCode': 'plans_changed'},
       ),
-      throwsA(isA<ApiError>().having((e) => e.code, 'code', 'invalid_transition')),
+      throwsA(
+        isA<ApiError>().having((e) => e.code, 'code', 'invalid_transition'),
+      ),
     );
     final ended = await api.post('/api/v1/rides/$id/end-early');
     expect((ended['ride'] as Map)['status'], 'cancelled_by_rider');
@@ -139,12 +149,12 @@ void main() {
       throwsA(anything),
     );
     expect(server.rides[id]!['ratingStatus'], 'pending');
-    await api.post(
-      '/api/v1/rides/$id/feedback',
-      body: {'rating': 4},
-    );
+    await api.post('/api/v1/rides/$id/feedback', body: {'rating': 4});
     expect(server.rides[id]!['ratingStatus'], 'submitted');
-    expect(TripStatusWire.parse(server.rides[id]!['status']), TripStatus.completed);
+    expect(
+      TripStatusWire.parse(server.rides[id]!['status']),
+      TripStatus.completed,
+    );
   });
 
   test('search expiry is the expire command, not a client guess', () async {

@@ -40,23 +40,43 @@ class SafetyTipsPage extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${i + 1}'.padLeft(2, '0'),
-                            style: SafetyUi.text(13, color: SafetyUi.accent, weight: FontWeight.w600)),
+                        Text(
+                          '${i + 1}'.padLeft(2, '0'),
+                          style: SafetyUi.text(
+                            13,
+                            color: SafetyUi.accent,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(tips[i].$1, style: SafetyUi.text(15.5, weight: FontWeight.w600)),
+                              Text(
+                                tips[i].$1,
+                                style: SafetyUi.text(
+                                  15.5,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: 4),
-                              Text(tips[i].$2, style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.4)),
+                              Text(
+                                tips[i].$2,
+                                style: SafetyUi.text(
+                                  13.5,
+                                  color: SafetyUi.muted,
+                                  height: 1.4,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (i != tips.length - 1) const Divider(height: 1, color: SafetyUi.line),
+                  if (i != tips.length - 1)
+                    const Divider(height: 1, color: SafetyUi.line),
                 ],
               ],
             ),

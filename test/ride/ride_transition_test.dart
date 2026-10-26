@@ -29,7 +29,6 @@ void main() {
     expect(status, RideStatus.closed);
   });
 
-
   test('rider cancellation is valid throughout an active trip', () {
     for (final status in [
       RideStatus.tripStarted,

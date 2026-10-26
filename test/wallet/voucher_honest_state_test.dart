@@ -22,12 +22,7 @@ void main() {
 
     expect(find.byIcon(Icons.confirmation_number_outlined), findsOneWidget);
     expect(find.text('Vouchers aren’t available yet'), findsOneWidget);
-    expect(
-      find.textContaining('when the service launches'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('when the service launches'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
-
-  
 }

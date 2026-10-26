@@ -91,7 +91,8 @@ class WalletStore implements WalletBalanceSource {
     final savedDefault = prefs.getString('movera_default_payment');
     // Cash is the default; removed methods (PayPal, Klarna, Swish)
     // and unverified local cards fall back to it.
-    final defaultMethod = savedDefault == null ||
+    final defaultMethod =
+        savedDefault == null ||
             _removedMethods.contains(savedDefault) ||
             savedDefault == 'card' ||
             savedDefault.startsWith('card_')
@@ -179,8 +180,10 @@ class WalletStore implements WalletBalanceSource {
 /// ride charge or a refund that lands while the Wallet page is open is
 /// never overwritten by a top-up computed from the page's stale balance.
 class LocalWalletRepository implements WalletBalanceRepository {
-  LocalWalletRepository([WalletBalanceSource? source, this.currency = Money.defaultCurrency])
-      : _source = source ?? WalletStore(currency: currency);
+  LocalWalletRepository([
+    WalletBalanceSource? source,
+    this.currency = Money.defaultCurrency,
+  ]) : _source = source ?? WalletStore(currency: currency);
 
   final WalletBalanceSource _source;
 
@@ -223,7 +226,8 @@ class LocalWalletRepository implements WalletBalanceRepository {
     try {
       if (previous != null) await previous;
       final current = await _source.loadBalance();
-      final nextMinor = Money.fromLegacyMajor(current, currency).amountMinor +
+      final nextMinor =
+          Money.fromLegacyMajor(current, currency).amountMinor +
           Money.fromLegacyMajor(deltaKr, currency).amountMinor;
       final next = Money(nextMinor, currency).major;
       await _source.saveBalance(next);
@@ -249,10 +253,8 @@ class LocalWalletRepository implements WalletBalanceRepository {
   }) => _apply(-amount);
 
   @override
-  Future<double> refund({
-    required double previous,
-    required double amount,
-  }) => _apply(amount);
+  Future<double> refund({required double previous, required double amount}) =>
+      _apply(amount);
 }
 
 /// The wallet of a build where it is switched off: no balance, and every
@@ -290,8 +292,6 @@ class DisabledWalletRepository
   }) => Future.error(const WalletUnavailableException());
 
   @override
-  Future<double> refund({
-    required double previous,
-    required double amount,
-  }) => Future.error(const WalletUnavailableException());
+  Future<double> refund({required double previous, required double amount}) =>
+      Future.error(const WalletUnavailableException());
 }

@@ -532,12 +532,11 @@ class SupportMessages extends StatelessWidget {
 /// Sends a rider's message about a ride to Movera (`POST
 /// /rides/{id}/disputes`, the same review queue as "Report an issue" on the
 /// receipt).
-typedef SupportMessageSender =
-    Future<void> Function({
-      required String rideId,
-      required String reason,
-      String? detail,
-    });
+typedef SupportMessageSender = Future<void> Function({
+  required String rideId,
+  required String reason,
+  String? detail,
+});
 
 /// UI-03: the in-app way to reach Movera about a ride. It used to be a
 /// chat whose input read "Support messaging unavailable" — a dead end for a
@@ -823,7 +822,9 @@ class _SupportChatState extends State<SupportChat> {
       return _wideButton(
         label: context.l10n.supportEmail,
         onPressed: () async {
-          final opened = await contact.openEmail(subject: context.l10n.supportEmailSubject);
+          final opened = await contact.openEmail(
+            subject: context.l10n.supportEmailSubject,
+          );
           if (!opened && context.mounted) {
             MoveraToast.show(
               context,

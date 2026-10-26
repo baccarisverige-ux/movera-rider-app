@@ -372,10 +372,14 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       builder: (context, constraints) {
         if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
           _viewport = Size(
-            (constraints.maxWidth - widget.padding.horizontal)
-                .clamp(0.0, double.infinity),
-            (constraints.maxHeight - widget.padding.vertical)
-                .clamp(0.0, double.infinity),
+            (constraints.maxWidth - widget.padding.horizontal).clamp(
+              0.0,
+              double.infinity,
+            ),
+            (constraints.maxHeight - widget.padding.vertical).clamp(
+              0.0,
+              double.infinity,
+            ),
           );
           _view?.size = _viewport;
         }

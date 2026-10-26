@@ -23,8 +23,9 @@ void main() {
     RideSnapshotStore.epoch = 0;
   });
 
-  testWidgets('a dropped live reservation searches again with no tap',
-      (tester) async {
+  testWidgets('a dropped live reservation searches again with no tap', (
+    tester,
+  ) async {
     final controller = ReservationController(
       store: LocalReservationRepository(
         storage: MemoryReservationStorage(),

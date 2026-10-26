@@ -391,8 +391,9 @@ class _MonthCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               TextWidget(
-                                text:
-                                    context.l10n.homeCo2Kg(L10n.formatDecimal(stats.co2AvoidedKg)),
+                                text: context.l10n.homeCo2Kg(
+                                  L10n.formatDecimal(stats.co2AvoidedKg),
+                                ),
                                 color: _ink,
                                 fontSize: 14,
                                 fontWeight: fwBold,

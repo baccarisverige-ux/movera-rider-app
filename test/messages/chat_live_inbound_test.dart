@@ -134,8 +134,10 @@ void main() {
 
     expect(server.sentTexts, ['Are you close?']);
     expect(find.text('Are you close?'), findsOneWidget);
-    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
     expect(controller.messages.single.messageId, 'msg_1');
     // The server's `at`, on the app's 24-hour clock in local time.
     expect(
@@ -159,7 +161,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(server.sentTexts, ['Are you close?', 'Still there?', 'Still there?']);
+    expect(server.sentTexts, [
+      'Are you close?',
+      'Still there?',
+      'Still there?',
+    ]);
     expect(find.text('Not sent. Tap to retry.'), findsNothing);
     expect(controller.messages.last.delivery, ChatDelivery.sent);
     expect(controller.messages, hasLength(2));

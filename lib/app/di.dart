@@ -84,23 +84,23 @@ import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
   AppScope._(this.environment)
-      : flags = FeatureFlags.forEnvironment(environment),
-        maps = GoogleMapProvider(),
-        mapLifecycle = MapLifecycleController(),
-        markers = MarkerStore(),
-        motion = MotionEngine(),
-        ride = RideSession(),
-        tokens = SecureTokenStore(),
-        realtime = RealtimeConnection(),
-        wallet = WalletLedger(),
-        lifecycle = AppLifecycleObserver(),
-        permissions = PermissionService(),
-        search = PlaceSearchService(),
-        location = LocationRepository(),
-        crashes = const CrashReporter(),
-        pickup = PickupSession(),
-        destination = DestinationSession(),
-        booking = BookingCoordinator() {
+    : flags = FeatureFlags.forEnvironment(environment),
+      maps = GoogleMapProvider(),
+      mapLifecycle = MapLifecycleController(),
+      markers = MarkerStore(),
+      motion = MotionEngine(),
+      ride = RideSession(),
+      tokens = SecureTokenStore(),
+      realtime = RealtimeConnection(),
+      wallet = WalletLedger(),
+      lifecycle = AppLifecycleObserver(),
+      permissions = PermissionService(),
+      search = PlaceSearchService(),
+      location = LocationRepository(),
+      crashes = const CrashReporter(),
+      pickup = PickupSession(),
+      destination = DestinationSession(),
+      booking = BookingCoordinator() {
     api = ApiClient(
       env: environment,
       tokens: tokens,
@@ -252,7 +252,8 @@ class AppScope {
     AuthComposition.validate(environment);
     WalletComposition.validate(
       environment: environment,
-      usesLocalBalanceSource: flags.wallet && walletBalances is! ServerBackedRepository,
+      usesLocalBalanceSource:
+          flags.wallet && walletBalances is! ServerBackedRepository,
     );
     RepositoryComposition.validate(
       environment: environment,
@@ -380,18 +381,18 @@ class AppScope {
   /// Contract v0.5.4: the trip chat (`/trips/{tripId}/messages`) on the
   /// live wire. The demo's mock transport has no chat server, so there it
   /// is null and Chat stays read-only as before.
-  late final TripMessagesTransport? tripMessages =
-      api.contractWire ? ApiTripMessages(api: api) : null;
+  late final TripMessagesTransport? tripMessages = api.contractWire
+      ? ApiTripMessages(api: api)
+      : null;
 
   /// The in-app explanation in front of the OS notification prompt.
   late final PushPermissionGate pushPermission = PushPermissionGate(
     push: push,
     enabled: !environment.allowsMockTransport,
   );
-  late final RiderPromotionController promotion = RiderPromotionController(
-    api,
-  );
+  late final RiderPromotionController promotion = RiderPromotionController(api);
   HttpObservabilitySink? observabilitySink;
+
   /// Per flavor (ARCH-6 / ARCH-7): release switches off the features whose
   /// data still lives only on this device.
   FeatureFlags flags;

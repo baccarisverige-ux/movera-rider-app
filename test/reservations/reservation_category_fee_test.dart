@@ -50,10 +50,7 @@ void main() {
         );
 
     test('premium 90 min before pickup is late: 25% of 420 kr', () {
-      final terms = controller().cancelTermsFor(
-        _ride(),
-        now: _before(90),
-      );
+      final terms = controller().cancelTermsFor(_ride(), now: _before(90));
       expect(terms.fee, const Money(10500));
       expect(terms.window, const Duration(minutes: 120));
       expect(terms.freeUntil, _before(120));
@@ -83,7 +80,10 @@ void main() {
       expect(terms.lateFee, const Money(5000));
       expect(
         controller()
-            .cancelTermsFor(_ride(category: 'movera', price: 259), now: _before(30))
+            .cancelTermsFor(
+              _ride(category: 'movera', price: 259),
+              now: _before(30),
+            )
             .fee,
         const Money(5000),
         reason: 'movera is read as economy',
@@ -128,8 +128,10 @@ void main() {
         const Money(5000),
       );
       await reservations.refreshRules();
-      expect(reservations.cancelTermsFor(_ride(), now: _before(45)).isFree,
-          isTrue);
+      expect(
+        reservations.cancelTermsFor(_ride(), now: _before(45)).isFree,
+        isTrue,
+      );
       expect(
         reservations.cancelTermsFor(_ride(), now: _before(20)).fee,
         const Money(2000),
@@ -151,7 +153,9 @@ void main() {
         status: ReservationStatus.scheduled,
       );
       expect(
-        controller().cancelTermsFor(ride, now: _pickup.add(const Duration(minutes: 1))).isFree,
+        controller()
+            .cancelTermsFor(ride, now: _pickup.add(const Duration(minutes: 1)))
+            .isFree,
         isTrue,
       );
     });

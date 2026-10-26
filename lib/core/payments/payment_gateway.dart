@@ -1,5 +1,9 @@
 class PaymentIntent {
-  const PaymentIntent({required this.id, required this.amountMinor, required this.currency});
+  const PaymentIntent({
+    required this.id,
+    required this.amountMinor,
+    required this.currency,
+  });
   final String id;
   final int amountMinor;
   final String currency;

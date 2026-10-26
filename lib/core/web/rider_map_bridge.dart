@@ -78,11 +78,7 @@ abstract final class RiderMapBridge {
   /// (one camera move per painted frame, the flight ease of
   /// map_camera_motion.dart). Completes with true when it lands, false when
   /// cancelled; null when the layer is not there (the Dart loop steps).
-  static Future<bool>? flight(
-    int mapId,
-    CameraPosition to,
-    Duration duration,
-  ) {
+  static Future<bool>? flight(int mapId, CameraPosition to, Duration duration) {
     final fake = debugFlight;
     if (fake != null) return fake(mapId, to, duration);
     return impl.flight(
@@ -135,13 +131,13 @@ abstract final class RiderMapBridge {
   /// A running flight or glide turns towards [to]: a flight on its own
   /// clock, a glide at the speed it has.
   static void retarget(int mapId, CameraPosition to) => impl.retarget(
-        mapId,
-        to.target.latitude,
-        to.target.longitude,
-        to.zoom,
-        to.bearing,
-        to.tilt,
-      );
+    mapId,
+    to.target.latitude,
+    to.target.longitude,
+    to.zoom,
+    to.bearing,
+    to.tilt,
+  );
 
   /// Stops a running flight or glide where it is, and returns where that
   /// is (null when nothing was moving or the layer cannot tell).

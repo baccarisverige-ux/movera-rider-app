@@ -139,8 +139,7 @@ enum _Rebook {
 class _FindingDriversState extends State<FindingDrivers> {
   /// The trip's currency: the one the search holds once it started (a
   /// restored or re-requested trip keeps its own), else the widget's.
-  String get _currency =>
-      _match.ownershipSnapshot?.currency ?? widget.currency;
+  String get _currency => _match.ownershipSnapshot?.currency ?? widget.currency;
 
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
@@ -172,6 +171,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _sheetExpanded = false;
   int _nearbyPaintKey = 0;
   final SheetController _sheetController = SheetController();
+
   /// Green pickup pin (the rider waits there).
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _destinationPin;
@@ -213,9 +213,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       if (stale == true) {
         _showCancelNotice(rideJustChangedMessage);
       } else if (stale == false) {
-        _showCancelNotice(
-          context.l10n.driverAlreadyAccepted,
-        );
+        _showCancelNotice(context.l10n.driverAlreadyAccepted);
       }
     });
   }
@@ -363,7 +361,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     _leaving = true;
     setState(() {});
     final ended = _match.ownershipSnapshot;
-    final canRetry = status == RideStatus.noDriverFound &&
+    final canRetry =
+        status == RideStatus.noDriverFound &&
         ended != null &&
         ended.categoryId != null &&
         ended.paymentMethodId != null;
@@ -463,9 +462,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       // RC-09: a timeout or dropped connection may still have booked it.
       if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
       _rebookQuote = null;
-      _showCancelNotice(
-        L10n.current.rebookFailed,
-      );
+      _showCancelNotice(L10n.current.rebookFailed);
       return _Rebook.failed;
     } finally {
       if (mounted) setState(() => _rebooking = false);
@@ -596,24 +593,27 @@ class _FindingDriversState extends State<FindingDrivers> {
     final eta = widget.etaMinutes;
     final tripMinutes = estimatedTripMinutes(
       GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
-      GeoPoint(
-        _destinationPosition.latitude,
-        _destinationPosition.longitude,
-      ),
+      GeoPoint(_destinationPosition.latitude, _destinationPosition.longitude),
     );
     final icons = await Future.wait<BitmapDescriptor>([
       // While searching the pins carry the estimate; the live driver ETA
       // takes over once a driver is found.
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: true)
-          : RouteTimeMarker.createIcon(pickup: true, label: context.l10n.minLineBreak('$eta')),
+          : RouteTimeMarker.createIcon(
+              pickup: true,
+              label: context.l10n.minLineBreak('$eta'),
+            ),
       MoveraVehicleMarker.createIcon(),
       eta == null
           ? RouteEndpointMarker.createIcon(pickup: false)
           : RouteTimeMarker.createIcon(
               pickup: false,
-              label:
-                  context.l10n.arriveBy(clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))),
+              label: context.l10n.arriveBy(
+                clockTime(
+                  DateTime.now().add(Duration(minutes: eta + tripMinutes)),
+                ),
+              ),
             ),
     ]);
     if (!mounted) return;
@@ -735,13 +735,9 @@ class _FindingDriversState extends State<FindingDrivers> {
       // RC-03: offline. Nothing is cancelled yet; the search shows
       // "Cancelling…" until the server confirms it or a driver accepted.
       setState(() {});
-      _showCancelNotice(
-        context.l10n.cancelOfflineQueued,
-      );
+      _showCancelNotice(context.l10n.cancelOfflineQueued);
     } else if (result == SearchCancelResult.driverAccepted) {
-      _showCancelNotice(
-        context.l10n.driverAlreadyAccepted,
-      );
+      _showCancelNotice(context.l10n.driverAlreadyAccepted);
     } else if (result == SearchCancelResult.rejected) {
       _showCancelNotice(context.l10n.cancelNoLonger);
     } else if (result == SearchCancelResult.unsent) {
@@ -846,7 +842,10 @@ class _FindingDriversState extends State<FindingDrivers> {
     _pickupAddress = updated.pickupAddress;
     _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
     _destinationAddress = updated.destinationAddress;
-    _destinationPosition = LatLng(updated.destinationLat, updated.destinationLng);
+    _destinationPosition = LatLng(
+      updated.destinationLat,
+      updated.destinationLng,
+    );
     _stops = List<RouteStop>.from(updated.stops);
     _roadRoutePoints = null;
     _loadMapBits();
@@ -859,31 +858,27 @@ class _FindingDriversState extends State<FindingDrivers> {
     setState(() {});
     _showEditFeedback(
       success: updated,
-      fallback: updated ? context.l10n.offerUpdated : context.l10n.editOfferFailed,
+      fallback: updated
+          ? context.l10n.offerUpdated
+          : context.l10n.editOfferFailed,
     );
   }
 
-  void _showEditFeedback({
-    required bool success,
-    required String fallback,
-  }) {
+  void _showEditFeedback({required bool success, required String fallback}) {
     if (!mounted) return;
     final message = _match.editFeedback ?? fallback;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
   /// The three dots on the ride card: the route screen with the current
   /// addresses, where the rider adjusts the pickup, the destination or
   /// the stops.
-  Future<void> _openDetails() => _changeRoute(null, RouteChangeEntry.destination);
-
+  Future<void> _openDetails() =>
+      _changeRoute(null, RouteChangeEntry.destination);
 
   @override
   void dispose() {
@@ -1128,9 +1123,8 @@ class _FindingDriversState extends State<FindingDrivers> {
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(
-                        0xFF162C36,
-                      ).withValues(alpha: 0.14),
+                      shadowColor: const Color(0xFF162C36)
+                          .withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
@@ -1154,10 +1148,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                           ),
                           if (!_match.showPriceBump)
                             Padding(
-                              padding: const EdgeInsets.only(
-                                top: 2,
-                                bottom: 6,
-                              ),
+                              padding: const EdgeInsets.only(top: 2, bottom: 6),
                               child: Image.asset(
                                 excludeFromSemantics: true,
                                 AppAssets.scheduleRideCar,
@@ -1356,7 +1347,6 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 }
-
 
 class _ResolvedRoute implements RoutingService {
   const _ResolvedRoute(this.points);

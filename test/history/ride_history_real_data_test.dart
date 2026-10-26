@@ -72,7 +72,9 @@ void main() {
     expect(find.byIcon(Icons.route_outlined), findsOneWidget);
     expect(find.text('No completed rides yet'), findsOneWidget);
     expect(
-      find.text('Completed trips and their real ride details will appear here.'),
+      find.text(
+        'Completed trips and their real ride details will appear here.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Book a ride'), findsOneWidget);
@@ -128,6 +130,4 @@ void main() {
     expectSettledHistory();
     expect(find.text('No completed rides yet'), findsOneWidget);
   });
-
-  
 }

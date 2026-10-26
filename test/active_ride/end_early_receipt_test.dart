@@ -85,53 +85,59 @@ void main() {
     await saveInTrip();
   });
 
-  test('rider-u178: an ended-early trip paid by wallet is debited what the '
-      'server charged, once; a wallet part is debited up to that part',
-      () async {
-    final fare = {'amountMinor': 24500, 'currency': 'SEK'};
-    await saveInTrip(paymentMethod: 'Movera Wallet');
-    await ActiveRideController(api: api(fare: fare)).markCancelled();
-    expect(await WalletStore().loadBalance(), 255);
-    // A second confirmation of the same trip never charges again.
-    await ActiveRideController(api: api(fare: fare))
-        .completeServerConfirmedCancel();
-    expect(await WalletStore().loadBalance(), 255);
+  test(
+    'rider-u178: an ended-early trip paid by wallet is debited what the '
+    'server charged, once; a wallet part is debited up to that part',
+    () async {
+      final fare = {'amountMinor': 24500, 'currency': 'SEK'};
+      await saveInTrip(paymentMethod: 'Movera Wallet');
+      await ActiveRideController(api: api(fare: fare)).markCancelled();
+      expect(await WalletStore().loadBalance(), 255);
+      // A second confirmation of the same trip never charges again.
+      await ActiveRideController(api: api(fare: fare))
+          .completeServerConfirmedCancel();
+      expect(await WalletStore().loadBalance(), 255);
 
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      WalletStore.balanceKey: 500.0,
-    });
-    AppScope.instance.ride.restoreFromBackend(
-      RideStatus.tripInProgress,
-      id: rideId,
-    );
-    await saveInTrip(walletAmountMinor: 10000);
-    await ActiveRideController(api: api(fare: fare)).markCancelled();
-    expect(await WalletStore().loadBalance(), 400);
-  });
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        WalletStore.balanceKey: 500.0,
+      });
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.tripInProgress,
+        id: rideId,
+      );
+      await saveInTrip(walletAmountMinor: 10000);
+      await ActiveRideController(api: api(fare: fare)).markCancelled();
+      expect(await WalletStore().loadBalance(), 400);
+    },
+  );
 
-  test('end-early keeps what the rider pays for the receipt and History',
-      () async {
-    final controller = ActiveRideController(
-      api: api(fare: {'amountMinor': 24500, 'currency': 'SEK'}),
-    );
-    final outcome = await controller.markCancelled(reasonId: 'plans_changed');
+  test(
+    'end-early keeps what the rider pays for the receipt and History',
+    () async {
+      final controller = ActiveRideController(
+        api: api(fare: {'amountMinor': 24500, 'currency': 'SEK'}),
+      );
+      final outcome = await controller.markCancelled(reasonId: 'plans_changed');
 
-    expect(outcome, RideCancelOutcome.confirmed);
-    expect(paths.single, 'POST /api/v1/rides/$rideId/end-early');
-    expect(controller.endedEarly?.rideId, rideId);
-    expect(controller.endedEarly?.charged, const Money(24500));
-    expect(LastCompletedRide.charged, const Money(24500));
-    expect(AppScope.instance.rideComplete.receipt()?.total, '245 kr');
+      expect(outcome, RideCancelOutcome.confirmed);
+      expect(paths.single, 'POST /api/v1/rides/$rideId/end-early');
+      expect(controller.endedEarly?.rideId, rideId);
+      expect(controller.endedEarly?.charged, const Money(24500));
+      expect(LastCompletedRide.charged, const Money(24500));
+      expect(AppScope.instance.rideComplete.receipt()?.total, '245 kr');
 
-    final history = await OnDemandRideHistoryStore.read();
-    final record = history.single;
-    expect(record.endedEarly, isTrue);
-    expect(record.chargedFare, const Money(24500));
-    expect(ReservationFormat.historyStatus(record), 'Ended early');
-    expect(ReservationFormat.price(record), '245 kr');
-    expect(ReservationFormat.reasonLabel(record.cancellationReason!),
-        'Plans changed');
-  });
+      final history = await OnDemandRideHistoryStore.read();
+      final record = history.single;
+      expect(record.endedEarly, isTrue);
+      expect(record.chargedFare, const Money(24500));
+      expect(ReservationFormat.historyStatus(record), 'Ended early');
+      expect(ReservationFormat.price(record), '245 kr');
+      expect(
+        ReservationFormat.reasonLabel(record.cancellationReason!),
+        'Plans changed',
+      );
+    },
+  );
 
   test('a cancel before boarding is not an ended-early trip', () async {
     AppScope.instance.ride.restoreFromBackend(

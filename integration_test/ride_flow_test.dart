@@ -16,7 +16,6 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 /// rider-u29: books a live ride on the stand-in server (quote, then ride)
 /// and answers its server-made id, so the mock's accept is the real one.
 /// The mock no longer shows a driver the server refused, as it did for
@@ -133,9 +132,8 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 30));
     expect(matches, 0);
     expect(await RideSnapshotStore.read(), isNull);
-    final page = await RideRestoreCoordinator(
-      reader: RideSnapshotStore.read,
-    ).root();
+    final page = await RideRestoreCoordinator(reader: RideSnapshotStore.read)
+        .root();
     expect(page, isA<Home>());
     controller.dispose();
     rt.dispose();

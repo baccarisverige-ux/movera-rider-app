@@ -18,16 +18,13 @@ void main() {
     connection.markReconnecting();
     connection.markFailed();
 
-    expect(
-      seen,
-      <RealtimeState>[
-        RealtimeState.connecting,
-        RealtimeState.connected,
-        RealtimeState.disconnected,
-        RealtimeState.reconnecting,
-        RealtimeState.failed,
-      ],
-    );
+    expect(seen, <RealtimeState>[
+      RealtimeState.connecting,
+      RealtimeState.connected,
+      RealtimeState.disconnected,
+      RealtimeState.reconnecting,
+      RealtimeState.failed,
+    ]);
   });
 
   testWidgets('connection banner reflects loss, reconnect and recovery', (
@@ -39,9 +36,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RealtimeConnectionBanner(connection: connection),
-        ),
+        home: Scaffold(body: RealtimeConnectionBanner(connection: connection)),
       ),
     );
 

@@ -23,7 +23,8 @@ void main() {
   });
 
   test('zooming out moves the pickup further for the same pixels', () {
-    final near = setPickupPointAbove(centre, 17, 136).latitude - centre.latitude;
+    final near =
+        setPickupPointAbove(centre, 17, 136).latitude - centre.latitude;
     final far = setPickupPointAbove(centre, 14, 136).latitude - centre.latitude;
     expect(far / near, closeTo(8, 0.01));
   });

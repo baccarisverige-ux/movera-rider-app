@@ -86,9 +86,8 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     ..onTap = () => _openLegal('privacy');
 
   void _openLegal(String kind) {
-    Navigator.of(
-      context,
-    ).push(RightToLeftTransition(AccountLegalPage(kind: kind)));
+    Navigator.of(context)
+        .push(RightToLeftTransition(AccountLegalPage(kind: kind)));
   }
 
   _Busy? _busy;

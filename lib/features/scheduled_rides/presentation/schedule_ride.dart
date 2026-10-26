@@ -67,6 +67,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
         ? 'Current location'
         : text;
   }
+
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
@@ -175,9 +176,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
     }
   }
 
-  Future<void> _withParkedScheduleMap(
-    Future<void> Function() action,
-  ) async {
+  Future<void> _withParkedScheduleMap(Future<void> Function() action) async {
     final parkedNow = !_mapParked;
     if (parkedNow) {
       setState(() => _mapParked = true);
@@ -198,8 +197,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
   Future<void> _confirmPickupThenCalendar() async {
     // Only the camera start for the pin screen: the rider confirms the real
     // spot there (CODE-5), so a missing fix just opens the default view.
-    final start = await resolveScheduledPoint(_pickupLabel) ??
-        _initialPosition.target;
+    final start =
+        await resolveScheduledPoint(_pickupLabel) ?? _initialPosition.target;
     if (!mounted) return;
     final spot = await ConfirmPickupSpot.open(
       context,
@@ -585,9 +584,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) goToPreviousStep();
       },
-      child: PointerInterceptor(
-        child: Scaffold(body: _buildPanelContent()),
-      ),
+      child: PointerInterceptor(child: Scaffold(body: _buildPanelContent())),
     );
   }
 
@@ -679,27 +676,27 @@ class _ScheduleRideState extends State<ScheduleRide> {
           _mapParked
               ? const ColoredBox(color: Color(0xFFF5F6F6))
               : CustomGoogleMap(
-            initialPosition: _initialPosition,
-            markers: ScheduleRide.mapMarkers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            compassEnabled: false,
-            buildingsEnabled: true,
-            indoorViewEnabled: false,
-            mapType: MapType.normal,
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-              AppScope.instance.maps.attach(
-                controller,
-                owner: MapOwners.schedule,
-              );
-            },
-            onTap: (LatLng position) {
-              // Handle map tap events
-            },
-          ),
+                  initialPosition: _initialPosition,
+                  markers: ScheduleRide.mapMarkers,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  compassEnabled: false,
+                  buildingsEnabled: true,
+                  indoorViewEnabled: false,
+                  mapType: MapType.normal,
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    AppScope.instance.maps.attach(
+                      controller,
+                      owner: MapOwners.schedule,
+                    );
+                  },
+                  onTap: (LatLng position) {
+                    // Handle map tap events
+                  },
+                ),
           SizedBox(
             width: double.infinity,
             child: Padding(

@@ -138,6 +138,7 @@ class MapView {
     if (now().difference(landed) > cameraEchoGrace) return false;
     return !_settled(reported, current);
   }
+
   Completer<void>? _done;
   ({double target, int generation, Completer<void> done})? _tiltEase;
 }
@@ -215,7 +216,8 @@ double _screenGap(CameraPosition a, CameraPosition b, double zoom) {
   // Web Mercator: a degree of latitude is 1 / cos(lat) times taller than a
   // degree of longitude is wide.
   final dx = (b.target.longitude - a.target.longitude) / 360 * world;
-  final dy = (b.target.latitude - a.target.latitude) /
+  final dy =
+      (b.target.latitude - a.target.latitude) /
       360 *
       world /
       math.max(.01, math.cos(lat));
@@ -223,10 +225,7 @@ double _screenGap(CameraPosition a, CameraPosition b, double zoom) {
   final zoomPx = (b.zoom - a.zoom).abs() * _pxPerLevel;
   final turn = _angleDelta(a.bearing, b.bearing).abs() * math.pi / 180;
   final tilt = (b.tilt - a.tilt).abs() * math.pi / 180;
-  return math.max(
-    math.max(pan, zoomPx),
-    math.max(turn, tilt) * _pxPerLevel,
-  );
+  return math.max(math.max(pan, zoomPx), math.max(turn, tilt) * _pxPerLevel);
 }
 
 /// Whether [a] and [b] look the same on screen (within [_settlePx]).
@@ -247,7 +246,8 @@ Duration flightDurationFor(CameraPosition from, CameraPosition to) {
     math.min(from.zoom, to.zoom),
   );
   final turn = _angleDelta(from.bearing, to.bearing).abs() / 90;
-  final effort = math.log(1 + pan / 100) / math.ln2 +
+  final effort =
+      math.log(1 + pan / 100) / math.ln2 +
       .6 * (to.zoom - from.zoom).abs() +
       .5 * turn;
   final ms = (220 + 90 * effort).clamp(
@@ -277,7 +277,10 @@ Duration flightDurationFor(CameraPosition from, CameraPosition to) {
   if (gap <= _settlePx) return (to, 0);
   final tau = math.max(200000, duration.inMicroseconds) * _glideTau / 1e6;
   final dt = dtMicros / 1e6;
-  final next = math.min((gap + _glideLandingPx) / tau, speed + _glideAccel * dt);
+  final next = math.min(
+    (gap + _glideLandingPx) / tau,
+    speed + _glideAccel * dt,
+  );
   final step = next * dt;
   if (step >= gap - _settlePx) return (to, next);
   final share = step / gap;
@@ -328,8 +331,7 @@ double _bumpIntegral(double x) {
 double flightEase(double t) {
   final x = t.clamp(0.0, 1.0);
   const total = slowPhaseSpeed + (1 - slowPhaseSpeed) * .35;
-  return (slowPhaseSpeed * x + (1 - slowPhaseSpeed) * _bumpIntegral(x)) /
-      total;
+  return (slowPhaseSpeed * x + (1 - slowPhaseSpeed) * _bumpIntegral(x)) / total;
 }
 
 /// The pan's share of the remaining way when the zoom covers [zoomShare]
@@ -357,16 +359,19 @@ CameraPosition _blend(
   final nextZoom = from.zoom + (to.zoom - from.zoom) * k;
   final fromOffset = from.tilt - view.tiltFor(from.zoom);
   final toOffset = to.tilt - view.tiltFor(to.zoom);
-  final tilt = (view.tiltFor(nextZoom) + fromOffset + (toOffset - fromOffset) * k)
-      .clamp(0.0, maxTiltForZoom(nextZoom));
+  final tilt =
+      (view.tiltFor(nextZoom) + fromOffset + (toOffset - fromOffset) * k).clamp(
+        0.0,
+        maxTiltForZoom(nextZoom),
+      );
   return CameraPosition(
     target: LatLng(
       from.target.latitude + (to.target.latitude - from.target.latitude) * p,
       from.target.longitude + (to.target.longitude - from.target.longitude) * p,
     ),
     zoom: nextZoom,
-    bearing: (from.bearing + _angleDelta(from.bearing, to.bearing) * k + 360) %
-        360,
+    bearing:
+        (from.bearing + _angleDelta(from.bearing, to.bearing) * k + 360) % 360,
     tilt: tilt,
   );
 }
@@ -405,12 +410,8 @@ Future<void> easeCameraTo(
   final running = view._done;
   // rider-j8-15: a flight (a recenter) during a follow glide starts afresh
   // below, so it gets its own clock instead of the follow glide's speed.
-  final startsFlight =
-      view._flight == null && duration >= _flightThreshold;
-  if (view.easing &&
-      view._goal != null &&
-      running != null &&
-      !startsFlight) {
+  final startsFlight = view._flight == null && duration >= _flightThreshold;
+  if (view.easing && view._goal != null && running != null && !startsFlight) {
     view._goal = to;
     view._goalDuration = duration;
     final id = view.mapId;

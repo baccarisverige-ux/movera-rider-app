@@ -269,8 +269,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (position == null) {
       setState(() {
         _pickupError = switch (result.failure) {
-          PickupLocationFailure.servicesDisabled =>
-            context.l10n.locServicesOff,
+          PickupLocationFailure.servicesDisabled => context.l10n.locServicesOff,
           PickupLocationFailure.permissionDenied =>
             context.l10n.locPermissionNeeded,
           PickupLocationFailure.permissionDeniedForever =>
@@ -401,13 +400,11 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                             height: radius * 2,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(
-                                0xFF2D5878,
-                              ).withValues(alpha: 0.12),
+                              color: const Color(0xFF2D5878)
+                                  .withValues(alpha: 0.12),
                               border: Border.all(
-                                color: const Color(
-                                  0xFF2D5878,
-                                ).withValues(alpha: 0.35),
+                                color: const Color(0xFF2D5878)
+                                    .withValues(alpha: 0.35),
                               ),
                             ),
                           );

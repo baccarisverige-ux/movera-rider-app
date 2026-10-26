@@ -58,7 +58,9 @@ class WhereToCard extends StatelessWidget {
                   excludeSemantics: true,
                   label: destinationAddress == null
                       ? context.l10n.whereTo
-                      : context.l10n.destinationLabel(shortAddress(destinationAddress, maxLength: 28)),
+                      : context.l10n.destinationLabel(
+                          shortAddress(destinationAddress, maxLength: 28),
+                        ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
                     child: Row(

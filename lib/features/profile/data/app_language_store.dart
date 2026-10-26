@@ -13,7 +13,8 @@ class PrefsAppLanguageStore implements AppLanguageStore {
   static const key = 'movera_app_language';
 
   @override
-  Future<String?> read() async => (await PreferencesStore.load()).getString(key);
+  Future<String?> read() async =>
+      (await PreferencesStore.load()).getString(key);
 
   @override
   Future<void> save(String code) async =>

@@ -15,12 +15,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class Chat extends StatefulWidget {
-  const Chat({
-    super.key,
-    this.driverName,
-    this.rideId,
-    this.controller,
-  });
+  const Chat({super.key, this.driverName, this.rideId, this.controller});
 
   final String? driverName;
   final String? rideId;
@@ -45,7 +40,8 @@ class _ChatState extends State<Chat> {
   void initState() {
     super.initState();
     final rideId = widget.rideId?.trim() ?? '';
-    _chat = widget.controller ??
+    _chat =
+        widget.controller ??
         MessagesController.forRide(
           rideId,
           transport: rideId.isEmpty ? null : AppScope.instance.tripMessages,
@@ -57,7 +53,9 @@ class _ChatState extends State<Chat> {
     // The live transport never reads the event stream, so new messages are
     // asked for while this screen is open (contract v0.5.4).
     _chat.startPolling(MessagesController.chatPollInterval);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd(jump: true));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToEnd(jump: true),
+    );
   }
 
   @override
@@ -202,8 +200,9 @@ class _ChatState extends State<Chat> {
                           hintTextColor: const Color(0xff969696),
                           contentHorizPadding: 14,
                           contentVertPadding: 14,
-                          textInputAction:
-                              canSend ? TextInputAction.send : null,
+                          textInputAction: canSend
+                              ? TextInputAction.send
+                              : null,
                           onFieldSubmitted: canSend ? (_) => _send() : null,
                         ),
                       ),
@@ -392,7 +391,6 @@ class DriverMessageBubble extends StatelessWidget {
     );
   }
 }
-
 
 class SystemMessageBubble extends StatelessWidget {
   const SystemMessageBubble({super.key, required this.message});

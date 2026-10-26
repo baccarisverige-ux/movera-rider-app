@@ -10,7 +10,9 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('one destination moves between wallet and payment preferences', (tester) async {
+  testWidgets('one destination moves between wallet and payment preferences', (
+    tester,
+  ) async {
     await tester.pumpWidget(const MaterialApp(home: WalletAndPaymentsScreen()));
     await tester.pumpAndSettle();
 
@@ -24,7 +26,9 @@ void main() {
     expect(find.text('Available balance'), findsOneWidget);
   });
 
-  testWidgets('payment controls fit a small screen at 200 percent text', (tester) async {
+  testWidgets('payment controls fit a small screen at 200 percent text', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(640, 1688);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.resetPhysicalSize);

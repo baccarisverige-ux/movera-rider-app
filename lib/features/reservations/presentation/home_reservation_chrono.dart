@@ -178,7 +178,8 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   }
 
   Future<void> _openLiveRide(Reservation snapshot) async {
-    if (!mounted || !_routeIsCurrent || _openedLiveId == snapshot.reservationId) return;
+    if (!mounted || !_routeIsCurrent || _openedLiveId == snapshot.reservationId)
+      return;
     // The snapshot can be a frame old (post-frame callback, stale tap). Only
     // open a ride that is still genuinely upcoming and still reveals its
     // driver — never one that has completed or been cancelled meanwhile.
@@ -233,8 +234,9 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   ReservationController get _reservations =>
       widget.controller ?? AppScope.instance.reservations;
 
-  List<Reservation> _sortedUpcoming() => [..._reservations.upcoming()]
-    ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
+  List<Reservation> _sortedUpcoming() =>
+      [..._reservations.upcoming()]
+        ..sort((a, b) => a.scheduledPickupAt.compareTo(b.scheduledPickupAt));
 
   /// The ride the chrono stands for: the earliest upcoming one, skipping a
   /// "no driver found" ride the rider was already shown when a later ride
@@ -298,8 +300,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
         );
         // rider-j8-7: under a minute left, or a pickup already past (driver
         // arrived, trip under way), is "now", not "in Now".
-        final due =
-            ride.scheduledPickupAt.difference(_now).inSeconds < 60;
+        final due = ride.scheduledPickupAt.difference(_now).inSeconds < 60;
         return PointerInterceptor(
           child: Semantics(
             button: true,

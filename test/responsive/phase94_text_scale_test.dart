@@ -16,26 +16,28 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MoveraScreenUtilInit(
-        builder: (context, child) => MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(
-              size: size,
-              textScaler: const TextScaler.linear(2),
-            ),
-            child: const Scaffold(
-              body: SizedBox(
-                height: 170,
-                child: MoveraEmptyState(
-                  icon: Icons.notifications_none,
-                  title: 'No notifications yet',
-                  message: 'Ride and account updates will appear here when they arrive.',
+      await tester.pumpWidget(
+        MoveraScreenUtilInit(
+          builder: (context, child) => MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: size,
+                textScaler: const TextScaler.linear(2),
+              ),
+              child: const Scaffold(
+                body: SizedBox(
+                  height: 170,
+                  child: MoveraEmptyState(
+                    icon: Icons.notifications_none,
+                    title: 'No notifications yet',
+                    message: 'Ride and account updates will appear here when they arrive.',
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ));
+      );
       // The production setup waits one frame for the real screen size.
       await tester.pump();
       expect(tester.takeException(), isNull);
@@ -47,28 +49,30 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MoveraScreenUtilInit(
-        builder: (context, child) => MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(
-              size: size,
-              textScaler: const TextScaler.linear(2),
-            ),
-            child: Scaffold(
-              body: ListView(
-                children: const [
-                  SafetyRow(
-                    mark: SafetyMarks.contacts,
-                    title: 'Emergency contact',
-                    subtitle: 'Let someone know where your ride is going.',
-                    status: 'Unavailable',
-                  ),
-                ],
+      await tester.pumpWidget(
+        MoveraScreenUtilInit(
+          builder: (context, child) => MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: size,
+                textScaler: const TextScaler.linear(2),
+              ),
+              child: Scaffold(
+                body: ListView(
+                  children: const [
+                    SafetyRow(
+                      mark: SafetyMarks.contacts,
+                      title: 'Emergency contact',
+                      subtitle: 'Let someone know where your ride is going.',
+                      status: 'Unavailable',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ));
+      );
       // The production setup waits one frame for the real screen size.
       await tester.pump();
       expect(tester.takeException(), isNull);

@@ -30,9 +30,7 @@ class AddCardPage extends StatefulWidget {
     BuildContext context, {
     SavedCardsController? cards,
   }) => Navigator.of(context).push(
-    MaterialPageRoute<SavedCard>(
-      builder: (_) => AddCardPage(cards: cards),
-    ),
+    MaterialPageRoute<SavedCard>(builder: (_) => AddCardPage(cards: cards)),
   );
 
   static const Color _ink = Color(0xFF1D252C);
@@ -124,7 +122,8 @@ class _AddCardPageState extends State<AddCardPage> {
     final digits = _digits;
     // rider-53: in the app language, like the other field errors.
     if (CardInput.brandRejected(digits)) return context.l10n.cardBrandsAccepted;
-    final done = digits.length == 16 || (!_numberFocus.hasFocus && digits.isNotEmpty);
+    final done =
+        digits.length == 16 || (!_numberFocus.hasFocus && digits.isNotEmpty);
     if (done && !_numberOk) return context.l10n.cardCheckNumber;
     return null;
   }
@@ -245,7 +244,10 @@ class _AddCardPageState extends State<AddCardPage> {
                         isDense: true,
                         isCollapsed: true,
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.only(top: 2, bottom: 4),
+                        contentPadding: const EdgeInsets.only(
+                          top: 2,
+                          bottom: 4,
+                        ),
                         hintText: hint,
                         hintStyle: _t(
                           16,
@@ -352,7 +354,9 @@ class _AddCardPageState extends State<AddCardPage> {
             children: [
               Expanded(
                 child: Text(
-                  holder.isEmpty ? context.l10n.cardNameOnCardUpper : holder.toUpperCase(),
+                  holder.isEmpty
+                      ? context.l10n.cardNameOnCardUpper
+                      : holder.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _t(11, c: Colors.white70),
@@ -462,10 +466,17 @@ class _AddCardPageState extends State<AddCardPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lock_outline_rounded, color: _accent, size: 20),
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    color: _accent,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(context.l10n.addCardDemoNote, style: _t(12.5, c: _accent)),
+                    child: Text(
+                      context.l10n.addCardDemoNote,
+                      style: _t(12.5, c: _accent),
+                    ),
                   ),
                 ],
               ),
@@ -526,7 +537,8 @@ class _CardNumberFormatter extends TextInputFormatter {
     final digitsBefore = CardInput.digitsOnly(
       newValue.text.substring(0, before),
     ).length.clamp(0, digits.length);
-    final caret = digitsBefore + (digitsBefore > 0 ? (digitsBefore - 1) ~/ 4 : 0);
+    final caret =
+        digitsBefore + (digitsBefore > 0 ? (digitsBefore - 1) ~/ 4 : 0);
     return TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: caret.clamp(0, text.length)),

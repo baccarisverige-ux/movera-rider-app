@@ -33,8 +33,7 @@ import 'package:movera_rider/features/ride_complete/data/ride_feedback_repositor
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _base = Platform.environment['MOVERA_E2E_API'];
-final _riderPhone =
-    Platform.environment['MOVERA_E2E_RIDER'] ?? '+46701740609';
+final _riderPhone = Platform.environment['MOVERA_E2E_RIDER'] ?? '+46701740609';
 final _driverPhone =
     Platform.environment['MOVERA_E2E_DRIVER'] ?? '+46701740605';
 
@@ -72,8 +71,8 @@ void main() {
     await RideSnapshotStore.clear();
   });
 
-  Future<RideQuote> price(String category) => ApiQuoteRepository(api: api)
-      .quote(
+  Future<RideQuote> price(String category) =>
+      ApiQuoteRepository(api: api).quote(
         rideType: category,
         distanceMeters: 2500,
         pickup: 'Sergels torg',
@@ -82,8 +81,8 @@ void main() {
         destinationPoint: dropoff,
       );
 
-  Future<String> book(RideQuote quote) => BookingCoordinator(api: api)
-      .submitFinding(
+  Future<String> book(RideQuote quote) =>
+      BookingCoordinator(api: api).submitFinding(
         pickupAddress: 'Sergels torg',
         destinationAddress: 'Medborgarplatsen',
         pickupLat: pickup.latitude,
@@ -105,8 +104,10 @@ void main() {
       final methods = await ApiPaymentMethodRepository(api: api).listMethods();
       expect(methods.map((m) => m.id), contains('cash'));
       final quote = await price('economy');
-      _log('price: economy ${quote.totalMinor / 100} ${quote.currency} '
-          '(${quote.id})');
+      _log(
+        'price: economy ${quote.totalMinor / 100} ${quote.currency} '
+        '(${quote.id})',
+      );
       expect(quote.totalMinor, greaterThan(0));
       final tripId = await book(quote);
       _log('booked: $tripId, session ${AppScope.instance.ride.status.name}');
@@ -123,17 +124,21 @@ void main() {
         events.add(event);
         if (seen.isEmpty || seen.last != event.status) {
           seen.add(event.status);
-          _log('rider sees ${event.status.name}'
-              '${event.driver == null ? '' : ' (driver ${event.driver!.firstName}, '
-                  '${event.driver!.vehicleLabel}, ${event.driver!.plate})'}');
+          _log(
+            'rider sees ${event.status.name}'
+            '${event.driver == null ? '' : ' (driver ${event.driver!.firstName}, '
+                      '${event.driver!.vehicleLabel}, ${event.driver!.plate})'}',
+          );
         }
       });
 
       var trip = await driver.accept(tripId);
       final active = await ApiActiveTripRepository(api: api).fetchActive();
       expect(active?.rideId, tripId);
-      _log('active trip read back: ${active?.status.name}, '
-          'driver ${active?.driver?.firstName}');
+      _log(
+        'active trip read back: ${active?.status.name}, '
+        'driver ${active?.driver?.firstName}',
+      );
       for (final step in ['head-to-pickup', 'arrive', 'board', 'start']) {
         await Future<void>.delayed(const Duration(milliseconds: 1500));
         trip = await driver.step(trip, step);
@@ -191,8 +196,10 @@ void main() {
       );
       final cancelled = await api.get(api.tripPath(first));
       expect(cancelled['status'], 'cancelled_by_rider');
-      _log('cancel while searching → ${cancelled['status']}, fee '
-          '${(cancelled['cancellation'] as Map)['fee']}');
+      _log(
+        'cancel while searching → ${cancelled['status']}, fee '
+        '${(cancelled['cancellation'] as Map)['fee']}',
+      );
 
       await RideSnapshotStore.clear();
       final second = await book(await price('economy'));
@@ -205,8 +212,10 @@ void main() {
       );
       final after = await api.get(api.tripPath(second));
       expect(after['status'], 'cancelled_by_rider');
-      _log('cancel after accept → ${after['status']}, fee '
-          '${(after['cancellation'] as Map)['fee']}');
+      _log(
+        'cancel after accept → ${after['status']}, fee '
+        '${(after['cancellation'] as Map)['fee']}',
+      );
     },
     skip: _base == null ? 'MOVERA_E2E_API is not set' : false,
     timeout: const Timeout(Duration(minutes: 2)),
@@ -391,7 +400,8 @@ class _Driver {
       body: {
         'expectedVersion': trip['version'],
         'location': _fix(_dropoff),
-        'cashCollected': trip['fare'] ??
+        'cashCollected':
+            trip['fare'] ??
             {'amountMinor': quote.totalMinor, 'currency': quote.currency},
       },
     );

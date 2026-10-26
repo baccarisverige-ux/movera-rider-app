@@ -39,9 +39,8 @@ void main() {
       isNot(contains('4242')),
     );
     // Same page session: the in-memory copy is still available.
-    final again = await PreferencesSafetyLocalDataSource(
-      pinStore: pinStore,
-    ).load();
+    final again = await PreferencesSafetyLocalDataSource(pinStore: pinStore)
+        .load();
     expect(again.pin.pin, '4242');
   });
 

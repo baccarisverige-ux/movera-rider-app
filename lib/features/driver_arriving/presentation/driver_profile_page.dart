@@ -69,11 +69,20 @@ class DriverProfilePage extends StatelessWidget {
           Row(
             children: [
               if (driver.tripCount != null)
-                Expanded(child: _stat('${driver.tripCount}', context.l10n.driverTrips)),
+                Expanded(
+                  child: _stat('${driver.tripCount}', context.l10n.driverTrips),
+                ),
               if (driver.ratingLabel != null)
-                Expanded(child: _stat(driver.ratingLabel!, context.l10n.driverRating)),
+                Expanded(
+                  child: _stat(driver.ratingLabel!, context.l10n.driverRating),
+                ),
               if (driver.yearsOnMovera != null)
-                Expanded(child: _stat('${driver.yearsOnMovera}', context.l10n.driverYears)),
+                Expanded(
+                  child: _stat(
+                    '${driver.yearsOnMovera}',
+                    context.l10n.driverYears,
+                  ),
+                ),
             ],
           ),
           if (driver.vehicleLabel.isNotEmpty || driver.plate != null) ...[

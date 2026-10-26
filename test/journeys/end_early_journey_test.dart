@@ -101,9 +101,11 @@ void main() {
       await tester.ensureVisible(onTheWay);
       await tester.tap(onTheWay);
     }
-    for (var i = 0;
-        i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
-        i++) {
+    for (
+      var i = 0;
+      i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
+      i++
+    ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.pump(const Duration(seconds: 9));

@@ -48,7 +48,13 @@ class FeeRule {
         (raw['max'] != null && max == null)) {
       return null;
     }
-    return FeeRule(freeMin: freeMin, type: type, value: value, min: min, max: max);
+    return FeeRule(
+      freeMin: freeMin,
+      type: type,
+      value: value,
+      min: min,
+      max: max,
+    );
   }
 
   Map<String, Object?> toJson() => {
@@ -66,7 +72,9 @@ abstract final class CancelFeeCalculator {
   /// A live trip, [minutesSinceAccept] after a driver accepted: free while
   /// `minutesSinceAccept < freeMin`.
   static Money live(FeeRule rule, Money fare, int minutesSinceAccept) =>
-      minutesSinceAccept < rule.freeMin ? Money(0, fare.currency) : _charge(rule, fare);
+      minutesSinceAccept < rule.freeMin
+      ? Money(0, fare.currency)
+      : _charge(rule, fare);
 
   /// A reservation, [minutesBeforePickup] before its pickup time: free while
   /// `minutesBeforePickup >= freeMin`.

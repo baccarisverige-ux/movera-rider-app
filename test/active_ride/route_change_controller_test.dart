@@ -8,6 +8,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 class _Geo implements GeocodingRepository {
@@ -72,71 +73,82 @@ void main() {
   }
 
   RouteChangeController controller(InProcessMockClient mock, _Geo geo) =>
-      RouteChangeController(api: ApiClient(client: mock), geocoding: geo);
+      RouteChangeController(
+        api: ApiClient(client: mock),
+        geocoding: geo,
+      );
 
-  test('a stop on the way costs the stop fee and the extra kilometres', () async {
-    final mock = backend();
-    final geo = _Geo({'Hötorget': stopAt});
-    final quote = await controller(mock, geo).preview(
-      ride: ride(),
-      destinationAddress: 'Odenplan 2',
-      stops: const ['Hötorget'],
-    );
-    expect(geo.asked, ['Hötorget']);
-    expect(quote.oldPriceKr, 200);
-    expect(quote.stops.single.address, 'Hötorget');
-    // 25 kr for the stop plus a little detour: never cheaper than before.
-    expect(quote.newPriceKr, greaterThanOrEqualTo(225));
-    expect(quote.newPriceKr, lessThan(260));
-    expect(quote.differenceKr, quote.newPriceKr - 200);
-    // A preview does not touch the ride.
-    expect(mock.rides['ride-route-1']!['stops'], isEmpty);
-    expect(mockFareKr(mock.rides['ride-route-1']!), 200.0);
-  });
+  test(
+    'a stop on the way costs the stop fee and the extra kilometres',
+    () async {
+      final mock = backend();
+      final geo = _Geo({'Hötorget': stopAt});
+      final quote = await controller(mock, geo).preview(
+        ride: ride(),
+        destinationAddress: 'Odenplan 2',
+        stops: const ['Hötorget'],
+      );
+      expect(geo.asked, ['Hötorget']);
+      expect(quote.oldPriceKr, 200);
+      expect(quote.stops.single.address, 'Hötorget');
+      // 25 kr for the stop plus a little detour: never cheaper than before.
+      expect(quote.newPriceKr, greaterThanOrEqualTo(225));
+      expect(quote.newPriceKr, lessThan(260));
+      expect(quote.differenceKr, quote.newPriceKr - 200);
+      // A preview does not touch the ride.
+      expect(mock.rides['ride-route-1']!['stops'], isEmpty);
+      expect(mockFareKr(mock.rides['ride-route-1']!), 200.0);
+    },
+  );
 
-  test('a far destination costs more; applying tells the driver and saves', () async {
-    final mock = backend(status: 'driverArriving');
-    final geo = _Geo({'Arlanda': farAway});
-    final changes = controller(mock, geo);
-    final quote = await changes.preview(
-      ride: ride(status: RideStatus.driverArriving),
-      destinationAddress: 'Arlanda',
-    );
-    expect(quote.newPriceKr, greaterThan(300));
+  test(
+    'a far destination costs more; applying tells the driver and saves',
+    () async {
+      final mock = backend(status: 'driverArriving');
+      final geo = _Geo({'Arlanda': farAway});
+      final changes = controller(mock, geo);
+      final quote = await changes.preview(
+        ride: ride(status: RideStatus.driverArriving),
+        destinationAddress: 'Arlanda',
+      );
+      expect(quote.newPriceKr, greaterThan(300));
 
-    final updated = await changes.apply(
-      ride: ride(status: RideStatus.driverArriving),
-      quote: quote,
-    );
-    expect(updated.destinationAddress, 'Arlanda');
-    expect(updated.destinationLat, farAway.latitude);
-    expect(updated.price, quote.newPriceKr);
-    expect(updated.status, RideStatus.driverArriving);
+      final updated = await changes.apply(
+        ride: ride(status: RideStatus.driverArriving),
+        quote: quote,
+      );
+      expect(updated.destinationAddress, 'Arlanda');
+      expect(updated.destinationLat, farAway.latitude);
+      expect(updated.price, quote.newPriceKr);
+      expect(updated.status, RideStatus.driverArriving);
 
-    final server = mock.rides['ride-route-1']!;
-    expect(server['destinationAddress'], 'Arlanda');
-    expect(mockFareKr(server), quote.newPriceKr);
-    expect(server['version'], 4);
-    expect(server['driverNotifiedAt'], isNotNull);
-    expect((server['routeChanges'] as List).length, 1);
+      final server = mock.rides['ride-route-1']!;
+      expect(server['destinationAddress'], 'Arlanda');
+      expect(mockFareKr(server), quote.newPriceKr);
+      expect(server['version'], 4);
+      expect(server['driverNotifiedAt'], isNotNull);
+      expect((server['routeChanges'] as List).length, 1);
 
-    final saved = await RideSnapshotStore.read();
-    expect(saved?.destinationAddress, 'Arlanda');
-    expect(saved?.price, quote.newPriceKr);
-  });
+      final saved = await RideSnapshotStore.read();
+      expect(saved?.destinationAddress, 'Arlanda');
+      expect(saved?.price, quote.newPriceKr);
+    },
+  );
 
-  test('a shorter route gives money back, never below half the booked price',
-      () async {
-    final mock = backend();
-    final geo = _Geo({'Next door': const GeoPoint(59.3330, 18.0655)});
-    final quote = await controller(mock, geo).preview(
-      ride: ride(),
-      destinationAddress: 'Next door',
-    );
-    expect(quote.newPriceKr, lessThan(200));
-    expect(quote.newPriceKr, greaterThanOrEqualTo(100));
-    expect(quote.differenceKr, isNegative);
-  });
+  test(
+    'a shorter route gives money back, never below half the booked price',
+    () async {
+      final mock = backend();
+      final geo = _Geo({'Next door': const GeoPoint(59.3330, 18.0655)});
+      final quote = await controller(
+        mock,
+        geo,
+      ).preview(ride: ride(), destinationAddress: 'Next door');
+      expect(quote.newPriceKr, lessThan(200));
+      expect(quote.newPriceKr, greaterThanOrEqualTo(100));
+      expect(quote.differenceKr, isNegative);
+    },
+  );
 
   test('rider-u37: a pin moved on the map keeps its point when the label '
       'did not change', () async {
@@ -194,10 +206,10 @@ void main() {
     final mock = backend();
     final geo = _Geo({});
     expect(
-      () => controller(mock, geo).preview(
-        ride: ride(),
-        destinationAddress: 'Nowhere street 0',
-      ),
+      () => controller(
+        mock,
+        geo,
+      ).preview(ride: ride(), destinationAddress: 'Nowhere street 0'),
       throwsA(
         isA<RouteChangeException>().having(
           (e) => e.failure,

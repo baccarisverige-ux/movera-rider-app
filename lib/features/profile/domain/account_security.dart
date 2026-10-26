@@ -123,11 +123,12 @@ class AccountSecurityState {
       reauthenticatedAt: parseDate(json['reauthenticatedAt']),
       sessions: rawSessions is List
           ? rawSessions
-              .whereType<Map>()
-              .map((item) => AccountSession.fromJson(
-                    Map<String, dynamic>.from(item),
-                  ))
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      AccountSession.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
           : const [],
       capabilities: AccountSecurityCapabilities.fromJson(
         json['capabilities'] is Map

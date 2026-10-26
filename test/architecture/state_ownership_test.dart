@@ -4,8 +4,6 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 
 void main() {
-  
-
   test('local transitions reject illegal authoritative jumps', () {
     final ride = RideSession();
 

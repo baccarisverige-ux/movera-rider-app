@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  
-
   test('unused legacy scheduled-ride surfaces stay removed', () {
     const removed = [
       'lib/features/scheduled_rides/data/scheduled_rides_repository.dart',
@@ -17,6 +15,4 @@ void main() {
       expect(File(path).existsSync(), isFalse, reason: 'Legacy file returned');
     }
   });
-
-  
 }

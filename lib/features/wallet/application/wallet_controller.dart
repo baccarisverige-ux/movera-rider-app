@@ -165,7 +165,11 @@ class WalletController {
     _topUpKeys.add(key);
     final gateway = _gateway ?? AppScope.instance.paymentGateway;
 
-    TopUpOutcome failed(TopUpOutcome outcome, Object? error, StackTrace? stack) {
+    TopUpOutcome failed(
+      TopUpOutcome outcome,
+      Object? error,
+      StackTrace? stack,
+    ) {
       // Not credited: a retry with this key must reach the provider again
       // (its idempotency makes that safe) instead of being skipped here.
       _topUpKeys.remove(key);
@@ -302,9 +306,8 @@ class WalletController {
     if (fare != null && fare.currency != snapshot.currency) return null;
     // Q8: the trip is paid from the balance of its own currency.
     if (snapshot.currency != currency) {
-      return forCurrency(
-        snapshot.currency,
-      ).chargeCompletedRide(snapshot, rideId: id, fare: fare);
+      return forCurrency(snapshot.currency)
+          .chargeCompletedRide(snapshot, rideId: id, fare: fare);
     }
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the

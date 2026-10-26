@@ -104,7 +104,9 @@ Future<double> _balance(WidgetTester tester) async =>
     (await tester.runAsync(() => WalletStore().loadBalance()))!;
 
 Future<void> _settle(WidgetTester tester) async {
-  await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 30)),
+  );
   await tester.pump();
 }
 
@@ -153,8 +155,9 @@ void main() {
     LastCompletedRide.clear();
   });
 
-  testWidgets('a wallet-paid ride is deducted once payment is finalized',
-      (tester) async {
+  testWidgets('a wallet-paid ride is deducted once payment is finalized', (
+    tester,
+  ) async {
     LastCompletedRide.remember(_completed('wr-1'));
     AppScope.instance.ride
       ..rideId = 'wr-1'
@@ -181,8 +184,9 @@ void main() {
     expect(await _balance(tester), 241);
   });
 
-  testWidgets('opening completion already at paymentFinalized charges once',
-      (tester) async {
+  testWidgets('opening completion already at paymentFinalized charges once', (
+    tester,
+  ) async {
     LastCompletedRide.remember(_completed('wr-2'));
     AppScope.instance.ride
       ..rideId = 'wr-2'
@@ -236,7 +240,10 @@ void main() {
       isNull,
     );
     expect(await wallet.chargeCompletedRide(_completed('a'), rideId: 'a'), 241);
-    expect(await wallet.chargeCompletedRide(_completed('a'), rideId: 'a'), isNull);
+    expect(
+      await wallet.chargeCompletedRide(_completed('a'), rideId: 'a'),
+      isNull,
+    );
     expect(await WalletStore().loadBalance(), 241);
     expect(
       AppScope.instance.wallet.entries.where((e) => e.amountMinor == -25900),
@@ -274,7 +281,8 @@ void main() {
 
     await _tapDone(tester);
     expect(_submitError, findsNothing);
-    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!.single;
+    final record = (await tester.runAsync(OnDemandRideHistoryStore.read))!
+        .single;
     expect(record.paymentFailed, isTrue);
   });
 

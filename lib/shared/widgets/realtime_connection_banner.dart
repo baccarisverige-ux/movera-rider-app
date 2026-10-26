@@ -9,10 +9,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// reflects the shared realtime connection source so the future backend can
 /// drive the same UI without changing presentation code.
 class RealtimeConnectionBanner extends StatelessWidget {
-  const RealtimeConnectionBanner({
-    super.key,
-    required this.connection,
-  });
+  const RealtimeConnectionBanner({super.key, required this.connection});
 
   final RealtimeConnection connection;
 
@@ -132,16 +129,14 @@ class RealtimeConnectionBanner extends StatelessWidget {
           icon: Icons.wifi_off_rounded,
           title: L10n.current.rtLost,
           subtitle: L10n.current.rtLostBody,
-          semantics:
-              '${L10n.current.rtLost}. ${L10n.current.rtLostBody}',
+          semantics: '${L10n.current.rtLost}. ${L10n.current.rtLostBody}',
         );
       case RealtimeState.failed:
         return _ConnectionSpec(
           icon: Icons.cloud_off_outlined,
           title: L10n.current.rtProblem,
           subtitle: L10n.current.rtProblemBody,
-          semantics:
-              '${L10n.current.rtProblem}. ${L10n.current.rtProblemBody}',
+          semantics: '${L10n.current.rtProblem}. ${L10n.current.rtProblemBody}',
         );
     }
   }

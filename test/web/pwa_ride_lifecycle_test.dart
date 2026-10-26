@@ -9,6 +9,4 @@ void main() {
   test('real page teardown still invokes ride cleanup', () {
     expect(shouldHandleRidePageHide(persisted: false), isTrue);
   });
-
-  
 }

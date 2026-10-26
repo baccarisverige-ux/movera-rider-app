@@ -13,40 +13,44 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  testWidgets('post-pickup panel is destination-first and keeps safety available', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: RiderInTripPanel(
-            destinationAddress: 'Hornsgatan 2, Stockholm',
-            rideType: 'Movera',
-            paymentMethod: 'Apple Pay',
-            price: 259,
-            driver: null,
-            rideId: 'ride-in-trip-1',
-            onOpenProfile: _noop,
-            onCall: _noop,
-            onMore: _noop,
-            onCancel: _noop,
+  testWidgets(
+    'post-pickup panel is destination-first and keeps safety available',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RiderInTripPanel(
+              destinationAddress: 'Hornsgatan 2, Stockholm',
+              rideType: 'Movera',
+              paymentMethod: 'Apple Pay',
+              price: 259,
+              driver: null,
+              rideId: 'ride-in-trip-1',
+              onOpenProfile: _noop,
+              onCall: _noop,
+              onMore: _noop,
+              onCancel: _noop,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('ON TRIP'), findsOneWidget);
-    expect(find.text('Ride in progress'), findsOneWidget);
-    expect(find.text('Hornsgatan 2, Stockholm'), findsWidgets);
-    // One slim summary line instead of a destination card (the destination
-    // is already the subtitle above it).
-    expect(find.byKey(const ValueKey<String>('trip-summary-line')), findsOneWidget);
-    expect(find.text('Destination'), findsNothing);
-    expect(find.text('Safety Kit'), findsOneWidget);
-    expect(find.text('Show this PIN to your driver'), findsNothing);
-    expect(find.text('End trip here'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('ON TRIP'), findsOneWidget);
+      expect(find.text('Ride in progress'), findsOneWidget);
+      expect(find.text('Hornsgatan 2, Stockholm'), findsWidgets);
+      // One slim summary line instead of a destination card (the destination
+      // is already the subtitle above it).
+      expect(
+        find.byKey(const ValueKey<String>('trip-summary-line')),
+        findsOneWidget,
+      );
+      expect(find.text('Destination'), findsNothing);
+      expect(find.text('Safety Kit'), findsOneWidget);
+      expect(find.text('Show this PIN to your driver'), findsNothing);
+      expect(find.text('End trip here'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('approaching dropoff gets its own destination-first state', (
     tester,

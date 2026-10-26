@@ -15,7 +15,10 @@ void main() {
 
   test('now+30 default is Stockholm now plus lead, rounded to 5', () {
     expect(StockholmSchedule.leadMinutes, 30);
-    expect(StockholmSchedule.stockholmNow(utc), DateTime.utc(2026, 9, 14, 8, 7));
+    expect(
+      StockholmSchedule.stockholmNow(utc),
+      DateTime.utc(2026, 9, 14, 8, 7),
+    );
     expect(StockholmSchedule.defaultPickup(utc), minSlot);
     expect(StockholmSchedule.minimumPickup(utc), minSlot);
   });
@@ -46,7 +49,10 @@ void main() {
 
   test('today time picker min is now+30; later days start at midnight', () {
     expect(
-      StockholmSchedule.timePickerMinFor(DateTime.utc(2026, 9, 14, 22, 35), utc),
+      StockholmSchedule.timePickerMinFor(
+        DateTime.utc(2026, 9, 14, 22, 35),
+        utc,
+      ),
       minSlot,
     );
     expect(

@@ -91,7 +91,8 @@ Future<bool> _openRide(String expected) async {
 
   // ARCH-12: a push for a ride this device never saved (second device,
   // cleared storage) asks the server for the rider's active trip.
-  final snapshot = await RideSnapshotStore.read() ??
+  final snapshot =
+      await RideSnapshotStore.read() ??
       await RideRestoreCoordinator.instance.adoptServerActiveTrip(
         expectedRideId: expected,
       );
@@ -160,10 +161,7 @@ Future<void> openNotificationRide(
   }
 }
 
-String? notificationRideTarget({
-  String? rideId,
-  String? deepLink,
-}) {
+String? notificationRideTarget({String? rideId, String? deepLink}) {
   final direct = rideId?.trim();
   if (direct?.isNotEmpty == true) return direct;
 

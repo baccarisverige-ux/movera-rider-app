@@ -16,7 +16,10 @@ Future<bool> startHeadingTracking() async {
     globalContext.setProperty('moveraDartStartResult'.toJS, ok.toJS);
     return ok;
   } catch (error) {
-    globalContext.setProperty('moveraDartStartError'.toJS, error.toString().toJS);
+    globalContext.setProperty(
+      'moveraDartStartError'.toJS,
+      error.toString().toJS,
+    );
     return false;
   }
 }

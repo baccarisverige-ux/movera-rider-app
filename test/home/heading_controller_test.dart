@@ -116,8 +116,14 @@ void main() {
   test('repeated startHeading does not open compass twice', () async {
     final compass = _FakeCompass()..value = 12;
     final ctl = controllerOf(compass);
-    final first = await ctl.startHeading(isMounted: () => true, onHeading: (_) {});
-    final second = await ctl.startHeading(isMounted: () => true, onHeading: (_) {});
+    final first = await ctl.startHeading(
+      isMounted: () => true,
+      onHeading: (_) {},
+    );
+    final second = await ctl.startHeading(
+      isMounted: () => true,
+      onHeading: (_) {},
+    );
     expect(first, isTrue);
     expect(second, isTrue);
     expect(compass.starts, 1);

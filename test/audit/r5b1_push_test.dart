@@ -48,7 +48,10 @@ void main() {
   test('rider-r5-40: a cold-start tap opens even when register() runs after '
       'the coordinator started', () async {
     final gateway = _Gateway()
-      ..initial = const PushPayload(type: 'ride.driver_assigned', rideId: 'ride-1');
+      ..initial = const PushPayload(
+        type: 'ride.driver_assigned',
+        rideId: 'ride-1',
+      );
     final service = FirebasePushService(
       api: ApiClient(env: _env, client: InProcessMockClient()),
       environment: _env,
@@ -62,9 +65,7 @@ void main() {
         return true;
       },
       openNotifications: () {},
-      notifications: NotificationsController(
-        store: NotificationsRepository(),
-      ),
+      notifications: NotificationsController(store: NotificationsRepository()),
     );
     await coordinator.start();
     await service.register();

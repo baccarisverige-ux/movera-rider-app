@@ -70,7 +70,10 @@ void main() {
   ) async {
     await setViewport(tester);
     final backend = InProcessMockClient();
-    backend.rides['ride-leave-1'] = {'id': 'ride-leave-1', 'status': 'ratingPending'};
+    backend.rides['ride-leave-1'] = {
+      'id': 'ride-leave-1',
+      'status': 'ratingPending',
+    };
 
     await tester.pumpWidget(app());
     final realtime = pushRideCompleted(backend);
@@ -85,44 +88,49 @@ void main() {
     realtime.dispose();
   });
 
-  testWidgets(
-    'Back with a rating selected prompts, and Stay keeps the draft',
-    (tester) async {
-      await setViewport(tester);
-      final backend = InProcessMockClient();
-      backend.rides['ride-leave-1'] = {'id': 'ride-leave-1', 'status': 'ratingPending'};
+  testWidgets('Back with a rating selected prompts, and Stay keeps the draft', (
+    tester,
+  ) async {
+    await setViewport(tester);
+    final backend = InProcessMockClient();
+    backend.rides['ride-leave-1'] = {
+      'id': 'ride-leave-1',
+      'status': 'ratingPending',
+    };
 
-      await tester.pumpWidget(app());
-      final realtime = pushRideCompleted(backend);
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(app());
+    final realtime = pushRideCompleted(backend);
+    await tester.pumpAndSettle();
 
-      final star = find.byIcon(Icons.star_rounded).first;
-      await tester.ensureVisible(star);
-      await tester.tap(star);
-      await tester.pump();
+    final star = find.byIcon(Icons.star_rounded).first;
+    await tester.ensureVisible(star);
+    await tester.tap(star);
+    await tester.pump();
 
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_rounded));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_rounded));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Leave without sending?'), findsOneWidget);
-      expect(backend.rides['ride-leave-1']!['feedback'], isNull);
+    expect(find.text('Leave without sending?'), findsOneWidget);
+    expect(backend.rides['ride-leave-1']!['feedback'], isNull);
 
-      await tester.tap(find.text('Stay'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Stay'));
+    await tester.pumpAndSettle();
 
-      // Still on the completion surface; nothing was submitted.
-      expect(find.byType(RideCompleted), findsOneWidget);
-      expect(backend.rides['ride-leave-1']!['feedback'], isNull);
-      realtime.dispose();
-    },
-  );
+    // Still on the completion surface; nothing was submitted.
+    expect(find.byType(RideCompleted), findsOneWidget);
+    expect(backend.rides['ride-leave-1']!['feedback'], isNull);
+    realtime.dispose();
+  });
 
   testWidgets(
     'Back with a rating selected, then Leave, discards it without submitting',
     (tester) async {
       await setViewport(tester);
       final backend = InProcessMockClient();
-      backend.rides['ride-leave-1'] = {'id': 'ride-leave-1', 'status': 'ratingPending'};
+      backend.rides['ride-leave-1'] = {
+        'id': 'ride-leave-1',
+        'status': 'ratingPending',
+      };
 
       await tester.pumpWidget(app());
       final realtime = pushRideCompleted(backend);
@@ -149,7 +157,10 @@ void main() {
   testWidgets('Done still submits the selected rating and tip', (tester) async {
     await setViewport(tester);
     final backend = InProcessMockClient();
-    backend.rides['ride-leave-1'] = {'id': 'ride-leave-1', 'status': 'ratingPending'};
+    backend.rides['ride-leave-1'] = {
+      'id': 'ride-leave-1',
+      'status': 'ratingPending',
+    };
 
     await tester.pumpWidget(app());
     final realtime = pushRideCompleted(backend);

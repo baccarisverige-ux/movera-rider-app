@@ -28,9 +28,8 @@ void main() {
         splitScreenMode: true,
         builder: (_, __) => MaterialApp(
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(textScale),
-            ),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
           home: const RideCompleted(
@@ -48,7 +47,10 @@ void main() {
   testWidgets('completion fits a 390x844 phone at normal text', (tester) async {
     await pumpCompletion(tester, textScale: 1);
     expect(tester.takeException(), isNull);
-    expect(find.byKey(const ValueKey<String>('ride-completed-done')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('ride-completed-done')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('completion remains usable at 200% text', (tester) async {

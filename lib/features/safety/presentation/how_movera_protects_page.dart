@@ -40,13 +40,24 @@ class HowMoveraProtectsPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(items[i].$1, style: SafetyUi.text(16, weight: FontWeight.w600)),
+                        Text(
+                          items[i].$1,
+                          style: SafetyUi.text(16, weight: FontWeight.w600),
+                        ),
                         const SizedBox(height: 6),
-                        Text(items[i].$2, style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45)),
+                        Text(
+                          items[i].$2,
+                          style: SafetyUi.text(
+                            13.5,
+                            color: SafetyUi.muted,
+                            height: 1.45,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  if (i != items.length - 1) const Divider(height: 1, color: SafetyUi.line),
+                  if (i != items.length - 1)
+                    const Divider(height: 1, color: SafetyUi.line),
                 ],
               ],
             ),

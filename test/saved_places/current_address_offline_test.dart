@@ -11,19 +11,20 @@ class _Here extends LocationRepository {
   Future<LocationPermission> checkPermission() async =>
       LocationPermission.whileInUse;
   @override
-  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) async =>
-      Position(
-        latitude: 59.33,
-        longitude: 18.06,
-        timestamp: DateTime.utc(2026, 10, 22),
-        accuracy: 4,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async => Position(
+    latitude: 59.33,
+    longitude: 18.06,
+    timestamp: DateTime.utc(2026, 10, 22),
+    accuracy: 4,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
 }
 
 /// rider-r5-38: a street lookup that fails is a connection problem, not
@@ -35,11 +36,13 @@ void main() {
         location: _Here(),
         reverse: (_) async => throw StateError('offline'),
       ),
-      throwsA(isA<CurrentAddressException>().having(
-        (e) => e.message,
-        'message',
-        L10n.current.apiUnreachable,
-      )),
+      throwsA(
+        isA<CurrentAddressException>().having(
+          (e) => e.message,
+          'message',
+          L10n.current.apiUnreachable,
+        ),
+      ),
     );
   });
 }

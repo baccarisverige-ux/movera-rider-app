@@ -124,31 +124,28 @@ void main() {
     },
   );
 
-  testWidgets(
-    'reload mid-trip: a fresh mock transport does not regress the '
-    'restored ride back to findingDriver',
-    (tester) async {
-      const rideId = 'phase135-trip';
-      final coordinator = RideRestoreCoordinator();
-      final page = coordinator.pageFor(
-        snapshot(rideId: rideId, status: RideStatus.tripInProgress, version: 12),
-      );
-      expect(page, isA<WaitingForDriver>());
+  testWidgets('reload mid-trip: a fresh mock transport does not regress the '
+      'restored ride back to findingDriver', (tester) async {
+    const rideId = 'phase135-trip';
+    final coordinator = RideRestoreCoordinator();
+    final page = coordinator.pageFor(
+      snapshot(rideId: rideId, status: RideStatus.tripInProgress, version: 12),
+    );
+    expect(page, isA<WaitingForDriver>());
 
-      await pumpRestoredPage(tester, page);
+    await pumpRestoredPage(tester, page);
 
-      expect(
-        AppScope.instance.ride.status,
-        isNot(RideStatus.findingDriver),
-        reason: 'a fresh mock reconnect must not regress a mid-trip ride',
-      );
-      expect(AppScope.instance.ride.status.isMatched, isTrue);
+    expect(
+      AppScope.instance.ride.status,
+      isNot(RideStatus.findingDriver),
+      reason: 'a fresh mock reconnect must not regress a mid-trip ride',
+    );
+    expect(AppScope.instance.ride.status.isMatched, isTrue);
 
-      await tester.pump(const Duration(seconds: 26));
-      expect(AppScope.instance.ride.status, isNot(RideStatus.findingDriver));
-      stopMockTimers();
-    },
-  );
+    await tester.pump(const Duration(seconds: 26));
+    expect(AppScope.instance.ride.status, isNot(RideStatus.findingDriver));
+    stopMockTimers();
+  });
 
   testWidgets(
     'without a persisted version, an old-format snapshot restore is not '

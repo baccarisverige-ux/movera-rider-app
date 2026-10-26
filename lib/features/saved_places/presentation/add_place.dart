@@ -55,8 +55,9 @@ class _AddPlaceState extends State<AddPlace> {
             _ => '',
           },
     );
-    _locationController =
-        TextEditingController(text: widget.initial?.subtitle ?? '');
+    _locationController = TextEditingController(
+      text: widget.initial?.subtitle ?? '',
+    );
   }
 
   @override
@@ -161,8 +162,8 @@ class _AddPlaceState extends State<AddPlace> {
     final raw = requested?.isNotEmpty == true
         ? requested!
         : existing?.isNotEmpty == true
-            ? existing!
-            : name;
+        ? existing!
+        : name;
     final lower = raw.toLowerCase();
     if (lower == 'work') return 'office';
     // A new place named Home or Work in the app language takes that slot.
@@ -302,7 +303,9 @@ class _AddPlaceState extends State<AddPlace> {
                         height: 52,
                         child: ElevatedButton(
                           onPressed: _saving ? null : _save,
-                          child: Text(_saving ? context.l10n.saving : context.l10n.save),
+                          child: Text(
+                            _saving ? context.l10n.saving : context.l10n.save,
+                          ),
                         ),
                       ),
                     ),

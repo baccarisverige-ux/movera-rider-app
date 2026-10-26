@@ -130,7 +130,11 @@ void main() {
                 context,
                 reservations: c,
                 selection: selection,
-                pickup: const ReservationPlace(label: 'A', lat: 59.3, lng: 18.0),
+                pickup: const ReservationPlace(
+                  label: 'A',
+                  lat: 59.3,
+                  lng: 18.0,
+                ),
                 destination: const ReservationPlace(label: 'B'),
                 pickupPosition: const LatLng(59.3, 18.0),
                 editingReservationId: booked!.reservationId,

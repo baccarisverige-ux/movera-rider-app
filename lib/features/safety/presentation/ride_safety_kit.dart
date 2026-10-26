@@ -127,7 +127,8 @@ class RideSafetyKitSheet extends StatefulWidget {
 }
 
 class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
-  late final SafetyController _ctl = widget.controller ?? SafetyController.shared;
+  late final SafetyController _ctl =
+      widget.controller ?? SafetyController.shared;
   String? _audioNote;
 
   @override
@@ -210,33 +211,29 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
       if (_ctl.audio.isRecording) {
         await _ctl.audio.stop();
         if (!mounted) return;
-        setState(
-          () => _audioNote =
-              context.l10n.recordingSavedLocal,
-        );
+        setState(() => _audioNote = context.l10n.recordingSavedLocal);
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
         if (!mounted) return;
-        setState(
-          () => _audioNote =
-              context.l10n.safetyKitRecording,
-        );
+        setState(() => _audioNote = context.l10n.safetyKitRecording);
       }
     } on SafetyAudioException catch (error) {
       if (!mounted) return;
       setState(() => _audioNote = error.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _audioNote =
-          context.l10n.recordingFailed);
+      setState(() => _audioNote = context.l10n.recordingFailed);
     }
   }
 
   Future<void> _shareTrip() async {
     if (!_ctl.preferences.tripShareEnabled ||
-        !_ctl.contacts.any((contact) => contact.isEnabled &&
-            (_ctl.preferences.tripShareContactIds.contains(contact.id) ||
-                contact.shareTrips))) {
+        !_ctl.contacts.any(
+          (contact) =>
+              contact.isEnabled &&
+              (_ctl.preferences.tripShareContactIds.contains(contact.id) ||
+                  contact.shareTrips),
+        )) {
       final nav = Navigator.of(context);
       await popCurrentRouteAndWaitForExit(context);
       if (!nav.mounted) return;
@@ -299,7 +296,10 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(context.l10n.safetyTools, style: _text(22, weight: FontWeight.w700)),
+              Text(
+                context.l10n.safetyTools,
+                style: _text(22, weight: FontWeight.w700),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -317,7 +317,9 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                         icon: recording
                             ? Icons.stop_circle_outlined
                             : Icons.mic_outlined,
-                        label: recording ? context.l10n.stopAudio : context.l10n.recordAudio,
+                        label: recording
+                            ? context.l10n.stopAudio
+                            : context.l10n.recordAudio,
                         onTap: _toggleAudio,
                       ),
                     ),
@@ -351,7 +353,11 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.shield_outlined, size: 22, color: _icon),
+                        const Icon(
+                          Icons.shield_outlined,
+                          size: 22,
+                          color: _icon,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

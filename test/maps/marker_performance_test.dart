@@ -5,10 +5,7 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 
 void main() {
   test('MarkerStore ignores sub-threshold GPS and heading jitter', () {
-    final store = MarkerStore(
-      minimumMoveMeters: 5,
-      minimumHeadingDegrees: 5,
-    );
+    final store = MarkerStore(minimumMoveMeters: 5, minimumHeadingDegrees: 5);
     const start = GeoPoint(59.329300, 18.068600);
     const tiny = GeoPoint(59.329301, 18.068601);
 
@@ -20,10 +17,7 @@ void main() {
   });
 
   test('MarkerStore accepts meaningful movement or rotation', () {
-    final store = MarkerStore(
-      minimumMoveMeters: 1,
-      minimumHeadingDegrees: 3,
-    );
+    final store = MarkerStore(minimumMoveMeters: 1, minimumHeadingDegrees: 3);
     const start = GeoPoint(59.3293, 18.0686);
     const moved = GeoPoint(59.3295, 18.0686);
 

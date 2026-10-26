@@ -83,15 +83,22 @@ void main() {
     expect(c.byId(id)!.driver, isNull);
   });
 
-  test('without a dispatch the demo controller never fabricates a driver', () async {
-    final c = controller();
-    final id = await schedule(c);
-    await c.startLiveIfDue(now: pickupAt.subtract(const Duration(minutes: 30)));
-    expect(c.byId(id)!.status, ReservationStatus.scheduled);
-    await c.startLiveIfDue(now: pickupAt.subtract(const Duration(minutes: 2)));
-    expect(c.byId(id)!.status, ReservationStatus.driverAssignmentPending);
-    expect(c.byId(id)!.driver, isNull);
-  });
+  test(
+    'without a dispatch the demo controller never fabricates a driver',
+    () async {
+      final c = controller();
+      final id = await schedule(c);
+      await c.startLiveIfDue(
+        now: pickupAt.subtract(const Duration(minutes: 30)),
+      );
+      expect(c.byId(id)!.status, ReservationStatus.scheduled);
+      await c.startLiveIfDue(
+        now: pickupAt.subtract(const Duration(minutes: 2)),
+      );
+      expect(c.byId(id)!.status, ReservationStatus.driverAssignmentPending);
+      expect(c.byId(id)!.driver, isNull);
+    },
+  );
 
   test('first tick inside the window after T-2 but before T+5 assigns and '
       'goes en route in one tick', () async {
@@ -104,23 +111,28 @@ void main() {
     expect(c.byId(id)!.revealsDriver, isTrue);
   });
 
-  test('mock driver comes from the shared pool, mapped for the live screen', () async {
-    final dispatch = MockReservationDispatch();
-    final c = controller(dispatch: dispatch);
-    addTearDown(c.dispose);
-    final id = await schedule(c);
-    await c.startLiveIfDue(now: pickupAt.subtract(const Duration(minutes: 30)));
-    final driver = c.byId(id)!.driver!;
-    const known = {
-      'Elin': ('Volvo XC40 Recharge', 'MVR 204'),
-      'Johan': ('Volvo V60', 'MVR 771'),
-      'Amina': ('Tesla Model Y', 'MVR 316'),
-    };
-    expect(known.keys, contains(driver.firstName));
-    expect(driver.vehicle, known[driver.firstName]!.$1);
-    expect(driver.plate, known[driver.firstName]!.$2);
-    expect(driver.rating, isNotNull);
-  });
+  test(
+    'mock driver comes from the shared pool, mapped for the live screen',
+    () async {
+      final dispatch = MockReservationDispatch();
+      final c = controller(dispatch: dispatch);
+      addTearDown(c.dispose);
+      final id = await schedule(c);
+      await c.startLiveIfDue(
+        now: pickupAt.subtract(const Duration(minutes: 30)),
+      );
+      final driver = c.byId(id)!.driver!;
+      const known = {
+        'Elin': ('Volvo XC40 Recharge', 'MVR 204'),
+        'Johan': ('Volvo V60', 'MVR 771'),
+        'Amina': ('Tesla Model Y', 'MVR 316'),
+      };
+      expect(known.keys, contains(driver.firstName));
+      expect(driver.vehicle, known[driver.firstName]!.$1);
+      expect(driver.plate, known[driver.firstName]!.$2);
+      expect(driver.rating, isNotNull);
+    },
+  );
 
   test('after a driver drops the ride, the next tick re-offers it to a '
       'different mock driver', () async {
@@ -182,7 +194,9 @@ void main() {
 
   testWidgets('dispose cancels pending mock trip steps', (tester) async {
     final c = controller(
-      dispatch: MockReservationDispatch(arriveAfter: const Duration(seconds: 5)),
+      dispatch: MockReservationDispatch(
+        arriveAfter: const Duration(seconds: 5),
+      ),
     );
     final id = await schedule(c);
     await c.startLiveIfDue(now: pickupAt.subtract(const Duration(minutes: 2)));

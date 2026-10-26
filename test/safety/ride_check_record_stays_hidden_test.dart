@@ -53,7 +53,9 @@ void main() {
     SafetyController.resetShared();
     final store = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
     );
     final safety = SafetyController(
       session: store,
@@ -71,11 +73,13 @@ void main() {
         destination: GeoPoint(59.3600, 18.0000),
       ),
     );
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: RideCheckLayer(rideId: 'ride_r5_30', controller: rideCheck),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RideCheckLayer(rideId: 'ride_r5_30', controller: rideCheck),
+        ),
       ),
-    ));
+    );
     await tester.runAsync(
       () => rideCheck.open(RideCheckTrigger.longStop, rideId: 'ride_r5_30'),
     );

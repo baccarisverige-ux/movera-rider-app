@@ -13,9 +13,9 @@ void main() {
           builder: (context) => Scaffold(
             body: Center(
               child: TextButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(RightToLeftTransition<void>(page)),
+                onPressed: () =>
+                    Navigator.of(context)
+                        .push(RightToLeftTransition<void>(page)),
                 child: const Text('open'),
               ),
             ),

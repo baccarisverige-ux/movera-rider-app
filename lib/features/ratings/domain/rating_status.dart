@@ -1,6 +1,1 @@
-enum RatingStatus {
-  notRequested,
-  pending,
-  submitted,
-  skipped,
-}
+enum RatingStatus { notRequested, pending, submitted, skipped }

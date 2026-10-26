@@ -21,10 +21,10 @@ class RideCatalogController extends ChangeNotifier {
     required ApiClient api,
     RideCatalogCache? cache,
     List<RideCatalogItem>? builtIn,
-  })  : _api = api,
-        _cache = cache ?? const PrefsRideCatalogCache(),
-        _builtIn = builtIn ?? RideSelectionRepository.builtInRides,
-        _current = builtIn ?? RideSelectionRepository.builtInRides;
+  }) : _api = api,
+       _cache = cache ?? const PrefsRideCatalogCache(),
+       _builtIn = builtIn ?? RideSelectionRepository.builtInRides,
+       _current = builtIn ?? RideSelectionRepository.builtInRides;
 
   static const path = '/api/v1/ride-types';
 
@@ -211,7 +211,8 @@ class RideCatalogJson {
     if (enabled is bool && !enabled) return null;
     // Contract v0.3.0: `price: Money`; a bare number is the pre-v0.3 kronor.
     final rawPrice = row['price'];
-    final listPrice = Money.fromWire(rawPrice) ??
+    final listPrice =
+        Money.fromWire(rawPrice) ??
         (rawPrice is num ? Money.fromLegacyMajor(rawPrice) : null);
     final price = listPrice?.major;
     if (price == null || price < 0) return null;

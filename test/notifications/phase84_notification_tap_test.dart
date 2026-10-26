@@ -20,10 +20,7 @@ Future<void> _pump(
     ScreenUtilInit(
       designSize: const Size(390, 844),
       builder: (_, __) => MaterialApp(
-        home: NotificationScreen(
-          controller: controller,
-          openRide: openRide,
-        ),
+        home: NotificationScreen(controller: controller, openRide: openRide),
       ),
     ),
   );
@@ -31,8 +28,9 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('ride notification tap marks read and opens its ride target',
-      (tester) async {
+  testWidgets('ride notification tap marks read and opens its ride target', (
+    tester,
+  ) async {
     final store = NotificationsRepository();
     final controller = NotificationsController(store: store);
     controller.ingest(
@@ -63,8 +61,9 @@ void main() {
     expect(store.all().single.read, isTrue);
   });
 
-  testWidgets('notification without usable target only marks read',
-      (tester) async {
+  testWidgets('notification without usable target only marks read', (
+    tester,
+  ) async {
     final store = NotificationsRepository();
     final controller = NotificationsController(store: store);
     controller.ingest(

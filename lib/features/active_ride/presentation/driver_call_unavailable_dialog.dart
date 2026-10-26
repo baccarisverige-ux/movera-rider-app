@@ -6,14 +6,14 @@ Future<void> showDriverCallUnavailable(
   String? driverName,
 }) {
   final name = driverName?.trim();
-  final driverLabel = name == null || name.isEmpty ? context.l10n.yourDriver : name;
+  final driverLabel = name == null || name.isEmpty
+      ? context.l10n.yourDriver
+      : name;
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(context.l10n.callUnavailableTitle),
-      content: Text(
-        context.l10n.callUnavailableBody(driverLabel),
-      ),
+      content: Text(context.l10n.callUnavailableBody(driverLabel)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),

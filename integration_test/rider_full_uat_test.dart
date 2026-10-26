@@ -69,7 +69,6 @@ Future<void> _waitForSeen(
   );
 }
 
-
 /// rider-u29: books a live ride on the stand-in server (quote, then ride)
 /// and answers its server-made id, so the mock's accept is the real one.
 /// The mock no longer shows a driver the server refused, as it did for
@@ -173,14 +172,38 @@ void main() {
       }
 
       int at(RideStatus status) => seen.indexOf(status);
-      expect(at(RideStatus.driverAssigned), greaterThan(at(RideStatus.findingDriver)));
-      expect(at(RideStatus.driverWaiting), greaterThan(at(RideStatus.driverAssigned)));
-      expect(at(RideStatus.tripStarted), greaterThan(at(RideStatus.driverWaiting)));
-      expect(at(RideStatus.tripInProgress), greaterThan(at(RideStatus.tripStarted)));
-      expect(at(RideStatus.tripCompleted), greaterThan(at(RideStatus.tripInProgress)));
-      expect(at(RideStatus.paymentProcessing), greaterThan(at(RideStatus.tripCompleted)));
-      expect(at(RideStatus.paymentFinalized), greaterThan(at(RideStatus.paymentProcessing)));
-      expect(at(RideStatus.ratingPending), greaterThan(at(RideStatus.paymentFinalized)));
+      expect(
+        at(RideStatus.driverAssigned),
+        greaterThan(at(RideStatus.findingDriver)),
+      );
+      expect(
+        at(RideStatus.driverWaiting),
+        greaterThan(at(RideStatus.driverAssigned)),
+      );
+      expect(
+        at(RideStatus.tripStarted),
+        greaterThan(at(RideStatus.driverWaiting)),
+      );
+      expect(
+        at(RideStatus.tripInProgress),
+        greaterThan(at(RideStatus.tripStarted)),
+      );
+      expect(
+        at(RideStatus.tripCompleted),
+        greaterThan(at(RideStatus.tripInProgress)),
+      );
+      expect(
+        at(RideStatus.paymentProcessing),
+        greaterThan(at(RideStatus.tripCompleted)),
+      );
+      expect(
+        at(RideStatus.paymentFinalized),
+        greaterThan(at(RideStatus.paymentProcessing)),
+      );
+      expect(
+        at(RideStatus.ratingPending),
+        greaterThan(at(RideStatus.paymentFinalized)),
+      );
       expect(connection.state, RealtimeState.connected);
     },
   );
@@ -188,16 +211,14 @@ void main() {
   testWidgets(
     'Phase 13 UAT: driver cancel re-search keeps ride and changes driver',
     (tester) async {
-      final realtime = MockRideRealtime(
-        assignAfter: const Duration(days: 1),
-      );
+      final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
       addTearDown(realtime.dispose);
 
       const rideId = 'uat-driver-research';
       final seen = <RideStatus>[];
-      final sub = realtime.subscribe(rideId).listen(
-        (event) => seen.add(event.status),
-      );
+      final sub = realtime
+          .subscribe(rideId)
+          .listen((event) => seen.add(event.status));
       addTearDown(sub.cancel);
 
       realtime.assignNow();
@@ -294,10 +315,7 @@ void main() {
     (tester) async {
       const rideId = 'uat-messages';
       final now = DateTime(2026, 9, 22, 16, 0);
-      final controller = MessagesController.forRide(
-        rideId,
-        now: () => now,
-      );
+      final controller = MessagesController.forRide(rideId, now: () => now);
 
       expect(controller.canSendMessages, isFalse);
       expect(controller.send('I am at the pickup'), isFalse);

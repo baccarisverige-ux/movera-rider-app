@@ -23,10 +23,15 @@ void main() {
 
   final screens = <String, Widget Function()>{
     'Sign in': () => const SignIn(),
-    'Phone verification': () => const PhoneVerification(phoneNumber: '+46701234567'),
+    'Phone verification': () =>
+        const PhoneVerification(phoneNumber: '+46701234567'),
     'Add phone number (Apple/Google)': () => const AddPhoneNumber(
-          link: ProviderLink(provider: 'apple', linkToken: 'link', name: 'Sara Lind'),
-        ),
+      link: ProviderLink(
+        provider: 'apple',
+        linkToken: 'link',
+        name: 'Sara Lind',
+      ),
+    ),
     'Rider name': () => const RiderNameScreen(initialName: 'Sara Lind'),
     'Add place': () => const AddPlace(),
     'How Movera protects you': () => const HowMoveraProtectsPage(),

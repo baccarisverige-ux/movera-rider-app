@@ -83,7 +83,8 @@ int _completionRank(RideStatus status) {
 }
 
 class _RideCompletedState extends State<RideCompleted> {
-  late final RideCompleteController _controller = widget.controller ?? AppScope.instance.rideComplete;
+  late final RideCompleteController _controller =
+      widget.controller ?? AppScope.instance.rideComplete;
   StreamSubscription<RideRealtimeEvent>? _completionSub;
   late RideStatus _status;
   bool _leaving = false;
@@ -155,9 +156,7 @@ class _RideCompletedState extends State<RideCompleted> {
           version: event.version ?? event.sequence,
           updatedAt: event.serverTime ?? event.occurredAt,
         );
-        unawaited(
-          _controller.persistCompletedStatus(status, rideId: rideId),
-        );
+        unawaited(_controller.persistCompletedStatus(status, rideId: rideId));
       }
       setState(() => _status = status);
       _maybeChargeWallet();
@@ -359,144 +358,150 @@ class _RideCompletedState extends State<RideCompleted> {
           await _handleBack();
         }
       },
-      child: _withRideCheck(Scaffold(
-        backgroundColor: const Color(0xFFF6F5F1),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-                child: Row(
-                  children: [
-                    _CircleAction(
-                      icon: Icons.arrow_back_ios_rounded,
-                      label: context.l10n.back,
-                      onTap: _handleBack,
-                    ),
-                    Expanded(
-                      child: Text(
-                        endedEarly ? context.l10n.tripSummary : context.l10n.rideSummary,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: MoveraTokens.ink,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-              ),
-              if (widget.showConnectionBanner)
+      child: _withRideCheck(
+        Scaffold(
+          backgroundColor: const Color(0xFFF6F5F1),
+          body: SafeArea(
+            child: Column(
+              children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: RealtimeConnectionBanner(
-                    connection: AppScope.instance.realtime,
-                  ),
-                ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                  child: Column(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                  child: Row(
                     children: [
-                      _CompletionHero(spec: spec),
-                      if (showFeedbackSurface) ...[
-                        const SizedBox(height: 14),
-                        IgnorePointer(
-                          key: const ValueKey('completion-feedback-lock'),
-                          ignoring: !canRate || _leaving,
-                          child: AnimatedOpacity(
-                            key: const ValueKey('completion-feedback'),
-                            duration: const Duration(milliseconds: 160),
-                            curve: Curves.easeOutCubic,
-                            opacity: canRate ? 1 : 0.52,
-                            child: Column(
-                              children: [
-                                _SurfaceCard(
-                                  child: RideCompletedGiveReview(
-                                    onRatingChanged: (rating) => _rating = rating,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                _SurfaceCard(
-                                  child: RideCompletedAddTip(
-                                    rideId: widget.rideId,
-                                    onTipChanged: (amount) => _tipMinor = amount,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          canRate
-                              ? context.l10n.ratingOptional
-                              : context.l10n.ratingAfterPayment,
-                          key: const ValueKey('completion-feedback-status'),
+                      _CircleAction(
+                        icon: Icons.arrow_back_ios_rounded,
+                        label: context.l10n.back,
+                        onTap: _handleBack,
+                      ),
+                      Expanded(
+                        child: Text(
+                          endedEarly
+                              ? context.l10n.tripSummary
+                              : context.l10n.rideSummary,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: MoveraTokens.muted,
-                            height: 1.4,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: MoveraTokens.ink,
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 12),
-                      const _BelongingsReminder(),
-                      const SizedBox(height: 14),
-                      _SurfaceCard(
-                        child: RideCompletedDriverInfo(rideId: widget.rideId),
                       ),
-                      const SizedBox(height: 14),
-                      _SurfaceCard(
-                        child: RideCompletedTripDetail(
-                          controller: _controller,
-                          rideId: widget.rideId,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      if (_submitError != null)
-                        Text(
-                          _submitError!,
-                          key: const ValueKey('completion-submit-error'),
-                          style: const TextStyle(color: Colors.red),
-                        ),
+                      const SizedBox(width: 48),
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: MoveraTokens.buttonHeight,
-                  child: FilledButton(
-                    key: const ValueKey<String>('ride-completed-done'),
-                    onPressed: _leaving ? null : _closeAndHome,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: MoveraTokens.cta,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                if (widget.showConnectionBanner)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: RealtimeConnectionBanner(
+                      connection: AppScope.instance.realtime,
                     ),
-                    child: Text(
-                      context.l10n.done,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                  ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                    child: Column(
+                      children: [
+                        _CompletionHero(spec: spec),
+                        if (showFeedbackSurface) ...[
+                          const SizedBox(height: 14),
+                          IgnorePointer(
+                            key: const ValueKey('completion-feedback-lock'),
+                            ignoring: !canRate || _leaving,
+                            child: AnimatedOpacity(
+                              key: const ValueKey('completion-feedback'),
+                              duration: const Duration(milliseconds: 160),
+                              curve: Curves.easeOutCubic,
+                              opacity: canRate ? 1 : 0.52,
+                              child: Column(
+                                children: [
+                                  _SurfaceCard(
+                                    child: RideCompletedGiveReview(
+                                      onRatingChanged: (rating) =>
+                                          _rating = rating,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _SurfaceCard(
+                                    child: RideCompletedAddTip(
+                                      rideId: widget.rideId,
+                                      onTipChanged: (amount) =>
+                                          _tipMinor = amount,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            canRate
+                                ? context.l10n.ratingOptional
+                                : context.l10n.ratingAfterPayment,
+                            key: const ValueKey('completion-feedback-status'),
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: MoveraTokens.muted,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        const _BelongingsReminder(),
+                        const SizedBox(height: 14),
+                        _SurfaceCard(
+                          child: RideCompletedDriverInfo(rideId: widget.rideId),
+                        ),
+                        const SizedBox(height: 14),
+                        _SurfaceCard(
+                          child: RideCompletedTripDetail(
+                            controller: _controller,
+                            rideId: widget.rideId,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        if (_submitError != null)
+                          Text(
+                            _submitError!,
+                            key: const ValueKey('completion-submit-error'),
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: MoveraTokens.buttonHeight,
+                    child: FilledButton(
+                      key: const ValueKey<String>('ride-completed-done'),
+                      onPressed: _leaving ? null : _closeAndHome,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: MoveraTokens.cta,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Text(
+                        context.l10n.done,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      )),
+      ),
     );
   }
 
@@ -541,11 +546,7 @@ class _CompletionHero extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              spec.icon,
-              size: 29,
-              color: MoveraTokens.accent,
-            ),
+            child: Icon(spec.icon, size: 29, color: MoveraTokens.accent),
           ),
           const SizedBox(height: 14),
           Text(
@@ -583,11 +584,7 @@ class _CompletionHero extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  spec.statusIcon,
-                  size: 18,
-                  color: MoveraTokens.accent,
-                ),
+                Icon(spec.statusIcon, size: 18, color: MoveraTokens.accent),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
@@ -696,11 +693,7 @@ class _CircleAction extends StatelessWidget {
               border: Border.all(color: MoveraTokens.line),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              icon,
-              size: 18,
-              color: MoveraTokens.ink,
-            ),
+            child: Icon(icon, size: 18, color: MoveraTokens.ink),
           ),
         ),
       ),
@@ -751,8 +744,7 @@ class _CompletionSpec {
       case RideStatus.paymentProcessing:
         return _CompletionSpec(
           title: L10n.current.tripComplete,
-          message:
-              L10n.current.completeProcessingBody,
+          message: L10n.current.completeProcessingBody,
           statusLabel: L10n.current.paymentProcessing,
           icon: Icons.route_rounded,
           statusIcon: Icons.hourglass_top_rounded,
@@ -760,8 +752,7 @@ class _CompletionSpec {
       case RideStatus.paymentFinalized:
         return _CompletionSpec(
           title: L10n.current.tripComplete,
-          message:
-              L10n.current.completeConfirmedBody,
+          message: L10n.current.completeConfirmedBody,
           statusLabel: L10n.current.paymentConfirmed,
           icon: Icons.check_rounded,
           statusIcon: Icons.verified_rounded,
@@ -769,8 +760,7 @@ class _CompletionSpec {
       case RideStatus.ratingPending:
         return _CompletionSpec(
           title: L10n.current.tripComplete,
-          message:
-              L10n.current.completeRateBody,
+          message: L10n.current.completeRateBody,
           statusLabel: L10n.current.readyForFeedback,
           icon: Icons.star_outline_rounded,
           statusIcon: Icons.rate_review_outlined,
@@ -779,8 +769,7 @@ class _CompletionSpec {
       default:
         return _CompletionSpec(
           title: L10n.current.tripComplete,
-          message:
-              L10n.current.completeDefaultBody,
+          message: L10n.current.completeDefaultBody,
           statusLabel: L10n.current.tripCompleted,
           icon: Icons.flag_rounded,
           statusIcon: Icons.check_circle_outline_rounded,

@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
+
 import 'safety_recorder.dart';
+
 import 'package:movera_rider/l10n/l10n.dart';
 
 class SafetyAudioException implements Exception {
@@ -22,12 +24,11 @@ class SafetyAudioService extends ChangeNotifier {
     SafetyRecorder? recorder,
     SafetyStore? store,
     this.supported = true,
-  })  : _recorder = recorder ?? createSafetyRecorder(),
-        _store = store ?? SafetyStore.shared {
+  }) : _recorder = recorder ?? createSafetyRecorder(),
+       _store = store ?? SafetyStore.shared {
     final recorder = _recorder;
     if (recorder is SafetyRecorderInterruptions) {
-      _interruptions = (recorder as SafetyRecorderInterruptions)
-          .interruptions
+      _interruptions = (recorder as SafetyRecorderInterruptions).interruptions
           .listen((_) => unawaited(_onInterrupted()));
     }
   }
@@ -75,10 +76,7 @@ class SafetyAudioService extends ChangeNotifier {
     bool deviceOnly = false,
   }) async {
     if (!supported || !_recorder.supported) {
-      throw SafetyAudioException(
-        'UNSUPPORTED',
-        L10n.current.audioUnsupported,
-      );
+      throw SafetyAudioException('UNSUPPORTED', L10n.current.audioUnsupported);
     }
     // rider-r4-27: _active is set only after the awaits below, so a second
     // start() during them (a double tap on Record) is refused here too.
@@ -103,10 +101,7 @@ class SafetyAudioService extends ChangeNotifier {
     required bool deviceOnly,
   }) async {
     if (!await _recorder.requestPermission()) {
-      throw SafetyAudioException(
-        'MIC_DENIED',
-        L10n.current.audioMicRequired,
-      );
+      throw SafetyAudioException('MIC_DENIED', L10n.current.audioMicRequired);
     }
     final recording = deviceOnly
         ? await _store.initDeviceAudio(rideId)
@@ -116,15 +111,10 @@ class SafetyAudioService extends ChangeNotifier {
     } catch (_) {
       await _recorder.cancel();
       await _store.deleteAudio(recording);
-      throw SafetyAudioException(
-        'START_FAILED',
-        L10n.current.audioStartFailed,
-      );
+      throw SafetyAudioException('START_FAILED', L10n.current.audioStartFailed);
     }
     _handedOver = false;
-    _active = recording.copyWith(
-      createdAt: DateTime.now().toUtc(),
-    );
+    _active = recording.copyWith(createdAt: DateTime.now().toUtc());
     return _active!;
   }
 

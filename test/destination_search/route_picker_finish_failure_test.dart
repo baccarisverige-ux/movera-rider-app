@@ -60,7 +60,9 @@ void main() {
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    await tester.tap(find.textContaining('Stureplan', findRichText: true).first);
+    await tester.tap(
+      find.textContaining('Stureplan', findRichText: true).first,
+    );
     await tester.pump(const Duration(milliseconds: 300));
     expect(calls, 2, reason: 'the picker is usable again after a failure');
   });

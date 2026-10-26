@@ -40,7 +40,9 @@ void main() {
     (tester) async {
       final store = _MemWallet();
       await tester.pumpWidget(
-        MaterialApp(home: WalletHome(wallet: WalletController(store: store))),
+        MaterialApp(
+          home: WalletHome(wallet: WalletController(store: store)),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -61,7 +63,9 @@ void main() {
   testWidgets('two separate top-ups each apply exactly once', (tester) async {
     final store = _MemWallet();
     await tester.pumpWidget(
-      MaterialApp(home: WalletHome(wallet: WalletController(store: store))),
+      MaterialApp(
+        home: WalletHome(wallet: WalletController(store: store)),
+      ),
     );
     await tester.pumpAndSettle();
 

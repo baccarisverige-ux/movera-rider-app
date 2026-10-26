@@ -148,18 +148,21 @@ void main() {
     expect(history.first.cancellationReason, 'plans_changed');
   });
 
-  test('missing driver payload stays pending without inventing identity', () async {
-    final store = LocalReservationRepository(
-      storage: MemoryReservationStorage(),
-    );
-    final created = await store.createReservation(_draft());
-    final pending = await store.assignDriver(created.reservationId);
-    expect(pending.reservationId, created.reservationId);
-    expect(pending.status, ReservationStatus.driverAssignmentPending);
-    expect(pending.driver, isNull);
-    expect(pending.driverAssigned, isFalse);
-    expect(await store.getUpcomingReservations(), hasLength(1));
-  });
+  test(
+    'missing driver payload stays pending without inventing identity',
+    () async {
+      final store = LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+      );
+      final created = await store.createReservation(_draft());
+      final pending = await store.assignDriver(created.reservationId);
+      expect(pending.reservationId, created.reservationId);
+      expect(pending.status, ReservationStatus.driverAssignmentPending);
+      expect(pending.driver, isNull);
+      expect(pending.driverAssigned, isFalse);
+      expect(await store.getUpcomingReservations(), hasLength(1));
+    },
+  );
 
   test('explicit driver payload updates the same reservation', () async {
     final store = LocalReservationRepository(

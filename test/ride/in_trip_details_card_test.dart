@@ -34,13 +34,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('in-trip details switch to the destination and never regress to pickup copy', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(inTrip: true));
+  testWidgets(
+    'in-trip details switch to the destination and never regress to pickup copy',
+    (tester) async {
+      await tester.pumpWidget(host(inTrip: true));
 
-    expect(find.text('To Hornsgatan 2, Stockholm'), findsOneWidget);
-    expect(find.text('Meet at Sveavägen 1, Stockholm'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('To Hornsgatan 2, Stockholm'), findsOneWidget);
+      expect(find.text('Meet at Sveavägen 1, Stockholm'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

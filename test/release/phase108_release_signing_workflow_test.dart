@@ -5,9 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Batch 9 Phase 108 — D-027: the release-signing check must sign the
 /// production composition, not the demo entrypoint.
 void main() {
-  final workflow = File(
-    '.github/workflows/android-release-signing.yml',
-  ).readAsStringSync();
+  final workflow = File('.github/workflows/android-release-signing.yml')
+      .readAsStringSync();
 
   test('signing check builds the production entrypoint and flavor', () {
     expect(workflow, contains('flutter build apk --release'));

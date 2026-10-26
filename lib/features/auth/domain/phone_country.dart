@@ -26,16 +26,16 @@ class PhoneCountry {
 
   /// The flag emoji, from the ISO code's regional indicator letters.
   String get flag => String.fromCharCodes([
-        for (final unit in iso.codeUnits) 0x1F1E6 + unit - 0x41,
-      ]);
+    for (final unit in iso.codeUnits) 0x1F1E6 + unit - 0x41,
+  ]);
 
   /// The name in [language] (`en`, `fr`, `sv`), English when the app has
   /// no translation.
   String nameIn(String language) => switch (language) {
-        'fr' => fr ?? name,
-        'sv' => sv ?? name,
-        _ => name,
-      };
+    'fr' => fr ?? name,
+    'sv' => sv ?? name,
+    _ => name,
+  };
 
   @override
   String toString() => 'PhoneCountry($iso, +$dial)';
@@ -59,10 +59,10 @@ abstract final class PhoneCountries {
 
   /// The country of a Rider zone.
   static PhoneCountry ofZone(RiderZone zone) => switch (zone.id) {
-        'FR-PC' => france,
-        'TN-TC' => tunisia,
-        _ => sweden,
-      };
+    'FR-PC' => france,
+    'TN-TC' => tunisia,
+    _ => sweden,
+  };
 
   /// The zone country whose box holds [lat], [lng], or null: unlike
   /// [RiderZones.at], a place outside every zone is not the home zone.
@@ -110,8 +110,8 @@ abstract final class PhoneCountries {
             (byDial
                 ? c.dial.startsWith(dial)
                 : fold(c.nameIn(language)).contains(q) ||
-                    fold(c.name).contains(q) ||
-                    c.iso.toLowerCase() == q))
+                      fold(c.name).contains(q) ||
+                      c.iso.toLowerCase() == q))
           c,
     ];
     matches.sort(
@@ -121,26 +121,57 @@ abstract final class PhoneCountries {
   }
 
   static const Map<String, String> _plain = {
-    'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a',
-    'ç': 'c', 'ć': 'c', 'č': 'c', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ł': 'l', 'ñ': 'n', 'ò': 'o',
-    'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'š': 's', 'ù': 'u',
-    'ú': 'u', 'û': 'u', 'ü': 'u', 'ý': 'y', 'ÿ': 'y', 'ž': 'z', 'æ': 'ae',
-    'œ': 'oe', '’': "'",
+    'à': 'a',
+    'á': 'a',
+    'â': 'a',
+    'ã': 'a',
+    'ä': 'a',
+    'å': 'a',
+    'ā': 'a',
+    'ç': 'c',
+    'ć': 'c',
+    'č': 'c',
+    'è': 'e',
+    'é': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'ì': 'i',
+    'í': 'i',
+    'î': 'i',
+    'ï': 'i',
+    'ł': 'l',
+    'ñ': 'n',
+    'ò': 'o',
+    'ó': 'o',
+    'ô': 'o',
+    'õ': 'o',
+    'ö': 'o',
+    'ø': 'o',
+    'š': 's',
+    'ù': 'u',
+    'ú': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ý': 'y',
+    'ÿ': 'y',
+    'ž': 'z',
+    'æ': 'ae',
+    'œ': 'oe',
+    '’': "'",
   };
 
   /// [text] in lower case without accents, so "tunisie" finds "Tunisie"
   /// and "etats" finds "États-Unis".
-  static String fold(String text) => text
-      .toLowerCase()
-      .split('')
-      .map((ch) => _plain[ch] ?? ch)
-      .join();
+  static String fold(String text) =>
+      text.toLowerCase().split('').map((ch) => _plain[ch] ?? ch).join();
 
   /// The country a number in international form (`+33…`, `0033…`) dials,
   /// by the longest matching dial code; [preferred] wins a shared code
   /// (+1, +7, +44…). Null for national input or an unknown code.
-  static PhoneCountry? ofInternational(String digits, {PhoneCountry? preferred}) {
+  static PhoneCountry? ofInternational(
+    String digits, {
+    PhoneCountry? preferred,
+  }) {
     if (preferred != null && digits.startsWith(preferred.dial)) {
       return preferred;
     }
@@ -165,11 +196,11 @@ int? mobileLengthOf(PhoneCountry country) => _mobileLength[country.iso];
 
 /// An example national number for the field's hint.
 String phoneHintOf(PhoneCountry country) => switch (country.iso) {
-      'SE' => '70 123 45 67',
-      'FR' => '6 12 34 56 78',
-      'TN' => '20 123 456',
-      _ => '',
-    };
+  'SE' => '70 123 45 67',
+  'FR' => '6 12 34 56 78',
+  'TN' => '20 123 456',
+  _ => '',
+};
 
 final RegExp _separators = RegExp(r'[\s\-(). ]');
 
@@ -242,11 +273,13 @@ String displayPhoneNumber(String e164) {
   if (national.isEmpty) return value;
   String grouped;
   if (country.iso == 'FR' && national.length == 9) {
-    grouped = '${national[0]} ${national.substring(1, 3)} '
+    grouped =
+        '${national[0]} ${national.substring(1, 3)} '
         '${national.substring(3, 5)} ${national.substring(5, 7)} '
         '${national.substring(7)}';
   } else if (country.iso == 'TN' && national.length == 8) {
-    grouped = '${national.substring(0, 2)} ${national.substring(2, 5)} '
+    grouped =
+        '${national.substring(0, 2)} ${national.substring(2, 5)} '
         '${national.substring(5)}';
   } else {
     grouped = national;

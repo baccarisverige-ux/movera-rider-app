@@ -30,7 +30,10 @@ void main() {
     (tester) async {
       // rider-63: the pick is Stockholm wall-clock time and now is an
       // instant, so the countdown is right on a device in any zone.
-      final now = ZoneClock.toUtc(DateTime(2026, 9, 26, 8), ZoneClock.stockholm);
+      final now = ZoneClock.toUtc(
+        DateTime(2026, 9, 26, 8),
+        ZoneClock.stockholm,
+      );
       final pickupAt = DateTime(2026, 9, 26, 10, 15);
       final reservations = ReservationController(
         store: LocalReservationRepository(
@@ -62,45 +65,45 @@ void main() {
           ensureScreenSize: true,
           builder: (_, child) => MaterialApp(
             home: Builder(
-            builder: (context) => Scaffold(
-              body: Column(
-                children: [
-                  TextButton(
-                    onPressed: () async {
-                      created = await ScheduledRideBooking.confirm(
-                        reservations: reservations,
-                        selection: selection,
-                        pickup: const ReservationPlace(
-                          label: 'Stockholm Central',
-                          lat: 59.3293,
-                          lng: 18.0686,
-                        ),
-                        destination: const ReservationPlace(
-                          label: 'Arlanda Airport',
-                          lat: 59.6519,
-                          lng: 17.9186,
-                        ),
-                      );
-                      if (!context.mounted) return;
-                      await RideScheduledPage.open(
-                        context,
-                        reservationId: created!.reservationId,
-                        controller: reservations,
-                      );
-                    },
-                    child: const Text('Schedule Movera'),
-                  ),
-                  HomeReservationChrono(
-                    controller: reservations,
-                    now: () => now,
-                  ),
-                ],
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    TextButton(
+                      onPressed: () async {
+                        created = await ScheduledRideBooking.confirm(
+                          reservations: reservations,
+                          selection: selection,
+                          pickup: const ReservationPlace(
+                            label: 'Stockholm Central',
+                            lat: 59.3293,
+                            lng: 18.0686,
+                          ),
+                          destination: const ReservationPlace(
+                            label: 'Arlanda Airport',
+                            lat: 59.6519,
+                            lng: 17.9186,
+                          ),
+                        );
+                        if (!context.mounted) return;
+                        await RideScheduledPage.open(
+                          context,
+                          reservationId: created!.reservationId,
+                          controller: reservations,
+                        );
+                      },
+                      child: const Text('Schedule Movera'),
+                    ),
+                    HomeReservationChrono(
+                      controller: reservations,
+                      now: () => now,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Schedule Movera'), findsOneWidget);
@@ -111,9 +114,9 @@ void main() {
       expect(created?.reservationId, 'journey-reservation-1');
       expect(find.text('Your ride is scheduled'), findsOneWidget);
       expect(
-        ModalRoute.of(
-          tester.element(find.byType(RideScheduledPage)),
-        )?.settings.name,
+        ModalRoute.of(tester.element(find.byType(RideScheduledPage)))
+            ?.settings
+            .name,
         AppRoutes.reservationScheduled,
       );
 
@@ -150,9 +153,9 @@ void main() {
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(
-        ModalRoute.of(
-          tester.element(find.byType(WaitingForDriver)),
-        )?.settings.name,
+        ModalRoute.of(tester.element(find.byType(WaitingForDriver)))
+            ?.settings
+            .name,
         AppRoutes.reservationLive,
       );
       expect(find.textContaining('Amina'), findsWidgets);
@@ -194,9 +197,7 @@ void main() {
         ReservationStatus.completed,
       );
 
-      final done = find.byKey(
-        const ValueKey<String>('ride-completed-done'),
-      );
+      final done = find.byKey(const ValueKey<String>('ride-completed-done'));
       await tester.ensureVisible(done);
       await tester.tap(done);
       await tester.pumpAndSettle();

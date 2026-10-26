@@ -7,7 +7,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 class SavedPlacesController {
   SavedPlacesController({HomeAddressRepository? store})
-      : _store = store ?? HomeAddressRepository();
+    : _store = store ?? HomeAddressRepository();
 
   final HomeAddressRepository _store;
   final List<PlaceShortcut> _shortcuts = <PlaceShortcut>[];

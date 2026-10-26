@@ -20,22 +20,25 @@ void main() {
     paymentMethod: 'apple',
   );
 
-  test('scheduled reservation projects into the shared Trip contract', () async {
-    final repo = LocalReservationRepository(
-      storage: MemoryReservationStorage(),
-      nextId: () => 'trip-scheduled-1',
-      clock: () => fixedNow,
-    );
+  test(
+    'scheduled reservation projects into the shared Trip contract',
+    () async {
+      final repo = LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'trip-scheduled-1',
+        clock: () => fixedNow,
+      );
 
-    final reservation = await repo.createReservation(draft());
-    final trip = reservation.toTripContract();
+      final reservation = await repo.createReservation(draft());
+      final trip = reservation.toTripContract();
 
-    expect(trip.tripId, reservation.reservationId);
-    expect(trip.status, TripStatus.requested);
-    expect(trip.schedule?.scheduledFor, reservation.scheduledPickupAt);
-    expect(trip.categoryId, 'economy');
-    expect(trip.paymentMethodId, 'apple');
-  });
+      expect(trip.tripId, reservation.reservationId);
+      expect(trip.status, TripStatus.requested);
+      expect(trip.schedule?.scheduledFor, reservation.scheduledPickupAt);
+      expect(trip.categoryId, 'economy');
+      expect(trip.paymentMethodId, 'apple');
+    },
+  );
 
   test('scheduled cancellation records actor reason and timestamp', () async {
     final repo = LocalReservationRepository(
@@ -114,5 +117,4 @@ void main() {
       TripStatus.failed,
     );
   });
-
 }

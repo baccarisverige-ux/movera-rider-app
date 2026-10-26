@@ -42,6 +42,7 @@ class RouteChangeQuote {
   final String destinationAddress;
   final GeoPoint destinationPoint;
   final List<RouteStop> stops;
+
   /// Whole units of [currency] (the trip's, Q7).
   final double oldPriceKr;
   final double newPriceKr;
@@ -113,17 +114,15 @@ class RouteChangeException implements Exception {
   final int? maxPickupMoveMeters;
 
   String get message => switch (failure) {
-    RouteChangeFailure.pickupLocked =>
-      L10n.current.routePickupLocked,
+    RouteChangeFailure.pickupLocked => L10n.current.routePickupLocked,
     RouteChangeFailure.rideFinished => L10n.current.routeNoLongerChangeable,
-    RouteChangeFailure.addressNotFound =>
-      L10n.current.routeAddressNotFound,
+    RouteChangeFailure.addressNotFound => L10n.current.routeAddressNotFound,
     RouteChangeFailure.network => L10n.current.routeUpdateFailed,
-    RouteChangeFailure.priceChanged =>
-      L10n.current.routePriceChanged,
+    RouteChangeFailure.priceChanged => L10n.current.routePriceChanged,
     RouteChangeFailure.stale => rideJustChangedMessage,
-    RouteChangeFailure.pickupTooFar =>
-      L10n.current.routePickupTooFar('${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}'),
+    RouteChangeFailure.pickupTooFar => L10n.current.routePickupTooFar(
+      '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}',
+    ),
   };
 }
 
@@ -160,7 +159,8 @@ class RouteChangeController {
     int? maxPickupMoveMeters,
   }) async {
     final id = ride.rideId;
-    if (id == null) throw const RouteChangeException(RouteChangeFailure.network);
+    if (id == null)
+      throw const RouteChangeException(RouteChangeFailure.network);
     final pickup = pickupAddress?.trim().isNotEmpty == true
         ? pickupAddress!.trim()
         : ride.pickupAddress;
@@ -202,7 +202,11 @@ class RouteChangeController {
           (known == null ? null : GeoPoint(known.latitude, known.longitude)) ??
           await _locate(address);
       located.add(
-        RouteStop(address: address, latitude: point.latitude, longitude: point.longitude),
+        RouteStop(
+          address: address,
+          latitude: point.latitude,
+          longitude: point.longitude,
+        ),
       );
     }
     final draft = RouteChangeQuote(
@@ -232,8 +236,9 @@ class RouteChangeController {
       stops: draft.stops,
       oldPriceKr: ride.price,
       newPriceKr: price?.major ?? ride.price,
-      routeQuoteId:
-          quoteId is String && quoteId.trim().isNotEmpty ? quoteId.trim() : null,
+      routeQuoteId: quoteId is String && quoteId.trim().isNotEmpty
+          ? quoteId.trim()
+          : null,
       expiresAt: WireTime.tryParse(response['expiresAt']),
       newTotalMinor: price?.amountMinor,
       differenceMinor:
@@ -255,7 +260,8 @@ class RouteChangeController {
     Object? refundTo,
   }) async {
     final id = ride.rideId;
-    if (id == null) throw const RouteChangeException(RouteChangeFailure.network);
+    if (id == null)
+      throw const RouteChangeException(RouteChangeFailure.network);
     final refund = refundTo?.toString().split('.').last;
     final body = <String, dynamic>{
       ...quote.toRequest(),
@@ -320,8 +326,10 @@ class RouteChangeController {
           ? serverMax.round()
           : ride.maxOfferMinor == null
           ? null
-          : Money.fromLegacyMajor(FareRules.maximum(newPrice), ride.currency)
-                .amountMinor,
+          : Money.fromLegacyMajor(
+              FareRules.maximum(newPrice),
+              ride.currency,
+            ).amountMinor,
     );
     await RideSnapshotStore.save(updated);
     return updated;
@@ -369,7 +377,8 @@ class RouteChangeController {
       throw RouteChangeException(switch (error.detail) {
         'pickup_locked' => RouteChangeFailure.pickupLocked,
         'pickup_too_far' => RouteChangeFailure.pickupTooFar,
-        'ride_finished' || 'invalid_transition' => RouteChangeFailure.rideFinished,
+        'ride_finished' ||
+        'invalid_transition' => RouteChangeFailure.rideFinished,
         'route_quote_expired' ||
         'route_quote_not_found' ||
         'route_quote_mismatch' ||

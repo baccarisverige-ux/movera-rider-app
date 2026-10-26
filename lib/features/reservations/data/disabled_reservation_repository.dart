@@ -12,8 +12,7 @@ import 'package:movera_rider/features/reservations/domain/reservation_repository
 /// server-backed [ReservationRepository] (contract C-8) exists.
 class DisabledReservationRepository
     implements ReservationRepository, FeatureOffRepository {
-  DisabledReservationRepository({ReservationPolicy? policy})
-    : _policy = policy;
+  DisabledReservationRepository({ReservationPolicy? policy}) : _policy = policy;
 
   /// Null: [ReservationPolicyCatalog.current], in the app language.
   final ReservationPolicy? _policy;

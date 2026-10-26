@@ -171,7 +171,11 @@ class PromotionDetailsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    L10n.current.promoOffLeftOf('${promotion.percentOff}', '$left', '${promotion.ridesTotal}'),
+                    L10n.current.promoOffLeftOf(
+                      '${promotion.percentOff}',
+                      '$left',
+                      '${promotion.ridesTotal}',
+                    ),
                     style: _t(13, c: _muted),
                   ),
                 ),
@@ -309,8 +313,10 @@ class PromotionDetailsSheet extends StatelessWidget {
       );
     } else {
       trailing = Semantics(
-        label:
-            L10n.current.wasNowPromo(_kr(price.original), _kr(price.discounted)),
+        label: L10n.current.wasNowPromo(
+          _kr(price.original),
+          _kr(price.discounted),
+        ),
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,

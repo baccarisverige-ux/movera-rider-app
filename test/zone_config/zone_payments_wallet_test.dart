@@ -27,10 +27,18 @@ void main() {
       final names = [
         for (final item in RideSelectionRepository().payments()) item.name,
       ];
-      expect(names, ['Movera Wallet', 'Apple Pay', 'Google Pay', 'Card', 'Cash']);
+      expect(names, [
+        'Movera Wallet',
+        'Apple Pay',
+        'Google Pay',
+        'Card',
+        'Cash',
+      ]);
       for (final item in RideSelectionRepository().payments()) {
-        expect('${item.name} ${item.detail}'.toLowerCase(),
-            isNot(matches(RegExp('swish|klarna|paypal'))));
+        expect(
+          '${item.name} ${item.detail}'.toLowerCase(),
+          isNot(matches(RegExp('swish|klarna|paypal'))),
+        );
       }
     });
 
@@ -38,7 +46,11 @@ void main() {
       final selection = RideSelectionController(flags: const FeatureFlags());
       addTearDown(selection.dispose);
       // Tests run as Android: Google Pay, Card, Cash.
-      expect(selection.payments().map((p) => p.brand), ['google', 'cards', 'cash']);
+      expect(selection.payments().map((p) => p.brand), [
+        'google',
+        'cards',
+        'cash',
+      ]);
 
       selection.setZonePaymentMethods(const ['cash', 'card']);
       expect(selection.payments().map((p) => p.brand), ['cards', 'cash']);
@@ -77,74 +89,89 @@ void main() {
       expect(await euros.loadBalance(), 15.5);
       expect(await dinars.loadBalance(), 0);
 
-      await dinars.creditTopUp(paymentIntentId: 'pi_1', previous: 0, amount: 30);
+      await dinars.creditTopUp(
+        paymentIntentId: 'pi_1',
+        previous: 0,
+        amount: 30,
+      );
       expect(await dinars.loadBalance(), 30);
       expect(await kronor.loadBalance(), 120.0, reason: 'no conversion');
       expect(await euros.loadBalance(), 15.5);
     });
 
-    test('a euro trip paid by wallet is taken off the euro balance only', () async {
-      SharedPreferences.setMockInitialValues({
-        WalletStore.balanceKey: 500.0,
-        'movera_wallet_balance.EUR': 40.0,
-      });
-      final snapshot = RideSnapshot(
-        status: RideStatus.paymentFinalized,
-        savedAt: DateTime.now(),
-        pickupAddress: 'Louvre',
-        destinationAddress: 'Gare du Nord',
-        pickupLat: 48.86,
-        pickupLng: 2.34,
-        destinationLat: 48.88,
-        destinationLng: 2.35,
-        rideType: 'Economy',
-        price: 24.6,
-        currency: 'EUR',
-        paymentMethod: 'Movera Wallet',
-        paymentMethodId: 'wallet',
-        rideId: 'ride-eur-wallet',
-      );
-      final wallet = WalletController();
-
-      expect(
-        await wallet.chargeCompletedRide(snapshot, rideId: 'ride-eur-wallet'),
-        closeTo(15.4, 1e-9),
-      );
-      expect(await wallet.loadBalance(), 500.0);
-      expect(await wallet.forCurrency('EUR').loadBalance(), closeTo(15.4, 1e-9));
-      // Never twice.
-      expect(
-        await wallet.chargeCompletedRide(snapshot, rideId: 'ride-eur-wallet'),
-        isNull,
-      );
-    });
-
-    test('the euro balance is used first on a euro trip, exact to the cent', () {
-      final selection = RideSelectionController(
-        flags: const FeatureFlags(),
-        currency: 'EUR',
-      );
-      addTearDown(selection.dispose);
-      selection
-        ..walletCurrency = 'EUR'
-        ..setWalletBalance(5.5);
-      final split = selection.walletSplitFor(const Money(2460, 'EUR').amountMinor);
-      expect(split.usesWallet, isTrue);
-      expect(split.walletLabel, '5,50 €');
-      expect(split.remainderLabel, '19,10 €');
-      expect(
-        bookedPaymentLine(
-          paymentMethod: 'Card',
-          priceKr: 24.6,
-          walletMinor: 550,
+    test(
+      'a euro trip paid by wallet is taken off the euro balance only',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          WalletStore.balanceKey: 500.0,
+          'movera_wallet_balance.EUR': 40.0,
+        });
+        final snapshot = RideSnapshot(
+          status: RideStatus.paymentFinalized,
+          savedAt: DateTime.now(),
+          pickupAddress: 'Louvre',
+          destinationAddress: 'Gare du Nord',
+          pickupLat: 48.86,
+          pickupLng: 2.34,
+          destinationLat: 48.88,
+          destinationLng: 2.35,
+          rideType: 'Economy',
+          price: 24.6,
           currency: 'EUR',
-        ),
-        'Card 19,10 € · Wallet 5,50 €',
-      );
-      // A balance in another currency never pays.
-      selection.walletCurrency = 'SEK';
-      expect(selection.walletSplitFor(2460).usesWallet, isFalse);
-    });
+          paymentMethod: 'Movera Wallet',
+          paymentMethodId: 'wallet',
+          rideId: 'ride-eur-wallet',
+        );
+        final wallet = WalletController();
+
+        expect(
+          await wallet.chargeCompletedRide(snapshot, rideId: 'ride-eur-wallet'),
+          closeTo(15.4, 1e-9),
+        );
+        expect(await wallet.loadBalance(), 500.0);
+        expect(
+          await wallet.forCurrency('EUR').loadBalance(),
+          closeTo(15.4, 1e-9),
+        );
+        // Never twice.
+        expect(
+          await wallet.chargeCompletedRide(snapshot, rideId: 'ride-eur-wallet'),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'the euro balance is used first on a euro trip, exact to the cent',
+      () {
+        final selection = RideSelectionController(
+          flags: const FeatureFlags(),
+          currency: 'EUR',
+        );
+        addTearDown(selection.dispose);
+        selection
+          ..walletCurrency = 'EUR'
+          ..setWalletBalance(5.5);
+        final split = selection.walletSplitFor(
+          const Money(2460, 'EUR').amountMinor,
+        );
+        expect(split.usesWallet, isTrue);
+        expect(split.walletLabel, '5,50 €');
+        expect(split.remainderLabel, '19,10 €');
+        expect(
+          bookedPaymentLine(
+            paymentMethod: 'Card',
+            priceKr: 24.6,
+            walletMinor: 550,
+            currency: 'EUR',
+          ),
+          'Card 19,10 € · Wallet 5,50 €',
+        );
+        // A balance in another currency never pays.
+        selection.walletCurrency = 'SEK';
+        expect(selection.walletSplitFor(2460).usesWallet, isFalse);
+      },
+    );
 
     testWidgets('the Wallet page shows the balance of each currency', (
       tester,

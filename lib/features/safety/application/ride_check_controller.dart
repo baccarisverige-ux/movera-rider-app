@@ -446,7 +446,10 @@ class RideCheckController extends ChangeNotifier {
         final seconds = (settings.longStopMinutes + 1) * 60;
         for (var s = 0; s <= seconds && hit == null; s += 5) {
           hit = monitor.addSample(
-            RideCheckSample(point: stop, at: start.add(Duration(seconds: s))),
+            RideCheckSample(
+              point: stop,
+              at: start.add(Duration(seconds: s)),
+            ),
           );
         }
       case RideCheckTrigger.offRoute:
@@ -906,7 +909,8 @@ class RideCheckController extends ChangeNotifier {
     return switch (trigger) {
       RideCheckTrigger.droppedFar => RideCheckReason(
         distanceMeters:
-            given.distanceMeters ?? settings.finishFarFromDropoffKm * 1000 + 400,
+            given.distanceMeters ??
+            settings.finishFarFromDropoffKm * 1000 + 400,
         destinationLabel: given.destinationLabel,
       ),
       RideCheckTrigger.longStop => RideCheckReason(

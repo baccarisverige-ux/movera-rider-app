@@ -34,35 +34,41 @@ void main() {
     expect(Reservation.tryParse(legacy)?.status, ReservationStatus.scheduled);
   });
 
-  test('saved place shortcuts survive controller restart without demo data', () async {
-    final first = SavedPlacesController();
-    await first.save(
-      const PlaceShortcut(
-        title: 'Home',
-        subtitle: 'Klockarvägen 37',
-        kind: 'home',
-      ),
-    );
+  test(
+    'saved place shortcuts survive controller restart without demo data',
+    () async {
+      final first = SavedPlacesController();
+      await first.save(
+        const PlaceShortcut(
+          title: 'Home',
+          subtitle: 'Klockarvägen 37',
+          kind: 'home',
+        ),
+      );
 
-    final second = SavedPlacesController();
-    await second.hydrate();
+      final second = SavedPlacesController();
+      await second.hydrate();
 
-    expect(second.shortcuts(), hasLength(1));
-    expect(second.shortcuts().single.title, 'Home');
-    expect(second.shortcuts().single.subtitle, 'Klockarvägen 37');
-    expect(second.shortcuts().single.kind, 'home');
-  });
+      expect(second.shortcuts(), hasLength(1));
+      expect(second.shortcuts().single.title, 'Home');
+      expect(second.shortcuts().single.subtitle, 'Klockarvägen 37');
+      expect(second.shortcuts().single.kind, 'home');
+    },
+  );
 
-  test('saving same saved-place kind updates instead of duplicating it', () async {
-    final controller = SavedPlacesController();
-    await controller.save(
-      const PlaceShortcut(title: 'Home', subtitle: 'Old', kind: 'home'),
-    );
-    await controller.save(
-      const PlaceShortcut(title: 'Home', subtitle: 'New', kind: 'HOME'),
-    );
+  test(
+    'saving same saved-place kind updates instead of duplicating it',
+    () async {
+      final controller = SavedPlacesController();
+      await controller.save(
+        const PlaceShortcut(title: 'Home', subtitle: 'Old', kind: 'home'),
+      );
+      await controller.save(
+        const PlaceShortcut(title: 'Home', subtitle: 'New', kind: 'HOME'),
+      );
 
-    expect(controller.shortcuts(), hasLength(1));
-    expect(controller.shortcuts().single.subtitle, 'New');
-  });
+      expect(controller.shortcuts(), hasLength(1));
+      expect(controller.shortcuts().single.subtitle, 'New');
+    },
+  );
 }

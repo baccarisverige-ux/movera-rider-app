@@ -88,8 +88,9 @@ void main() {
     expect(inSelectRide, findsNothing);
   });
 
-  testWidgets('N6: the Select ride map stays flat (no tilt with zoom)',
-      (tester) async {
+  testWidgets('N6: the Select ride map stays flat (no tilt with zoom)', (
+    tester,
+  ) async {
     // Owner screenshot (Select ride, Klockarvägen 37, Södertälje): the fit
     // leaned the camera 67.5° at building level and the route line became a
     // wedge. Select ride reads the route from above; Home keeps the driver

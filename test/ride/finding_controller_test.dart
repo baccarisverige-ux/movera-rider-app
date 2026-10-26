@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../mock_fare.dart';
 
 RideSnapshot snap({double price = 259}) => RideSnapshot(

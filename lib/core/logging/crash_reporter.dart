@@ -24,11 +24,6 @@ class CrashReporter {
       'appVersion': appVersion,
     });
     Observability.crashes.record(error, stack, extra: extra);
-    AppLog.fatal(
-      'crash',
-      error: error,
-      stackTrace: stack,
-      extra: extra,
-    );
+    AppLog.fatal('crash', error: error, stackTrace: stack, extra: extra);
   }
 }

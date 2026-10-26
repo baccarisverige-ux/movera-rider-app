@@ -51,8 +51,9 @@ class _Location extends LocationRepository {
   Future<LocationPermission> requestPermission() async => requestedPermission;
 
   @override
-  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) async =>
-      current;
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async => current;
 
   @override
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
@@ -70,14 +71,16 @@ class _Geocoding extends GeocodingRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  HomeLocationController controller(_Location location, {double? Function()? compass}) =>
-      HomeLocationController(
-        location: location,
-        geocoding: _Geocoding(),
-        motion: MotionEngine(),
-        startCompass: () async => compass != null,
-        readCompass: compass,
-      );
+  HomeLocationController controller(
+    _Location location, {
+    double? Function()? compass,
+  }) => HomeLocationController(
+    location: location,
+    geocoding: _Geocoding(),
+    motion: MotionEngine(),
+    startCompass: () async => compass != null,
+    readCompass: compass,
+  );
 
   test('services disabled is explicit and never fabricates a fix', () async {
     final location = _Location(serviceEnabled: false);

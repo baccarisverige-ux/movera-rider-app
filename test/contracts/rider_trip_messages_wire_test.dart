@@ -28,14 +28,19 @@ void main() {
     required String from,
     required String text,
     required String at,
-  }) =>
-      {'messageId': id, 'tripId': 'trp_1', 'from': from, 'text': text, 'at': at};
+  }) => {
+    'messageId': id,
+    'tripId': 'trp_1',
+    'from': from,
+    'text': text,
+    'at': at,
+  };
 
   http.Response json(Object body, [int status = 200]) => http.Response(
-        jsonEncode(body),
-        status,
-        headers: {'content-type': 'application/json'},
-      );
+    jsonEncode(body),
+    status,
+    headers: {'content-type': 'application/json'},
+  );
 
   Future<ApiClient> client(
     List<http.Request> requests,
@@ -53,55 +58,61 @@ void main() {
     );
   }
 
-  test('a sent message POSTs /trips/{id}/messages with the headers of a '
-      'mutation and { text }; the server copy replaces the local one', () async {
-    final requests = <http.Request>[];
-    final api = await client(requests, (request) async {
-      expect(request.method, 'POST');
-      return json(
-        message(
-          id: 'msg_9',
-          from: 'rider',
-          text: 'Are you close?',
-          at: '2026-10-26T08:30:00Z',
-        ),
-        201,
+  test(
+    'a sent message POSTs /trips/{id}/messages with the headers of a '
+    'mutation and { text }; the server copy replaces the local one',
+    () async {
+      final requests = <http.Request>[];
+      final api = await client(requests, (request) async {
+        expect(request.method, 'POST');
+        return json(
+          message(
+            id: 'msg_9',
+            from: 'rider',
+            text: 'Are you close?',
+            at: '2026-10-26T08:30:00Z',
+          ),
+          201,
+        );
+      });
+      final controller = MessagesController(
+        store: MessagesRepository(),
+        transport: ApiTripMessages(api: api),
+        rideId: 'trp_1',
       );
-    });
-    final controller = MessagesController(
-      store: MessagesRepository(),
-      transport: ApiTripMessages(api: api),
-      rideId: 'trp_1',
-    );
-    addTearDown(controller.dispose);
-    expect(controller.canSendMessages, isTrue);
+      addTearDown(controller.dispose);
+      expect(controller.canSendMessages, isTrue);
 
-    expect(controller.send('  Are you close?  '), isTrue);
-    // Shown at once, before the server answers, honestly without a time.
-    final local = controller.messages.single;
-    expect(local.fromRider, isTrue);
-    expect(local.delivery, ChatDelivery.sending);
-    expect(local.sentAt, isNull);
-    expect(local.messageId, isNull);
+      expect(controller.send('  Are you close?  '), isTrue);
+      // Shown at once, before the server answers, honestly without a time.
+      final local = controller.messages.single;
+      expect(local.fromRider, isTrue);
+      expect(local.delivery, ChatDelivery.sending);
+      expect(local.sentAt, isNull);
+      expect(local.messageId, isNull);
 
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-    final sent = requests.single;
-    expect(sent.method, 'POST');
-    expect(sent.url.path, '/api/v1/trips/trp_1/messages');
-    expect(sent.headers['Authorization'], 'Bearer a1');
-    expect(sent.headers['X-Api-Version'], ApiClient.apiVersion);
-    expect(sent.headers['Idempotency-Key'], hasLength(greaterThanOrEqualTo(16)));
-    expect(jsonDecode(sent.body), {'text': 'Are you close?'});
+      final sent = requests.single;
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/api/v1/trips/trp_1/messages');
+      expect(sent.headers['Authorization'], 'Bearer a1');
+      expect(sent.headers['X-Api-Version'], ApiClient.apiVersion);
+      expect(
+        sent.headers['Idempotency-Key'],
+        hasLength(greaterThanOrEqualTo(16)),
+      );
+      expect(jsonDecode(sent.body), {'text': 'Are you close?'});
 
-    final confirmed = controller.messages.single;
-    expect(confirmed.messageId, 'msg_9');
-    expect(confirmed.delivery, ChatDelivery.sent);
-    expect(confirmed.sentAt, DateTime.utc(2026, 10, 26, 8, 30));
-    expect(confirmed.localId, local.localId);
-    expect(controller.unreadCount, 0);
-  });
+      final confirmed = controller.messages.single;
+      expect(confirmed.messageId, 'msg_9');
+      expect(confirmed.delivery, ChatDelivery.sent);
+      expect(confirmed.sentAt, DateTime.utc(2026, 10, 26, 8, 30));
+      expect(confirmed.localId, local.localId);
+      expect(controller.unreadCount, 0);
+    },
+  );
 
   test('a failed send stays as not sent; the retry reuses the same '
       'Idempotency-Key and the second answer confirms it', () async {
@@ -159,8 +170,9 @@ void main() {
   }
 
   testWidgets('polling lists /trips/{id}/messages on the interval, merges '
-      'by messageId and counts driver and support messages unread',
-      (tester) async {
+      'by messageId and counts driver and support messages unread', (
+    tester,
+  ) async {
     final requests = <http.Request>[];
     var listings = 0;
     // No expect inside the handler: it runs inside tester.pump, which

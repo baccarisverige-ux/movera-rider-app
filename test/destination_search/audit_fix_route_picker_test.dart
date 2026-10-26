@@ -48,9 +48,9 @@ void main() {
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => page)),
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => page)),
             child: const Text('under'),
           ),
         ),

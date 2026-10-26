@@ -35,8 +35,9 @@ class DriverCancelledNotice extends StatelessWidget {
 
   final String? driverName;
 
-  String get title =>
-      driverName == null ? L10n.current.driverCancelled : L10n.current.nameCancelled(driverName!);
+  String get title => driverName == null
+      ? L10n.current.driverCancelled
+      : L10n.current.nameCancelled(driverName!);
 
   static String get body => L10n.current.driverCancelledBody;
 

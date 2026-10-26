@@ -74,21 +74,25 @@ void main() {
       id: id,
     );
     final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(
-      navigatorKey: navigatorKey,
-      home: const Scaffold(body: Center(child: Text('audit-root'))),
-    ));
-    navigatorKey.currentState!.push(MaterialPageRoute<void>(
-      builder: (_) => const WaitingForDriver(
-        pickupAddress: 'Sergels torg 1',
-        destinationAddress: 'Odenplan 2',
-        pickupPosition: LatLng(59.3326, 18.0649),
-        destinationPosition: LatLng(59.3426, 18.0498),
-        rideType: 'Movera',
-        price: 200,
-        paymentMethod: 'Apple Pay',
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Center(child: Text('audit-root'))),
       ),
-    ));
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const WaitingForDriver(
+          pickupAddress: 'Sergels torg 1',
+          destinationAddress: 'Odenplan 2',
+          pickupPosition: LatLng(59.3326, 18.0649),
+          destinationPosition: LatLng(59.3426, 18.0498),
+          rideType: 'Movera',
+          price: 200,
+          paymentMethod: 'Apple Pay',
+        ),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
@@ -119,18 +123,20 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: TextButton(
-              onPressed: () => open(context),
-              child: const Text('open'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => open(context),
+                child: const Text('open'),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
@@ -140,34 +146,37 @@ void main() {
     WidgetTester tester, {
     List<String> recent = const [],
     List<SavedPlaceData> savedPlaces = const [],
-  }) =>
-      openFrom(tester, (context) => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => RoutePickerPage(
-                pickupAddress: 'Sveavägen 1, Stockholm',
-                destinationAddress: '',
-                stops: const [],
-                stopsSupported: true,
-                initialField: 'destination',
-                capture: EarlyInputCapture(),
-                here: const GeoPoint(59.33, 18.06),
-                homeAddress: null,
-                workAddress: null,
-                savedPlaces: savedPlaces,
-                recent: recent,
-                onPickOnMap: ({required pickup, required address}) async =>
-                    null,
-                onFinish: (_) async => null,
-              ),
-            ),
-          ));
+  }) => openFrom(
+    tester,
+    (context) => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RoutePickerPage(
+          pickupAddress: 'Sveavägen 1, Stockholm',
+          destinationAddress: '',
+          stops: const [],
+          stopsSupported: true,
+          initialField: 'destination',
+          capture: EarlyInputCapture(),
+          here: const GeoPoint(59.33, 18.06),
+          homeAddress: null,
+          workAddress: null,
+          savedPlaces: savedPlaces,
+          recent: recent,
+          onPickOnMap: ({required pickup, required address}) async => null,
+          onFinish: (_) async => null,
+        ),
+      ),
+    ),
+  );
 
   testWidgets(
-      'rider-u36: the sheet shows the server\'s difference, not the device\'s',
-      (tester) async {
-    // The device still holds 259 kr; the server already charged the earlier
-    // (lost) change, so this quote's difference is 0.
-    await openFrom(tester, (context) => RouteChangeSheet.confirm(
+    'rider-u36: the sheet shows the server\'s difference, not the device\'s',
+    (tester) async {
+      // The device still holds 259 kr; the server already charged the earlier
+      // (lost) change, so this quote's difference is 0.
+      await openFrom(
+        tester,
+        (context) => RouteChangeSheet.confirm(
           context,
           quote: const RouteChangeQuote(
             pickupAddress: 'Sergels torg 1',
@@ -181,26 +190,32 @@ void main() {
             differenceMinor: 0,
           ),
           paymentMethod: 'Visa •••• 4242',
-        ));
-    expect(find.textContaining('49 kr'), findsNothing);
-    expect(find.textContaining('charged to'), findsNothing);
-  });
+        ),
+      );
+      expect(find.textContaining('49 kr'), findsNothing);
+      expect(find.textContaining('charged to'), findsNothing);
+    },
+  );
 
   testWidgets('rider-u40: Change route offers no "Set your Home/Work" rows '
       'that cannot do anything', (tester) async {
     // No Home or Work saved on this device.
-    await openFrom(tester, (context) => openRouteChange(
-          context,
-          ride: ride,
-          entry: RouteChangeEntry.destination,
-          pickupLocked: true,
-        ));
+    await openFrom(
+      tester,
+      (context) => openRouteChange(
+        context,
+        ride: ride,
+        entry: RouteChangeEntry.destination,
+        pickupLocked: true,
+      ),
+    );
     expect(find.text('Set Home'), findsNothing);
     expect(find.text('Set Work'), findsNothing);
   });
 
-  testWidgets('rider-u48: in the trip "Arrive by" follows the live ETA',
-      (tester) async {
+  testWidgets('rider-u48: in the trip "Arrive by" follows the live ETA', (
+    tester,
+  ) async {
     final realtime = await openWaiting(tester);
     String arriveBy(int seconds) =>
         'Arrive by ${clockTime(DateTime.now().add(Duration(seconds: seconds)))}';
@@ -224,8 +239,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.textContaining('Arrive by'), findsWidgets);
-    expect(find.text(arriveBy(600)), findsNothing,
-        reason: 'the sheet must not keep the old arrival time');
+    expect(
+      find.text(arriveBy(600)),
+      findsNothing,
+      reason: 'the sheet must not keep the old arrival time',
+    );
   });
 
   testWidgets('rider-u49: a reload does not open the arrived sheet the '
@@ -236,18 +254,20 @@ void main() {
 
     // The page reloads: a fresh Waiting on the same, saved ride.
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpWidget(MaterialApp(
-      home: WaitingForDriver(
-        rideId: saved.rideId,
-        pickupAddress: 'Sergels torg 1',
-        destinationAddress: 'Odenplan 2',
-        pickupPosition: const LatLng(59.3326, 18.0649),
-        destinationPosition: const LatLng(59.3426, 18.0498),
-        rideType: 'Movera',
-        price: 200,
-        paymentMethod: 'Apple Pay',
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WaitingForDriver(
+          rideId: saved.rideId,
+          pickupAddress: 'Sergels torg 1',
+          destinationAddress: 'Odenplan 2',
+          pickupPosition: const LatLng(59.3326, 18.0649),
+          destinationPosition: const LatLng(59.3426, 18.0498),
+          rideType: 'Movera',
+          price: 200,
+          paymentMethod: 'Apple Pay',
+        ),
       ),
-    ));
+    );
     await tester.pump();
     realtime.emit(
       RideStatus.driverWaiting,
@@ -272,17 +292,22 @@ void main() {
       clock: () => now,
     );
     addTearDown(controller.dispose);
-    final created = await controller.create(ReservationDraft(
-      scheduledPickupAt: DateTime(2026, 10, 21, 23, 50),
-      pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
-      destination:
-          const ReservationPlace(label: 'Arlanda', lat: 59.65, lng: 17.93),
-      categoryId: 'comfort',
-      categoryName: 'Comfort',
-      categoryImage: 'assets/images/rides/comfort.webp',
-      price: 450,
-      paymentMethod: 'Cash',
-    ));
+    final created = await controller.create(
+      ReservationDraft(
+        scheduledPickupAt: DateTime(2026, 10, 21, 23, 50),
+        pickup: const ReservationPlace(label: 'Home', lat: 59.33, lng: 18.06),
+        destination: const ReservationPlace(
+          label: 'Arlanda',
+          lat: 59.65,
+          lng: 17.93,
+        ),
+        categoryId: 'comfort',
+        categoryName: 'Comfort',
+        categoryImage: 'assets/images/rides/comfort.webp',
+        price: 450,
+        paymentMethod: 'Cash',
+      ),
+    );
     await controller.assignMockDriver(
       created.reservationId,
       driver: const ReservationDriver(firstName: 'Amina', rating: 4.9),
@@ -291,9 +316,11 @@ void main() {
       created.reservationId,
       const ReservationPatch(status: ReservationStatus.driverEnRoute),
     );
-    await tester.pumpWidget(MaterialApp(
-      home: ReservationLiveRide.pageFor(live, controller: controller),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReservationLiveRide.pageFor(live, controller: controller),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -334,32 +361,39 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(390, 844),
-      builder: (_, __) => MaterialApp(
-        home: RiderSearchPickupLocation(
-          geocode: (_) async => throw TimeoutException('offline'),
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) => MaterialApp(
+          home: RiderSearchPickupLocation(
+            geocode: (_) async => throw TimeoutException('offline'),
+          ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'Kungsgatan 4');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
 
-    expect(find.text("Couldn't reach Movera. Check your connection."),
-        findsOneWidget);
+    expect(
+      find.text("Couldn't reach Movera. Check your connection."),
+      findsOneWidget,
+    );
   });
 
   testWidgets('rider-u91: a place the rider named shows that name in '
       'Where to?', (tester) async {
-    await openPicker(tester, savedPlaces: const [
-      SavedPlaceData(
-        title: 'Mamma',
-        type: 'mamma',
-        address: 'Götgatan 1, Stockholm',
-      ),
-    ]);
+    await openPicker(
+      tester,
+      savedPlaces: const [
+        SavedPlaceData(
+          title: 'Mamma',
+          type: 'mamma',
+          address: 'Götgatan 1, Stockholm',
+        ),
+      ],
+    );
     expect(find.text('Mamma'), findsOneWidget);
     expect(find.text('Other'), findsNothing);
   });
@@ -381,8 +415,11 @@ void main() {
       // rider-u86: the request waits for a pause in typing (fake time).
       await tester.pump(const Duration(milliseconds: 20));
     }
-    expect(suggestion, findsWidgets,
-        reason: "'Drottninggatan 5' is not the recent 'Drottninggatan 50'");
+    expect(
+      suggestion,
+      findsWidgets,
+      reason: "'Drottninggatan 5' is not the recent 'Drottninggatan 50'",
+    );
   });
 
   testWidgets('rider-u47: a no-show closes the arrived sheet and shows the '

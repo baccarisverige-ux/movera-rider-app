@@ -117,10 +117,7 @@ class _TripSharePageState extends State<TripSharePage> {
                 const Divider(height: 1, color: SafetyUi.line),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    context.l10n.shareAuto,
-                    style: SafetyUi.text(15),
-                  ),
+                  title: Text(context.l10n.shareAuto, style: SafetyUi.text(15)),
                   subtitle: Text(
                     context.l10n.shareAutoBody,
                     style: SafetyUi.text(12.5, color: SafetyUi.muted),
@@ -166,8 +163,7 @@ class _TripSharePageState extends State<TripSharePage> {
                 ? MoveraEmptyState(
                     icon: Icons.group_add_outlined,
                     title: context.l10n.shareEmptyTitle,
-                    message:
-                        context.l10n.shareEmptyBody,
+                    message: context.l10n.shareEmptyBody,
                     actionLabel: context.l10n.shareAddContact,
                     onAction: () {
                       Navigator.push(
@@ -204,10 +200,8 @@ class _TripSharePageState extends State<TripSharePage> {
                                 ),
                               ),
                               onChanged: prefs.tripShareEnabled
-                                  ? (value) => _setShared(
-                                      shareable[i],
-                                      value == true,
-                                    )
+                                  ? (value) =>
+                                        _setShared(shareable[i], value == true)
                                   : null,
                             ),
                             if (i != shareable.length - 1)

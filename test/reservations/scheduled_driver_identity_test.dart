@@ -38,33 +38,36 @@ void main() {
     expect(ride.revealsDriver, isFalse);
   });
 
-  test('real scheduled driver payload is preserved when ride goes en route', () async {
-    final store = LocalReservationRepository(
-      storage: MemoryReservationStorage(),
-      nextId: () => 'scheduled_real_driver',
-    );
-    final controller = ReservationController(store: store);
-    final pickupAt = DateTime(2026, 9, 15, 12, 0);
-    const realDriver = ReservationDriver(
-      firstName: 'Test Driver',
-      rating: 4.8,
-      vehicle: 'Test Vehicle',
-      plate: 'TEST 1',
-    );
+  test(
+    'real scheduled driver payload is preserved when ride goes en route',
+    () async {
+      final store = LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'scheduled_real_driver',
+      );
+      final controller = ReservationController(store: store);
+      final pickupAt = DateTime(2026, 9, 15, 12, 0);
+      const realDriver = ReservationDriver(
+        firstName: 'Test Driver',
+        rating: 4.8,
+        vehicle: 'Test Vehicle',
+        plate: 'TEST 1',
+      );
 
-    await controller.create(_draft(pickupAt));
-    await controller.assignMockDriver(
-      'scheduled_real_driver',
-      driver: realDriver,
-    );
-    await controller.startLiveIfDue(
-      now: pickupAt.subtract(const Duration(minutes: 1)),
-    );
+      await controller.create(_draft(pickupAt));
+      await controller.assignMockDriver(
+        'scheduled_real_driver',
+        driver: realDriver,
+      );
+      await controller.startLiveIfDue(
+        now: pickupAt.subtract(const Duration(minutes: 1)),
+      );
 
-    final ride = controller.byId('scheduled_real_driver')!;
-    expect(ride.status, ReservationStatus.driverEnRoute);
-    expect(ride.driver, same(realDriver));
-    expect(ride.driverAssigned, isTrue);
-    expect(ride.revealsDriver, isTrue);
-  });
+      final ride = controller.byId('scheduled_real_driver')!;
+      expect(ride.status, ReservationStatus.driverEnRoute);
+      expect(ride.driver, same(realDriver));
+      expect(ride.driverAssigned, isTrue);
+      expect(ride.revealsDriver, isTrue);
+    },
+  );
 }

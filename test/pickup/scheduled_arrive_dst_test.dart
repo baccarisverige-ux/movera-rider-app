@@ -25,27 +25,33 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(
-      home: SetPickupPage(
-        initialPosition: const LatLng(59.3293, 18.0686),
-        initialAddress: 'Klockarvägen 37',
-        destinationAddress: 'Arlanda',
-        destinationPosition: const LatLng(59.6519, 17.9186),
-        ride: const SetPickupRide(
-          name: 'Movera',
-          image: 'missing.png',
-          seats: 4,
-          etaMin: 5,
-          tripMinutes: 30,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SetPickupPage(
+          initialPosition: const LatLng(59.3293, 18.0686),
+          initialAddress: 'Klockarvägen 37',
+          destinationAddress: 'Arlanda',
+          destinationPosition: const LatLng(59.6519, 17.9186),
+          ride: const SetPickupRide(
+            name: 'Movera',
+            image: 'missing.png',
+            seats: 4,
+            etaMin: 5,
+            tripMinutes: 30,
+          ),
+          fare: const SetPickupFare(totalKr: 259),
+          payment: const SetPickupPayment(
+            brand: 'cash',
+            name: 'Cash',
+            detail: '',
+          ),
+          brandMark: (_) => const SizedBox(),
+          geocoding: _Geocoder(),
+          // The pickup zone's wall clock (ZoneClock), Stockholm.
+          scheduledPickup: DateTime.utc(2026, 3, 29, 1, 50),
         ),
-        fare: const SetPickupFare(totalKr: 259),
-        payment: const SetPickupPayment(brand: 'cash', name: 'Cash', detail: ''),
-        brandMark: (_) => const SizedBox(),
-        geocoding: _Geocoder(),
-        // The pickup zone's wall clock (ZoneClock), Stockholm.
-        scheduledPickup: DateTime.utc(2026, 3, 29, 1, 50),
       ),
-    ));
+    );
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

@@ -89,7 +89,10 @@ class _PhoneCountrySheetState extends State<PhoneCountrySheet> {
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
             child: Semantics(
               header: true,
-              child: Text(context.l10n.chooseCountry, style: AuthText.cardTitle()),
+              child: Text(
+                context.l10n.chooseCountry,
+                style: AuthText.cardTitle(),
+              ),
             ),
           ),
           Padding(
@@ -103,7 +106,11 @@ class _PhoneCountrySheetState extends State<PhoneCountrySheet> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, size: 20, color: AuthColors.muted),
+                  const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: AuthColors.muted,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -219,7 +226,11 @@ class _CountryRow extends StatelessWidget {
               ),
               if (selected) ...[
                 const SizedBox(width: 10),
-                const Icon(Icons.check_rounded, size: 18, color: AuthColors.green),
+                const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: AuthColors.green,
+                ),
               ],
             ],
           ),

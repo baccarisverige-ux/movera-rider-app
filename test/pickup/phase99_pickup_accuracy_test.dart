@@ -51,9 +51,8 @@ void main() {
   });
 
   group('U6: the picker opens where the rider is now', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = File('lib/features/home/presentation/home.dart')
+        .readAsStringSync();
     final picker = home.substring(
       home.indexOf('Future<PickupMapResult?> _openPickupMapPicker('),
       home.indexOf('Future<void> _showRouteAddressPicker('),

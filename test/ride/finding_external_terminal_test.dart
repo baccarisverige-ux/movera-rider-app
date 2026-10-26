@@ -23,7 +23,10 @@ RideSnapshot _snapshot() => RideSnapshot(
   rideId: 'external-terminal-ride',
 );
 
-FindingDriverController _controller(MockRideRealtime realtime, RideSession ride) {
+FindingDriverController _controller(
+  MockRideRealtime realtime,
+  RideSession ride,
+) {
   return FindingDriverController(
     realtime: realtime,
     ride: ride,

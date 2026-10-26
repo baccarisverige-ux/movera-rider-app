@@ -15,18 +15,40 @@ abstract final class ZoneClock {
 
   /// Standard offset, in hours, of the zones on the EU summer-time rule.
   static const _euStandardHours = <String, int>{
-    'Europe/Lisbon': 0, 'Europe/London': 0, 'Europe/Dublin': 0,
-    'Atlantic/Canary': 0, 'Atlantic/Madeira': 0,
-    stockholm: 1, paris: 1, 'Europe/Berlin': 1, 'Europe/Madrid': 1,
-    'Europe/Rome': 1, 'Europe/Amsterdam': 1, 'Europe/Brussels': 1,
-    'Europe/Luxembourg': 1, 'Europe/Monaco': 1, 'Europe/Vienna': 1,
-    'Europe/Zurich': 1, 'Europe/Copenhagen': 1, 'Europe/Oslo': 1,
-    'Europe/Prague': 1, 'Europe/Warsaw': 1, 'Europe/Budapest': 1,
-    'Europe/Malta': 1, 'Europe/Ljubljana': 1, 'Europe/Zagreb': 1,
-    'Europe/Bratislava': 1, 'Europe/Belgrade': 1,
-    'Europe/Helsinki': 2, 'Europe/Athens': 2, 'Europe/Bucharest': 2,
-    'Europe/Sofia': 2, 'Europe/Riga': 2, 'Europe/Tallinn': 2,
-    'Europe/Vilnius': 2, 'Asia/Nicosia': 2,
+    'Europe/Lisbon': 0,
+    'Europe/London': 0,
+    'Europe/Dublin': 0,
+    'Atlantic/Canary': 0,
+    'Atlantic/Madeira': 0,
+    stockholm: 1,
+    paris: 1,
+    'Europe/Berlin': 1,
+    'Europe/Madrid': 1,
+    'Europe/Rome': 1,
+    'Europe/Amsterdam': 1,
+    'Europe/Brussels': 1,
+    'Europe/Luxembourg': 1,
+    'Europe/Monaco': 1,
+    'Europe/Vienna': 1,
+    'Europe/Zurich': 1,
+    'Europe/Copenhagen': 1,
+    'Europe/Oslo': 1,
+    'Europe/Prague': 1,
+    'Europe/Warsaw': 1,
+    'Europe/Budapest': 1,
+    'Europe/Malta': 1,
+    'Europe/Ljubljana': 1,
+    'Europe/Zagreb': 1,
+    'Europe/Bratislava': 1,
+    'Europe/Belgrade': 1,
+    'Europe/Helsinki': 2,
+    'Europe/Athens': 2,
+    'Europe/Bucharest': 2,
+    'Europe/Sofia': 2,
+    'Europe/Riga': 2,
+    'Europe/Tallinn': 2,
+    'Europe/Vilnius': 2,
+    'Asia/Nicosia': 2,
   };
 
   /// Zones with one offset all year, in hours.
@@ -108,7 +130,10 @@ abstract final class ZoneClock {
     );
     // Offsets in force half a day either side: a wall time can only be
     // read with one of these (zones change at most once in that span).
-    final before = offsetAt(timeZone, asUtc.subtract(const Duration(hours: 14)));
+    final before = offsetAt(
+      timeZone,
+      asUtc.subtract(const Duration(hours: 14)),
+    );
     final after = offsetAt(timeZone, asUtc.add(const Duration(hours: 14)));
     DateTime? first;
     DateTime? firstToCome;

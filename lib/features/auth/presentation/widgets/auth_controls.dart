@@ -82,7 +82,9 @@ class AuthPrimaryButton extends StatelessWidget {
                             style: GoogleFonts.urbanist(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: active ? Colors.white : AuthColors.disabledText,
+                              color: active
+                                  ? Colors.white
+                                  : AuthColors.disabledText,
                             ),
                           ),
                           if (showArrow && active) ...[
@@ -258,12 +260,11 @@ class _AuthInputShellState extends State<AuthInputShell> {
 }
 
 /// The underline of an input: ink while focused, red on error, grey at rest.
-Color authUnderlineColor({required bool focused, required bool error}) =>
-    error
-        ? AuthColors.error
-        : focused
-            ? AuthColors.ink
-            : AuthColors.underline;
+Color authUnderlineColor({required bool focused, required bool error}) => error
+    ? AuthColors.error
+    : focused
+    ? AuthColors.ink
+    : AuthColors.underline;
 
 /// Keeps only the national part of a number pasted in international form.
 ///
@@ -274,7 +275,7 @@ Color authUnderlineColor({required bool focused, required bool error}) =>
 /// switches the field to that country through [onCountry].
 class NationalNumberFormatter extends TextInputFormatter {
   NationalNumberFormatter({PhoneCountry? country, this.onCountry})
-      : country = country ?? PhoneCountries.sweden;
+    : country = country ?? PhoneCountries.sweden;
 
   final PhoneCountry country;
   final ValueChanged<PhoneCountry>? onCountry;
@@ -328,7 +329,10 @@ class NationalNumberFormatter extends TextInputFormatter {
       if (RegExp(r'\d').hasMatch(text[i])) seen++;
       i++;
     }
-    return text.substring(i).replaceFirst(RegExp(r'^\s*\(0\)\s*'), '').trimLeft();
+    return text
+        .substring(i)
+        .replaceFirst(RegExp(r'^\s*\(0\)\s*'), '')
+        .trimLeft();
   }
 }
 
@@ -601,7 +605,11 @@ class AuthErrorText extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.error_outline_rounded, size: 16, color: AuthColors.error),
+              child: Icon(
+                Icons.error_outline_rounded,
+                size: 16,
+                color: AuthColors.error,
+              ),
             ),
             const SizedBox(width: 6),
             Expanded(

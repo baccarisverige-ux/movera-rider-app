@@ -16,7 +16,11 @@ void main() {
     server = InProcessMockClient(clock: () => now);
   });
 
-  Future<http.Response> post(String path, Map<String, Object?> body, String key) async {
+  Future<http.Response> post(
+    String path,
+    Map<String, Object?> body,
+    String key,
+  ) async {
     final request = http.Request('POST', Uri.parse('https://mock.local$path'))
       ..headers['Idempotency-Key'] = key
       ..headers['Content-Type'] = 'application/json'
@@ -34,11 +38,10 @@ void main() {
 
   test('the same key on another path is not a replay', () async {
     final first = await post('/api/v1/quotes', quoteBody, 'key-shared-000001');
-    final other = await post(
-      '/api/v1/locations/reverse-geocode',
-      {'latitude': 59.33, 'longitude': 18.06},
-      'key-shared-000001',
-    );
+    final other = await post('/api/v1/locations/reverse-geocode', {
+      'latitude': 59.33,
+      'longitude': 18.06,
+    }, 'key-shared-000001');
     expect(first.statusCode, 200);
     expect(other.statusCode, 200);
     expect(jsonDecode(other.body), isNot(jsonDecode(first.body)));
@@ -49,11 +52,10 @@ void main() {
     final first = await post('/api/v1/quotes', quoteBody, 'key-quote-0000001');
     final again = await post('/api/v1/quotes', quoteBody, 'key-quote-0000001');
     expect(jsonDecode(again.body), jsonDecode(first.body));
-    final changed = await post(
-      '/api/v1/quotes',
-      {...quoteBody, 'destinationLat': 59.40},
-      'key-quote-0000001',
-    );
+    final changed = await post('/api/v1/quotes', {
+      ...quoteBody,
+      'destinationLat': 59.40,
+    }, 'key-quote-0000001');
     expect(changed.statusCode, 409);
     expect((jsonDecode(changed.body) as Map)['code'], 'conflict');
   });
@@ -61,7 +63,9 @@ void main() {
   test('old entries are forgotten', () async {
     await post('/api/v1/quotes', quoteBody, 'key-old-000000001');
     expect(server.idempotency.length, 1);
-    now = now.add(InProcessMockClient.idempotencyTtl + const Duration(minutes: 1));
+    now = now.add(
+      InProcessMockClient.idempotencyTtl + const Duration(minutes: 1),
+    );
     await post('/api/v1/quotes', quoteBody, 'key-new-000000001');
     expect(server.idempotency.length, 1);
   });

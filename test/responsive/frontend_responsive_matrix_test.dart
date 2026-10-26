@@ -58,7 +58,8 @@ void main() {
     expect(
       tester.takeException(),
       isNull,
-      reason: '$label overflowed or threw at '
+      reason:
+          '$label overflowed or threw at '
           '${viewport.width.toInt()}x${viewport.height.toInt()}',
     );
   }
@@ -73,21 +74,18 @@ void main() {
   ];
 
   for (final viewport in completionViewports) {
-    testWidgets(
-      'ride completion fits ${viewport.width.toInt()}x'
-      '${viewport.height.toInt()}',
-      (tester) async {
-        await setViewport(tester, viewport);
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await pumpResponsive(
-          tester,
-          const RideCompleted(),
-          viewport: viewport,
-          label: 'Ride completion',
-        );
-      },
-    );
+    testWidgets('ride completion fits ${viewport.width.toInt()}x'
+        '${viewport.height.toInt()}', (tester) async {
+      await setViewport(tester, viewport);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpResponsive(
+        tester,
+        const RideCompleted(),
+        viewport: viewport,
+        label: 'Ride completion',
+      );
+    });
   }
 
   const componentViewport = Size(390, 844);
@@ -128,39 +126,31 @@ void main() {
       'Schedule',
       'Wallet',
     ]) {
-      testWidgets(
-        '$name fits ${viewport.width.toInt()}x'
-        '${viewport.height.toInt()}',
-        (tester) async {
-          await setViewport(tester, viewport);
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
+      testWidgets('$name fits ${viewport.width.toInt()}x'
+          '${viewport.height.toInt()}', (tester) async {
+        await setViewport(tester, viewport);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-          final profile = ProfileController(
-            store: ProfileRepository(storageKey: 'responsive_profile'),
-          );
-          final reservations = ReservationController(
-            store: LocalReservationRepository(
-              storage: MemoryReservationStorage(),
-            ),
-          );
-          final screen = switch (name) {
-            'Notifications' => const NotificationScreen(),
-            'Support' => const SupportHome(),
-            'Profile' => AccountHomePage(controller: profile),
-            'History' => RideHistory(reservations: reservations),
-            'Schedule' => const ScheduleRide(),
-            'Wallet' => const WalletHome(),
-            _ => throw StateError('Unknown responsive screen: $name'),
-          };
-          await pumpResponsive(
-            tester,
-            screen,
-            viewport: viewport,
-            label: name,
-          );
-        },
-      );
+        final profile = ProfileController(
+          store: ProfileRepository(storageKey: 'responsive_profile'),
+        );
+        final reservations = ReservationController(
+          store: LocalReservationRepository(
+            storage: MemoryReservationStorage(),
+          ),
+        );
+        final screen = switch (name) {
+          'Notifications' => const NotificationScreen(),
+          'Support' => const SupportHome(),
+          'Profile' => AccountHomePage(controller: profile),
+          'History' => RideHistory(reservations: reservations),
+          'Schedule' => const ScheduleRide(),
+          'Wallet' => const WalletHome(),
+          _ => throw StateError('Unknown responsive screen: $name'),
+        };
+        await pumpResponsive(tester, screen, viewport: viewport, label: name);
+      });
     }
   }
 
@@ -183,10 +173,7 @@ void main() {
     );
     final security = AccountSecurityController(
       repository: AccountSecurityRepository(
-        api: ApiClient(
-          env: env,
-          client: InProcessMockClient(),
-        ),
+        api: ApiClient(env: env, client: InProcessMockClient()),
       ),
     );
     await security.load();

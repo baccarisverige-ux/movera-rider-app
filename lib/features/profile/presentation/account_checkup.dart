@@ -77,10 +77,10 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                   body: security == null
                       ? context.l10n.verificationUnavailable
                       : security.phone.isEmpty
-                          ? context.l10n.noPhoneAdded
-                          : phoneVerified
-                              ? context.l10n.valueVerified(security.phone)
-                              : context.l10n.valueNotVerified(security.phone),
+                      ? context.l10n.noPhoneAdded
+                      : phoneVerified
+                      ? context.l10n.valueVerified(security.phone)
+                      : context.l10n.valueNotVerified(security.phone),
                   trailing: Icon(
                     phoneVerified
                         ? Icons.check_circle_rounded
@@ -105,8 +105,8 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                   body: security == null
                       ? context.l10n.securityStatusUnavailable
                       : security.capabilities.twoStep
-                          ? (twoStepEnabled ? context.l10n.on : context.l10n.off)
-                          : context.l10n.unavailable,
+                      ? (twoStepEnabled ? context.l10n.on : context.l10n.off)
+                      : context.l10n.unavailable,
                   trailing: Icon(
                     twoStepEnabled
                         ? Icons.check_circle_rounded
@@ -128,8 +128,8 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                   body: security == null
                       ? context.l10n.recoveryStatusUnavailable
                       : security.capabilities.recoveryPhone
-                          ? (recoveryPhone ?? context.l10n.notConfigured)
-                          : context.l10n.unavailable,
+                      ? (recoveryPhone ?? context.l10n.notConfigured)
+                      : context.l10n.unavailable,
                   showDivider: false,
                   trailing: Icon(
                     recoveryPhone?.isNotEmpty == true

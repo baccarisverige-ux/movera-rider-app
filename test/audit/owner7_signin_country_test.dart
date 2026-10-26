@@ -55,26 +55,35 @@ void main() {
     }
   });
 
-  test('the starting country: saved fix, else last zone, else device, else Sweden', () {
-    // A last fix in Paris.
-    expect(PhoneCountries.defaultFor(lastFixLat: 48.85, lastFixLng: 2.35), fr);
-    // A fix outside every zone: the device's region, not the home zone.
-    expect(
-      PhoneCountries.defaultFor(
-        lastFixLat: 52.5,
-        lastFixLng: 13.4,
-        lastZone: RiderZones.sweden,
-        localeRegion: 'DE',
-      ),
-      de,
-    );
-    expect(
-      PhoneCountries.defaultFor(lastZone: RiderZones.tunisia, localeRegion: 'SE'),
-      tn,
-    );
-    expect(PhoneCountries.defaultFor(localeRegion: 'US'), us);
-    expect(PhoneCountries.defaultFor(), se);
-  });
+  test(
+    'the starting country: saved fix, else last zone, else device, else Sweden',
+    () {
+      // A last fix in Paris.
+      expect(
+        PhoneCountries.defaultFor(lastFixLat: 48.85, lastFixLng: 2.35),
+        fr,
+      );
+      // A fix outside every zone: the device's region, not the home zone.
+      expect(
+        PhoneCountries.defaultFor(
+          lastFixLat: 52.5,
+          lastFixLng: 13.4,
+          lastZone: RiderZones.sweden,
+          localeRegion: 'DE',
+        ),
+        de,
+      );
+      expect(
+        PhoneCountries.defaultFor(
+          lastZone: RiderZones.tunisia,
+          localeRegion: 'SE',
+        ),
+        tn,
+      );
+      expect(PhoneCountries.defaultFor(localeRegion: 'US'), us);
+      expect(PhoneCountries.defaultFor(), se);
+    },
+  );
 
   Future<void> pump(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -93,7 +102,8 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             // As MoveraApp: a new language redraws every screen.
-            builder: (_, page) => LanguageRebuild(code: language.code, child: page!),
+            builder: (_, page) =>
+                LanguageRebuild(code: language.code, child: page!),
             home: child,
           ),
         ),
@@ -102,7 +112,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  testWidgets('the country sheet finds Tunisie in French and sets +216', (tester) async {
+  testWidgets('the country sheet finds Tunisie in French and sets +216', (
+    tester,
+  ) async {
     await AppScope.instance.language.choose('fr');
     var country = se;
     await pump(
@@ -119,11 +131,17 @@ void main() {
       ),
     );
     expect(find.text('+46'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('Indicatif : Suède, \\+46')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Indicatif : Suède, \\+46')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('auth-phone-country')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('phone-country-search')), 'tunisie');
+    await tester.enterText(
+      find.byKey(const ValueKey('phone-country-search')),
+      'tunisie',
+    );
     await tester.pump();
     expect(find.text('Tunisie'), findsOneWidget);
 
@@ -161,7 +179,9 @@ void main() {
     }
   });
 
-  testWidgets('switching to Français changes the screen at once', (tester) async {
+  testWidgets('switching to Français changes the screen at once', (
+    tester,
+  ) async {
     await pump(tester, const SignIn());
     expect(find.text('Enter your phone number'), findsOneWidget);
 

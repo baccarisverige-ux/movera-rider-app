@@ -63,13 +63,15 @@ void main() {
       expect(
         identical(stack.children[1], incoming),
         isTrue,
-        reason:
-            'the incoming ride screen must be mounted at full opacity, not faded over the previous stage',
+        reason: 'the incoming ride screen must be mounted at full opacity, not faded over the previous stage',
       );
       expect(stack.children[1], isNot(isA<FadeTransition>()));
       expect(stack.children[2], isA<IgnorePointer>());
 
-      expect(route.transitionDuration, lessThanOrEqualTo(const Duration(milliseconds: 120)));
+      expect(
+        route.transitionDuration,
+        lessThanOrEqualTo(const Duration(milliseconds: 120)),
+      );
       expect(route.reverseTransitionDuration, Duration.zero);
       expect(tester.takeException(), isNull);
     },

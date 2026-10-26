@@ -10,9 +10,11 @@ class PreferencesStore {
     return PreferencesStore(await SharedPreferences.getInstance());
   }
 
-  Future<void> setString(String key, String value) => _prefs.setString(key, value);
+  Future<void> setString(String key, String value) =>
+      _prefs.setString(key, value);
   String? getString(String key) => _prefs.getString(key);
-  Future<void> setDouble(String key, double value) => _prefs.setDouble(key, value);
+  Future<void> setDouble(String key, double value) =>
+      _prefs.setDouble(key, value);
   double? getDouble(String key) => _prefs.getDouble(key);
   Future<void> setStringList(String key, List<String> value) =>
       _prefs.setStringList(key, value);
