@@ -12,7 +12,7 @@ HANDOFF.md §4.2 ("NOT merged") is out of date for the rider app.
 - [x] 3. CI
 - [ ] 4. Baseline run
 - [ ] 5. Coverage of critical logic
-- [ ] 6. Screen inventory
+- [x] 6. Screen inventory
 - [ ] 7. Code quality findings
 - [ ] 8. Known issues N3–N10
 - [ ] 9. Untested features and risks
@@ -104,3 +104,80 @@ from the log host through this machine's proxy. The red QA runs did not stop mer
 - Required checks / branch protection: **NOT VERIFIED** (no admin API access checked); the red qa-* on main suggest none of
   those is required.
 - No iOS no-codesign build; APK release only on manual dispatch.
+
+
+## 6. Screen inventory (input for Phase 5)
+
+48 files under `lib/features` contain a `Scaffold(` (grep). **B** = booking flow. "Test files" = number of files in
+`test/` + `integration_test/` that mention the class name (`grep -rlw`), a proxy for widget-test coverage, not proof.
+`AuthScaffold`, `AccountScaffold`, `SafetyScaffold` are shared scaffolds, not screens.
+Named routes exist only for 11 names (`lib/app/router/routes.dart`); most screens are pushed with `MaterialPageRoute`.
+
+| Screen | File | Lines | Test files | Entry points (pushed from) |
+|---|---|---|---|---|
+| **B** `WaitingForDriver` | `lib/features/active_ride/presentation/waiting_for_driver.dart` | 3181 | 50 | ride_booking/application/ride_restore_coordinator reservations/presentation/reservation_live_ride finding_driver/presentation/finding_drivers |
+| `AddPhoneNumber` | `lib/features/auth/presentation/add_phone.dart` | 180 | 3 | auth/presentation/sign_in |
+| `PhoneVerification` | `lib/features/auth/presentation/phone_verify.dart` | 333 | 6 | auth/presentation/sign_in auth/presentation/add_phone |
+| `RiderNameScreen` | `lib/features/auth/presentation/rider_name.dart` | 173 | 6 | ride_booking/application/ride_restore_coordinator auth/presentation/phone_verify |
+| `SignIn` | `lib/features/auth/presentation/sign_in.dart` | 362 | 9 | app/app ride_booking/application/ride_restore_coordinator auth/presentation/sign_out_flow |
+| `AuthScaffold` | `lib/features/auth/presentation/widgets/auth_scaffold.dart` | 299 | 1 | auth/presentation/rider_name auth/presentation/sign_in auth/presentation/add_phone |
+| **B** `RoutePickerPage` | `lib/features/destination_search/presentation/route_picker_page.dart` | 1273 | 19 | active_ride/presentation/route_change_flow home/presentation/home |
+| **B** `DriverProfilePage` | `lib/features/driver_arriving/presentation/driver_profile_page.dart` | 149 | 1 | active_ride/presentation/waiting_for_driver |
+| **B** `FindingDrivers` | `lib/features/finding_driver/presentation/finding_drivers.dart` | 1402 | 22 | ride_booking/application/ride_restore_coordinator ride_selection/presentation/select_ride active_ride/presentation/waiting_for_driver |
+| `RideHistory` | `lib/features/history/presentation/ride_history.dart` | 603 | 14 | notifications/presentation/notifications home/presentation/side_menu |
+| **B** `Home` | `lib/features/home/presentation/home.dart` | 2858 | 117 | ride_booking/application/ride_restore_coordinator auth/presentation/auth_navigation |
+| `RiderMenuPage` | `lib/features/home/presentation/side_menu.dart` | 876 | 14 | (built via a helper / not found by grep) |
+| **B** `Chat` | `lib/features/messages/presentation/chat.dart` | 446 | 5 | active_ride/presentation/waiting_sheet_bits |
+| `NotificationScreen` | `lib/features/notifications/presentation/notifications.dart` | 224 | 11 | app/bootstrap home/presentation/side_menu |
+| `AddCardPage` | `lib/features/payments/presentation/add_card_page.dart` | 557 | 6 | (built via a helper / not found by grep) |
+| `PayWithPage` | `lib/features/payments/presentation/pay_with_page.dart` | 296 | 3 | (built via a helper / not found by grep) |
+| **B** `ConfirmPickupSpot` | `lib/features/pickup/presentation/confirm_pickup_spot.dart` | 590 | 9 | (built via a helper / not found by grep) |
+| **B** `SetPickupPage` | `lib/features/pickup/presentation/set_pickup_page.dart` | 1664 | 26 | (built via a helper / not found by grep) |
+| `AccountCheckupPage` | `lib/features/profile/presentation/account_checkup.dart` | 157 | 3 | profile/presentation/account_home |
+| `AccountHomePage` | `lib/features/profile/presentation/account_home.dart` | 266 | 10 | home/presentation/home |
+| `AccountScaffold` | `lib/features/profile/presentation/account_widgets.dart` | 524 | 0 | profile/presentation/account_checkup profile/presentation/personal_info profile/presentation/privacy |
+| `DeleteAccountPage` | `lib/features/profile/presentation/delete_account.dart` | 203 | 2 | profile/presentation/account_home |
+| `PersonalInfoPage` | `lib/features/profile/presentation/personal_info.dart` | 203 | 6 | profile/presentation/account_checkup profile/presentation/account_home home/presentation/side_menu |
+| `PrivacyPage` | `lib/features/profile/presentation/privacy.dart` | 177 | 3 | profile/presentation/account_home home/presentation/side_menu |
+| `ReferAndEarn` | `lib/features/profile/presentation/refer_and_earn.dart` | 104 | 1 | home/presentation/side_menu |
+| `SecurityPage` | `lib/features/profile/presentation/security.dart` | 273 | 5 | profile/presentation/account_checkup profile/presentation/account_home home/presentation/side_menu |
+| `PlanReturnRidePage` | `lib/features/reservations/presentation/plan_return_ride.dart` | 54 | 3 | reservations/presentation/upcoming_reservation reservations/presentation/ride_scheduled |
+| `ReviewChangesPage` | `lib/features/reservations/presentation/review_changes.dart` | 282 | 3 | reservations/application/scheduled_ride_checkout |
+| `RideScheduledPage` | `lib/features/reservations/presentation/ride_scheduled.dart` | 325 | 9 | (built via a helper / not found by grep) |
+| `ScheduledRideTermsPage` | `lib/features/reservations/presentation/scheduled_ride_terms.dart` | 119 | 3 | (built via a helper / not found by grep) |
+| `UpcomingReservationPage` | `lib/features/reservations/presentation/upcoming_reservation.dart` | 781 | 11 | history/presentation/ride_history reservations/presentation/home_reservation_chrono notifications/application/notification_navigation |
+| **B** `RideCompleted` | `lib/features/ride_complete/presentation/ride_completed.dart` | 790 | 25 | ride_booking/application/ride_restore_coordinator reservations/presentation/reservation_live_ride active_ride/presentation/waiting_for_driver |
+| **B** `SelectRide` | `lib/features/ride_selection/presentation/select_ride.dart` | 3257 | 47 | reservations/presentation/scheduled_category_gate scheduled_rides/presentation/schedule_ride home/presentation/home |
+| `EmergencyContactsPage` | `lib/features/safety/presentation/emergency_contacts_page.dart` | 433 | 5 | safety/presentation/safety_hub safety/presentation/trip_share_page |
+| `HowMoveraProtectsPage` | `lib/features/safety/presentation/how_movera_protects_page.dart` | 58 | 2 | safety/presentation/safety_hub |
+| `PinVerificationPage` | `lib/features/safety/presentation/pin_verification_page.dart` | 157 | 3 | safety/presentation/safety_hub |
+| `RideCheckDemoPage` | `lib/features/safety/presentation/ride_check_demo_page.dart` | 159 | 0 | safety/presentation/ride_check_page |
+| `RideCheckPage` | `lib/features/safety/presentation/ride_check_page.dart` | 290 | 2 | safety/presentation/safety_hub |
+| `SafetyHub` | `lib/features/safety/presentation/safety_hub.dart` | 144 | 2 | app/bootstrap profile/presentation/account_home safety/presentation/ride_safety_kit |
+| `SafetyTipsPage` | `lib/features/safety/presentation/safety_tips_page.dart` | 68 | 2 | safety/presentation/safety_hub |
+| `SafetyScaffold` | `lib/features/safety/presentation/safety_ui.dart` | 340 | 0 | safety/presentation/ride_check_page safety/presentation/safety_hub safety/presentation/trip_share_page |
+| `TripSharePage` | `lib/features/safety/presentation/trip_share_page.dart` | 224 | 4 | safety/presentation/ride_safety_kit safety/presentation/safety_hub active_ride/presentation/waiting_sheet_bits |
+| `AddPlace` | `lib/features/saved_places/presentation/add_place.dart` | 319 | 7 | saved_places/presentation/pickup_location saved_places/presentation/saved_places |
+| `RiderSearchPickupLocation` | `lib/features/saved_places/presentation/pickup_location.dart` | 542 | 8 | saved_places/presentation/add_place |
+| `SavedPlaces` | `lib/features/saved_places/presentation/saved_places.dart` | 258 | 4 | home/presentation/side_menu |
+| `ScheduleRide` | `lib/features/scheduled_rides/presentation/schedule_ride.dart` | 852 | 12 | history/presentation/ride_history reservations/presentation/upcoming_reservation reservations/presentation/plan_return_ride |
+| `SupportHome` | `lib/features/support/presentation/support.dart` | 1474 | 9 | profile/presentation/account_home home/presentation/side_menu |
+| `WalletAndPaymentsScreen` | `lib/features/wallet/presentation/wallet.dart` | 1417 | 5 | home/presentation/side_menu home/presentation/home |
+
+Screens with **0** test files: `RideCheckDemoPage` (ride_check_demo_page.dart). Only 1: `DriverProfilePage`, `ReferAndEarn`.
+Booking flow order: Home → RoutePickerPage (destination) → SetPickupPage / ConfirmPickupSpot → SelectRide → FindingDrivers →
+WaitingForDriver (assigned/arriving/in-trip, same screen) → RideCompleted.
+
+### Back handlers in the booking flow (grep `PopScope|maybePop|Navigator.pop|popUntil|arrow_back`)
+| Screen | Handler |
+|---|---|
+| Home | `PopScope(canPop: !_destinationSheetOpen …)` home.dart:2389–2391; sheet pops 1556, 1579, 1627, 1724, 1736, 1843 |
+| RoutePickerPage | `PopScope(canPop: !_finishing)` route_picker_page.dart:1173; back button `maybePop` 1188, 1198; result pop 516 |
+| SetPickupPage | back icon `Navigator.pop(context)` set_pickup_page.dart:983–985; result pops 731, 835; **no PopScope** |
+| ConfirmPickupSpot | back icon `Navigator.pop(context)` confirm_pickup_spot.dart:439–440; result pop 337; **no PopScope** |
+| SelectRide | `PopScope(onPopInvokedWithResult: _onRoutePop)` select_ride.dart:2140; back icon 2531; dialogs 738/743; sheets 1341/1351; 1640 |
+| FindingDrivers | `PopScope(canPop: _leaving && !_rebooking)` finding_drivers.dart:983–985; confirm dialog 1390/1395 |
+| WaitingForDriver | `PopScope(canPop: _leaving && !_cancelInFlight)`, async handler waiting_for_driver.dart:1964–1966; `popUntil(isFirst)` 928; `popUntil(route == own)` 1014 |
+| RideCompleted | `PopScope(canPop: false)` with async handler ride_completed.dart:355–357; back icon 372 |
+
+Browser Back on web goes through the same `PopScope`s; whether each behaves on iPhone Safari is **NOT VERIFIED** (needs device, N3).
