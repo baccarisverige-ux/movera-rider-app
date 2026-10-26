@@ -2037,13 +2037,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.realtime == null)
+                      // N10: a trip that is over has no live feed to lose;
+                      // no "connection lost" over its end sheet.
+                      if (widget.realtime == null && !_leaving)
                         RealtimeConnectionBanner(
                           connection: AppScope.instance.realtime,
                         ),
                       // D-015: a dead ride feed used to look exactly like a
                       // stationary driver. Say so, and offer to reconnect.
-                      if (_tracking.connectionDegraded) ...[
+                      if (_tracking.connectionDegraded && !_leaving) ...[
                         if (widget.realtime == null) const SizedBox(height: 8),
                         LiveFeedDegradedBanner(onRetry: _retryLiveFeed),
                       ],
@@ -2194,6 +2196,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// Headline for the sheet: the arrival time during the trip, the stage
   /// name without an ETA, and the driver's ETA to the pickup before it.
   String _headlineFor(DriverEta? eta, RideStatus status) {
+    // N10: once the trip is over the sheet behind the end sheet says how it
+    // ended, never the driver's last distance ("Driver is almost there").
+    if (status.isTerminal && !status.isCompletedSurface) {
+      return RideTerminalStateSpec.fromStatus(status).title;
+    }
     final live = _tripHeadline(eta, status);
     if (live != null) return live;
     if (DriverEta.isInTrip(status)) {

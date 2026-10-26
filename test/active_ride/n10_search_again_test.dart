@@ -13,6 +13,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// N10 (owner, 2026-10-26: "only add Search again"): the end sheet after a
@@ -125,6 +126,12 @@ void main() {
         findsOneWidget);
     expect(find.text('Search again'), findsOneWidget);
     expect(find.text('Back to home'), findsOneWidget);
+    // The trip sheet behind says how it ended: no stale "almost there", no
+    // "connection lost" over a trip that is over.
+    expect(find.text('Driver is almost there'), findsNothing);
+    expect(find.text('Your driver could not find you'), findsWidgets);
+    expect(find.byType(RealtimeConnectionBanner), findsNothing);
+    expect(find.byType(LiveFeedDegradedBanner), findsNothing);
     // Search again is the main (first) button.
     expect(
       tester.getTopLeft(find.text('Search again')).dy,
@@ -185,6 +192,8 @@ void main() {
     await frames(tester, 20);
     expect(find.byKey(const ValueKey<String>('ride-terminal-state-endedByDriver')),
         findsOneWidget);
+    expect(find.text('Driver is almost there'), findsNothing);
+    expect(find.byType(RealtimeConnectionBanner), findsNothing);
     expect(find.text('Search again'), findsOneWidget);
     expect(find.text('Back to home'), findsOneWidget);
     // Search again starts where the car stopped, not at the old pickup.
