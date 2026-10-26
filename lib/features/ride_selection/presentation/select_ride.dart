@@ -824,16 +824,20 @@ class _SelectRideState extends State<SelectRide>
   /// Ticks the map (only the map) to redraw the nearby cars.
   final ValueNotifier<int> _carTick = ValueNotifier<int>(0);
 
-  /// A new answer: redraw, and keep redrawing while the cars glide.
+  /// A new answer: redraw, and keep redrawing while the cars glide. A
+  /// finger moving the sheet gets every frame: the cars wait and catch up
+  /// when it lets go (each redraw re-applies every car marker in the
+  /// browser, which is DOM work on top of the drag's own frame).
   void _onNearbyCars() {
     if (!mounted) return;
-    _carTick.value++;
+    if (!_sheetDragging) _carTick.value++;
     _glideTicker?.cancel();
     _glideTicker = Timer.periodic(const Duration(milliseconds: 80), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
+      if (_sheetDragging) return;
       final still = !_nearby.gliding();
       _carTick.value++;
       if (still) {
@@ -2300,176 +2304,7 @@ class _SelectRideState extends State<SelectRide>
                     clipBehavior: Clip.antiAlias,
                     child: NotificationListener<ScrollNotification>(
                       onNotification: (n) => _onSheetScroll(n, media),
-                      child: AnimatedBuilder(
-                        animation: _sheetSlide,
-                        builder: (context, _) {
-                          final mid = _midValue(media);
-                          final v = _sheetSlide.value;
-                          // 0 at the low stop → 1 at the middle: the other
-                          // rides come in.
-                          final listReveal = mid <= 0
-                              ? 1.0
-                              : (v / mid).clamp(0.0, 1.0);
-                          // 0 at the middle → 1 at full: descriptions and
-                          // badges.
-                          final detail = mid >= 1
-                              ? 0.0
-                              : Curves.easeOutCubic.transform(
-                                  ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
-                                );
-                          final selectedRide = _selectedRideOrNull;
-                          final promotion = _promotion;
-                          final entries = _listEntries;
-                          return Column(
-                            children: [
-                              // Title, promotion and filters stay put while
-                              // the rides scroll under them; dragging here
-                              // still moves the sheet.
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onVerticalDragUpdate: (details) =>
-                                    _onHeaderDragUpdate(details, media),
-                                onVerticalDragEnd: (details) =>
-                                    _onHeaderDragEnd(details, media),
-                                child: Column(
-                                  children: [
-                                    Semantics(
-                                      button: true,
-                                      label: v > 0.98
-                                          ? context.l10n.showFewerRides
-                                          : context.l10n.showAllRides,
-                                      child: GestureDetector(
-                                        key: const ValueKey(
-                                          'select-ride-sheet-handle',
-                                        ),
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () => _toggleSheet(media),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          height: 22,
-                                          child: Center(
-                                            child: Container(
-                                              width: 38,
-                                              height: 4,
-                                              decoration: BoxDecoration(
-                                                color: _line,
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Owner round 2: a teal "promotion
-                                    // applied" line like the other ride
-                                    // apps; without one, the title.
-                                    if (promotion != null)
-                                      _promotionLine(promotion)
-                                    else
-                                      SizedBox(
-                                        height: _titleHeight,
-                                        child: Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            20,
-                                            0,
-                                            16,
-                                            6,
-                                          ),
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              context.l10n.chooseYourRide,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: _text(
-                                                20,
-                                                weight: FontWeight.w700,
-                                                letterSpacing: -0.4,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    const Divider(
-                                      height: 1,
-                                      thickness: 1,
-                                      color: _line,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    Opacity(
-                                      opacity: listReveal,
-                                      child: ListView.builder(
-                                        key: const ValueKey('select-ride-list'),
-                                        controller: scroll,
-                                        padding: EdgeInsets.fromLTRB(
-                                          14,
-                                          2,
-                                          14,
-                                          _footerHeight(media) + 8,
-                                        ),
-                                        itemCount: entries.length,
-                                        itemBuilder: (context, index) {
-                                          final entry = entries[index];
-                                          final ride = entry.ride;
-                                          if (ride != null) {
-                                            return _rideTile(
-                                              ride,
-                                              detail: detail,
-                                            );
-                                          }
-                                          return _groupHeading(
-                                            entry.heading!,
-                                            detail: detail,
-                                            first: index == 0,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    // At the low stop only the chosen ride
-                                    // shows.
-                                    if (listReveal < 1 && selectedRide != null)
-                                      Positioned(
-                                        left: 14,
-                                        right: 14,
-                                        top: 2,
-                                        child: IgnorePointer(
-                                          ignoring: listReveal > 0.5,
-                                          child: Opacity(
-                                            opacity: 1 - listReveal,
-                                            // Owner round 3: a swipe on the
-                                            // chosen ride moves the sheet too.
-                                            child: GestureDetector(
-                                              key: const ValueKey(
-                                                'select-ride-low-row-drag',
-                                              ),
-                                              onVerticalDragUpdate: (d) =>
-                                                  _onHeaderDragUpdate(d, media),
-                                              onVerticalDragEnd: (d) =>
-                                                  _onHeaderDragEnd(d, media),
-                                              child: ColoredBox(
-                                                color: Colors.white,
-                                                child: _rideTile(
-                                                  selectedRide,
-                                                  detail: 0,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                      child: _sheetBody(media, scroll),
                     ),
                   ),
                 ),
@@ -2493,6 +2328,181 @@ class _SelectRideState extends State<SelectRide>
           ],
         ),
       ),
+    );
+  }
+
+  /// The sheet's content. Built with the screen, not with the sheet's
+  /// position: the parts that follow the position (the list fading in
+  /// above the low stop, the descriptions growing in towards the full stop,
+  /// the handle's label and the chosen ride shown at the low stop) each
+  /// listen to [_sheetSlide] on their own, so a drag tick rebuilds no row.
+  /// Owner (iPhone PWA): rebuilding every row, its fonts and its times on
+  /// each tick of the drag was most of the frame
+  /// (docs/select-ride-sheet-performance.md).
+  Widget _sheetBody(MediaQueryData media, ScrollController scroll) {
+    final mid = _midValue(media);
+    // 0 at the low stop → 1 at the middle: the other rides come in.
+    final listReveal = _sheetSlide.drive(_ListReveal(mid));
+    // 0 at the middle → 1 at full: descriptions and badges.
+    final detail = _sheetSlide.drive(_DetailReveal(mid));
+    final selectedRide = _selectedRideOrNull;
+    final promotion = _promotion;
+    final entries = _listEntries;
+    return Column(
+      children: [
+        // Title, promotion and filters stay put while the rides scroll
+        // under them; dragging here still moves the sheet.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragUpdate: (details) =>
+              _onHeaderDragUpdate(details, media),
+          onVerticalDragEnd: (details) => _onHeaderDragEnd(details, media),
+          child: Column(
+            children: [
+              AnimatedBuilder(
+                animation: _sheetSlide,
+                builder: (context, child) => Semantics(
+                  button: true,
+                  label: _sheetSlide.value > 0.98
+                      ? context.l10n.showFewerRides
+                      : context.l10n.showAllRides,
+                  child: child,
+                ),
+                child: GestureDetector(
+                  key: const ValueKey('select-ride-sheet-handle'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _toggleSheet(media),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 22,
+                    child: Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _line,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Owner round 2: a teal "promotion applied" line like the
+              // other ride apps; without one, the title.
+              if (promotion != null)
+                _promotionLine(promotion)
+              else
+                SizedBox(
+                  height: _titleHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        context.l10n.chooseYourRide,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(
+                          20,
+                          weight: FontWeight.w700,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              const Divider(height: 1, thickness: 1, color: _line),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              FadeTransition(
+                opacity: listReveal,
+                child: ListView.builder(
+                  key: const ValueKey('select-ride-list'),
+                  controller: scroll,
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    2,
+                    14,
+                    _footerHeight(media) + 8,
+                  ),
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    final ride = entry.ride;
+                    if (ride != null) {
+                      return _rideTile(ride, detail: detail);
+                    }
+                    return _groupHeading(
+                      entry.heading!,
+                      detail: detail,
+                      first: index == 0,
+                    );
+                  },
+                ),
+              ),
+              // At the low stop only the chosen ride shows.
+              if (selectedRide != null)
+                AnimatedBuilder(
+                  animation: listReveal,
+                  builder: (context, child) {
+                    final reveal = listReveal.value;
+                    return Positioned(
+                      left: 14,
+                      right: 14,
+                      top: 2,
+                      child: Offstage(
+                        offstage: reveal >= 1,
+                        child: IgnorePointer(
+                          ignoring: reveal > 0.5,
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
+                  child: FadeTransition(
+                    opacity: ReverseAnimation(listReveal),
+                    // Owner round 3: a swipe on the chosen ride moves the
+                    // sheet too.
+                    child: GestureDetector(
+                      key: const ValueKey('select-ride-low-row-drag'),
+                      onVerticalDragUpdate: (d) =>
+                          _onHeaderDragUpdate(d, media),
+                      onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
+                      child: ColoredBox(
+                        color: Colors.white,
+                        child: _rideTile(
+                          selectedRide,
+                          detail: const AlwaysStoppedAnimation<double>(0),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// [child] grows in from the top and fades in as [detail] goes 0 → 1;
+  /// only this wrapper follows the sheet, [child] is built once.
+  static Widget _reveal(Animation<double> detail, Widget child) {
+    return AnimatedBuilder(
+      animation: detail,
+      builder: (context, child) => ClipRect(
+        child: Align(
+          alignment: Alignment.topLeft,
+          heightFactor: detail.value,
+          child: child,
+        ),
+      ),
+      child: FadeTransition(opacity: detail, child: child),
     );
   }
 
@@ -2626,25 +2636,19 @@ class _SelectRideState extends State<SelectRide>
   /// "Rides for you" / "Premium": shown once the sheet is fully up.
   Widget _groupHeading(
     String text, {
-    required double detail,
+    required Animation<double> detail,
     required bool first,
   }) {
-    return ClipRect(
-      child: Align(
-        alignment: Alignment.topLeft,
-        heightFactor: detail,
-        child: Opacity(
-          opacity: detail,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(8, first ? 10 : 18, 8, 8),
-            child: Semantics(
-              header: true,
-              child: Text(
-                text,
-                key: ValueKey('select-ride-heading-$text'),
-                style: _text(19, weight: FontWeight.w700, letterSpacing: -0.3),
-              ),
-            ),
+    return _reveal(
+      detail,
+      Padding(
+        padding: EdgeInsets.fromLTRB(8, first ? 10 : 18, 8, 8),
+        child: Semantics(
+          header: true,
+          child: Text(
+            text,
+            key: ValueKey('select-ride-heading-$text'),
+            style: _text(19, weight: FontWeight.w700, letterSpacing: -0.3),
           ),
         ),
       ),
@@ -2704,7 +2708,7 @@ class _SelectRideState extends State<SelectRide>
     return Money(quote.discountMinor, quote.currency).major;
   }
 
-  Widget _rideTile(_RideOption ride, {required double detail}) {
+  Widget _rideTile(_RideOption ride, {required Animation<double> detail}) {
     final selected = ride.id == _selection.selectedRideId;
     final price = _priceFor(ride);
     final discount = _discountFor(ride);
@@ -2855,54 +2859,49 @@ class _SelectRideState extends State<SelectRide>
                           _walletLine(price),
                         if (selected && _walletOtherCurrency)
                           _walletCurrencyNote(),
-                        // Description and badge come in as the sheet opens fully.
-                        ClipRect(
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            heightFactor: detail,
-                            child: Opacity(
-                              opacity: detail,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    ride.note,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                        // Description and badge come in as the sheet opens
+                        // fully.
+                        _reveal(
+                          detail,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 2),
+                              Text(
+                                ride.note,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _text(
+                                  12.5,
+                                  color: _muted,
+                                  weight: FontWeight.w400,
+                                ),
+                              ),
+                              if (ride.badge != null) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected ? _accent : _accentSoft,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    ride.badge!,
                                     style: _text(
-                                      12.5,
-                                      color: _muted,
-                                      weight: FontWeight.w400,
+                                      9.5,
+                                      weight: FontWeight.w700,
+                                      color: selected
+                                          ? Colors.white
+                                          : _accent,
+                                      letterSpacing: 0.4,
                                     ),
                                   ),
-                                  if (ride.badge != null) ...[
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: selected ? _accent : _accentSoft,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        ride.badge!,
-                                        style: _text(
-                                          9.5,
-                                          weight: FontWeight.w700,
-                                          color: selected
-                                              ? Colors.white
-                                              : _accent,
-                                          letterSpacing: 0.4,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -3232,4 +3231,27 @@ class _SelectRideState extends State<SelectRide>
       child: logo,
     );
   }
+}
+
+/// 0 at the low stop → 1 at the middle stop ([mid] on the slide): the other
+/// rides come in.
+class _ListReveal extends Animatable<double> {
+  const _ListReveal(this.mid);
+
+  final double mid;
+
+  @override
+  double transform(double t) => mid <= 0 ? 1.0 : (t / mid).clamp(0.0, 1.0);
+}
+
+/// 0 at the middle stop → 1 at full: descriptions and badges.
+class _DetailReveal extends Animatable<double> {
+  const _DetailReveal(this.mid);
+
+  final double mid;
+
+  @override
+  double transform(double t) => mid >= 1
+      ? 0.0
+      : Curves.easeOutCubic.transform(((t - mid) / (1 - mid)).clamp(0.0, 1.0));
 }

@@ -124,6 +124,7 @@ Future<void> bootstrap() async {
   if (moveraQaHooksEnabled) {
     registerWebQaHooks();
     installRideCheckQaHook();
+    installFrameTimingQaHook();
   }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
   // Ride check (RC1): the trip screen checks live positions against the
