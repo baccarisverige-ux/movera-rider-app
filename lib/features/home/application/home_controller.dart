@@ -285,6 +285,20 @@ class HomeLocationController extends ChangeNotifier {
   /// the camera does not move the camera again.
   static const quickFixRefineMeters = 30.0;
 
+  /// Owner, live test 2026-10-26 (N7): a first fix this uncertain (metres)
+  /// is not named. Right after sign-in the phone's first "accurate" fix is
+  /// often a cached or network one hundreds of metres off; its reverse
+  /// geocode showed a wrong street for a second until the live stream's
+  /// first good fix moved the label. Puck and camera still use the fix; the
+  /// pickup stays "Current location" until a fix within this lands.
+  static const nameableFixMeters = 150.0;
+
+  /// Whether a fix of [accuracyMeters] may be named with a street.
+  static bool nameable(double? accuracyMeters) =>
+      accuracyMeters == null ||
+      !accuracyMeters.isFinite ||
+      accuracyMeters <= nameableFixMeters;
+
   /// Backoff before re-subscribing after a transient stream failure.
   @visibleForTesting
   static Duration resubscribeDelay(int attempt) {
@@ -605,6 +619,7 @@ class HomeLocationController extends ChangeNotifier {
       }
       _setPreciseOff(false);
       _rememberGoodFix(position);
+      lastFixAccuracyMeters = position.accuracy;
       // Owner round 1: the point first, the address when it comes.
       onLocated?.call(
         DetectedLocation(
@@ -615,6 +630,18 @@ class HomeLocationController extends ChangeNotifier {
               : 0,
         ),
       );
+      if (!nameable(position.accuracy)) {
+        // N7: a coarse first fix is not named; the live stream's first
+        // good fix names the pickup (Home relabels on it).
+        _setState(HomeLocationState.live);
+        return DetectedLocation(
+          target: LatLng(position.latitude, position.longitude),
+          address: 'Current location',
+          heading: position.heading.isFinite && position.heading >= 0
+              ? position.heading
+              : 0,
+        );
+      }
       String? detected;
       try {
         detected = await geocoding.reverse(
