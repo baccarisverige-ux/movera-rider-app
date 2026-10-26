@@ -994,6 +994,9 @@ class _FindingDriversState extends State<FindingDrivers> {
                     ? const ColoredBox(color: Color(0xFFF6F5F1))
                     : CustomGoogleMap(
                         key: const ValueKey('finding-map'),
+                        // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+                        // flat; the route is read from above, never along a tilted horizon.
+                        tiltWithZoom: false,
                         initialPosition: CameraPosition(
                           target: _pickupPosition,
                           zoom: 14.0,
@@ -1005,9 +1008,6 @@ class _FindingDriversState extends State<FindingDrivers> {
                         zoomControlsEnabled: false,
                         mapToolbarEnabled: false,
                         compassEnabled: false,
-                        // Green free-flow traffic hides the Waze road palette;
-                        // traffic stays on the active-trip map only.
-                        trafficEnabled: false,
                         buildingsEnabled: false,
                         indoorViewEnabled: false,
                         tiltGesturesEnabled: false,

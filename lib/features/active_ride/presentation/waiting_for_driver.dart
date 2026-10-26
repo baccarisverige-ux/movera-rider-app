@@ -2847,6 +2847,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   Widget _buildMap(Set<Marker> markers) {
     return CustomGoogleMap(
       key: const ValueKey('waiting-map'),
+      // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+      // flat; the route is read from above, never along a tilted horizon.
+      tiltWithZoom: false,
       initialPosition: widget.initialPosition,
       markers: markers,
       polylines: _polylines,
@@ -2855,7 +2858,6 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
-      trafficEnabled: true,
       buildingsEnabled: false,
       indoorViewEnabled: false,
       tiltGesturesEnabled: false,

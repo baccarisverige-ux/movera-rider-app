@@ -102,9 +102,6 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
-      // Green free-flow traffic hides the Waze road palette;
-      // traffic stays on the active-trip map only.
-      trafficEnabled: false,
       buildingsEnabled: true,
       indoorViewEnabled: false,
       mapType: MapType.normal,

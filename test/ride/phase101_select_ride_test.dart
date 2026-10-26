@@ -87,6 +87,24 @@ void main() {
     expect(inSelectRide, findsNothing);
   });
 
+  test('N6: the booking and trip maps stay flat (no tilt with zoom)', () {
+    // Owner screenshot (Select ride, Klockarvägen 37, Södertälje): the fit
+    // leaned the camera 67.5° at building level and the route line became a
+    // wedge. Select ride, Finding and the trip map read the route from
+    // above; Home keeps the driver app's tilt-with-zoom camera.
+    for (final file in [
+      'lib/features/ride_selection/presentation/select_ride.dart',
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ]) {
+      final src = File(file).readAsStringSync();
+      final map = src.indexOf('CustomGoogleMap(');
+      expect(map, greaterThan(-1), reason: file);
+      final block = src.substring(map, src.indexOf('onMapCreated', map));
+      expect(block, contains('tiltWithZoom: false'), reason: file);
+    }
+  });
+
   test('D-007: the map uses the confirmed pickup, not the constructor one', () {
     final src = File(
       'lib/features/ride_selection/presentation/select_ride.dart',

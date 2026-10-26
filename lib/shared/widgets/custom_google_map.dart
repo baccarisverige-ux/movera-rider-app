@@ -31,7 +31,6 @@ class CustomGoogleMap extends StatefulWidget {
   final bool zoomControlsEnabled;
   final bool mapToolbarEnabled;
   final bool compassEnabled;
-  final bool trafficEnabled;
   final bool buildingsEnabled;
   final bool indoorViewEnabled;
   final bool scrollGesturesEnabled;
@@ -70,7 +69,6 @@ class CustomGoogleMap extends StatefulWidget {
     this.zoomControlsEnabled = false,
     this.mapToolbarEnabled = false,
     this.compassEnabled = false,
-    this.trafficEnabled = false,
     this.buildingsEnabled = true,
     this.indoorViewEnabled = false,
     this.scrollGesturesEnabled = true,
@@ -323,7 +321,10 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       zoomControlsEnabled: widget.zoomControlsEnabled,
       mapToolbarEnabled: widget.mapToolbarEnabled,
       compassEnabled: widget.compassEnabled,
-      trafficEnabled: widget.trafficEnabled,
+      // Owner, live test 2026-10-26 (N5): Google's live traffic layer
+      // (green/red/yellow roads) never rides over the Movera map style; the
+      // cloud Map ID is the only styling on every map.
+      trafficEnabled: false,
       buildingsEnabled: widget.buildingsEnabled,
       indoorViewEnabled: widget.indoorViewEnabled,
       scrollGesturesEnabled: widget.scrollGesturesEnabled,
