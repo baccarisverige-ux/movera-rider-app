@@ -45,6 +45,8 @@ import 'package:movera_rider/features/destination_search/application/destination
 import 'package:movera_rider/features/onboarding/application/onboarding_controller.dart';
 import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
+import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
+import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
@@ -374,6 +376,12 @@ class AppScope {
   late final SavedCardsController savedCards = SavedCardsController(
     store: savedCardsStore,
   );
+
+  /// Contract v0.5.4: the trip chat (`/trips/{tripId}/messages`) on the
+  /// live wire. The demo's mock transport has no chat server, so there it
+  /// is null and Chat stays read-only as before.
+  late final TripMessagesTransport? tripMessages =
+      api.contractWire ? ApiTripMessages(api: api) : null;
 
   /// The in-app explanation in front of the OS notification prompt.
   late final PushPermissionGate pushPermission = PushPermissionGate(

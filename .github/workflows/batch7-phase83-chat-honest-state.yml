@@ -35,11 +35,13 @@ jobs:
 
       - name: No fabricated Rider send
         run: |
-          grep -q "canSendMessages => false" lib/features/messages/application/messages_controller.dart
-          ! grep -q "_store.add(" lib/features/messages/application/messages_controller.dart
+          # Live wire: the chat sends through the server (transport). Demo: no
+          # transport, so nothing is appended locally to look sent.
+          grep -q "canSendMessages => _transport != null" lib/features/messages/application/messages_controller.dart
+          grep -q "if (_transport == null) return false;" lib/features/messages/application/messages_controller.dart
           # Round 4: the copy lives in l10n; check the code uses it and that
           # English still reads the same.
           grep -q "sendUnavailableMessage => L10n.current.chatSendUnavailable" lib/features/messages/application/messages_controller.dart
           grep -q "\"chatSendUnavailable\": \"Sending messages to your driver isn't available yet.\"" lib/l10n/app_en.arb
-          grep -q "label: context.l10n.chatSendUnavailableSemantics" lib/features/messages/presentation/chat.dart
+          grep -q ": context.l10n.chatSendUnavailableSemantics" lib/features/messages/presentation/chat.dart
           grep -q '"chatSendUnavailableSemantics": "Send message unavailable"' lib/l10n/app_en.arb
