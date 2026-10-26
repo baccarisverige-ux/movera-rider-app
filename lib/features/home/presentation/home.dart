@@ -1058,8 +1058,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// location at all does the map picker open here.
   Future<PickupMapResult?> _prefillPickup(
     String address,
-    GeoPoint? point,
-  ) async {
+    GeoPoint? point, {
+    bool throwOnFailure = false,
+  }) async {
     final clean = address.trim();
     if (point != null) {
       return PickupMapResult(
@@ -1081,6 +1082,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         case GeocodeFailed():
           // rider-45: the lookup failed; the typed pickup is not swapped for
           // GPS either.
+          if (throwOnFailure) throw const RouteLookupFailed();
           if (mounted) {
             MoveraToast.show(context, context.l10n.routeCouldNotReach);
           }
@@ -1110,6 +1112,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   /// The step after the rider taps a real destination.
+  ///
+  /// Runs under the address screen, which stays open: a lookup the server
+  /// could not answer (offline, a timeout, a 5xx while it wakes) is thrown
+  /// as [RouteLookupFailed], so the screen says so with Try again instead
+  /// of a toast under it that reads as a silent return to Home.
   Future<Map<String, dynamic>?> _confirmRouteSelection(
     RoutePickerSelection selection, {
     bool scheduled = false,
@@ -1119,6 +1126,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final pickup = await _prefillPickup(
       selection.pickup,
       selection.pickupPoint,
+      throwOnFailure: true,
     );
     if (pickup == null || !mounted) return null;
     var destination = selection.destination;
@@ -1127,10 +1135,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final outcome = await _locationCtl.resolvePlace(destination);
       final geocoded = outcome.valueOrNull;
       if (geocoded == null) {
+        if (outcome is GeocodeFailed) throw const RouteLookupFailed();
         if (mounted && outcome is GeocodeNotFound) {
           MoveraToast.show(context, context.l10n.homeChooseValidDestination);
-        } else if (mounted && outcome is GeocodeFailed) {
-          MoveraToast.show(context, context.l10n.routeCouldNotReach);
         }
         return null;
       }

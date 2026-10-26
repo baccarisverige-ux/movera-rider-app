@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/web_reverse_geocode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -18,13 +20,25 @@ class AppGeocoding implements GeocodingRepository {
   AppGeocoding({
     ApiClient? api,
     this.cacheTtl = const Duration(minutes: 10),
-    this.requestTimeout = const Duration(seconds: 8),
+    this.requestTimeout = defaultRequestTimeout,
+    this.retryDelay = defaultRetryDelay,
     this.allowPublicReverseFallback = false,
     PublicReverseGeocoder? publicReverse,
     bool? isWeb,
   })  : _api = api,
         _publicReverse = publicReverse ?? openStreetMapReverse,
         _isWeb = isWeb ?? kIsWeb;
+
+  /// How long one address lookup may take. The live server is slow (a
+  /// small instance that wakes from sleep in 30-50 s); the old 8 s turned
+  /// a slow answer into "Couldn't reach Movera" on the address screen and
+  /// the pin, while the screens show a progress indicator meanwhile.
+  static const defaultRequestTimeout = Duration(seconds: 25);
+
+  /// A lookup refused by a transient server fault (503 while it wakes,
+  /// 429, a dropped connection) is asked once more after this pause. A
+  /// timeout is not retried: the rider has waited long enough.
+  static const defaultRetryDelay = Duration(seconds: 2);
 
   final ApiClient? _api;
 
@@ -38,6 +52,7 @@ class AppGeocoding implements GeocodingRepository {
   final bool _isWeb;
   final Duration cacheTtl;
   final Duration requestTimeout;
+  final Duration retryDelay;
   final Map<String, _CachedValue<PlaceResult?>> _forwardCache = {};
   final Map<String, _CachedValue<String?>> _reverseCache = {};
   final Map<String, Future<PlaceResult?>> _forwardInFlight = {};
@@ -101,9 +116,11 @@ class AppGeocoding implements GeocodingRepository {
 
   Future<PlaceResult?> _forwardFromApi(String query) async {
     final api = _requireApi();
-    final response = await api
-        .post('/api/v1/locations/geocode', body: {'query': query})
-        .timeout(requestTimeout);
+    final response = await _onceMore(
+      () => api
+          .post('/api/v1/locations/geocode', body: {'query': query})
+          .timeout(requestTimeout),
+    );
     final data = _payload(response);
     final latitude = data['latitude'];
     final longitude = data['longitude'];
@@ -116,13 +133,15 @@ class AppGeocoding implements GeocodingRepository {
 
   Future<String?> _reverseFromApi(GeoPoint point) async {
     final api = _requireApi();
-    final response = await api.post(
-      '/api/v1/locations/reverse-geocode',
-      body: {
-        'latitude': point.latitude,
-        'longitude': point.longitude,
-      },
-    ).timeout(requestTimeout);
+    final response = await _onceMore(
+      () => api.post(
+        '/api/v1/locations/reverse-geocode',
+        body: {
+          'latitude': point.latitude,
+          'longitude': point.longitude,
+        },
+      ).timeout(requestTimeout),
+    );
     final data = _payload(response);
     final address = data['address'];
     final named = address is String && address.trim().isNotEmpty
@@ -141,6 +160,31 @@ class AppGeocoding implements GeocodingRepository {
 
   /// What a transport without a geocoder answers instead of an address.
   static const String placeholderReverseLabel = 'Current location';
+
+  /// Runs [request]; a transient server fault (5xx, 429, no connection)
+  /// gets one more try after [retryDelay]. A timeout or a definite answer
+  /// (4xx, a bad payload) is not tried again.
+  Future<Map<String, dynamic>> _onceMore(
+    Future<Map<String, dynamic>> Function() request,
+  ) async {
+    try {
+      return await request();
+    } catch (error) {
+      if (!isTransientFault(error)) rethrow;
+      await Future<void>.delayed(retryDelay);
+      return request();
+    }
+  }
+
+  /// Whether [error] says nothing final about the lookup: the server
+  /// failed or refused the load (5xx, 429) or the request never arrived.
+  static bool isTransientFault(Object error) {
+    if (error is ApiError) {
+      final status = error.statusCode ?? 0;
+      return status >= 500 || status == 429 || error.code == 'NETWORK';
+    }
+    return error is http.ClientException;
+  }
 
   ApiClient _requireApi() {
     final api = _api;

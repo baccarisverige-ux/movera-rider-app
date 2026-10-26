@@ -28,6 +28,8 @@ class ApiRideRealtime implements RideRealtime {
     RealtimeConnection? connection,
     this.pollInterval = const Duration(seconds: 2),
     this.notFoundLimit = 3,
+    this.failedAfter = 3,
+    this.maxRetryWait = const Duration(seconds: 8),
     DateTime Function()? clock,
     this.onProjectionVersion,
   }) : _api = api,
@@ -48,6 +50,17 @@ class ApiRideRealtime implements RideRealtime {
   /// (contract v0.3.0): the ride keeps its last server status until a
   /// resync ([reconnectAndResync]) reads the trip again.
   final int notFoundLimit;
+
+  /// Consecutive failed polls (no answer, a timeout, a 5xx) before the
+  /// connection is shown as failed. Until then it is "reconnecting": one
+  /// slow or refused answer from a small server is not a lost ride, and
+  /// the trip itself lives on the server whatever this poll sees.
+  final int failedAfter;
+
+  /// The longest pause between polls after failures. The connection's
+  /// backoff doubles up to 16 s; waiting that long after the server is
+  /// back left the banner up and the trip stale for most of that time.
+  final Duration maxRetryWait;
   final DateTime Function() _clock;
   final Map<String, _RidePoll> _rides = {};
 
@@ -108,6 +121,7 @@ class ApiRideRealtime implements RideRealtime {
       if (_disposed || !identical(_rides[poll.id], poll)) return;
       poll.retryAt = null;
       poll.notFound = 0;
+      poll.failures = 0;
       // Contract v0.3 §1: a success response is the bare TripProjection.
       // The pre-v0.3 `{code, ride}` envelope is still read during the
       // migration; only that envelope carries event fields beside `ride`.
@@ -292,11 +306,12 @@ class ApiRideRealtime implements RideRealtime {
       connection.markConnected();
     } catch (error) {
       if (!_disposed && identical(_rides[poll.id], poll)) {
+        poll.failures += 1;
         AppLog.warning('realtime.poll_failed', extra: {
           'rideId': poll.id,
           'error': error.toString(),
+          'failures': poll.failures,
         });
-        connection.markFailed();
         if (error is ApiError && error.statusCode == 404) {
           poll.notFound += 1;
           if (poll.notFound >= notFoundLimit) {
@@ -304,7 +319,19 @@ class ApiRideRealtime implements RideRealtime {
             return;
           }
         }
-        poll.retryAt = _clock().add(connection.nextBackoff());
+        // The first misses are a blip to ride out (the banner says
+        // "Reconnecting"); only a run of them is a problem to show. The
+        // poll goes on either way: a network error never ends the search
+        // on this side.
+        if (poll.failures >= failedAfter) {
+          connection.markFailed();
+        } else {
+          connection.markReconnecting();
+        }
+        final backoff = connection.nextBackoff();
+        poll.retryAt = _clock().add(
+          backoff > maxRetryWait ? maxRetryWait : backoff,
+        );
       }
     } finally {
       poll.inFlight = false;
@@ -512,6 +539,9 @@ class _RidePoll {
   bool inFlight = false;
   bool ended = false;
   int notFound = 0;
+
+  /// Consecutive polls that failed since the last good answer.
+  int failures = 0;
   DateTime? retryAt;
 
   /// The contract realtime gate for this trip.

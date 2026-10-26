@@ -1065,16 +1065,21 @@ class _FindingDriversState extends State<FindingDrivers> {
                 ),
               ),
             ),
-            Positioned(
-              top: media.padding.top + 62,
-              left: 12,
-              right: 12,
-              child: PointerInterceptor(
-                child: RealtimeConnectionBanner(
-                  connection: AppScope.instance.realtime,
+            // The banner follows the trip's live connection; once the
+            // search is over (a committed cancel on its way Home) the
+            // transport lets go of the trip, which is not a lost
+            // connection to tell the rider about.
+            if (!_leaving)
+              Positioned(
+                top: media.padding.top + 62,
+                left: 12,
+                right: 12,
+                child: PointerInterceptor(
+                  child: RealtimeConnectionBanner(
+                    connection: AppScope.instance.realtime,
+                  ),
                 ),
               ),
-            ),
             Positioned(
               right: 12,
               bottom: mapReserve + 16,

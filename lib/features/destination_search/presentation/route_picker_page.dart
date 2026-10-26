@@ -19,6 +19,18 @@ import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider picked on [RoutePickerPage].
+/// Thrown by the page's `onFinish` when the route could not be prepared
+/// because Movera could not be reached or did not answer in time (offline,
+/// a timeout, a 5xx while the server wakes). The page stays open and says
+/// so with Try again; nothing is navigated. A route that is simply not
+/// found is not this: `onFinish` returns null for it.
+class RouteLookupFailed implements Exception {
+  const RouteLookupFailed();
+
+  @override
+  String toString() => 'RouteLookupFailed';
+}
+
 class RoutePickerSelection {
   const RoutePickerSelection({
     required this.pickup,
@@ -516,6 +528,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             context.l10n.routeCouldNotReach,
           ),
           behavior: SnackBarBehavior.floating,
+          // Long enough to read and tap after a 25 s wait on a slow server.
+          duration: const Duration(seconds: 8),
           action: SnackBarAction(label: context.l10n.tryAgain, onPressed: _finish),
         ),
       );

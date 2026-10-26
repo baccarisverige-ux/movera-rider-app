@@ -8,10 +8,13 @@ class NearbyCarsRepository implements NearbyCarsSource {
 
   final ApiClient _api;
 
-  static const defaultRefresh = Duration(seconds: 5);
+  /// Without a `refreshSeconds` from the server: the contract's 5 s with a
+  /// little slack for a small server instance.
+  static const defaultRefresh = Duration(seconds: 6);
 
-  /// The app never asks more often than this, whatever the server says.
-  static const minRefresh = Duration(seconds: 3);
+  /// The app never asks more often than this, whatever the server says:
+  /// the cars are decoration, the trip calls come first on a slow server.
+  static const minRefresh = Duration(seconds: 5);
   static const maxRefresh = Duration(seconds: 30);
 
   /// The contract's cap; a longer list is cut.
