@@ -342,6 +342,8 @@
   "bumpConfirm": "Confirmer {amount}",
   "bumpSetNewPrice": "Fixer un nouveau prix",
   "bumpServerConfirms": "Movera confirme votre tarif final après l’augmentation de votre offre.",
+  "raiseOfferEntry": "Augmenter votre offre",
+  "bumpMaxPrice": "Votre offre peut aller jusqu’à {amount}.",
   "cancelTrip": "Annuler la course",
   "stillLookingBody": "Aucun chauffeur n’a encore accepté. Vous pouvez continuer la recherche ou annuler la demande.",
   "driver": "Chauffeur",

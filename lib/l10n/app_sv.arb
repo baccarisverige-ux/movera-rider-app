@@ -342,6 +342,8 @@
   "bumpConfirm": "Bekräfta {amount}",
   "bumpSetNewPrice": "Ange nytt pris",
   "bumpServerConfirms": "Movera bekräftar ditt slutliga pris när du har höjt budet.",
+  "raiseOfferEntry": "Höj ditt bud",
+  "bumpMaxPrice": "Ditt bud kan vara högst {amount}.",
   "cancelTrip": "Avboka resan",
   "stillLookingBody": "Ingen förare har accepterat än. Du kan fortsätta söka eller avbryta förfrågan.",
   "driver": "Förare",
