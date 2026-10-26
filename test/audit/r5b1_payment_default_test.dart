@@ -15,12 +15,13 @@ void main() {
     final api = ApiClient(
       env: const AppEnv(flavor: AppFlavor.staging, apiBaseUrl: 'https://x.invalid'),
       client: MockClient((request) async {
-        if (request.method == 'PATCH') {
+        // Contract `POST /payment-methods/default` `{method}` (staging).
+        if (request.method == 'POST' && request.url.path.endsWith('/default')) {
           if (failNext) {
             failNext = false;
             return http.Response('{"code":"unavailable"}', 503);
           }
-          server = jsonDecode(request.body)['methodId'] as String;
+          server = jsonDecode(request.body)['method'] as String;
         }
         return http.Response(
           jsonEncode({'code': 'OK', 'methods': [], 'defaultMethodId': server}),

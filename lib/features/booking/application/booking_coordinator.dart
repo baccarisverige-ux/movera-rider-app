@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
+import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -93,12 +95,21 @@ class BookingCoordinator {
         !error.isRetryable;
   }
 
+  /// The created trip in a booking answer: the contract's bare
+  /// `TripProjection` (`POST /trips`), or the mock's `{ride}` envelope.
+  static Map<String, dynamic>? _created(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    if (ride is Map) return Map<String, dynamic>.from(ride);
+    return json['tripId'] != null ? tripProjectionOf(json) : null;
+  }
+
   String _requireRideId(Map<String, dynamic> json) {
-    final rawRide = json['ride'];
-    if (rawRide is! Map) {
+    final rawRide = _created(json);
+    if (rawRide == null) {
       throw const FormatException('Booking response missing ride object');
     }
-    final rawId = rawRide['id'];
+    // Contract `tripId`; the mock's `{ride: {id}}`.
+    final rawId = rawRide['tripId'] ?? rawRide['id'];
     if (rawId is! String) {
       throw const FormatException('Booking response missing ride id');
     }
@@ -113,8 +124,8 @@ class BookingCoordinator {
   /// `requested` for a reservation, `searching` for a live trip). The
   /// client never assumes it (audit B5).
   RideStatus _createdStatus(Map<String, dynamic> json) {
-    final ride = json['ride'];
-    final status = ride is Map ? RideStatusWire.fromProjection(ride) : null;
+    final ride = _created(json);
+    final status = ride != null ? RideStatusWire.fromProjection(ride) : null;
     if (status == null) {
       throw StateError('The created ride carries no contract status');
     }
@@ -122,16 +133,79 @@ class BookingCoordinator {
   }
 
   int? _rideVersion(Map<String, dynamic> json) {
-    final ride = json['ride'];
-    if (ride is! Map) return null;
+    final ride = _created(json);
+    if (ride == null) return null;
     return (ride['version'] as num?)?.toInt();
   }
 
   DateTime? _rideUpdatedAt(Map<String, dynamic> json) {
-    final ride = json['ride'];
-    if (ride is! Map) return null;
+    final ride = _created(json);
+    if (ride == null) return null;
     return DateTime.tryParse(ride['updatedAt'] as String? ?? '');
   }
+
+  /// Contract `CreateTripRequest` (openapi v0.5, `POST /trips`): the quote
+  /// and exactly the route it was priced for, the trip kind and the
+  /// payment method. The server holds the quote, so no signature, price or
+  /// expiry goes with it; the price is the quote's.
+  static Map<String, dynamic> contractTripBody({
+    required String quoteId,
+    required String categoryId,
+    required String paymentMethod,
+    required double pickupLat,
+    required double pickupLng,
+    required double destinationLat,
+    required double destinationLng,
+    String? pickupAddress,
+    String? destinationAddress,
+    List<RouteStop> stops = const <RouteStop>[],
+    RideNotes notes = RideNotes.empty,
+    bool walletFirst = false,
+  }) {
+    final route = ApiQuoteRepository.routeOf(quoteId);
+    final note = notes.selected.join(', ');
+    return {
+      'quoteId': quoteId,
+      'categoryId': CategoryIds.canonical(categoryId),
+      'pickup':
+          route?.pickup ??
+          ApiQuoteRepository.contractPlace(pickupLat, pickupLng, pickupAddress),
+      'dropoff':
+          route?.dropoff ??
+          ApiQuoteRepository.contractPlace(
+            destinationLat,
+            destinationLng,
+            destinationAddress,
+          ),
+      'stops':
+          route?.stops ??
+          [
+            for (final stop in stops)
+              ApiQuoteRepository.contractPlace(
+                stop.latitude,
+                stop.longitude,
+                stop.address,
+              ),
+          ],
+      'kind': 'live',
+      'paymentMethod': contractPaymentMethod(paymentMethod),
+      // A saved card is a method of its own (`card:<id>`).
+      if (paymentMethod.startsWith('card:'))
+        'paymentMethodId': paymentMethod.substring(5),
+      if (walletFirst) 'walletFirst': true,
+      // Bags, pet, baby and child: the driver reads them before accepting.
+      if (note.isNotEmpty) 'notes': note,
+    };
+  }
+
+  /// The contract `PaymentMethod` for a Select Ride payment brand.
+  static String contractPaymentMethod(String brand) => switch (brand) {
+    'apple' || 'apple_pay' => 'apple_pay',
+    'google' || 'google_pay' => 'google_pay',
+    'cards' || 'card' => 'card',
+    _ when brand.startsWith('card:') => 'card',
+    _ => brand,
+  };
 
   /// A booking for later. RIDE-22: the intent and the body carry the route
   /// (pickup, destination, stops) and, when Select Ride priced it, the quote,
@@ -274,6 +348,7 @@ class BookingCoordinator {
       expiresAt: quote.expiresAt,
       totalMinor: quote.totalMinor,
       currency: quote.currency,
+      signed: !quote.serverHeld,
     ).validate();
     return quote;
   }
@@ -586,9 +661,11 @@ class BookingCoordinator {
     String quoteCurrency = Money.defaultCurrency,
     List<RouteStop> stops = const <RouteStop>[],
   }) async {
+    // A contract quote is held by the server and carries no signature.
+    final signed = !_client.contractWire;
     final supplied = <Object?>[
       quoteId,
-      quoteSignedPayload,
+      if (signed) quoteSignedPayload,
       quoteExpiresAt,
       quoteTotalMinor,
     ];
@@ -600,10 +677,11 @@ class BookingCoordinator {
     if (suppliedCount == supplied.length) {
       final binding = _BookingQuoteBinding(
         id: quoteId!,
-        signedPayload: quoteSignedPayload!,
+        signedPayload: quoteSignedPayload ?? '',
         expiresAt: quoteExpiresAt!,
         totalMinor: quoteTotalMinor!,
         currency: quoteCurrency,
+        signed: signed,
       );
       binding.validate(requestedPrice: requestedPrice);
       return binding;
@@ -636,6 +714,7 @@ class BookingCoordinator {
       expiresAt: quote.expiresAt,
       totalMinor: quote.totalMinor,
       currency: quote.currency,
+      signed: !quote.serverHeld,
     )..validate();
 
     _autoQuoteIntent = baseIntent;
@@ -688,8 +767,9 @@ class BookingCoordinator {
     bool isReplay = false,
     void Function()? onSending,
   }) async {
+    final contract = _client.contractWire;
     if (quoteId.trim().isEmpty ||
-        quoteSignedPayload.trim().isEmpty ||
+        (!contract && quoteSignedPayload.trim().isEmpty) ||
         // A replay may carry a quote that expired meanwhile: the server
         // either returns the ride it already created or refuses it.
         (!isReplay && !quoteExpiresAt.isAfter(ServerClock.now())) ||
@@ -703,7 +783,26 @@ class BookingCoordinator {
 
     final key = attempt.idempotencyKey;
     onSending?.call();
-    final json = await _client.post(
+    final json = contract
+        ? await _client.post(
+            '/api/v1/trips',
+            body: contractTripBody(
+              quoteId: quoteId,
+              categoryId: rideType,
+              paymentMethod: paymentMethod,
+              pickupLat: pickupLat,
+              pickupLng: pickupLng,
+              destinationLat: destinationLat,
+              destinationLng: destinationLng,
+              pickupAddress: pickupAddress,
+              destinationAddress: destinationAddress,
+              stops: stops,
+              notes: notes,
+              walletFirst: useWalletFirst && walletAmountMinor > 0,
+            ),
+            idempotencyKey: key,
+          )
+        : await _client.post(
       '/api/v1/rides',
       body: {
         'pickupAddress': pickupAddress,
@@ -734,6 +833,7 @@ class BookingCoordinator {
       idempotencyKey: key,
     );
     final id = _requireRideId(json);
+    if (contract) ApiQuoteRepository.markBooked(quoteId);
     // Booking → Finding only on the server's word: the response must say
     // the trip is requested / searching.
     final created = _createdStatus(json);
@@ -808,16 +908,16 @@ class BookingCoordinator {
 
   /// The offer ceiling the server set for the ride, when it says.
   int? _maxOfferMinorFrom(Map<String, dynamic> json) {
-    final ride = json['ride'];
-    if (ride is! Map) return null;
+    final ride = _created(json);
+    if (ride == null) return null;
     final raw = ride['maxOfferMinor'];
     return raw is num && raw > 0 ? raw.round() : null;
   }
 
   /// The wallet part the server accepted, when it says.
   int? _walletMinorFrom(Map<String, dynamic> json) {
-    final ride = json['ride'];
-    if (ride is! Map) return null;
+    final ride = _created(json);
+    if (ride == null) return null;
     return (ride['walletAmountMinor'] as num?)?.round();
   }
 
@@ -929,10 +1029,15 @@ class _BookingQuoteBinding {
     required this.expiresAt,
     required this.totalMinor,
     this.currency = Money.defaultCurrency,
+    this.signed = true,
   });
 
   final String id;
   final String signedPayload;
+
+  /// Whether the quote must carry a signature: the mock's quotes do; a
+  /// contract quote is held by the server and is bound by [id] alone.
+  final bool signed;
   final DateTime expiresAt;
   final int totalMinor;
 
@@ -943,7 +1048,7 @@ class _BookingQuoteBinding {
 
   void validate({double? requestedPrice}) {
     if (id.trim().isEmpty ||
-        signedPayload.trim().isEmpty ||
+        (signed && signedPayload.trim().isEmpty) ||
         !expiresAt.isAfter(ServerClock.now()) ||
         totalMinor <= 0) {
       throw StateError('A fresh authoritative quote is required for booking');

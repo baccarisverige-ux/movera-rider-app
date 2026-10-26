@@ -45,7 +45,8 @@ class ApiRideHistoryRepository
             ? path
             : '$path?cursor=${Uri.encodeQueryComponent(cursor)}',
       );
-      final trips = json['trips'];
+      // Contract `TripPage {items, nextCursor}`; `trips` is the older key.
+      final trips = json['items'] ?? json['trips'];
       if (trips is List) {
         for (final raw in trips) {
           if (raw is! Map) continue;

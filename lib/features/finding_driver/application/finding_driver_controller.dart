@@ -1721,7 +1721,7 @@ class FindingDriverController {
         }
         try {
           final response = await client.post(
-            '/api/v1/rides/${cancel.rideId}/${cancel.command.pathSegment}',
+            client.tripPath(cancel.rideId, cancel.command.pathSegment),
             body: cancel.body(),
             idempotencyKey: cancel.idempotencyKey,
           );

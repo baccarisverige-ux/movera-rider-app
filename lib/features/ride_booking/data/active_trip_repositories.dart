@@ -14,7 +14,7 @@ class DeviceOnlyActiveTripRepository implements ActiveTripRepository {
   Future<RideSnapshot?> fetchActive() async => null;
 }
 
-/// `GET /api/v1/rider/trips/active` (C-5, PROPOSED).
+/// `GET /api/v1/rider/trips/active`: the rider's live trip (contract v0.5).
 class ApiActiveTripRepository
     implements ActiveTripRepository, ServerBackedRepository {
   ApiActiveTripRepository({required ApiClient api, this.categoryLabel})
@@ -30,7 +30,10 @@ class ApiActiveTripRepository
   @override
   Future<RideSnapshot?> fetchActive() async {
     final json = await _api.get(path);
-    final trip = json['trip'] ?? json['ride'];
+    // Contract: the bare TripProjection, or 204 (no body) when the rider
+    // has no live trip; `{trip}` / `{ride}` is the older envelope.
+    final trip =
+        json['trip'] ?? json['ride'] ?? (json['tripId'] != null ? json : null);
     if (trip is! Map) return null;
     final snapshot = RideProjection.toSnapshot(
       Map<String, dynamic>.from(trip),

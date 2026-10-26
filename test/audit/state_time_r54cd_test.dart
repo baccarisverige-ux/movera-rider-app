@@ -499,10 +499,12 @@ void main() {
       var serverDefault = 'cash';
       final payments = ApiPaymentMethodRepository(
         api: _api((request) async {
-          if (request.method == 'PATCH') {
+          // Contract `POST /payment-methods/default` `{method}` (staging).
+          if (request.method == 'POST' &&
+              request.url.path.endsWith('/default')) {
             // The first save is lost; the retry lands.
             if (++patches == 1) return _json({'code': 'unavailable'}, 503);
-            serverDefault = (jsonDecode(request.body) as Map)['methodId'];
+            serverDefault = (jsonDecode(request.body) as Map)['method'];
             return _json({'code': 'OK'});
           }
           return _json({'methods': [], 'defaultMethodId': serverDefault});

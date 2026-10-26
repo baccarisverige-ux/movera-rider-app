@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -33,6 +34,22 @@ class ApiClient {
   }
 
   bool get usesMockTransport => _client is InProcessMockClient;
+
+  /// Whether the booking calls (quotes, trips, cancel, end-early, rating,
+  /// the trip lists) use the contract wire (openapi.yaml, v0.5): true in
+  /// staging and production, which talk to movera-server only. The demo,
+  /// dev and test builds keep the in-process mock's older dialect
+  /// (`rideType`, `{quote}`, `{ride}`), which their tests are written to.
+  bool get contractWire => !_env.allowsMockTransport;
+
+  /// The path of trip [tripId] (and its command [segment]): contract
+  /// `/trips/{tripId}` on the contract wire; the mock serves the older
+  /// `/rides/{id}` (movera-server keeps that alias only for read and cancel).
+  String tripPath(String tripId, [String? segment]) {
+    final base = contractWire ? '/api/v1/trips' : '/api/v1/rides';
+    final id = contractWire ? Uri.encodeComponent(tripId) : tripId;
+    return segment == null ? '$base/$id' : '$base/$id/$segment';
+  }
 
   final http.Client _client;
   final AppEnv _env;
@@ -92,7 +109,15 @@ class ApiClient {
         'X-Request-Id': requestId,
         'X-Api-Version': apiVersion,
         if (access != null) 'Authorization': 'Bearer $access',
-        if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
+        // contract.json#headers: an Idempotency-Key on every mutation. A
+        // caller that names none (a quote, a sign-out) gets one of its own
+        // on the contract wire; movera-server refuses a change without it.
+        if ((idempotencyKey ??
+                (contractWire && method != 'GET'
+                    ? newIdempotencyKey(method.toLowerCase())
+                    : null))
+            case final key?)
+          'Idempotency-Key': key,
       };
       var response = await _request(method, uri, headers, body);
       if (response.statusCode == 401 &&

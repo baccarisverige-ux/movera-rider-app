@@ -14,6 +14,7 @@ import 'package:movera_rider/features/payments/application/card_entry_policy.dar
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
@@ -133,7 +134,20 @@ class RideSelectionController {
 
   bool get createsReservation => bookingMode.createsReservation;
 
-  List<RideCatalogItem> rides() => _catalog?.current ?? _store.rides();
+  List<RideCatalogItem> rides() {
+    final all = _catalog?.current ?? _store.rides();
+    if (notOfferedIds.isEmpty) return all;
+    final offered = [
+      for (final ride in all)
+        if (!notOfferedIds.contains(ride.id)) ride,
+    ];
+    return offered.isEmpty ? all : offered;
+  }
+
+  /// Categories the server priced the route without (contract `POST
+  /// /quotes`: the pickup's zone does not offer them). They are not
+  /// listed, as a category that can never be booked here.
+  final Set<String> notOfferedIds = <String>{};
 
   /// Fires when the catalog changes (a server answer arrived). Null when
   /// the catalog is a fixed store.
@@ -479,8 +493,9 @@ class RideSelectionController {
       );
       if (generation != _quoteGeneration) return;
       adoptQuote(rideId, quote, pickupPoint: pickupPoint);
-    } catch (_) {
+    } catch (error) {
       if (generation != _quoteGeneration) return;
+      if (error is QuoteCategoryNotOffered) notOfferedIds.add(rideId);
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
@@ -578,10 +593,7 @@ class RideSelectionController {
   bool quoteIsAvailable(String id, {DateTime? now}) {
     if (unavailableQuoteIds.contains(id)) return false;
     final quote = authoritativeQuotes[id];
-    if (quote == null ||
-        quote.id.trim().isEmpty ||
-        quote.signedPayload == null ||
-        quote.signedPayload!.trim().isEmpty) {
+    if (quote == null || !quote.bookable) {
       return false;
     }
     if (!quoteIsFresh(id, now: now)) return false;
