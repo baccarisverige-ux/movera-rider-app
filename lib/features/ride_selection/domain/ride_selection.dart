@@ -11,6 +11,7 @@ class RideCatalogItem {
     this.badge,
     this.glyph,
     this.currency = 'SEK',
+    this.line,
   });
 
   final String id;
@@ -29,6 +30,17 @@ class RideCatalogItem {
   final int seats;
   final String? badge;
   final String? glyph;
+
+  /// Contract v0.7.1: the sub-line the admin wrote under the car type's
+  /// name, per app language (`catalog.categories[].line { sv, fr, en }`);
+  /// null when the catalog has none (the built-in [note] is shown).
+  final Map<String, String>? line;
+
+  /// The sub-line in [languageCode], else null.
+  String? lineIn(String languageCode) {
+    final text = line?[languageCode]?.trim();
+    return text == null || text.isEmpty ? null : text;
+  }
 }
 
 class RidePaymentItem {

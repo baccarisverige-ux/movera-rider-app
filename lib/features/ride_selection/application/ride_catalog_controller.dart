@@ -157,6 +157,7 @@ class RideCatalogController extends ChangeNotifier {
     badge: known?.badge,
     glyph: known?.glyph,
     currency: known?.currency ?? 'SEK',
+    line: category.line,
   );
 
   Future<List<RideCatalogItem>> _loadFallback() async {
@@ -200,6 +201,11 @@ class RideCatalogController extends ChangeNotifier {
         .toList();
   }
 
+  static bool _sameLine(Map<String, String>? a, Map<String, String>? b) {
+    if (a == null || b == null) return a == b;
+    return a.length == b.length && a.keys.every((k) => a[k] == b[k]);
+  }
+
   static bool _sameCatalog(List<RideCatalogItem> a, List<RideCatalogItem> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
@@ -214,7 +220,8 @@ class RideCatalogController extends ChangeNotifier {
           x.seats != y.seats ||
           x.badge != y.badge ||
           x.glyph != y.glyph ||
-          x.image != y.image) {
+          x.image != y.image ||
+          !_sameLine(x.line, y.line)) {
         return false;
       }
     }

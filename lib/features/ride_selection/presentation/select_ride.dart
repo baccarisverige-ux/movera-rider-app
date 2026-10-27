@@ -266,8 +266,9 @@ class _SelectRideState extends State<SelectRide>
         id: ride.id,
         image: ride.image,
         name: ride.name,
-        // rider-77: the built-in notes and badges in the rider's language.
-        note: rideNoteFor(ride.note),
+        // v0.7.1: the admin's sub-line in the rider's language; else
+        // (rider-77) the built-in note in the rider's language.
+        note: ride.lineIn(L10n.current.localeName) ?? rideNoteFor(ride.note),
         arrival: ride.arrival,
         etaMin: ride.etaMin,
         price: ride.price,
