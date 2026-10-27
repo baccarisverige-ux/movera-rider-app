@@ -55,6 +55,7 @@ import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -1024,6 +1025,14 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
               ),
             ),
+            // Owner N2: no road route, only the direct line: say so.
+            if (!_mapParked &&
+                ApproximateRouteBadge.isStraight(_roadRoutePoints))
+              Positioned(
+                left: 12,
+                bottom: mapReserve + 24,
+                child: const ApproximateRouteBadge(),
+              ),
             Positioned(
               top: media.padding.top + 8,
               left: 12,

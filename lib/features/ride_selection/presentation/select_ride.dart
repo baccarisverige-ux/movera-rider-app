@@ -71,6 +71,7 @@ import 'package:movera_rider/features/ride_booking/domain/active_trip_repository
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -544,6 +545,9 @@ class _SelectRideState extends State<SelectRide>
     // way: the newer request draws the line.
     if (from != _pickupPosition || _locatedStops.isNotEmpty) return;
     setState(() => _roadRoutePoints = route.points);
+    // Owner N6: a road that answers after the rider pinched or panned the
+    // map leaves their camera alone (it snapped back to the overview).
+    if (AppScope.instance.maps.movedByHand) return;
     // The road may reach past the straight line: frame it.
     unawaited(_fitRoute());
   }
@@ -2316,6 +2320,14 @@ class _SelectRideState extends State<SelectRide>
                     : const SelectRideRouteCanvas(),
               ),
             ),
+            // Owner N2: no road route, only the direct line: say so.
+            if (showLiveMap &&
+                ApproximateRouteBadge.isStraight(_roadRoutePoints))
+              Positioned(
+                left: 12,
+                bottom: minSheet + 12,
+                child: const ApproximateRouteBadge(),
+              ),
             // Owner round 2: the address bar slides up out of the way when
             // the sheet is fully up, and comes back as it goes down.
             AnimatedBuilder(

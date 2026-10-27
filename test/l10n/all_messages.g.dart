@@ -1438,6 +1438,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'safetyNotOnServer': l.safetyNotOnServer,
   'routeChangeUnavailable': l.routeChangeUnavailable,
   'reportNotOnServer': l.reportNotOnServer,
+  'mapUnavailable': l.mapUnavailable,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4513,4 +4514,6 @@ class _Exhaustive implements AppLocalizations {
   String get routeChangeUnavailable => '';
   @override
   String get reportNotOnServer => '';
+  @override
+  String get mapUnavailable => '';
 }
