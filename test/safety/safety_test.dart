@@ -14,6 +14,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
@@ -95,7 +96,10 @@ void main() {
     SafetyStore.resetShared();
     SafetyRepository.resetShared();
     SafetyController.resetShared();
+    // The phone's GPS comes from the platform; these tests have none.
+    SafetyController.locateForSos = () async => null;
   });
+  tearDown(() => SafetyController.locateForSos = lastSosPosition);
 
   test('Waiting maskedCall still records on shared repository', () {
     SafetyController().record(SafetyKind.maskedCall);

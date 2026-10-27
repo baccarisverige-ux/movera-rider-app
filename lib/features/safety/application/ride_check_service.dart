@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
@@ -41,17 +42,9 @@ class RideCheckService {
   Future<RideCheckEvent> routeDeviation({String rideId = 'ride_qa'}) =>
       simulate(type: RideCheckEventType.routeDeviation, rideId: rideId);
 
-  Future<RideCheckEvent> sos({required String rideId}) {
-    return _store.postEvent(
-      RideCheckEvent(
-        eventId: 'ev_${newRequestId()}',
-        rideId: rideId,
-        type: RideCheckEventType.manualSafetyCheck,
-        at: DateTime.now().toUtc(),
-        payload: const {'kind': 'sos', 'action': 'call_112'},
-      ),
-    );
-  }
+  /// The SOS to Movera (contract v0.7.0); false when the trip is not live.
+  Future<bool> sos({required String rideId, SosPosition? position}) =>
+      _store.sendSos(rideId, position: position);
 
   /// Posts the safety event for a Ride check card that just opened.
   Future<RideCheckEvent> open({
