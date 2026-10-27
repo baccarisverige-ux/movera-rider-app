@@ -133,12 +133,32 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    if (_isAnsweredApiCall(level, event, extra)) return;
     _post('/api/v1/telemetry/logs', {
       'level': level.name,
       'event': event,
       'extra': Observability.sanitize(extra),
       if (error != null) 'error': Observability.scrubText(error.toString()),
     }, routine: level == TelemetryLevel.debug || level == TelemetryLevel.info);
+  }
+
+  /// Audit Phase 7: every API call was also sent as a telemetry line, so the
+  /// trip screens' 2 s ride poll cost a second request each time (measured
+  /// live: 18 telemetry posts a minute next to 30 polls) and used up the
+  /// routine cap meant for real events. The server already logs each request
+  /// with its requestId; only failed calls (status 400 and up, timeouts) go
+  /// out from here.
+  static bool _isAnsweredApiCall(
+    TelemetryLevel level,
+    String event,
+    Map<String, Object?> extra,
+  ) {
+    if (level != TelemetryLevel.debug && level != TelemetryLevel.info) {
+      return false;
+    }
+    if (!event.startsWith('api.')) return false;
+    final status = extra['status'];
+    return status is int && status < 400;
   }
 
   @override
