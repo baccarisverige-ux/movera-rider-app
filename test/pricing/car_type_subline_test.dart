@@ -58,6 +58,18 @@ void main() {
     expect(byId['comfort']!.line, {'en': 'Newer cars, more room'});
   });
 
+  test('the app\'s former kids item is Child Seat (contract v0.6.0)', () {
+    final items = RideCatalogController.fromConfig(
+      config.categories,
+      RideSelectionRepository.builtInRides,
+    );
+    // The built-in Child Seat item (picture, list price) is used under the
+    // admin's name, not an empty one.
+    final child = items.firstWhere((i) => i.name == 'Child Seat');
+    expect(child.price, greaterThan(0));
+    expect(child.image, isNot(RideCatalogJson.fallbackImage));
+  });
+
   test('the car type list shows the sub-line in the rider\'s language', () {
     final items = RideCatalogController.fromConfig(
       config.categories,
