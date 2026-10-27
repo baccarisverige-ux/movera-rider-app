@@ -544,6 +544,9 @@ class _SelectRideState extends State<SelectRide>
     // way: the newer request draws the line.
     if (from != _pickupPosition || _locatedStops.isNotEmpty) return;
     setState(() => _roadRoutePoints = route.points);
+    // Owner N6: a road that answers after the rider pinched or panned the
+    // map leaves their camera alone (it snapped back to the overview).
+    if (AppScope.instance.maps.movedByHand) return;
     // The road may reach past the straight line: frame it.
     unawaited(_fitRoute());
   }

@@ -34,6 +34,13 @@ class GoogleMapProvider implements MapProvider {
   GoogleMapController? get controller =>
       _owners.isEmpty ? null : _owners.last.controller;
 
+  /// Whether the rider moved the active map by hand since the app last
+  /// recentred it. Automatic framings (a late road route) leave it alone.
+  bool get movedByHand {
+    final map = controller;
+    return map != null && mapViewOf(map).movedByHandAt != null;
+  }
+
   String? get activeOwner => _owners.isEmpty ? null : _owners.last.owner;
 
   List<String> get ownerStack =>
