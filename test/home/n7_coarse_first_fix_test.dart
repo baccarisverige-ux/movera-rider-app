@@ -30,8 +30,9 @@ Position _position(double lat, double lng, {required double accuracy}) =>
     );
 
 class _Location extends LocationRepository {
-  _Location(this.fix);
+  _Location(this.fix, {this.cached});
   final Position fix;
+  final GeoPoint? cached;
 
   @override
   Future<bool> isLocationServiceEnabled() async => true;
@@ -45,7 +46,7 @@ class _Location extends LocationRepository {
       Future.value(fix);
 
   @override
-  Future<GeoPoint?> lastKnownFix() async => null;
+  Future<GeoPoint?> lastKnownFix() async => cached;
 
   @override
   Future<GeoPoint?> readLastGoodFix() async => null;
@@ -63,6 +64,7 @@ class _Location extends LocationRepository {
 
 class _Geocoding extends GeocodingRepository {
   int reverseCalls = 0;
+  final List<GeoPoint> asked = <GeoPoint>[];
 
   @override
   Future<PlaceResult?> forward(String query) async => null;
@@ -70,6 +72,7 @@ class _Geocoding extends GeocodingRepository {
   @override
   Future<String?> reverse(GeoPoint point) async {
     reverseCalls += 1;
+    asked.add(point);
     return 'Klockarvägen 37';
   }
 }
@@ -129,5 +132,36 @@ void main() {
     expect(HomeLocationController.nameable(150), isTrue);
     expect(HomeLocationController.nameable(151), isFalse);
     expect(HomeLocationController.nameable(double.nan), isTrue);
+  });
+
+  // Audit phase 6 (N7 verified): the point Home shows before the first
+  // fix (the phone's cached last position, from wherever it was) moves the
+  // puck and the camera but is never looked up; only the accurate fix is.
+  test('the cached position shown before the fix is never reverse '
+      'geocoded', () async {
+    final geocoding = _Geocoding();
+    final ctl = HomeLocationController(
+      location: _Location(
+        _position(59.1955, 17.6253, accuracy: 12),
+        cached: const GeoPoint(59.3326, 18.0649),
+      ),
+      geocoding: geocoding,
+      motion: MotionEngine(),
+      startCompass: () async => false,
+      readCompass: () => null,
+      stopCompass: () {},
+    );
+    addTearDown(ctl.dispose);
+    final quick = <double>[];
+
+    final detected = await ctl.detectCurrent(
+      onQuickFix: (point) => quick.add(point.latitude),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(detected.address, 'Klockarvägen 37');
+    expect(geocoding.asked, hasLength(1));
+    expect(geocoding.asked.single.latitude, 59.1955);
+    expect(quick, anyOf(isEmpty, [59.3326]));
   });
 }
