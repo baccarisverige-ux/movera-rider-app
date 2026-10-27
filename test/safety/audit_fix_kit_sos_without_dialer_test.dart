@@ -71,8 +71,8 @@ void main() {
     expect(sosPosted(store), isTrue, reason: 'Movera must be told');
     expect(
       find.text(
-        'Could not open the phone dialer. Movera registered your SOS. '
-        'Call 112 from another phone if you can.',
+        'SOS sent. Could not open the phone dialer: '
+        'call 112 from another phone if you can.',
       ),
       findsOneWidget,
     );
@@ -81,9 +81,6 @@ void main() {
   testWidgets('with a dialer the SOS is posted as before', (tester) async {
     final store = await pumpKit(tester, launcher: (_) async => true);
     expect(sosPosted(store), isTrue);
-    expect(
-      find.text('Phone dialer opened. Movera registered your SOS.'),
-      findsOneWidget,
-    );
+    expect(find.text('SOS sent'), findsOneWidget);
   });
 }

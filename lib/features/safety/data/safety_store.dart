@@ -3,6 +3,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
@@ -28,8 +29,38 @@ class SafetyStore {
     SafetyLocalDataSource? local,
     SafetyRemoteDataSource? remote,
     ApiClient? api,
+    SosSender? sos,
   }) : _local = local ?? PreferencesSafetyLocalDataSource(),
-       _remote = remote ?? _remoteFor(api ?? AppScope.instance.api);
+       _remote = remote ?? _remoteFor(api ?? AppScope.instance.api),
+       _sos =
+           sos ?? _sosFor(remote == null ? api ?? AppScope.instance.api : api);
+
+  /// Contract v0.7.0: on the contract wire the SOS goes to movera-server's
+  /// `POST /rider/trips/{tripId}/sos`; the mock dialect keeps its safety event.
+  static SosSender? _sosFor(ApiClient? api) =>
+      api != null && api.contractWire ? SosSender(api) : null;
+  final SosSender? _sos;
+
+  /// Sends the rider's SOS for [tripId] with the phone's last [position].
+  /// True when Movera has it; false when the trip is not live.
+  Future<bool> sendSos(String tripId, {SosPosition? position}) async {
+    final sender = _sos;
+    if (sender != null) return sender.send(tripId, position: position);
+    await postEvent(
+      RideCheckEvent(
+        eventId: 'ev_${newRequestId()}',
+        rideId: tripId,
+        type: RideCheckEventType.manualSafetyCheck,
+        at: DateTime.now().toUtc(),
+        payload: {
+          'kind': 'sos',
+          'action': 'call_112',
+          if (position != null) 'position': position.toJson(),
+        },
+      ),
+    );
+    return true;
+  }
 
   /// Audit Phase 5 (P5-R3): movera-server serves none of the Safety paths
   /// (`/safety/*`, `/rides/{id}/share`, `/rides/{id}/safety-*`; not in the

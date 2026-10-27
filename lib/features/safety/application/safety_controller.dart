@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/application/emergency_call_service.
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/ride_check_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
@@ -199,11 +200,23 @@ class SafetyController extends ChangeNotifier {
     _events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
 
+  /// Where the phone is for an SOS (tests replace it); see [lastSosPosition].
+  static Future<SosPosition?> Function() locateForSos = lastSosPosition;
+
+  /// Contract v0.7.0: the SOS reaches Movera with the phone's last GPS. True
+  /// when Movera has it ("SOS sent"); false without a live ride.
   Future<bool> sos({String? rideId}) async {
     final id = rideId?.trim();
     if (id == null || id.isEmpty) return false;
     try {
-      await rideCheck.sos(rideId: id);
+      SosPosition? position;
+      try {
+        position = await locateForSos();
+      } catch (_) {
+        position = null;
+      }
+      final sent = await rideCheck.sos(rideId: id, position: position);
+      if (!sent) return false;
       record(SafetyKind.sos, rideId: id);
       notifyListeners();
       return true;
