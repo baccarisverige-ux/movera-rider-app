@@ -23,6 +23,11 @@ class RideDisputeRepository {
     if (id.isEmpty || normalizedReason.isEmpty) {
       throw ArgumentError('rideId and reason are required.');
     }
+    // Audit Phase 5 (P5-R7): movera-server serves no `/rides/{id}/disputes`
+    // (not in the contract; `POST /support/tickets` is, but answers
+    // `operation_not_enabled`). The contract wire sends nothing and says so,
+    // instead of "check your connection".
+    if (_api.contractWire) throw const RideDisputeNotServed();
 
     final intent = '$id|$normalizedReason|${normalizedDetail ?? ''}';
     await _api.post(
@@ -36,4 +41,12 @@ class RideDisputeRepository {
     );
     _mutation.succeeded(intent);
   }
+}
+
+/// The server takes no ride reports yet (P5-R7).
+class RideDisputeNotServed implements Exception {
+  const RideDisputeNotServed();
+
+  @override
+  String toString() => 'RideDisputeNotServed';
 }

@@ -13,6 +13,10 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_flow
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
+import 'package:movera_rider/features/support/application/support_contact.dart';
+import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -244,6 +248,66 @@ void main() {
         throwsA(anything),
       );
       expect(r.calls, ['GET /api/v1/account/security']);
+    });
+  });
+
+  group('P5-R7 ride report: /rides/{id}/disputes', () {
+    test('live: not sent, and the reason is not "your connection"', () async {
+      final r = recording(live);
+      await expectLater(
+        RideDisputeRepository(
+          api: r.api,
+        ).submit(rideId: 'trp_1', reason: 'charged_more'),
+        throwsA(isA<RideDisputeNotServed>()),
+      );
+      expect(r.calls, isEmpty);
+    });
+
+    test('demo: still sent', () async {
+      final r = recording(demo);
+      await expectLater(
+        RideDisputeRepository(
+          api: r.api,
+        ).submit(rideId: 'trp_1', reason: 'charged_more'),
+        throwsA(anything),
+      );
+      expect(r.calls, ['POST /api/v1/rides/trp_1/disputes']);
+    });
+
+    testWidgets('live: Help says the report was not sent and why', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final r = recording(live);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SupportChat(
+            contact: const SupportContact(email: ''),
+            ride: SupportRide(
+              id: 'ondemand-trp_1',
+              title: 'To Odenplan',
+              when: DateTime(2026, 10, 26, 22, 32),
+              price: 54,
+              image: 'assets/images/rides/movera.webp',
+            ),
+            issue: 'I was charged more than expected',
+            send: ({required rideId, required reason, detail}) =>
+                RideDisputeRepository(
+                  api: r.api,
+                ).submit(rideId: rideId, reason: reason, detail: detail),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('support-message-send')));
+      await tester.pumpAndSettle();
+      expect(find.text(L10n.current.reportNotOnServer), findsOneWidget);
+      expect(find.text(L10n.current.supportSendFailed), findsNothing);
+      expect(find.byKey(const ValueKey('support-message-sent')), findsNothing);
+      expect(r.calls, isEmpty);
     });
   });
 }

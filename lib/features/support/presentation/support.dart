@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/application/support_contact.dart';
@@ -640,11 +641,13 @@ class _SupportChatState extends State<SupportChat> {
         _sentText = detail.isEmpty ? null : detail;
       });
       _detail.clear();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = context.l10n.supportSendFailed;
+        _error = error is RideDisputeNotServed
+            ? context.l10n.reportNotOnServer
+            : context.l10n.supportSendFailed;
       });
     }
   }

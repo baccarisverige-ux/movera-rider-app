@@ -2835,5 +2835,9 @@
   "routeChangeUnavailable": "Changing the route in the app isn’t available yet. You can tell your driver.",
   "@routeChangeUnavailable": {
     "description": "Audit Phase 5: shown when movera-server does not serve this feature."
+  },
+  "reportNotOnServer": "Sending a report from the app isn’t available yet, so this was not sent. Movera support can’t see it.",
+  "@reportNotOnServer": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
   }
 }

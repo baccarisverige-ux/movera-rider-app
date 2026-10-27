@@ -1430,5 +1430,6 @@
   "promotionApplied": "{percent} % kampanj tillämpad",
   "arriveEtaMin": "{arrive} · {minutes} min",
   "safetyNotOnServer": "Säkerhetsinställningar kan inte sparas än: Moveras server sparar dem inte ännu. Ring 112 vid en nödsituation.",
-  "routeChangeUnavailable": "Det går inte att ändra rutten i appen än. Du kan säga till din förare."
+  "routeChangeUnavailable": "Det går inte att ändra rutten i appen än. Du kan säga till din förare.",
+  "reportNotOnServer": "Det går inte att skicka en rapport från appen än, så den skickades inte. Moveras support kan inte se den."
 }
