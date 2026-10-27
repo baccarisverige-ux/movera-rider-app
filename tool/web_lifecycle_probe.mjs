@@ -18,6 +18,11 @@
 //   node tool/web_lifecycle_probe.mjs [--dir build/web] [--cycles 3]
 //        [--maps-key KEY] [--out probe.json] [--mode cancel|trip]
 //        [--multi-surface] [--raster] [--no-semantics] [--headed] [--shots DIR]
+//        [--gps-minute]
+//
+// Each snapshot also records the frame callbacks drawn while the screen sat
+// still (frameCost: count, p95, worst, over 16/32 ms); --gps-minute adds one
+// minute on Home with a moving position (audit Phase 7).
 //
 // --multi-surface forces the rasterizer Flutter uses on Safari and Firefox
 // (one WebGL context per display canvas), which is what the iPhone counts.
@@ -132,6 +137,7 @@ const instrument = () => {
     intervals: new Set(),
     rafLoops: 0,
     rafPending: new Set(),
+    frames: [],
     pageErrors: [],
   });
   try {
@@ -184,7 +190,15 @@ const instrument = () => {
   window.requestAnimationFrame = function (cb) {
     const id = raf0.call(this, (t) => {
       P.rafPending.delete(id);
-      cb(t);
+      // Frame cost: how long the page's frame callback (Flutter's build, layout,
+      // paint and CanvasKit draw) ran on the main thread.
+      const start = performance.now();
+      try {
+        cb(t);
+      } finally {
+        P.frames.push([start, performance.now() - start]);
+        if (P.frames.length > 20000) P.frames.splice(0, 10000);
+      }
     });
     P.rafPending.add(id);
     return id;
@@ -332,8 +346,20 @@ async function dismissMapsDialog() {
   await page.evaluate(() => document.querySelectorAll('.dismissButton').forEach((b) => b.click()));
 }
 
+// Frame callbacks since `since` (performance.now() in the page): count, p95
+// and worst main-thread time, and how many ran over 16 ms and 32 ms.
+async function frameStats(since) {
+  return page.evaluate((t0) => {
+    const d = window.__probe.frames.filter(([t]) => t >= t0).map(([, ms]) => ms).sort((a, b) => a - b);
+    const q = (p) => (d.length ? +d[Math.min(d.length - 1, Math.floor(p * d.length))].toFixed(1) : 0);
+    return { frames: d.length, p50: q(0.5), p95: q(0.95), max: d.length ? +d[d.length - 1].toFixed(1) : 0, over16: d.filter((x) => x > 16).length, over32: d.filter((x) => x > 32).length };
+  }, since);
+}
+
 async function snapshot(label, cycle) {
+  const settleStart = await page.evaluate(() => performance.now());
   await page.waitForTimeout(settle);
+  const frameCost = await frameStats(settleStart);
   await dismissMapsDialog();
   await cdp.send('HeapProfiler.collectGarbage');
   await page.evaluate(() => window.gc && window.gc());
@@ -354,6 +380,8 @@ async function snapshot(label, cycle) {
     documents: m.Documents,
     frames: m.Frames,
     layoutObjects: m.LayoutObjects,
+    // Frames drawn while the screen sat still for --settle ms (no input).
+    frameCost,
   };
   rows.push(row);
   const short = `${String(row.step).padStart(2)} c${cycle} ${label.padEnd(12)} owner=${row.owner.padEnd(11)} ` +
@@ -362,7 +390,8 @@ async function snapshot(label, cycle) {
     `canvas=${row.canvasesInDom}(fl ${row.flutterCanvases}/gm ${row.mapCanvases}) pv=${row.platformViews} gm=${row.gmStyleRoots} ` +
     `webgl created/alive/detached/lost=${row.webglCreated}/${row.webglAlive}/${row.webglAliveDetached}/${row.contextsLost} ` +
     `maps created/alive/detached=${row.mapsCreated}/${row.mapsAlive}/${row.mapsAliveDetached} ` +
-    `heap=${row.jsHeapUsedMB}MB nodes=${row.nodes} listeners=${row.listeners} intervals=${row.activeIntervals} raf=${row.rafPending}`;
+    `heap=${row.jsHeapUsedMB}MB nodes=${row.nodes} listeners=${row.listeners} intervals=${row.activeIntervals} raf=${row.rafPending}\n     ` +
+    `idle frames=${frameCost.frames} p95=${frameCost.p95}ms max=${frameCost.max}ms >32ms=${frameCost.over32}`;
   console.log(short);
   if (shots) await page.screenshot({ path: path.join(shots, `${String(row.step).padStart(2, '0')}-c${cycle}-${label}.png`) });
   return row;
@@ -524,6 +553,27 @@ await page.waitForTimeout(3000);
 await enableSemantics();
 await snapshot('boot', 0);
 
+// --gps-minute: one minute on Home while the position moves every second
+// (walking pace, ±3 m jitter), like a phone in the hand. Counts the frames the
+// moving puck costs and the main-thread time (CDP TaskDuration) it takes.
+let gpsMinute;
+if (has('gps-minute')) {
+  const before = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
+  const t0 = await page.evaluate(() => performance.now());
+  for (let i = 0; i < 60; i++) {
+    const j = (Math.sin(i * 1.7) * 3) / 111000;
+    await context.setGeolocation({ latitude: 59.33258 + i * 0.00001 + j, longitude: 18.0649 + j, accuracy: 8 });
+    await page.waitForTimeout(1000);
+  }
+  const after = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
+  gpsMinute = {
+    ...(await frameStats(t0)),
+    taskSeconds: +(after.TaskDuration - before.TaskDuration).toFixed(2),
+    scriptSeconds: +(after.ScriptDuration - before.ScriptDuration).toFixed(2),
+  };
+  console.log(`gps minute on Home: ${JSON.stringify(gpsMinute)}`);
+}
+
 for (let cycle = 1; cycle <= cycles; cycle++) {
   await book(cycle);
   if (mode === 'trip') await ridTrip(cycle);
@@ -550,6 +600,7 @@ const summary = {
   nodesLastHome: last.nodes,
   listenersFirstHome: first?.listeners,
   listenersLastHome: last.listeners,
+  gpsMinute,
   pageErrors: [...new Set(pageErrors)].slice(0, 10),
   ownerTimeline: await page.evaluate(() => window.__probe.owners),
   inPageErrors: await page.evaluate(() => [...new Set(window.__probe.pageErrors)].slice(0, 10)),

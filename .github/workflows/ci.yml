@@ -251,6 +251,8 @@ jobs:
             --dart-define=MOVERA_FLAVOR=production \
             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
           test -f build/web/main.dart.js
+      - name: Size budget (audit Phase 7; baseline 5,885,576 B raw, 1,671,896 B gzip)
+        run: python3 tool/check_web_budget.py build/web --main-raw 6500000 --main-gzip 1850000
       - name: Staging
         run: |
           rm -rf build/web
@@ -259,6 +261,42 @@ jobs:
             --dart-define=MOVERA_FLAVOR=staging \
             --dart-define=MOVERA_API_BASE_URL=https://api.staging.movera.example
           test -f build/web/main.dart.js
+
+  web-memory:
+    name: Web memory over repeated bookings (audit Phase 7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+      - run: flutter pub get --enforce-lockfile
+      - name: Demo web build with QA hooks
+        run: flutter build web --release --dart-define=MOVERA_QA=true
+      - name: Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium
+      - name: Six bookings in a row (book, search, cancel), heap after GC per booking
+        run: |
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tool/web_lifecycle_probe.mjs \
+            --dir build/web --cycles 6 --mode cancel --multi-surface --raster --out probe.json
+          python3 tool/check_memory_budget.py probe.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-memory-probe
+          path: probe.json
+          if-no-files-found: ignore
 
   secret-scan:
     name: Secret scan
@@ -280,7 +318,7 @@ jobs:
   gate:
     name: gate
     if: always()
-    needs: [static, test, integration, web-build, secret-scan]
+    needs: [static, test, integration, web-build, web-memory, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
