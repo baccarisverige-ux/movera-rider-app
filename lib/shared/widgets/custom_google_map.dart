@@ -10,6 +10,7 @@ import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../styles/reference_map_style.dart';
@@ -96,6 +97,10 @@ class CustomGoogleMap extends StatefulWidget {
   @visibleForTesting
   static bool? debugWaitForMaps;
 
+  /// Audit phase 6: how long the web waits for Maps JavaScript before the
+  /// placeholder says the map is unavailable (the driver app's value).
+  static const Duration mapsUnavailableAfter = Duration(seconds: 12);
+
   /// Tests: the keys of every map widget mounted so far, in order. On the
   /// web each mount is a new Google map the page keeps, so screens must
   /// not mount one for a moment they are about to park again.
@@ -139,16 +144,28 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   }
 
   Timer? _mapsPoll;
+  bool _mapsUnavailable = false;
 
   /// rider-r4-20: rebuild once the Maps engine turns up.
   void _waitForMaps() {
     if (_mapsPoll != null || !(CustomGoogleMap.debugWaitForMaps ?? kIsWeb)) {
       return;
     }
-    _mapsPoll = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (!googleMapsAvailable()) return;
+    const poll = Duration(milliseconds: 500);
+    _mapsPoll = Timer.periodic(poll, (timer) {
+      if (!googleMapsAvailable()) {
+        // Audit phase 6: a map that never loads (no network, a blocked or
+        // refused Maps script) says so instead of staying a blank surface.
+        if (!_mapsUnavailable &&
+            poll * timer.tick >= CustomGoogleMap.mapsUnavailableAfter &&
+            mounted) {
+          setState(() => _mapsUnavailable = true);
+        }
+        return;
+      }
       timer.cancel();
       _mapsPoll = null;
+      _mapsUnavailable = false;
       if (mounted) setState(() {});
     });
   }
@@ -300,10 +317,28 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // building; show a calm map-coloured surface instead of an error.
     if (!googleMapsAvailable()) {
       _waitForMaps();
-      return const ColoredBox(
-        key: ValueKey('map-unavailable'),
-        color: Color(0xFFE9EEF1),
-        child: SizedBox.expand(),
+      return ColoredBox(
+        key: const ValueKey('map-unavailable'),
+        color: const Color(0xFFE9EEF1),
+        child: SizedBox.expand(
+          child: !_mapsUnavailable
+              ? null
+              : Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      context.l10n.mapUnavailable,
+                      key: const ValueKey('map-unavailable-message'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF3F4A52),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
       );
     }
     final String mapId = widget.cloudMapId.trim();
