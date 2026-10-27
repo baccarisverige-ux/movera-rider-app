@@ -135,6 +135,11 @@ void main() {
     expect(casing(tester)!.points.length, road.length);
     expect(casing(tester)!.points.first, pickup);
     expect(casing(tester)!.points.last, destination);
+    expect(
+      find.byKey(const ValueKey('approximate-route-badge')),
+      findsNothing,
+      reason: 'a road route is not approximate',
+    );
 
     // Leave the screen with its timers cleaned up.
     nav.currentState!.pop();
@@ -211,6 +216,64 @@ void main() {
     expect(casing(tester)!.points.length, road.length, reason: 'road drawn');
     expect(fits, isEmpty, reason: 'the rider\'s camera is kept');
     expect(map.moves, 0);
+
+    nav.currentState!.pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  // Owner N2: without OSRM the server answers /routes with its straight
+  // estimate (two points). The line is then only the direct line; the map
+  // says so, as the trip map does, instead of passing it off as the road.
+  testWidgets('a straight answer from the server is labelled approximate', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // The in-process transport answers with the two end points only.
+    final routing = RoutingService(
+      api: ApiClient(
+        client: InProcessMockClient(),
+        env: const AppEnv(
+          flavor: AppFlavor.test,
+          apiBaseUrl: 'https://t.invalid',
+        ),
+      ),
+    );
+    RoutingService.defaultProvider = () => routing;
+    final selection = RideSelectionController();
+    addTearDown(selection.dispose);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('road-home')),
+      ),
+    );
+    nav.currentState!.push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: AppRoutes.selectRide),
+        builder: (_) => SelectRide(
+          pickupAddress: 'Klockarvägen, Bårsta',
+          destinationAddress: 'Södertälje centrum',
+          pickupPosition: pickup,
+          destinationPosition: destination,
+          pickupAlreadyConfirmed: true,
+          selection: selection,
+        ),
+      ),
+    );
+    await tester.pump();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(casing(tester)!.points.length, 2);
+    expect(
+      find.byKey(const ValueKey('approximate-route-badge')),
+      findsOneWidget,
+    );
+    expect(find.text('Approximate route'), findsOneWidget);
 
     nav.currentState!.pop();
     await tester.pump(const Duration(seconds: 1));
