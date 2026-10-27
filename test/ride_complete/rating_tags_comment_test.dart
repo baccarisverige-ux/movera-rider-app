@@ -55,13 +55,13 @@ void main() {
         rating: 4,
         tags: const ['clean_car', 'friendly'],
         comment: '  Very calm driver  ',
-        idempotencyKey: 'k-0123456789abcdef',
+        idempotencyKey: 'k-aaaaaaaaaaaaaaaa',
       );
       await repository.submit(
         rideId: 'trp_1',
         rating: 5,
         comment: '   ',
-        idempotencyKey: 'k-0123456789abcdeg',
+        idempotencyKey: 'k-bbbbbbbbbbbbbbbb',
       );
       expect(sent, [
         {
@@ -88,7 +88,7 @@ void main() {
           rating: 3,
           tags: tags,
           comment: comment,
-          idempotencyKey: 'k-0123456789abcdef',
+          idempotencyKey: 'k-aaaaaaaaaaaaaaaa',
         );
     await expectLater(send(tags: const ['polite']), throwsArgumentError);
     await expectLater(
