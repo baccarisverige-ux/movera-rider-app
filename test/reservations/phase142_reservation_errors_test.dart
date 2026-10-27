@@ -312,6 +312,9 @@ void main() {
       await tester.tap(cta);
       await tester.pump();
       await waitFor(find.byType(SetPickupPage));
+      // P5-R6: Set pickup finishes opening before the rider confirms (a tap
+      // while it slides in is the second tap of a double tap and is ignored).
+      await tester.pump(const Duration(milliseconds: 300));
       final confirm = find.widgetWithText(FilledButton, 'Confirm and schedule');
       await tester.ensureVisible(confirm);
       await tester.tap(confirm);

@@ -85,6 +85,9 @@ void main() {
     await tester.ensureVisible(select);
     await tester.tap(select);
     await _waitFor(tester, find.byType(SetPickupPage), tries: 40);
+    // P5-R6: Set pickup finishes opening before the rider confirms (a tap
+    // while it slides in is the second tap of a double tap and is ignored).
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Confirm and search'));
     await _waitFor(tester, find.byType(FindingDrivers), tries: 40);
 
