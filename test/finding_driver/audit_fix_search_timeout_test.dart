@@ -17,6 +17,8 @@ import 'package:movera_rider/features/booking/data/booking_repository.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -32,6 +34,9 @@ class _Backend extends http.BaseClient {
   final InProcessMockClient inner;
   int cancelPosts = 0;
   int rideGets = 0;
+
+  /// Raise (offer edit) requests: PATCH /rides/{id} or POST .../raise-price.
+  int raiseRequests = 0;
   final List<String?> bookingKeys = <String?>[];
 
   /// A new booking waits for this before it reaches the backend.
@@ -48,6 +53,11 @@ class _Backend extends http.BaseClient {
       bookingKeys.add(request.headers['Idempotency-Key']);
       await holdBooking?.future;
       if (bookingOffline) throw http.ClientException('connection lost');
+    }
+    if ((request.method == 'PATCH' &&
+            RegExp(r'^/api/v1/rides/[^/]+$').hasMatch(path)) ||
+        (request.method == 'POST' && path.endsWith('/raise-price'))) {
+      raiseRequests += 1;
     }
     if (request.method == 'GET' &&
         RegExp(r'^/api/v1/rides/[^/]+$').hasMatch(path)) {
@@ -416,7 +426,7 @@ void main() {
     /// rider-u107: Try again prices the route again; the fare differs from
     /// the 349 kr this search showed, so the rider is asked first.
     Future<void> tryAgainAtNewPrice(WidgetTester tester) async {
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text('Search again'));
       final accept = find.byKey(const ValueKey('rebook-price-accept'));
       await pumpUntil(tester, () => accept.evaluate().isNotEmpty);
       expect(find.text('Price updated'), findsOneWidget);
@@ -429,8 +439,8 @@ void main() {
       const firstId = 'to-try-again';
       final controller = await noDriverFound(tester, firstId);
       expect(find.text('No driver found'), findsOneWidget);
-      expect(find.text('Try again'), findsOneWidget);
-      expect(find.text('Change route'), findsOneWidget);
+      expect(find.text('Search again'), findsOneWidget);
+      expect(find.text('Back to home'), findsOneWidget);
       expect(AppScope.instance.ride.status, RideStatus.noDriverFound);
       final history = await OnDemandRideHistoryStore.read();
       expect(history.single.reservationId, 'ondemand-$firstId');
@@ -457,7 +467,7 @@ void main() {
 
     testWidgets('RIDE-19: Change route goes back to Home', (tester) async {
       await noDriverFound(tester, 'to-change-route');
-      await tester.tap(find.text('Change route'));
+      await tester.tap(find.text('Back to home'));
       await pumpUntil(
         tester,
         () => find.byType(FindingDrivers).evaluate().isEmpty,
@@ -472,7 +482,7 @@ void main() {
         'until the rider accepts it', (tester) async {
       await noDriverFound(tester, 'to-new-price');
       server.rides.clear();
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text('Search again'));
       final notNow = find.text('Not now');
       await pumpUntil(tester, () => notNow.evaluate().isNotEmpty);
       expect(find.text('Price updated'), findsOneWidget);
@@ -483,7 +493,7 @@ void main() {
         () => find.text('No driver found').evaluate().isNotEmpty,
       );
       expect(backend.bookingKeys, isEmpty, reason: 'nothing was booked');
-      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text('Search again'), findsOneWidget);
     });
 
     testWidgets('rider-u106: back while Try again books keeps the screen, '
@@ -531,11 +541,53 @@ void main() {
       expect(find.byType(FindingDrivers), findsOneWidget);
 
       backend.bookingOffline = false;
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text('Search again'));
       await searchingAgain(tester, controller, firstId);
       expect(find.byType(FindingDrivers), findsOneWidget);
       // Every send was the same booking: one key, so at most one ride.
       expect(backend.bookingKeys.toSet(), hasLength(1));
+    });
+    testWidgets('D4: an expired search offers no raise; Search again is '
+        'primary and Back to home secondary', (tester) async {
+      final controller = await noDriverFound(tester, 'to-expired-no-raise');
+      expect(find.text('Search again'), findsOneWidget);
+      expect(find.text('Back to home'), findsOneWidget);
+      expect(find.text('Change route'), findsNothing);
+      expect(controller.showPriceBump, isFalse);
+      expect(find.byType(PriceBumpCard), findsNothing);
+
+      // A raise asked for after expiry never reaches the server.
+      final raised = await controller.confirmPriceIncreaseBy(
+        Money.fromLegacyMajor(20, controller.currency),
+      );
+      await tester.pump();
+      expect(raised, isFalse);
+      expect(backend.raiseRequests, 0);
+    });
+
+    testWidgets('D4: Search again after expiry sends one booking with the '
+        'same details, even on a double tap', (tester) async {
+      const firstId = 'to-expired-double-tap';
+      final controller = await noDriverFound(tester, firstId);
+      server.rides.clear();
+      final again = find.text('Search again');
+      await tester.tap(again);
+      await tester.tap(again, warnIfMissed: false);
+      final accept = find.byKey(const ValueKey('rebook-price-accept'));
+      await pumpUntil(tester, () => accept.evaluate().isNotEmpty);
+      await tester.tap(accept);
+      await tester.pump();
+      await searchingAgain(tester, controller, firstId);
+
+      final secondId = AppScope.instance.ride.rideId;
+      expect(backend.bookingKeys, hasLength(1));
+      expect(backend.bookingKeys.single, isNotNull);
+      expect(server.rides[secondId]!['categoryId'], 'economy');
+      expect(server.rides[secondId]!['paymentMethodId'], 'visa');
+      expect(server.rides[secondId]!['destinationAddress'], 'Arlanda Airport');
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      expect(backend.raiseRequests, 0);
     });
   });
 }

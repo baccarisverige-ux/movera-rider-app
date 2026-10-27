@@ -77,6 +77,13 @@ Future<NoDriverChoice> showNoDriverFoundSheet(
   String? message,
 }) async {
   final retry = RideTerminalStateSpec.noDriverRetry;
+  var chosen = false;
+  void choose(BuildContext sheetContext, NoDriverChoice choice) {
+    if (chosen) return;
+    chosen = true;
+    Navigator.of(sheetContext).pop(choice);
+  }
+
   final choice = await MoveraSheet.show<NoDriverChoice>(
     context: context,
     swipeDismissible: false,
@@ -95,11 +102,10 @@ Future<NoDriverChoice> showNoDriverFoundSheet(
               iconBackground: retry.iconBackground,
               iconColor: retry.iconColor,
             ),
-      onAcknowledge: () =>
-          Navigator.of(sheetContext).pop(NoDriverChoice.tryAgain),
-      secondaryLabel: context.l10n.changeRoute,
-      onSecondary: () =>
-          Navigator.of(sheetContext).pop(NoDriverChoice.changeRoute),
+      // One choice per sheet: a double tap never pops the screen under it.
+      onAcknowledge: () => choose(sheetContext, NoDriverChoice.tryAgain),
+      secondaryLabel: context.l10n.backToHome,
+      onSecondary: () => choose(sheetContext, NoDriverChoice.changeRoute),
     ),
   );
   return choice ?? NoDriverChoice.changeRoute;
@@ -299,7 +305,9 @@ class RideTerminalStateSpec {
     title: L10n.current.termNoDriverFound,
     message: L10n.current.termNoDriverFoundBody,
     reassurance: L10n.current.termNoDriverFoundNote,
-    primaryLabel: L10n.current.tryAgain,
+    // D4 (owner, 2026-10-27): an expired search is never raised; the same
+    // request is sent again instead.
+    primaryLabel: L10n.current.searchAgain,
     icon: Icons.local_taxi_outlined,
     iconBackground: Color(0xFFEAF1F6),
     iconColor: Color(0xFF2D5878),
