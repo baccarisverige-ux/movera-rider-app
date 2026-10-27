@@ -86,6 +86,38 @@ class ApiClient {
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
 
+  /// A Server-Sent Events GET (contract §4, e.g. `/rider/config/stream`):
+  /// the stream's lines, with the session's token and `Last-Event-ID`. An
+  /// answer of 400 or more is an [ApiError]; the caller reconnects.
+  Future<Stream<String>> openEventStream(
+    String path, {
+    String? lastEventId,
+  }) async {
+    final requestId = newRequestId();
+    final access = await _tokens?.readAccess();
+    final request = http.Request('GET', Uri.parse('${_env.apiBaseUrl}$path'))
+      ..headers.addAll({
+        'Accept': 'text/event-stream',
+        'X-Request-Id': requestId,
+        'X-Api-Version': apiVersion,
+        if (access != null) 'Authorization': 'Bearer $access',
+        if (lastEventId != null) 'Last-Event-ID': lastEventId,
+      });
+    final response = await _client.send(request).timeout(_timeout);
+    if (response.statusCode >= 400) {
+      await response.stream.drain<void>();
+      throw ApiError(
+        code: 'HTTP_${response.statusCode}',
+        message: 'The event stream was refused.',
+        requestId: requestId,
+        statusCode: response.statusCode,
+      );
+    }
+    return response.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,

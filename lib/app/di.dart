@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
@@ -369,11 +370,17 @@ class AppScope {
 
   /// Ride categories from the server (admin panel), with cache and built-in
   /// fallbacks. Loaded at bootstrap and again when Select Ride opens.
-  late final RideCatalogController catalog = RideCatalogController(api: api);
+  late final RideCatalogController catalog = RideCatalogController(
+    api: api,
+    configSource: api.contractWire ? () => riderConfig.current() : null,
+  );
 
-  /// RiderAppConfig (contract v0.3.0 §6): the local seed today,
-  /// `GET /rider/config?zoneId` once a backend serves it.
-  RiderConfigRepository riderConfig = const SeedRiderConfigRepository();
+  /// RiderAppConfig (contract §6): on the contract wire the server's
+  /// (`GET /rider/config`, refreshed on `config_published`, last good kept,
+  /// built-in seed when never reached); the demo keeps the local seed.
+  late RiderConfigRepository riderConfig = api.contractWire
+      ? ApiRiderConfigRepository(api: api)
+      : const SeedRiderConfigRepository();
 
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).

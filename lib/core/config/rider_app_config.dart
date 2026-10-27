@@ -22,6 +22,15 @@ class RiderConfigCategory {
   final int sort;
 }
 
+/// The rider's fixed pickup fee of one category (`RiderAppConfig.pickupFee`,
+/// contract §3.2): live rides and reservations; null = off.
+class RiderPickupFee {
+  const RiderPickupFee({this.live, this.reservation});
+
+  final Money? live;
+  final Money? reservation;
+}
+
 /// One rider cancel reason with its title in the rider's language.
 class RiderConfigCancelReason {
   const RiderConfigCancelReason({required this.code, required this.title});
@@ -99,6 +108,8 @@ class RiderAppConfig {
     this.rideCheck = const {},
     this.minimumAppVersion,
     this.latestAppVersion,
+    this.pickupFees = const {},
+    this.usesStandard = false,
   });
 
   /// Built-in defaults for a field neither the document nor its fallback
@@ -178,6 +189,21 @@ class RiderAppConfig {
   final Map<String, Object> rideCheck;
   final String? minimumAppVersion;
   final String? latestAppVersion;
+
+  /// `pickupFee.byCategory` (contract §3.2): the fee the quote's
+  /// `pickup_fee` line carries, per category; the server prices it.
+  final Map<String, RiderPickupFee> pickupFees;
+
+  /// v0.8.0: the zone has no settings of its own and the server sent its
+  /// country's Standard.
+  final bool usesStandard;
+
+  /// The pickup fee of [categoryId] (aliases resolved) for a live ride or a
+  /// reservation, or null when it is off.
+  Money? pickupFeeFor(String categoryId, {bool reservation = false}) {
+    final fee = pickupFees[CategoryIds.canonical(categoryId)];
+    return reservation ? fee?.reservation : fee?.live;
+  }
 
   /// Whether feature [name] is on (off when the document does not say).
   bool feature(String name) => features[name] ?? false;
@@ -302,7 +328,29 @@ class RiderAppConfig {
       latestAppVersion:
           _string(appUpdate is Map ? appUpdate['latestVersion'] : null) ??
           fallback?.latestAppVersion,
+      pickupFees:
+          _pickupFees(raw['pickupFee'], money) ?? base?.pickupFees ?? const {},
+      usesStandard: raw['usesStandard'] == true,
     );
+  }
+
+  static Map<String, RiderPickupFee>? _pickupFees(
+    Object? raw,
+    Money? Function(Object?) money,
+  ) {
+    final rows = raw is Map ? raw['byCategory'] : null;
+    if (rows is! Map) return null;
+    final out = <String, RiderPickupFee>{};
+    for (final entry in rows.entries) {
+      final id = CategoryIds.tryCanonical(entry.key);
+      final fee = entry.value;
+      if (id == null || fee is! Map) continue;
+      out[id] = RiderPickupFee(
+        live: _positive(money(fee['live'])),
+        reservation: _positive(money(fee['reservation'])),
+      );
+    }
+    return out;
   }
 
   static String? _string(Object? raw) {

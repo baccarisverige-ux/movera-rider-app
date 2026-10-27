@@ -2,6 +2,7 @@ import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
@@ -21,12 +22,19 @@ class RideCatalogController extends ChangeNotifier {
     required ApiClient api,
     RideCatalogCache? cache,
     List<RideCatalogItem>? builtIn,
+    this.configSource,
   }) : _api = api,
        _cache = cache ?? const PrefsRideCatalogCache(),
        _builtIn = builtIn ?? RideSelectionRepository.builtInRides,
        _current = builtIn ?? RideSelectionRepository.builtInRides;
 
   static const path = '/api/v1/ride-types';
+
+  /// Owner 2026-10-27: on the contract wire the car types come from the
+  /// rider settings the admin publishes (`RiderAppConfig.catalog`), never
+  /// from `/ride-types`. The repository keeps the last good document and
+  /// falls back to the built-in one, so this always answers.
+  final Future<RiderAppConfig> Function()? configSource;
 
   final ApiClient _api;
   final RideCatalogCache _cache;
@@ -60,11 +68,14 @@ class RideCatalogController extends ChangeNotifier {
 
   Future<List<RideCatalogItem>> _load() async {
     // Audit Phase 4: `/ride-types` is not in the contract and movera-server
-    // answers 404, so the contract wire never asks; the categories it quotes
-    // come in each quote, and this list stays the cache or the built-in one.
+    // answers 404, so the contract wire never asks it: there the list is
+    // the published rider settings' catalog ([configSource]).
     if (!_api.contractWire) {
       final fromServer = await _loadFromServer();
       if (fromServer != null) return fromServer;
+    } else if (configSource != null) {
+      final fromConfig = await _loadFromConfig();
+      if (fromConfig != null) return fromConfig;
     }
     return _loadFallback();
   }
@@ -92,6 +103,61 @@ class RideCatalogController extends ChangeNotifier {
     }
     return null;
   }
+
+  Future<List<RideCatalogItem>?> _loadFromConfig() async {
+    try {
+      final config = await configSource!();
+      final items = fromConfig(config.categories, _builtIn);
+      if (items.isEmpty) return null;
+      _set(items, RideCatalogSource.server);
+      return _current;
+    } catch (error) {
+      AppLog.warning(
+        'ride_catalog.config_failed',
+        extra: {'error': error.toString()},
+      );
+      return null;
+    }
+  }
+
+  /// The catalog of a RiderAppConfig: its categories in `sort` order, each
+  /// with the admin's label and seats over the built-in item of the same
+  /// id (picture, note, list price); a category the app does not know gets
+  /// the generic car.
+  static List<RideCatalogItem> fromConfig(
+    List<RiderConfigCategory> categories,
+    List<RideCatalogItem> builtIn,
+  ) {
+    final sorted = [...categories]..sort((a, b) => a.sort.compareTo(b.sort));
+    return [
+      for (final category in sorted)
+        _withConfig(category, _builtInFor(category.id, builtIn)),
+    ];
+  }
+
+  static RideCatalogItem? _builtInFor(String id, List<RideCatalogItem> list) {
+    for (final item in list) {
+      if ((CategoryIds.tryCanonical(item.id) ?? item.id) == id) return item;
+    }
+    return null;
+  }
+
+  static RideCatalogItem _withConfig(
+    RiderConfigCategory category,
+    RideCatalogItem? known,
+  ) => RideCatalogItem(
+    id: known?.id ?? category.id,
+    image: known?.image ?? RideCatalogJson.fallbackImage,
+    name: category.label,
+    note: known?.note ?? '',
+    arrival: known?.arrival ?? '',
+    etaMin: known?.etaMin ?? 0,
+    price: known?.price ?? 0,
+    seats: category.seats,
+    badge: known?.badge,
+    glyph: known?.glyph,
+    currency: known?.currency ?? 'SEK',
+  );
 
   Future<List<RideCatalogItem>> _loadFallback() async {
     // Only the built-in list is replaced by the cache. A list the server
