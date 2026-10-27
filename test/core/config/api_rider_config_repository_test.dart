@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
@@ -181,4 +183,108 @@ void main() {
       expect(asked, isEmpty);
     },
   );
+
+  test(
+    'the device cache keeps the document per zone (shared preferences)',
+    () async {
+      const cache = PrefsRiderConfigCache();
+      expect(await cache.read('Z001'), isNull);
+      await cache.write('Z001', document(4));
+      expect((await cache.read('Z001'))?['version'], 4);
+      expect(await cache.read('FR-PC'), isNull);
+    },
+  );
+
+  test('a broken device cache never stops the app', () async {
+    final repo = ApiRiderConfigRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient(
+          (_) async => http.Response(jsonEncode(document(5)), 200),
+        ),
+      ),
+      cache: _BrokenCache(),
+    );
+    expect((await repo.forZone('Z001')).version, 5);
+    final offline = ApiRiderConfigRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient((_) async => throw http.ClientException('offline')),
+      ),
+      cache: _BrokenCache(),
+    );
+    expect(
+      (await offline.forZone('Z001')).version,
+      SeedRiderConfigRepository.seed.version,
+    );
+  });
+
+  test('a refused or ended stream is opened again, after a fresh read; '
+      'the token and the last version go with it', () async {
+    var streams = 0;
+    var reads = 0;
+    final seen = <Map<String, String>>[];
+    final client = MockClient.streaming((request, _) async {
+      if (request.url.path.endsWith('/stream')) {
+        streams++;
+        seen.add(request.headers);
+        // First refused, then a stream that ends at once.
+        return streams == 1
+            ? http.StreamedResponse(Stream.value(utf8.encode('{}')), 503)
+            : http.StreamedResponse(const Stream.empty(), 200);
+      }
+      reads++;
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(jsonEncode(document(5)))),
+        200,
+      );
+    });
+    final repo = ApiRiderConfigRepository(
+      api: ApiClient(env: staging, client: client, tokens: _tokensWithAccess()),
+      cache: MemoryRiderConfigCache(),
+      retryAfter: const Duration(milliseconds: 10),
+    );
+    await repo.watch('Z001');
+    await repo.watch('Z001');
+    for (var i = 0; i < 50 && streams < 3; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(streams, greaterThanOrEqualTo(3));
+    expect(reads, greaterThanOrEqualTo(2));
+    expect(seen.last['Authorization'], 'Bearer access-1');
+    expect(seen.last['Last-Event-ID'], '5');
+    // Another zone: the watch moves there.
+    await repo.watch('FR-PC');
+    repo.dispose();
+  });
+
+  test(
+    'openEventStream: an error answer is an ApiError with its status',
+    () async {
+      final api = ApiClient(
+        env: staging,
+        client: MockClient.streaming(
+          (_, _) async =>
+              http.StreamedResponse(Stream.value(utf8.encode('no')), 401),
+        ),
+      );
+      await expectLater(
+        api.openEventStream('/api/v1/rider/config/stream', lastEventId: '3'),
+        throwsA(isA<ApiError>().having((e) => e.statusCode, 'statusCode', 401)),
+      );
+    },
+  );
 }
+
+class _BrokenCache implements RiderConfigCache {
+  @override
+  Future<Map<String, Object?>?> read(String zoneId) async =>
+      throw StateError('disk');
+
+  @override
+  Future<void> write(String zoneId, Map<String, Object?> document) async =>
+      throw StateError('disk');
+}
+
+TokenStore _tokensWithAccess() =>
+    MemoryTokenStore()..save(access: 'access-1', refresh: 'refresh-1');
