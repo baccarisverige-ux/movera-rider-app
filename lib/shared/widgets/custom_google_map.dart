@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
+import 'package:movera_rider/core/maps/map_camera_report.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
@@ -227,6 +228,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   void _onMoveStarted() => widget.onCameraMoveStarted?.call();
 
   void _onMove(CameraPosition position) {
+    // Owner N6: the web plugin reports zoom 0 and a (0, 0) centre when Maps
+    // has none to give; that is no camera frame (see MapCameraReport).
+    if (!MapCameraReport.isFrame(position)) return;
     final view = _view;
     // While the app glides the camera, the echoes of its own frames are
     // late copies of poses it already knows: they must not become the

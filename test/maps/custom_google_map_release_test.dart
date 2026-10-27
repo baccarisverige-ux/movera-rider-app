@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show PlatformViewCreatedCallback;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 
@@ -23,6 +24,9 @@ class _FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   MapConfiguration? lastConfiguration;
   final StreamController<MapEvent<Object?>> _events =
       StreamController<MapEvent<Object?>>.broadcast();
+
+  /// Sends [event] as the plugin would (a camera report, for example).
+  void emit(MapEvent<Object?> event) => _events.add(event);
 
   Stream<T> _of<T extends MapEvent<Object?>>(int mapId) =>
       _events.stream.where((e) => e is T && e.mapId == mapId).cast<T>();
@@ -260,5 +264,50 @@ void main() {
       ValueKey('second'),
     ]);
     CustomGoogleMap.debugMounted.clear();
+  });
+
+  // Owner N6 (pinch on the booking and trip maps: the camera snaps back or
+  // flies in from far away). google_maps_flutter_web reports zoom 0 and a
+  // (0, 0) centre when Maps has no value yet; such a report must not become
+  // the camera's pose (the origin of the next ease) nor reach the screen.
+  testWidgets('a web camera report without a zoom or a centre is dropped', (
+    tester,
+  ) async {
+    GoogleMapController? created;
+    final reported = <CameraPosition>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomGoogleMap(
+            onMapCreated: (controller) => created = controller,
+            onCameraMove: reported.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final id = created!.mapId;
+    const frame = CameraPosition(target: LatLng(59.19, 17.62), zoom: 15.5);
+    platform.emit(CameraMoveEvent(id, frame));
+    await tester.pump();
+    expect(mapViewOf(created!).pose, frame);
+
+    platform
+      ..emit(
+        CameraMoveEvent(
+          id,
+          const CameraPosition(target: LatLng(59.19, 17.62), zoom: 0),
+        ),
+      )
+      ..emit(
+        CameraMoveEvent(
+          id,
+          const CameraPosition(target: LatLng(0, 0), zoom: 15),
+        ),
+      );
+    await tester.pump();
+    expect(mapViewOf(created!).pose, frame, reason: 'the gaps are no pose');
+    expect(reported, [frame], reason: 'the screen sees frames only');
   });
 }
