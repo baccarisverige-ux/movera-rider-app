@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
+import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/application/support_contact.dart';

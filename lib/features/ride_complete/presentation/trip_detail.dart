@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
+import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';

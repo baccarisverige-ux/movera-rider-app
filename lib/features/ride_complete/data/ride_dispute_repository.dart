@@ -1,6 +1,9 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
+
+export 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 
 /// Backend seam for disputing a completed ride receipt.
 ///
@@ -41,12 +44,4 @@ class RideDisputeRepository {
     );
     _mutation.succeeded(intent);
   }
-}
-
-/// The server takes no ride reports yet (P5-R7).
-class RideDisputeNotServed implements Exception {
-  const RideDisputeNotServed();
-
-  @override
-  String toString() => 'RideDisputeNotServed';
 }
