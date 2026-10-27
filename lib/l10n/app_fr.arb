@@ -1428,5 +1428,8 @@
   "ridesForYou": "Courses pour vous",
   "ridesPremium": "Premium",
   "promotionApplied": "Promotion de {percent} % appliquée",
-  "arriveEtaMin": "{arrive} · {minutes} min"
+  "arriveEtaMin": "{arrive} · {minutes} min",
+  "safetyNotOnServer": "Les réglages de sécurité ne peuvent pas encore être enregistrés : le serveur de Movera ne les conserve pas encore. En cas d’urgence, appelez le 112.",
+  "routeChangeUnavailable": "Il n’est pas encore possible de modifier l’itinéraire dans l’application. Vous pouvez le dire à votre chauffeur.",
+  "reportNotOnServer": "L’envoi d’un signalement depuis l’application n’est pas encore disponible : il n’a pas été envoyé. Le support de Movera ne peut pas le voir."
 }

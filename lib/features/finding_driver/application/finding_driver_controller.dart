@@ -698,6 +698,13 @@ class FindingDriverController {
 
   Future<void> _loadNearby(String rideId) async {
     final requestEpoch = ++_nearbyRequestEpoch;
+    // Audit Phase 5 (P5-R2): `/rides/{id}/nearby` is not in the contract and
+    // movera-server answers 404 on every search; the contract wire does not
+    // ask and the search shows no cars around the pickup.
+    if (api.contractWire) {
+      nearby = const [];
+      return;
+    }
     try {
       final json = await api.get('/api/v1/rides/$rideId/nearby');
       if (_disposed ||

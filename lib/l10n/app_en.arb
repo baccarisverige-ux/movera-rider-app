@@ -310,9 +310,13 @@
   "bookingUncertain": "We couldn’t confirm your booking. Check your connection and try again.",
   "bookingFailed": "We could not book this ride. Check the fare and try again.",
   "rideAlreadyGoing": "You already have a ride going. Try again in a moment.",
-  "@rideAlreadyGoing": {"description": "Booking refused: the server still holds a live ride for this rider and it could not be opened."},
+  "@rideAlreadyGoing": {
+    "description": "Booking refused: the server still holds a live ride for this rider and it could not be opened."
+  },
   "rideAlreadyGoingOpened": "You already have a ride going. Here it is.",
-  "@rideAlreadyGoingOpened": {"description": "Booking refused because a live ride is still going; that ride is opened."},
+  "@rideAlreadyGoingOpened": {
+    "description": "Booking refused because a live ride is still going; that ride is opened."
+  },
   "showFewerRides": "Show fewer rides",
   "showAllRides": "Show all rides",
   "chooseYourRide": "Choose your ride",
@@ -2732,8 +2736,12 @@
   "@phoneCountryCode": {
     "description": "Screen-reader label of the phone field's country button.",
     "placeholders": {
-      "country": {"type": "String"},
-      "dial": {"type": "String"}
+      "country": {
+        "type": "String"
+      },
+      "dial": {
+        "type": "String"
+      }
     }
   },
   "changeCountryCode": "Change country",
@@ -2819,5 +2827,17 @@
         "type": "String"
       }
     }
+  },
+  "safetyNotOnServer": "Safety settings can’t be saved yet: Movera’s server doesn’t keep them so far. In an emergency, call 112.",
+  "@safetyNotOnServer": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
+  },
+  "routeChangeUnavailable": "Changing the route in the app isn’t available yet. You can tell your driver.",
+  "@routeChangeUnavailable": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
+  },
+  "reportNotOnServer": "Sending a report from the app isn’t available yet, so this was not sent. Movera support can’t see it.",
+  "@reportNotOnServer": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
   }
 }

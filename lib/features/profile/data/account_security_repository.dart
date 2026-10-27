@@ -6,7 +6,11 @@ class AccountSecurityRepository {
 
   final ApiClient _api;
 
+  /// Audit Phase 5 (P5-R5): `/account/security` is not in the contract and
+  /// movera-server answers 404, so the contract wire does not ask; the
+  /// screens show their "security status unavailable" state at once.
   Future<AccountSecurityState> load() async {
+    if (_api.contractWire) throw const AccountSecurityNotServed();
     final response = await _api.get('/api/v1/account/security');
     return _decode(response);
   }
@@ -16,6 +20,7 @@ class AccountSecurityRepository {
   /// through and report that as a failure (a retry then gets 403
   /// reauth_required). Only an answer without it is read again.
   Future<AccountSecurityState> signOutOtherDevices() async {
+    if (_api.contractWire) throw const AccountSecurityNotServed();
     final response = await _api.post(
       '/api/v1/account/security/sessions/sign-out-others',
     );
@@ -30,4 +35,12 @@ class AccountSecurityRepository {
     }
     return AccountSecurityState.fromJson(Map<String, dynamic>.from(raw));
   }
+}
+
+/// The server keeps no account-security state (P5-R5).
+class AccountSecurityNotServed implements Exception {
+  const AccountSecurityNotServed();
+
+  @override
+  String toString() => 'AccountSecurityNotServed';
 }

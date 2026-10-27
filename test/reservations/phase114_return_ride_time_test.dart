@@ -161,6 +161,9 @@ void main() {
   Future<void> confirmSetPickup(WidgetTester tester) async {
     await waitFor(tester, find.byType(SetPickupPage));
     expect(find.byType(SetPickupPage), findsOneWidget);
+    // P5-R6: Set pickup finishes opening before the rider confirms (a tap
+    // while it slides in is the second tap of a double tap and is ignored).
+    await tester.pump(const Duration(milliseconds: 300));
     final button = find.widgetWithText(FilledButton, 'Confirm and schedule');
     await tester.ensureVisible(button);
     await tester.tap(button);

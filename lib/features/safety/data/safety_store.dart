@@ -29,8 +29,18 @@ class SafetyStore {
     SafetyRemoteDataSource? remote,
     ApiClient? api,
   }) : _local = local ?? PreferencesSafetyLocalDataSource(),
-       _remote =
-           remote ?? ApiSafetyRemoteDataSource(api ?? AppScope.instance.api);
+       _remote = remote ?? _remoteFor(api ?? AppScope.instance.api);
+
+  /// Audit Phase 5 (P5-R3): movera-server serves none of the Safety paths
+  /// (`/safety/*`, `/rides/{id}/share`, `/rides/{id}/safety-*`; not in the
+  /// contract), so on the contract wire nothing is asked and every change
+  /// says so, instead of a 404 behind a generic failure.
+  static SafetyRemoteDataSource _remoteFor(ApiClient api) => api.contractWire
+      ? const UnservedSafetyRemoteDataSource()
+      : ApiSafetyRemoteDataSource(api);
+
+  /// False when the server keeps no Safety settings (the contract wire).
+  bool get served => _remote is! UnservedSafetyRemoteDataSource;
 
   static SafetyStore? _shared;
   static SafetyStore get shared => _shared ??= SafetyStore();
@@ -53,6 +63,10 @@ class SafetyStore {
     // A cached per-user PIN cannot prove that the current ride still uses it.
     // Never display cached digits after a network failure or while refreshing.
     _cache.pin = RidePin.unavailable;
+    if (!served) {
+      _loaded = true;
+      return;
+    }
     try {
       final prefs = await _remote.getPreferences();
       final pin = await _remote.getPin();
@@ -757,4 +771,91 @@ class RideCheckRepository {
     required String eventId,
     required String action,
   }) => _store.respondEvent(rideId: rideId, eventId: eventId, action: action);
+}
+
+/// The Safety "server" of a build whose backend does not serve Safety
+/// (movera-server today): no request is made, and each call fails with
+/// [SafetyException] code `NOT_SERVED` and a message the rider can read.
+class UnservedSafetyRemoteDataSource implements SafetyRemoteDataSource {
+  const UnservedSafetyRemoteDataSource();
+
+  static const code = 'NOT_SERVED';
+
+  Future<T> _no<T>() =>
+      Future<T>.error(SafetyException(code, L10n.current.safetyNotOnServer));
+
+  @override
+  Future<SafetyPreferences> getPreferences() => _no();
+  @override
+  Future<SafetyPreferences> patchPreferences(
+    SafetyPreferences next, {
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<RidePin> getPin() => _no();
+  @override
+  Future<RidePin> rotatePin({String? idempotencyKey}) => _no();
+  @override
+  Future<List<EmergencyContact>> listContacts() => _no();
+  @override
+  Future<EmergencyContact> createContact(
+    EmergencyContact contact, {
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<EmergencyContact> updateContact(EmergencyContact contact) => _no();
+  @override
+  Future<void> deleteContact(String id) => _no();
+  @override
+  Future<List<EmergencyContact>> setPrimary(String id) => _no();
+  @override
+  Future<TripShare> startShare(
+    String rideId, {
+    List<String>? contactIds,
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<TripShare?> getShare(String rideId) => _no();
+  @override
+  Future<TripShare> patchShare(String rideId, TripShare share) => _no();
+  @override
+  Future<void> stopShare(String rideId) => _no();
+  @override
+  Future<RideCheckPolicy> getRideCheck() => _no();
+  @override
+  Future<RideCheckPolicy> patchRideCheck(RideCheckPolicy policy) => _no();
+  @override
+  Future<RideCheckEvent> postSafetyEvent(
+    RideCheckEvent event, {
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<List<RideCheckEvent>> listSafetyEvents(String rideId) => _no();
+  @override
+  Future<RideCheckEvent> respondSafetyEvent({
+    required String rideId,
+    required String eventId,
+    required String action,
+  }) => _no();
+  @override
+  Future<RideCheckReceipt> postRideCheckAnswers(
+    RideCheckSubmission submission, {
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<AudioRecording> initAudio({
+    required String rideId,
+    String? idempotencyKey,
+  }) => _no();
+  @override
+  Future<AudioRecording> completeAudio({
+    required String rideId,
+    required String recordingId,
+    required int durationMs,
+  }) => _no();
+  @override
+  Future<void> deleteAudio({
+    required String rideId,
+    required String recordingId,
+  }) => _no();
 }

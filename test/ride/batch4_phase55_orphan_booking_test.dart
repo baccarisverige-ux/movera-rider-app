@@ -82,6 +82,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.byType(SetPickupPage), findsOneWidget);
+    // P5-R6: Set pickup finishes opening before the rider confirms (a tap
+    // while it slides in is the second tap of a double tap and is ignored).
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Confirm and search'));
     for (
       var i = 0;

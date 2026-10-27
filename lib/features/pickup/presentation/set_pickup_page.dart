@@ -806,6 +806,11 @@ class _SetPickupPageState extends State<SetPickupPage>
   /// coordinates, never the previous street or "Pickup location" (AUD-2).
   Future<void> _confirm() async {
     if (_confirming || !_usable) return;
+    // P5-R6: a tap while this screen is still sliding in is the second tap
+    // of a double tap on "Select" (same spot), not the rider confirming a
+    // pickup they have not seen: it booked a ride on the live build.
+    final opening = ModalRoute.of(context)?.animation;
+    if (opening != null && !opening.isCompleted) return;
     _confirming = true;
     HapticFeedback.mediumImpact();
     // rider-u140: mid-glide the pin's street and fare are still the old

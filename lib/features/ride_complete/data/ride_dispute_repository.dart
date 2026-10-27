@@ -1,6 +1,9 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
+
+export 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 
 /// Backend seam for disputing a completed ride receipt.
 ///
@@ -23,6 +26,11 @@ class RideDisputeRepository {
     if (id.isEmpty || normalizedReason.isEmpty) {
       throw ArgumentError('rideId and reason are required.');
     }
+    // Audit Phase 5 (P5-R7): movera-server serves no `/rides/{id}/disputes`
+    // (not in the contract; `POST /support/tickets` is, but answers
+    // `operation_not_enabled`). The contract wire sends nothing and says so,
+    // instead of "check your connection".
+    if (_api.contractWire) throw const RideDisputeNotServed();
 
     final intent = '$id|$normalizedReason|${normalizedDetail ?? ''}';
     await _api.post(

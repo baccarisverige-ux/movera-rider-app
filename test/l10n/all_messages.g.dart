@@ -1435,6 +1435,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'ridesPremium': l.ridesPremium,
   'promotionApplied': l.promotionApplied('<percent>'),
   'arriveEtaMin': l.arriveEtaMin('<arrive>', '<minutes>'),
+  'safetyNotOnServer': l.safetyNotOnServer,
+  'routeChangeUnavailable': l.routeChangeUnavailable,
+  'reportNotOnServer': l.reportNotOnServer,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4504,4 +4507,10 @@ class _Exhaustive implements AppLocalizations {
   String promotionApplied(String percent) => '';
   @override
   String arriveEtaMin(String arrive, String minutes) => '';
+  @override
+  String get safetyNotOnServer => '';
+  @override
+  String get routeChangeUnavailable => '';
+  @override
+  String get reportNotOnServer => '';
 }

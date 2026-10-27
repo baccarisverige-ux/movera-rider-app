@@ -41,6 +41,12 @@ Future<RideSnapshot?> openRouteChange(
         geocoding: AppScope.instance.geocoding,
         session: AppScope.instance.ride,
       );
+  if (!changes.available) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(context.l10n.routeChangeUnavailable)),
+    );
+    return null;
+  }
   final places = HomePlacesController();
   await places.load();
   if (!context.mounted) return null;

@@ -74,7 +74,12 @@ abstract final class RideNavigator {
     if (nav.canPop()) {
       popToRoot();
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => popToRoot());
+      // P5-R1: a post-frame callback does not ask for a frame. A restored
+      // ride is the root (nothing to pop) and its screen can be still, so
+      // on the web the rider stayed on the ended ride until a repaint.
+      WidgetsBinding.instance
+        ..addPostFrameCallback((_) => popToRoot())
+        ..ensureVisualUpdate();
     }
   }
 
