@@ -48,11 +48,15 @@ class RideCompleteController {
     required String rideId,
     double? rating,
     int? tipMinor,
+    List<String> tags = const <String>[],
+    String? comment,
     required String idempotencyKey,
   }) => _feedback.submit(
     rideId: rideId,
     rating: rating,
     tipMinor: tipMinor,
+    tags: tags,
+    comment: comment,
     // Q5: the tip is in the trip's own currency, never assumed kronor.
     tipCurrency: _tripCurrency(rideId),
     idempotencyKey: idempotencyKey,

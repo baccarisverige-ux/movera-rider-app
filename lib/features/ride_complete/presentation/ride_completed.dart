@@ -15,6 +15,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
+import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
@@ -89,6 +90,7 @@ class _RideCompletedState extends State<RideCompleted> {
   late RideStatus _status;
   bool _leaving = false;
   double? _rating;
+  RatingFeedback? _feedback;
   int? _tipMinor;
   String? _submitError;
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
@@ -279,12 +281,14 @@ class _RideCompletedState extends State<RideCompleted> {
           throw StateError('Ride ID is missing.');
         }
         final feedbackIntent =
-            '$id|${_rating?.toStringAsFixed(1) ?? ''}|${_tipMinor ?? ''}';
+            '$id|${_rating?.toStringAsFixed(1) ?? ''}|${_tipMinor ?? ''}|${_feedback?.intent ?? ''}';
         if (_acceptedFeedbackIntent != feedbackIntent) {
           await _controller.submitFeedback(
             rideId: id,
             rating: _rating,
             tipMinor: _tipMinor,
+            tags: _feedback?.tags ?? const <String>[],
+            comment: _feedback?.sentComment,
             idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
           );
           _acceptedFeedbackIntent = feedbackIntent;
@@ -419,6 +423,8 @@ class _RideCompletedState extends State<RideCompleted> {
                                     child: RideCompletedGiveReview(
                                       onRatingChanged: (rating) =>
                                           _rating = rating,
+                                      onFeedbackChanged: (feedback) =>
+                                          _feedback = feedback,
                                     ),
                                   ),
                                   const SizedBox(height: 14),

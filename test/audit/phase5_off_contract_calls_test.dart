@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -251,19 +253,56 @@ void main() {
     });
   });
 
-  group('P5-R7 ride report: /rides/{id}/disputes', () {
-    test('live: not sent, and the reason is not "your connection"', () async {
-      final r = recording(live);
-      await expectLater(
-        RideDisputeRepository(
-          api: r.api,
-        ).submit(rideId: 'trp_1', reason: 'charged_more'),
-        throwsA(isA<RideDisputeNotServed>()),
+  // Contract v0.9.0 (owner, 2026-10-27): a ride report is a support ticket
+  // on movera-server, no longer refused as "not served".
+  group('P5-R7 ride report: a support ticket on the contract wire', () {
+    ({ApiClient api, List<Map<String, dynamic>> bodies}) tickets() {
+      final bodies = <Map<String, dynamic>>[];
+      final api = ApiClient(
+        env: live,
+        client: MockClient((request) async {
+          expect(
+            '${request.method} ${request.url.path}',
+            'POST /api/v1/support/tickets',
+          );
+          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response(
+            jsonEncode({
+              'ticketId': 'tkt_1',
+              'subject': 'x',
+              'category': 'ride_dispute',
+              'status': 'open',
+              'updatedAt': '2026-10-27T10:00:00Z',
+            }),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
       );
-      expect(r.calls, isEmpty);
-    });
+      return (api: api, bodies: bodies);
+    }
 
-    test('demo: still sent', () async {
+    test(
+      'live: sent as POST /support/tickets, category ride_dispute',
+      () async {
+        final r = tickets();
+        await RideDisputeRepository(api: r.api).submit(
+          rideId: 'trp_1',
+          reason: 'charged_more',
+          detail: 'I was charged more than expected\nThe route was long',
+        );
+        expect(r.bodies, [
+          {
+            'tripId': 'trp_1',
+            'category': 'ride_dispute',
+            'subject': 'I was charged more than expected',
+            'text': 'I was charged more than expected\nThe route was long',
+          },
+        ]);
+      },
+    );
+
+    test('demo: still sent to the demo dispute path', () async {
       final r = recording(demo);
       await expectLater(
         RideDisputeRepository(
@@ -274,14 +313,14 @@ void main() {
       expect(r.calls, ['POST /api/v1/rides/trp_1/disputes']);
     });
 
-    testWidgets('live: Help says the report was not sent and why', (
+    testWidgets('live: Help sends the report and says it was sent', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final r = recording(live);
+      final r = tickets();
       await tester.pumpWidget(
         MaterialApp(
           home: SupportChat(
@@ -304,10 +343,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('support-message-send')));
       await tester.pumpAndSettle();
-      expect(find.text(L10n.current.reportNotOnServer), findsOneWidget);
-      expect(find.text(L10n.current.supportSendFailed), findsNothing);
-      expect(find.byKey(const ValueKey('support-message-sent')), findsNothing);
-      expect(r.calls, isEmpty);
+      expect(
+        find.byKey(const ValueKey('support-message-sent')),
+        findsOneWidget,
+      );
+      expect(find.text(L10n.current.reportNotOnServer), findsNothing);
+      expect(r.bodies.single['tripId'], 'trp_1');
     });
   });
 }

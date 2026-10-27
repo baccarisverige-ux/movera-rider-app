@@ -2,6 +2,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 
 /// Sends optional post-trip feedback through the same API transport as the ride.
 /// An acknowledgement is required before the completion screen closes.
@@ -16,9 +17,22 @@ class RideFeedbackRepository {
     double? rating,
     int? tipMinor,
     String tipCurrency = Money.defaultCurrency,
+    List<String> tags = const <String>[],
+    String? comment,
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
+    // Contract v0.9.0: tags from contract.json#ratings.tags.aboutDriver, once
+    // each, and a comment of at most 2000 characters.
+    if (tags.any((tag) => !RatingTags.isAllowed(tag)) ||
+        tags.toSet().length != tags.length ||
+        tags.length > RatingTags.maxPerRating) {
+      throw ArgumentError.value(tags, 'tags');
+    }
+    final note = comment?.trim();
+    if (note != null && note.length > RatingTags.commentMaxLength) {
+      throw ArgumentError.value(comment, 'comment');
+    }
     if (rating == null && tipMinor == null) return;
     // Q38 / X20: whole stars only, 1 to 5.
     if (rating != null &&
@@ -41,7 +55,11 @@ class RideFeedbackRepository {
       }
       await _api.post(
         _api.tripPath(rideId, 'rating'),
-        body: {'stars': rating.round()},
+        body: {
+          'stars': rating.round(),
+          if (tags.isNotEmpty) 'tags': tags,
+          if (note != null && note.isNotEmpty) 'comment': note,
+        },
         idempotencyKey: idempotencyKey,
       );
       return;
