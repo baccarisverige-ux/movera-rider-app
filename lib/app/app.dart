@@ -5,6 +5,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
+import 'package:movera_rider/features/content/presentation/content_gate.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
@@ -39,8 +40,14 @@ class MoveraApp extends StatelessWidget {
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
-          builder: (context, child) =>
-              LanguageRebuild(code: language.code, child: child!),
+          // v0.10.0 Content: update block, terms and update messages.
+          builder: (context, child) => LanguageRebuild(
+            code: language.code,
+            child: ContentGate(
+              controller: AppScope.instance.content,
+              child: child!,
+            ),
+          ),
           home: RideRestoreGate(key: RideRestoreGate.gateKey),
         ),
       ),

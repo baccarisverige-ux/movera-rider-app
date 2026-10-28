@@ -79,6 +79,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
   String? _watching;
   bool _disposed = false;
 
+  /// Every event of the stream, for the other documents published on it
+  /// (contract v0.10.0: `config_published` with doc `content`).
+  final List<void Function(Map<String, Object?> event)> eventTaps = [];
+
   static RiderAppConfig _seed(String zoneId) =>
       SeedRiderConfigRepository.seedFor(zoneId);
 
@@ -175,6 +179,11 @@ class ApiRiderConfigRepository extends ChangeNotifier
         (line) {
           final data = events.add(line);
           if (data == null) return;
+          for (final tap in List.of(eventTaps)) {
+            tap(data);
+          }
+          // Content has its own read (RiderContentController).
+          if (data['doc'] == 'content') return;
           final version = data['version'];
           final known = _documents[zoneId]?.version ?? 0;
           if (data['kind'] == 'config_published' &&

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
 import 'package:movera_rider/core/contracts/category_ids.dart';
@@ -361,6 +362,7 @@ class RideSnapshotStore {
       _intentSerial = 0;
       _lifecycleRefreshBlocked = false;
       _activeRideId = null;
+      rideLive.value = false;
     }
   }
 
@@ -370,6 +372,10 @@ class RideSnapshotStore {
   static int _intentSerial = 0;
   static bool _lifecycleRefreshBlocked = false;
   static String? _activeRideId;
+
+  /// True while a live (not terminal) ride is saved: the content gate shows
+  /// no full screen then (contract v0.10.0 §19).
+  static final ValueNotifier<bool> rideLive = ValueNotifier(false);
 
   /// Monotonic process-local identity for each persisted write.
   ///
@@ -396,8 +402,10 @@ class RideSnapshotStore {
     if (snapshot.status.isTerminal) {
       _lifecycleRefreshBlocked = true;
       _activeRideId = snapshot.rideId;
+      rideLive.value = false;
       return;
     }
+    rideLive.value = true;
 
     _lifecycleRefreshBlocked = false;
     _activeRideId = snapshot.rideId;
@@ -553,6 +561,7 @@ class RideSnapshotStore {
     _intentSerial += 1;
     _lifecycleRefreshBlocked = true;
     _activeRideId = null;
+    rideLive.value = false;
     final prefs = await PreferencesStore.load();
     await prefs.remove(key);
   }

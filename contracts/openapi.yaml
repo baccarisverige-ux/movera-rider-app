@@ -1,11 +1,11 @@
-# Movera API v0.8.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.10.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.8.1
+  version: 0.10.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.8.1 in this folder; this file must agree with them.
+    v0.10.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,8 +55,12 @@ tags:
 - name: Admin · Lists
 - name: Admin · Trips
 - name: Admin · Dispatch
-- name: Safety
+- name: Admin · Money
+- name: Admin · Support
+- name: Admin · Reviews
 - name: Admin · Safety
+- name: Admin · Reports
+- name: Safety
 - name: Admin · People
 - name: Admin · Config
 - name: Admin · Governance
@@ -68,9 +72,11 @@ tags:
   description: Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required
 - name: Deprecated
   description: Legacy /rides aliases kept for one release
+- name: Rider · Config
+- name: Account
 x-contract:
   name: movera
-  version: 0.8.1
+  version: 0.10.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4066,6 +4072,52 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreatePayout
+      summary: Create payout by hand (driver + date range)
+      description: v0.9.0. Same calculation as the weekly job; trips already in a payout are never counted again. 409 nothing_to_pay
+        when no trip is left.
+      tags:
+      - Admin · Money
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutCreateCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payout'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/tickets:
     get:
       operationId: adminListTickets
@@ -4827,6 +4879,446 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminDispatchEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/payouts/{payoutId}/paid:
+    post:
+      operationId: adminMarkPayoutPaid
+      summary: Mark a payout as paid
+      description: v0.9.0. 409 invalid_transition when it is already paid.
+      tags:
+      - Admin · Money
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/PayoutId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutPaidCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payout'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /support/tickets/{ticketId}:
+    get:
+      operationId: getOwnTicket
+      summary: One own support ticket with its messages
+      description: v0.9.0.
+      tags:
+      - Support
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}:
+    get:
+      operationId: adminGetTicket
+      summary: A support ticket with its messages
+      description: v0.9.0. In the admin's zones only (else 403 zone_out_of_scope).
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/reply:
+    post:
+      operationId: adminReplyTicket
+      summary: Answer a support ticket
+      description: v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}).
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketReplyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ratings:
+    get:
+      operationId: adminListRatings
+      summary: Ratings riders and drivers gave each other
+      description: v0.9.0. Newest first; limited to the admin's zones.
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: rater
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - rider
+          - driver
+        description: Who gave the rating.
+      - name: hidden
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: maxStars
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 5
+      - name: driverId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: riderId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRatingPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ratings/{tripId}/{from}/hide:
+    post:
+      operationId: adminHideRating
+      summary: Hide a rating
+      description: v0.9.0. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring
+        counts it again.
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RatingFrom'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingModerationCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRating'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ratings/{tripId}/{from}/restore:
+    post:
+      operationId: adminRestoreRating
+      summary: Show a hidden rating again
+      description: v0.9.0. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring
+        counts it again.
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RatingFrom'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingModerationCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRating'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/risk/signals:
+    get:
+      operationId: adminRiskSignals
+      summary: Risk signals the server counts (cancels, failed payments, low rating)
+      description: v0.9.0 (contract.json#risk). People with at least one counted event in the window.
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: who
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - driver
+          - rider
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/kpis:
+    get:
+      operationId: adminKpis
+      summary: Key numbers per zone and day
+      description: 'v0.9.0 (contract.json#kpis). Days are zone-local, both ends included, at most kpis.maxDays. Today: source
+        live; earlier: the nightly summary.'
+      tags:
+      - Admin · Reports
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - name: fromDate
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+      - name: toDate
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiReport'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7933,6 +8425,325 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/content:
+    get:
+      operationId: adminListContent
+      summary: The zone's published content
+      description: 'v0.10.0. GET /admin/content?zoneId (settings.read) → { items: ContentItem[] } (the zone''s published items);
+        POST /admin/content/{slot}/publish { zoneIds: [ZoneId], title, text, image?, expiresAt?, reaccept?, versions? } (settings.publish)
+        → { items: ContentItem[] } one new version per zone, written in the audit; GET /admin/content/{slot}/history?zoneId;
+        POST /admin/content/{slot}/rollback { zoneId, version } → the earlier version again as the next version.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/publish:
+    post:
+      operationId: adminPublishContent
+      summary: Publish a content place to the chosen zones
+      description: 'v0.10.0. v0.10.0 (owner Content answers 2026-10-28): the admin''s Content page publishes texts to the
+        apps. One admin is enough (no second admin). A publish goes only to the zones chosen at the top (''All zones'' = every
+        zone of the country).'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentPublishCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/history:
+    get:
+      operationId: adminContentHistory
+      summary: Published versions of a content place in a zone
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/rollback:
+    post:
+      operationId: adminRollbackContent
+      summary: Publish an earlier version again
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRollbackCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/content:
+    get:
+      operationId: riderContent
+      summary: Content for the rider app
+      description: 'v0.10.0. GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that
+        app''s slots (and ''both''), expired items left out. Apps read on start and on config_published with doc content;
+        they keep the last answer when offline. Below the minimum version of its app: a full screen ''Uppdatera appen'' /
+        ''Mettre à jour l''app'' / ''Update the app'' with a store button; the app is blocked. Below the recommended version:
+        a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block
+        starts after the trip ends. SOS always works.'
+      tags:
+      - Rider · Config
+      x-actor:
+      - rider
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/content:
+    get:
+      operationId: driverContent
+      summary: Content for the driver app
+      description: 'v0.10.0. GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that
+        app''s slots (and ''both''), expired items left out. Apps read on start and on config_published with doc content;
+        they keep the last answer when offline. Below the minimum version of its app: a full screen ''Uppdatera appen'' /
+        ''Mettre à jour l''app'' / ''Update the app'' with a store button; the app is blocked. Below the recommended version:
+        a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block
+        starts after the trip ends. SOS always works.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/terms/accept:
+    post:
+      operationId: acceptTerms
+      summary: Accept the published legal terms
+      description: 'v0.10.0. When a legal item is published with reaccept true: the next time the app opens (never during
+        a trip) it shows the new terms with ''Jag godkänner'' / ''J''accepte'' / ''I accept''; POST /account/terms/accept
+        { contentVersion } stores who accepted and when (GET /admin/content/legal/acceptances?zoneId lists them). Until accepted,
+        the rider cannot book and the driver cannot go online.'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsAcceptCommand'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -8025,6 +8836,18 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Id'
+    PayoutId:
+      name: payoutId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
     RideId:
       name: rideId
       in: path
@@ -8032,6 +8855,16 @@ components:
       schema:
         $ref: '#/components/schemas/Id'
       description: Deprecated alias of tripId.
+    RatingFrom:
+      name: from
+      in: path
+      required: true
+      description: 'v0.9.0: who gave the rating.'
+      schema:
+        type: string
+        enum:
+        - rider
+        - driver
     ZoneId:
       name: zoneId
       in: path
@@ -8169,6 +9002,12 @@ components:
         minimum: 0
         maximum: 9
       description: 0-based index into TripProjection.stops.
+    ContentSlotPath:
+      name: slot
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ContentSlot'
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -10033,6 +10872,80 @@ components:
         comment:
           type: string
           maxLength: 2000
+    RatingTag:
+      type: string
+      enum:
+      - clean_car
+      - friendly
+      - safe_driving
+      - good_music
+      - knew_the_way
+      - on_time
+      - polite
+      - clear_pickup
+      description: 'v0.9.0: a rating tag code (contract.json#ratings.tags): aboutDriver when the rider rates, aboutRider when
+        the driver rates.'
+    AdminRating:
+      type: object
+      description: 'v0.9.0: a rating as Admin › Reviews lists it (GET /admin/ratings).'
+      required:
+      - tripId
+      - from
+      - stars
+      - tags
+      - at
+      - hidden
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+        stars:
+          type: integer
+          minimum: 1
+          maximum: 5
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/RatingTag'
+        comment:
+          type: string
+          maxLength: 2000
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        riderId:
+          $ref: '#/components/schemas/Id'
+        riderName:
+          type: string
+        driverId:
+          $ref: '#/components/schemas/Id'
+        driverName:
+          type: string
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        hidden:
+          type: boolean
+          description: 'Hidden by an admin: it does not count in the average nor in the low-rating risk signal.'
+        hiddenBy:
+          $ref: '#/components/schemas/Id'
+        hiddenAt:
+          $ref: '#/components/schemas/Timestamp'
+        hideReason:
+          type: string
+          maxLength: 500
+    RatingModerationCommand:
+      type: object
+      description: 'v0.9.0: why the rating is hidden or shown again (written in the audit).'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
     Notification:
       type: object
       required:
@@ -10157,6 +11070,60 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        zoneId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.9.0: the trip''s zone, else the person''s first zone; admins see tickets of their zones.'
+        lastMessageAt:
+          $ref: '#/components/schemas/Timestamp'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketMessage'
+          description: 'v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first.'
+    TicketMessage:
+      type: object
+      description: 'v0.9.0: one message on a support ticket.'
+      required:
+      - messageId
+      - from
+      - text
+      - at
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+          - support
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        adminName:
+          type: string
+          description: The answering admin's name (from = support).
+    TicketReplyCommand:
+      type: object
+      description: 'v0.9.0: Admin › Support answers a ticket.'
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        status:
+          type: string
+          enum:
+          - pending
+          - resolved
+          - closed
+          description: 'The ticket''s status after the answer (default pending: waiting for the person).'
     IncidentPosition:
       type: object
       description: 'v0.7.0: a phone''s GPS position, measured once (CONTRACT.md §15).'
@@ -10336,6 +11303,32 @@ components:
           $ref: '#/components/schemas/Timestamp'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+    PayoutLine:
+      type: object
+      description: 'v0.9.0: one line of a payout.'
+      required:
+      - code
+      - amount
+      properties:
+        code:
+          type: string
+          enum:
+          - trips
+          - waiting
+          - pickup_pay
+          - bonus
+          - tips
+          - cash_collected
+          - fees
+          description: contract.json#payouts.lines
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'Signed: cash_collected is negative (the driver already holds that money).'
+        count:
+          type: integer
+          minimum: 0
+          description: Trips behind the line, where it counts trips.
     Payout:
       type: object
       required:
@@ -10350,7 +11343,9 @@ components:
         driverId:
           $ref: '#/components/schemas/Id'
         amount:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.9.0: the sum of the lines; may be negative (the driver owes Movera).'
         status:
           type: string
           enum:
@@ -10366,6 +11361,202 @@ components:
         createdAt:
           $ref: '#/components/schemas/Timestamp'
         paidAt:
+          $ref: '#/components/schemas/Timestamp'
+        source:
+          type: string
+          enum:
+          - weekly
+          - manual
+          description: 'v0.9.0: weekly (the nightly job) or manual (Create payout in the admin).'
+        tripCount:
+          type: integer
+          minimum: 0
+          description: v0.9.0
+        driverName:
+          type: string
+          description: v0.9.0, admin only
+        zoneId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.9.0, admin only: the driver''s first zone.'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayoutLine'
+          description: 'v0.9.0, admin only (GET /admin/payouts): the lines behind the amount. The driver app shows only the
+            total.'
+        paidBy:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.9.0, admin only: who marked it paid.'
+        note:
+          type: string
+          maxLength: 1000
+    PayoutCreateCommand:
+      type: object
+      description: 'v0.9.0: Create payout by hand for a driver and a date range; trips already in a payout are left out (409
+        nothing_to_pay when none is left).'
+      required:
+      - driverId
+      - from
+      - to
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        note:
+          type: string
+          maxLength: 1000
+    PayoutPaidCommand:
+      type: object
+      description: 'v0.9.0: Mark as paid.'
+      properties:
+        note:
+          type: string
+          maxLength: 1000
+    RiskSignal:
+      type: object
+      required:
+      - value
+      - count
+      properties:
+        value:
+          type: number
+          description: Percent for cancels, a count for failed_payments, stars for low_rating.
+        count:
+          type: integer
+          minimum: 0
+          description: Events counted (cancels, failed payments, rated rides).
+        total:
+          type: integer
+          minimum: 0
+          description: 'cancels: trips in the window.'
+    RiskPerson:
+      type: object
+      description: 'v0.9.0: one rider or driver with the server''s risk signals.'
+      required:
+      - who
+      - id
+      - name
+      - signals
+      properties:
+        who:
+          type: string
+          enum:
+          - driver
+          - rider
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        signals:
+          type: object
+          description: Only the signals the server counts (contract.json#risk.signals); a missing one has no data yet.
+          properties:
+            cancels:
+              $ref: '#/components/schemas/RiskSignal'
+            failed_payments:
+              $ref: '#/components/schemas/RiskSignal'
+            low_rating:
+              $ref: '#/components/schemas/RiskSignal'
+    RiskPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/RiskPerson'
+      description: Page<RiskPerson>
+    KpiDay:
+      type: object
+      description: 'v0.9.0: one zone''s numbers for one day (contract.json#kpis).'
+      required:
+      - date
+      - zoneId
+      - source
+      - currency
+      - completedTrips
+      - cancelledTrips
+      - noShows
+      - gross
+      - commission
+      - driverEarnings
+      - pickupPay
+      - driverBonus
+      - cashCollected
+      - walletApplied
+      - newRiders
+      - newDrivers
+      properties:
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: The zone-local day, YYYY-MM-DD.
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        source:
+          type: string
+          enum:
+          - live
+          - summary
+          description: 'live: counted now (today); summary: the nightly summary.'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        completedTrips:
+          type: integer
+          minimum: 0
+        cancelledTrips:
+          type: integer
+          minimum: 0
+        noShows:
+          type: integer
+          minimum: 0
+        gross:
+          type: integer
+          description: Minor units of currency.
+        commission:
+          type: integer
+          description: Minor units of currency.
+        driverEarnings:
+          type: integer
+          description: Minor units of currency.
+        pickupPay:
+          type: integer
+          description: Minor units of currency.
+        driverBonus:
+          type: integer
+          description: Minor units of currency.
+        cashCollected:
+          type: integer
+          description: Minor units of currency.
+        walletApplied:
+          type: integer
+          description: Minor units of currency.
+        newRiders:
+          type: integer
+          minimum: 0
+        newDrivers:
+          type: integer
+          minimum: 0
+    KpiReport:
+      type: object
+      description: 'v0.9.0: GET /admin/kpis.'
+      required:
+      - days
+      - generatedAt
+      properties:
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/KpiDay'
+        generatedAt:
           $ref: '#/components/schemas/Timestamp'
     EarningsPeriod:
       type: object
@@ -13880,6 +15071,16 @@ components:
             items:
               $ref: '#/components/schemas/AdminIncidentEvent'
       description: Page<AdminIncidentEvent>
+    AdminRatingPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/AdminRating'
+      description: Page<AdminRating>
     TripCommand:
       type: object
       description: Body of driver trip commands.
@@ -15385,3 +16586,155 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DriverSurgeZone'
+    ContentSlot:
+      type: string
+      enum:
+      - driver-home
+      - driver-event
+      - rider-banner-1
+      - rider-banner-2
+      - rider-banner-3
+      - rider-banner-4
+      - rider-banner-5
+      - rider-banner-6
+      - help
+      - legal
+      - app-versions
+    ContentText:
+      type: object
+      required:
+      - sv
+      - fr
+      - en
+      properties:
+        sv:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        fr:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        en:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    AppVersionPair:
+      type: object
+      required:
+      - min
+      - recommended
+      properties:
+        min:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+        recommended:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+    AppVersions:
+      type: object
+      required:
+      - rider
+      - driver
+      properties:
+        rider:
+          $ref: '#/components/schemas/AppVersionPair'
+        driver:
+          $ref: '#/components/schemas/AppVersionPair'
+    ContentItem:
+      type: object
+      description: 'v0.10.0: ContentItem { slot, zoneId, version, publishedAt, publishedBy, title, text: { sv, fr, en } (all
+        three required, non-empty), image? (https URL), expiresAt? (future Timestamp; after it the apps hide the item), reaccept?
+        (legal only), versions? (app-versions only: { rider: { min, recommended }, driver: { min, recommended } }, semantic
+        x.y.z, recommended ≥ min) }'
+      required:
+      - slot
+      - zoneId
+      - version
+      - publishedAt
+      - title
+      - text
+      properties:
+        slot:
+          $ref: '#/components/schemas/ContentSlot'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedBy:
+          $ref: '#/components/schemas/Id'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          $ref: '#/components/schemas/ContentText'
+        image:
+          type: string
+          format: uri
+          pattern: ^https://
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        reaccept:
+          type: boolean
+          description: legal only
+        versions:
+          $ref: '#/components/schemas/AppVersions'
+    ContentList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+    ContentPublishCommand:
+      type: object
+      required:
+      - zoneIds
+      - title
+      - text
+      properties:
+        zoneIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          minItems: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          $ref: '#/components/schemas/ContentText'
+        image:
+          type: string
+          pattern: ^https://
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        reaccept:
+          type: boolean
+        versions:
+          $ref: '#/components/schemas/AppVersions'
+    ContentRollbackCommand:
+      type: object
+      required:
+      - zoneId
+      - version
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+    TermsAcceptCommand:
+      type: object
+      required:
+      - contentVersion
+      properties:
+        contentVersion:
+          type: integer
+          minimum: 1

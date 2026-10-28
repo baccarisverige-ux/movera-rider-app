@@ -1439,6 +1439,15 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'routeChangeUnavailable': l.routeChangeUnavailable,
   'reportNotOnServer': l.reportNotOnServer,
   'mapUnavailable': l.mapUnavailable,
+  'contentUpdateTitle': l.contentUpdateTitle,
+  'contentUpdateBody': l.contentUpdateBody,
+  'contentUpdateStore': l.contentUpdateStore,
+  'contentUpdateRecommended': l.contentUpdateRecommended,
+  'contentUpdateNow': l.contentUpdateNow,
+  'contentUpdateAfterTrip': l.contentUpdateAfterTrip,
+  'contentTermsTitle': l.contentTermsTitle,
+  'contentTermsAccept': l.contentTermsAccept,
+  'contentTermsFailed': l.contentTermsFailed,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4516,4 +4525,22 @@ class _Exhaustive implements AppLocalizations {
   String get reportNotOnServer => '';
   @override
   String get mapUnavailable => '';
+  @override
+  String get contentUpdateTitle => '';
+  @override
+  String get contentUpdateBody => '';
+  @override
+  String get contentUpdateStore => '';
+  @override
+  String get contentUpdateRecommended => '';
+  @override
+  String get contentUpdateNow => '';
+  @override
+  String get contentUpdateAfterTrip => '';
+  @override
+  String get contentTermsTitle => '';
+  @override
+  String get contentTermsAccept => '';
+  @override
+  String get contentTermsFailed => '';
 }

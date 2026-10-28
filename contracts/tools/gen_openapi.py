@@ -331,6 +331,17 @@ S["SavedPaymentMethod"] = obj({"paymentMethodId": ref("Id"), "method": ref("Paym
 S["Rating"] = obj({"tripId": ref("Id"), "from": s(enum=["rider", "driver"]),
                    "stars": i("Whole stars (contract.json#ratings).", minimum=C["ratings"]["min"], maximum=C["ratings"]["max"]), "tags": arr(s(pattern="^[a-z][a-z0-9_]{0,63}$")),
                    "comment": s(maxLength=2000)}, ["tripId", "from", "stars", "tags"])
+RT_TAGS = C["ratings"]["tags"]
+S["RatingTag"] = s("v0.9.0: a rating tag code (contract.json#ratings.tags): aboutDriver when the rider rates, aboutRider when the driver rates.",
+                   enum=RT_TAGS["aboutDriver"] + RT_TAGS["aboutRider"])
+S["AdminRating"] = obj(OrderedDict([
+    ("tripId", ref("Id")), ("from", s(enum=["rider", "driver"])),
+    ("stars", i(minimum=C["ratings"]["min"], maximum=C["ratings"]["max"])), ("tags", arr(ref("RatingTag"))), ("comment", s(maxLength=2000)),
+    ("at", ref("Timestamp")), ("riderId", ref("Id")), ("riderName", s()), ("driverId", ref("Id")), ("driverName", s()), ("zoneId", ref("Id")),
+    ("hidden", b("Hidden by an admin: it does not count in the average nor in the low-rating risk signal.")),
+    ("hiddenBy", ref("Id")), ("hiddenAt", ref("Timestamp")), ("hideReason", s(maxLength=500))]),
+    ["tripId", "from", "stars", "tags", "at", "hidden"], "v0.9.0: a rating as Admin › Reviews lists it (GET /admin/ratings).")
+S["RatingModerationCommand"] = obj({"reason": s(minLength=1, maxLength=500)}, ["reason"], "v0.9.0: why the rating is hidden or shown again (written in the audit).")
 S["Notification"] = obj({"notificationId": ref("Id"), "audience": s(enum=["rider", "driver"]),
                          "kind": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "title": s(), "body": s(), "at": ref("Timestamp"),
                          "read": b(), "tripId": ref("Id"), "deepLink": s()},
@@ -344,8 +355,17 @@ S["SupportTicket"] = obj({"ticketId": ref("Id"), "tripId": ref("Id"), "openedBy"
                           "driverId": ref("Id"), "category": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "subject": s(),
                           "status": s(enum=["open", "pending", "resolved", "closed"]),
                           "priority": s(enum=["low", "normal", "high", "urgent"]),
-                          "createdAt": ref("Timestamp"), "updatedAt": ref("Timestamp")},
+                          "createdAt": ref("Timestamp"), "updatedAt": ref("Timestamp"),
+                          "zoneId": {"allOf": [ref("Id")], "description": "v0.9.0: the trip's zone, else the person's first zone; admins see tickets of their zones."},
+                          "lastMessageAt": ref("Timestamp"),
+                          "messages": arr(ref("TicketMessage"), description="v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first.")},
                          ["ticketId", "openedBy", "category", "subject", "status", "createdAt", "updatedAt"])
+S["TicketMessage"] = obj({"messageId": ref("Id"), "from": s(enum=["rider", "driver", "support"]), "text": s(minLength=1, maxLength=5000),
+                          "at": ref("Timestamp"), "adminName": s("The answering admin's name (from = support).")},
+                         ["messageId", "from", "text", "at"], "v0.9.0: one message on a support ticket.")
+S["TicketReplyCommand"] = obj({"text": s(minLength=1, maxLength=5000), "status": s("The ticket's status after the answer (default pending: waiting for the person).",
+                                                                                  enum=C["support"]["replyStatuses"])},
+                              ["text"], "v0.9.0: Admin › Support answers a ticket.")
 SF = C["safety"]
 S["IncidentPosition"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180),
                              "accuracyM": n("Horizontal accuracy, metres.", minimum=0), "at": ref("Timestamp")},
@@ -383,10 +403,37 @@ S["AdminIncidentEvent"] = obj({"eventId": ref("Id"), "sequence": i(minimum=1), "
                                "incident": ref("Incident"), "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
                               ["eventId", "sequence", "kind", "incident", "occurredAt", "serverTime"],
                               "v0.7.0: the admin incident feed (GET /admin/incidents/stream).")
-S["Payout"] = obj({"payoutId": ref("Id"), "driverId": ref("Id"), "amount": ref("Money"),
+S["PayoutLine"] = obj({"code": s("contract.json#payouts.lines", enum=C["payouts"]["lines"]),
+                       "amount": {"allOf": [ref("Money")], "description": "Signed: cash_collected is negative (the driver already holds that money)."},
+                       "count": i("Trips behind the line, where it counts trips.", minimum=0)},
+                      ["code", "amount"], "v0.9.0: one line of a payout.")
+S["Payout"] = obj({"payoutId": ref("Id"), "driverId": ref("Id"), "amount": {"allOf": [ref("Money")], "description": "v0.9.0: the sum of the lines; may be negative (the driver owes Movera)."},
                    "status": s(enum=["pending", "pending_approval", "paid", "failed", "held"]),
                    "periodStart": ref("Timestamp"), "periodEnd": ref("Timestamp"), "createdAt": ref("Timestamp"),
-                   "paidAt": ref("Timestamp")}, ["payoutId", "driverId", "amount", "status", "createdAt"])
+                   "paidAt": ref("Timestamp"),
+                   "source": s("v0.9.0: weekly (the nightly job) or manual (Create payout in the admin).", enum=C["payouts"]["sources"]),
+                   "tripCount": i("v0.9.0", minimum=0),
+                   "driverName": s("v0.9.0, admin only"),
+                   "zoneId": {"allOf": [ref("Id")], "description": "v0.9.0, admin only: the driver's first zone."},
+                   "lines": arr(ref("PayoutLine"), description="v0.9.0, admin only (GET /admin/payouts): the lines behind the amount. The driver app shows only the total."),
+                   "paidBy": {"allOf": [ref("Id")], "description": "v0.9.0, admin only: who marked it paid."},
+                   "note": s(maxLength=1000)}, ["payoutId", "driverId", "amount", "status", "createdAt"])
+S["PayoutCreateCommand"] = obj({"driverId": ref("Id"), "from": ref("Timestamp"), "to": ref("Timestamp"), "note": s(maxLength=1000)},
+                               ["driverId", "from", "to"], "v0.9.0: Create payout by hand for a driver and a date range; trips already in a payout are left out (409 nothing_to_pay when none is left).")
+S["PayoutPaidCommand"] = obj({"note": s(maxLength=1000)}, (), "v0.9.0: Mark as paid.")
+RK = C["risk"]
+S["RiskSignal"] = obj({"value": n("Percent for cancels, a count for failed_payments, stars for low_rating."), "count": i(minimum=0, description="Events counted (cancels, failed payments, rated rides)."),
+                       "total": i(minimum=0, description="cancels: trips in the window.")}, ["value", "count"])
+S["RiskPerson"] = obj({"who": s(enum=["driver", "rider"]), "id": ref("Id"), "name": s(), "zoneId": ref("Id"),
+                       "signals": obj({k: ref("RiskSignal") for k in RK["signals"]}, (), "Only the signals the server counts (contract.json#risk.signals); a missing one has no data yet.")},
+                      ["who", "id", "name", "signals"], "v0.9.0: one rider or driver with the server's risk signals.")
+S["RiskPage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref("RiskPerson"))}}], "description": "Page<RiskPerson>"}
+KF = C["kpis"]["fields"]
+S["KpiDay"] = obj(OrderedDict([("date", s("The zone-local day, YYYY-MM-DD.", pattern="^\\d{4}-\\d{2}-\\d{2}$")), ("zoneId", ref("Id")),
+                               ("source", s("live: counted now (today); summary: the nightly summary.", enum=["live", "summary"])),
+                               ("currency", ref("CurrencyCode"))] + [(k, i(minimum=0) if k in ("completedTrips", "cancelledTrips", "noShows", "newRiders", "newDrivers") else i("Minor units of currency.")) for k in KF]),
+                  ["date", "zoneId", "source", "currency"] + KF, "v0.9.0: one zone's numbers for one day (contract.json#kpis).")
+S["KpiReport"] = obj({"days": arr(ref("KpiDay")), "generatedAt": ref("Timestamp")}, ["days", "generatedAt"], "v0.9.0: GET /admin/kpis.")
 S["EarningsPeriod"] = obj({"periodStart": ref("Timestamp"), "periodEnd": ref("Timestamp"), "tripCount": i(minimum=0),
                            "gross": ref("Money"), "commission": ref("Money"), "pickupPay": ref("Money"),
                            "tips": ref("Money"), "adjustments": ref("Money"), "cashCollected": ref("Money"),
@@ -881,7 +928,7 @@ S["Page"] = obj({"items": arr({}), "nextCursor": {"type": ["string", "null"], "d
                 ["items", "nextCursor"], "Generic cursor page Page<T>. Concrete pages below narrow `items`.")
 PAGES = ["TripProjection", "Offer", "Rider", "Driver", "Vehicle", "Document", "PaymentIntent", "Refund", "Payout",
          "WalletEntry", "Notification", "Message", "SupportTicket", "Incident", "AuditEntry", "Approval",
-         "SavedPlace", "SavedPaymentMethod", "RealtimeEvent", "Quote", "AdminDispatchEvent", "Fleet", "AdminIncidentEvent"]
+         "SavedPlace", "SavedPaymentMethod", "RealtimeEvent", "Quote", "AdminDispatchEvent", "Fleet", "AdminIncidentEvent", "AdminRating"]
 for p in PAGES:
     S[f"{p}Page"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref(p))}}],
                      "description": f"Page<{p}>"}
@@ -1030,9 +1077,10 @@ def path_id(name, desc=None):
     if desc: p["description"] = desc
     return p
 for nm in ["tripId", "offerId", "paymentId", "paymentMethodId", "placeId", "notificationId", "driverId", "riderId",
-           "vehicleId", "documentId", "approvalId", "fleetId", "invitationId", "incidentId"]:
+           "vehicleId", "documentId", "approvalId", "fleetId", "invitationId", "incidentId", "payoutId", "ticketId"]:
     PARAMS[nm[0].upper() + nm[1:]] = path_id(nm)
 PARAMS["RideId"] = path_id("rideId", "Deprecated alias of tripId.")
+PARAMS["RatingFrom"] = {"name": "from", "in": "path", "required": True, "description": "v0.9.0: who gave the rating.", "schema": {"type": "string", "enum": ["rider", "driver"]}}
 PARAMS["ZoneId"] = path_id("zoneId")
 PARAMS["AdminId"] = path_id("adminId")
 PARAMS["ConfigDoc"] = {"name": "doc", "in": "path", "required": True, "schema": ref("ConfigDocName")}
@@ -1403,6 +1451,34 @@ op("get", "/admin/trips/{tripId}/nearby-drivers", "adminNearbyDrivers", "Active 
 op("get", "/admin/dispatch/stream", "adminStreamDispatch", "Admin dispatch feed (offers, lock, driver bonus)", ["admin"], "Realtime",
    params=[pref("ZoneIdQuery"), pref("After"), pref("LastEventId")], content=sse("Server-sent events.", "AdminDispatchEvent", "AdminDispatchEventPage"),
    permission="trips.read")
+# ---- v0.9.0 (CONTRACT.md §18): real data for the admin
+op("post", "/admin/payouts", "adminCreatePayout", "Create payout by hand (driver + date range)", ["admin"], "Admin · Money",
+   body="PayoutCreateCommand", ok=(201, "Payout"), mutation=True, permission="finance.edit",
+   desc="v0.9.0. Same calculation as the weekly job; trips already in a payout are never counted again. 409 nothing_to_pay when no trip is left.")
+op("post", "/admin/payouts/{payoutId}/paid", "adminMarkPayoutPaid", "Mark a payout as paid", ["admin"], "Admin · Money",
+   params=[pref("PayoutId")], body="PayoutPaidCommand", ok=(200, "Payout"), mutation=True, permission="finance.edit", desc="v0.9.0. 409 invalid_transition when it is already paid.")
+op("get", "/support/tickets/{ticketId}", "getOwnTicket", "One own support ticket with its messages", ["rider", "driver"], "Support",
+   params=[pref("TicketId")], ok=(200, "SupportTicket"), desc="v0.9.0.")
+op("get", "/admin/tickets/{ticketId}", "adminGetTicket", "A support ticket with its messages", ["admin"], "Admin · Support",
+   params=[pref("TicketId")], ok=(200, "SupportTicket"), permission="support.reply", desc="v0.9.0. In the admin's zones only (else 403 zone_out_of_scope).")
+op("post", "/admin/tickets/{ticketId}/reply", "adminReplyTicket", "Answer a support ticket", ["admin"], "Admin · Support",
+   params=[pref("TicketId")], body="TicketReplyCommand", ok=(200, "SupportTicket"), mutation=True, permission="support.reply",
+   desc="v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}).")
+op("get", "/admin/ratings", "adminListRatings", "Ratings riders and drivers gave each other", ["admin"], "Admin · Reviews",
+   params=AL + [q("rater", {"type": "string", "enum": ["rider", "driver"]}, "Who gave the rating."), q("hidden", {"type": "boolean"}), q("maxStars", {"type": "integer", "minimum": 1, "maximum": 5}),
+                q("driverId", ref("Id")), q("riderId", ref("Id")), pref("ZoneIdQuery"), pref("From"), pref("To")],
+   ok=(200, "AdminRatingPage"), permission="settings.read", desc="v0.9.0. Newest first; limited to the admin's zones.")
+for verb, summ in [("hide", "Hide a rating"), ("restore", "Show a hidden rating again")]:
+    op("post", f"/admin/ratings/{{tripId}}/{{from}}/{verb}", f"admin{verb.capitalize()}Rating", summ, ["admin"], "Admin · Reviews",
+       params=TID + [pref("RatingFrom")], body="RatingModerationCommand", ok=(200, "AdminRating"), mutation=True, permission="settings.publish",
+       desc="v0.9.0. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring counts it again.")
+op("get", "/admin/risk/signals", "adminRiskSignals", "Risk signals the server counts (cancels, failed payments, low rating)", ["admin"], "Admin · Safety",
+   params=AL + [q("who", {"type": "string", "enum": ["driver", "rider"]}), pref("ZoneIdQuery")], ok=(200, "RiskPage"), permission="safety.edit",
+   desc="v0.9.0 (contract.json#risk). People with at least one counted event in the window.")
+op("get", "/admin/kpis", "adminKpis", "Key numbers per zone and day", ["admin"], "Admin · Reports",
+   params=[pref("ZoneIdQuery"), q("fromDate", {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"}), q("toDate", {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"})],
+   ok=(200, "KpiReport"), permission="overview.read",
+   desc="v0.9.0 (contract.json#kpis). Days are zone-local, both ends included, at most kpis.maxDays. Today: source live; earlier: the nightly summary.")
 # ---- v0.7.0 (CONTRACT.md §15): SOS and incidents
 for who, path, opid in [("rider", "/rider/trips/{tripId}/sos", "riderSos"), ("driver", "/driver/trips/{tripId}/sos", "driverSos")]:
     op("post", path, opid, f"The {who} presses SOS: alert Movera", [who], "Safety", params=TID, body="SosRequest", ok=(200, "SosReceipt"), mutation=True,
@@ -1637,6 +1713,29 @@ S["DriverSurgeZone"] = obj({"zoneId": ref("Id"), "level": ref("SurgeLevel"), "bo
 S["DriverSurgeMap"] = obj({"at": ref("Timestamp"), "zones": arr(ref("DriverSurgeZone"))}, ["at", "zones"], "v0.7.2: " + DSM["note"])
 op("get", "/driver/surge-map", "driverSurgeMap", "Zones with a surge now, as colour levels for the Home map", ["driver"], "Driver · Session",
    ok=(200, "DriverSurgeMap"), desc="v0.7.2. " + DSM["route"] + " " + DSM["refresh"] + " " + DSM["tip"])
+
+# ---- v0.10.0: content from the admin to the apps (owner Content answers 2026-10-28)
+CT = C["content"]
+S["ContentSlot"] = s(enum=CT["slots"])
+S["ContentText"] = obj({"sv": s(minLength=1, maxLength=4000), "fr": s(minLength=1, maxLength=4000), "en": s(minLength=1, maxLength=4000)}, ["sv", "fr", "en"])
+S["AppVersionPair"] = obj({"min": s(pattern="^\\d+\\.\\d+\\.\\d+$"), "recommended": s(pattern="^\\d+\\.\\d+\\.\\d+$")}, ["min", "recommended"])
+S["AppVersions"] = obj({"rider": ref("AppVersionPair"), "driver": ref("AppVersionPair")}, ["rider", "driver"])
+S["ContentItem"] = obj({"slot": ref("ContentSlot"), "zoneId": ref("Id"), "version": i(minimum=1), "publishedAt": ref("Timestamp"), "publishedBy": ref("Id"),
+                        "title": s(minLength=1, maxLength=200), "text": ref("ContentText"), "image": s(format="uri", pattern="^https://"), "expiresAt": ref("Timestamp"),
+                        "reaccept": b("legal only"), "versions": ref("AppVersions")}, ["slot", "zoneId", "version", "publishedAt", "title", "text"], "v0.10.0: " + CT["item"])
+S["ContentList"] = obj({"items": arr(ref("ContentItem"))}, ["items"])
+S["ContentPublishCommand"] = obj({"zoneIds": arr(ref("Id"), minItems=1), "title": s(minLength=1, maxLength=200), "text": ref("ContentText"), "image": s(pattern="^https://"),
+                                  "expiresAt": ref("Timestamp"), "reaccept": b(), "versions": ref("AppVersions")}, ["zoneIds", "title", "text"])
+S["ContentRollbackCommand"] = obj({"zoneId": ref("Id"), "version": i(minimum=1)}, ["zoneId", "version"])
+S["TermsAcceptCommand"] = obj({"contentVersion": i(minimum=1)}, ["contentVersion"])
+PARAMS["ContentSlotPath"] = {"name": "slot", "in": "path", "required": True, "schema": ref("ContentSlot")}
+op("get", "/admin/content", "adminListContent", "The zone's published content", ["admin"], "Admin · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), permission="settings.read", desc="v0.10.0. " + CT["admin"])
+op("post", "/admin/content/{slot}/publish", "adminPublishContent", "Publish a content place to the chosen zones", ["admin"], "Admin · Config", params=[pref("ContentSlotPath")], body="ContentPublishCommand", ok=(200, "ContentList"), mutation=True, permission="settings.publish", desc="v0.10.0. " + CT["note"])
+op("get", "/admin/content/{slot}/history", "adminContentHistory", "Published versions of a content place in a zone", ["admin"], "Admin · Config", params=[pref("ContentSlotPath"), q("zoneId", ref("Id"))], ok=(200, "ContentList"), permission="settings.read")
+op("post", "/admin/content/{slot}/rollback", "adminRollbackContent", "Publish an earlier version again", ["admin"], "Admin · Config", params=[pref("ContentSlotPath")], body="ContentRollbackCommand", ok=(200, "ContentItem"), mutation=True, permission="settings.publish")
+op("get", "/rider/content", "riderContent", "Content for the rider app", ["rider"], "Rider · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
+op("get", "/driver/content", "driverContent", "Content for the driver app", ["driver"], "Driver · Session", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
+op("post", "/account/terms/accept", "acceptTerms", "Accept the published legal terms", ["rider", "driver"], "Account", body="TermsAcceptCommand", ok=(204, None), mutation=True, desc="v0.10.0. " + CT["legal"])
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"

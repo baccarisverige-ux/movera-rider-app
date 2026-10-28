@@ -68,7 +68,7 @@ class TripTransition {
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.8.1';
+  static const contractVersion = '0.10.0';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;

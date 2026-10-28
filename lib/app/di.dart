@@ -1,4 +1,6 @@
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
+import 'package:movera_rider/core/content/rider_content_controller.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
@@ -381,6 +383,14 @@ class AppScope {
   late RiderConfigRepository riderConfig = api.contractWire
       ? ApiRiderConfigRepository(api: api)
       : const SeedRiderConfigRepository();
+
+  /// Content (contract v0.10.0 §19): banners, Help, Legal and app versions
+  /// from `GET /rider/content` on the contract wire; the demo keeps its
+  /// local content (none).
+  late final RiderContentController content = RiderContentController(
+    api: api.contractWire ? api : null,
+    onTrip: RideSnapshotStore.rideLive,
+  );
 
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
