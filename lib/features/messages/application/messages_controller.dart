@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
@@ -69,7 +70,20 @@ class MessagesController extends ChangeNotifier {
   /// language.
   static String get sendUnavailableMessage => L10n.current.chatSendUnavailable;
 
-  bool get canSendMessages => _transport != null;
+  bool get canSendMessages => _transport != null && !isClosed;
+
+  /// The chat closed at drop-off (contract v0.13.0 §22).
+  bool get isClosed => _store.closed;
+
+  /// The trip ended: the rider can read the history but not write.
+  void markClosed() => _store.markClosed();
+
+  /// Closes the chat of [rideId] for every screen of this process (the trip
+  /// ended, or the server answered 409 chat_closed).
+  static void closeRide(String rideId) {
+    final id = rideId.trim();
+    if (id.isNotEmpty) MessagesRepository.forRide(id).markClosed();
+  }
 
   /// Shows the message at once and sends it. False when there is nothing
   /// to send or no transport to send it on (the demo): nothing is appended
@@ -77,7 +91,7 @@ class MessagesController extends ChangeNotifier {
   bool send(String raw) {
     final text = raw.trim();
     if (text.isEmpty) return false;
-    if (_transport == null) return false;
+    if (_transport == null || isClosed) return false;
     final local = ChatMessage(
       text: text,
       sender: ChatMessageSender.rider,
@@ -115,6 +129,8 @@ class MessagesController extends ChangeNotifier {
       _store.confirm(localId, sent);
     } catch (error) {
       if (_disposed) return;
+      // 409 invalid_transition, reason chat_closed: the trip has ended.
+      if (error is ApiError && error.reason == 'chat_closed') markClosed();
       AppLog.warning(
         'messages.send_failed',
         extra: {'rideId': _rideId, 'error': error.toString()},

@@ -1240,6 +1240,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chatSendUnavailableSemantics': l.chatSendUnavailableSemantics,
   'chatSystemMessage': l.chatSystemMessage('<text>'),
   'chatCallUnavailable': l.chatCallUnavailable,
+  'chatClosedAfterTrip': l.chatClosedAfterTrip,
   'chatCall': l.chatCall,
   'chatSendSemantics': l.chatSendSemantics,
   'chatSendFailed': l.chatSendFailed,
@@ -4149,6 +4150,8 @@ class _Exhaustive implements AppLocalizations {
   String chatSystemMessage(String text) => '';
   @override
   String get chatCallUnavailable => '';
+  @override
+  String get chatClosedAfterTrip => '';
   @override
   String get chatCall => '';
   @override

@@ -9,9 +9,12 @@ import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class ChatAppBar extends StatelessWidget {
-  const ChatAppBar({super.key, this.driverName});
+  const ChatAppBar({super.key, this.driverName, this.onCall});
 
   final String? driverName;
+
+  /// The masked call (contract v0.13.0 §22). Null: calls are not available.
+  final VoidCallback? onCall;
 
   String get _title {
     final name = driverName?.trim() ?? '';
@@ -61,10 +64,11 @@ class ChatAppBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          // No driver phone number exists without a backend, so say so rather
-          // than offering a button that silently does nothing.
-          onPressed: () =>
-              MoveraToast.show(context, context.l10n.chatCallUnavailable),
+          // Never the driver's real number: the masked call, or a line
+          // saying calls are not available yet.
+          onPressed:
+              onCall ??
+              () => MoveraToast.show(context, context.l10n.chatCallUnavailable),
           tooltip: context.l10n.chatCall,
           icon: Image.asset(
             AppAssets.phoneOutl,

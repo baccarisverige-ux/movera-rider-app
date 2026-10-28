@@ -1,11 +1,11 @@
-# Movera API v0.11.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.13.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.11.0
+  version: 0.13.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.11.0 in this folder; this file must agree with them.
+    v0.13.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -78,7 +78,7 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.11.0
+  version: 0.13.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1836,12 +1836,15 @@ paths:
     get:
       operationId: listTripMessages
       summary: Trip chat messages
+      description: 'v0.13.0 (CONTRACT.md §22): the trip''s own rider or driver; an admin needs support.reply and the trip
+        in the admin''s zones (else 403, reason zone_out_of_scope). x-permission applies to admins only.'
       tags:
       - Notifications & messages
       x-actor:
       - rider
       - driver
       - admin
+      x-permission: support.reply
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/Cursor'
@@ -1875,12 +1878,15 @@ paths:
     post:
       operationId: sendTripMessage
       summary: Send a trip chat message (emits kind=message)
+      description: 'v0.13.0: open from driver assignment until drop-off; after it the rider and driver get 409 invalid_transition,
+        reason chat_closed (no grace period). Admins as for GET.'
       tags:
       - Notifications & messages
       x-actor:
       - rider
       - driver
       - admin
+      x-permission: support.reply
       parameters:
       - $ref: '#/components/parameters/TripId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -1904,6 +1910,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/call:
+    post:
+      operationId: callTripPeer
+      summary: Call the other side through a masked number
+      description: 'v0.13.0 (contract.json#chat.call): the trip''s rider or driver while the trip is open for chat. 503 unavailable,
+        reason call_unavailable, while no telephony provider is set up; 409 invalid_transition, reason chat_closed, after
+        drop-off.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripCall'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4982,7 +5031,8 @@ paths:
     get:
       operationId: adminGetTicket
       summary: A support ticket with its messages
-      description: v0.9.0. In the admin's zones only (else 403 zone_out_of_scope).
+      description: 'v0.9.0. In the admin''s zones only (else 403 zone_out_of_scope). v0.13.0: support.reply is needed to read
+        too.'
       tags:
       - Admin · Support
       x-actor:
@@ -5020,7 +5070,8 @@ paths:
     post:
       operationId: adminReplyTicket
       summary: Answer a support ticket
-      description: v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}).
+      description: 'v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}). v0.13.0: the admin''s
+        zones only (else 403 zone_out_of_scope); audited.'
       tags:
       - Admin · Support
       x-actor:
@@ -11354,6 +11405,8 @@ components:
           type: string
     Message:
       type: object
+      description: 'A trip chat message. v0.13.0 (CONTRACT.md §22): kept 90 days (longer when the trip has a safety case);
+        never carries a phone number.'
       required:
       - messageId
       - tripId
@@ -11376,6 +11429,22 @@ components:
           minLength: 1
           maxLength: 2000
         at:
+          $ref: '#/components/schemas/Timestamp'
+    TripCall:
+      type: object
+      description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call).'
+      required:
+      - tripId
+      - proxyNumber
+      - expiresAt
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        proxyNumber:
+          type: string
+          pattern: ^\+[1-9][0-9]{6,14}$
+          description: 'v0.13.0: the masked number to dial (E.164); the provider bridges to the other side.'
+        expiresAt:
           $ref: '#/components/schemas/Timestamp'
     SavedPlace:
       type: object

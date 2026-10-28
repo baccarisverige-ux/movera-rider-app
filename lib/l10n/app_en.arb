@@ -2503,7 +2503,8 @@
       }
     }
   },
-  "chatCallUnavailable": "Calling your driver is not available yet.",
+  "chatCallUnavailable": "Calls aren't available yet – use the chat",
+  "chatClosedAfterTrip": "The chat is closed after the trip",
   "chatCall": "Call",
   "chatSendSemantics": "Send message",
   "chatSendFailed": "Your message wasn't sent. Try again.",

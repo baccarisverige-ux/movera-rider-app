@@ -26,6 +26,17 @@ class MessagesRepository extends ChangeNotifier {
   static void clearAllSessions() => _rideSessions.clear();
 
   final List<ChatMessage> _messages = <ChatMessage>[];
+  bool _closed = false;
+
+  /// The trip ended (contract v0.13.0 §22): the chat closes at drop-off.
+  /// The history stays readable; nothing more can be written.
+  bool get closed => _closed;
+
+  void markClosed() {
+    if (_closed) return;
+    _closed = true;
+    notifyListeners();
+  }
 
   List<ChatMessage> get messages => List<ChatMessage>.unmodifiable(_messages);
 

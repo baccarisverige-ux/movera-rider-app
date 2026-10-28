@@ -5,7 +5,9 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
+import 'package:movera_rider/features/messages/domain/trip_call_transport.dart';
 import 'package:movera_rider/features/messages/presentation/chat_appbar.dart';
+import 'package:movera_rider/features/messages/presentation/trip_call.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -15,7 +17,13 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class Chat extends StatefulWidget {
-  const Chat({super.key, this.driverName, this.rideId, this.controller});
+  const Chat({
+    super.key,
+    this.driverName,
+    this.rideId,
+    this.controller,
+    this.callTransport,
+  });
 
   final String? driverName;
   final String? rideId;
@@ -24,6 +32,9 @@ class Chat extends StatefulWidget {
   /// the ride's shared conversation, on the live wire's transport where
   /// there is one (contract v0.5.4) and read-only in the demo.
   final MessagesController? controller;
+
+  /// Test seam for the masked call; defaults to the app's.
+  final TripCallTransport? callTransport;
 
   @override
   State<Chat> createState() => _ChatState();
@@ -108,14 +119,24 @@ class _ChatState extends State<Chat> {
     );
   }
 
+  TripCallTransport? _defaultCallTransport() => AppScope.instance.tripCall;
+
   @override
   Widget build(BuildContext context) {
+    final closed = _chat.isClosed;
     final canSend = _chat.canSendMessages;
     return Scaffold(
       backgroundColor: const Color(0xffFAFAFA),
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(ResSize.h * 75),
-        child: ChatAppBar(driverName: widget.driverName),
+        child: ChatAppBar(
+          driverName: widget.driverName,
+          onCall: () => callTripPeer(
+            context,
+            rideId: widget.rideId,
+            transport: widget.callTransport ?? _defaultCallTransport(),
+          ),
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +181,7 @@ class _ChatState extends State<Chat> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!canSend) ...[
+                if (closed || !canSend) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -172,7 +193,9 @@ class _ChatState extends State<Chat> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      MessagesController.sendUnavailableMessage,
+                      closed
+                          ? context.l10n.chatClosedAfterTrip
+                          : MessagesController.sendUnavailableMessage,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Color(0xFF5C656C),
@@ -193,6 +216,7 @@ class _ChatState extends State<Chat> {
                           borderWidth: 0,
                           textColor: AppColor.black,
                           controller: _messageController,
+                          enabled: !closed,
                           fontSize: 14,
                           hint: context.l10n.chatSendHint,
                           fillColor: const Color(0xffF6F6F6),
@@ -209,7 +233,7 @@ class _ChatState extends State<Chat> {
                       10.width,
                       Semantics(
                         button: true,
-                        enabled: canSend,
+                        enabled: !closed,
                         label: canSend
                             ? context.l10n.chatSendSemantics
                             : context.l10n.chatSendUnavailableSemantics,

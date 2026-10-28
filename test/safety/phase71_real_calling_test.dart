@@ -143,8 +143,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('Driver calling unavailable'), findsOneWidget);
-    expect(find.textContaining('masked calling number'), findsOneWidget);
+    // Contract v0.13.0 §22: no masked call without a provider; never a
+    // real number.
+    expect(find.text("Calls aren't available yet – use the chat"), findsOne);
     realtime.dispose();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
