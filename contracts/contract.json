@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.5.5",
+  "version": "0.8.1",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -35,7 +35,7 @@
   },
   "categories": {
     "pattern": "^[a-z][a-z0-9_]{1,31}$",
-    "note": "Category ids come from the admin Pricing catalog; admins can add more. These are the seed ids every app must know.",
+    "note": "Category ids come from the admin Pricing catalog; admins can add, delete and deactivate categories and the apps follow the admin catalog. These are the seed ids every app must know. labels are display only (the catalog's label wins). v0.6.0: child_seat (Child Seat) joins the seed; the rider app's former id kids is read as child_seat for one release, and the driver app's \"Booster Seat\" is the child_seat category.",
     "seed": [
       "economy",
       "comfort",
@@ -43,10 +43,22 @@
       "priority",
       "xl",
       "electric",
-      "pet"
+      "pet",
+      "child_seat"
     ],
+    "labels": {
+      "economy": "Movera",
+      "comfort": "Comfort",
+      "premium": "Premium",
+      "priority": "Priority",
+      "xl": "Movera XL",
+      "electric": "Electric",
+      "pet": "Movera Pet",
+      "child_seat": "Child Seat"
+    },
     "aliases": {
-      "movera": "economy"
+      "movera": "economy",
+      "kids": "child_seat"
     }
   },
   "paymentMethods": [
@@ -121,9 +133,9 @@
       "fixed_route": "a fixed route price instead of base + distance + time; no surge, minimum or maximum",
       "waiting": "waiting at pickup after the free wait, per second; 100 % the driver's, no commission",
       "stops": "extraStopFee per extra stop",
-      "stop_waiting": "waiting at stops after stopFreeWaitMin at each stop, per second; 100 % the driver's, no commission",
-      "extras": "baby and child seats",
-      "airport": "airport pickup and drop-off fees",
+      "stop_waiting": "waiting at each extra stop from the driver's arrived-at-stop to leaving-stop, per second, no free minutes (v0.7.1); 100 % the driver's, no commission",
+      "extras": "v0.7.1: the one seat of a child_seat trip (childSeatFee once)",
+      "airport": "v0.7.1: fees.airportPickup / airportDropoff when the pickup / drop-off lies in an airport zone (server decides)",
       "reservation_fee": "zone reservation fee for kind=scheduled",
       "app_fee": "appFeePct of (ride part + extras); Movera keeps it",
       "pickup_fee": "the rider's fixed pickup fee (§3.2); Movera keeps it",
@@ -757,14 +769,15 @@
     ]
   },
   "surge": {
-    "note": "v0.5.0 (CONTRACT.md §3.4). An admin surge may change over its time as a curve: points (atMin, multiplier) from 0 to the end, straight lines between them, applied in stepMinutes steps so the price never wobbles. The server prices new quotes from it; a quote keeps its multiplier (Quote.surgeMultiplier). Replaces nothing: a flat manual surge is a two-point curve.",
+    "note": "v0.5.0 (CONTRACT.md §3.4). An admin surge may change over its time as a curve: points (atMin, multiplier) from 0 to the end, straight lines between them, applied in stepMinutes steps so the price never wobbles. The server prices new quotes from it; a quote keeps its multiplier (Quote.surgeMultiplier). Replaces nothing: a flat manual surge is a two-point curve. v0.6.0: the cap is set by the admin, at most capMax (6, the admin slider's top, owner 2026-10-27); every multiplier is also kept within the zone's pricing surge.maxMultiplier (CONTRACT.md §3.5). v0.7.1: the manual surge's maximum is its own slider value (cap = its highest point), at most capMax; pricing.surge.maxMultiplier no longer binds it.",
     "stepMinutes": 5,
     "minMultiplier": 1.0,
     "roundTo": 0.1,
     "minPoints": 2,
     "capDefault": 3.0,
     "valueAt": "value at minute m = curve value at floor(m / stepMinutes) × stepMinutes, rounded half-up to roundTo, clamped to [minMultiplier, cap]; null before startAt and from endAt on",
-    "scope": "zoneId plus categoryIds (empty = every category); one active schedule per zone and category; a new one replaces it"
+    "scope": "zoneId plus categoryIds (empty = every category); one active schedule per zone and category; a new one replaces it",
+    "capMax": 6.0
   },
   "auth": {
     "note": "v0.5.0 (CONTRACT.md §8). Token issuance for the rider and driver apps; the admin signs in with e-mail and password plus a second factor (out of this contract). Actor and ids come from the token.",
@@ -835,7 +848,8 @@
       },
       "lockout": "failed sign-ins are slowed and then locked per e-mail and per address: 429 rate_limited with Retry-After",
       "secondFactor": "none in v0.5.1. Reserved for later, additively: a sign-in answer { code: \"SECOND_FACTOR_REQUIRED\", challengeId } followed by a verify call; v0.5.1 servers never send it.",
-      "superAdmin": "role super: AdminMe.approvalExempt is true and every permission is granted; refunds, publishes, surge and dispatch control run directly (200, never 202 pending_approval) and are written in the audit (owner decision 14)."
+      "superAdmin": "role super: every permission is granted. v0.7.2 (owner 2026-10-28, one admin is enough everywhere): no action of any admin needs a second admin; AdminMe.approvalExempt is true for every admin.",
+      "oneAdmin": "v0.7.2 (owner 2026-10-28): ONE admin is enough for everything in the admin panel. Every admin with the operation's permission for that zone runs it at once (200 / 201, never 202 pending_approval): refunds, trip adjusts, config publishes and restores, surge Start/Stop, dispatch control and every other change; each is written in the audit. GET /admin/approvals stays to read approvals filed before v0.7.2; one still pending may be approved or rejected as before."
     },
     "providerKeys": {
       "apple": "APPLE_CLIENT_IDS (the app bundle ids / service id), tokens verified against Apple's public keys",
@@ -843,7 +857,7 @@
     }
   },
   "configVersion": {
-    "note": "v0.5.0. RiderAppConfig.version / DriverAppConfig.version is the admin's revision number of the zone's live document, strictly increasing per zone and document; publishedAt is when it was published. The server stores the published document as the admin built it and serves it unchanged from GET /rider/config and GET /driver/config; config_published carries the same version. Apps keep the last good document and ignore an older version."
+    "note": "v0.8.0 (owner 2026-10-27, \"the server's version number counts\"): the SERVER stamps version and publishedAt on every publish; whatever the admin sends in those two fields is ignored. version is strictly increasing per zone and document as the apps see it: a zone that served its country's standard (configDocs.standard) and then gets its own document continues above the standard's version. config_published carries the same version. Apps keep the last good document and ignore an older or equal version."
   },
   "adminPermissions": {
     "note": "v0.5.1 (CONTRACT.md §9): the admin panel's 34 permission ids (platform/team.ts). Every admin operation names one in x-permission; where v0.5.1 changed a v0.5.0 value, openapi.yaml keeps the old one under x-permission-v050. Roles: AdminRole; super has all of them.",
@@ -946,7 +960,7 @@
     }
   },
   "configDocs": {
-    "note": "v0.5.1 (CONTRACT.md §6.2, §6.3). ConfigDocName values. app documents are served to the apps (GET /rider/config, /driver/config, config_published). serverOnly documents are published by the admin through the same draft / publish calls and the same version rule (configVersion), read only by the server and by admins with settings.read; the apps never get them.",
+    "note": "v0.5.1 (CONTRACT.md §6.2, §6.3). ConfigDocName values. app documents are served to the apps (GET /rider/config, /driver/config, config_published). serverOnly documents are published by the admin through the same draft / publish calls and the same version rule (configVersion), read only by the server and by admins with settings.read; the apps never get them. v0.8.0: country_rules is published per country only (configDocs.countryRules); the four zone documents may also be published per country as that country's standard (configDocs.standard).",
     "app": [
       "rider_app_config",
       "driver_app_config"
@@ -958,18 +972,31 @@
     "mustMatch": [
       "RiderAppConfig.waiting.byCategory and DriverAppConfig.waiting.byCategory = pricing.categories[].waiting",
       "RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee = pricing.categories[].riderPickupFee",
+      "RiderAppConfig.waiting and DriverAppConfig.waiting (the top-level terms) = pricing.categories[headline].waiting (economy, else the first category)",
       "DriverAppConfig.offers.radarSeconds / exclusiveSeconds / radarOn / exclusiveOn = dispatch.radar.seconds / exclusive.seconds / radar.on / exclusive.on",
       "DriverAppConfig.offers.exclusiveWhileDriving = dispatch.exclusiveWhileDriving"
     ],
-    "mustMatchNote": "mustMatch binds the documents the admin publishes for one zone (the same admin pages build them). fixtures/config/rider_app_config.json and driver_app_config.json are older illustrative samples whose waiting amounts predate the pricing defaults; they are left unchanged in v0.5.1 to stay additive and are aligned in v0.6. reference_check.py does not check mustMatch against them."
+    "mustMatchNote": "mustMatch binds the documents published for one zone. v0.6.0: the sample documents fixtures/config/rider_app_config.json and driver_app_config.json are aligned with fixtures/config/pricing_document.json (12.26 kr/min, Premium 16.90, no-show fee 65 kr) and reference_check.py checks the rule against them.",
+    "publishPricing": "v0.6.0 (owner 2026-10-27): publishing the pricing document keeps the app documents in step. In the same transaction the server writes the zone's live rider_app_config and driver_app_config again with waiting.byCategory (freeWaitMin, perMin, noShowAfterMin, noShowFee), the top-level waiting terms of the headline category, RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee taken from the new pricing document; every other field stays as published. Each app document whose values change gets the next version and publishedAt and sends config_published; one whose values are already equal is left as it is. A zone with no app document published yet gets none (the admin publishes the first one). An app document's draft, when there is one, takes the same values and its draft version goes up by 1 (an admin holding the old draft version gets 409 version_mismatch and reloads), so a later app publish does not undo them.",
+    "rules": [
+      "country_rules"
+    ],
+    "countryOnly": [],
+    "countryOnlyNote": "v0.8.1: empty; country_rules (configDocs.rules) is now published per zone or per country like the others.",
+    "scope": "v0.8.0: GET, PUT and POST …/publish on /admin/config/{doc} name exactly one of zoneId (the zone's own document) or country (ISO alpha-2; the country's standard). Both or neither → 400 invalid_request (reason scope_required). v0.8.1: country_rules too may name a zoneId (the zone's own tips and limits) or a country (its standard). A country scope is open to any admin who covers at least one zone of that country and holds the document's permission (owner 2026-10-27).",
+    "standard": "v0.8.0 (owner 2026-10-27): every country has one standard rider_app_config, driver_app_config, pricing and dispatch, set in the admin, in the country's currency. A zone with no own published document of a kind uses its country's standard of that kind: the server serves it (GET /rider/config, /driver/config) and prices and dispatches with it, with zoneId set to the zone's id and usesStandard: true; its version is the standard's version. A zone with its own published document never uses the standard. Publishing a standard sends config_published (app documents) for every zone of the country that uses it. A zone's first own publish gets version max(own live, standard live) + 1. A standard document carries zoneId \"standard-<CC>\" (e.g. standard-SE) and its country's currency, country and timeZone. GET /admin/config/{doc}?zoneId returns usesStandard: true and the standard as the draft's starting point while the zone has nothing of its own.",
+    "countryRules": "v0.8.1 (owner 2026-10-28: Tips & limits apply only to the zones chosen at the top; for the whole country the admin chooses all zones): tips, raiseSteps and driverBonus are the country_rules document { version, publishedAt, country, currency, tips: [AmountOption], raiseSteps: [AmountOption], driverBonus: { defaultLimit, hardMax } }, like the other documents published per zone (?zoneId, the zone's own) or per country (?country, the country's standard). A zone's rules are its own once published for it, else its country's standard (usesStandard: true); a zone with its own rules never uses the standard again until 'Go back to Standard' (useStandard, also for country_rules). Publishing a zone's own rules writes, in the same transaction, RiderAppConfig.tips / raiseSteps and DriverAppConfig.driverBonus of that zone's live and draft app documents; a zone that uses the standard app documents gets its own, copied from the standard with the new values (as publishPricing does), each changed one as its next version with config_published. Publishing the standard rules writes them into the standard app documents and into the own app documents of every zone of the country that has no own rules; zones with their own rules keep them. While a zone's rules (own or standard) are live, PUT and publish of that zone's app documents take those three fields from them, whatever the admin sent; the dispatch driver bonus limit of a trip is its zone's rules. The admin panel publishes to exactly the zones chosen at the top ('All zones' = every zone of the country it may work in, each as its own) and to the standard only when it is chosen.",
+    "publishApproval": "v0.8.0 (owner 2026-10-27, as refunds): no second admin. Any admin with the publish permission (settings.publish; dispatch.edit for dispatch; settings.publish for country_rules) publishes at once: 200 ConfigPublication, never 202. dispatch.approve and approval.decide no longer apply to config.",
+    "useStandard": "v0.8.0 (owner 2026-10-27): POST /admin/config/{doc}/use-standard { zoneId, expectedVersion } (the zone's draft version; same permission as publish; the admin confirms first) makes a zone with its own document use its country's standard again. The zone's own live document and draft are removed (every version stays in the history); the server re-stamps the standard as version max(standard live, the zone's own live) + 1 (a history row, the same content) so the zone's apps never see a lower version, and sends config_published to every zone using the standard. No standard published for the country → 409 conflict (reason standard_not_published); a zone already using the standard → 409 (reason already_standard).  v0.8.1: also for country_rules: the zone's own rules are removed and the standard rules are written into the zone's app documents (next version).",
+    "countryRulesV080": "v0.8.0 (replaced by v0.8.1): country_rules was published per country only and applied to every zone."
   },
   "pricing": {
     "note": "v0.5.1 (CONTRACT.md §3.5). The server prices every quote and fare from the zone's pricing document (admin Pricing, the order of quoteRide), with owner decisions 16-21 applied. Amounts are exact until they become a fare line. Cases: fixtures/fares.json.",
     "order": [
       "ride part: a matching fixed route (fixed_route, no surge / minimum / maximum), else base + perKm × km + perMin × minutes",
-      "surge: ride part × multiplier, multiplier clamped to [1, surge.maxMultiplier]; the extra is the surge line",
+      "surge: ride part × multiplier, multiplier clamped to [1, 6] (the surge slider's top); the extra is the surge line. v0.7.1 (owner 2026-10-27, 'surge maximum = the value the admin chooses on the slider, no extra box'): each source carries its own maximum: the manual surge its slider value, a planned window its multiplier, smart surge its profile's cap; pricing.surge.maxMultiplier is deprecated and ignored",
       "minimum: ride part raised to minimum (minimum_adjust); maximum: ride part lowered to maximum when not null (maximum_adjust)",
-      "extras, unsurged: waiting, stops, stop_waiting, extras (seats), airport, reservation_fee (kind=scheduled)",
+      "extras, unsurged: waiting, stops, stop_waiting, extras (v0.7.1: a child_seat trip always includes one seat, its childSeatFee once; no other category has a seat fee), airport (fees.airportPickup when the pickup lies in a zone of kind airport, fees.airportDropoff when the drop-off does; the server decides, v0.7.1), reservation_fee (kind=scheduled)",
       "app fee = (ride part + extras) × appFeePct / 100",
       "pickup fee = riderPickupFee.live, or .reservation for kind=scheduled (null = none)",
       "total = half_up((ride part + extras + app fee + pickup fee) / priceStep) × priceStep, rounded once",
@@ -977,17 +1004,24 @@
       "outstanding_fee (§3.7) is added after the rounding: Quote.total / fare = total + outstanding"
     ],
     "halfUp": "half_up(x) = floor(x + 1/2) in minor units: a tie goes up (toward +∞), also on a negative line",
-    "waiting": "waiting = Waiting.chargedSeconds / 60 × waiting.perMin, accrued per second after freeWaitMin (the driver app's rule; the admin calculator multiplies minutes, the same value for whole minutes). stop_waiting = Σ over stops of max(0, seconds at the stop − stopFreeWaitMin × 60) / 60 × stopWaitPerMin.",
+    "waiting": "waiting = Waiting.chargedSeconds / 60 × waiting.perMin, accrued per second after freeWaitMin (the driver app's rule; the admin calculator multiplies minutes, the same value for whole minutes). stop_waiting (v0.7.1, owner 2026-10-27: no free minutes at a middle stop) = Σ over stops of (leftAt − arrivedAt) seconds / 60 × stopWaitPerMin, from the driver's arrived-at-stop to leaving-stop (an open stop counts until the trip completes).",
     "moneySplit": {
       "commissionBase": "ride part + extras − waiting − stop waiting (owner decision 17: no commission on waiting; decision 18: the app fee and the pickup fee are Movera's and outside it)",
       "driverEarnings": "min(total before outstanding_fee, half_up(commissionBase × (1 − commissionPct / 100)) + waiting line + stop_waiting line)",
       "moveraShare": "Quote.total / fare − driverEarnings (app fee, pickup fee, commission, rounding and any outstanding_fee); TripProjection.commission carries it. Driver pickup pay and driver bonus are paid from it (§3.2)."
     },
-    "quoteAndFare": "The quote prices the server's own route (OSRM km and minutes; a client distance is a hint) with no waiting. The fare at completion is the same calculation with the quote's km and minutes, the stops made and the waiting the trip had (Waiting.chargedSeconds, stop waits), rounded once.",
+    "quoteAndFare": "The quote prices the server's own route (OSRM km and minutes; a client distance is a hint) with no waiting. The fare at completion is the same calculation with the quote's km and minutes, the quote's surge multiplier, the stops made and the waiting the trip had (Waiting.chargedSeconds, stop waits from the driver's arrive / leave taps), rounded once. A reservation (kind=scheduled) keeps the price of its booking: no surge in force later is added (owner 2026-10-27).",
     "endEarly": "owner decisions 8 and 19: ride part = base + km driven × perKm + minutes on board × perMin, × the booked surge multiplier, then minimum and maximum; no extras; + app fee + pickup fee. If that exceeds the booked fare (Quote.total plus route changes, without outstanding_fee) the ride part is lowered (maximum_adjust) to (booked − pickup fee) / (1 + appFeePct / 100), so the exact sum is the booked fare; then rounded once to priceStep. driverEarnings from that ride part.",
-    "surgeSource": "first match: the zone's active surge schedule (§3.4, PUT /admin/zones/{zoneId}/surge), then a pricing.surge.scheduled window in force, then smart surge when smart.enabled; else 1.0. The quote keeps its multiplier.",
-    "maxMultiplier": 3.0,
-    "notInFormula": "cleaningFee (charged afterwards with an admin adjust), tollsPassThrough (no tolls priced in v0.5.1), smart surge profiles (smart.enabled is false in the test week, owner decision 21; its algorithm is not normative in v0.5.1)"
+    "surgeSource": "first match: the zone's active surge schedule (§3.4, PUT /admin/zones/{zoneId}/surge: the manual Start/Stop), then the highest pricing.surge.scheduled window in force (v0.7.1: overlapping planned surges, the higher counts; the admin is warned on save), then smart surge when smart.enabled (v0.7.1: contract.json#smartSurge, off by default); else 1.0. Every source is clamped to [1, 6]; the maximum of each is the value the admin chose on its slider (manual surge, planned window, smart profile cap; v0.7.1, no separate maximum). The quote keeps its multiplier; a reservation keeps the price shown at booking (no surge added later).",
+    "requestExtras": {
+      "note": "v0.7.1 (owner 2026-10-27): the only priced thing the rider sends is fixedRouteId (QuoteRequest, repeated unchanged on CreateTripRequest, else 400 invalid_request quote_mismatch). Seats and airport are no longer sent: a child_seat trip always includes one seat, and the airport fees come from the airport zones (server).",
+      "fixedRouteId": "the id of one of the zone's fixedRoutes: when it is a route of the quoted category the fixed_route line replaces the ride part (no surge, minimum or maximum); otherwise the category is priced normally, as in the admin calculator",
+      "seat": "ONE seat fee (CategoryPricing.childSeatFee), only on child_seat: every child_seat trip includes one seat and adds the fee once in the extras line. The rider never chooses a number of seats. babySeats or childSeats above 0 (v0.6.0 fields, read for one release) on any other category: 400 invalid_request, reason seat_not_offered; on child_seat they change nothing. A pricing document with a seat fee on another category, or with babySeatFee, is 400 invalid_request (seat_fee_not_child_seat).",
+      "airport": "the server looks up the pickup and the drop-off in the zones of kind airport (Zone.kind): the pickup inside one adds the priced zone's fees.airportPickup, the drop-off inside one its fees.airportDropoff (the airport line). airportPickup / airportDropoff sent by an older app are ignored."
+    },
+    "maxMultiplier": 6.0,
+    "maxMultiplierNote": "v0.6.0: the highest surge an admin may choose is 6 (the demo's surge slider, SLIDER_MAX). v0.7.1 (owner 2026-10-27): there is no separate zone maximum: the slider's value is the maximum; pricing.surge.maxMultiplier is deprecated, may be absent and is ignored.",
+    "notInFormula": "cleaningFee (charged afterwards with an admin adjust), tollsPassThrough (no tolls priced in v0.5.1)"
   },
   "dispatch": {
     "note": "v0.5.1 (CONTRACT.md §3.6), owner decisions 6, 10, 22, 23, 24 and the technical defaults (2026-10-24). How the server finds a driver for a live trip in searching, from the pickup zone's dispatch document and its DispatchControl. Cases: fixtures/dispatch.json.",
@@ -1092,7 +1126,7 @@
       "score inputs: acceptance and cancel rates over the last 30 days, rating as shown, fallbacks when there is no data; idleMin = minutes since the driver last became free or came online; favourites score 0 until the server has the data."
     ],
     "control": {
-      "note": "DispatchControl { zoneId, paused, mode: radar | exclusive | null, by, at, version } is live state, outside publishing. PUT /admin/zones/{zoneId}/dispatch-control (dispatch.edit). Pausing or forcing a mode by an admin who is not Super admin is 202 pending_approval (owner decision 14); resume and back to rules apply at once for everyone (the admin panel's rule).",
+      "note": "DispatchControl { zoneId, paused, mode: radar | exclusive | null, by, at, version } is live state, outside publishing. PUT /admin/zones/{zoneId}/dispatch-control (dispatch.edit). Pausing, forcing a mode, resume and back to rules apply at once for every admin with dispatch.edit (v0.7.2, one admin is enough).",
       "default": {
         "paused": false,
         "mode": null
@@ -1472,7 +1506,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults).",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26).",
     "maxStops": 3,
     "maxPickupMoveMeters": 500,
     "freeWaitMin": {
@@ -1482,7 +1516,7 @@
     "noShowAfterMin": "equals the category freeWaitMin (owner Q41): the no-show button appears when the free wait ends",
     "waitingDriverSharePct": 100,
     "noShowDriverSharePct": 80,
-    "missedExclusiveBeforeOffline": 3,
+    "missedExclusiveBeforeOffline": 10,
     "offers": {
       "note": "DriverAppConfig.offers limits (v0.5.0, CONTRACT.md §3.3). Admin Dispatch › Modes; every field optional on read.",
       "radarApp": {
@@ -1850,7 +1884,7 @@
     },
     "promoCap": "null until Admin sets a cap for the country (no default decided)",
     "pricing": {
-      "note": "PricingDocument defaults (v0.5.1, CONTRACT.md §6.2): the admin panel's Stockholm prices (zonePricing.ts defaultZoneBook), SEK minor units (öre); a full Z001 document is fixtures/config/pricing_document.json. Smart surge off (owner decision 21), the surge cap 3, stops 3 free minutes (decision 20). Other countries: the admin converts (FR × 0.095, TN × 0.3).",
+      "note": "PricingDocument defaults (v0.5.1, CONTRACT.md §6.2): the admin panel's Stockholm prices (zonePricing.ts defaultZoneBook), SEK minor units (öre); a full Z001 document is fixtures/config/pricing_document.json. Smart surge off (owner decision 21), the surge maximum 3 (the admin may set up to 6), stops 3 free minutes (decision 20). Other countries: the admin converts (FR × 0.095, TN × 0.3). v0.6.0: babySeatFee and childSeatFee only on child_seat.",
       "countries": {
         "SE": {
           "currency": "SEK",
@@ -1866,8 +1900,6 @@
               "commissionPct": 20,
               "extraStopFee": 1500,
               "stopWaitPerMin": 500,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1882,8 +1914,6 @@
               "commissionPct": 20,
               "extraStopFee": 1900,
               "stopWaitPerMin": 600,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1898,8 +1928,6 @@
               "commissionPct": 22,
               "extraStopFee": 2700,
               "stopWaitPerMin": 900,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1690,
               "noShowFee": 6500
@@ -1914,8 +1942,6 @@
               "commissionPct": 20,
               "extraStopFee": 2000,
               "stopWaitPerMin": 700,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1930,8 +1956,6 @@
               "commissionPct": 20,
               "extraStopFee": 2300,
               "stopWaitPerMin": 800,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 3,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1946,8 +1970,6 @@
               "commissionPct": 20,
               "extraStopFee": 1700,
               "stopWaitPerMin": 600,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1962,8 +1984,6 @@
               "commissionPct": 20,
               "extraStopFee": 1700,
               "stopWaitPerMin": 600,
-              "babySeatFee": 3000,
-              "childSeatFee": 3000,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
               "noShowFee": 6500
@@ -1978,7 +1998,6 @@
               "commissionPct": 20,
               "extraStopFee": 1800,
               "stopWaitPerMin": 600,
-              "babySeatFee": 1500,
               "childSeatFee": 1500,
               "freeWaitMin": 5,
               "waitPerMin": 1226,
@@ -1994,7 +2013,6 @@
           },
           "airportZones": "ARN and BMA: base and minimum × 1.3, airport pickup 6500, drop-off 3000",
           "riderPickupFee": "null (off) in every category, §3.2",
-          "stopFreeWaitMin": 3,
           "surgeMaxMultiplier": 3.0,
           "smartSurge": false,
           "fleetCommissionPct": 5
@@ -2137,7 +2155,8 @@
         "paused": false,
         "mode": null
       }
-    }
+    },
+    "cancelDriverSharePct": 100
   },
   "realtime": {
     "envelope": [
@@ -2202,5 +2221,226 @@
     "Idempotency-Key": "required on every mutation, 16–128 chars",
     "X-Request-Id": "sent by clients, echoed by the server",
     "X-Api-Version": "0.5"
-  }
+  },
+  "cancelFees": {
+    "note": "v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in Admin › Dispatch per zone: the driver's share of a rider's cancel fee, 0–100, default 100. Movera keeps the rest.",
+    "driverSharePctDefault": 100
+  },
+  "bookingSnapshot": {
+    "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot.",
+    "fields": [
+      "pricing",
+      "cancelRule",
+      "cancelDriverSharePct",
+      "waiting",
+      "noShowDriverSharePct",
+      "waitDriverSharePct"
+    ]
+  },
+  "autoOffline": {
+    "note": "v0.8.0 (owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive (default 10) Exclusive offers of live trips in a row that were declined or expired. Only kind=exclusive offers of live trips sent while the driver was free count; an Exclusive offer sent while the driver is on a trip never counts; Radar, assigned and reservation (scheduled) offers declined or expired never count. ANY accepted offer (Exclusive or Radar, any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; fixtures/settings_flow.json#autoOffline.",
+    "counts": [
+      "exclusive"
+    ],
+    "countsStatuses": [
+      "declined",
+      "expired"
+    ],
+    "resets": [
+      "any offer accepted",
+      "driver goes online"
+    ],
+    "neverCounts": [
+      "radar",
+      "assigned",
+      "reservation",
+      "exclusive sent while on a trip"
+    ]
+  },
+  "safety": {
+    "note": "v0.7.0 (CONTRACT.md §15, owner safety part 1 decisions 2026-10-27). SOS from the rider or the driver and the server's 'car lost' alarm become incidents the admin takes, solves or calls a false alarm. The apps open the phone's emergency call (112) themselves AND send the SOS to Movera; afterwards they show only 'SOS sent' (no later update).",
+    "incidentKinds": [
+      "sos",
+      "driver_silent",
+      "ride_check"
+    ],
+    "kindSeverity": {
+      "sos": "critical",
+      "driver_silent": "critical",
+      "ride_check": "critical"
+    },
+    "raisedBy": [
+      "rider",
+      "driver",
+      "system"
+    ],
+    "statuses": [
+      "open",
+      "investigating",
+      "resolved",
+      "dismissed"
+    ],
+    "statusLabels": {
+      "open": "New",
+      "investigating": "Taken",
+      "resolved": "Solved",
+      "dismissed": "False alarm"
+    },
+    "transitions": [
+      {
+        "command": "take",
+        "from": [
+          "open"
+        ],
+        "to": "investigating"
+      },
+      {
+        "command": "resolve",
+        "from": [
+          "open",
+          "investigating"
+        ],
+        "to": "resolved"
+      },
+      {
+        "command": "dismiss",
+        "from": [
+          "open",
+          "investigating"
+        ],
+        "to": "dismissed"
+      }
+    ],
+    "sos": {
+      "riderStatuses": [
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "driverStatuses": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "note": "One open SOS incident per trip: a second SOS on the same trip (any key, either side) returns that incident. The body carries the phone's GPS once; the admin also sees the car's latest position (driverPosition, from POST /driver/location)."
+    },
+    "escalateAfterSeconds": 120,
+    "escalationNote": "An sos or driver_silent incident not taken within escalateAfterSeconds raises incident_escalated: from then on every signed-in admin gets its events (before: only admins with incidents.read whose zones cover the incident's zone). No SMS when nobody is online.",
+    "streamEventKinds": [
+      "incident_opened",
+      "incident_updated",
+      "incident_escalated",
+      "incident_closed"
+    ],
+    "alarmKinds": [
+      "sos",
+      "driver_silent"
+    ],
+    "driverSilent": {
+      "opensWith": "TripProjection.driverSilentAlert",
+      "closesWhen": "driver positions come back (resolved by the system, resolution 'position back')",
+      "systemResolution": "position back"
+    }
+  },
+  "stopWaits": {
+    "note": "v0.7.1 (owner 2026-10-27, CONTRACT.md §3.8): waiting at a middle stop has no free minutes; the driver app reports each stop.",
+    "arrive": "POST /driver/trips/{tripId}/stops/{stopIndex}/arrive { expectedVersion }: the assigned driver, trip in_trip or approaching_dropoff (else 409 invalid_transition, not_on_trip), stopIndex 0-based into TripProjection.stops; sets stops[i].arrivedAt (server time); version + 1, trip_projection. Again on the same stop: 409 invalid_transition (stop_already_arrived). Stops are taken in order: arriving at i while an earlier stop has no arrivedAt is 409 (stop_out_of_order).",
+    "leave": "POST /driver/trips/{tripId}/stops/{stopIndex}/leave { expectedVersion }: sets stops[i].leftAt; before arrive: 409 invalid_transition (stop_not_arrived); twice: 409 (stop_already_left). version + 1.",
+    "charge": "stop_waiting = Σ (leftAt − arrivedAt) seconds / 60 × stopWaitPerMin; an arrived stop with no leftAt counts until complete. A stop the driver never arrived at counts 0.",
+    "projection": "TripProjection.stops[i] gains arrivedAt?, leftAt? (Timestamp)."
+  },
+  "smartSurge": {
+    "note": "v0.7.1 (owner 2026-10-27): smart surge as the admin demo's Surge tab describes it, run by the server per zone; OFF until the admin switches pricing.surge.smart.enabled on. Applies to every category of the zone. v0.7.2 (owner 2026-10-28): free drivers are only those in the zone now.",
+    "ratio": "every checkEveryMin minutes: ride requests created in the zone in the last checkEveryMin minutes ÷ free drivers in the zone. v0.7.2 (owner 2026-10-28): a free driver is online (not on a trip, online_status online) AND their latest GPS fix lies inside the zone AND it reached the server less than freshFixSeconds ago (the same drivers Dispatch counts as free); a zone with none counts as 1.",
+    "profile": "the first non-default profile from the top whose days and windows match the zone's local time wins; else the isDefault profile. Outside activeFrom–activeTo (equal = all day) smart surge is 1.0.",
+    "target": "the multiplier of the last step whose ratio ≤ the measured ratio (1.0 below the first step), kept within the profile's cap (at most 6)",
+    "rules": "up: the target must hold for holdMin minutes before it is applied; down: one step at a time; between two changes at least cooldownMin minutes; stops (1.0) when the target stays 1.0 for stopAfterMin minutes. Paused while a manual or scheduled surge runs.",
+    "fixtures": "fixtures/smart_surge.json",
+    "freshFixSeconds": 120
+  },
+  "pricingHistory": {
+    "note": "v0.7.1 (owner 2026-10-27): the admin's Pricing › History, Restore and Undo last publish.",
+    "list": "GET /admin/config/{doc}/history?zoneId&cursor&limit (settings.read): newest first, ConfigHistoryEntry { version, publishedAt, publishedBy, note?, action: publish | restore, restoredFrom?, document }",
+    "restore": "POST /admin/config/{doc}/restore { zoneId, version, expectedVersion, note? } (the publish permission): publishes that version's document again as the next version (action restore, restoredFrom), with every effect of a publish (§6.2 app documents for pricing). Undo last publish = restore the version before the live one. A version not in the history: 404; the live version: 409 invalid_transition (already_live).",
+    "audit": "one audit row per pricing publish or restore: action config.publish, details { doc, zoneId, version, restoredFrom?, appDocuments: [{ doc, version }] } (the app documents the publish rewrote)"
+  },
+  "categoryCatalog": {
+    "note": "v0.7.1 (owner 2026-10-27): one catalog of car types for every country and zone (admin Pricing › Manage categories); each zone switches a category on or off in its pricing document.",
+    "entity": "CategoryDef { id, label, line: { sv, fr, en } (the sub-line under the name, e.g. 'Up to 6 seats'), seats, builtIn, sort, archivedAt?, archivedBy?, archiveReason?, restoreUntil? }",
+    "routes": "GET /admin/categories (settings.read); POST /admin/categories, PUT /admin/categories/{categoryId}, POST /admin/categories/{categoryId}/archive { reason }, POST /admin/categories/{categoryId}/restore (settings.publish)",
+    "archive": "Delete = archive for restoreDays days, then gone. Refused while trips of the category are booked and not finished: 409 invalid_transition (category_in_use). Archiving switches the category off (enabled: false) in every zone's live pricing document (a new version each) and removes it from the catalog the apps get.",
+    "restore": "within restoreDays: back in the catalog with its old prices, switched off in every zone; later: 409 invalid_transition (restore_expired)",
+    "restoreDays": 30,
+    "apps": "RiderAppConfig / DriverAppConfig catalog.categories[] gain line?: { sv, fr, en }; the server fills label, line and seats from the catalog and leaves out archived categories when it serves the documents. The rider app shows line under the name.",
+    "seedLines": {
+      "economy": {
+        "sv": "Vardagsresa",
+        "fr": "Course du quotidien",
+        "en": "Everyday ride"
+      },
+      "comfort": {
+        "sv": "Nyare bilar, mer plats",
+        "fr": "Voitures récentes, plus d’espace",
+        "en": "Newer cars, more room"
+      },
+      "premium": {
+        "sv": "Exklusiva bilar, toppförare",
+        "fr": "Voitures haut de gamme, meilleurs chauffeurs",
+        "en": "High-end cars, top drivers"
+      },
+      "priority": {
+        "sv": "Snabbare upphämtning",
+        "fr": "Prise en charge plus rapide",
+        "en": "Faster pickup"
+      },
+      "xl": {
+        "sv": "Upp till 6 platser",
+        "fr": "Jusqu’à 6 places",
+        "en": "Up to 6 seats"
+      },
+      "electric": {
+        "sv": "Helt eldriven bil",
+        "fr": "Voiture 100 % électrique",
+        "en": "Fully electric car"
+      },
+      "pet": {
+        "sv": "Ditt husdjur åker med dig",
+        "fr": "Votre animal voyage avec vous",
+        "en": "Your pet rides with you"
+      },
+      "child_seat": {
+        "sv": "Bil med babystol eller barnstol",
+        "fr": "Voiture avec siège bébé ou enfant",
+        "en": "Car with a baby or child seat"
+      }
+    },
+    "seedLinesNote": "The admin demo's sub-lines for the seed categories (Manage categories), in the panel's sv / fr / en words; the server seeds the catalog with them."
+  },
+  "surgeLive": {
+    "note": "v0.7.2 (owner 2026-10-28): the admin's Pricing › Surge tab shows only real numbers from the server: the surge now per zone (map, list, alerts), the demand chart, the rider price check and the surge timeline. No invented values: what the server cannot give is shown 'Not connected yet'.",
+    "samples": "Each minute the server's surge check stores one SurgeSample per open zone (whether smart surge is on or not): { zoneId, at, requests (ride requests created in the zone in the last minute), freeDrivers (as contract.json#smartSurge.ratio), ratio (requests in the last checkEveryMin ÷ freeDrivers, as smart surge measures it), multiplier, source }. Samples are kept 8 days.",
+    "now": "GET /admin/surge/now?zoneIds=Z1,Z2 (settings.read; zones outside the admin's scope are left out; no zoneIds = every zone in scope) → { at, zones: ZoneSurgeNow[] }. ZoneSurgeNow { zoneId, multiplier, source: manual | scheduled | smart | off, until?, scheduleId?, profileId?, requests, freeDrivers, ratio, checkedAt? }: multiplier and source exactly as a quote made now would get them (contract.json#pricing.surgeSource, before a category filter); requests, freeDrivers and ratio from the newest SurgeSample.",
+    "history": "GET /admin/zones/{zoneId}/surge/history?hours=1..24&bucketMin=5|10|15|30|60 (settings.read; defaults 6 and 10) → { zoneId, from, to, bucketMin, points: SurgePoint[], priceCheck: PriceCheck, timeline: SurgeTimelineItem[] }.",
+    "points": "SurgePoint { at (bucket start), requests (sum in the bucket), freeDrivers (average, rounded), ratio (average, 0.1), multiplier (highest in the bucket) }, oldest first; a bucket without samples is left out.",
+    "priceCheck": "PriceCheck { windowMin: 60, saw, left, leftPct }: saw = quotes of the zone made in the last 60 minutes with surgeMultiplier above 1.0; left = those of them no trip was created from; leftPct = round(100 × left ÷ saw), 0 when saw is 0.",
+    "timeline": "SurgeTimelineItem { at, kind: manual_start | manual_stop | scheduled_start | scheduled_end | smart_change | smart_end, multiplier, previous?, by? (the admin of a manual surge; 'smart' / 'scheduled' otherwise), profileId?, effect? }, newest first, the last `hours` hours (at most 50). Made from the samples (a change of multiplier or source) and the zone's surge schedules (who started or stopped it). effect, on a start or a rise, compares the 30 minutes after it with the 30 minutes before: { drivers (free drivers after − before, average), ridesPct (round(100 × (trips created after − before) ÷ max(1, before))), leftPct (the price check of the 30 minutes after) }; left out while the 30 minutes after are not over."
+  },
+  "driverSurgeMap": {
+    "note": "v0.7.2 (owner 2026-10-28): the driver app shows surges ONLY as coloured zones on the Home map. No text, no number and no money on the map; the driver never sees the multiplier.",
+    "route": "GET /driver/surge-map (driver) → { at, zones: DriverSurgeZone[] }: the open operating zones of the driver's country whose surge now (as GET /admin/surge/now, before a category filter) is above 1.0. DriverSurgeZone { zoneId, level: low | medium | high, bounds: { south, west, north, east } } (the zone's rectangle). Never the multiplier.",
+    "levels": "low: multiplier above 1.0 and below 1.5 (×1.1–×1.4); medium: 1.5 to 2.5 inclusive; high: above 2.5. A zone at 1.0 is not listed (no colour).",
+    "colours": "low #FFC79E (light orange), medium #FF8A3D (orange, the demo's 'Hög bonus' colour), high #E5482B (red); fill about 40 % opacity with a 2 px edge of the same colour.",
+    "refresh": "the app asks while online on Home: on going online, then every 60 s, and when the app comes back to the front; it keeps the last answer when a call fails; offline it shows no colours.",
+    "tip": "The top bar's waiting tip 'Hög bonus i närheten' / 'Forte majoration à proximité' / 'High boost nearby' (no money, no number, no zone name) shows while the driver's position is inside a listed zone or less than 3 km from its rectangle, any level. The old '+{kr} kr i {zone}' tip is removed.",
+    "tipDistanceKm": 3
+  },
+  "surgeNoticeRemoved": "v0.7.2 (owner 2026-10-28): drivers get NO surge notice. pricing.surge.notifyDrivers is deprecated and ignored, POST /admin/zones/{zoneId}/surge/notify is gone (404) and the server sends no surge_started notification. The driver sees surges only as coloured zones on the Home map (contract.json#driverSurgeMap)."
 }

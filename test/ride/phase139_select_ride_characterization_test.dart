@@ -113,7 +113,7 @@ void main() {
         names.length,
         reason: 'names must be unique',
       );
-      const premium = {'premium', 'business', 'electric', 'pet', 'kids'};
+      const premium = {'premium', 'business', 'electric', 'pet', 'child_seat'};
       final expected = [
         for (final r in catalog)
           if (!premium.contains(r.id)) r.name,

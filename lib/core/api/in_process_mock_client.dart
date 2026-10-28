@@ -309,7 +309,7 @@ class InProcessMockClient extends http.BaseClient {
       glyph: 'plane',
     ),
     _rideType(
-      'kids',
+      'child_seat',
       'Kids seat',
       4,
       12,

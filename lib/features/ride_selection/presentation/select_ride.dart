@@ -936,6 +936,7 @@ class _SelectRideState extends State<SelectRide>
     'electric',
     'pet',
     'kids',
+    'child_seat',
   };
 
   List<_RideOption> get _visibleRides {

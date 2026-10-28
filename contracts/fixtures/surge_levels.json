@@ -1,0 +1,13 @@
+{
+  "note": "v0.7.2 (contract.json#driverSurgeMap.levels): the driver map's colour level for a zone's surge multiplier; null = not listed (no colour).",
+  "cases": [
+    { "multiplier": 1.0, "level": null },
+    { "multiplier": 1.1, "level": "low" },
+    { "multiplier": 1.4, "level": "low" },
+    { "multiplier": 1.5, "level": "medium" },
+    { "multiplier": 2.0, "level": "medium" },
+    { "multiplier": 2.5, "level": "medium" },
+    { "multiplier": 2.6, "level": "high" },
+    { "multiplier": 6.0, "level": "high" }
+  ]
+}

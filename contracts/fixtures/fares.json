@@ -1,6 +1,6 @@
 {
-  "version": "0.5.1",
-  "note": "Fares (CONTRACT.md §3.5, contract.json#pricing). Each case prices input against fixtures/config/pricing_document.json (Z001, the admin Stockholm prices) with overrides deep-merged into it (objects merge, anything else replaces). Every line is its exact amount rounded half-up to a whole minor unit; total is the exact sum rounded once to priceStep, a rounding line makes the lines add up; outstanding_fee is added after that. driverEarnings = min(total before outstanding_fee, half_up((ride part + extras - waiting - stop waiting) x (1 - commissionPct/100)) + waiting + stop_waiting); moveraShare = total - driverEarnings. input: km, minutes = the priced route; waitingChargedSeconds = Waiting.chargedSeconds; stopWaitSeconds = seconds waited at each extra stop (one entry per stop); kind scheduled adds the reservation fee and uses the reservation pickup fee; endEarly = the rider ended the trip early (kmDriven, minutesOnBoard, bookedFare).",
+  "version": "0.7.1",
+  "note": "Fares (CONTRACT.md §3.5, contract.json#pricing). Each case prices input against fixtures/config/pricing_document.json (Z001, the admin Stockholm prices) with overrides deep-merged into it (objects merge, anything else replaces). Every line is its exact amount rounded half-up to a whole minor unit; total is the exact sum rounded once to priceStep, a rounding line makes the lines add up; outstanding_fee is added after that. driverEarnings = min(total before outstanding_fee, half_up((ride part + extras - waiting - stop waiting) x (1 - commissionPct/100)) + waiting + stop_waiting); moveraShare = total - driverEarnings. input: km, minutes = the priced route; waitingChargedSeconds = Waiting.chargedSeconds; stopWaitSeconds = seconds from the driver's \"arrived at stop\" to \"leaving stop\" at each extra stop (one entry per stop; v0.7.1: no free minutes); pickupInAirportZone / dropoffInAirportZone = the server found the point inside a zone of kind airport (v0.7.1: the rider no longer sends airport flags); a child_seat trip always includes one seat: childSeatFee once in the extras line (v0.7.1); babySeats / childSeats above 0 on another category are the error seat_not_offered; kind scheduled adds the reservation fee and uses the reservation pickup fee; endEarly = the rider ended the trip early (kmDriven, minutesOnBoard, bookedFare). v0.6.0: babySeats / childSeats (only on a category with seat fees, i.e. child_seat), airportPickup / airportDropoff and fixedRouteId are what the rider sent on QuoteRequest;",
   "document": "fixtures/config/pricing_document.json",
   "cases": [
     {
@@ -324,8 +324,8 @@
       }
     },
     {
-      "id": "surge_above_cap",
-      "note": "A multiplier above surge.maxMultiplier (3, owner decision 21) is priced at the cap.",
+      "id": "surge_4_is_the_admins_slider",
+      "note": "v0.7.1: a ×4 surge the admin chose on the slider is charged in full (no separate zone maximum; the slider tops out at ×6).",
       "input": {
         "categoryId": "economy",
         "km": 2.5,
@@ -335,7 +335,7 @@
       },
       "expect": {
         "total": {
-          "amountMinor": 28700,
+          "amountMinor": 38300,
           "currency": "SEK"
         },
         "fareLines": [
@@ -363,31 +363,31 @@
           {
             "code": "surge",
             "amount": {
-              "amountMinor": 17400,
+              "amountMinor": 26100,
               "currency": "SEK"
             }
           },
           {
             "code": "app_fee",
             "amount": {
-              "amountMinor": 2610,
+              "amountMinor": 3480,
               "currency": "SEK"
             }
           },
           {
             "code": "rounding",
             "amount": {
-              "amountMinor": -10,
+              "amountMinor": 20,
               "currency": "SEK"
             }
           }
         ],
         "driverEarnings": {
-          "amountMinor": 20880,
+          "amountMinor": 27840,
           "currency": "SEK"
         },
         "moveraShare": {
-          "amountMinor": 7820,
+          "amountMinor": 10460,
           "currency": "SEK"
         }
       }
@@ -462,7 +462,7 @@
       }
     },
     {
-      "id": "stops_first_3_min_free",
+      "id": "stops_paid_from_arrival",
       "note": "Comfort with two stops: 19 kr stop fee each; waits of 2 min (free) and 5.5 min (2.5 min paid at 6 kr). Stop waiting is waiting money: 100 % driver (owner decisions 17, 20).",
       "input": {
         "categoryId": "comfort",
@@ -476,7 +476,7 @@
       },
       "expect": {
         "total": {
-          "amountMinor": 36900,
+          "amountMinor": 40200,
           "currency": "SEK"
         },
         "fareLines": [
@@ -511,14 +511,14 @@
           {
             "code": "stop_waiting",
             "amount": {
-              "amountMinor": 1500,
+              "amountMinor": 4500,
               "currency": "SEK"
             }
           },
           {
             "code": "app_fee",
             "amount": {
-              "amountMinor": 3350,
+              "amountMinor": 3650,
               "currency": "SEK"
             }
           },
@@ -531,11 +531,11 @@
           }
         ],
         "driverEarnings": {
-          "amountMinor": 27100,
+          "amountMinor": 30100,
           "currency": "SEK"
         },
         "moveraShare": {
-          "amountMinor": 9800,
+          "amountMinor": 10100,
           "currency": "SEK"
         }
       }
@@ -626,7 +626,7 @@
     },
     {
       "id": "scheduled_with_extras",
-      "note": "A reservation: the 25 kr reservation fee, the 20 kr reservation pickup fee, one child seat and an airport drop-off fee (zone override 30 kr).",
+      "note": "A reservation of the Child Seat category: the 25 kr reservation fee, the 20 kr reservation pickup fee, one child seat (15 kr, child_seat only) and an airport drop-off fee (zone override 30 kr).",
       "overrides": {
         "fees": {
           "airportDropoff": {
@@ -635,7 +635,7 @@
           }
         },
         "categories": {
-          "economy": {
+          "child_seat": {
             "riderPickupFee": {
               "live": {
                 "amountMinor": 1500,
@@ -650,44 +650,43 @@
         }
       },
       "input": {
-        "categoryId": "economy",
+        "categoryId": "child_seat",
         "km": 12.3,
         "minutes": 24,
-        "childSeats": 1,
-        "airportDropoff": true,
-        "kind": "scheduled"
+        "kind": "scheduled",
+        "dropoffInAirportZone": true
       },
       "expect": {
         "total": {
-          "amountMinor": 41300,
+          "amountMinor": 45700,
           "currency": "SEK"
         },
         "fareLines": [
           {
             "code": "base",
             "amount": {
-              "amountMinor": 2900,
+              "amountMinor": 3500,
               "currency": "SEK"
             }
           },
           {
             "code": "distance",
             "amount": {
-              "amountMinor": 14760,
+              "amountMinor": 17220,
               "currency": "SEK"
             }
           },
           {
             "code": "time",
             "amount": {
-              "amountMinor": 9600,
+              "amountMinor": 12000,
               "currency": "SEK"
             }
           },
           {
             "code": "extras",
             "amount": {
-              "amountMinor": 3000,
+              "amountMinor": 1500,
               "currency": "SEK"
             }
           },
@@ -708,7 +707,7 @@
           {
             "code": "app_fee",
             "amount": {
-              "amountMinor": 3576,
+              "amountMinor": 3972,
               "currency": "SEK"
             }
           },
@@ -722,17 +721,17 @@
           {
             "code": "rounding",
             "amount": {
-              "amountMinor": -36,
+              "amountMinor": 8,
               "currency": "SEK"
             }
           }
         ],
         "driverEarnings": {
-          "amountMinor": 28608,
+          "amountMinor": 31776,
           "currency": "SEK"
         },
         "moveraShare": {
-          "amountMinor": 12692,
+          "amountMinor": 13924,
           "currency": "SEK"
         }
       }
@@ -1212,6 +1211,380 @@
         },
         "moveraShare": {
           "amountMinor": 12440,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "child_seat_one_seat_airport_pickup",
+      "note": "Child Seat: one baby seat and one child seat (15 kr each) and an airport pickup (zone override 65 kr), live.",
+      "overrides": {
+        "fees": {
+          "airportPickup": {
+            "amountMinor": 6500,
+            "currency": "SEK"
+          }
+        }
+      },
+      "input": {
+        "categoryId": "child_seat",
+        "km": 10,
+        "minutes": 20,
+        "kind": "live",
+        "pickupInAirportZone": true
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 39100,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 3500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 14000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 10000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "extras",
+            "amount": {
+              "amountMinor": 1500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "airport",
+            "amount": {
+              "amountMinor": 6500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 3550,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 50,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 28400,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 10700,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "surge_admin_maximum_6",
+      "note": "The admin set the zone maximum to ×6 (the highest allowed): ×4 is priced as asked.",
+      "overrides": {
+        "surge": {
+          "maxMultiplier": 6
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 2.5,
+        "minutes": 7,
+        "surgeMultiplier": 4,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 38300,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 3000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 2800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "surge",
+            "amount": {
+              "amountMinor": 26100,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 3480,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 20,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 27840,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 10460,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "surge_above_admin_maximum_6",
+      "note": "×7 with the zone maximum at ×6 is priced at ×6.",
+      "overrides": {
+        "surge": {
+          "maxMultiplier": 6
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 2.5,
+        "minutes": 7,
+        "surgeMultiplier": 7,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 57400,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 3000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 2800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "surge",
+            "amount": {
+              "amountMinor": 43500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 5220,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": -20,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 41760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 15640,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "child_seat_includes_its_seat",
+      "input": {
+        "categoryId": "child_seat",
+        "km": 5,
+        "minutes": 12,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 19800,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 3500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 7000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 6000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "extras",
+            "amount": {
+              "amountMinor": 1500,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1800,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 14400,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5400,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "seat_on_economy_refused",
+      "input": {
+        "categoryId": "economy",
+        "km": 5,
+        "minutes": 12,
+        "childSeats": 1,
+        "kind": "live"
+      },
+      "expect": {
+        "error": "seat_not_offered"
+      }
+    },
+    {
+      "id": "airport_flag_from_rider_ignored",
+      "input": {
+        "categoryId": "economy",
+        "km": 5,
+        "minutes": 12,
+        "airportPickup": true,
+        "kind": "live"
+      },
+      "overrides": {
+        "fees": {
+          "airportPickup": {
+            "amountMinor": 6500,
+            "currency": "SEK"
+          }
+        }
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 15100,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 6000,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 4800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1370,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 10960,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 4140,
           "currency": "SEK"
         }
       }

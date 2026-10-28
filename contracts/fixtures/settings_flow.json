@@ -1,0 +1,377 @@
+{
+  "note": "v0.8.0 settings flow (CONTRACT.md §6.4–§6.6, contract.json#configDocs.standard, #configVersion, #configDocs.countryRules, #autoOffline, #bookingSnapshot). reference_check.py replays every case; each app and the server must give the same answers.",
+  "standard": [
+    {
+      "id": "zone-without-own-uses-standard",
+      "own": {},
+      "standard": {
+        "SE": 4
+      },
+      "zone": {
+        "zoneId": "Z002",
+        "country": "SE"
+      },
+      "expect": {
+        "usesStandard": true,
+        "version": 4
+      }
+    },
+    {
+      "id": "zone-with-own-never-uses-standard",
+      "own": {
+        "Z002": 2
+      },
+      "standard": {
+        "SE": 9
+      },
+      "zone": {
+        "zoneId": "Z002",
+        "country": "SE"
+      },
+      "expect": {
+        "usesStandard": false,
+        "version": 2
+      }
+    },
+    {
+      "id": "other-country-standard-not-used",
+      "own": {},
+      "standard": {
+        "FR": 3
+      },
+      "zone": {
+        "zoneId": "Z002",
+        "country": "SE"
+      },
+      "expect": {
+        "usesStandard": false,
+        "version": null
+      }
+    },
+    {
+      "id": "nothing-published",
+      "own": {},
+      "standard": {},
+      "zone": {
+        "zoneId": "FR-PC",
+        "country": "FR"
+      },
+      "expect": {
+        "usesStandard": false,
+        "version": null
+      }
+    }
+  ],
+  "versions": [
+    {
+      "id": "server-stamps-ignoring-admin",
+      "zone": {
+        "zoneId": "Z001",
+        "country": "SE"
+      },
+      "steps": [
+        {
+          "publish": "standard",
+          "adminVersion": 77,
+          "expect": 1
+        },
+        {
+          "publish": "standard",
+          "adminVersion": 1,
+          "expect": 2
+        },
+        {
+          "publish": "own",
+          "adminVersion": 1,
+          "expect": 3
+        },
+        {
+          "publish": "standard",
+          "adminVersion": 1,
+          "expect": 3
+        },
+        {
+          "publish": "own",
+          "adminVersion": 1,
+          "expect": 4
+        }
+      ]
+    }
+  ],
+  "countryRules": [
+    {
+      "id": "rules-replace-zone-values",
+      "rules": {
+        "tips": [
+          500,
+          1500
+        ],
+        "raiseSteps": [
+          2500
+        ],
+        "driverBonus": [
+          15000,
+          80000
+        ]
+      },
+      "document": {
+        "tips": [
+          1000,
+          2000,
+          3000
+        ],
+        "raiseSteps": [
+          5000,
+          10000
+        ],
+        "driverBonus": [
+          20000,
+          100000
+        ]
+      },
+      "expect": {
+        "tips": [
+          500,
+          1500
+        ],
+        "raiseSteps": [
+          2500
+        ],
+        "driverBonus": [
+          15000,
+          80000
+        ]
+      }
+    },
+    {
+      "id": "no-rules-keeps-document",
+      "rules": null,
+      "document": {
+        "tips": [
+          1000
+        ],
+        "raiseSteps": [
+          5000
+        ],
+        "driverBonus": [
+          20000,
+          100000
+        ]
+      },
+      "expect": {
+        "tips": [
+          1000
+        ],
+        "raiseSteps": [
+          5000
+        ],
+        "driverBonus": [
+          20000,
+          100000
+        ]
+      }
+    }
+  ],
+  "autoOffline": [
+    {
+      "id": "ten-exclusive-in-a-row",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "xe",
+        "xd",
+        "xe",
+        "xd",
+        "xe",
+        "xd",
+        "xe",
+        "xd",
+        "xe"
+      ],
+      "expectOfflineAt": 9
+    },
+    {
+      "id": "radar-miss-never-counts",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "rd",
+        "re",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd"
+      ],
+      "expectOfflineAt": 11
+    },
+    {
+      "id": "scheduled-never-counts",
+      "limit": 10,
+      "offers": [
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "exclusive-accept-resets",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xa",
+        "xd",
+        "xd",
+        "xd"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "going-online-resets",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "on",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd"
+      ],
+      "expectOfflineAt": 15
+    },
+    {
+      "id": "assigned-never-counts",
+      "limit": 3,
+      "offers": [
+        "ad",
+        "ae",
+        "ad",
+        "xd",
+        "xd",
+        "xe"
+      ],
+      "expectOfflineAt": 5
+    },
+    {
+      "id": "radar-accept-resets",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "xd",
+        "ra",
+        "xd",
+        "xd"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "on-trip-exclusive-never-counts",
+      "limit": 3,
+      "offers": [
+        "xd",
+        "td",
+        "te",
+        "td",
+        "xd",
+        "xe"
+      ],
+      "expectOfflineAt": 5
+    }
+  ],
+  "snapshot": [
+    {
+      "id": "late-publish-does-not-change-booked-trip",
+      "atBooking": {
+        "cancelRule": {
+          "freeMin": 2,
+          "type": "fixed",
+          "value": 6500,
+          "min": null,
+          "max": null
+        },
+        "cancelDriverSharePct": 100,
+        "noShowFee": 6500,
+        "noShowDriverSharePct": 80
+      },
+      "publishedLater": {
+        "cancelRule": {
+          "freeMin": 0,
+          "type": "fixed",
+          "value": 9900,
+          "min": null,
+          "max": null
+        },
+        "cancelDriverSharePct": 50,
+        "noShowFee": 9900,
+        "noShowDriverSharePct": 40
+      },
+      "expect": {
+        "cancelFee": 6500,
+        "cancelDriverPart": 6500,
+        "noShowFee": 6500,
+        "noShowDriverPart": 5200
+      }
+    }
+  ],
+  "useStandard": [
+    {
+      "id": "back-to-standard-never-lowers-version",
+      "standard": 4,
+      "own": 9,
+      "expect": {
+        "standard": 10,
+        "servedVersion": 10,
+        "usesStandard": true
+      }
+    },
+    {
+      "id": "standard-already-higher",
+      "standard": 12,
+      "own": 9,
+      "expect": {
+        "standard": 13,
+        "servedVersion": 13,
+        "usesStandard": true
+      }
+    }
+  ]
+}
