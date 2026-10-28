@@ -39,7 +39,7 @@ jobs:
           # Live wire: the chat sends through the server (transport). Demo: no
           # transport, so nothing is appended locally to look sent.
           grep -q "canSendMessages => _transport != null" lib/features/messages/application/messages_controller.dart
-          grep -q "if (_transport == null) return false;" lib/features/messages/application/messages_controller.dart
+          grep -q "if (_transport == null || isClosed) return false;" lib/features/messages/application/messages_controller.dart
           # Round 4: the copy lives in l10n; check the code uses it and that
           # English still reads the same.
           grep -q "sendUnavailableMessage => L10n.current.chatSendUnavailable" lib/features/messages/application/messages_controller.dart

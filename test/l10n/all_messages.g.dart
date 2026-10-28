@@ -440,8 +440,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'driverWaitingAtPickup': l.driverWaitingAtPickup,
   'imOnTheWay': l.imOnTheWay,
   'yourDriver': l.yourDriver,
-  'callUnavailableTitle': l.callUnavailableTitle,
-  'callUnavailableBody': l.callUnavailableBody('<driver>'),
   'nameCancelled': l.nameCancelled('<name>'),
   'driverCancelledBody': l.driverCancelledBody,
   'nearDestinationUpper': l.nearDestinationUpper,
@@ -1241,6 +1239,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chatSendUnavailableSemantics': l.chatSendUnavailableSemantics,
   'chatSystemMessage': l.chatSystemMessage('<text>'),
   'chatCallUnavailable': l.chatCallUnavailable,
+  'chatClosedAfterTrip': l.chatClosedAfterTrip,
   'chatCall': l.chatCall,
   'chatSendSemantics': l.chatSendSemantics,
   'chatSendFailed': l.chatSendFailed,
@@ -1585,7 +1584,6 @@ const messagePlaceholders = <String, List<String>>{
   'afterFreeWait': ['time', 'minutes', 'rate'],
   'thenWaitingFee': ['rate'],
   'nameIsHere': ['name'],
-  'callUnavailableBody': ['driver'],
   'nameCancelled': ['name'],
   'chargedTo': ['amount', 'method'],
   'creditedToWallet': ['amount'],
@@ -2595,10 +2593,6 @@ class _Exhaustive implements AppLocalizations {
   String get imOnTheWay => '';
   @override
   String get yourDriver => '';
-  @override
-  String get callUnavailableTitle => '';
-  @override
-  String callUnavailableBody(String driver) => '';
   @override
   String nameCancelled(String name) => '';
   @override
@@ -4197,6 +4191,8 @@ class _Exhaustive implements AppLocalizations {
   String chatSystemMessage(String text) => '';
   @override
   String get chatCallUnavailable => '';
+  @override
+  String get chatClosedAfterTrip => '';
   @override
   String get chatCall => '';
   @override

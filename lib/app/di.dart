@@ -49,7 +49,9 @@ import 'package:movera_rider/features/destination_search/application/destination
 import 'package:movera_rider/features/onboarding/application/onboarding_controller.dart';
 import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
+import 'package:movera_rider/features/messages/data/api_trip_call.dart';
 import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
+import 'package:movera_rider/features/messages/domain/trip_call_transport.dart';
 import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
@@ -411,6 +413,12 @@ class AppScope {
   /// is null and Chat stays read-only as before.
   late final TripMessagesTransport? tripMessages = api.contractWire
       ? ApiTripMessages(api: api)
+      : null;
+
+  /// Contract v0.13.0 §22: masked calls (`POST /trips/{tripId}/call`) on
+  /// the live wire; the demo has none and says calls are not available.
+  late final TripCallTransport? tripCall = api.contractWire
+      ? ApiTripCall(api: api)
       : null;
 
   /// The in-app explanation in front of the OS notification prompt.

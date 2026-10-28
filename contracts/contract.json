@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.12.0",
+  "version": "0.14.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1295,6 +1295,12 @@
       "caseInsensitive": true,
       "joinAttemptsPerHour": 10
     },
+    "activation": {
+      "note": "v0.14.0 (owner decisions, PROGRESS.md #6 and 2026-10-28): account activation and car approval are separate. POST /admin/drivers/{driverId}/status with status active is refused with 409 documents_not_approved unless every required document has a document with status approved (kinds acceptance and admin_check included): a driver attached to a fleet needs every type in Driver.requiredDocuments; a fleet owner (also a driver who drives his own car; a fleet may have one car) needs every type in Driver.requiredDocuments AND Driver.requiredFleetDocuments. No car is needed for activation, and a missing car never puts an account on hold. Cars: only a car with status approved whose Vehicle.requiredDocuments are all approved can be picked (PATCH /driver/profile { vehicleId }) or driven online (POST /driver/availability); otherwise 409 documents_not_approved, reason vehicle_documents_not_approved, with details.",
+      "errorCode": "documents_not_approved",
+      "vehicleReason": "vehicle_documents_not_approved",
+      "details": "string[] of \"<scope>:<type>\" for each required type that is missing or not approved; scope driver (Driver.requiredDocuments), fleet (Driver.requiredFleetDocuments) or vehicle (Vehicle.requiredDocuments), e.g. driver:info_session, fleet:company_registration, vehicle:insurance"
+    },
     "vehicles": {
       "note": "Fleet accounts own the cars (POST /driver/vehicles); an admin approves each (POST /admin/vehicles/{vehicleId}/review). A linked driver sees the fleet's approved cars (GET /driver/vehicles) and picks the one he drives (PATCH /driver/profile { vehicleId }). One car has one driver at a time: a car is in use while another driver has it picked and is online or on a trip (409 conflict, reason vehicle_in_use); picking a car another offline driver had moves it (that driver picks again before going online). A driver account that is not linked to a fleet has no cars (the app says the fleet's vehicle details are awaited)."
     },
@@ -2249,7 +2255,8 @@
     ]
   },
   "errors": {
-    "shape": "{ code, message, requestId, retryable, reason?, projection? }",
+    "shape": "{ code, message, requestId, retryable, reason?, projection?, details? }",
+    "details": "v0.14.0: optional string[] detail list; documents_not_approved lists the missing or unapproved required document types",
     "codes": [
       "invalid_request",
       "unauthenticated",
@@ -2259,6 +2266,7 @@
       "conflict",
       "invalid_transition",
       "version_mismatch",
+      "documents_not_approved",
       "rate_limited",
       "unavailable",
       "internal"
@@ -2553,7 +2561,9 @@
       "pending",
       "resolved",
       "closed"
-    ]
+    ],
+    "adminScope": "v0.13.0: GET /admin/tickets, GET /admin/tickets/{ticketId} and POST /admin/tickets/{ticketId}/reply need support.reply (reading too) and see only tickets of the admin's zones (super admin: all; a ticket without zone: super admin only). Outside the zones: 403 forbidden, reason zone_out_of_scope. Every reply is audited.",
+    "ownScope": "v0.13.0: a rider or driver sees only the tickets they opened; another person's ticket is 404 not_found. A ticket with tripId must be the caller's own trip (else 404)."
   },
   "payouts": {
     "note": "v0.9.0 (owner real-data decision, part 3): every week (Monday 00:00 to Monday 00:00 in the zone's time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",
@@ -3142,6 +3152,30 @@
           "en": "Skipped"
         }
       }
+    }
+  },
+  "chat": {
+    "note": "v0.13.0 (CONTRACT.md §23, owner decisions 2026-10-28 and 'chat only support roles in their zones'): trip chat between the trip's rider and driver, read and written by support admins of the trip's zone; calls go through a masked number; no phone numbers in rider or driver payloads.",
+    "participants": [
+      "rider",
+      "driver",
+      "support"
+    ],
+    "adminPermission": "support.reply",
+    "adminScope": "An admin reads (GET) and writes (POST) /trips/{tripId}/messages only with support.reply and only for a trip in one of the admin's zones (super admin: all). Without the permission: 403 forbidden; outside the zones: 403 forbidden, reason zone_out_of_scope.",
+    "openStatuses": "tripStatus.driverAssigned",
+    "window": "The chat is open from driver assignment until drop-off. When the trip is terminal (tripStatus.terminal) a POST from the rider or the driver is 409 invalid_transition, reason chat_closed; there is no grace period after the trip (the earlier 1 hour is removed). Reading the history stays allowed while the messages are kept. Support (admin) may still write on a closed trip.",
+    "retentionDays": 90,
+    "retention": "A daily server job deletes trip chat messages older than 90 days. Messages of a trip that has a safety incident (SOS, driver_silent or any incident linked to the trip) are kept with the case and are deleted only with the case.",
+    "fleetChat": "None: there is no fleet owner to driver chat.",
+    "noPhoneNumbers": "Rider and driver payloads (TripProjection rider/driver views, Message, realtime envelopes, SupportTicket in the apps) never carry the other side's real phone number. Only the person's own profile carries their own phone.",
+    "call": {
+      "endpoint": "POST /trips/{tripId}/call",
+      "who": "The trip's rider or driver, while the trip is in chat.openStatuses.",
+      "answer": "200 TripCall { tripId, proxyNumber, expiresAt }: dial proxyNumber; the telephony provider bridges to the other side without showing either real number.",
+      "unavailable": "503 unavailable, reason call_unavailable, while no telephony provider is set up (the server default). The app then hides the call button or offers the chat.",
+      "closed": "409 invalid_transition, reason chat_closed, outside the open statuses.",
+      "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'."
     }
   }
 }

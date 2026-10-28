@@ -45,7 +45,6 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_call_unavailable_dialog.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -54,6 +53,7 @@ import 'package:movera_rider/features/ride_booking/domain/entities/matched_drive
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/messages/presentation/trip_call.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
@@ -519,6 +519,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // The chat ends with the trip: no more polling for its messages.
     if (status.isTerminal || status.isCompletedSurface) {
       _messages?.stopPolling();
+      // Contract v0.13.0 §22: the chat closes at drop-off.
+      MessagesController.closeRide(_rideId ?? '');
     }
     final replaced = _tracking.takeReplacedDriver();
     if (replaced != null) _onDriverReplaced(replaced);
@@ -1415,11 +1417,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
-  void _callDriverUnavailable() {
-    final driver = _tracking.driver ?? widget.driver;
+  /// Contract v0.13.0 §22: the masked call, never the driver's number.
+  void _callDriver() {
     SafetyController.shared.record(SafetyKind.maskedCall, rideId: _rideId);
     unawaited(
-      showDriverCallUnavailable(context, driverName: driver?.displayFirstName),
+      callTripPeer(
+        context,
+        rideId: _rideId,
+        transport: AppScope.instance.tripCall,
+      ),
     );
   }
 
@@ -2438,7 +2444,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         rideId: _rideId,
         status: _tracking.status,
         onOpenProfile: _openProfile,
-        onCall: _callDriverUnavailable,
+        onCall: _callDriver,
         onMore: widget.routeChangeSupported ? _openDetails : null,
         onCancel: _confirmCancel,
       );
@@ -2453,7 +2459,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             driver: driver,
             rideId: _rideId,
             onOpenProfile: _openProfile,
-            onCall: _callDriverUnavailable,
+            onCall: _callDriver,
             onMore: widget.routeChangeSupported ? _openDetails : null,
           ),
           const SizedBox(height: 12),
