@@ -1,0 +1,35 @@
+{
+  "version": "0.9.0",
+  "note": "Payout lines (CONTRACT.md §16, contract.json#payouts). From the driver's earnings entries not yet in a payout: trips = trip earnings + admin adjustments − waiting; waiting = the trip's waiting and stop_waiting fare lines (100 % the driver's); pickup_pay, bonus, tips and fees (the driver's share of cancel and no-show fees) as credited; cash_collected = − the cash the driver took. amount = the sum of the lines; it may be negative. An entry already in a payout is never counted again. Lines with 0 are left out, except trips.",
+  "cases": [
+    {
+      "id": "card_week",
+      "entries": [
+        { "kind": "trip", "amountMinor": 24000, "cashMinor": 0, "waitingMinor": 1200 },
+        { "kind": "trip", "amountMinor": 16000, "cashMinor": 0, "waitingMinor": 0 },
+        { "kind": "pickup_pay", "amountMinor": 1500 },
+        { "kind": "tip", "amountMinor": 2000 }
+      ],
+      "expect": { "lines": { "trips": 38800, "waiting": 1200, "pickup_pay": 1500, "tips": 2000 }, "tripCount": 2, "amountMinor": 43500 }
+    },
+    {
+      "id": "cash_week_driver_owes",
+      "entries": [
+        { "kind": "trip", "amountMinor": 32000, "cashMinor": 40000, "waitingMinor": 0 },
+        { "kind": "trip", "amountMinor": 8000, "cashMinor": 10000, "waitingMinor": 600 },
+        { "kind": "bonus", "amountMinor": 1000 },
+        { "kind": "fee_share", "amountMinor": 2500 }
+      ],
+      "expect": { "lines": { "trips": 39400, "waiting": 600, "bonus": 1000, "fees": 2500, "cash_collected": -50000 }, "tripCount": 2, "amountMinor": -6500 }
+    },
+    {
+      "id": "adjustment_in_trips_and_paid_entries_skipped",
+      "entries": [
+        { "kind": "trip", "amountMinor": 20000, "cashMinor": 0, "waitingMinor": 0 },
+        { "kind": "adjustment", "amountMinor": -1500 },
+        { "kind": "trip", "amountMinor": 9000, "cashMinor": 0, "waitingMinor": 0, "inPayout": true }
+      ],
+      "expect": { "lines": { "trips": 18500 }, "tripCount": 1, "amountMinor": 18500 }
+    }
+  ]
+}
