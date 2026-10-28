@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:flutter/foundation.dart';
@@ -113,6 +114,10 @@ class RideSelectionController {
   final Map<String, DateTime> quoteExpiresAt = {};
   final Map<String, RideQuote> authoritativeQuotes = {};
   final Set<String> unavailableQuoteIds = <String>{};
+
+  /// v0.11.0 §20: the server refused a quote because the pickup lies in no
+  /// open zone (`403 forbidden service_not_available`).
+  bool notServed = false;
 
   /// Rides whose quote ran out: until a new one lands they have no price
   /// to show, and their list price is never taken as the fare
@@ -438,6 +443,7 @@ class RideSelectionController {
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     usedFallback = false;
+    notServed = false;
     final catalog = rides();
     if (catalog.isEmpty) return;
     // rider-r4-29: a category the catalog no longer offers keeps no quote;
@@ -506,6 +512,7 @@ class RideSelectionController {
     } catch (error) {
       if (generation != _quoteGeneration) return;
       if (error is QuoteCategoryNotOffered) notOfferedIds.add(rideId);
+      if (isNotServedError(error)) notServed = true;
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
@@ -821,3 +828,10 @@ class RideSelectionController {
 class _QuoteLoadCancelled implements Exception {
   const _QuoteLoadCancelled();
 }
+
+/// True for the server's "no open zone here" answer (contract v0.11.0
+/// §20: `403 forbidden`, reason `service_not_available`).
+bool isNotServedError(Object error) =>
+    error is ApiError &&
+    error.statusCode == 403 &&
+    error.detail == 'service_not_available';

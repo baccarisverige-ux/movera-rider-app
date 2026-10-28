@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
+import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/core/content/rider_content_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
@@ -383,6 +384,13 @@ class AppScope {
   late RiderConfigRepository riderConfig = api.contractWire
       ? ApiRiderConfigRepository(api: api)
       : const SeedRiderConfigRepository();
+
+  /// Zones (contract v0.11.0 §20): the server's open zones from
+  /// `GET /rider/zones` on the contract wire (kept on the device, read
+  /// again on `config_published` doc zones); the demo keeps its samples.
+  late final RiderZonesController zones = RiderZonesController(
+    api: api.contractWire ? api : null,
+  );
 
   /// Content (contract v0.10.0 §19): banners, Help, Legal and app versions
   /// from `GET /rider/content` on the contract wire; the demo keeps its

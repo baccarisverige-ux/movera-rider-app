@@ -70,6 +70,7 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
+import 'package:movera_rider/features/ride_selection/presentation/not_here_view.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
@@ -2191,6 +2192,14 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   Widget build(BuildContext context) {
+    // v0.11.0 §20: outside every open zone there is nothing to book.
+    if (_selection.notServed ||
+        !RiderZones.serves(
+          _pickupPosition.latitude,
+          _pickupPosition.longitude,
+        )) {
+      return const NotHereView();
+    }
     final media = MediaQuery.of(context);
     _media = media;
     _settledStop ??= _midValue(media);
