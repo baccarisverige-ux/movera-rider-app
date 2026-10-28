@@ -139,14 +139,30 @@ class RideCatalogController extends ChangeNotifier {
     for (final item in list) {
       if ((CategoryIds.tryCanonical(item.id) ?? item.id) == id) return item;
     }
+    // Contract v0.6.0: the app's own `kids` item is the catalog's Child Seat
+    // (its picture and list price under the admin's name).
+    if (id == _childSeat) {
+      for (final item in list) {
+        if (item.id == _kids) return item;
+      }
+    }
     return null;
   }
+
+  static const _childSeat = 'child_seat';
+  static const _kids = 'kids';
 
   static RideCatalogItem _withConfig(
     RiderConfigCategory category,
     RideCatalogItem? known,
   ) => RideCatalogItem(
-    id: known?.id ?? category.id,
+    // The catalog's id; the built-in item's own spelling only when it is
+    // the same category (an alias such as `movera`).
+    id:
+        known != null &&
+            (CategoryIds.tryCanonical(known.id) ?? known.id) == category.id
+        ? known.id
+        : category.id,
     image: known?.image ?? RideCatalogJson.fallbackImage,
     name: category.label,
     note: known?.note ?? '',
@@ -157,6 +173,7 @@ class RideCatalogController extends ChangeNotifier {
     badge: known?.badge,
     glyph: known?.glyph,
     currency: known?.currency ?? 'SEK',
+    line: category.line,
   );
 
   Future<List<RideCatalogItem>> _loadFallback() async {
@@ -200,6 +217,11 @@ class RideCatalogController extends ChangeNotifier {
         .toList();
   }
 
+  static bool _sameLine(Map<String, String>? a, Map<String, String>? b) {
+    if (a == null || b == null) return a == b;
+    return a.length == b.length && a.keys.every((k) => a[k] == b[k]);
+  }
+
   static bool _sameCatalog(List<RideCatalogItem> a, List<RideCatalogItem> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
@@ -214,7 +236,8 @@ class RideCatalogController extends ChangeNotifier {
           x.seats != y.seats ||
           x.badge != y.badge ||
           x.glyph != y.glyph ||
-          x.image != y.image) {
+          x.image != y.image ||
+          !_sameLine(x.line, y.line)) {
         return false;
       }
     }

@@ -14,12 +14,16 @@ class RiderConfigCategory {
     required this.label,
     required this.seats,
     required this.sort,
+    this.line,
   });
 
   final String id;
   final String label;
   final int seats;
   final int sort;
+
+  /// Contract v0.7.1: the admin's sub-line per language (`sv`, `fr`, `en`).
+  final Map<String, String>? line;
 }
 
 /// The rider's fixed pickup fee of one category (`RiderAppConfig.pickupFee`,
@@ -371,6 +375,17 @@ class RiderAppConfig {
   static Money? _positive(Money? value) =>
       value != null && value.amountMinor > 0 ? value : null;
 
+  /// `{ sv, fr, en }` with the texts that are set; null when none is.
+  static Map<String, String>? _line(Object? raw) {
+    if (raw is! Map) return null;
+    final out = <String, String>{
+      for (final code in const ['sv', 'fr', 'en'])
+        if (raw[code] is String && (raw[code] as String).trim().isNotEmpty)
+          code: (raw[code] as String).trim(),
+    };
+    return out.isEmpty ? null : Map.unmodifiable(out);
+  }
+
   static List<RiderConfigCategory>? _categories(Object? catalog) {
     final rows = catalog is Map ? catalog['categories'] : null;
     if (rows is! List) return null;
@@ -388,6 +403,7 @@ class RiderAppConfig {
           label: _string(row['label']) ?? id,
           seats: seats is int && seats > 0 ? seats : 4,
           sort: sort is int ? sort : out.length + 1,
+          line: _line(row['line']),
         ),
       );
     }
