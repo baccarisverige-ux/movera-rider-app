@@ -21,6 +21,24 @@ String rideNoteFor(String note) => switch (note) {
   _ => note,
 };
 
+/// A ride category's name as the rider reads it (owner 2026-10-28): the
+/// built-in catalog's plain English names are translated; brand names
+/// ("Movera", "Movera XL", "Movera Pet"), "Premium" and any name the admin
+/// wrote are shown as they are. The stored name stays the category's.
+String rideNameFor(String name) => switch (name.trim()) {
+  'Comfort' => L10n.current.categoryComfort,
+  'Priority' => L10n.current.categoryPriority,
+  'Electric' => L10n.current.categoryElectric,
+  'Van' => L10n.current.categoryVan,
+  'Wheelchair' => L10n.current.categoryWheelchair,
+  'Business' => L10n.current.categoryBusiness,
+  'Airport' => L10n.current.categoryAirport,
+  'Kids seat' => L10n.current.categoryKidsSeat,
+  'Women driver' => L10n.current.categoryWomenDriver,
+  'Delivery' => L10n.current.categoryDelivery,
+  _ => name,
+};
+
 /// A ride category's badge: the built-in RECOMMENDED and FASTER read as
 /// the list's filter chips do, in capitals; other badges as they are.
 String rideBadgeFor(String badge) => switch (badge) {

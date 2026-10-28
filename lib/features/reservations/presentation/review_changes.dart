@@ -4,6 +4,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class ReviewChangesPage extends StatelessWidget {
@@ -228,7 +229,7 @@ class _CompareCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '$category  ·  ${ReservationFormat.kr(price, currency)}',
+            '${rideNameFor(category)}  ·  ${ReservationFormat.kr(price, currency)}',
             style: reservationText(15, weight: FontWeight.w700),
           ),
           const SizedBox(height: 4),

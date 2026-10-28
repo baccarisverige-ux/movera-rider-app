@@ -51,7 +51,7 @@ class AccountSession {
   factory AccountSession.fromJson(Map<String, dynamic> json) {
     return AccountSession(
       id: json['id'] as String? ?? '',
-      device: json['device'] as String? ?? 'Device',
+      device: json['device'] as String? ?? '',
       place: json['place'] as String? ?? '',
       source: json['source'] as String? ?? '',
       current: json['current'] == true,

@@ -39,6 +39,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
@@ -1307,7 +1308,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.rideType,
+                        rideNameFor(widget.rideType),
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: const Color(0xFF5C656C),

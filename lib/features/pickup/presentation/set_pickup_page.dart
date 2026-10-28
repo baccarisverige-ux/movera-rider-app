@@ -19,6 +19,7 @@ import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
@@ -1207,7 +1208,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                   children: [
                     Flexible(
                       child: Text(
-                        ride.name,
+                        rideNameFor(ride.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: _text(19, weight: FontWeight.w700),

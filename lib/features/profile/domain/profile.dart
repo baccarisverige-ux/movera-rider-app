@@ -20,7 +20,7 @@ class LoginSession {
 
   static LoginSession fromJson(Map<String, dynamic> map) {
     return LoginSession(
-      device: map['device'] as String? ?? 'Device',
+      device: map['device'] as String? ?? '',
       place: map['place'] as String? ?? '',
       source: map['source'] as String? ?? '',
       current: map['current'] == true,

@@ -85,7 +85,8 @@ class ReservationDriver {
 
   bool get hasFirstName => normalizedFirstName.isNotEmpty;
 
-  String get displayFirstName => hasFirstName ? normalizedFirstName : 'Driver';
+  String get displayFirstName =>
+      hasFirstName ? normalizedFirstName : L10n.current.driver;
 
   String get initial => initialFromName(normalizedFirstName);
 

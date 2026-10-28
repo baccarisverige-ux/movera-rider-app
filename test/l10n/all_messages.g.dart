@@ -1501,6 +1501,19 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'swRatingStatusPending': l.swRatingStatusPending,
   'swRatingStatusSubmitted': l.swRatingStatusSubmitted,
   'swRatingStatusSkipped': l.swRatingStatusSkipped,
+  'sessionDeviceUnknown': l.sessionDeviceUnknown,
+  'loaderTitle': l.loaderTitle,
+  'loaderMessage': l.loaderMessage,
+  'categoryComfort': l.categoryComfort,
+  'categoryPriority': l.categoryPriority,
+  'categoryElectric': l.categoryElectric,
+  'categoryVan': l.categoryVan,
+  'categoryWheelchair': l.categoryWheelchair,
+  'categoryBusiness': l.categoryBusiness,
+  'categoryAirport': l.categoryAirport,
+  'categoryKidsSeat': l.categoryKidsSeat,
+  'categoryWomenDriver': l.categoryWomenDriver,
+  'categoryDelivery': l.categoryDelivery,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4703,4 +4716,30 @@ class _Exhaustive implements AppLocalizations {
   String get swRatingStatusSubmitted => '';
   @override
   String get swRatingStatusSkipped => '';
+  @override
+  String get sessionDeviceUnknown => '';
+  @override
+  String get loaderTitle => '';
+  @override
+  String get loaderMessage => '';
+  @override
+  String get categoryComfort => '';
+  @override
+  String get categoryPriority => '';
+  @override
+  String get categoryElectric => '';
+  @override
+  String get categoryVan => '';
+  @override
+  String get categoryWheelchair => '';
+  @override
+  String get categoryBusiness => '';
+  @override
+  String get categoryAirport => '';
+  @override
+  String get categoryKidsSeat => '';
+  @override
+  String get categoryWomenDriver => '';
+  @override
+  String get categoryDelivery => '';
 }
