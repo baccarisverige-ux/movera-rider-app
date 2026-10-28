@@ -1,5 +1,5 @@
 """Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json, surge.json,
-fares.json and dispatch.json, and checks the pricing and dispatch sample documents agree with contract.json#configDefaults.
+fares.json, dispatch.json and settings_flow.json (v0.8.0), and checks the pricing and dispatch sample documents agree with contract.json#configDefaults.
 Each app's contract tests must give the same answers."""
 import json, sys
 c = json.load(open('contract.json'))
@@ -88,12 +88,75 @@ sj = json.load(open('fixtures/surge.json'))
 for case in sj['cases']:
     got = surge_at(sj['schedule'], case['at'])
     if got != case['multiplier']: bad += 1; print('SURGE', case['at'], 'expected', case['multiplier'], 'got', got)
+# ---- v0.7.1: overlapping planned surges (the higher counts) and smart surge (contract.json#smartSurge)
+from datetime import datetime as _dt
+_ts = lambda x: _dt.fromisoformat(x.replace('Z', '+00:00'))
+ov = sj['scheduledOverlap']
+for case in ov['cases']:
+    got = max([w['multiplier'] for w in ov['windows'] if _ts(w['startsAt']) <= _ts(case['at']) < _ts(w['endsAt'])] or [1.0])
+    if got != case['multiplier']: bad += 1; print('SURGE OVERLAP', case['at'], 'expected', case['multiplier'], 'got', got)
+def hm(s): h, m = s.split(':'); return int(h) * 60 + int(m)
+def profile_at(smart, weekday, minute):
+    """First non-default profile from the top whose days and windows match (a window may wrap midnight; from == to is all day), else the default."""
+    for p in smart['profiles']:
+        if p['isDefault']: continue
+        for w in p['windows']:
+            f, t = hm(w['from']), hm(w['to'])
+            y = (weekday + 6) % 7
+            if (f == t and weekday in p['days']) or (f < t and weekday in p['days'] and f <= minute < t) or \
+               (f > t and ((weekday in p['days'] and minute >= f) or (y in p['days'] and minute < t))): return p['id']
+    return next((p['id'] for p in smart['profiles'] if p['isDefault']), None)
+def in_hours(smart, minute):
+    f, t = hm(smart['activeFrom']), hm(smart['activeTo'])
+    return f == t or (f < t and f <= minute < t) or (f > t and (minute >= f or minute < t))
+def target(profile, ratio, max_mult):
+    m = 1.0
+    for s in profile['steps']:
+        if ratio >= s['ratio']: m = s['multiplier']
+    return min(m, profile['cap'], max_mult)
+def run(smart, profile, max_mult, checks):
+    """checks: [{atMin, ratio}] in order. Returns the applied multiplier after each check."""
+    cur, up_since, low_since, last = 1.0, None, None, None
+    levels = sorted({min(s['multiplier'], profile['cap'], max_mult) for s in profile['steps']})
+    out = []
+    for c in checks:
+        t, tg = c['atMin'], target(profile, c['ratio'], max_mult)
+        cool = last is None or t - last >= smart['cooldownMin']
+        low_since = (low_since if low_since is not None else t) if tg == 1.0 else None
+        if tg > cur:
+            up_since = up_since if up_since is not None else t
+            if t - up_since >= smart['holdMin'] and cool: cur, last, up_since = tg, t, None
+        else:
+            up_since = None
+            if tg < cur:
+                if low_since is not None and t - low_since >= smart['stopAfterMin']: cur, last = 1.0, t
+                elif cool:
+                    lower = [l for l in levels if l < cur]
+                    cur, last = max(max(lower) if lower else 1.0, tg), t
+        out.append(cur)
+    return out
+ssj = json.load(open('fixtures/smart_surge.json')); _smart = json.load(open('fixtures/config/pricing_document.json'))['surge']['smart']
+for case in ssj['cases']:
+    prof = next(p for p in _smart['profiles'] if p['id'] == case['profileId'])
+    got = run(_smart, prof, case['maxMultiplier'], case['checks'])
+    if got != case['expect']: bad += 1; print('SMART SURGE', case['id'], 'expected', case['expect'], 'got', got)
+for pk in ssj['profilePicks']:
+    if profile_at(_smart, pk['weekday'], pk['minute']) != pk['expect']: bad += 1; print('SMART PROFILE', pk)
+# v0.7.1: the sample app documents carry each seed category's sub-line (contract.json#categoryCatalog.seedLines)
+for _f in ('fixtures/config/rider_app_config.json', 'fixtures/config/driver_app_config.json'):
+    for _cat in json.load(open(_f)).get('catalog', {}).get('categories', []):
+        if _cat['id'] in c['categoryCatalog']['seedLines'] and _cat.get('line') != c['categoryCatalog']['seedLines'][_cat['id']]: bad += 1; print('CATALOG LINE', _f, _cat['id'])
 # ---- v0.5.1: fares (contract.json#pricing, CONTRACT.md §3.5)
 from fractions import Fraction as Fr
 def _hu(x): return math.floor(x + Fr(1, 2))
 def _merge(a, b):
     if isinstance(a, dict) and isinstance(b, dict): return {**a, **{k: _merge(a[k], v) if k in a else v for k, v in b.items()}}
     return b
+def seats(cat, inp, amt, cid):
+    """v0.7.1: ONE seat fee, only on child_seat (owner 2026-10-27): a child_seat trip always includes one seat, its fee once.
+    The rider never sends a number; babySeats / childSeats above 0 on another category are refused."""
+    if cid != 'child_seat' and any(inp.get(k, 0) for k in ('babySeats', 'childSeats')): raise ValueError('seat_not_offered')
+    return amt(cat['childSeatFee']) if cid == 'child_seat' and 'childSeatFee' in cat else Fr(0)
 def price(doc, inp):
     """Every line exact until rounded half-up to a minor unit; the total rounded once to priceStep; outstanding_fee after that."""
     cat, amt, lines = doc['categories'][inp['categoryId']], (lambda m: Fr(m['amountMinor'])), []
@@ -106,7 +169,7 @@ def price(doc, inp):
         parts = [('base', amt(cat['base'])), ('distance', amt(cat['perKm']) * km), ('time', amt(cat['perMin']) * mins)]
         for code, v in parts: add(code, v, True)
         ride = sum(v for _, v in parts)
-        mult = min(max(Fr(str(inp.get('surgeMultiplier', 1))), Fr(1)), Fr(str(min(doc['surge']['maxMultiplier'], c['pricing']['maxMultiplier']))))
+        mult = min(max(Fr(str(inp.get('surgeMultiplier', 1))), Fr(1)), Fr(str(c['pricing']['maxMultiplier'])))   # v0.7.1: the slider's top; no zone maximum
         if mult > 1: add('surge', ride * (mult - 1)); ride *= mult
         if ride < amt(cat['minimum']): add('minimum_adjust', amt(cat['minimum']) - ride); ride = amt(cat['minimum'])
         if cat['maximum'] is not None and ride > amt(cat['maximum']): add('maximum_adjust', amt(cat['maximum']) - ride); ride = amt(cat['maximum'])
@@ -118,13 +181,13 @@ def price(doc, inp):
         cap = (amt(ee['bookedFare']) - fee) / (1 + pct)
         if ride > cap: add('maximum_adjust', cap - ride); ride = cap
     else:
-        free = doc['stopFreeWaitMin'] * 60; stops = inp.get('stopWaitSeconds', [])
+        stops = inp.get('stopWaitSeconds', [])   # v0.7.1: arrived-at-stop to leaving-stop, no free minutes
         w = Fr(inp.get('waitingChargedSeconds', 0)) / 60 * amt(cat['waiting']['perMin'])
-        sw = Fr(sum(max(0, x - free) for x in stops)) / 60 * amt(cat['stopWaitPerMin'])
+        sw = Fr(sum(max(0, x) for x in stops)) / 60 * amt(cat['stopWaitPerMin'])
         f = doc['fees']
         for code, v in [('waiting', w), ('stops', len(stops) * amt(cat['extraStopFee'])), ('stop_waiting', sw),
-                        ('extras', inp.get('babySeats', 0) * amt(cat['babySeatFee']) + inp.get('childSeats', 0) * amt(cat['childSeatFee'])),
-                        ('airport', (amt(f['airportPickup']) if inp.get('airportPickup') else 0) + (amt(f['airportDropoff']) if inp.get('airportDropoff') else 0)),
+                        ('extras', seats(cat, inp, amt, inp['categoryId'])),
+                        ('airport', (amt(f['airportPickup']) if inp.get('pickupInAirportZone') else 0) + (amt(f['airportDropoff']) if inp.get('dropoffInAirportZone') else 0)),
                         ('reservation_fee', amt(f['reservationFee']) if inp['kind'] == 'scheduled' else 0)]:
             if v > 0: add(code, v); extras += v
         waiting, wait_lines = w + sw, _hu(w) + _hu(sw)
@@ -141,8 +204,12 @@ def price(doc, inp):
 riders = set(c['fareLines']['rider'])
 fj = json.load(open('fixtures/fares.json')); pdoc = json.load(open(fj['document']))
 for f in fj['cases']:
-    total, lines, driver = price(_merge(pdoc, f.get('overrides', {})), f['input'])
     e = f['expect']
+    try: total, lines, driver = price(_merge(pdoc, f.get('overrides', {})), f['input'])
+    except ValueError as err:
+        if e.get('error') != str(err): bad += 1; print('FARE', f['id'], 'expected', e, 'got error', err)
+        continue
+    if 'error' in e: bad += 1; print('FARE', f['id'], 'expected error', e['error'], 'got', total); continue
     want = [{'code': l['code'], 'amount': l['amount']['amountMinor']} for l in e['fareLines']]
     if (total, lines, driver, total - driver) != (e['total']['amountMinor'], want, e['driverEarnings']['amountMinor'], e['moveraShare']['amountMinor']) \
             or not all(l['code'] in riders for l in want) or sum(l['amount'] for l in want) != total:
@@ -151,12 +218,12 @@ se = c['configDefaults']['pricing']['countries']['SE']
 for cid, row in se['categories'].items():
     x = pdoc['categories'][cid]
     got = {'base': x['base'], 'perKm': x['perKm'], 'perMin': x['perMin'], 'minimum': x['minimum'], 'maximum': x['maximum'], 'extraStopFee': x['extraStopFee'],
-           'stopWaitPerMin': x['stopWaitPerMin'], 'babySeatFee': x['babySeatFee'], 'childSeatFee': x['childSeatFee'], 'waitPerMin': x['waiting']['perMin'], 'noShowFee': x['waiting']['noShowFee']}
-    got = {k: (v['amountMinor'] if v else None) for k, v in got.items()}
+           'stopWaitPerMin': x['stopWaitPerMin'], 'childSeatFee': x.get('childSeatFee'), 'waitPerMin': x['waiting']['perMin'], 'noShowFee': x['waiting']['noShowFee']}
+    got = {k: (v['amountMinor'] if v else None) for k, v in got.items() if v is not None or k != 'childSeatFee'}
     got.update(appFeePct=x['appFeePct'], commissionPct=x['commissionPct'], freeWaitMin=x['waiting']['freeWaitMin'])
     if got != dict(row) or x['waiting']['noShowAfterMin'] != x['waiting']['freeWaitMin']: bad += 1; print('PRICING DEFAULTS', cid, got, row)
-if (pdoc['priceStep']['amountMinor'], pdoc['stopFreeWaitMin'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled'], pdoc['fleetCommissionPct']) != \
-        (se['priceStep'], se['stopFreeWaitMin'], se['surgeMaxMultiplier'], se['smartSurge'], se['fleetCommissionPct']): bad += 1; print('PRICING DEFAULTS zone')
+if (pdoc['priceStep']['amountMinor'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled'], pdoc['fleetCommissionPct']) != \
+        (se['priceStep'], se['surgeMaxMultiplier'], se['smartSurge'], se['fleetCommissionPct']): bad += 1; print('PRICING DEFAULTS zone')
 # ---- v0.5.1: automatic dispatch (contract.json#dispatch, CONTRACT.md §3.6)
 def _round1(x): return math.floor(x * 10 + 0.5) / 10
 def search(doc, case):
@@ -274,6 +341,70 @@ for case in dj['cases']:
     if got != case['expect']: bad += 1; print('DISPATCH', case['id'], 'expected', case['expect'], 'got', got)
 dz = c['configDefaults']['dispatch']['zone']
 if any(ddoc[k] != v for k, v in dz.items()): bad += 1; print('DISPATCH DEFAULTS differ from fixtures/config/dispatch_document.json')
-# configDocs.mustMatch binds the documents the admin publishes for one zone; it is not checked against the older
-# illustrative samples fixtures/config/rider_app_config.json and driver_app_config.json (aligned in v0.6).
+# v0.6.0: seat fees only on child_seat (owner 2026-10-27); child_seat in the seed with its label.
+if any('babySeatFee' in x or ('childSeatFee' in x) != (cid == 'child_seat') for cid, x in pdoc['categories'].items()): bad += 1; print('SEAT FEE not only on child_seat (v0.7.1: one seat fee, no baby seat fee)')
+if 'stopFreeWaitMin' in pdoc: bad += 1; print('stopFreeWaitMin is gone in v0.7.1 (no free minutes at a stop)')
+if 'child_seat' not in c['categories']['seed'] or set(c['categories']['labels']) != set(c['categories']['seed']): bad += 1; print('CATEGORY seed / labels')
+if not (1 <= pdoc['surge']['maxMultiplier'] <= c['pricing']['maxMultiplier'] == c['surge']['capMax']): bad += 1; print('SURGE maximum')
+# configDocs.mustMatch against the sample app documents (aligned with the pricing document in v0.6.0).
+rcfg = json.load(open('fixtures/config/rider_app_config.json')); dcfg = json.load(open('fixtures/config/driver_app_config.json'))
+WK = ('freeWaitMin', 'perMin', 'noShowAfterMin', 'noShowFee')
+head = pdoc['categories']['economy' if 'economy' in pdoc['categories'] else next(iter(pdoc['categories']))]
+for name, cfg in (('rider', rcfg), ('driver', dcfg)):
+    if any(cfg['waiting'][k] != head['waiting'][k] for k in WK): bad += 1; print('MUSTMATCH', name, 'top-level waiting')
+    for cid, w in cfg['waiting']['byCategory'].items():
+        if any(w[k] != pdoc['categories'][cid]['waiting'][k] for k in WK): bad += 1; print('MUSTMATCH', name, 'waiting', cid)
+for cid, fee in rcfg['pickupFee']['byCategory'].items():
+    if fee != pdoc['categories'][cid]['riderPickupFee']: bad += 1; print('MUSTMATCH rider pickupFee', cid)
+for cid, rate in dcfg['pickupPay']['byCategory'].items():
+    if rate['riderFee'] != pdoc['categories'][cid]['riderPickupFee']: bad += 1; print('MUSTMATCH driver riderFee', cid)
+# v0.8.0 settings flow: country standard, server-stamped versions, country rules, auto-offline, booking snapshot.
+sf = json.load(open('fixtures/settings_flow.json'))
+def served(own, standard, zone):
+    if zone['zoneId'] in own: return {'usesStandard': False, 'version': own[zone['zoneId']]}
+    if zone['country'] in standard: return {'usesStandard': True, 'version': standard[zone['country']]}
+    return {'usesStandard': False, 'version': None}
+for case in sf['standard']:
+    got = served(case['own'], case['standard'], case['zone'])
+    if got != case['expect']: bad += 1; print('STANDARD', case['id'], 'expected', case['expect'], 'got', got)
+for case in sf['versions']:
+    own, std, seen = None, None, 0
+    for st in case['steps']:
+        if st['publish'] == 'standard': std = (std or 0) + 1
+        else: own = max(own or 0, seen, std or 0) + 1
+        seen = own if own is not None else std   # what the zone's apps see (adminVersion is ignored)
+        if seen != st['expect']: bad += 1; print('VERSION', case['id'], st, 'got', seen)
+for case in sf['countryRules']:
+    got = dict(case['document']) if case['rules'] is None else {k: case['rules'][k] for k in ('tips', 'raiseSteps', 'driverBonus')}
+    if got != case['expect']: bad += 1; print('COUNTRY RULES', case['id'], 'got', got)
+def auto_offline(limit, offers):
+    run = 0
+    for idx, o in enumerate(offers):
+        if o == 'on': run = 0; continue
+        kind, outcome = o[0], o[1]
+        if outcome == 'a': run = 0; continue          # any accepted offer starts the run again
+        if kind != 'x': continue                      # radar, assigned, scheduled and on-trip ('t') misses never count
+        run += 1
+        if run >= limit: return idx
+    return None
+if c['autoOffline']['counts'] != ['exclusive'] or c['autoOffline']['resets'][0] != 'any offer accepted' or c['configDefaults']['missedExclusiveBeforeOffline'] != 10: bad += 1; print('AUTO OFFLINE rule')
+for case in sf['autoOffline']:
+    got = auto_offline(case['limit'], case['offers'])
+    if got != case['expectOfflineAt']: bad += 1; print('AUTO OFFLINE', case['id'], 'expected', case['expectOfflineAt'], 'got', got)
+for case in sf['snapshot']:
+    kept = case['atBooking']   # the trip's rules are the ones of booking time; publishedLater must not matter
+    fee = kept['cancelRule']['value'] if kept['cancelRule']['type'] == 'fixed' else None
+    got = {'cancelFee': fee, 'cancelDriverPart': fee * kept['cancelDriverSharePct'] // 100,
+           'noShowFee': kept['noShowFee'], 'noShowDriverPart': kept['noShowFee'] * kept['noShowDriverSharePct'] // 100}
+    if got != case['expect']: bad += 1; print('SNAPSHOT', case['id'], 'got', got)
+if not (c['configDefaults']['cancelDriverSharePct'] == c['cancelFees']['driverSharePctDefault'] == 100): bad += 1; print('CANCEL SHARE default')
+for case in sf['useStandard']:
+    std = max(case['standard'], case['own']) + 1
+    got = {'standard': std, 'servedVersion': std, 'usesStandard': True}
+    if got != case['expect']: bad += 1; print('USE STANDARD', case['id'], 'got', got)
+# v0.7.2: the driver map's colour levels (contract.json#driverSurgeMap.levels)
+def surge_level(m):
+    return None if m <= 1.0 else 'low' if m < 1.5 else 'medium' if m <= 2.5 else 'high'
+for case in json.load(open('fixtures/surge_levels.json'))['cases']:
+    if surge_level(case['multiplier']) != case['level']: bad += 1; print('SURGE LEVEL', case)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

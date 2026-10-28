@@ -54,6 +54,7 @@ class RidePicture extends StatelessWidget {
       case 'pet':
         return RideExtra.paw;
       case 'kids':
+      case 'child_seat':
         return RideExtra.babySeat;
     }
     if (_plainIds.contains(rideId)) return RideExtra.none;

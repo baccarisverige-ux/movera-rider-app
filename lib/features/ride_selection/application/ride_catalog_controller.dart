@@ -314,7 +314,10 @@ class RideCatalogJson {
   }
 
   /// Category ids whose picture ships under another name.
-  static const _assetAliases = <String, String>{'economy': 'movera'};
+  static const _assetAliases = <String, String>{
+    'economy': 'movera',
+    'child_seat': 'kids',
+  };
 
   static String imageFor(String key) {
     final raw = key.trim().toLowerCase();

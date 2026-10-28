@@ -15,9 +15,13 @@ abstract final class CategoryIds {
     'xl',
     'electric',
     'pet',
+    'child_seat',
   ];
 
-  static const aliases = <String, String>{'movera': economy};
+  static const aliases = <String, String>{
+    'movera': economy,
+    'kids': 'child_seat',
+  };
 
   static final RegExp pattern = RegExp(r'^[a-z][a-z0-9_]{1,31}$');
 

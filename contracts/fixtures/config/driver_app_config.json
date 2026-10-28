@@ -23,13 +23,23 @@
         "id": "economy",
         "label": "Movera",
         "seats": 4,
-        "sort": 1
+        "sort": 1,
+        "line": {
+          "sv": "Vardagsresa",
+          "fr": "Course du quotidien",
+          "en": "Everyday ride"
+        }
       },
       {
         "id": "comfort",
         "label": "Comfort",
         "seats": 4,
-        "sort": 2
+        "sort": 2,
+        "line": {
+          "sv": "Nyare bilar, mer plats",
+          "fr": "Voitures récentes, plus d’espace",
+          "en": "Newer cars, more room"
+        }
       }
     ]
   },
@@ -64,7 +74,7 @@
       }
     ],
     "autoOffline": {
-      "missedExclusive": 3,
+      "missedExclusive": 10,
       "hiddenComesBackMin": 2
     },
     "radarOn": true,
@@ -193,17 +203,18 @@
         "min": null,
         "max": null
       }
-    }
+    },
+    "driverSharePct": 100
   },
   "waiting": {
     "freeWaitMin": 5,
     "perMin": {
-      "amountMinor": 500,
+      "amountMinor": 1226,
       "currency": "SEK"
     },
     "noShowAfterMin": 5,
     "noShowFee": {
-      "amountMinor": 5000,
+      "amountMinor": 6500,
       "currency": "SEK"
     },
     "driverSharePct": 80,
@@ -212,24 +223,24 @@
       "economy": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       },
       "comfort": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       }
