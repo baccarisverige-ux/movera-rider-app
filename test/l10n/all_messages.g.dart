@@ -512,7 +512,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1185,11 +1190,16 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
   'supportWelcomeGeneral': l.supportWelcomeGeneral,
+  'supportWelcomeTicket': l.supportWelcomeTicket,
+  'supportFollowUpTicket': l.supportFollowUpTicket,
   'spAddressNotFound': l.spAddressNotFound,
   'spWhereYouAreNotFound': l.spWhereYouAreNotFound,
   'spNotSavedYet': l.spNotSavedYet,
@@ -2678,7 +2688,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupLocation => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -4033,6 +4048,10 @@ class _Exhaustive implements AppLocalizations {
   String get supportWelcomeRide => '';
   @override
   String get supportWelcomeGeneral => '';
+  @override
+  String get supportWelcomeTicket => '';
+  @override
+  String get supportFollowUpTicket => '';
   @override
   String get spAddressNotFound => '';
   @override

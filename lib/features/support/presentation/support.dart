@@ -702,7 +702,10 @@ class _SupportChatState extends State<SupportChat> {
     final issue = widget.issue;
     final canSend = _tripId != null || _helpSender != null;
     final contact = widget.contact ?? const SupportContact();
-    final script = AppScope.instance.support.chat(ride: canSend ? ride : null);
+    final script = AppScope.instance.support.chat(
+      ride: canSend ? ride : null,
+      ticket: ride == null && _helpSender != null,
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -766,7 +769,9 @@ class _SupportChatState extends State<SupportChat> {
                               const SizedBox(height: 14),
                               _Bubble(text: issue),
                             ],
-                            if (canSend && !_sent) ...[
+                            if (canSend &&
+                                !_sent &&
+                                script.issueAck.isNotEmpty) ...[
                               const SizedBox(height: 12),
                               Text(
                                 script.issueAck,

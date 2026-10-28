@@ -1184,6 +1184,8 @@
   "supportFollowUp": "Envoyé à Movera. L'équipe l'examine avec les détails de ce trajet.",
   "supportWelcomeRide": "Dites-nous ce qui s'est passé pendant ce trajet.",
   "supportWelcomeGeneral": "Pour envoyer un message à Movera depuis l'application, choisissez le trajet concerné. Les articles d'aide et les outils de sécurité restent toujours disponibles.",
+  "supportWelcomeTicket": "Dites-nous ce dont vous avez besoin.",
+  "supportFollowUpTicket": "Merci ! Nous répondons dès que possible.",
   "spAddressNotFound": "Adresse introuvable. Essayez un nom de rue et une ville.",
   "spWhereYouAreNotFound": "Impossible de trouver où vous êtes. Recherchez plutôt l'adresse.",
   "spNotSavedYet": "Pas encore enregistré",

@@ -2395,6 +2395,8 @@
   "supportFollowUp": "Sent to Movera. The team reviews it together with this ride’s details.",
   "supportWelcomeRide": "Tell us what happened on this ride.",
   "supportWelcomeGeneral": "To send Movera a message from the app, choose the ride it’s about. Help articles and the Safety tools are always available.",
+  "supportWelcomeTicket": "Tell us what you need help with.",
+  "supportFollowUpTicket": "Thanks! We'll answer as soon as we can.",
   "spAddressNotFound": "We couldn’t find that address. Try a street name and city.",
   "spWhereYouAreNotFound": "We couldn’t find where you are. Search for the address instead.",
   "spNotSavedYet": "Not saved yet",
