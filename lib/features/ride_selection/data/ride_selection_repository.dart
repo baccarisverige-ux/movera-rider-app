@@ -128,7 +128,7 @@ class RideSelectionRepository {
       glyph: 'plane',
     ),
     RideCatalogItem(
-      id: 'kids',
+      id: 'child_seat',
       image: 'assets/images/rides/kids.webp',
       name: 'Kids seat',
       note: 'Child seat already fitted',

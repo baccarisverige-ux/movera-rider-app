@@ -29,7 +29,7 @@ void main() {
       'wheelchair',
       'business',
       'airport',
-      'kids',
+      'child_seat',
       'women',
       'delivery',
     ]);

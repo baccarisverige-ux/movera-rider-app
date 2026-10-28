@@ -1,0 +1,136 @@
+{
+  "version": "0.7.1",
+  "note": "Smart surge (contract.json#smartSurge, v0.7.1). Settings: fixtures/config/pricing_document.json surge.smart (checkEveryMin 1, holdMin 3, cooldownMin 2, stopAfterMin 5). cases: the measured ratio at each check (minutes from the first) and the multiplier applied after it, for one profile; maxMultiplier is the slider top (6): a profile is limited only by its own cap (v0.7.1). profilePicks: weekday (0 = Monday) and zone-local minute \u2192 the profile that wins.",
+  "cases": [
+    {
+      "id": "normal_up_after_hold_down_one_step",
+      "profileId": "normal",
+      "maxMultiplier": 6,
+      "checks": [
+        {
+          "atMin": 0,
+          "ratio": 1.0
+        },
+        {
+          "atMin": 1,
+          "ratio": 2.1
+        },
+        {
+          "atMin": 2,
+          "ratio": 2.2
+        },
+        {
+          "atMin": 3,
+          "ratio": 3.5
+        },
+        {
+          "atMin": 4,
+          "ratio": 3.5
+        },
+        {
+          "atMin": 5,
+          "ratio": 1.6
+        },
+        {
+          "atMin": 6,
+          "ratio": 1.6
+        },
+        {
+          "atMin": 7,
+          "ratio": 1.6
+        },
+        {
+          "atMin": 8,
+          "ratio": 1.0
+        },
+        {
+          "atMin": 9,
+          "ratio": 1.0
+        },
+        {
+          "atMin": 10,
+          "ratio": 1.0
+        },
+        {
+          "atMin": 11,
+          "ratio": 1.0
+        }
+      ],
+      "expect": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        2,
+        2,
+        1.5,
+        1.5,
+        1.2,
+        1.2,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "short_peak_never_applied",
+      "profileId": "normal",
+      "maxMultiplier": 6,
+      "checks": [
+        {
+          "atMin": 0,
+          "ratio": 2.5
+        },
+        {
+          "atMin": 1,
+          "ratio": 2.5
+        },
+        {
+          "atMin": 2,
+          "ratio": 1.0
+        },
+        {
+          "atMin": 3,
+          "ratio": 2.5
+        },
+        {
+          "atMin": 4,
+          "ratio": 1.0
+        }
+      ],
+      "expect": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "profilePicks": [
+    {
+      "weekday": 5,
+      "minute": 1380,
+      "expect": "weekend-night"
+    },
+    {
+      "weekday": 6,
+      "minute": 120,
+      "expect": "weekend-night"
+    },
+    {
+      "weekday": 1,
+      "minute": 480,
+      "expect": "rush"
+    },
+    {
+      "weekday": 2,
+      "minute": 1380,
+      "expect": "night"
+    },
+    {
+      "weekday": 6,
+      "minute": 720,
+      "expect": "normal"
+    }
+  ]
+}

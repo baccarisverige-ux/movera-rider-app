@@ -118,7 +118,7 @@ void main() {
       }, fallback: SeedRiderConfigRepository.seed)!;
       expect(seeded.zoneId, 'Z001');
       expect(seeded.categories, hasLength(5));
-      expect(seeded.waiting!.noShowFee, const Money(5000));
+      expect(seeded.waiting!.noShowFee, const Money(6500));
       expect(seeded.reservationFeeFor('premium')!.freeMin, 120);
     });
 

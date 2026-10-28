@@ -23,31 +23,56 @@
         "id": "economy",
         "label": "Movera",
         "seats": 4,
-        "sort": 1
+        "sort": 1,
+        "line": {
+          "sv": "Vardagsresa",
+          "fr": "Course du quotidien",
+          "en": "Everyday ride"
+        }
       },
       {
         "id": "comfort",
         "label": "Comfort",
         "seats": 4,
-        "sort": 2
+        "sort": 2,
+        "line": {
+          "sv": "Nyare bilar, mer plats",
+          "fr": "Voitures récentes, plus d’espace",
+          "en": "Newer cars, more room"
+        }
       },
       {
         "id": "premium",
         "label": "Premium",
         "seats": 4,
-        "sort": 3
+        "sort": 3,
+        "line": {
+          "sv": "Exklusiva bilar, toppförare",
+          "fr": "Voitures haut de gamme, meilleurs chauffeurs",
+          "en": "High-end cars, top drivers"
+        }
       },
       {
         "id": "xl",
-        "label": "XL",
+        "label": "Movera XL",
         "seats": 6,
-        "sort": 4
+        "sort": 4,
+        "line": {
+          "sv": "Upp till 6 platser",
+          "fr": "Jusqu’à 6 places",
+          "en": "Up to 6 seats"
+        }
       },
       {
         "id": "electric",
         "label": "Electric",
         "seats": 4,
-        "sort": 5
+        "sort": 5,
+        "line": {
+          "sv": "Helt eldriven bil",
+          "fr": "Voiture 100 % électrique",
+          "en": "Fully electric car"
+        }
       }
     ]
   },
@@ -252,72 +277,72 @@
   "waiting": {
     "freeWaitMin": 5,
     "perMin": {
-      "amountMinor": 500,
+      "amountMinor": 1226,
       "currency": "SEK"
     },
     "noShowAfterMin": 5,
     "noShowFee": {
-      "amountMinor": 5000,
+      "amountMinor": 6500,
       "currency": "SEK"
     },
     "byCategory": {
       "economy": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       },
       "comfort": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       },
       "premium": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1690,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       },
       "xl": {
         "freeWaitMin": 3,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 3,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       },
       "electric": {
         "freeWaitMin": 5,
         "perMin": {
-          "amountMinor": 500,
+          "amountMinor": 1226,
           "currency": "SEK"
         },
         "noShowAfterMin": 5,
         "noShowFee": {
-          "amountMinor": 5000,
+          "amountMinor": 6500,
           "currency": "SEK"
         }
       }
