@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1295,6 +1295,12 @@
       "caseInsensitive": true,
       "joinAttemptsPerHour": 10
     },
+    "activation": {
+      "note": "v0.14.0 (owner decisions, PROGRESS.md #6 and 2026-10-28): account activation and car approval are separate. POST /admin/drivers/{driverId}/status with status active is refused with 409 documents_not_approved unless every required document has a document with status approved (kinds acceptance and admin_check included): a driver attached to a fleet needs every type in Driver.requiredDocuments; a fleet owner (also a driver who drives his own car; a fleet may have one car) needs every type in Driver.requiredDocuments AND Driver.requiredFleetDocuments. No car is needed for activation, and a missing car never puts an account on hold. Cars: only a car with status approved whose Vehicle.requiredDocuments are all approved can be picked (PATCH /driver/profile { vehicleId }) or driven online (POST /driver/availability); otherwise 409 documents_not_approved, reason vehicle_documents_not_approved, with details.",
+      "errorCode": "documents_not_approved",
+      "vehicleReason": "vehicle_documents_not_approved",
+      "details": "string[] of \"<scope>:<type>\" for each required type that is missing or not approved; scope driver (Driver.requiredDocuments), fleet (Driver.requiredFleetDocuments) or vehicle (Vehicle.requiredDocuments), e.g. driver:info_session, fleet:company_registration, vehicle:insurance"
+    },
     "vehicles": {
       "note": "Fleet accounts own the cars (POST /driver/vehicles); an admin approves each (POST /admin/vehicles/{vehicleId}/review). A linked driver sees the fleet's approved cars (GET /driver/vehicles) and picks the one he drives (PATCH /driver/profile { vehicleId }). One car has one driver at a time: a car is in use while another driver has it picked and is online or on a trip (409 conflict, reason vehicle_in_use); picking a car another offline driver had moves it (that driver picks again before going online). A driver account that is not linked to a fleet has no cars (the app says the fleet's vehicle details are awaited)."
     },
@@ -2249,7 +2255,8 @@
     ]
   },
   "errors": {
-    "shape": "{ code, message, requestId, retryable, reason?, projection? }",
+    "shape": "{ code, message, requestId, retryable, reason?, projection?, details? }",
+    "details": "v0.14.0: optional string[] detail list; documents_not_approved lists the missing or unapproved required document types",
     "codes": [
       "invalid_request",
       "unauthenticated",
@@ -2259,6 +2266,7 @@
       "conflict",
       "invalid_transition",
       "version_mismatch",
+      "documents_not_approved",
       "rate_limited",
       "unavailable",
       "internal"
@@ -2381,7 +2389,7 @@
       "note": "One open SOS incident per trip: a second SOS on the same trip (any key, either side) returns that incident. The body carries the phone's GPS once; the admin also sees the car's latest position (driverPosition, from POST /driver/location)."
     },
     "escalateAfterSeconds": 120,
-    "escalationNote": "An sos or driver_silent incident not taken within escalateAfterSeconds raises incident_escalated: from then on every signed-in admin gets its events (before: only admins with incidents.read whose zones cover the incident's zone). No SMS when nobody is online.",
+    "escalationNote": "An incident with alarm true (sos, driver_silent, ride_check with need_help) not taken within escalateAfterSeconds raises incident_escalated: from then on every signed-in admin gets its events (before: only admins with incidents.read whose zones cover the incident's zone). No SMS when nobody is online. A no-answer ride_check incident is never escalated.",
     "streamEventKinds": [
       "incident_opened",
       "incident_updated",
@@ -2390,12 +2398,59 @@
     ],
     "alarmKinds": [
       "sos",
-      "driver_silent"
+      "driver_silent",
+      "ride_check"
     ],
     "driverSilent": {
       "opensWith": "TripProjection.driverSilentAlert",
       "closesWhen": "driver positions come back (resolved by the system, resolution 'position back')",
       "systemResolution": "position back"
+    },
+    "alarmNote": "v0.12.0: a ride_check incident rings the alarm (and escalates) only when someone answered need_help (Incident.alarm true); a no-answer ride_check incident (Incident.alarm false) shows in the cases list without sound and is never escalated. sos and driver_silent incidents always have alarm true.",
+    "rideCheck": {
+      "note": "v0.12.0 (owner safety part 2, 2026-10-28; CONTRACT.md §22). The rider and driver apps detect a ride check themselves (rider.rideCheck / driver.rideCheck config) and report it: once when the card shows (answer absent) and once with the answer. ok is only saved on the trip; need_help opens (or joins) the trip's ride_check incident with the alarm; no answer within noAnswerSeconds of the server receiving the shown report opens it without the alarm. The app shows only 'Sent' after answering.",
+      "endpoints": [
+        "POST /rider/trips/{tripId}/ride-check",
+        "POST /driver/trips/{tripId}/ride-check"
+      ],
+      "triggers": [
+        "dropped_far",
+        "long_stop",
+        "off_route",
+        "possible_crash"
+      ],
+      "answers": [
+        "ok",
+        "need_help"
+      ],
+      "incidentAnswers": [
+        "need_help",
+        "no_answer"
+      ],
+      "noAnswerSeconds": 120,
+      "riderStatuses": [
+        "searching",
+        "offered",
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff",
+        "completed"
+      ],
+      "driverStatuses": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff",
+        "completed"
+      ],
+      "completedWithinMinutes": 30,
+      "idempotency": "checkId is the app's id of one check (unique per trip and side). The same checkId again is the same check: a shown report after it is known changes nothing; ok then need_help moves it to need_help; need_help then ok keeps need_help; a repeat answer returns the same receipt. The Idempotency-Key retry returns the stored answer.",
+      "oneIncidentPerTrip": "At most one open ride_check incident per trip, for both sides: a no-answer incident that later gets need_help (either side) becomes alarm true (incident_updated, the 2-minute escalation starts then); a need_help incident is joined by later checks. An answer that comes after the no-answer incident opened is kept as rideCheck.lateAnswer (incident_updated) and the incident stays for the admin to close."
     }
   },
   "stopWaits": {
@@ -3100,7 +3155,7 @@
     }
   },
   "chat": {
-    "note": "v0.13.0 (CONTRACT.md §22, owner decisions 2026-10-28 and 'chat only support roles in their zones'): trip chat between the trip's rider and driver, read and written by support admins of the trip's zone; calls go through a masked number; no phone numbers in rider or driver payloads.",
+    "note": "v0.13.0 (CONTRACT.md §23, owner decisions 2026-10-28 and 'chat only support roles in their zones'): trip chat between the trip's rider and driver, read and written by support admins of the trip's zone; calls go through a masked number; no phone numbers in rider or driver payloads.",
     "participants": [
       "rider",
       "driver",

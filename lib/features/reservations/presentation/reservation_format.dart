@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/status_words.g.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
@@ -23,7 +24,8 @@ abstract final class ReservationFormat {
     switch (ride.status) {
       case ReservationStatus.completed:
         if (ride.paymentFailed) return L10n.current.resPaymentFailed;
-        return L10n.current.resCompleted;
+        // v0.10.4: the contract word (statusWords tripStatus.completed).
+        return statusWord(L10n.current, 'tripStatus', 'completed');
       case ReservationStatus.cancelled:
         if (ride.endedEarly) return L10n.current.endedEarly;
         final fee = ride.cancellationFee;

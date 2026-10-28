@@ -1,11 +1,11 @@
-# Movera API v0.13.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.14.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.13.0
+  version: 0.14.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.13.0 in this folder; this file must agree with them.
+    v0.14.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -78,7 +78,7 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.13.0
+  version: 0.14.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1836,7 +1836,7 @@ paths:
     get:
       operationId: listTripMessages
       summary: Trip chat messages
-      description: 'v0.13.0 (CONTRACT.md §22): the trip''s own rider or driver; an admin needs support.reply and the trip
+      description: 'v0.13.0 (CONTRACT.md §23): the trip''s own rider or driver; an admin needs support.reply and the trip
         in the admin''s zones (else 403, reason zone_out_of_scope). x-permission applies to admins only.'
       tags:
       - Notifications & messages
@@ -2063,7 +2063,9 @@ paths:
     post:
       operationId: setDriverAvailability
       summary: Go online / offline
-      description: 409 when on a trip, account not active, documents expired or driving limit reached (projection = Driver).
+      description: '409 when on a trip, account not active, documents expired or driving limit reached (projection = Driver).
+        v0.14.0: a car whose Vehicle.requiredDocuments are not all approved → 409 documents_not_approved (reason vehicle_documents_not_approved,
+        details).'
       tags:
       - Driver · Session
       x-actor:
@@ -2912,6 +2914,8 @@ paths:
     patch:
       operationId: updateDriverProfile
       summary: Update own profile / active vehicle
+      description: 'v0.14.0: picking a car (vehicleId) whose Vehicle.requiredDocuments are not all approved → 409 documents_not_approved
+        (reason vehicle_documents_not_approved, details vehicle:<type>).'
       tags:
       - Driver · Account
       x-actor:
@@ -5482,6 +5486,106 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/ride-check:
+    post:
+      operationId: riderRideCheck
+      summary: The rider app reports a ride check (shown, or answered)
+      description: 'v0.12.0. Only the trip''s own rider, while the trip is live or up to contract.json#safety.rideCheck.completedWithinMinutes
+        after it completed (contract.json#safety.rideCheck.riderStatuses); otherwise 409 invalid_transition with the trip.
+        Without answer: the card showed; the server opens a ride_check incident without the alarm when no answer comes within
+        noAnswerSeconds (120 s). answer ok: saved on the trip only. answer need_help: opens or joins the trip''s ride_check
+        incident with the alarm. Idempotent by checkId and by Idempotency-Key (contract.json#safety.rideCheck.idempotency).'
+      tags:
+      - Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RideCheckReport'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RideCheckReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/trips/{tripId}/ride-check:
+    post:
+      operationId: driverRideCheck
+      summary: The driver app reports a ride check (shown, or answered)
+      description: 'v0.12.0. Only the trip''s own driver, while the trip is live or up to contract.json#safety.rideCheck.completedWithinMinutes
+        after it completed (contract.json#safety.rideCheck.driverStatuses); otherwise 409 invalid_transition with the trip.
+        Without answer: the card showed; the server opens a ride_check incident without the alarm when no answer comes within
+        noAnswerSeconds (120 s). answer ok: saved on the trip only. answer need_help: opens or joins the trip''s ride_check
+        incident with the alarm. Idempotent by checkId and by Idempotency-Key (contract.json#safety.rideCheck.idempotency).'
+      tags:
+      - Safety
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RideCheckReport'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RideCheckReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/incidents/stream:
     get:
       operationId: adminStreamIncidents
@@ -5718,6 +5822,14 @@ paths:
     post:
       operationId: adminSetDriverStatus
       summary: Set driver account status
+      description: 'v0.14.0 (owner decisions, PROGRESS.md #6 and 2026-10-28): account activation and car approval are separate.
+        POST /admin/drivers/{driverId}/status with status active is refused with 409 documents_not_approved unless every required
+        document has a document with status approved (kinds acceptance and admin_check included): a driver attached to a fleet
+        needs every type in Driver.requiredDocuments; a fleet owner (also a driver who drives his own car; a fleet may have
+        one car) needs every type in Driver.requiredDocuments AND Driver.requiredFleetDocuments. No car is needed for activation,
+        and a missing car never puts an account on hold. Cars: only a car with status approved whose Vehicle.requiredDocuments
+        are all approved can be picked (PATCH /driver/profile { vehicleId }) or driven online (POST /driver/availability);
+        otherwise 409 documents_not_approved, reason vehicle_documents_not_approved, with details.'
       tags:
       - Admin · People
       x-actor:
@@ -10028,6 +10140,7 @@ components:
       - conflict
       - invalid_transition
       - version_mismatch
+      - documents_not_approved
       - rate_limited
       - unavailable
       - internal
@@ -11405,7 +11518,7 @@ components:
           type: string
     Message:
       type: object
-      description: 'A trip chat message. v0.13.0 (CONTRACT.md §22): kept 90 days (longer when the trip has a safety case);
+      description: 'A trip chat message. v0.13.0 (CONTRACT.md §23): kept 90 days (longer when the trip has a safety case);
         never carries a phone number.'
       required:
       - messageId
@@ -11608,8 +11721,8 @@ components:
           - sos
           - driver_silent
           - ride_check
-          description: 'v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; ride_check is safety part 2). Older
-            rows may hold other snake_case kinds.'
+          description: 'v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; v0.12.0 ride_check). Older rows may
+            hold other snake_case kinds.'
         severity:
           type: string
           enum:
@@ -11675,6 +11788,117 @@ components:
           type: string
           maxLength: 1000
           description: 'v0.7.0: the closing note; ''position back'' when the system closes a driver_silent incident.'
+        alarm:
+          type: boolean
+          description: 'v0.12.0: the admin panel rings the alarm for this incident while it is open, and it escalates after
+            escalateAfterSeconds untaken. true for sos, driver_silent and a ride_check someone answered need_help; false for
+            a no-answer ride_check (cases list, no sound).'
+        rideCheck:
+          allOf:
+          - $ref: '#/components/schemas/IncidentRideCheck'
+          description: 'v0.12.0: only on kind ride_check.'
+    RideCheckTrigger:
+      type: string
+      enum:
+      - dropped_far
+      - long_stop
+      - off_route
+      - possible_crash
+      description: 'v0.12.0: what made the app open the ride check card (contract.json#safety.rideCheck.triggers).'
+    IncidentRideCheck:
+      type: object
+      description: v0.12.0 (CONTRACT.md §22).
+      required:
+      - checkId
+      - trigger
+      - by
+      - answer
+      properties:
+        checkId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The app's id of the check that opened or last raised the incident.
+        trigger:
+          $ref: '#/components/schemas/RideCheckTrigger'
+        by:
+          type: string
+          enum:
+          - rider
+          - driver
+          description: The side whose check it is.
+        answer:
+          type: string
+          enum:
+          - need_help
+          - no_answer
+          description: need_help = someone asked for help (alarm); no_answer = nobody answered within contract.json#safety.rideCheck.noAnswerSeconds.
+        shownAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: When the server learnt the card showed.
+        answeredAt:
+          $ref: '#/components/schemas/Timestamp'
+        lateAnswer:
+          type: string
+          enum:
+          - ok
+          - need_help
+          description: An answer that came after the no-answer incident opened; the incident stays open for the admin.
+    RideCheckReport:
+      type: object
+      description: v0.12.0 (CONTRACT.md §22).
+      required:
+      - checkId
+      - trigger
+      - at
+      properties:
+        checkId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+          description: The app's id of this check, the same on the shown report and the answer (unique per trip and side).
+        trigger:
+          $ref: '#/components/schemas/RideCheckTrigger'
+        at:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: When it happened on the phone (shown, or answered).
+        answer:
+          type: string
+          enum:
+          - ok
+          - need_help
+          description: Absent = the card just showed (starts the 2-minute no-answer clock); ok = saved on the trip only; need_help
+            = opens the alarm incident.
+        position:
+          allOf:
+          - $ref: '#/components/schemas/IncidentPosition'
+          description: The phone's last GPS, when it has one.
+    RideCheckReceipt:
+      type: object
+      description: 'v0.12.0: the report reached Movera. The app shows only "Sent" after an answer.'
+      required:
+      - checkId
+      - tripId
+      - receivedAt
+      properties:
+        checkId:
+          type: string
+          maxLength: 64
+        tripId:
+          $ref: '#/components/schemas/Id'
+        answer:
+          type: string
+          enum:
+          - ok
+          - need_help
+          description: The check's stored answer; absent while it waits for one.
+        receivedAt:
+          $ref: '#/components/schemas/Timestamp'
+        incidentId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: Set when this check is part of a ride_check incident.
     SosRequest:
       type: object
       description: v0.7.0 (CONTRACT.md §15).
@@ -15259,6 +15483,12 @@ components:
           pattern: ^[a-z][a-z0-9_]{0,63}$
           description: optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code,
             invalid_otp_session; never shown to users as is
+        details:
+          type: array
+          items:
+            type: string
+          description: 'v0.14.0: optional string[] detail list; documents_not_approved lists the missing or unapproved required
+            document types'
         projection:
           description: Current authoritative resource. Always present for version_mismatch and invalid_transition (TripProjection
             for trip commands; Offer / Driver / Rider / Vehicle / ConfigDraft for their commands).
