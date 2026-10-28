@@ -8607,6 +8607,49 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/content/legal/acceptances:
+    get:
+      operationId: adminTermsAcceptances
+      summary: Who accepted the zone's legal terms, and when
+      description: v0.10.0. An accept counts for every zone whose live legal version has that number; a version no zone has
+        live → 409 conflict (terms_version_not_current).
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptanceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /rider/content:
     get:
       operationId: riderContent
@@ -16738,3 +16781,35 @@ components:
         contentVersion:
           type: integer
           minimum: 1
+    TermsAcceptance:
+      type: object
+      required:
+      - actor
+      - subjectId
+      - zoneId
+      - contentVersion
+      - acceptedAt
+      properties:
+        actor:
+          type: string
+          enum:
+          - rider
+          - driver
+        subjectId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        contentVersion:
+          type: integer
+          minimum: 1
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+    TermsAcceptanceList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsAcceptance'
