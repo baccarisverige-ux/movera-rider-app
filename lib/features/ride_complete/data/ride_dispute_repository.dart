@@ -1,7 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
-import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
+import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
 
 export 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 
@@ -26,11 +26,24 @@ class RideDisputeRepository {
     if (id.isEmpty || normalizedReason.isEmpty) {
       throw ArgumentError('rideId and reason are required.');
     }
-    // Audit Phase 5 (P5-R7): movera-server serves no `/rides/{id}/disputes`
-    // (not in the contract; `POST /support/tickets` is, but answers
-    // `operation_not_enabled`). The contract wire sends nothing and says so,
-    // instead of "check your connection".
-    if (_api.contractWire) throw const RideDisputeNotServed();
+    // Contract v0.9.0 (owner, 2026-10-27): a ride dispute is a support
+    // ticket (`POST /support/tickets`, category ride_dispute); Movera's
+    // answer comes back on the ticket.
+    if (_api.contractWire) {
+      final text = (normalizedDetail == null || normalizedDetail.isEmpty)
+          ? normalizedReason
+          : normalizedDetail;
+      await SupportTicketRepository(api: _api).open(
+        tripId: id,
+        category: 'ride_dispute',
+        subject: SupportTicketRepository.subjectOf(
+          text,
+          fallback: normalizedReason,
+        ),
+        text: text,
+      );
+      return;
+    }
 
     final intent = '$id|$normalizedReason|${normalizedDetail ?? ''}';
     await _api.post(

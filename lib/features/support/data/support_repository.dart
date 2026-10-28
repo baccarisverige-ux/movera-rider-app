@@ -15,9 +15,18 @@ class SupportChatScript {
 /// wording). There is no live agent: a message about a ride goes to
 /// Movera's review queue.
 class SupportRepository {
-  SupportChatScript chat({SupportRide? ride}) {
+  /// [ticket]: the rider writes a help ticket without choosing a ride, so
+  /// neither the intro nor the reply after sending mentions a ride.
+  SupportChatScript chat({SupportRide? ride, bool ticket = false}) {
     if (ride != null) {
       return SupportChatScript(welcome: L10n.current.supportWelcomeRide);
+    }
+    if (ticket) {
+      return SupportChatScript(
+        welcome: L10n.current.supportWelcomeTicket,
+        issueAck: '',
+        followUp: L10n.current.supportFollowUpTicket,
+      );
     }
     return SupportChatScript(welcome: L10n.current.supportWelcomeGeneral);
   }

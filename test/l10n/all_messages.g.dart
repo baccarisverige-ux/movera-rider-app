@@ -1190,6 +1190,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
   'supportWelcomeGeneral': l.supportWelcomeGeneral,
+  'supportWelcomeTicket': l.supportWelcomeTicket,
+  'supportFollowUpTicket': l.supportFollowUpTicket,
   'spAddressNotFound': l.spAddressNotFound,
   'spWhereYouAreNotFound': l.spWhereYouAreNotFound,
   'spNotSavedYet': l.spNotSavedYet,
@@ -1439,6 +1441,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'routeChangeUnavailable': l.routeChangeUnavailable,
   'reportNotOnServer': l.reportNotOnServer,
   'mapUnavailable': l.mapUnavailable,
+  'ratingTagCleanCar': l.ratingTagCleanCar,
+  'ratingTagFriendly': l.ratingTagFriendly,
+  'ratingTagSafeDriving': l.ratingTagSafeDriving,
+  'ratingTagGoodMusic': l.ratingTagGoodMusic,
+  'ratingTagKnewTheWay': l.ratingTagKnewTheWay,
+  'ratingTagsTitle': l.ratingTagsTitle,
+  'ratingCommentLabel': l.ratingCommentLabel,
+  'ratingCommentHint': l.ratingCommentHint,
+  'supportTicketWaiting': l.supportTicketWaiting,
+  'supportTicketAnswered': l.supportTicketAnswered,
+  'supportTicketSolved': l.supportTicketSolved,
+  'supportTicketClosed': l.supportTicketClosed,
+  'supportTicketMovera': l.supportTicketMovera,
+  'supportTicketsEmpty': l.supportTicketsEmpty,
+  'supportTicketsFailed': l.supportTicketsFailed,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4019,6 +4036,10 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get supportWelcomeGeneral => '';
   @override
+  String get supportWelcomeTicket => '';
+  @override
+  String get supportFollowUpTicket => '';
+  @override
   String get spAddressNotFound => '';
   @override
   String get spWhereYouAreNotFound => '';
@@ -4516,4 +4537,34 @@ class _Exhaustive implements AppLocalizations {
   String get reportNotOnServer => '';
   @override
   String get mapUnavailable => '';
+  @override
+  String get ratingTagCleanCar => '';
+  @override
+  String get ratingTagFriendly => '';
+  @override
+  String get ratingTagSafeDriving => '';
+  @override
+  String get ratingTagGoodMusic => '';
+  @override
+  String get ratingTagKnewTheWay => '';
+  @override
+  String get ratingTagsTitle => '';
+  @override
+  String get ratingCommentLabel => '';
+  @override
+  String get ratingCommentHint => '';
+  @override
+  String get supportTicketWaiting => '';
+  @override
+  String get supportTicketAnswered => '';
+  @override
+  String get supportTicketSolved => '';
+  @override
+  String get supportTicketClosed => '';
+  @override
+  String get supportTicketMovera => '';
+  @override
+  String get supportTicketsEmpty => '';
+  @override
+  String get supportTicketsFailed => '';
 }

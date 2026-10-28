@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -149,7 +149,26 @@
     "note": "Owner Q38: whole stars only.",
     "min": 1,
     "max": 5,
-    "step": 1
+    "step": 1,
+    "tags": {
+      "note": "v0.9.0 (owner real-data decision, part 3): one fixed list of tag codes, the same in every country; each app shows its own words (sv/fr/en). aboutDriver: the tags a rider may give the driver; aboutRider: the tags a driver may give the rider. A rating may carry none of them.",
+      "aboutDriver": [
+        "clean_car",
+        "friendly",
+        "safe_driving",
+        "good_music",
+        "knew_the_way"
+      ],
+      "aboutRider": [
+        "on_time",
+        "polite",
+        "clear_pickup"
+      ],
+      "maxPerRating": 5
+    },
+    "moderation": {
+      "note": "v0.9.0: an admin hides a rating (POST /admin/ratings/{tripId}/{from}/hide) or restores it. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring counts it again (owner, 2026-10-27)."
+    }
   },
   "tripStatus": {
     "values": [
@@ -2442,5 +2461,97 @@
     "tip": "The top bar's waiting tip 'Hög bonus i närheten' / 'Forte majoration à proximité' / 'High boost nearby' (no money, no number, no zone name) shows while the driver's position is inside a listed zone or less than 3 km from its rectangle, any level. The old '+{kr} kr i {zone}' tip is removed.",
     "tipDistanceKm": 3
   },
-  "surgeNoticeRemoved": "v0.7.2 (owner 2026-10-28): drivers get NO surge notice. pricing.surge.notifyDrivers is deprecated and ignored, POST /admin/zones/{zoneId}/surge/notify is gone (404) and the server sends no surge_started notification. The driver sees surges only as coloured zones on the Home map (contract.json#driverSurgeMap)."
+  "surgeNoticeRemoved": "v0.7.2 (owner 2026-10-28): drivers get NO surge notice. pricing.surge.notifyDrivers is deprecated and ignored, POST /admin/zones/{zoneId}/surge/notify is gone (404) and the server sends no surge_started notification. The driver sees surges only as coloured zones on the Home map (contract.json#driverSurgeMap).",
+  "support": {
+    "note": "v0.9.0 (owner real-data decision, part 3): riders and drivers open tickets (POST /support/tickets): ride disputes and help requests from the apps. Admin Support lists them (GET /admin/tickets), reads one with its messages and answers (POST /admin/tickets/{ticketId}/reply); the app reads its own tickets and the answers (GET /support/tickets, GET /support/tickets/{ticketId}).",
+    "categories": [
+      "ride_dispute",
+      "help",
+      "lost_item",
+      "payment",
+      "account",
+      "safety",
+      "other"
+    ],
+    "replyStatuses": [
+      "pending",
+      "resolved",
+      "closed"
+    ]
+  },
+  "payouts": {
+    "note": "v0.9.0 (owner real-data decision, part 3): every week (Monday 00:00 to Monday 00:00 in the zone's time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",
+    "period": "week",
+    "weekStartsOn": "monday",
+    "lines": [
+      "trips",
+      "waiting",
+      "pickup_pay",
+      "bonus",
+      "tips",
+      "cash_collected",
+      "fees"
+    ],
+    "sources": [
+      "weekly",
+      "manual"
+    ],
+    "statuses": [
+      "pending",
+      "paid"
+    ]
+  },
+  "risk": {
+    "note": "v0.9.0 (owner real-data decision, part 3): the three signals the server counts. Fake GPS, many accounts on one phone and one card on many accounts come later.",
+    "signals": {
+      "cancels": {
+        "who": [
+          "driver",
+          "rider"
+        ],
+        "windowDays": 30,
+        "unit": "percent",
+        "meaning": "cancelled by the person ÷ trips they accepted (driver) or booked (rider), last 30 days"
+      },
+      "failed_payments": {
+        "who": [
+          "rider"
+        ],
+        "windowDays": 30,
+        "unit": "payments",
+        "meaning": "the rider's trips whose payment failed, last 30 days"
+      },
+      "low_rating": {
+        "who": [
+          "driver"
+        ],
+        "lastRides": 50,
+        "unit": "stars",
+        "meaning": "average of the visible ratings riders gave the driver, last 50 rated rides"
+      }
+    },
+    "later": [
+      "fake_gps",
+      "multi_account",
+      "shared_card"
+    ]
+  },
+  "kpis": {
+    "note": "v0.9.0 (owner real-data decision, part 3): GET /admin/kpis. Today is counted live from the trips; earlier days come from the nightly summary (one row per zone and day, zone time), written once a night and safe to run again; a backfill command fills past days.",
+    "fields": [
+      "completedTrips",
+      "cancelledTrips",
+      "noShows",
+      "gross",
+      "commission",
+      "driverEarnings",
+      "pickupPay",
+      "driverBonus",
+      "cashCollected",
+      "walletApplied",
+      "newRiders",
+      "newDrivers"
+    ],
+    "maxDays": 400
+  }
 }

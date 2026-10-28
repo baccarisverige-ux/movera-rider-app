@@ -1,4 +1,4 @@
-"""Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json, surge.json,
+"""Reference engine for contract.json: replays fixtures/scenarios.json, events.json, money.json, cancel_fees.json, pickup_pay.json, surge.json, payouts.json,
 fares.json, dispatch.json and settings_flow.json (v0.8.0), and checks the pricing and dispatch sample documents agree with contract.json#configDefaults.
 Each app's contract tests must give the same answers."""
 import json, sys
@@ -407,4 +407,24 @@ def surge_level(m):
     return None if m <= 1.0 else 'low' if m < 1.5 else 'medium' if m <= 2.5 else 'high'
 for case in json.load(open('fixtures/surge_levels.json'))['cases']:
     if surge_level(case['multiplier']) != case['level']: bad += 1; print('SURGE LEVEL', case)
+# v0.9.0: payout lines (fixtures/payouts.json, contract.json#payouts).
+def payout(entries):
+    lines = {code: 0 for code in c['payouts']['lines']}
+    trips = 0
+    for e in entries:
+        if e.get('inPayout'): continue
+        k, a = e['kind'], e['amountMinor']
+        if k == 'trip':
+            trips += 1; lines['waiting'] += e['waitingMinor']; lines['trips'] += a - e['waitingMinor']; lines['cash_collected'] -= e['cashMinor']
+        elif k == 'adjustment': lines['trips'] += a
+        elif k == 'pickup_pay': lines['pickup_pay'] += a
+        elif k == 'bonus': lines['bonus'] += a
+        elif k == 'tip': lines['tips'] += a
+        elif k == 'fee_share': lines['fees'] += a
+    kept = {c: v for c, v in lines.items() if v != 0 or c == 'trips'}
+    return kept, trips, sum(lines.values())
+for case in json.load(open('fixtures/payouts.json'))['cases']:
+    got = payout(case['entries'])
+    want = case['expect']
+    if got != (want['lines'], want['tripCount'], want['amountMinor']): bad += 1; print('PAYOUT', case['id'], got, want)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

@@ -4,7 +4,9 @@ import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_serv
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/application/support_contact.dart';
+import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/features/support/presentation/support_tickets.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -517,13 +519,17 @@ class SupportMessages extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          // rider-u229: no case list backs this screen, so it never says
-          // "No active cases" to a rider who has just sent one.
-          _EmptyCard(
-            icon: Icons.forum_outlined,
-            title: context.l10n.supportCasesNotListed,
-            subtitle: context.l10n.supportActiveBody,
-          ),
+          // Contract v0.9.0: the rider's tickets and Movera's answers come
+          // from movera-server. The demo transport has none (rider-u229: it
+          // never says "No active cases" to a rider who just sent one).
+          if (SupportTicketRepository().available)
+            const SupportTicketList()
+          else
+            _EmptyCard(
+              icon: Icons.forum_outlined,
+              title: context.l10n.supportCasesNotListed,
+              subtitle: context.l10n.supportActiveBody,
+            ),
         ],
       ),
     );
@@ -540,6 +546,9 @@ typedef SupportMessageSender =
       String? detail,
     });
 
+/// Sends a help request that is not about one ride.
+typedef SupportHelpSender = Future<void> Function({required String text});
+
 /// UI-03: the in-app way to reach Movera about a ride. It used to be a
 /// chat whose input read "Support messaging unavailable" — a dead end for a
 /// rider with a money problem when the build has no support email. Now a
@@ -552,6 +561,7 @@ class SupportChat extends StatefulWidget {
     this.issue,
     this.contact,
     this.send,
+    this.sendHelp,
   });
 
   final SupportRide? ride;
@@ -562,6 +572,12 @@ class SupportChat extends StatefulWidget {
 
   /// Defaults to the ride dispute endpoint.
   final SupportMessageSender? send;
+
+  /// A help request without a ride (contract v0.9.0: a support ticket,
+  /// category help). Defaults to `POST /support/tickets` on movera-server;
+  /// the demo transport has no tickets, so there the screen keeps its ride
+  /// list and email way.
+  final SupportHelpSender? sendHelp;
 
   /// The trip id a Support row stands for (History keys on-demand rides as
   /// `ondemand-<tripId>`). Null when the row has no id.
@@ -585,6 +601,21 @@ class _SupportChatState extends State<SupportChat> {
   String? _error;
 
   String? get _tripId => SupportChat.tripIdOf(widget.ride);
+
+  SupportHelpSender? get _helpSender {
+    final custom = widget.sendHelp;
+    if (custom != null) return custom;
+    final tickets = SupportTicketRepository();
+    if (!tickets.available) return null;
+    return ({required String text}) => tickets.open(
+      category: 'help',
+      subject: SupportTicketRepository.subjectOf(
+        text,
+        fallback: context.l10n.supportHelp,
+      ),
+      text: text,
+    );
+  }
 
   @override
   void initState() {
@@ -611,13 +642,26 @@ class _SupportChatState extends State<SupportChat> {
 
   Future<void> _submit() async {
     final tripId = _tripId;
-    if (tripId == null || !_canSubmit) return;
+    final help = tripId == null ? _helpSender : null;
+    if ((tripId == null && help == null) || !_canSubmit) return;
     final detail = _detail.text.trim();
     setState(() {
       _sending = true;
       _error = null;
     });
     try {
+      if (help != null) {
+        await help(text: detail);
+        if (!mounted) return;
+        setState(() {
+          _sending = false;
+          _sent = true;
+          _sentText = detail;
+        });
+        _detail.clear();
+        return;
+      }
+      final rideId = tripId!;
       final send =
           widget.send ??
           ({required String rideId, required String reason, String? detail}) =>
@@ -627,7 +671,7 @@ class _SupportChatState extends State<SupportChat> {
                 detail: detail,
               );
       await send(
-        rideId: tripId,
+        rideId: rideId,
         reason: SelectIssue.codeFor(widget.issue),
         detail: [
           if (widget.issue != null) widget.issue!,
@@ -656,9 +700,12 @@ class _SupportChatState extends State<SupportChat> {
   Widget build(BuildContext context) {
     final ride = widget.ride;
     final issue = widget.issue;
-    final canSend = _tripId != null;
+    final canSend = _tripId != null || _helpSender != null;
     final contact = widget.contact ?? const SupportContact();
-    final script = AppScope.instance.support.chat(ride: canSend ? ride : null);
+    final script = AppScope.instance.support.chat(
+      ride: canSend ? ride : null,
+      ticket: ride == null && _helpSender != null,
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -722,7 +769,9 @@ class _SupportChatState extends State<SupportChat> {
                               const SizedBox(height: 14),
                               _Bubble(text: issue),
                             ],
-                            if (canSend && !_sent) ...[
+                            if (canSend &&
+                                !_sent &&
+                                script.issueAck.isNotEmpty) ...[
                               const SizedBox(height: 12),
                               Text(
                                 script.issueAck,
