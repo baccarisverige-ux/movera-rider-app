@@ -7,7 +7,7 @@ import 'package:movera_rider/core/contracts/trip_transitions.dart';
 
 import 'contract_fixtures.dart';
 
-/// The repo ships a byte-for-byte copy of the shared contract (v0.8.1, from the movera-contracts repository).
+/// The repo ships a byte-for-byte copy of the shared contract (v0.9.0, from the movera-contracts repository).
 /// CHECKSUMS is written by the sync script; a hand edit of any contract file
 /// fails here.
 void main() {

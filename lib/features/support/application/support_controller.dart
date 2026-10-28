@@ -31,7 +31,8 @@ class SupportController {
     return [for (final ride in rides) rideFor(ride)];
   }
 
-  SupportChatScript chat({SupportRide? ride}) => _store.chat(ride: ride);
+  SupportChatScript chat({SupportRide? ride, bool ticket = false}) =>
+      _store.chat(ride: ride, ticket: ticket);
 
   /// The Support row for a History ride (also "Get help" in History).
   static SupportRide rideFor(Reservation ride) {
