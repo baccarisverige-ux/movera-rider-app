@@ -2,6 +2,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/features/safety/data/ride_check_reporter.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
@@ -30,10 +31,39 @@ class SafetyStore {
     SafetyRemoteDataSource? remote,
     ApiClient? api,
     SosSender? sos,
+    RideCheckReporter? rideCheckReporter,
   }) : _local = local ?? PreferencesSafetyLocalDataSource(),
        _remote = remote ?? _remoteFor(api ?? AppScope.instance.api),
        _sos =
-           sos ?? _sosFor(remote == null ? api ?? AppScope.instance.api : api);
+           sos ?? _sosFor(remote == null ? api ?? AppScope.instance.api : api),
+       _reporter =
+           rideCheckReporter ??
+           _reporterFor(remote == null ? api ?? AppScope.instance.api : api);
+
+  /// Contract v0.12.0 §22: on the contract wire a Ride check is reported to
+  /// movera-server's `POST /rider/trips/{tripId}/ride-check`.
+  static RideCheckReporter? _reporterFor(ApiClient? api) =>
+      api != null && api.contractWire ? RideCheckReporter(api) : null;
+  final RideCheckReporter? _reporter;
+
+  /// True when Ride checks go to movera-server (live builds).
+  bool get reportsRideCheck => _reporter != null;
+
+  /// Reports that the card for [checkId] showed (no answer yet). Does
+  /// nothing without the contract wire.
+  Future<void> reportRideCheckShown({
+    required String tripId,
+    required String checkId,
+    required RideCheckTrigger trigger,
+    required DateTime at,
+  }) async {
+    await _reporter?.report(
+      tripId: tripId,
+      checkId: checkId,
+      trigger: trigger,
+      at: at,
+    );
+  }
 
   /// Contract v0.7.0: on the contract wire the SOS goes to movera-server's
   /// `POST /rider/trips/{tripId}/sos`; the mock dialect keeps its safety event.
@@ -539,6 +569,26 @@ class SafetyStore {
     RideCheckSubmission submission,
   ) async {
     await keepRideCheckAnswers(submission);
+    final reporter = _reporter;
+    if (reporter != null) {
+      // Contract v0.12.0: red rows and Call 112 are "I need help" (the
+      // safety team's alarm); everything else is "I'm OK", only saved.
+      final sent = await reporter.report(
+        tripId: submission.context.rideId,
+        checkId: submission.checkId,
+        trigger: submission.trigger,
+        at: DateTime.now().toUtc(),
+        answer: submission.alert
+            ? RideCheckWireAnswer.needHelp
+            : RideCheckWireAnswer.ok,
+      );
+      return RideCheckReceipt(
+        checkId: submission.checkId,
+        alertId: submission.alert && sent != null
+            ? sent.incidentId ?? sent.checkId
+            : null,
+      );
+    }
     final receipt = await _remote.postRideCheckAnswers(submission);
     final alertId = receipt.alertId;
     if (alertId != null) {

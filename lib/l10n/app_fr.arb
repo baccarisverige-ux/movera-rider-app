@@ -1028,6 +1028,7 @@
   "rcCall112NowSemantics": "Appelez le 112 maintenant. Si quelqu'un est blessé ou en danger, appelez les secours.",
   "rcCall112Now": "Appelez le 112 maintenant",
   "rcCall112NowBody": "Si quelqu'un est blessé ou en danger, appelez les secours.",
+  "rcSent": "Envoyé",
   "rcAlertSentTitle": "L'équipe sécurité Movera est alertée",
   "rcAlertSentBody": "Les détails du trajet, du chauffeur et du passager ont été envoyés.",
   "rcAlertSendingTitle": "Alerte de l'équipe sécurité Movera…",

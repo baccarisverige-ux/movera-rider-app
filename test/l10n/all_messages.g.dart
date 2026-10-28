@@ -1034,6 +1034,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'rcCall112NowSemantics': l.rcCall112NowSemantics,
   'rcCall112Now': l.rcCall112Now,
   'rcCall112NowBody': l.rcCall112NowBody,
+  'rcSent': l.rcSent,
   'rcAlertSentTitle': l.rcAlertSentTitle,
   'rcAlertSentBody': l.rcAlertSentBody,
   'rcAlertSendingTitle': l.rcAlertSendingTitle,
@@ -3782,6 +3783,8 @@ class _Exhaustive implements AppLocalizations {
   String get rcCall112Now => '';
   @override
   String get rcCall112NowBody => '';
+  @override
+  String get rcSent => '';
   @override
   String get rcAlertSentTitle => '';
   @override
