@@ -427,4 +427,20 @@ for case in json.load(open('fixtures/payouts.json'))['cases']:
     got = payout(case['entries'])
     want = case['expect']
     if got != (want['lines'], want['tripCount'], want['amountMinor']): bad += 1; print('PAYOUT', case['id'], got, want)
+# v0.10.4: ONE STATUS WORD LIST (contract.json#statusWords): every code of every family has a non-empty sv, fr and en word.
+def _at(path):
+    o = c
+    for part in path.split('.'): o = o[part]
+    return o
+_sw = c['statusWords']
+if set(_sw['sources']) != set(_sw['families']): bad += 1; print('STATUS WORDS families', sorted(set(_sw['sources']) ^ set(_sw['families'])))
+for fam, path in _sw['sources'].items():
+    codes, got = _at(path), _sw['families'].get(fam, {})
+    for code in codes:
+        for lang in c['languages']['values']:
+            if not str(got.get(code, {}).get(lang, '')).strip(): bad += 1; print('STATUS WORD MISSING', fam, code, lang)
+    for code in set(got) - set(codes): bad += 1; print('STATUS WORD UNKNOWN CODE', fam, code)
+for fam, codes in _sw['families'].items():
+    for code, w in codes.items():
+        if 'Passagerare' in w.get('sv', ''): bad += 1; print('STATUS WORD sv rider is Resenär', fam, code)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

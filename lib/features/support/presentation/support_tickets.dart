@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/contracts/status_words.g.dart';
 import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -14,13 +15,10 @@ class SupportTicketList extends StatefulWidget {
   State<SupportTicketList> createState() => _SupportTicketListState();
 }
 
+/// v0.10.4: the contract word for the ticket status (statusWords
+/// ticketStatus); an unknown code reads as open.
 String supportTicketStatus(AppLocalizations l, String status) =>
-    switch (status) {
-      'pending' => l.supportTicketAnswered,
-      'resolved' => l.supportTicketSolved,
-      'closed' => l.supportTicketClosed,
-      _ => l.supportTicketWaiting,
-    };
+    statusWord(l, 'ticketStatus', status) ?? l.swTicketStatusOpen;
 
 class _SupportTicketListState extends State<SupportTicketList> {
   late final SupportTicketRepository _repo =

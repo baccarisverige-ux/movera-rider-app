@@ -1458,13 +1458,45 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'ratingTagsTitle': l.ratingTagsTitle,
   'ratingCommentLabel': l.ratingCommentLabel,
   'ratingCommentHint': l.ratingCommentHint,
-  'supportTicketWaiting': l.supportTicketWaiting,
-  'supportTicketAnswered': l.supportTicketAnswered,
-  'supportTicketSolved': l.supportTicketSolved,
-  'supportTicketClosed': l.supportTicketClosed,
   'supportTicketMovera': l.supportTicketMovera,
   'supportTicketsEmpty': l.supportTicketsEmpty,
   'supportTicketsFailed': l.supportTicketsFailed,
+  'swTripStatusDraft': l.swTripStatusDraft,
+  'swTripStatusQuoted': l.swTripStatusQuoted,
+  'swTripStatusRequested': l.swTripStatusRequested,
+  'swTripStatusSearching': l.swTripStatusSearching,
+  'swTripStatusOffered': l.swTripStatusOffered,
+  'swTripStatusAccepted': l.swTripStatusAccepted,
+  'swTripStatusDriverToPickup': l.swTripStatusDriverToPickup,
+  'swTripStatusArrived': l.swTripStatusArrived,
+  'swTripStatusRiderOnboard': l.swTripStatusRiderOnboard,
+  'swTripStatusInTrip': l.swTripStatusInTrip,
+  'swTripStatusApproachingDropoff': l.swTripStatusApproachingDropoff,
+  'swTripStatusCompleted': l.swTripStatusCompleted,
+  'swTripStatusCancelledByRider': l.swTripStatusCancelledByRider,
+  'swTripStatusCancelledByDriver': l.swTripStatusCancelledByDriver,
+  'swTripStatusCancelledByAdmin': l.swTripStatusCancelledByAdmin,
+  'swTripStatusCancelledBySystem': l.swTripStatusCancelledBySystem,
+  'swTripStatusNoShow': l.swTripStatusNoShow,
+  'swTripStatusExpired': l.swTripStatusExpired,
+  'swTripStatusFailed': l.swTripStatusFailed,
+  'swPaymentStatusPending': l.swPaymentStatusPending,
+  'swPaymentStatusAuthorized': l.swPaymentStatusAuthorized,
+  'swPaymentStatusCaptured': l.swPaymentStatusCaptured,
+  'swPaymentStatusFailed': l.swPaymentStatusFailed,
+  'swPaymentStatusRefunded': l.swPaymentStatusRefunded,
+  'swPaymentStatusPartiallyRefunded': l.swPaymentStatusPartiallyRefunded,
+  'swFeeStatusPaid': l.swFeeStatusPaid,
+  'swFeeStatusOwed': l.swFeeStatusOwed,
+  'swFeeStatusWaived': l.swFeeStatusWaived,
+  'swTicketStatusOpen': l.swTicketStatusOpen,
+  'swTicketStatusPending': l.swTicketStatusPending,
+  'swTicketStatusResolved': l.swTicketStatusResolved,
+  'swTicketStatusClosed': l.swTicketStatusClosed,
+  'swRatingStatusNotRequested': l.swRatingStatusNotRequested,
+  'swRatingStatusPending': l.swRatingStatusPending,
+  'swRatingStatusSubmitted': l.swRatingStatusSubmitted,
+  'swRatingStatusSkipped': l.swRatingStatusSkipped,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4581,17 +4613,81 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get ratingCommentHint => '';
   @override
-  String get supportTicketWaiting => '';
-  @override
-  String get supportTicketAnswered => '';
-  @override
-  String get supportTicketSolved => '';
-  @override
-  String get supportTicketClosed => '';
-  @override
   String get supportTicketMovera => '';
   @override
   String get supportTicketsEmpty => '';
   @override
   String get supportTicketsFailed => '';
+  @override
+  String get swTripStatusDraft => '';
+  @override
+  String get swTripStatusQuoted => '';
+  @override
+  String get swTripStatusRequested => '';
+  @override
+  String get swTripStatusSearching => '';
+  @override
+  String get swTripStatusOffered => '';
+  @override
+  String get swTripStatusAccepted => '';
+  @override
+  String get swTripStatusDriverToPickup => '';
+  @override
+  String get swTripStatusArrived => '';
+  @override
+  String get swTripStatusRiderOnboard => '';
+  @override
+  String get swTripStatusInTrip => '';
+  @override
+  String get swTripStatusApproachingDropoff => '';
+  @override
+  String get swTripStatusCompleted => '';
+  @override
+  String get swTripStatusCancelledByRider => '';
+  @override
+  String get swTripStatusCancelledByDriver => '';
+  @override
+  String get swTripStatusCancelledByAdmin => '';
+  @override
+  String get swTripStatusCancelledBySystem => '';
+  @override
+  String get swTripStatusNoShow => '';
+  @override
+  String get swTripStatusExpired => '';
+  @override
+  String get swTripStatusFailed => '';
+  @override
+  String get swPaymentStatusPending => '';
+  @override
+  String get swPaymentStatusAuthorized => '';
+  @override
+  String get swPaymentStatusCaptured => '';
+  @override
+  String get swPaymentStatusFailed => '';
+  @override
+  String get swPaymentStatusRefunded => '';
+  @override
+  String get swPaymentStatusPartiallyRefunded => '';
+  @override
+  String get swFeeStatusPaid => '';
+  @override
+  String get swFeeStatusOwed => '';
+  @override
+  String get swFeeStatusWaived => '';
+  @override
+  String get swTicketStatusOpen => '';
+  @override
+  String get swTicketStatusPending => '';
+  @override
+  String get swTicketStatusResolved => '';
+  @override
+  String get swTicketStatusClosed => '';
+  @override
+  String get swRatingStatusNotRequested => '';
+  @override
+  String get swRatingStatusPending => '';
+  @override
+  String get swRatingStatusSubmitted => '';
+  @override
+  String get swRatingStatusSkipped => '';
 }

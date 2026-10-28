@@ -1,11 +1,11 @@
-# Movera API v0.10.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.10.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.10.0
+  version: 0.10.4
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.10.0 in this folder; this file must agree with them.
+    v0.10.4 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -76,7 +76,7 @@ tags:
 - name: Account
 x-contract:
   name: movera
-  version: 0.10.0
+  version: 0.10.4
   source: contract.json
 paths:
   /auth/otp/request:
@@ -11537,6 +11537,10 @@ components:
       - walletApplied
       - newRiders
       - newDrivers
+      - tips
+      - refunds
+      - fees
+      - moveraEarnings
       properties:
         date:
           type: string
@@ -11563,7 +11567,7 @@ components:
           minimum: 0
         gross:
           type: integer
-          description: Minor units of currency.
+          description: 'Bookings: ride prices of completed trips plus cancel and no-show fees charged. Tips not included.'
         commission:
           type: integer
           description: Minor units of currency.
@@ -11588,6 +11592,20 @@ components:
         newDrivers:
           type: integer
           minimum: 0
+        tips:
+          type: integer
+          description: Tips given on the day's trips, a line of their own, not in gross.
+        refunds:
+          type: integer
+          description: 'Refunds of the day''s trips, counted on the TRIP''s day: a later refund changes that older day (its
+            summary is re-summed).'
+        fees:
+          type: integer
+          description: Cancel and no-show fees charged that day (also inside gross).
+        moveraEarnings:
+          type: integer
+          description: 'What Movera keeps: commission + Movera''s share of fees - pickup pay - driver bonuses Movera paid.
+            Can be negative.'
     KpiReport:
       type: object
       description: 'v0.9.0: GET /admin/kpis.'
