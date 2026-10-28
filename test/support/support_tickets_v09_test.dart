@@ -174,7 +174,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Lost my umbrella'), findsOneWidget);
-    expect(find.text('Movera har svarat'), findsOneWidget);
+    // v0.10.4: the contract ticketStatus word for pending.
+    expect(find.text('Väntande'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('support-ticket-tkt_1')));
     await tester.pumpAndSettle();
     expect(find.text('We found it, call us.'), findsOneWidget);
