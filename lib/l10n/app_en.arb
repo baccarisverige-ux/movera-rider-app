@@ -816,15 +816,6 @@
   "driverWaitingAtPickup": "Your driver is waiting at the pickup point.",
   "imOnTheWay": "I'm on the way",
   "yourDriver": "your driver",
-  "callUnavailableTitle": "Driver calling unavailable",
-  "callUnavailableBody": "Movera has not received a backend-issued masked calling number for {driver} yet. No phone call was placed.",
-  "@callUnavailableBody": {
-    "placeholders": {
-      "driver": {
-        "type": "String"
-      }
-    }
-  },
   "nameCancelled": "{name} cancelled",
   "@nameCancelled": {
     "placeholders": {

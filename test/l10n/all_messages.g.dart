@@ -440,8 +440,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'driverWaitingAtPickup': l.driverWaitingAtPickup,
   'imOnTheWay': l.imOnTheWay,
   'yourDriver': l.yourDriver,
-  'callUnavailableTitle': l.callUnavailableTitle,
-  'callUnavailableBody': l.callUnavailableBody('<driver>'),
   'nameCancelled': l.nameCancelled('<name>'),
   'driverCancelledBody': l.driverCancelledBody,
   'nearDestinationUpper': l.nearDestinationUpper,
@@ -1540,7 +1538,6 @@ const messagePlaceholders = <String, List<String>>{
   'afterFreeWait': ['time', 'minutes', 'rate'],
   'thenWaitingFee': ['rate'],
   'nameIsHere': ['name'],
-  'callUnavailableBody': ['driver'],
   'nameCancelled': ['name'],
   'chargedTo': ['amount', 'method'],
   'creditedToWallet': ['amount'],
@@ -2550,10 +2547,6 @@ class _Exhaustive implements AppLocalizations {
   String get imOnTheWay => '';
   @override
   String get yourDriver => '';
-  @override
-  String get callUnavailableTitle => '';
-  @override
-  String callUnavailableBody(String driver) => '';
   @override
   String nameCancelled(String name) => '';
   @override

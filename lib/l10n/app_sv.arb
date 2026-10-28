@@ -434,8 +434,6 @@
   "driverWaitingAtPickup": "Din förare väntar vid upphämtningsplatsen.",
   "imOnTheWay": "Jag är på väg",
   "yourDriver": "din förare",
-  "callUnavailableTitle": "Samtal till föraren är inte tillgängligt",
-  "callUnavailableBody": "Movera har ännu inte fått något maskerat nummer för att ringa {driver}. Inget samtal har ringts.",
   "nameCancelled": "{name} avbokade",
   "driverCancelledBody": "Vi letar efter en annan förare åt dig. Upphämtning, destination och pris är oförändrade.",
   "nearDestinationUpper": "NÄRA DESTINATIONEN",
