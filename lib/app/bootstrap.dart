@@ -7,6 +7,7 @@ import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/bundled_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
@@ -175,12 +176,31 @@ Future<void> bootstrap() async {
       zone: await currentRiderZone(),
     ),
   );
-  HomeLocationController.onGoodFix = (point) => unawaited(
-    AppScope.instance.language.useZone(
-      config: AppScope.instance.riderConfig,
-      zone: RiderZones.at(point.latitude, point.longitude),
-    ),
-  );
+  HomeLocationController.onGoodFix = (point) {
+    final zone = RiderZones.at(point.latitude, point.longitude);
+    unawaited(
+      AppScope.instance.language.useZone(
+        config: AppScope.instance.riderConfig,
+        zone: zone,
+      ),
+    );
+    // The settings stream follows the rider into another zone.
+    final config = AppScope.instance.riderConfig;
+    if (config is ApiRiderConfigRepository) {
+      config.homeZoneId = zone.id;
+      unawaited(config.watch(zone.id));
+    }
+  };
+  // Owner 2026-10-27: new rider settings reach an open app at once
+  // (config_published on /rider/config/stream) and are read again on start;
+  // the car types follow the published catalog.
+  final config = AppScope.instance.riderConfig;
+  if (config is ApiRiderConfigRepository) {
+    final zone = await currentRiderZone();
+    config.homeZoneId = zone.id;
+    config.addListener(() => unawaited(AppScope.instance.catalog.load()));
+    unawaited(config.watch(zone.id));
+  }
   // Ride categories from the server. Not awaited: the built-in list stands
   // in until the answer lands, and Select Ride asks again when it opens.
   unawaited(AppScope.instance.catalog.load());

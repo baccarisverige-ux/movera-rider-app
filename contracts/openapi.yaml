@@ -1,11 +1,11 @@
-# Movera API v0.5.5 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.8.1 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.5.5
+  version: 0.8.1
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.5.5 in this folder; this file must agree with them.
+    v0.8.1 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -55,6 +55,8 @@ tags:
 - name: Admin · Lists
 - name: Admin · Trips
 - name: Admin · Dispatch
+- name: Safety
+- name: Admin · Safety
 - name: Admin · People
 - name: Admin · Config
 - name: Admin · Governance
@@ -68,7 +70,7 @@ tags:
   description: Legacy /rides aliases kept for one release
 x-contract:
   name: movera
-  version: 0.5.5
+  version: 0.8.1
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4551,8 +4553,8 @@ paths:
       operationId: adminRefundTrip
       summary: Refund (full or partial)
       description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
-        Above the role limit → 202 pending_approval, except for a Super admin (approvalExempt): 200 / 201 at once, written
-        in the audit (owner decision 14).'
+        v0.7.2 (owner 2026-10-28, one admin is enough): 200 / 201 at once for every admin with the permission, written in
+        the audit.'
       tags:
       - Admin · Trips
       x-actor:
@@ -4582,8 +4584,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Refund'
-        '202':
-          $ref: '#/components/responses/PendingApproval'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4603,8 +4603,8 @@ paths:
       operationId: adminAdjustTrip
       summary: Adjust fare / waiting / waive cancel fee
       description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
-        Above the role limit → 202 pending_approval, except for a Super admin (approvalExempt): 200 / 201 at once, written
-        in the audit (owner decision 14).'
+        v0.7.2 (owner 2026-10-28, one admin is enough): 200 / 201 at once for every admin with the permission, written in
+        the audit.'
       tags:
       - Admin · Trips
       x-actor:
@@ -4634,8 +4634,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripProjection'
-        '202':
-          $ref: '#/components/responses/PendingApproval'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4837,6 +4835,336 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/sos:
+    post:
+      operationId: riderSos
+      summary: 'The rider presses SOS: alert Movera'
+      description: v0.7.0. Only the trip's own rider, while the trip is live (contract.json#safety.sos.riderStatuses); otherwise
+        409 invalid_transition with the trip. Creates the trip's one open SOS incident, or returns it when one is open (a
+        second SOS from either side). The app opens the emergency call (112) itself; it retries with the same Idempotency-Key
+        and then shows only "SOS sent".
+      tags:
+      - Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SosRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SosReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/trips/{tripId}/sos:
+    post:
+      operationId: driverSos
+      summary: 'The driver presses SOS: alert Movera'
+      description: v0.7.0. Only the trip's own driver, while the trip is live (contract.json#safety.sos.driverStatuses); otherwise
+        409 invalid_transition with the trip. Creates the trip's one open SOS incident, or returns it when one is open (a
+        second SOS from either side). The app opens the emergency call (112) itself; it retries with the same Idempotency-Key
+        and then shows only "SOS sent".
+      tags:
+      - Safety
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SosRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SosReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/stream:
+    get:
+      operationId: adminStreamIncidents
+      summary: Admin incident feed (opened, updated, escalated, closed)
+      description: 'v0.7.0. Any signed-in admin may listen. Events of an incident go to admins with incidents.read whose zones
+        cover its zone; once it is escalated (not taken in contract.json#safety.escalateAfterSeconds) to every signed-in admin.
+        Without Accept: text/event-stream: a JSON page of the same events (polling fallback).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - $ref: '#/components/parameters/After'
+      - $ref: '#/components/parameters/LastEventId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events. Each SSE `data:` line is one JSON AdminIncidentEvent; `id:` is the sequence;
+                  heartbeat comments every 15 s.
+              x-sse-data: '#/components/schemas/AdminIncidentEvent'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminIncidentEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}:
+    get:
+      operationId: adminGetIncident
+      summary: Incident detail with the car's latest position
+      description: v0.7.0. In the admin's zones only (else 403 zone_out_of_scope).
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/take:
+    post:
+      operationId: adminTakeIncident
+      summary: Take the incident (New → Taken)
+      description: v0.7.0 (contract.json#safety.transitions). In the admin's zones only. A status the command cannot leave
+        → 409 invalid_transition with the incident; a stale expectedVersion → 409 version_mismatch with the incident. Written
+        in the audit.
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminIncidentCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/resolve:
+    post:
+      operationId: adminResolveIncident
+      summary: Solve the incident (→ Solved)
+      description: v0.7.0 (contract.json#safety.transitions). In the admin's zones only. A status the command cannot leave
+        → 409 invalid_transition with the incident; a stale expectedVersion → 409 version_mismatch with the incident. Written
+        in the audit.
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminIncidentCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/dismiss:
+    post:
+      operationId: adminDismissIncident
+      summary: Call it a false alarm (→ False alarm)
+      description: v0.7.0 (contract.json#safety.transitions). In the admin's zones only. A status the command cannot leave
+        → 409 invalid_transition with the incident; a stale expectedVersion → 409 version_mismatch with the incident. Written
+        in the audit.
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminIncidentCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -5388,7 +5716,8 @@ paths:
       x-permission-v050: config.read
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
-      - $ref: '#/components/parameters/ZoneIdRequired'
+      - $ref: '#/components/parameters/ConfigZoneId'
+      - $ref: '#/components/parameters/ConfigCountry'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -5431,6 +5760,7 @@ paths:
         driver_app_config: settings.edit
         pricing: settings.edit
         dispatch: dispatch.edit
+        country_rules: settings.edit
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -5471,10 +5801,12 @@ paths:
   /admin/config/{doc}/publish:
     post:
       operationId: adminPublishConfig
-      summary: Publish the draft (two-person approval)
-      description: Normally 202 pending_approval; 200 when the approver publishes directly, and always 200 for a Super admin
-        (approvalExempt, owner decision 14, v0.5.1). Emits config_published on the app streams for rider_app_config and driver_app_config
-        only; pricing and dispatch (server-only) are published with the same version rule but never reach the apps.
+      summary: Publish the draft at once (no second admin, v0.8.0)
+      description: 'v0.8.0 (owner 2026-10-27, as refunds): no second admin. Any admin with the publish permission (settings.publish;
+        dispatch.edit for dispatch; settings.publish for country_rules) publishes at once: 200 ConfigPublication, never 202.
+        dispatch.approve and approval.decide no longer apply to config. The server stamps version and publishedAt (contract.json#configVersion).
+        Emits config_published on the app streams for rider_app_config and driver_app_config only; pricing and dispatch (server-only)
+        are published with the same version rule but never reach the apps.'
       tags:
       - Admin · Config
       x-actor:
@@ -5486,11 +5818,7 @@ paths:
         driver_app_config: settings.publish
         pricing: settings.publish
         dispatch: dispatch.edit
-      x-approver-permission-by-doc:
-        rider_app_config: settings.publish
-        driver_app_config: settings.publish
-        pricing: settings.publish
-        dispatch: dispatch.approve
+        country_rules: settings.publish
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -5514,8 +5842,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigPublication'
-        '202':
-          $ref: '#/components/responses/PendingApproval'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/config/{doc}/use-standard:
+    post:
+      operationId: adminUseStandardConfig
+      summary: Go back to the country standard (v0.8.0)
+      description: 'v0.8.0 (owner 2026-10-27): POST /admin/config/{doc}/use-standard { zoneId, expectedVersion } (the zone''s
+        draft version; same permission as publish; the admin confirms first) makes a zone with its own document use its country''s
+        standard again. The zone''s own live document and draft are removed (every version stays in the history); the server
+        re-stamps the standard as version max(standard live, the zone''s own live) + 1 (a history row, the same content) so
+        the zone''s apps never see a lower version, and sends config_published to every zone using the standard. No standard
+        published for the country → 409 conflict (reason standard_not_published); a zone already using the standard → 409
+        (reason already_standard).  v0.8.1: also for country_rules: the zone''s own rules are removed and the standard rules
+        are written into the zone''s app documents (next version). The answer names the zone and the standard''s new version.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      x-permission-by-doc:
+        rider_app_config: settings.publish
+        driver_app_config: settings.publish
+        pricing: settings.publish
+        dispatch: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/ConfigDoc'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UseStandardCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigPublication'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5579,8 +5964,9 @@ paths:
     put:
       operationId: adminPutSurge
       summary: Create or replace the zone's surge schedule (curve)
-      description: contract.json#surge, CONTRACT.md §3.4. Points above the zone's cap → 400 invalid_request. Above the role
-        limit → 202 pending_approval. New quotes price from it at once; quotes already given keep their multiplier.
+      description: 'contract.json#surge, CONTRACT.md §3.4. Points above the zone''s cap → 400 invalid_request. v0.7.2: runs
+        at once for every admin with settings.publish (one admin is enough). New quotes price from it at once; quotes already
+        given keep their multiplier.'
       tags:
       - Admin · Config
       x-actor:
@@ -5610,8 +5996,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SurgeSchedule'
-        '202':
-          $ref: '#/components/responses/PendingApproval'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6773,9 +7157,9 @@ paths:
     put:
       operationId: adminPutDispatchControl
       summary: Pause dispatch or force a mode in a zone
-      description: 'CONTRACT.md §3.6. Pause or force a mode: Super admin at once (200), others 202 pending_approval (owner
-        decision 14). Resume / back to rules (paused false, mode null): 200 for everyone. Forcing a mode that is off → 400
-        invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.'
+      description: 'CONTRACT.md §3.6. v0.7.2 (one admin is enough): pause, force a mode, resume and back to rules run at once
+        (200) for every admin with dispatch.edit. Forcing a mode that is off → 400 invalid_request (mode_off). Running searches
+        stop new offers while paused; a forced mode applies to new searches.'
       tags:
       - Admin · Dispatch
       x-actor:
@@ -6804,8 +7188,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DispatchControl'
-        '202':
-          $ref: '#/components/responses/PendingApproval'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6981,6 +7363,576 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/trips/{tripId}/stops/{stopIndex}/arrive:
+    post:
+      operationId: driverArriveAtStop
+      summary: Driver arrived at an extra stop (stop waiting starts)
+      description: 'v0.7.1. POST /driver/trips/{tripId}/stops/{stopIndex}/arrive { expectedVersion }: the assigned driver,
+        trip in_trip or approaching_dropoff (else 409 invalid_transition, not_on_trip), stopIndex 0-based into TripProjection.stops;
+        sets stops[i].arrivedAt (server time); version + 1, trip_projection. Again on the same stop: 409 invalid_transition
+        (stop_already_arrived). Stops are taken in order: arriving at i while an earlier stop has no arrivedAt is 409 (stop_out_of_order).'
+      tags:
+      - Driver · Trip
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/StopIndex'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/trips/{tripId}/stops/{stopIndex}/leave:
+    post:
+      operationId: driverLeaveStop
+      summary: Driver leaves an extra stop (stop waiting ends)
+      description: 'v0.7.1. POST /driver/trips/{tripId}/stops/{stopIndex}/leave { expectedVersion }: sets stops[i].leftAt;
+        before arrive: 409 invalid_transition (stop_not_arrived); twice: 409 (stop_already_left). version + 1.'
+      tags:
+      - Driver · Trip
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/StopIndex'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/config/{doc}/history:
+    get:
+      operationId: adminConfigHistory
+      summary: Published versions of a config document, newest first
+      description: 'v0.7.1. GET /admin/config/{doc}/history?zoneId&cursor&limit (settings.read): newest first, ConfigHistoryEntry
+        { version, publishedAt, publishedBy, note?, action: publish | restore, restoredFrom?, document }'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/ConfigDoc'
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigHistoryEntryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/config/{doc}/restore:
+    post:
+      operationId: adminRestoreConfig
+      summary: Publish an earlier version again (Restore, Undo last publish)
+      description: 'v0.7.1. POST /admin/config/{doc}/restore { zoneId, version, expectedVersion, note? } (the publish permission):
+        publishes that version''s document again as the next version (action restore, restoredFrom), with every effect of
+        a publish (§6.2 app documents for pricing). Undo last publish = restore the version before the live one. A version
+        not in the history: 404; the live version: 409 invalid_transition (already_live). one audit row per pricing publish
+        or restore: action config.publish, details { doc, zoneId, version, restoredFrom?, appDocuments: [{ doc, version }]
+        } (the app documents the publish rewrote)'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/ConfigDoc'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigRestoreCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigPublication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/categories:
+    get:
+      operationId: adminListCategories
+      summary: The car type catalog (every zone)
+      description: 'v0.7.1. v0.7.1 (owner 2026-10-27): one catalog of car types for every country and zone (admin Pricing
+        › Manage categories); each zone switches a category on or off in its pricing document.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDefList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateCategory
+      summary: Add a car type (off in every zone)
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDefInput'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDef'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/categories/{categoryId}:
+    put:
+      operationId: adminUpdateCategory
+      summary: Rename a car type, its sub-line and seats
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/CategoryIdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDefInput'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDef'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/categories/{categoryId}/archive:
+    post:
+      operationId: adminArchiveCategory
+      summary: Delete a car type (archived, restorable)
+      description: 'v0.7.1. Delete = archive for restoreDays days, then gone. Refused while trips of the category are booked
+        and not finished: 409 invalid_transition (category_in_use). Archiving switches the category off (enabled: false) in
+        every zone''s live pricing document (a new version each) and removes it from the catalog the apps get.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/CategoryIdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryArchiveCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDef'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/categories/{categoryId}/restore:
+    post:
+      operationId: adminRestoreCategory
+      summary: Restore an archived car type (old prices, off)
+      description: 'v0.7.1. within restoreDays: back in the catalog with its old prices, switched off in every zone; later:
+        409 invalid_transition (restore_expired)'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/CategoryIdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDef'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/surge/now:
+    get:
+      operationId: adminSurgeNow
+      summary: The surge now in each zone, with its demand
+      description: 'v0.7.2. v0.7.2 (owner 2026-10-28): the admin''s Pricing › Surge tab shows only real numbers from the server:
+        the surge now per zone (map, list, alerts), the demand chart, the rider price check and the surge timeline. No invented
+        values: what the server cannot give is shown ''Not connected yet''. GET /admin/surge/now?zoneIds=Z1,Z2 (settings.read;
+        zones outside the admin''s scope are left out; no zoneIds = every zone in scope) → { at, zones: ZoneSurgeNow[] }.
+        ZoneSurgeNow { zoneId, multiplier, source: manual | scheduled | smart | off, until?, scheduleId?, profileId?, requests,
+        freeDrivers, ratio, checkedAt? }: multiplier and source exactly as a quote made now would get them (contract.json#pricing.surgeSource,
+        before a category filter); requests, freeDrivers and ratio from the newest SurgeSample.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: zoneIds
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Comma-separated zone ids; none = every zone in the admin's scope.
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurgeNowList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/surge/history:
+    get:
+      operationId: adminSurgeHistory
+      summary: Demand chart, rider price check and surge timeline of a zone
+      description: 'v0.7.2. GET /admin/zones/{zoneId}/surge/history?hours=1..24&bucketMin=5|10|15|30|60 (settings.read; defaults
+        6 and 10) → { zoneId, from, to, bucketMin, points: SurgePoint[], priceCheck: PriceCheck, timeline: SurgeTimelineItem[]
+        }. Each minute the server''s surge check stores one SurgeSample per open zone (whether smart surge is on or not):
+        { zoneId, at, requests (ride requests created in the zone in the last minute), freeDrivers (as contract.json#smartSurge.ratio),
+        ratio (requests in the last checkEveryMin ÷ freeDrivers, as smart surge measures it), multiplier, source }. Samples
+        are kept 8 days.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - name: hours
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 24
+          default: 6
+      - name: bucketMin
+        in: query
+        required: false
+        schema:
+          type: integer
+          enum:
+          - 5
+          - 10
+          - 15
+          - 30
+          - 60
+          default: 10
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurgeHistory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/surge-map:
+    get:
+      operationId: driverSurgeMap
+      summary: Zones with a surge now, as colour levels for the Home map
+      description: 'v0.7.2. GET /driver/surge-map (driver) → { at, zones: DriverSurgeZone[] }: the open operating zones of
+        the driver''s country whose surge now (as GET /admin/surge/now, before a category filter) is above 1.0. DriverSurgeZone
+        { zoneId, level: low | medium | high, bounds: { south, west, north, east } } (the zone''s rectangle). Never the multiplier.
+        the app asks while online on Home: on going online, then every 60 s, and when the app comes back to the front; it
+        keeps the last answer when a call fails; offline it shows no colours. The top bar''s waiting tip ''Hög bonus i närheten''
+        / ''Forte majoration à proximité'' / ''High boost nearby'' (no money, no number, no zone name) shows while the driver''s
+        position is inside a listed zone or less than 3 km from its rectangle, any level. The old ''+{kr} kr i {zone}'' tip
+        is removed.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverSurgeMap'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -7063,6 +8015,12 @@ components:
         $ref: '#/components/schemas/Id'
     InvitationId:
       name: invitationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    IncidentId:
+      name: incidentId
       in: path
       required: true
       schema:
@@ -7162,6 +8120,20 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Id'
+    ConfigZoneId:
+      name: zoneId
+      in: query
+      required: false
+      description: 'v0.8.0: the zone''s own document; exactly one of zoneId or country.'
+      schema:
+        $ref: '#/components/schemas/Id'
+    ConfigCountry:
+      name: country
+      in: query
+      required: false
+      description: 'v0.8.0: the country''s standard (v0.8.1: also of country_rules); exactly one of zoneId or country.'
+      schema:
+        $ref: '#/components/schemas/CountryCode'
     From:
       name: from
       in: query
@@ -7182,6 +8154,21 @@ components:
       schema:
         type: string
         maxLength: 200
+    CategoryIdPath:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/CategoryId'
+    StopIndex:
+      name: stopIndex
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 9
+      description: 0-based index into TripProjection.stops.
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -7338,6 +8325,7 @@ components:
       - xl
       - electric
       - pet
+      - child_seat
       x-seed:
       - economy
       - comfort
@@ -7346,10 +8334,12 @@ components:
       - xl
       - electric
       - pet
+      - child_seat
       x-aliases:
         movera: economy
-      description: Category id from the admin Pricing catalog. Seed ids are listed in x-seed; alias `movera` → `economy` is
-        accepted on read for one release.
+        kids: child_seat
+      description: Category id from the admin Pricing catalog. Seed ids are listed in x-seed; aliases `movera` → `economy`
+        and (v0.6.0) `kids` → `child_seat` are accepted on read for one release.
     PaymentMethod:
       type: string
       enum:
@@ -8088,6 +9078,42 @@ components:
           - $ref: '#/components/schemas/SearchStep'
           description: 'v0.5.1 (CONTRACT.md §3.6): the latest rider-waiting step while searching (rider view). Changing it
             does not change version.'
+        stopVisits:
+          type: array
+          items:
+            $ref: '#/components/schemas/StopVisit'
+          description: 'v0.7.1 (contract.json#stopWaits): the driver''s arrived-at-stop / leaving-stop per extra stop, in
+            stop order.'
+        driverSilentAlert:
+          allOf:
+          - $ref: '#/components/schemas/DriverSilentAlert'
+          description: 'v0.7.0 (CONTRACT.md §15), admin view only: the rider is on board and the server has had no driver
+            position for 30 min ("car lost"). Gone when positions come back. Changing it does not change version.'
+    DriverSilentAlert:
+      type: object
+      description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
+        trip fails with no charge at autoFailAt (3 h). It also opens a driver_silent incident.'
+      required:
+      - kind
+      - silentSince
+      - at
+      - autoFailAt
+      properties:
+        kind:
+          type: string
+          enum:
+          - driver_silent
+        silentSince:
+          $ref: '#/components/schemas/Timestamp'
+        lastFixAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        autoFailAt:
+          $ref: '#/components/schemas/Timestamp'
     Offer:
       type: object
       description: One driver's offer for a trip. One trip has many offers; offerId is never a tripId.
@@ -9131,6 +10157,28 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+    IncidentPosition:
+      type: object
+      description: 'v0.7.0: a phone''s GPS position, measured once (CONTRACT.md §15).'
+      required:
+      - lat
+      - lng
+      - at
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        accuracyM:
+          type: number
+          minimum: 0
+          description: Horizontal accuracy, metres.
+        at:
+          $ref: '#/components/schemas/Timestamp'
     Incident:
       type: object
       required:
@@ -9147,6 +10195,12 @@ components:
         kind:
           type: string
           pattern: ^[a-z][a-z0-9_]{0,63}$
+          examples:
+          - sos
+          - driver_silent
+          - ride_check
+          description: 'v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; ride_check is safety part 2). Older
+            rows may hold other snake_case kinds.'
         severity:
           type: string
           enum:
@@ -9161,11 +10215,126 @@ components:
           - investigating
           - resolved
           - dismissed
+          description: open = New, investigating = Taken, resolved = Solved, dismissed = False alarm (contract.json#safety.statusLabels).
+        version:
+          type: integer
+          minimum: 1
+          description: 'v0.7.0: + 1 on take / resolve / dismiss; commands send it as expectedVersion.'
         reportedBy:
           $ref: '#/components/schemas/Actor'
+        raisedBy:
+          type: string
+          enum:
+          - rider
+          - driver
+          - system
+          description: 'v0.7.0: who raised it; system for driver_silent.'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        riderId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          $ref: '#/components/schemas/Id'
+        position:
+          allOf:
+          - $ref: '#/components/schemas/IncidentPosition'
+          description: 'v0.7.0: the GPS the SOS phone sent (once).'
+        driverPosition:
+          allOf:
+          - $ref: '#/components/schemas/GeoFix'
+          description: 'v0.7.0: the car''s latest position the server has (admin view; read live, also after the SOS).'
         openedAt:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        escalatedAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.7.0: set when the incident was not taken within contract.json#safety.escalateAfterSeconds (120
+            s); every signed-in admin is alerted from then on.'
+        takenBy:
+          $ref: '#/components/schemas/Id'
+        takenAt:
+          $ref: '#/components/schemas/Timestamp'
+        resolvedBy:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.7.0: the admin who solved it or called it a false alarm; absent when the system closed it.'
+        resolvedAt:
+          $ref: '#/components/schemas/Timestamp'
+        resolution:
+          type: string
+          maxLength: 1000
+          description: 'v0.7.0: the closing note; ''position back'' when the system closes a driver_silent incident.'
+    SosRequest:
+      type: object
+      description: v0.7.0 (CONTRACT.md §15).
+      required:
+      - at
+      properties:
+        at:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: When the person pressed SOS on the phone.
+        position:
+          allOf:
+          - $ref: '#/components/schemas/IncidentPosition'
+          description: The phone's last GPS, sent once; absent when the phone has none.
+    SosReceipt:
+      type: object
+      description: 'v0.7.0: the SOS reached Movera. The app shows only "SOS sent"; it gets no later update.'
+      required:
+      - incidentId
+      - tripId
+      - receivedAt
+      properties:
+        incidentId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        receivedAt:
+          $ref: '#/components/schemas/Timestamp'
+    AdminIncidentCommand:
+      type: object
+      description: 'v0.7.0: take, resolve (Solved) or dismiss (False alarm). The note becomes the resolution.'
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: The incident version the admin last saw; stale → 409 version_mismatch with the incident.
+        note:
+          type: string
+          maxLength: 1000
+    AdminIncidentEvent:
+      type: object
+      description: 'v0.7.0: the admin incident feed (GET /admin/incidents/stream).'
+      required:
+      - eventId
+      - sequence
+      - kind
+      - incident
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        sequence:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - incident_opened
+          - incident_updated
+          - incident_escalated
+          - incident_closed
+        incident:
+          $ref: '#/components/schemas/Incident'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
           $ref: '#/components/schemas/Timestamp'
     Payout:
       type: object
@@ -9311,8 +10480,8 @@ components:
       - super
     PendingApproval:
       type: object
-      description: Returned with 202 when the action needs a second admin (two-person rule). Never for a Super admin (AdminMe.approvalExempt,
-        owner decision 14, v0.5.1).
+      description: An approval filed before v0.7.2. Since v0.7.2 (owner 2026-10-28, one admin is enough everywhere) no operation
+        answers 202; GET /admin/approvals lists the old ones.
       required:
       - status
       - approvalId
@@ -9436,15 +10605,21 @@ components:
       - driver_app_config
       - pricing
       - dispatch
+      - country_rules
       x-server-only:
       - pricing
       - dispatch
+      - country_rules
       description: app documents are served to the apps; pricing and dispatch (v0.5.1) are server-only (x-server-only, contract.json#configDocs).
     ConfigDraft:
       type: object
+      description: 'v0.8.0: zoneId for a zone''s document, country for a country''s standard or country_rules (v0.8.0: GET,
+        PUT and POST …/publish on /admin/config/{doc} name exactly one of zoneId (the zone''s own document) or country (ISO
+        alpha-2; the country''s standard). Both or neither → 400 invalid_request (reason scope_required). v0.8.1: country_rules
+        too may name a zoneId (the zone''s own tips and limits) or a country (its standard). A country scope is open to any
+        admin who covers at least one zone of that country and holds the document''s permission (owner 2026-10-27).)'
       required:
       - doc
-      - zoneId
       - version
       - liveVersion
       - document
@@ -9454,6 +10629,12 @@ components:
           $ref: '#/components/schemas/ConfigDocName'
         zoneId:
           $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        usesStandard:
+          type: boolean
+          description: 'v0.8.0: the zone has no own published document of this kind and uses its country''s standard (configDocs.standard);
+            the draft starts from the standard.'
         version:
           type: integer
           minimum: 1
@@ -9468,6 +10649,7 @@ components:
           - $ref: '#/components/schemas/DriverAppConfig'
           - $ref: '#/components/schemas/PricingDocument'
           - $ref: '#/components/schemas/DispatchDocument'
+          - $ref: '#/components/schemas/CountryRules'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
         updatedBy:
@@ -9476,7 +10658,6 @@ components:
       type: object
       required:
       - doc
-      - zoneId
       - version
       - publishedAt
       properties:
@@ -9484,11 +10665,61 @@ components:
           $ref: '#/components/schemas/ConfigDocName'
         zoneId:
           $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
         version:
           type: integer
           minimum: 1
+          description: Stamped by the server (contract.json#configVersion).
         publishedAt:
           $ref: '#/components/schemas/Timestamp'
+    CountryRules:
+      type: object
+      description: 'v0.8.1, server-only, per zone or per country (its standard): v0.8.1 (owner 2026-10-28: Tips & limits apply
+        only to the zones chosen at the top; for the whole country the admin chooses all zones): tips, raiseSteps and driverBonus
+        are the country_rules document { version, publishedAt, country, currency, tips: [AmountOption], raiseSteps: [AmountOption],
+        driverBonus: { defaultLimit, hardMax } }, like the other documents published per zone (?zoneId, the zone''s own) or
+        per country (?country, the country''s standard). A zone''s rules are its own once published for it, else its country''s
+        standard (usesStandard: true); a zone with its own rules never uses the standard again until ''Go back to Standard''
+        (useStandard, also for country_rules). Publishing a zone''s own rules writes, in the same transaction, RiderAppConfig.tips
+        / raiseSteps and DriverAppConfig.driverBonus of that zone''s live and draft app documents; a zone that uses the standard
+        app documents gets its own, copied from the standard with the new values (as publishPricing does), each changed one
+        as its next version with config_published. Publishing the standard rules writes them into the standard app documents
+        and into the own app documents of every zone of the country that has no own rules; zones with their own rules keep
+        them. While a zone''s rules (own or standard) are live, PUT and publish of that zone''s app documents take those three
+        fields from them, whatever the admin sent; the dispatch driver bonus limit of a trip is its zone''s rules. The admin
+        panel publishes to exactly the zones chosen at the top (''All zones'' = every zone of the country it may work in,
+        each as its own) and to the standard only when it is chosen.'
+      required:
+      - version
+      - publishedAt
+      - country
+      - currency
+      - tips
+      - raiseSteps
+      - driverBonus
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Stamped by the server.
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        tips:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmountOption'
+        raiseSteps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmountOption'
+        driverBonus:
+          $ref: '#/components/schemas/DriverBonusLimits'
+      x-server-only: true
     FeeRule:
       type: object
       required:
@@ -9555,6 +10786,27 @@ components:
           $ref: '#/components/schemas/CancelFeeTable'
         reservation:
           $ref: '#/components/schemas/CancelFeeTable'
+        driverSharePct:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 100
+          description: 'DriverAppConfig only. v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in
+            Admin › Dispatch per zone: the driver''s share of a rider''s cancel fee, 0–100, default 100. Movera keeps the
+            rest.'
+    LocalizedLine:
+      type: object
+      description: 'v0.7.1: a short text in each app language.'
+      properties:
+        sv:
+          type: string
+          maxLength: 80
+        fr:
+          type: string
+          maxLength: 80
+        en:
+          type: string
+          maxLength: 80
     CategoryCatalog:
       type: object
       required:
@@ -9579,6 +10831,11 @@ components:
                 minimum: 1
               sort:
                 type: integer
+              line:
+                allOf:
+                - $ref: '#/components/schemas/LocalizedLine'
+                description: 'v0.7.1: the sub-line under the name (admin Manage categories), e.g. Movera XL — up to 6 people;
+                  the rider app shows it.'
     AppUpdate:
       type: object
       description: Below minimumVersion = forced update; below latestVersion = soft update.
@@ -10072,17 +11329,30 @@ components:
           maximum: 5
     SurgePoint:
       type: object
+      description: 'v0.7.2: SurgePoint { at (bucket start), requests (sum in the bucket), freeDrivers (average, rounded),
+        ratio (average, 0.1), multiplier (highest in the bucket) }, oldest first; a bucket without samples is left out.'
       required:
-      - atMin
+      - at
+      - requests
+      - freeDrivers
+      - ratio
       - multiplier
       properties:
-        atMin:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        requests:
           type: integer
           minimum: 0
-          description: Minutes from startAt.
+        freeDrivers:
+          type: integer
+          minimum: 0
+        ratio:
+          type: number
+          minimum: 0
         multiplier:
           type: number
-          minimum: 1.0
+          minimum: 1
+          maximum: 6
     SurgeSchedule:
       type: object
       description: 'A surge curve over time (v0.5.0, CONTRACT.md §3.4, contract.json#surge). value at minute m = curve value
@@ -10121,7 +11391,9 @@ components:
         cap:
           type: number
           minimum: 1
-          description: No point and no step is above this (Admin surge cap).
+          maximum: 6.0
+          description: 'No point and no step is above this: the admin''s maximum, at most capMax (6, v0.6.0; v0.7.1: the server
+            sets it to the highest point, the slider value). The quote is also kept within the zone''s pricing surge.maxMultiplier.'
         points:
           type: array
           items:
@@ -10414,7 +11686,7 @@ components:
         version:
           type: integer
           minimum: 1
-          description: Only increases; apps keep the last good document.
+          description: Stamped by the server (contract.json#configVersion); only increases; apps keep the last good document.
         publishedAt:
           $ref: '#/components/schemas/Timestamp'
         zoneId:
@@ -10433,6 +11705,9 @@ components:
           $ref: '#/components/schemas/CountryCode'
         languages:
           $ref: '#/components/schemas/Languages'
+        usesStandard:
+          type: boolean
+          description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
         catalog:
           $ref: '#/components/schemas/CategoryCatalog'
         features:
@@ -10526,7 +11801,7 @@ components:
         version:
           type: integer
           minimum: 1
-          description: Only increases; apps keep the last good document.
+          description: Stamped by the server (contract.json#configVersion); only increases; apps keep the last good document.
         publishedAt:
           $ref: '#/components/schemas/Timestamp'
         zoneId:
@@ -10545,6 +11820,9 @@ components:
           $ref: '#/components/schemas/CountryCode'
         languages:
           $ref: '#/components/schemas/Languages'
+        usesStandard:
+          type: boolean
+          description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
         catalog:
           $ref: '#/components/schemas/CategoryCatalog'
         features:
@@ -10632,7 +11910,14 @@ components:
                 missedExclusive:
                   type: integer
                   minimum: 0
-                  description: Missed or declined exclusive offers in a row before the driver is set offline (default 3).
+                  description: 'Missed or declined exclusive offers in a row before the driver is set offline (default 10,
+                    owner decision 35; 3 before v0.5.6). v0.8.0 (owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive
+                    (default 10) Exclusive offers of live trips in a row that were declined or expired. Only kind=exclusive
+                    offers of live trips sent while the driver was free count; an Exclusive offer sent while the driver is
+                    on a trip never counts; Radar, assigned and reservation (scheduled) offers declined or expired never count.
+                    ANY accepted offer (Exclusive or Radar, any kind) and going online set the count back to 0. Both the server
+                    (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce
+                    it; fixtures/settings_flow.json#autoOffline.'
                 hiddenComesBackMin:
                   type: number
                   minimum: 0
@@ -10743,8 +12028,6 @@ components:
       - commissionPct
       - extraStopFee
       - stopWaitPerMin
-      - babySeatFee
-      - childSeatFee
       - waiting
       - riderPickupFee
       properties:
@@ -10783,11 +12066,13 @@ components:
         stopWaitPerMin:
           allOf:
           - $ref: '#/components/schemas/Money'
-          description: Waiting at a stop after stopFreeWaitMin, per minute, charged per second.
-        babySeatFee:
-          $ref: '#/components/schemas/Money'
+          description: Waiting at a stop, per minute, charged per second from the driver's arrived-at-stop to leaving-stop;
+            no free minutes (v0.7.1).
         childSeatFee:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.7.1: the ONE seat fee, only on the child_seat category (owner 2026-10-27): every child_seat trip
+            includes one seat and adds it once. On another category: 400 seat_fee_not_child_seat. babySeatFee is gone.'
         waiting:
           $ref: '#/components/schemas/CategoryPricingWaiting'
         riderPickupFee:
@@ -10851,6 +12136,7 @@ components:
         multiplier:
           type: number
           minimum: 1
+          maximum: 6.0
     SurgeProfile:
       type: object
       required:
@@ -10895,11 +12181,14 @@ components:
         cap:
           type: number
           minimum: 1
+          maximum: 6.0
+          description: 'The profile''s own maximum (admin, ×1 to ×6; v0.7.1: the only limit of smart surge).'
         isDefault:
           type: boolean
     SmartSurge:
       type: object
-      description: The admin's smart surge settings, kept in the document; the algorithm is not normative in v0.5.1.
+      description: 'The admin''s smart surge settings. v0.7.1: the server runs it (contract.json#smartSurge, fixtures/smart_surge.json);
+        off until enabled.'
       required:
       - enabled
       - profiles
@@ -10950,6 +12239,7 @@ components:
         multiplier:
           type: number
           minimum: 1
+          maximum: 6.0
         startsAt:
           $ref: '#/components/schemas/Timestamp'
         endsAt:
@@ -10957,25 +12247,35 @@ components:
     PricingSurge:
       type: object
       description: 'Surge sources after the zone''s surge schedule (§3.4): first match: the zone''s active surge schedule
-        (§3.4, PUT /admin/zones/{zoneId}/surge), then a pricing.surge.scheduled window in force, then smart surge when smart.enabled;
-        else 1.0. The quote keeps its multiplier.'
+        (§3.4, PUT /admin/zones/{zoneId}/surge: the manual Start/Stop), then the highest pricing.surge.scheduled window in
+        force (v0.7.1: overlapping planned surges, the higher counts; the admin is warned on save), then smart surge when
+        smart.enabled (v0.7.1: contract.json#smartSurge, off by default); else 1.0. Every source is clamped to [1, 6]; the
+        maximum of each is the value the admin chose on its slider (manual surge, planned window, smart profile cap; v0.7.1,
+        no separate maximum). The quote keeps its multiplier; a reservation keeps the price shown at booking (no surge added
+        later).'
       required:
-      - maxMultiplier
       - smart
       - scheduled
       properties:
         maxMultiplier:
           type: number
           minimum: 1
-          maximum: 3.0
-          default: 3.0
-          description: 'Owner decision 21: at most ×3 (the admin slider allows 6).'
+          maximum: 6.0
+          deprecated: true
+          description: 'Deprecated in v0.7.1 and ignored: the maximum of each surge is the value the admin chose on its slider
+            (owner 2026-10-27, no extra box). Kept readable for one release.'
         smart:
           $ref: '#/components/schemas/SmartSurge'
         scheduled:
           type: array
           items:
             $ref: '#/components/schemas/ScheduledSurge'
+          description: 'v0.7.1: overlapping windows, the higher multiplier counts.'
+        notifyDrivers:
+          type: boolean
+          description: 'Deprecated in v0.7.2 and ignored: drivers get no surge notice (owner 2026-10-28, contract.json#surgeNoticeRemoved).'
+          deprecated: true
+          default: false
     PricingDocument:
       type: object
       description: 'Server-only (contract.json#configDocs): the zone''s prices, read by the server''s quote engine. Never
@@ -10991,7 +12291,6 @@ components:
       - priceStep
       - categories
       - fees
-      - stopFreeWaitMin
       - fixedRoutes
       - surge
       - fleetCommissionPct
@@ -10999,7 +12298,7 @@ components:
         version:
           type: integer
           minimum: 1
-          description: Admin revision of the zone's live pricing document (contract.json#configVersion).
+          description: Server-stamped revision of the zone's live pricing document (contract.json#configVersion).
         publishedAt:
           $ref: '#/components/schemas/Timestamp'
         zoneId:
@@ -11023,12 +12322,6 @@ components:
             $ref: '#/components/schemas/CategoryPricing'
         fees:
           $ref: '#/components/schemas/PricingFees'
-        stopFreeWaitMin:
-          type: number
-          minimum: 0
-          maximum: 30
-          default: 3
-          description: Free minutes at each stop (owner decision 20).
         fixedRoutes:
           type: array
           items:
@@ -11040,6 +12333,9 @@ components:
           minimum: 0
           maximum: 30
           description: Fleet owner's share (admin Pricing); not in the rider's fare.
+        usesStandard:
+          type: boolean
+          description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
       x-server-only: true
     DispatchModeRules:
       type: object
@@ -11214,7 +12510,7 @@ components:
         version:
           type: integer
           minimum: 1
-          description: Admin revision of the zone's live dispatch document (contract.json#configVersion).
+          description: Server-stamped revision of the zone's live dispatch document (contract.json#configVersion).
         publishedAt:
           $ref: '#/components/schemas/Timestamp'
         zoneId:
@@ -11292,6 +12588,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DispatchWaitingStep'
+        usesStandard:
+          type: boolean
+          description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
       x-server-only: true
       x-ranges:
         radar.drivers:
@@ -11324,8 +12623,8 @@ components:
       type: object
       description: 'Live dispatch switch of a zone (outside publishing). DispatchControl { zoneId, paused, mode: radar | exclusive
         | null, by, at, version } is live state, outside publishing. PUT /admin/zones/{zoneId}/dispatch-control (dispatch.edit).
-        Pausing or forcing a mode by an admin who is not Super admin is 202 pending_approval (owner decision 14); resume and
-        back to rules apply at once for everyone (the admin panel''s rule).'
+        Pausing, forcing a mode, resume and back to rules apply at once for every admin with dispatch.edit (v0.7.2, one admin
+        is enough).'
       required:
       - zoneId
       - paused
@@ -11584,7 +12883,8 @@ components:
           default: 900
         approvalExempt:
           type: boolean
-          description: 'True for Super admin: changes go live at once, never 202 pending_approval (owner decision 14).'
+          description: 'v0.7.2: true for every admin (one admin is enough everywhere, owner 2026-10-28): changes go live at
+            once, never 202 pending_approval.'
     AdminSession:
       type: object
       description: 'v0.5.1 (CONTRACT.md §9), owner decisions 9 and 14 (2026-10-24): the admin panel signs in with e-mail and
@@ -12252,6 +13552,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/Offer'
           description: For offer_withdrawn, offer.status is claimed_elsewhere | expired | withdrawn.
+        driverOffline:
+          type: boolean
+          description: 'v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline
+            (contract.json#autoOffline).'
     ConfigEvent:
       type: object
       description: Apps re-fetch the config document on this event.
@@ -12314,6 +13618,7 @@ components:
           - $ref: '#/components/schemas/Rider'
           - $ref: '#/components/schemas/Vehicle'
           - $ref: '#/components/schemas/ConfigDraft'
+          - $ref: '#/components/schemas/Incident'
     ConflictError:
       allOf:
       - $ref: '#/components/schemas/Error'
@@ -12565,6 +13870,16 @@ components:
             items:
               $ref: '#/components/schemas/Fleet'
       description: Page<Fleet>
+    AdminIncidentEventPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/AdminIncidentEvent'
+      description: Page<AdminIncidentEvent>
     TripCommand:
       type: object
       description: Body of driver trip commands.
@@ -12670,6 +13985,32 @@ components:
           $ref: '#/components/schemas/Timestamp'
         paymentMethod:
           $ref: '#/components/schemas/PaymentMethod'
+        babySeats:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: 'v0.6.0, deprecated in v0.7.1 (read for one release): above 0 on any category but child_seat is 400
+            seat_not_offered; on child_seat it changes nothing (the trip always includes one seat).'
+          deprecated: true
+        childSeats:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: 'v0.6.0, deprecated in v0.7.1: as babySeats.'
+          deprecated: true
+        airportPickup:
+          type: boolean
+          description: 'v0.6.0, deprecated in v0.7.1: ignored; the server decides the airport fees from the airport zones.'
+          deprecated: true
+        airportDropoff:
+          type: boolean
+          description: 'v0.6.0, deprecated in v0.7.1: ignored.'
+          deprecated: true
+        fixedRouteId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
+            the ride part, otherwise the category is priced normally.'
     QuoteList:
       type: object
       required:
@@ -12686,7 +14027,8 @@ components:
           $ref: '#/components/schemas/Timestamp'
     CreateTripRequest:
       type: object
-      description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes.'
+      description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes. v0.6.0:
+        babySeats, childSeats, airportPickup, airportDropoff and fixedRouteId repeat the quote''s (else 400 quote_mismatch).'
       required:
       - quoteId
       - categoryId
@@ -12722,6 +14064,32 @@ components:
         notes:
           type: string
           maxLength: 500
+        babySeats:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: 'v0.6.0, deprecated in v0.7.1 (read for one release): above 0 on any category but child_seat is 400
+            seat_not_offered; on child_seat it changes nothing (the trip always includes one seat).'
+          deprecated: true
+        childSeats:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: 'v0.6.0, deprecated in v0.7.1: as babySeats.'
+          deprecated: true
+        airportPickup:
+          type: boolean
+          description: 'v0.6.0, deprecated in v0.7.1: ignored; the server decides the airport fees from the airport zones.'
+          deprecated: true
+        airportDropoff:
+          type: boolean
+          description: 'v0.6.0, deprecated in v0.7.1: ignored.'
+          deprecated: true
+        fixedRouteId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
+            the ride part, otherwise the category is priced normally.'
     UpdateTripRequest:
       type: object
       description: Route change (needs routeQuoteId from /route-quote) and/or payment method change.
@@ -13302,7 +14670,7 @@ components:
           maxLength: 1000
     AdminRefundCommand:
       type: object
-      description: Above refundLimit[role][country] → 202 pending_approval.
+      description: 'v0.7.2: runs at once for every admin with the permission (one admin is enough, owner 2026-10-28).'
       required:
       - expectedVersion
       - amount
@@ -13322,7 +14690,7 @@ components:
           maxLength: 1000
     AdminAdjustCommand:
       type: object
-      description: Fare / waiting / cancel-fee correction. Over the role limit → 202 pending_approval.
+      description: Fare / waiting / cancel-fee correction; runs at once (v0.7.2, one admin is enough).
       required:
       - expectedVersion
       - reason
@@ -13543,9 +14911,13 @@ components:
           maxLength: 1000
     ConfigDraftUpdate:
       type: object
+      description: 'Exactly one of zoneId or country (v0.8.0). v0.8.0: GET, PUT and POST …/publish on /admin/config/{doc}
+        name exactly one of zoneId (the zone''s own document) or country (ISO alpha-2; the country''s standard). Both or neither
+        → 400 invalid_request (reason scope_required). v0.8.1: country_rules too may name a zoneId (the zone''s own tips and
+        limits) or a country (its standard). A country scope is open to any admin who covers at least one zone of that country
+        and holds the document''s permission (owner 2026-10-27).'
       required:
       - expectedVersion
-      - zoneId
       - document
       properties:
         expectedVersion:
@@ -13554,17 +14926,20 @@ components:
           description: Version the caller last saw; stale → 409 version_mismatch.
         zoneId:
           $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
         document:
           oneOf:
           - $ref: '#/components/schemas/RiderAppConfig'
           - $ref: '#/components/schemas/DriverAppConfig'
           - $ref: '#/components/schemas/PricingDocument'
           - $ref: '#/components/schemas/DispatchDocument'
+          - $ref: '#/components/schemas/CountryRules'
     ConfigPublishCommand:
       type: object
+      description: Exactly one of zoneId or country (v0.8.0).
       required:
       - expectedVersion
-      - zoneId
       properties:
         expectedVersion:
           type: integer
@@ -13572,6 +14947,8 @@ components:
           description: Version the caller last saw; stale → 409 version_mismatch.
         zoneId:
           $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
         note:
           type: string
           maxLength: 1000
@@ -13581,3 +14958,430 @@ components:
         note:
           type: string
           maxLength: 1000
+    UseStandardCommand:
+      type: object
+      description: 'v0.8.0 (owner 2026-10-27): POST /admin/config/{doc}/use-standard { zoneId, expectedVersion } (the zone''s
+        draft version; same permission as publish; the admin confirms first) makes a zone with its own document use its country''s
+        standard again. The zone''s own live document and draft are removed (every version stays in the history); the server
+        re-stamps the standard as version max(standard live, the zone''s own live) + 1 (a history row, the same content) so
+        the zone''s apps never see a lower version, and sends config_published to every zone using the standard. No standard
+        published for the country → 409 conflict (reason standard_not_published); a zone already using the standard → 409
+        (reason already_standard).  v0.8.1: also for country_rules: the zone''s own rules are removed and the standard rules
+        are written into the zone''s app documents (next version).'
+      required:
+      - expectedVersion
+      - zoneId
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        zoneId:
+          $ref: '#/components/schemas/Id'
+    StopVisit:
+      type: object
+      description: 'v0.7.1: one extra stop the driver arrived at (contract.json#stopWaits); stop_waiting runs from arrivedAt
+        to leftAt (or to complete).'
+      required:
+      - stopIndex
+      - arrivedAt
+      properties:
+        stopIndex:
+          type: integer
+          minimum: 0
+        arrivedAt:
+          $ref: '#/components/schemas/Timestamp'
+        leftAt:
+          $ref: '#/components/schemas/Timestamp'
+    StopCommand:
+      type: object
+      description: 'v0.7.1: the driver''s arrived-at-stop or leaving-stop tap.'
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+    ConfigHistoryEntry:
+      type: object
+      description: 'v0.7.1: one published version (contract.json#pricingHistory).'
+      required:
+      - doc
+      - zoneId
+      - version
+      - publishedAt
+      - action
+      - document
+      properties:
+        doc:
+          $ref: '#/components/schemas/ConfigDocName'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedBy:
+          $ref: '#/components/schemas/Id'
+        note:
+          type: string
+        action:
+          type: string
+          enum:
+          - publish
+          - restore
+        restoredFrom:
+          type: integer
+          minimum: 1
+        document:
+          type: object
+    ConfigHistoryEntryPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/ConfigHistoryEntry'
+    ConfigRestoreCommand:
+      type: object
+      required:
+      - expectedVersion
+      - zoneId
+      - version
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+          description: The version to publish again.
+        note:
+          type: string
+          maxLength: 1000
+    CategoryDef:
+      type: object
+      description: 'v0.7.1: CategoryDef { id, label, line: { sv, fr, en } (the sub-line under the name, e.g. ''Up to 6 seats''),
+        seats, builtIn, sort, archivedAt?, archivedBy?, archiveReason?, restoreUntil? }'
+      required:
+      - id
+      - label
+      - line
+      - seats
+      - builtIn
+      - sort
+      properties:
+        id:
+          $ref: '#/components/schemas/CategoryId'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 40
+        line:
+          $ref: '#/components/schemas/LocalizedLine'
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 8
+        builtIn:
+          type: boolean
+          description: A seed category.
+        sort:
+          type: integer
+          minimum: 0
+        archivedAt:
+          $ref: '#/components/schemas/Timestamp'
+        archivedBy:
+          $ref: '#/components/schemas/Id'
+        archiveReason:
+          type: string
+        restoreUntil:
+          $ref: '#/components/schemas/Timestamp'
+    CategoryDefList:
+      type: object
+      description: Active first, then the archived ones still restorable.
+      required:
+      - categories
+      - restoreDays
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDef'
+        restoreDays:
+          type: integer
+          minimum: 1
+    CategoryDefInput:
+      type: object
+      description: id only on create (else made from the label).
+      required:
+      - label
+      - line
+      - seats
+      properties:
+        id:
+          $ref: '#/components/schemas/CategoryId'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 40
+        line:
+          $ref: '#/components/schemas/LocalizedLine'
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 8
+        sort:
+          type: integer
+          minimum: 0
+    CategoryArchiveCommand:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    SurgeSource:
+      type: string
+      enum:
+      - manual
+      - scheduled
+      - smart
+      - 'off'
+    ZoneSurgeNow:
+      type: object
+      description: 'v0.7.2: GET /admin/surge/now?zoneIds=Z1,Z2 (settings.read; zones outside the admin''s scope are left out;
+        no zoneIds = every zone in scope) → { at, zones: ZoneSurgeNow[] }. ZoneSurgeNow { zoneId, multiplier, source: manual
+        | scheduled | smart | off, until?, scheduleId?, profileId?, requests, freeDrivers, ratio, checkedAt? }: multiplier
+        and source exactly as a quote made now would get them (contract.json#pricing.surgeSource, before a category filter);
+        requests, freeDrivers and ratio from the newest SurgeSample.'
+      required:
+      - zoneId
+      - multiplier
+      - source
+      - requests
+      - freeDrivers
+      - ratio
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        multiplier:
+          type: number
+          minimum: 1
+          maximum: 6
+        source:
+          $ref: '#/components/schemas/SurgeSource'
+        until:
+          $ref: '#/components/schemas/Timestamp'
+        scheduleId:
+          $ref: '#/components/schemas/Id'
+        profileId:
+          type: string
+        requests:
+          type: integer
+          minimum: 0
+        freeDrivers:
+          type: integer
+          minimum: 0
+        ratio:
+          type: number
+          minimum: 0
+        checkedAt:
+          $ref: '#/components/schemas/Timestamp'
+    SurgeNowList:
+      type: object
+      required:
+      - at
+      - zones
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneSurgeNow'
+    PriceCheck:
+      type: object
+      description: 'v0.7.2: PriceCheck { windowMin: 60, saw, left, leftPct }: saw = quotes of the zone made in the last 60
+        minutes with surgeMultiplier above 1.0; left = those of them no trip was created from; leftPct = round(100 × left
+        ÷ saw), 0 when saw is 0.'
+      required:
+      - windowMin
+      - saw
+      - left
+      - leftPct
+      properties:
+        windowMin:
+          type: integer
+          minimum: 1
+        saw:
+          type: integer
+          minimum: 0
+        left:
+          type: integer
+          minimum: 0
+        leftPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+    SurgeEffect:
+      type: object
+      required:
+      - drivers
+      - ridesPct
+      - leftPct
+      properties:
+        drivers:
+          type: integer
+        ridesPct:
+          type: integer
+        leftPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+    SurgeTimelineItem:
+      type: object
+      description: 'v0.7.2: SurgeTimelineItem { at, kind: manual_start | manual_stop | scheduled_start | scheduled_end | smart_change
+        | smart_end, multiplier, previous?, by? (the admin of a manual surge; ''smart'' / ''scheduled'' otherwise), profileId?,
+        effect? }, newest first, the last `hours` hours (at most 50). Made from the samples (a change of multiplier or source)
+        and the zone''s surge schedules (who started or stopped it). effect, on a start or a rise, compares the 30 minutes
+        after it with the 30 minutes before: { drivers (free drivers after − before, average), ridesPct (round(100 × (trips
+        created after − before) ÷ max(1, before))), leftPct (the price check of the 30 minutes after) }; left out while the
+        30 minutes after are not over.'
+      required:
+      - at
+      - kind
+      - multiplier
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        kind:
+          type: string
+          enum:
+          - manual_start
+          - manual_stop
+          - scheduled_start
+          - scheduled_end
+          - smart_change
+          - smart_end
+        multiplier:
+          type: number
+          minimum: 1
+          maximum: 6
+        previous:
+          type: number
+          minimum: 1
+          maximum: 6
+        by:
+          type: string
+        profileId:
+          type: string
+        effect:
+          $ref: '#/components/schemas/SurgeEffect'
+    SurgeHistory:
+      type: object
+      description: 'v0.7.2: GET /admin/zones/{zoneId}/surge/history?hours=1..24&bucketMin=5|10|15|30|60 (settings.read; defaults
+        6 and 10) → { zoneId, from, to, bucketMin, points: SurgePoint[], priceCheck: PriceCheck, timeline: SurgeTimelineItem[]
+        }.'
+      required:
+      - zoneId
+      - from
+      - to
+      - bucketMin
+      - points
+      - priceCheck
+      - timeline
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        bucketMin:
+          type: integer
+          enum:
+          - 5
+          - 10
+          - 15
+          - 30
+          - 60
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgePoint'
+        priceCheck:
+          $ref: '#/components/schemas/PriceCheck'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurgeTimelineItem'
+    SurgeLevel:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+      description: 'v0.7.2: low: multiplier above 1.0 and below 1.5 (×1.1–×1.4); medium: 1.5 to 2.5 inclusive; high: above
+        2.5. A zone at 1.0 is not listed (no colour).'
+    ZoneBounds:
+      type: object
+      required:
+      - south
+      - west
+      - north
+      - east
+      properties:
+        south:
+          type: number
+          minimum: -90
+          maximum: 90
+        west:
+          type: number
+          minimum: -180
+          maximum: 180
+        north:
+          type: number
+          minimum: -90
+          maximum: 90
+        east:
+          type: number
+          minimum: -180
+          maximum: 180
+    DriverSurgeZone:
+      type: object
+      description: 'v0.7.2: never the multiplier.'
+      required:
+      - zoneId
+      - level
+      - bounds
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        level:
+          $ref: '#/components/schemas/SurgeLevel'
+        bounds:
+          $ref: '#/components/schemas/ZoneBounds'
+    DriverSurgeMap:
+      type: object
+      description: 'v0.7.2: v0.7.2 (owner 2026-10-28): the driver app shows surges ONLY as coloured zones on the Home map.
+        No text, no number and no money on the map; the driver never sees the multiplier.'
+      required:
+      - at
+      - zones
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverSurgeZone'

@@ -65,5 +65,46 @@
       "at": "2026-10-23T18:00:00Z",
       "multiplier": null
     }
-  ]
+  ],
+  "scheduledOverlap": {
+    "note": "v0.7.1 (owner 2026-10-27): pricing.surge.scheduled windows that overlap: the higher multiplier counts (startsAt ≤ at < endsAt).",
+    "windows": [
+      {
+        "id": "w1",
+        "name": "Concert",
+        "multiplier": 1.5,
+        "startsAt": "2026-10-31T18:00:00Z",
+        "endsAt": "2026-10-31T23:00:00Z"
+      },
+      {
+        "id": "w2",
+        "name": "Late peak",
+        "multiplier": 2.0,
+        "startsAt": "2026-10-31T21:00:00Z",
+        "endsAt": "2026-11-01T01:00:00Z"
+      }
+    ],
+    "cases": [
+      {
+        "at": "2026-10-31T17:59:00Z",
+        "multiplier": 1.0
+      },
+      {
+        "at": "2026-10-31T19:00:00Z",
+        "multiplier": 1.5
+      },
+      {
+        "at": "2026-10-31T22:00:00Z",
+        "multiplier": 2.0
+      },
+      {
+        "at": "2026-11-01T00:30:00Z",
+        "multiplier": 2.0
+      },
+      {
+        "at": "2026-11-01T01:00:00Z",
+        "multiplier": 1.0
+      }
+    ]
+  }
 }

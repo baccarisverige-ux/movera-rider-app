@@ -256,7 +256,7 @@ void main() {
         'wheelchair',
         'business',
         'airport',
-        'kids',
+        'child_seat',
         'women',
         'delivery',
       ]);
@@ -270,7 +270,11 @@ void main() {
       // Every server category ships with its own picture in the app, so the
       // admin can switch any of them on without an app release.
       for (final item in loaded) {
-        final asset = item.id == 'economy' ? 'movera' : item.id;
+        final asset = switch (item.id) {
+          'economy' => 'movera',
+          'child_seat' => 'kids',
+          _ => item.id,
+        };
         expect(item.image, 'assets/images/rides/$asset.webp');
       }
       expect(
