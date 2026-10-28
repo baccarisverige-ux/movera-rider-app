@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
@@ -527,11 +528,11 @@ class _RideHistoryState extends State<RideHistory> {
             Text(
               ride.chargedFare != null
                   ? context.l10n.historyCharged(
-                      ride.categoryName,
+                      rideNameFor(ride.categoryName),
                       ReservationFormat.price(ride),
                     )
                   : context.l10n.historyBooked(
-                      ride.categoryName,
+                      rideNameFor(ride.categoryName),
                       ReservationFormat.price(ride),
                     ),
               key: const ValueKey('history-detail-price'),

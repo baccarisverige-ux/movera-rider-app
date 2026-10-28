@@ -1494,5 +1494,18 @@
   "swRatingStatusNotRequested": "Non demandée",
   "swRatingStatusPending": "En attente",
   "swRatingStatusSubmitted": "Envoyée",
-  "swRatingStatusSkipped": "Ignorée"
+  "swRatingStatusSkipped": "Ignorée",
+  "sessionDeviceUnknown": "Appareil",
+  "loaderTitle": "Chargement",
+  "loaderMessage": "Un instant.",
+  "categoryComfort": "Confort",
+  "categoryPriority": "Prioritaire",
+  "categoryElectric": "Électrique",
+  "categoryVan": "Minibus",
+  "categoryWheelchair": "Fauteuil roulant",
+  "categoryBusiness": "Affaires",
+  "categoryAirport": "Aéroport",
+  "categoryKidsSeat": "Siège enfant",
+  "categoryWomenDriver": "Conductrice",
+  "categoryDelivery": "Livraison"
 }

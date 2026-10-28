@@ -267,7 +267,9 @@ class _LoginTile extends StatelessWidget {
     final place = session.place.trim();
     return AccountTile(
       mark: const AccountIcon(Icons.smartphone_outlined),
-      title: session.device,
+      title: session.device.trim().isEmpty
+          ? context.l10n.sessionDeviceUnknown
+          : session.device,
       body: session.current
           ? (place.isEmpty
                 ? context.l10n.thisSessionOnly

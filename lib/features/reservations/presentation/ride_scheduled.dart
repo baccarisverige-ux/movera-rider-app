@@ -7,6 +7,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
@@ -193,7 +194,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                     child: Column(
                       children: [
                         Text(
-                          ride.categoryName,
+                          rideNameFor(ride.categoryName),
                           style: reservationText(18, weight: FontWeight.w700),
                         ),
                         Text(

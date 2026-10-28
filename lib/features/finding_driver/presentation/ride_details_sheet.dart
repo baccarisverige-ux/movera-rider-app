@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -93,7 +94,7 @@ class RideDetailsSheet extends StatelessWidget {
               address: destinationAddress,
             ),
             const SizedBox(height: 16),
-            _kv(rideType, formatMajor(price, currency)),
+            _kv(rideNameFor(rideType), formatMajor(price, currency)),
             const SizedBox(height: 8),
             _kv(context.l10n.navPayment, paymentMethod),
             if (!notes.isEmpty) ...[

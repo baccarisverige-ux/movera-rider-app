@@ -12,6 +12,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -480,7 +481,8 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     [
                       if (widget.scheduledSummary != null)
                         widget.scheduledSummary,
-                      if (widget.categoryName != null) widget.categoryName,
+                      if (widget.categoryName != null)
+                        rideNameFor(widget.categoryName!),
                     ].join('  ·  '),
                     style: GoogleFonts.poppins(
                       fontSize: 13.5,

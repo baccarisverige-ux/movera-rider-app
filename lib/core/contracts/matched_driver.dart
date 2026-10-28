@@ -1,3 +1,4 @@
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
 
 /// Driver payload from matching. UI must not invent missing fields.
@@ -34,7 +35,8 @@ class MatchedDriver {
 
   bool get hasFirstName => normalizedFirstName.isNotEmpty;
 
-  String get displayFirstName => hasFirstName ? normalizedFirstName : 'Driver';
+  String get displayFirstName =>
+      hasFirstName ? normalizedFirstName : L10n.current.driver;
 
   String get initial => initialFromName(normalizedFirstName);
 

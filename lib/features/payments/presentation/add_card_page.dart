@@ -20,11 +20,6 @@ class AddCardPage extends StatefulWidget {
   /// For tests: "today" when checking the expiry.
   final DateTime? now;
 
-  static const String demoNote =
-      'Demo: this card is stored on this device only. When the payment '
-      'partner is connected, cards are saved in its secure vault and Movera '
-      'never sees the full number.';
-
   /// Opens Add card; resolves with the saved card, or null when closed.
   static Future<SavedCard?> open(
     BuildContext context, {

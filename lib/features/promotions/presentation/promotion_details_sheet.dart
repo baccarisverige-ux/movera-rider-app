@@ -5,6 +5,7 @@ import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -345,7 +346,7 @@ class PromotionDetailsSheet extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              category.name,
+              rideNameFor(category.name),
               style: _t(14, c: included ? _ink : _muted),
             ),
           ),
