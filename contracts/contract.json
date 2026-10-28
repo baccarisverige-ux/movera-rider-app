@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -230,6 +230,35 @@
     "submitted",
     "skipped"
   ],
+  "documentStatus": {
+    "note": "v0.10.4: what a driver/fleet document shows. The server stores missing, in_review, approved, rejected, expired (openapi DocumentStatus); needed (required, not uploaded) and expiring (approved, expires within the warning window) are shown states.",
+    "values": [
+      "needed",
+      "in_review",
+      "approved",
+      "rejected",
+      "expired",
+      "expiring",
+      "missing"
+    ]
+  },
+  "vehicleReviewStatus": {
+    "note": "v0.10.4: review of a vehicle or a fleet by Movera.",
+    "values": [
+      "in_review",
+      "approved",
+      "rejected"
+    ]
+  },
+  "ticketStatus": {
+    "note": "v0.10.4: support ticket state (support.replyStatuses are the states a reply may set).",
+    "values": [
+      "open",
+      "pending",
+      "resolved",
+      "closed"
+    ]
+  },
   "driverAccountStatus": [
     "pending",
     "active",
@@ -2550,9 +2579,24 @@
       "cashCollected",
       "walletApplied",
       "newRiders",
-      "newDrivers"
+      "newDrivers",
+      "tips",
+      "refunds",
+      "fees",
+      "moveraEarnings"
     ],
-    "maxDays": 400
+    "maxDays": 400,
+    "money": {
+      "note": "v0.10.3 (owner Reports answers 2026-10-28): Reports > Money. All amounts minor units, VAT included, one row per zone and zone-local day, one currency per row; amounts of different currencies are never added.",
+      "gross": "Bookings: ride prices of completed trips plus cancel and no-show fees charged. Tips not included.",
+      "fees": "Cancel and no-show fees charged that day (also inside gross).",
+      "tips": "Tips given on the day's trips, a line of their own, not in gross.",
+      "refunds": "Refunds of the day's trips, counted on the TRIP's day: a later refund changes that older day (its summary is re-summed).",
+      "moveraEarnings": "What Movera keeps: commission + Movera's share of fees - pickup pay - driver bonuses Movera paid. Can be negative.",
+      "netRevenue": "Shown by the admin as moveraEarnings - refunds (not sent).",
+      "fleets": "Fleet views get only the driver earnings; there is no owners' share.",
+      "missing": "A value the server does not send reads \"Not connected yet\" (sv \"Inte kopplad än\"), never 0."
+    }
   },
   "content": {
     "note": "v0.10.0 (owner Content answers 2026-10-28): the admin's Content page publishes texts to the apps. One admin is enough (no second admin). A publish goes only to the zones chosen at the top ('All zones' = every zone of the country).",
@@ -2587,5 +2631,470 @@
     "apps_read": "GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that app's slots (and 'both'), expired items left out. Apps read on start and on config_published with doc content; they keep the last answer when offline.",
     "appVersions": "Below the minimum version of its app: a full screen 'Uppdatera appen' / 'Mettre à jour l'app' / 'Update the app' with a store button; the app is blocked. Below the recommended version: a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block starts after the trip ends. SOS always works.",
     "legal": "When a legal item is published with reaccept true: the next time the app opens (never during a trip) it shows the new terms with 'Jag godkänner' / 'J'accepte' / 'I accept'; POST /account/terms/accept { contentVersion } stores who accepted and when (GET /admin/content/legal/acceptances?zoneId lists them). Until accepted, the rider cannot book and the driver cannot go online."
+  },
+  "zones": {
+    "note": "v0.11.0 (owner 2026-10-28 and decision #9 'the server's list is the truth; the admin reads it and creates zones on the server'): the zones live on the server. The admin's Zones page reads, creates, edits (outline drawn on the map) and opens or closes them; the apps read the open zones with their outline and names.",
+    "zone": "Zone { zoneId, names: { sv, fr, en }, country (ISO 3166 alpha-2), currency (SEK | EUR | TND), timeZone (IANA), kind: operating | airport, polygon: [[lat, lng], ...], bounds: { south, west, north, east }, center: { lat, lng }, open, version, createdAt, updatedAt, updatedBy? }",
+    "idScheme": "Ids are fixed at creation and never change (^[A-Za-z0-9_-]{1,64}$). Existing ids stay (Stockholm Z001-Z009). A new city zone is <country>-<two capital letters> (FR-PC Paris & Ile-de-France, TN-TC Grand Tunis, the ids the apps already use); an airport zone is the IATA code (ARN, BMA, CDG, ORY).",
+    "polygon": "The outline as the admin draws it: 3 to 500 points [lat, lng] (lat -90..90, lng -180..180), in order, not closed (the last point is not the first again), not self-crossing. The server computes bounds (the polygon's bounding rectangle) and, on create and on a new outline, center (the middle of bounds); both are ignored in a request. A point on the edge is inside.",
+    "names": "names.sv, names.fr and names.en are all required (1-80 characters). The apps show the name in the app language.",
+    "neverDeleted": "A zone is never deleted, only closed. There is no DELETE; trips, documents and history keep their zoneId.",
+    "open": "POST /admin/zones/{zoneId}/open and /close (zones.edit) set open; an open zone takes new rides, a closed one does not (rides already booked go on). Both send expectedVersion and raise version.",
+    "permissions": "GET /admin/zones: zones.read, the zones in the admin's scope (a Super admin: all). POST, PUT, open, close: zones.edit, one admin is enough (no second admin), written in the audit (zone.create, zone.update, zone.open, zone.close). An admin may change a zone in its scope; creating one needs the whole scope (*) or a zone of the same country in scope (403 forbidden zone_out_of_scope otherwise).",
+    "version": "Zone.version starts at 1 and goes up by one with every change; PUT, open and close send expectedVersion (409 version_mismatch with the current zone otherwise). country, currency and timeZone cannot change after creation (400 invalid_request zone_field_fixed).",
+    "lookup": "The zone of a point: among zones whose bounds hold it, those whose polygon holds it; an open zone before a closed one, then a city (operating) zone before an airport, then the smallest bounds. An airport zone inside a city zone (ARN in Z001, CDG and ORY in FR-PC) does not take the ride; it adds the airport fees (contract.json#pricing.requestExtras.airport), whether open or not.",
+    "notHere": "A quote or booking whose pickup lies in no OPEN zone is 403 forbidden, reason service_not_available (the server's existing code). The rider app then shows 'Movera isn't here yet' (sv 'Movera finns inte här än', fr 'Movera n’est pas encore ici') and cannot book; it may check GET /rider/zones first.",
+    "notHereText": {
+      "sv": "Movera finns inte här än",
+      "fr": "Movera n’est pas encore ici",
+      "en": "Movera isn't here yet"
+    },
+    "apps": "GET /rider/zones and GET /driver/zones (?country=FR optional) → { zones: Zone[] }: the OPEN zones (of that country, else all), with polygon and names; closed zones are never listed. The apps read them on start and on config_published with doc zones.",
+    "notify": "Every create, update, open and close sends config_published { doc: 'zones', zoneId, version, publishedAt }. It arrives on the rider and driver config streams (GET /rider/config/stream, /driver/config/stream) whatever zone they follow; a content publish (doc 'content') arrives on the streams of its zone. Their SSE id stays the app document's version.",
+    "seed": [
+      {
+        "zoneId": "Z001",
+        "names": {
+          "sv": "Stockholm län",
+          "fr": "Comté de Stockholm",
+          "en": "Stockholm County"
+        },
+        "country": "SE",
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "kind": "operating",
+        "open": true
+      },
+      {
+        "zoneId": "FR-PC",
+        "names": {
+          "sv": "Paris & Île-de-France",
+          "fr": "Paris & Île-de-France",
+          "en": "Paris & Île-de-France"
+        },
+        "country": "FR",
+        "currency": "EUR",
+        "timeZone": "Europe/Paris",
+        "kind": "operating",
+        "open": true
+      },
+      {
+        "zoneId": "CDG",
+        "names": {
+          "sv": "Paris-Charles de Gaulle flygplats",
+          "fr": "Aéroport Paris-Charles de Gaulle",
+          "en": "Paris-Charles de Gaulle Airport"
+        },
+        "country": "FR",
+        "currency": "EUR",
+        "timeZone": "Europe/Paris",
+        "kind": "airport",
+        "open": true
+      },
+      {
+        "zoneId": "ORY",
+        "names": {
+          "sv": "Paris-Orly flygplats",
+          "fr": "Aéroport Paris-Orly",
+          "en": "Paris-Orly Airport"
+        },
+        "country": "FR",
+        "currency": "EUR",
+        "timeZone": "Europe/Paris",
+        "kind": "airport",
+        "open": true
+      },
+      {
+        "zoneId": "TN-TC",
+        "names": {
+          "sv": "Stor-Tunis",
+          "fr": "Grand Tunis",
+          "en": "Greater Tunis"
+        },
+        "country": "TN",
+        "currency": "TND",
+        "timeZone": "Africa/Tunis",
+        "kind": "operating",
+        "open": false
+      }
+    ]
+  },
+  "statusWords": {
+    "note": "v0.10.4 (owner 2026-10-28): ONE STATUS WORD LIST. The words the admin, rider and driver apps show for every status code, per family, in sv, fr and en. Swedish agrees with the noun of the family (documents, vehicles, offers, ratings, tickets, incidents are neuter: Godkänt, Utgånget, Avslaget). The rider is \"Resenär\" in Swedish, never \"Passagerare\". An app shows these words, never its own; a code without a word is a contract error (reference_check.py).",
+    "sources": {
+      "tripStatus": "tripStatus.values",
+      "driverAccountStatus": "driverAccountStatus",
+      "driverOnlineStatus": "driverOnlineStatus",
+      "paymentStatus": "paymentStatus",
+      "feeStatus": "outstandingFee.feeStatus",
+      "payoutStatus": "payouts.statuses",
+      "documentStatus": "documentStatus.values",
+      "incidentStatus": "safety.statuses",
+      "ticketStatus": "ticketStatus.values",
+      "vehicleReviewStatus": "vehicleReviewStatus.values",
+      "offerStatus": "offerStatus",
+      "ratingStatus": "ratingStatus"
+    },
+    "families": {
+      "tripStatus": {
+        "draft": {
+          "sv": "Utkast",
+          "fr": "Brouillon",
+          "en": "Draft"
+        },
+        "quoted": {
+          "sv": "Offererad",
+          "fr": "Devis établi",
+          "en": "Quoted"
+        },
+        "requested": {
+          "sv": "Begärd",
+          "fr": "Demandée",
+          "en": "Requested"
+        },
+        "searching": {
+          "sv": "Söker",
+          "fr": "En recherche",
+          "en": "Searching"
+        },
+        "offered": {
+          "sv": "Erbjuden",
+          "fr": "Proposée",
+          "en": "Offered"
+        },
+        "accepted": {
+          "sv": "Accepterad",
+          "fr": "Acceptée",
+          "en": "Accepted"
+        },
+        "driver_to_pickup": {
+          "sv": "Förare till upphämtning",
+          "fr": "Chauffeur vers la prise en charge",
+          "en": "Driver to pickup"
+        },
+        "arrived": {
+          "sv": "Framme",
+          "fr": "Chauffeur arrivé",
+          "en": "Arrived"
+        },
+        "rider_onboard": {
+          "sv": "Resenären ombord",
+          "fr": "Passager à bord",
+          "en": "Rider onboard"
+        },
+        "in_trip": {
+          "sv": "På resa",
+          "fr": "En course",
+          "en": "In trip"
+        },
+        "approaching_dropoff": {
+          "sv": "Närmar sig avlämning",
+          "fr": "Approche de la dépose",
+          "en": "Approaching drop-off"
+        },
+        "completed": {
+          "sv": "Slutförd",
+          "fr": "Terminée",
+          "en": "Completed"
+        },
+        "cancelled_by_rider": {
+          "sv": "Avbokad av resenär",
+          "fr": "Annulée par le passager",
+          "en": "Cancelled by rider"
+        },
+        "cancelled_by_driver": {
+          "sv": "Avbokad av förare",
+          "fr": "Annulée par le chauffeur",
+          "en": "Cancelled by driver"
+        },
+        "cancelled_by_admin": {
+          "sv": "Avbokad av admin",
+          "fr": "Annulée par un admin",
+          "en": "Cancelled by admin"
+        },
+        "cancelled_by_system": {
+          "sv": "Avbokad av systemet",
+          "fr": "Annulée par le système",
+          "en": "Cancelled by system"
+        },
+        "no_show": {
+          "sv": "Utebliven",
+          "fr": "Absence",
+          "en": "No show"
+        },
+        "expired": {
+          "sv": "Utgången",
+          "fr": "Expirée",
+          "en": "Expired"
+        },
+        "failed": {
+          "sv": "Misslyckad",
+          "fr": "Échec",
+          "en": "Failed"
+        }
+      },
+      "driverAccountStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "active": {
+          "sv": "Aktiv",
+          "fr": "Actif",
+          "en": "Active"
+        },
+        "on_hold": {
+          "sv": "Väntar på granskning",
+          "fr": "En cours de validation",
+          "en": "Awaiting review"
+        },
+        "suspended": {
+          "sv": "Avstängd",
+          "fr": "Suspendu",
+          "en": "Suspended"
+        }
+      },
+      "driverOnlineStatus": {
+        "offline": {
+          "sv": "Offline",
+          "fr": "Hors ligne",
+          "en": "Offline"
+        },
+        "going_online": {
+          "sv": "Går online",
+          "fr": "Mise en ligne",
+          "en": "Going online"
+        },
+        "online": {
+          "sv": "Online",
+          "fr": "En ligne",
+          "en": "Online"
+        },
+        "on_trip": {
+          "sv": "På resa",
+          "fr": "En course",
+          "en": "On a trip"
+        },
+        "suspended": {
+          "sv": "Avstängd",
+          "fr": "Suspendu",
+          "en": "Suspended"
+        }
+      },
+      "paymentStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "authorized": {
+          "sv": "Auktoriserad",
+          "fr": "Autorisé",
+          "en": "Authorized"
+        },
+        "captured": {
+          "sv": "Debiterad",
+          "fr": "Encaissé",
+          "en": "Captured"
+        },
+        "failed": {
+          "sv": "Misslyckad",
+          "fr": "Échec",
+          "en": "Failed"
+        },
+        "refunded": {
+          "sv": "Återbetald",
+          "fr": "Remboursé",
+          "en": "Refunded"
+        },
+        "partially_refunded": {
+          "sv": "Delvis återbetald",
+          "fr": "Partiellement remboursé",
+          "en": "Partially refunded"
+        }
+      },
+      "feeStatus": {
+        "paid": {
+          "sv": "Betald",
+          "fr": "Payés",
+          "en": "Paid"
+        },
+        "owed": {
+          "sv": "Obetald",
+          "fr": "Dus",
+          "en": "Owed"
+        },
+        "waived": {
+          "sv": "Efterskänkt",
+          "fr": "Remis",
+          "en": "Waived"
+        }
+      },
+      "payoutStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "paid": {
+          "sv": "Utbetald",
+          "fr": "Versé",
+          "en": "Paid"
+        }
+      },
+      "documentStatus": {
+        "needed": {
+          "sv": "Krävs",
+          "fr": "Requis",
+          "en": "Needed"
+        },
+        "in_review": {
+          "sv": "Granskas",
+          "fr": "En vérification",
+          "en": "In review"
+        },
+        "approved": {
+          "sv": "Godkänt",
+          "fr": "Approuvé",
+          "en": "Approved"
+        },
+        "rejected": {
+          "sv": "Avslaget",
+          "fr": "Refusé",
+          "en": "Rejected"
+        },
+        "expired": {
+          "sv": "Utgånget",
+          "fr": "Expiré",
+          "en": "Expired"
+        },
+        "expiring": {
+          "sv": "Går ut snart",
+          "fr": "Expire bientôt",
+          "en": "Expiring"
+        },
+        "missing": {
+          "sv": "Saknas",
+          "fr": "Manquant",
+          "en": "Missing"
+        }
+      },
+      "incidentStatus": {
+        "open": {
+          "sv": "Nytt",
+          "fr": "Nouveau",
+          "en": "New"
+        },
+        "investigating": {
+          "sv": "Taget",
+          "fr": "Pris",
+          "en": "Taken"
+        },
+        "resolved": {
+          "sv": "Löst",
+          "fr": "Résolu",
+          "en": "Solved"
+        },
+        "dismissed": {
+          "sv": "Falskt larm",
+          "fr": "Fausse alerte",
+          "en": "False alarm"
+        }
+      },
+      "ticketStatus": {
+        "open": {
+          "sv": "Öppet",
+          "fr": "Ouvert",
+          "en": "Open"
+        },
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "resolved": {
+          "sv": "Löst",
+          "fr": "Résolu",
+          "en": "Resolved"
+        },
+        "closed": {
+          "sv": "Stängt",
+          "fr": "Fermé",
+          "en": "Closed"
+        }
+      },
+      "vehicleReviewStatus": {
+        "in_review": {
+          "sv": "Granskas",
+          "fr": "En vérification",
+          "en": "In review"
+        },
+        "approved": {
+          "sv": "Godkänt",
+          "fr": "Approuvé",
+          "en": "Approved"
+        },
+        "rejected": {
+          "sv": "Avslaget",
+          "fr": "Refusé",
+          "en": "Rejected"
+        }
+      },
+      "offerStatus": {
+        "open": {
+          "sv": "Öppet",
+          "fr": "Ouverte",
+          "en": "Open"
+        },
+        "claimed": {
+          "sv": "Taget",
+          "fr": "Prise",
+          "en": "Claimed"
+        },
+        "claimed_elsewhere": {
+          "sv": "Taget av annan förare",
+          "fr": "Prise par un autre chauffeur",
+          "en": "Claimed elsewhere"
+        },
+        "declined": {
+          "sv": "Avböjt",
+          "fr": "Refusée",
+          "en": "Declined"
+        },
+        "expired": {
+          "sv": "Utgånget",
+          "fr": "Expirée",
+          "en": "Expired"
+        },
+        "withdrawn": {
+          "sv": "Tillbakadraget",
+          "fr": "Retirée",
+          "en": "Withdrawn"
+        }
+      },
+      "ratingStatus": {
+        "not_requested": {
+          "sv": "Inte begärt",
+          "fr": "Non demandée",
+          "en": "Not requested"
+        },
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "submitted": {
+          "sv": "Lämnat",
+          "fr": "Envoyée",
+          "en": "Submitted"
+        },
+        "skipped": {
+          "sv": "Överhoppat",
+          "fr": "Ignorée",
+          "en": "Skipped"
+        }
+      }
+    }
   }
 }

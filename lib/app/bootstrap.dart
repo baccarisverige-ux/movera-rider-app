@@ -167,6 +167,10 @@ Future<void> bootstrap() async {
     'profile.hydrate',
     AppScope.instance.profile.hydrateLocalThenServer,
   );
+  // v0.11.0 §21: the kept zone list before anything asks for a zone; the
+  // server's is read again below and on config_published doc zones.
+  await bootStep('zones.cached', AppScope.instance.zones.loadCached);
+  unawaited(AppScope.instance.zones.refresh());
   // Q48: the saved language, else the default of the rider's zone; a
   // later good fix in another zone moves the default with it.
   await bootStep(
@@ -203,6 +207,7 @@ Future<void> bootstrap() async {
     // v0.10.0: content is read on start and on config_published (doc
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
+    config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
     unawaited(AppScope.instance.content.start(zone.id));
     unawaited(config.watch(zone.id));
   }

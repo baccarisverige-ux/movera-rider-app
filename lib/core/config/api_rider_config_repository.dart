@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
@@ -58,9 +59,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
   ApiRiderConfigRepository({
     required ApiClient api,
     RiderConfigCache? cache,
-    this.homeZoneId = 'Z001',
+    String? homeZoneId,
     this.retryAfter = const Duration(seconds: 5),
-  }) : _api = api,
+  }) : homeZoneId = homeZoneId ?? RiderZones.home.id,
+       _api = api,
        _cache = cache ?? const PrefsRiderConfigCache();
 
   static const path = '/api/v1/rider/config';
@@ -182,8 +184,9 @@ class ApiRiderConfigRepository extends ChangeNotifier
           for (final tap in List.of(eventTaps)) {
             tap(data);
           }
-          // Content has its own read (RiderContentController).
-          if (data['doc'] == 'content') return;
+          // Content and zones have their own reads (RiderContentController,
+          // RiderZonesController).
+          if (data['doc'] == 'content' || data['doc'] == 'zones') return;
           final version = data['version'];
           final known = _documents[zoneId]?.version ?? 0;
           if (data['kind'] == 'config_published' &&

@@ -3,6 +3,7 @@ import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 
+import 'rider_zones.dart';
 import 'zone_settings.dart';
 
 export 'zone_settings.dart';
@@ -538,8 +539,12 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       })!,
   };
 
-  /// The seed of [zoneId], else Stockholm's.
-  static RiderAppConfig seedFor(String? zoneId) => zoneSeeds[zoneId] ?? seed;
+  /// The seed of [zoneId]; for another zone of the server's list
+  /// (v0.11.0 §21) the seed in that zone's currency; else Stockholm's.
+  static RiderAppConfig seedFor(String? zoneId) =>
+      zoneSeeds[zoneId] ??
+      seedForCurrency(RiderZones.byId(zoneId)?.currency ?? '') ??
+      seed;
 
   /// The seed whose prices are in [currency], or null.
   static RiderAppConfig? seedForCurrency(String currency) {
