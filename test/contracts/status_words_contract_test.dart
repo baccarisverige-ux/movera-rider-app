@@ -16,6 +16,13 @@ void main() {
   final families =
       (contract['statusWords'] as Map<String, dynamic>)['families']
           as Map<String, dynamic>;
+  // Every Swedish text the app ships (data, read once like the contract).
+  final svWords =
+      (jsonDecode(File('lib/l10n/app_sv.arb').readAsStringSync())
+              as Map<String, dynamic>)
+          .values
+          .whereType<String>()
+          .toList();
 
   for (final lang in const ['sv', 'fr', 'en']) {
     test('$lang status words equal contract.json#statusWords', () {
@@ -46,7 +53,8 @@ void main() {
     final fr = lookupAppLocalizations(const Locale('fr'));
     expect(statusWord(sv, 'tripStatus', 'completed'), 'Slutförd');
     expect(statusWord(fr, 'tripStatus', 'completed'), 'Terminée');
-    final svArb = File('lib/l10n/app_sv.arb').readAsStringSync();
-    expect(svArb.toLowerCase().contains('passagerare'), isFalse);
+    for (final word in svWords) {
+      expect(word.toLowerCase().contains('passagerare'), isFalse, reason: word);
+    }
   });
 }
