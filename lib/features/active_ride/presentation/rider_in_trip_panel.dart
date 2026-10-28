@@ -2,6 +2,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -133,7 +134,7 @@ class RiderInTripPanel extends StatelessWidget {
           const SizedBox(height: 12),
           // One slim line: the destination is already the subtitle above.
           Text(
-            '$rideType · ${bookedPaymentLine(
+            '${rideNameFor(rideType)} · ${bookedPaymentLine(
               // rider-u231: the method in the app language.
               paymentMethod: paymentLabelFor(paymentMethod),
               priceKr: price,

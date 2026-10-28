@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -39,7 +40,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AddCardPage), findsOneWidget);
-      expect(find.text(AddCardPage.demoNote), findsOneWidget);
+      expect(find.text(L10n.current.addCardDemoNote), findsOneWidget);
       // Demo form: number, expiry, CVC and name; Save is off until valid.
       expect(find.byType(TextField), findsNWidgets(4));
       final save = tester.widget<FilledButton>(

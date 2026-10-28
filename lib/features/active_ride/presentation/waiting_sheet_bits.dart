@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
@@ -143,7 +144,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  rideType,
+                  rideNameFor(rideType),
                   style: waitingText(
                     12,
                     weight: FontWeight.w500,

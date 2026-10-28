@@ -1495,5 +1495,18 @@
   "swRatingStatusNotRequested": "Inte begärt",
   "swRatingStatusPending": "Väntande",
   "swRatingStatusSubmitted": "Lämnat",
-  "swRatingStatusSkipped": "Överhoppat"
+  "swRatingStatusSkipped": "Överhoppat",
+  "sessionDeviceUnknown": "Enhet",
+  "loaderTitle": "Laddar",
+  "loaderMessage": "Ett ögonblick.",
+  "categoryComfort": "Komfort",
+  "categoryPriority": "Prioritet",
+  "categoryElectric": "Elbil",
+  "categoryVan": "Minibuss",
+  "categoryWheelchair": "Rullstol",
+  "categoryBusiness": "Företag",
+  "categoryAirport": "Flygplats",
+  "categoryKidsSeat": "Barnstol",
+  "categoryWomenDriver": "Kvinnlig förare",
+  "categoryDelivery": "Leverans"
 }

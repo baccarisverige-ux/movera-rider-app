@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 const Color kReservationInk = Color(0xFF172127);
@@ -367,7 +368,7 @@ class ReservationHistoryCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        ride.categoryName,
+                        rideNameFor(ride.categoryName),
                         style: reservationText(15, weight: FontWeight.w700),
                       ),
                     ),

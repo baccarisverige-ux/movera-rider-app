@@ -2849,7 +2849,7 @@ class _SelectRideState extends State<SelectRide>
                                   Flexible(
                                     flex: 5,
                                     child: Text(
-                                      ride.name,
+                                      rideNameFor(ride.name),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: _text(16, weight: FontWeight.w600),
@@ -3091,7 +3091,9 @@ class _SelectRideState extends State<SelectRide>
                         child: Text(
                           selected == null
                               ? context.l10n.noRidesAvailable
-                              : _selection.bookingMode.ctaLabel(selected.name),
+                              : _selection.bookingMode.ctaLabel(
+                                  rideNameFor(selected.name),
+                                ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _text(
