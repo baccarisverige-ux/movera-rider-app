@@ -11867,6 +11867,10 @@ components:
       - walletApplied
       - newRiders
       - newDrivers
+      - tips
+      - refunds
+      - fees
+      - moveraEarnings
       properties:
         date:
           type: string
@@ -11893,7 +11897,7 @@ components:
           minimum: 0
         gross:
           type: integer
-          description: Minor units of currency.
+          description: 'Bookings: ride prices of completed trips plus cancel and no-show fees charged. Tips not included.'
         commission:
           type: integer
           description: Minor units of currency.
@@ -11918,6 +11922,20 @@ components:
         newDrivers:
           type: integer
           minimum: 0
+        tips:
+          type: integer
+          description: Tips given on the day's trips, a line of their own, not in gross.
+        refunds:
+          type: integer
+          description: 'Refunds of the day''s trips, counted on the TRIP''s day: a later refund changes that older day (its
+            summary is re-summed).'
+        fees:
+          type: integer
+          description: Cancel and no-show fees charged that day (also inside gross).
+        moveraEarnings:
+          type: integer
+          description: 'What Movera keeps: commission + Movera''s share of fees - pickup pay - driver bonuses Movera paid.
+            Can be negative.'
     KpiReport:
       type: object
       description: 'v0.9.0: GET /admin/kpis.'

@@ -2192,7 +2192,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   Widget build(BuildContext context) {
-    // v0.11.0 §20: outside every open zone there is nothing to book.
+    // v0.11.0 §21: outside every open zone there is nothing to book.
     if (_selection.notServed ||
         !RiderZones.serves(
           _pickupPosition.latitude,

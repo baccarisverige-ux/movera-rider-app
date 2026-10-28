@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Contract v0.11.0 §20 (owner 2026-10-28): the pickup lies outside every
+/// Contract v0.11.0 §21 (owner 2026-10-28): the pickup lies outside every
 /// open zone. A clear message, not an error, and no way to book: "Movera
 /// finns inte här än", the zones where Movera runs in the app language,
 /// and a way back to change the pickup.

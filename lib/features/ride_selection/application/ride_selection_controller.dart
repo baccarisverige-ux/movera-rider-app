@@ -115,7 +115,7 @@ class RideSelectionController {
   final Map<String, RideQuote> authoritativeQuotes = {};
   final Set<String> unavailableQuoteIds = <String>{};
 
-  /// v0.11.0 §20: the server refused a quote because the pickup lies in no
+  /// v0.11.0 §21: the server refused a quote because the pickup lies in no
   /// open zone (`403 forbidden service_not_available`).
   bool notServed = false;
 

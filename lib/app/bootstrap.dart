@@ -167,7 +167,7 @@ Future<void> bootstrap() async {
     'profile.hydrate',
     AppScope.instance.profile.hydrateLocalThenServer,
   );
-  // v0.11.0 §20: the kept zone list before anything asks for a zone; the
+  // v0.11.0 §21: the kept zone list before anything asks for a zone; the
   // server's is read again below and on config_published doc zones.
   await bootStep('zones.cached', AppScope.instance.zones.loadCached);
   unawaited(AppScope.instance.zones.refresh());

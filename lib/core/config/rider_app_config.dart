@@ -540,7 +540,7 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
   };
 
   /// The seed of [zoneId]; for another zone of the server's list
-  /// (v0.11.0 §20) the seed in that zone's currency; else Stockholm's.
+  /// (v0.11.0 §21) the seed in that zone's currency; else Stockholm's.
   static RiderAppConfig seedFor(String? zoneId) =>
       zoneSeeds[zoneId] ??
       seedForCurrency(RiderZones.byId(zoneId)?.currency ?? '') ??

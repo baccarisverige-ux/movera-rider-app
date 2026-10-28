@@ -230,6 +230,35 @@
     "submitted",
     "skipped"
   ],
+  "documentStatus": {
+    "note": "v0.10.4: what a driver/fleet document shows. The server stores missing, in_review, approved, rejected, expired (openapi DocumentStatus); needed (required, not uploaded) and expiring (approved, expires within the warning window) are shown states.",
+    "values": [
+      "needed",
+      "in_review",
+      "approved",
+      "rejected",
+      "expired",
+      "expiring",
+      "missing"
+    ]
+  },
+  "vehicleReviewStatus": {
+    "note": "v0.10.4: review of a vehicle or a fleet by Movera.",
+    "values": [
+      "in_review",
+      "approved",
+      "rejected"
+    ]
+  },
+  "ticketStatus": {
+    "note": "v0.10.4: support ticket state (support.replyStatuses are the states a reply may set).",
+    "values": [
+      "open",
+      "pending",
+      "resolved",
+      "closed"
+    ]
+  },
   "driverAccountStatus": [
     "pending",
     "active",
@@ -2550,9 +2579,24 @@
       "cashCollected",
       "walletApplied",
       "newRiders",
-      "newDrivers"
+      "newDrivers",
+      "tips",
+      "refunds",
+      "fees",
+      "moveraEarnings"
     ],
-    "maxDays": 400
+    "maxDays": 400,
+    "money": {
+      "note": "v0.10.3 (owner Reports answers 2026-10-28): Reports > Money. All amounts minor units, VAT included, one row per zone and zone-local day, one currency per row; amounts of different currencies are never added.",
+      "gross": "Bookings: ride prices of completed trips plus cancel and no-show fees charged. Tips not included.",
+      "fees": "Cancel and no-show fees charged that day (also inside gross).",
+      "tips": "Tips given on the day's trips, a line of their own, not in gross.",
+      "refunds": "Refunds of the day's trips, counted on the TRIP's day: a later refund changes that older day (its summary is re-summed).",
+      "moveraEarnings": "What Movera keeps: commission + Movera's share of fees - pickup pay - driver bonuses Movera paid. Can be negative.",
+      "netRevenue": "Shown by the admin as moveraEarnings - refunds (not sent).",
+      "fleets": "Fleet views get only the driver earnings; there is no owners' share.",
+      "missing": "A value the server does not send reads \"Not connected yet\" (sv \"Inte kopplad än\"), never 0."
+    }
   },
   "content": {
     "note": "v0.10.0 (owner Content answers 2026-10-28): the admin's Content page publishes texts to the apps. One admin is enough (no second admin). A publish goes only to the zones chosen at the top ('All zones' = every zone of the country).",
@@ -2674,5 +2718,383 @@
         "open": false
       }
     ]
+  },
+  "statusWords": {
+    "note": "v0.10.4 (owner 2026-10-28): ONE STATUS WORD LIST. The words the admin, rider and driver apps show for every status code, per family, in sv, fr and en. Swedish agrees with the noun of the family (documents, vehicles, offers, ratings, tickets, incidents are neuter: Godkänt, Utgånget, Avslaget). The rider is \"Resenär\" in Swedish, never \"Passagerare\". An app shows these words, never its own; a code without a word is a contract error (reference_check.py).",
+    "sources": {
+      "tripStatus": "tripStatus.values",
+      "driverAccountStatus": "driverAccountStatus",
+      "driverOnlineStatus": "driverOnlineStatus",
+      "paymentStatus": "paymentStatus",
+      "feeStatus": "outstandingFee.feeStatus",
+      "payoutStatus": "payouts.statuses",
+      "documentStatus": "documentStatus.values",
+      "incidentStatus": "safety.statuses",
+      "ticketStatus": "ticketStatus.values",
+      "vehicleReviewStatus": "vehicleReviewStatus.values",
+      "offerStatus": "offerStatus",
+      "ratingStatus": "ratingStatus"
+    },
+    "families": {
+      "tripStatus": {
+        "draft": {
+          "sv": "Utkast",
+          "fr": "Brouillon",
+          "en": "Draft"
+        },
+        "quoted": {
+          "sv": "Offererad",
+          "fr": "Devis établi",
+          "en": "Quoted"
+        },
+        "requested": {
+          "sv": "Begärd",
+          "fr": "Demandée",
+          "en": "Requested"
+        },
+        "searching": {
+          "sv": "Söker",
+          "fr": "En recherche",
+          "en": "Searching"
+        },
+        "offered": {
+          "sv": "Erbjuden",
+          "fr": "Proposée",
+          "en": "Offered"
+        },
+        "accepted": {
+          "sv": "Accepterad",
+          "fr": "Acceptée",
+          "en": "Accepted"
+        },
+        "driver_to_pickup": {
+          "sv": "Förare till upphämtning",
+          "fr": "Chauffeur vers la prise en charge",
+          "en": "Driver to pickup"
+        },
+        "arrived": {
+          "sv": "Framme",
+          "fr": "Chauffeur arrivé",
+          "en": "Arrived"
+        },
+        "rider_onboard": {
+          "sv": "Resenären ombord",
+          "fr": "Passager à bord",
+          "en": "Rider onboard"
+        },
+        "in_trip": {
+          "sv": "På resa",
+          "fr": "En course",
+          "en": "In trip"
+        },
+        "approaching_dropoff": {
+          "sv": "Närmar sig avlämning",
+          "fr": "Approche de la dépose",
+          "en": "Approaching drop-off"
+        },
+        "completed": {
+          "sv": "Slutförd",
+          "fr": "Terminée",
+          "en": "Completed"
+        },
+        "cancelled_by_rider": {
+          "sv": "Avbokad av resenär",
+          "fr": "Annulée par le passager",
+          "en": "Cancelled by rider"
+        },
+        "cancelled_by_driver": {
+          "sv": "Avbokad av förare",
+          "fr": "Annulée par le chauffeur",
+          "en": "Cancelled by driver"
+        },
+        "cancelled_by_admin": {
+          "sv": "Avbokad av admin",
+          "fr": "Annulée par un admin",
+          "en": "Cancelled by admin"
+        },
+        "cancelled_by_system": {
+          "sv": "Avbokad av systemet",
+          "fr": "Annulée par le système",
+          "en": "Cancelled by system"
+        },
+        "no_show": {
+          "sv": "Utebliven",
+          "fr": "Absence",
+          "en": "No show"
+        },
+        "expired": {
+          "sv": "Utgången",
+          "fr": "Expirée",
+          "en": "Expired"
+        },
+        "failed": {
+          "sv": "Misslyckad",
+          "fr": "Échec",
+          "en": "Failed"
+        }
+      },
+      "driverAccountStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "active": {
+          "sv": "Aktiv",
+          "fr": "Actif",
+          "en": "Active"
+        },
+        "on_hold": {
+          "sv": "Väntar på granskning",
+          "fr": "En cours de validation",
+          "en": "Awaiting review"
+        },
+        "suspended": {
+          "sv": "Avstängd",
+          "fr": "Suspendu",
+          "en": "Suspended"
+        }
+      },
+      "driverOnlineStatus": {
+        "offline": {
+          "sv": "Offline",
+          "fr": "Hors ligne",
+          "en": "Offline"
+        },
+        "going_online": {
+          "sv": "Går online",
+          "fr": "Mise en ligne",
+          "en": "Going online"
+        },
+        "online": {
+          "sv": "Online",
+          "fr": "En ligne",
+          "en": "Online"
+        },
+        "on_trip": {
+          "sv": "På resa",
+          "fr": "En course",
+          "en": "On a trip"
+        },
+        "suspended": {
+          "sv": "Avstängd",
+          "fr": "Suspendu",
+          "en": "Suspended"
+        }
+      },
+      "paymentStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "authorized": {
+          "sv": "Auktoriserad",
+          "fr": "Autorisé",
+          "en": "Authorized"
+        },
+        "captured": {
+          "sv": "Debiterad",
+          "fr": "Encaissé",
+          "en": "Captured"
+        },
+        "failed": {
+          "sv": "Misslyckad",
+          "fr": "Échec",
+          "en": "Failed"
+        },
+        "refunded": {
+          "sv": "Återbetald",
+          "fr": "Remboursé",
+          "en": "Refunded"
+        },
+        "partially_refunded": {
+          "sv": "Delvis återbetald",
+          "fr": "Partiellement remboursé",
+          "en": "Partially refunded"
+        }
+      },
+      "feeStatus": {
+        "paid": {
+          "sv": "Betald",
+          "fr": "Payés",
+          "en": "Paid"
+        },
+        "owed": {
+          "sv": "Obetald",
+          "fr": "Dus",
+          "en": "Owed"
+        },
+        "waived": {
+          "sv": "Efterskänkt",
+          "fr": "Remis",
+          "en": "Waived"
+        }
+      },
+      "payoutStatus": {
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "paid": {
+          "sv": "Utbetald",
+          "fr": "Versé",
+          "en": "Paid"
+        }
+      },
+      "documentStatus": {
+        "needed": {
+          "sv": "Krävs",
+          "fr": "Requis",
+          "en": "Needed"
+        },
+        "in_review": {
+          "sv": "Granskas",
+          "fr": "En vérification",
+          "en": "In review"
+        },
+        "approved": {
+          "sv": "Godkänt",
+          "fr": "Approuvé",
+          "en": "Approved"
+        },
+        "rejected": {
+          "sv": "Avslaget",
+          "fr": "Refusé",
+          "en": "Rejected"
+        },
+        "expired": {
+          "sv": "Utgånget",
+          "fr": "Expiré",
+          "en": "Expired"
+        },
+        "expiring": {
+          "sv": "Går ut snart",
+          "fr": "Expire bientôt",
+          "en": "Expiring"
+        },
+        "missing": {
+          "sv": "Saknas",
+          "fr": "Manquant",
+          "en": "Missing"
+        }
+      },
+      "incidentStatus": {
+        "open": {
+          "sv": "Nytt",
+          "fr": "Nouveau",
+          "en": "New"
+        },
+        "investigating": {
+          "sv": "Taget",
+          "fr": "Pris",
+          "en": "Taken"
+        },
+        "resolved": {
+          "sv": "Löst",
+          "fr": "Résolu",
+          "en": "Solved"
+        },
+        "dismissed": {
+          "sv": "Falskt larm",
+          "fr": "Fausse alerte",
+          "en": "False alarm"
+        }
+      },
+      "ticketStatus": {
+        "open": {
+          "sv": "Öppet",
+          "fr": "Ouvert",
+          "en": "Open"
+        },
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "resolved": {
+          "sv": "Löst",
+          "fr": "Résolu",
+          "en": "Resolved"
+        },
+        "closed": {
+          "sv": "Stängt",
+          "fr": "Fermé",
+          "en": "Closed"
+        }
+      },
+      "vehicleReviewStatus": {
+        "in_review": {
+          "sv": "Granskas",
+          "fr": "En vérification",
+          "en": "In review"
+        },
+        "approved": {
+          "sv": "Godkänt",
+          "fr": "Approuvé",
+          "en": "Approved"
+        },
+        "rejected": {
+          "sv": "Avslaget",
+          "fr": "Refusé",
+          "en": "Rejected"
+        }
+      },
+      "offerStatus": {
+        "open": {
+          "sv": "Öppet",
+          "fr": "Ouverte",
+          "en": "Open"
+        },
+        "claimed": {
+          "sv": "Taget",
+          "fr": "Prise",
+          "en": "Claimed"
+        },
+        "claimed_elsewhere": {
+          "sv": "Taget av annan förare",
+          "fr": "Prise par un autre chauffeur",
+          "en": "Claimed elsewhere"
+        },
+        "declined": {
+          "sv": "Avböjt",
+          "fr": "Refusée",
+          "en": "Declined"
+        },
+        "expired": {
+          "sv": "Utgånget",
+          "fr": "Expirée",
+          "en": "Expired"
+        },
+        "withdrawn": {
+          "sv": "Tillbakadraget",
+          "fr": "Retirée",
+          "en": "Withdrawn"
+        }
+      },
+      "ratingStatus": {
+        "not_requested": {
+          "sv": "Inte begärt",
+          "fr": "Non demandée",
+          "en": "Not requested"
+        },
+        "pending": {
+          "sv": "Väntande",
+          "fr": "En attente",
+          "en": "Pending"
+        },
+        "submitted": {
+          "sv": "Lämnat",
+          "fr": "Envoyée",
+          "en": "Submitted"
+        },
+        "skipped": {
+          "sv": "Överhoppat",
+          "fr": "Ignorée",
+          "en": "Skipped"
+        }
+      }
+    }
   }
 }

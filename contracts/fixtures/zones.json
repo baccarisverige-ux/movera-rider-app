@@ -1,5 +1,5 @@
 {
-  "note": "v0.11.0 (§20, contract.json#zones): outlines of the seed zones (FR-PC, CDG, ORY open; TN-TC closed), their bounding rectangles, and points with the zone each lies in (by polygon, open before closed, city zone before airport, smallest bounds; null = no zone; airport = the airport zone that adds its fees).",
+  "note": "v0.11.0 (§21, contract.json#zones): outlines of the seed zones (FR-PC, CDG, ORY open; TN-TC closed), their bounding rectangles, and points with the zone each lies in (by polygon, open before closed, city zone before airport, smallest bounds; null = no zone; airport = the airport zone that adds its fees).",
   "zones": [
     {
       "zoneId": "FR-PC",

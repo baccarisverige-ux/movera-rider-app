@@ -2,7 +2,7 @@
 /// decision): the pickup location decides the zone, and the zone decides
 /// the currency.
 ///
-/// Contract v0.11.0 §20 (decision #9, "the server's list is the truth"):
+/// Contract v0.11.0 §21 (decision #9, "the server's list is the truth"):
 /// on the contract wire the zones are the OPEN zones of `GET /rider/zones`
 /// with their outline and names ([RiderZones.useServer]); a pickup is in a
 /// zone when the zone's polygon holds it, and a pickup in no open zone is

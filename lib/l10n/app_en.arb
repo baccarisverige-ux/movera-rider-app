@@ -2872,15 +2872,15 @@
   "supportTicketsFailed": "Your messages could not be loaded.",
   "notHereTitle": "Movera isn't here yet",
   "@notHereTitle": {
-    "description": "Contract v0.11.0 §20: the rider's pickup lies outside every open zone."
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
   },
   "notHereBody": "You can't book a ride from this pickup. Choose a pickup where Movera runs.",
   "@notHereBody": {
-    "description": "Contract v0.11.0 §20: the rider's pickup lies outside every open zone."
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
   },
   "notHereZones": "Movera runs in: {zones}",
   "@notHereZones": {
-    "description": "Contract v0.11.0 §20: the rider's pickup lies outside every open zone.",
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone.",
     "placeholders": {
       "zones": {
         "type": "String"
@@ -2889,6 +2889,6 @@
   },
   "notHereChangePickup": "Change pickup",
   "@notHereChangePickup": {
-    "description": "Contract v0.11.0 §20: the rider's pickup lies outside every open zone."
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
   }
 }

@@ -431,7 +431,7 @@ S["RiskPage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items
 KF = C["kpis"]["fields"]
 S["KpiDay"] = obj(OrderedDict([("date", s("The zone-local day, YYYY-MM-DD.", pattern="^\\d{4}-\\d{2}-\\d{2}$")), ("zoneId", ref("Id")),
                                ("source", s("live: counted now (today); summary: the nightly summary.", enum=["live", "summary"])),
-                               ("currency", ref("CurrencyCode"))] + [(k, i(minimum=0) if k in ("completedTrips", "cancelledTrips", "noShows", "newRiders", "newDrivers") else i("Minor units of currency.")) for k in KF]),
+                               ("currency", ref("CurrencyCode"))] + [(k, i(minimum=0) if k in ("completedTrips", "cancelledTrips", "noShows", "newRiders", "newDrivers") else i(C["kpis"]["money"].get(k, "Minor units of currency."))) for k in KF]),
                   ["date", "zoneId", "source", "currency"] + KF, "v0.9.0: one zone's numbers for one day (contract.json#kpis).")
 S["KpiReport"] = obj({"days": arr(ref("KpiDay")), "generatedAt": ref("Timestamp")}, ["days", "generatedAt"], "v0.9.0: GET /admin/kpis.")
 S["EarningsPeriod"] = obj({"periodStart": ref("Timestamp"), "periodEnd": ref("Timestamp"), "tripCount": i(minimum=0),

@@ -385,7 +385,7 @@ class AppScope {
       ? ApiRiderConfigRepository(api: api)
       : const SeedRiderConfigRepository();
 
-  /// Zones (contract v0.11.0 §20): the server's open zones from
+  /// Zones (contract v0.11.0 §21): the server's open zones from
   /// `GET /rider/zones` on the contract wire (kept on the device, read
   /// again on `config_published` doc zones); the demo keeps its samples.
   late final RiderZonesController zones = RiderZonesController(

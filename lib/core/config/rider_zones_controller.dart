@@ -46,7 +46,7 @@ class MemoryRiderZonesStore implements RiderZonesStore {
   }
 }
 
-/// Zones from the server (contract v0.11.0 §20): `GET /rider/zones` on
+/// Zones from the server (contract v0.11.0 §21): `GET /rider/zones` on
 /// start and on `config_published` with doc `zones`; the last answer is
 /// kept on the device and used until the server answers. Without [api]
 /// (the demo) the built-in sample zones stay. Never throws to its callers.
