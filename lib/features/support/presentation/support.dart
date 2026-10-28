@@ -102,6 +102,21 @@ class SupportHome extends StatelessWidget {
                         context.l10n.supportWhatHelp,
                         style: text(16, color: muted),
                       ),
+                      // v0.10.0: the Help text published from Content.
+                      if (AppScope.instance.content.help case final help?) ...[
+                        const SizedBox(height: 14),
+                        Text(
+                          help.title,
+                          key: const Key('content-help-title'),
+                          style: text(15, weight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          help.textIn(L10n.code),
+                          key: const Key('content-help-text'),
+                          style: text(14, color: muted, height: 1.4),
+                        ),
+                      ],
                     ],
                   ),
                 ),

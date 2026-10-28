@@ -2846,6 +2846,15 @@
   "@mapUnavailable": {
     "description": "Audit Phase 6: the map placeholder when Google Maps never loads."
   },
+  "contentUpdateTitle": "Update the app",
+  "contentUpdateBody": "This version of Movera can no longer be used. Update the app to keep riding.",
+  "contentUpdateStore": "Open the store",
+  "contentUpdateRecommended": "A new version of Movera is available.",
+  "contentUpdateNow": "Update",
+  "contentUpdateAfterTrip": "Update the app after this trip.",
+  "contentTermsTitle": "New terms",
+  "contentTermsAccept": "I accept",
+  "contentTermsFailed": "Could not save your answer. Try again.",
   "ratingTagCleanCar": "Clean car",
   "ratingTagFriendly": "Friendly",
   "ratingTagSafeDriving": "Safe driving",

@@ -189,6 +189,7 @@ Future<void> bootstrap() async {
     if (config is ApiRiderConfigRepository) {
       config.homeZoneId = zone.id;
       unawaited(config.watch(zone.id));
+      unawaited(AppScope.instance.content.start(zone.id));
     }
   };
   // Owner 2026-10-27: new rider settings reach an open app at once
@@ -199,6 +200,10 @@ Future<void> bootstrap() async {
     final zone = await currentRiderZone();
     config.homeZoneId = zone.id;
     config.addListener(() => unawaited(AppScope.instance.catalog.load()));
+    // v0.10.0: content is read on start and on config_published (doc
+    // content) from the same stream.
+    config.eventTaps.add(AppScope.instance.content.onConfigEvent);
+    unawaited(AppScope.instance.content.start(zone.id));
     unawaited(config.watch(zone.id));
   }
   // Ride categories from the server. Not awaited: the built-in list stands

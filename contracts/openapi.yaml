@@ -1,11 +1,11 @@
-# Movera API v0.9.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.10.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.9.0
+  version: 0.10.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.9.0 in this folder; this file must agree with them.
+    v0.10.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -72,9 +72,11 @@ tags:
   description: Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required
 - name: Deprecated
   description: Legacy /rides aliases kept for one release
+- name: Rider · Config
+- name: Account
 x-contract:
   name: movera
-  version: 0.9.0
+  version: 0.10.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -8423,6 +8425,368 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/content:
+    get:
+      operationId: adminListContent
+      summary: The zone's published content
+      description: 'v0.10.0. GET /admin/content?zoneId (settings.read) → { items: ContentItem[] } (the zone''s published items);
+        POST /admin/content/{slot}/publish { zoneIds: [ZoneId], title, text, image?, expiresAt?, reaccept?, versions? } (settings.publish)
+        → { items: ContentItem[] } one new version per zone, written in the audit; GET /admin/content/{slot}/history?zoneId;
+        POST /admin/content/{slot}/rollback { zoneId, version } → the earlier version again as the next version.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/publish:
+    post:
+      operationId: adminPublishContent
+      summary: Publish a content place to the chosen zones
+      description: 'v0.10.0. v0.10.0 (owner Content answers 2026-10-28): the admin''s Content page publishes texts to the
+        apps. One admin is enough (no second admin). A publish goes only to the zones chosen at the top (''All zones'' = every
+        zone of the country).'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentPublishCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/history:
+    get:
+      operationId: adminContentHistory
+      summary: Published versions of a content place in a zone
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/{slot}/rollback:
+    post:
+      operationId: adminRollbackContent
+      summary: Publish an earlier version again
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/ContentSlotPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRollbackCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/content/legal/acceptances:
+    get:
+      operationId: adminTermsAcceptances
+      summary: Who accepted the zone's legal terms, and when
+      description: v0.10.0. An accept counts for every zone whose live legal version has that number; a version no zone has
+        live → 409 conflict (terms_version_not_current).
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptanceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/content:
+    get:
+      operationId: riderContent
+      summary: Content for the rider app
+      description: 'v0.10.0. GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that
+        app''s slots (and ''both''), expired items left out. Apps read on start and on config_published with doc content;
+        they keep the last answer when offline. Below the minimum version of its app: a full screen ''Uppdatera appen'' /
+        ''Mettre à jour l''app'' / ''Update the app'' with a store button; the app is blocked. Below the recommended version:
+        a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block
+        starts after the trip ends. SOS always works.'
+      tags:
+      - Rider · Config
+      x-actor:
+      - rider
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/content:
+    get:
+      operationId: driverContent
+      summary: Content for the driver app
+      description: 'v0.10.0. GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that
+        app''s slots (and ''both''), expired items left out. Apps read on start and on config_published with doc content;
+        they keep the last answer when offline. Below the minimum version of its app: a full screen ''Uppdatera appen'' /
+        ''Mettre à jour l''app'' / ''Update the app'' with a store button; the app is blocked. Below the recommended version:
+        a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block
+        starts after the trip ends. SOS always works.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/terms/accept:
+    post:
+      operationId: acceptTerms
+      summary: Accept the published legal terms
+      description: 'v0.10.0. When a legal item is published with reaccept true: the next time the app opens (never during
+        a trip) it shows the new terms with ''Jag godkänner'' / ''J''accepte'' / ''I accept''; POST /account/terms/accept
+        { contentVersion } stores who accepted and when (GET /admin/content/legal/acceptances?zoneId lists them). Until accepted,
+        the rider cannot book and the driver cannot go online.'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsAcceptCommand'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -8681,6 +9045,12 @@ components:
         minimum: 0
         maximum: 9
       description: 0-based index into TripProjection.stops.
+    ContentSlotPath:
+      name: slot
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ContentSlot'
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -16259,3 +16629,187 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DriverSurgeZone'
+    ContentSlot:
+      type: string
+      enum:
+      - driver-home
+      - driver-event
+      - rider-banner-1
+      - rider-banner-2
+      - rider-banner-3
+      - rider-banner-4
+      - rider-banner-5
+      - rider-banner-6
+      - help
+      - legal
+      - app-versions
+    ContentText:
+      type: object
+      required:
+      - sv
+      - fr
+      - en
+      properties:
+        sv:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        fr:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        en:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    AppVersionPair:
+      type: object
+      required:
+      - min
+      - recommended
+      properties:
+        min:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+        recommended:
+          type: string
+          pattern: ^\d+\.\d+\.\d+$
+    AppVersions:
+      type: object
+      required:
+      - rider
+      - driver
+      properties:
+        rider:
+          $ref: '#/components/schemas/AppVersionPair'
+        driver:
+          $ref: '#/components/schemas/AppVersionPair'
+    ContentItem:
+      type: object
+      description: 'v0.10.0: ContentItem { slot, zoneId, version, publishedAt, publishedBy, title, text: { sv, fr, en } (all
+        three required, non-empty), image? (https URL), expiresAt? (future Timestamp; after it the apps hide the item), reaccept?
+        (legal only), versions? (app-versions only: { rider: { min, recommended }, driver: { min, recommended } }, semantic
+        x.y.z, recommended ≥ min) }'
+      required:
+      - slot
+      - zoneId
+      - version
+      - publishedAt
+      - title
+      - text
+      properties:
+        slot:
+          $ref: '#/components/schemas/ContentSlot'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedBy:
+          $ref: '#/components/schemas/Id'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          $ref: '#/components/schemas/ContentText'
+        image:
+          type: string
+          format: uri
+          pattern: ^https://
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        reaccept:
+          type: boolean
+          description: legal only
+        versions:
+          $ref: '#/components/schemas/AppVersions'
+    ContentList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+    ContentPublishCommand:
+      type: object
+      required:
+      - zoneIds
+      - title
+      - text
+      properties:
+        zoneIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          minItems: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          $ref: '#/components/schemas/ContentText'
+        image:
+          type: string
+          pattern: ^https://
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        reaccept:
+          type: boolean
+        versions:
+          $ref: '#/components/schemas/AppVersions'
+    ContentRollbackCommand:
+      type: object
+      required:
+      - zoneId
+      - version
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        version:
+          type: integer
+          minimum: 1
+    TermsAcceptCommand:
+      type: object
+      required:
+      - contentVersion
+      properties:
+        contentVersion:
+          type: integer
+          minimum: 1
+    TermsAcceptance:
+      type: object
+      required:
+      - actor
+      - subjectId
+      - zoneId
+      - contentVersion
+      - acceptedAt
+      properties:
+        actor:
+          type: string
+          enum:
+          - rider
+          - driver
+        subjectId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        contentVersion:
+          type: integer
+          minimum: 1
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+    TermsAcceptanceList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsAcceptance'

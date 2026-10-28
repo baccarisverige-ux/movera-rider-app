@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -2553,5 +2553,39 @@
       "newDrivers"
     ],
     "maxDays": 400
+  },
+  "content": {
+    "note": "v0.10.0 (owner Content answers 2026-10-28): the admin's Content page publishes texts to the apps. One admin is enough (no second admin). A publish goes only to the zones chosen at the top ('All zones' = every zone of the country).",
+    "slots": [
+      "driver-home",
+      "driver-event",
+      "rider-banner-1",
+      "rider-banner-2",
+      "rider-banner-3",
+      "rider-banner-4",
+      "rider-banner-5",
+      "rider-banner-6",
+      "help",
+      "legal",
+      "app-versions"
+    ],
+    "apps": {
+      "driver-home": "driver",
+      "driver-event": "driver",
+      "rider-banner-1": "rider",
+      "rider-banner-2": "rider",
+      "rider-banner-3": "rider",
+      "rider-banner-4": "rider",
+      "rider-banner-5": "rider",
+      "rider-banner-6": "rider",
+      "help": "both",
+      "legal": "both",
+      "app-versions": "both"
+    },
+    "item": "ContentItem { slot, zoneId, version, publishedAt, publishedBy, title, text: { sv, fr, en } (all three required, non-empty), image? (https URL), expiresAt? (future Timestamp; after it the apps hide the item), reaccept? (legal only), versions? (app-versions only: { rider: { min, recommended }, driver: { min, recommended } }, semantic x.y.z, recommended ≥ min) }",
+    "admin": "GET /admin/content?zoneId (settings.read) → { items: ContentItem[] } (the zone's published items); POST /admin/content/{slot}/publish { zoneIds: [ZoneId], title, text, image?, expiresAt?, reaccept?, versions? } (settings.publish) → { items: ContentItem[] } one new version per zone, written in the audit; GET /admin/content/{slot}/history?zoneId; POST /admin/content/{slot}/rollback { zoneId, version } → the earlier version again as the next version.",
+    "apps_read": "GET /rider/content?zoneId and GET /driver/content?zoneId → { items: ContentItem[] } for that app's slots (and 'both'), expired items left out. Apps read on start and on config_published with doc content; they keep the last answer when offline.",
+    "appVersions": "Below the minimum version of its app: a full screen 'Uppdatera appen' / 'Mettre à jour l'app' / 'Update the app' with a store button; the app is blocked. Below the recommended version: a message the user can close. During a trip (rider on board, or driver on a trip) only a small message: the block starts after the trip ends. SOS always works.",
+    "legal": "When a legal item is published with reaccept true: the next time the app opens (never during a trip) it shows the new terms with 'Jag godkänner' / 'J'accepte' / 'I accept'; POST /account/terms/accept { contentVersion } stores who accepted and when (GET /admin/content/legal/acceptances?zoneId lists them). Until accepted, the rider cannot book and the driver cannot go online."
   }
 }

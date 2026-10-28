@@ -70,6 +70,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/content/presentation/content_banners.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
 
@@ -2607,6 +2608,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       );
                       final premiumDetailContent = Column(
                         children: [
+                          // v0.10.0: the admin's rider banners (Content).
+                          ContentBanners(controller: AppScope.instance.content),
                           AdvanceBookingCard(onOpenSchedule: _openSchedule),
                           SizedBox(height: HomeSheetLayout.sectionGap),
                           HomeJourneySection(

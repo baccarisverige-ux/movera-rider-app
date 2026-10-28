@@ -1714,6 +1714,33 @@ S["DriverSurgeMap"] = obj({"at": ref("Timestamp"), "zones": arr(ref("DriverSurge
 op("get", "/driver/surge-map", "driverSurgeMap", "Zones with a surge now, as colour levels for the Home map", ["driver"], "Driver · Session",
    ok=(200, "DriverSurgeMap"), desc="v0.7.2. " + DSM["route"] + " " + DSM["refresh"] + " " + DSM["tip"])
 
+# ---- v0.10.0: content from the admin to the apps (owner Content answers 2026-10-28)
+CT = C["content"]
+S["ContentSlot"] = s(enum=CT["slots"])
+S["ContentText"] = obj({"sv": s(minLength=1, maxLength=4000), "fr": s(minLength=1, maxLength=4000), "en": s(minLength=1, maxLength=4000)}, ["sv", "fr", "en"])
+S["AppVersionPair"] = obj({"min": s(pattern="^\\d+\\.\\d+\\.\\d+$"), "recommended": s(pattern="^\\d+\\.\\d+\\.\\d+$")}, ["min", "recommended"])
+S["AppVersions"] = obj({"rider": ref("AppVersionPair"), "driver": ref("AppVersionPair")}, ["rider", "driver"])
+S["ContentItem"] = obj({"slot": ref("ContentSlot"), "zoneId": ref("Id"), "version": i(minimum=1), "publishedAt": ref("Timestamp"), "publishedBy": ref("Id"),
+                        "title": s(minLength=1, maxLength=200), "text": ref("ContentText"), "image": s(format="uri", pattern="^https://"), "expiresAt": ref("Timestamp"),
+                        "reaccept": b("legal only"), "versions": ref("AppVersions")}, ["slot", "zoneId", "version", "publishedAt", "title", "text"], "v0.10.0: " + CT["item"])
+S["ContentList"] = obj({"items": arr(ref("ContentItem"))}, ["items"])
+S["ContentPublishCommand"] = obj({"zoneIds": arr(ref("Id"), minItems=1), "title": s(minLength=1, maxLength=200), "text": ref("ContentText"), "image": s(pattern="^https://"),
+                                  "expiresAt": ref("Timestamp"), "reaccept": b(), "versions": ref("AppVersions")}, ["zoneIds", "title", "text"])
+S["ContentRollbackCommand"] = obj({"zoneId": ref("Id"), "version": i(minimum=1)}, ["zoneId", "version"])
+S["TermsAcceptCommand"] = obj({"contentVersion": i(minimum=1)}, ["contentVersion"])
+PARAMS["ContentSlotPath"] = {"name": "slot", "in": "path", "required": True, "schema": ref("ContentSlot")}
+op("get", "/admin/content", "adminListContent", "The zone's published content", ["admin"], "Admin · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), permission="settings.read", desc="v0.10.0. " + CT["admin"])
+op("post", "/admin/content/{slot}/publish", "adminPublishContent", "Publish a content place to the chosen zones", ["admin"], "Admin · Config", params=[pref("ContentSlotPath")], body="ContentPublishCommand", ok=(200, "ContentList"), mutation=True, permission="settings.publish", desc="v0.10.0. " + CT["note"])
+op("get", "/admin/content/{slot}/history", "adminContentHistory", "Published versions of a content place in a zone", ["admin"], "Admin · Config", params=[pref("ContentSlotPath"), q("zoneId", ref("Id"))], ok=(200, "ContentList"), permission="settings.read")
+op("post", "/admin/content/{slot}/rollback", "adminRollbackContent", "Publish an earlier version again", ["admin"], "Admin · Config", params=[pref("ContentSlotPath")], body="ContentRollbackCommand", ok=(200, "ContentItem"), mutation=True, permission="settings.publish")
+S["TermsAcceptance"] = obj({"actor": s(enum=["rider", "driver"]), "subjectId": ref("Id"), "zoneId": ref("Id"), "contentVersion": i(minimum=1), "acceptedAt": ref("Timestamp")}, ["actor", "subjectId", "zoneId", "contentVersion", "acceptedAt"])
+S["TermsAcceptanceList"] = obj({"items": arr(ref("TermsAcceptance"))}, ["items"])
+op("get", "/admin/content/legal/acceptances", "adminTermsAcceptances", "Who accepted the zone's legal terms, and when", ["admin"], "Admin · Config", params=[q("zoneId", ref("Id"))], ok=(200, "TermsAcceptanceList"), permission="settings.read",
+   desc="v0.10.0. An accept counts for every zone whose live legal version has that number; a version no zone has live → 409 conflict (terms_version_not_current).")
+op("get", "/rider/content", "riderContent", "Content for the rider app", ["rider"], "Rider · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
+op("get", "/driver/content", "driverContent", "Content for the driver app", ["driver"], "Driver · Session", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
+op("post", "/account/terms/accept", "acceptTerms", "Accept the published legal terms", ["rider", "driver"], "Account", body="TermsAcceptCommand", ok=(204, None), mutation=True, desc="v0.10.0. " + CT["legal"])
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
