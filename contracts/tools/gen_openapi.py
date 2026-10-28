@@ -1648,7 +1648,7 @@ o = op("post", "/rides/{rideId}/cancel", "cancelRideDeprecated", "Deprecated ali
        params=[pref("RideId")], body="CancelCommand", ok=(200, TP), mutation=True, transition="cancel", deprecated=True)
 
 # ---------------------------------------------------------------- document
-TAG_DESC = {"Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
+TAG_DESC = {"Admin · Zones": "Zones from the server: list, create, outline, open and close (v0.11.0)", "Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
             "Maps": "Address search, geocoding and road routes through the server (v0.5.1); read-only, no Idempotency-Key",
             "Telemetry": "Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
             "Deprecated": "Legacy /rides aliases kept for one release"}
@@ -1740,6 +1740,31 @@ op("get", "/admin/content/legal/acceptances", "adminTermsAcceptances", "Who acce
 op("get", "/rider/content", "riderContent", "Content for the rider app", ["rider"], "Rider · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
 op("get", "/driver/content", "driverContent", "Content for the driver app", ["driver"], "Driver · Session", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
 op("post", "/account/terms/accept", "acceptTerms", "Accept the published legal terms", ["rider", "driver"], "Account", body="TermsAcceptCommand", ok=(204, None), mutation=True, desc="v0.10.0. " + CT["legal"])
+
+# ---- v0.11.0: zones from the server (owner 2026-10-28, decision #9)
+ZN = C["zones"]
+TZ = s(pattern=r"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$")
+S["ZoneNames"] = obj({"sv": s(minLength=1, maxLength=80), "fr": s(minLength=1, maxLength=80), "en": s(minLength=1, maxLength=80)}, ["sv", "fr", "en"], ZN["names"])
+S["ZoneKind"] = s(enum=["operating", "airport"])
+S["ZonePoint"] = arr(n(), minItems=2, maxItems=2, description="[lat, lng]")
+S["ZonePolygon"] = arr(ref("ZonePoint"), minItems=3, maxItems=500, description=ZN["polygon"])
+S["Zone"] = obj({"zoneId": ref("Id"), "names": ref("ZoneNames"), "country": ref("CountryCode"), "currency": ref("CurrencyCode"), "timeZone": TZ,
+                 "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon"), "bounds": ref("ZoneBounds"), "center": obj({"lat": n(), "lng": n()}, ["lat", "lng"]),
+                 "open": b(), "version": i(minimum=1), "createdAt": ref("Timestamp"), "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
+                ["zoneId", "names", "country", "currency", "timeZone", "kind", "polygon", "bounds", "center", "open", "version"], "v0.11.0: " + ZN["zone"] + " " + ZN["idScheme"])
+S["ZoneList"] = obj({"zones": arr(ref("Zone"))}, ["zones"])
+S["ZoneCreateCommand"] = obj({"zoneId": ref("Id"), "names": ref("ZoneNames"), "country": ref("CountryCode"), "currency": ref("CurrencyCode"), "timeZone": TZ,
+                              "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon"), "open": b("default false")},
+                             ["zoneId", "names", "country", "currency", "timeZone", "polygon"], "A new zone starts closed unless open is true. 409 conflict zone_exists when the id is taken.")
+S["ZoneUpdateCommand"] = obj({**EV, "names": ref("ZoneNames"), "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon")}, ["expectedVersion"], ZN["version"])
+S["ZoneOpenCommand"] = obj({**EV, "note": s(maxLength=1000)}, ["expectedVersion"])
+op("get", "/admin/zones", "adminListZones", "Every zone in the admin's scope, open and closed", ["admin"], "Admin · Zones", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), permission="zones.read", desc="v0.11.0. " + ZN["permissions"])
+op("post", "/admin/zones", "adminCreateZone", "Create a zone", ["admin"], "Admin · Zones", body="ZoneCreateCommand", ok=(201, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["idScheme"] + " " + ZN["neverDeleted"])
+op("put", "/admin/zones/{zoneId}", "adminUpdateZone", "Change a zone's names, kind or outline", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneUpdateCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["polygon"])
+op("post", "/admin/zones/{zoneId}/open", "adminOpenZone", "Open a zone for new rides", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneOpenCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["open"])
+op("post", "/admin/zones/{zoneId}/close", "adminCloseZone", "Close a zone (never deleted)", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneOpenCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["open"] + " " + ZN["neverDeleted"])
+op("get", "/rider/zones", "riderZones", "The open zones, with outline and names", ["rider"], "Rider · Config", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"] + " " + ZN["notHere"])
+op("get", "/driver/zones", "driverZones", "The open zones, with outline and names", ["driver"], "Driver · Session", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"])
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"

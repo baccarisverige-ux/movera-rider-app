@@ -1461,6 +1461,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportTicketMovera': l.supportTicketMovera,
   'supportTicketsEmpty': l.supportTicketsEmpty,
   'supportTicketsFailed': l.supportTicketsFailed,
+  'notHereTitle': l.notHereTitle,
+  'notHereBody': l.notHereBody,
+  'notHereZones': l.notHereZones('<zones>'),
+  'notHereChangePickup': l.notHereChangePickup,
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -1684,6 +1688,7 @@ const messagePlaceholders = <String, List<String>>{
   'phoneCountryCode': ['country', 'dial'],
   'promotionApplied': ['percent'],
   'arriveEtaMin': ['arrive', 'minutes'],
+  'notHereZones': ['zones'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4618,6 +4623,14 @@ class _Exhaustive implements AppLocalizations {
   String get supportTicketsEmpty => '';
   @override
   String get supportTicketsFailed => '';
+  @override
+  String get notHereTitle => '';
+  @override
+  String get notHereBody => '';
+  @override
+  String notHereZones(String zones) => '';
+  @override
+  String get notHereChangePickup => '';
   @override
   String get swTripStatusDraft => '';
   @override

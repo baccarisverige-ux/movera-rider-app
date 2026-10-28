@@ -2866,6 +2866,27 @@
   "supportTicketMovera": "Movera support",
   "supportTicketsEmpty": "You have not sent a message to Movera yet.",
   "supportTicketsFailed": "Your messages could not be loaded.",
+  "notHereTitle": "Movera isn't here yet",
+  "@notHereTitle": {
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
+  },
+  "notHereBody": "You can't book a ride from this pickup. Choose a pickup where Movera runs.",
+  "@notHereBody": {
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
+  },
+  "notHereZones": "Movera runs in: {zones}",
+  "@notHereZones": {
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone.",
+    "placeholders": {
+      "zones": {
+        "type": "String"
+      }
+    }
+  },
+  "notHereChangePickup": "Change pickup",
+  "@notHereChangePickup": {
+    "description": "Contract v0.11.0 §21: the rider's pickup lies outside every open zone."
+  },
   "swTripStatusDraft": "Draft",
   "@swTripStatusDraft": {"description": "Contract status word statusWords.families.tripStatus.draft (tool/gen_status_words.py)."},
   "swTripStatusQuoted": "Quoted",

@@ -427,6 +427,34 @@ for case in json.load(open('fixtures/payouts.json'))['cases']:
     got = payout(case['entries'])
     want = case['expect']
     if got != (want['lines'], want['tripCount'], want['amountMinor']): bad += 1; print('PAYOUT', case['id'], got, want)
+# v0.11.0: zones from the server (fixtures/zones.json, contract.json#zones): point in polygon, bounds, lookup order.
+def in_polygon(lat, lng, poly):
+    inside = False
+    for k in range(len(poly)):
+        (y1, x1), (y2, x2) = poly[k], poly[(k + 1) % len(poly)]
+        if (x1 == x2 == lng and min(y1, y2) <= lat <= max(y1, y2)) or (y1 == y2 == lat and min(x1, x2) <= lng <= max(x1, x2)): return True
+        if (y1 > lat) != (y2 > lat):
+            x = x1 + (lat - y1) * (x2 - x1) / (y2 - y1)
+            if x == lng: return True
+            if x > lng: inside = not inside
+    return inside
+zf = json.load(open('fixtures/zones.json'))
+for z in zf['zones']:
+    p = z['polygon']
+    want = {'south': min(a for a, _ in p), 'west': min(b for _, b in p), 'north': max(a for a, _ in p), 'east': max(b for _, b in p)}
+    if want != z['bounds']: bad += 1; print('ZONE BOUNDS', z['zoneId'])
+    if not 3 <= len(p) <= 500 or p[0] == p[-1]: bad += 1; print('ZONE POLYGON', z['zoneId'])
+def zone_at(lat, lng):
+    hits = [z for z in zf['zones'] if z['bounds']['south'] <= lat <= z['bounds']['north'] and z['bounds']['west'] <= lng <= z['bounds']['east'] and in_polygon(lat, lng, z['polygon'])]
+    area = lambda z: (z['bounds']['north'] - z['bounds']['south']) * (z['bounds']['east'] - z['bounds']['west'])
+    hits.sort(key=lambda z: (not z['open'], z['kind'] == 'airport', area(z)))
+    return hits[0]['zoneId'] if hits else None
+for pt in zf['points']:
+    if zone_at(pt['lat'], pt['lng']) != pt['zoneId']: bad += 1; print('ZONE AT', pt['name'], zone_at(pt['lat'], pt['lng']))
+    airport = next((z['zoneId'] for z in zf['zones'] if z['kind'] == 'airport' and in_polygon(pt['lat'], pt['lng'], z['polygon'])), None)
+    if airport != pt.get('airport'): bad += 1; print('AIRPORT', pt['name'], airport)
+for z in c['zones']['seed']:
+    if set(z['names']) != {'sv', 'fr', 'en'}: bad += 1; print('ZONE NAMES', z['zoneId'])
 # v0.10.4: ONE STATUS WORD LIST (contract.json#statusWords): every code of every family has a non-empty sv, fr and en word.
 def _at(path):
     o = c

@@ -1,0 +1,305 @@
+{
+  "note": "v0.11.0 (§21, contract.json#zones): outlines of the seed zones (FR-PC, CDG, ORY open; TN-TC closed), their bounding rectangles, and points with the zone each lies in (by polygon, open before closed, city zone before airport, smallest bounds; null = no zone; airport = the airport zone that adds its fees).",
+  "zones": [
+    {
+      "zoneId": "FR-PC",
+      "kind": "operating",
+      "open": true,
+      "polygon": [
+        [
+          49.24,
+          1.79
+        ],
+        [
+          49.23,
+          2.17
+        ],
+        [
+          49.17,
+          2.53
+        ],
+        [
+          49.12,
+          2.7
+        ],
+        [
+          49.08,
+          3.07
+        ],
+        [
+          49.04,
+          3.18
+        ],
+        [
+          48.93,
+          3.34
+        ],
+        [
+          48.82,
+          3.49
+        ],
+        [
+          48.53,
+          3.56
+        ],
+        [
+          48.37,
+          3.41
+        ],
+        [
+          48.27,
+          3.05
+        ],
+        [
+          48.13,
+          2.94
+        ],
+        [
+          48.12,
+          2.52
+        ],
+        [
+          48.29,
+          2.18
+        ],
+        [
+          48.36,
+          1.97
+        ],
+        [
+          48.44,
+          1.92
+        ],
+        [
+          48.65,
+          1.58
+        ],
+        [
+          48.76,
+          1.45
+        ],
+        [
+          48.94,
+          1.47
+        ],
+        [
+          49.08,
+          1.61
+        ]
+      ],
+      "bounds": {
+        "south": 48.12,
+        "west": 1.45,
+        "north": 49.24,
+        "east": 3.56
+      }
+    },
+    {
+      "zoneId": "CDG",
+      "kind": "airport",
+      "open": true,
+      "polygon": [
+        [
+          49.035,
+          2.49
+        ],
+        [
+          49.035,
+          2.61
+        ],
+        [
+          48.985,
+          2.61
+        ],
+        [
+          48.985,
+          2.49
+        ]
+      ],
+      "bounds": {
+        "south": 48.985,
+        "west": 2.49,
+        "north": 49.035,
+        "east": 2.61
+      }
+    },
+    {
+      "zoneId": "ORY",
+      "kind": "airport",
+      "open": true,
+      "polygon": [
+        [
+          48.745,
+          2.32
+        ],
+        [
+          48.745,
+          2.41
+        ],
+        [
+          48.71,
+          2.41
+        ],
+        [
+          48.71,
+          2.32
+        ]
+      ],
+      "bounds": {
+        "south": 48.71,
+        "west": 2.32,
+        "north": 48.745,
+        "east": 2.41
+      }
+    },
+    {
+      "zoneId": "TN-TC",
+      "kind": "operating",
+      "open": false,
+      "polygon": [
+        [
+          37.02,
+          10.05
+        ],
+        [
+          37.01,
+          10.25
+        ],
+        [
+          36.92,
+          10.33
+        ],
+        [
+          36.85,
+          10.37
+        ],
+        [
+          36.73,
+          10.42
+        ],
+        [
+          36.62,
+          10.38
+        ],
+        [
+          36.55,
+          10.22
+        ],
+        [
+          36.6,
+          10.05
+        ],
+        [
+          36.66,
+          9.88
+        ],
+        [
+          36.75,
+          9.75
+        ],
+        [
+          36.88,
+          9.78
+        ],
+        [
+          36.97,
+          9.9
+        ]
+      ],
+      "bounds": {
+        "south": 36.55,
+        "west": 9.75,
+        "north": 37.02,
+        "east": 10.42
+      }
+    }
+  ],
+  "points": [
+    {
+      "name": "Paris centre",
+      "lat": 48.857,
+      "lng": 2.352,
+      "zoneId": "FR-PC"
+    },
+    {
+      "name": "Fontainebleau",
+      "lat": 48.404,
+      "lng": 2.7,
+      "zoneId": "FR-PC"
+    },
+    {
+      "name": "Provins",
+      "lat": 48.56,
+      "lng": 3.3,
+      "zoneId": "FR-PC"
+    },
+    {
+      "name": "Mantes-la-Jolie",
+      "lat": 48.99,
+      "lng": 1.72,
+      "zoneId": "FR-PC"
+    },
+    {
+      "name": "Disneyland Paris",
+      "lat": 48.872,
+      "lng": 2.776,
+      "zoneId": "FR-PC"
+    },
+    {
+      "name": "CDG terminal 2",
+      "lat": 49.004,
+      "lng": 2.571,
+      "zoneId": "FR-PC",
+      "airport": "CDG"
+    },
+    {
+      "name": "Orly",
+      "lat": 48.728,
+      "lng": 2.36,
+      "zoneId": "FR-PC",
+      "airport": "ORY"
+    },
+    {
+      "name": "Rouen (outside, inside no polygon)",
+      "lat": 49.443,
+      "lng": 1.1,
+      "zoneId": null
+    },
+    {
+      "name": "Beauvais (outside)",
+      "lat": 49.43,
+      "lng": 2.08,
+      "zoneId": null
+    },
+    {
+      "name": "Chartres corner (inside FR-PC bounds, outside polygon)",
+      "lat": 48.45,
+      "lng": 1.5,
+      "zoneId": null
+    },
+    {
+      "name": "Tunis medina",
+      "lat": 36.799,
+      "lng": 10.17,
+      "zoneId": "TN-TC"
+    },
+    {
+      "name": "La Marsa",
+      "lat": 36.878,
+      "lng": 10.325,
+      "zoneId": "TN-TC"
+    },
+    {
+      "name": "Hammam Lif",
+      "lat": 36.73,
+      "lng": 10.34,
+      "zoneId": "TN-TC"
+    },
+    {
+      "name": "Bizerte (outside)",
+      "lat": 37.274,
+      "lng": 9.874,
+      "zoneId": null
+    }
+  ]
+}

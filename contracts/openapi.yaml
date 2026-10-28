@@ -1,11 +1,11 @@
-# Movera API v0.10.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.11.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.10.4
+  version: 0.11.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.10.4 in this folder; this file must agree with them.
+    v0.11.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -74,9 +74,11 @@ tags:
   description: Legacy /rides aliases kept for one release
 - name: Rider · Config
 - name: Account
+- name: Admin · Zones
+  description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.10.4
+  version: 0.11.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -8787,6 +8789,334 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/zones:
+    get:
+      operationId: adminListZones
+      summary: Every zone in the admin's scope, open and closed
+      description: 'v0.11.0. GET /admin/zones: zones.read, the zones in the admin''s scope (a Super admin: all). POST, PUT,
+        open, close: zones.edit, one admin is enough (no second admin), written in the audit (zone.create, zone.update, zone.open,
+        zone.close). An admin may change a zone in its scope; creating one needs the whole scope (*) or a zone of the same
+        country in scope (403 forbidden zone_out_of_scope otherwise).'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateZone
+      summary: Create a zone
+      description: v0.11.0. Ids are fixed at creation and never change (^[A-Za-z0-9_-]{1,64}$). Existing ids stay (Stockholm
+        Z001-Z009). A new city zone is <country>-<two capital letters> (FR-PC Paris & Ile-de-France, TN-TC Grand Tunis, the
+        ids the apps already use); an airport zone is the IATA code (ARN, BMA, CDG, ORY). A zone is never deleted, only closed.
+        There is no DELETE; trips, documents and history keep their zoneId.
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneCreateCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}:
+    put:
+      operationId: adminUpdateZone
+      summary: Change a zone's names, kind or outline
+      description: 'v0.11.0. The outline as the admin draws it: 3 to 500 points [lat, lng] (lat -90..90, lng -180..180), in
+        order, not closed (the last point is not the first again), not self-crossing. The server computes bounds (the polygon''s
+        bounding rectangle) and, on create and on a new outline, center (the middle of bounds); both are ignored in a request.
+        A point on the edge is inside.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneUpdateCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/open:
+    post:
+      operationId: adminOpenZone
+      summary: Open a zone for new rides
+      description: v0.11.0. POST /admin/zones/{zoneId}/open and /close (zones.edit) set open; an open zone takes new rides,
+        a closed one does not (rides already booked go on). Both send expectedVersion and raise version.
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneOpenCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/close:
+    post:
+      operationId: adminCloseZone
+      summary: Close a zone (never deleted)
+      description: v0.11.0. POST /admin/zones/{zoneId}/open and /close (zones.edit) set open; an open zone takes new rides,
+        a closed one does not (rides already booked go on). Both send expectedVersion and raise version. A zone is never deleted,
+        only closed. There is no DELETE; trips, documents and history keep their zoneId.
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneOpenCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/zones:
+    get:
+      operationId: riderZones
+      summary: The open zones, with outline and names
+      description: 'v0.11.0. GET /rider/zones and GET /driver/zones (?country=FR optional) → { zones: Zone[] }: the OPEN zones
+        (of that country, else all), with polygon and names; closed zones are never listed. The apps read them on start and
+        on config_published with doc zones. A quote or booking whose pickup lies in no OPEN zone is 403 forbidden, reason
+        service_not_available (the server''s existing code). The rider app then shows ''Movera isn''t here yet'' (sv ''Movera
+        finns inte här än'', fr ''Movera n’est pas encore ici'') and cannot book; it may check GET /rider/zones first.'
+      tags:
+      - Rider · Config
+      x-actor:
+      - rider
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/zones:
+    get:
+      operationId: driverZones
+      summary: The open zones, with outline and names
+      description: 'v0.11.0. GET /rider/zones and GET /driver/zones (?country=FR optional) → { zones: Zone[] }: the OPEN zones
+        (of that country, else all), with polygon and names; closed zones are never listed. The apps read them on start and
+        on config_published with doc zones.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CountryCode'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -16831,3 +17161,171 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TermsAcceptance'
+    ZoneNames:
+      type: object
+      description: names.sv, names.fr and names.en are all required (1-80 characters). The apps show the name in the app language.
+      required:
+      - sv
+      - fr
+      - en
+      properties:
+        sv:
+          type: string
+          minLength: 1
+          maxLength: 80
+        fr:
+          type: string
+          minLength: 1
+          maxLength: 80
+        en:
+          type: string
+          minLength: 1
+          maxLength: 80
+    ZoneKind:
+      type: string
+      enum:
+      - operating
+      - airport
+    ZonePoint:
+      type: array
+      items:
+        type: number
+      minItems: 2
+      maxItems: 2
+      description: '[lat, lng]'
+    ZonePolygon:
+      type: array
+      items:
+        $ref: '#/components/schemas/ZonePoint'
+      minItems: 3
+      maxItems: 500
+      description: 'The outline as the admin draws it: 3 to 500 points [lat, lng] (lat -90..90, lng -180..180), in order,
+        not closed (the last point is not the first again), not self-crossing. The server computes bounds (the polygon''s
+        bounding rectangle) and, on create and on a new outline, center (the middle of bounds); both are ignored in a request.
+        A point on the edge is inside.'
+    Zone:
+      type: object
+      description: 'v0.11.0: Zone { zoneId, names: { sv, fr, en }, country (ISO 3166 alpha-2), currency (SEK | EUR | TND),
+        timeZone (IANA), kind: operating | airport, polygon: [[lat, lng], ...], bounds: { south, west, north, east }, center:
+        { lat, lng }, open, version, createdAt, updatedAt, updatedBy? } Ids are fixed at creation and never change (^[A-Za-z0-9_-]{1,64}$).
+        Existing ids stay (Stockholm Z001-Z009). A new city zone is <country>-<two capital letters> (FR-PC Paris & Ile-de-France,
+        TN-TC Grand Tunis, the ids the apps already use); an airport zone is the IATA code (ARN, BMA, CDG, ORY).'
+      required:
+      - zoneId
+      - names
+      - country
+      - currency
+      - timeZone
+      - kind
+      - polygon
+      - bounds
+      - center
+      - open
+      - version
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        timeZone:
+          type: string
+          pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
+        kind:
+          $ref: '#/components/schemas/ZoneKind'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        bounds:
+          $ref: '#/components/schemas/ZoneBounds'
+        center:
+          type: object
+          required:
+          - lat
+          - lng
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+        open:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+    ZoneList:
+      type: object
+      required:
+      - zones
+      properties:
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Zone'
+    ZoneCreateCommand:
+      type: object
+      description: A new zone starts closed unless open is true. 409 conflict zone_exists when the id is taken.
+      required:
+      - zoneId
+      - names
+      - country
+      - currency
+      - timeZone
+      - polygon
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        timeZone:
+          type: string
+          pattern: ^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$
+        kind:
+          $ref: '#/components/schemas/ZoneKind'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        open:
+          type: boolean
+          description: default false
+    ZoneUpdateCommand:
+      type: object
+      description: Zone.version starts at 1 and goes up by one with every change; PUT, open and close send expectedVersion
+        (409 version_mismatch with the current zone otherwise). country, currency and timeZone cannot change after creation
+        (400 invalid_request zone_field_fixed).
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        kind:
+          $ref: '#/components/schemas/ZoneKind'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+    ZoneOpenCommand:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        note:
+          type: string
+          maxLength: 1000
