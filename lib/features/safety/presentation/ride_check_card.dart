@@ -914,7 +914,11 @@ class _AlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final live =
+        controller.reportsToMovera &&
+        session.alertState == RideCheckAlertState.sent;
     final (title, body) = switch (session.alertState) {
+      _ when live => (context.l10n.rcSent, ''),
       RideCheckAlertState.sent || RideCheckAlertState.none => (
         context.l10n.rcAlertSentTitle,
         context.l10n.rcAlertSentBody,
@@ -953,14 +957,15 @@ class _AlertBanner extends StatelessWidget {
                     title,
                     style: _text(13.5, weight: FontWeight.w600, height: 1.35),
                   ),
-                  Text(
-                    body,
-                    style: _text(
-                      12.5,
-                      color: const Color(0xCCFFFFFF),
-                      height: 1.35,
+                  if (body.isNotEmpty)
+                    Text(
+                      body,
+                      style: _text(
+                        12.5,
+                        color: const Color(0xCCFFFFFF),
+                        height: 1.35,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

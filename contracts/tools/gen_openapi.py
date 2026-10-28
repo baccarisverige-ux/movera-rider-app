@@ -372,7 +372,7 @@ S["IncidentPosition"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum
                             ["lat", "lng", "at"], "v0.7.0: a phone's GPS position, measured once (CONTRACT.md §15).")
 S["Incident"] = obj(OrderedDict([
     ("incidentId", ref("Id")), ("tripId", ref("Id")),
-    ("kind", s("v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; ride_check is safety part 2). Older rows may hold other snake_case kinds.",
+    ("kind", s("v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; v0.12.0 ride_check). Older rows may hold other snake_case kinds.",
                pattern="^[a-z][a-z0-9_]{0,63}$", examples=SF["incidentKinds"])),
     ("severity", s(enum=["low", "medium", "high", "critical"])),
     ("status", s("open = New, investigating = Taken, resolved = Solved, dismissed = False alarm (contract.json#safety.statusLabels).",
@@ -389,7 +389,34 @@ S["Incident"] = obj(OrderedDict([
     ("resolvedBy", {"allOf": [ref("Id")], "description": "v0.7.0: the admin who solved it or called it a false alarm; absent when the system closed it."}),
     ("resolvedAt", ref("Timestamp")),
     ("resolution", s("v0.7.0: the closing note; 'position back' when the system closes a driver_silent incident.", maxLength=1000)),
+    ("alarm", b("v0.12.0: the admin panel rings the alarm for this incident while it is open, and it escalates after escalateAfterSeconds untaken. "
+                "true for sos, driver_silent and a ride_check someone answered need_help; false for a no-answer ride_check (cases list, no sound).")),
+    ("rideCheck", {"allOf": [ref("IncidentRideCheck")], "description": "v0.12.0: only on kind ride_check."}),
 ]), ["incidentId", "kind", "severity", "status", "openedAt"])
+RC = SF["rideCheck"]
+S["RideCheckTrigger"] = s("v0.12.0: what made the app open the ride check card (contract.json#safety.rideCheck.triggers).", enum=RC["triggers"])
+S["IncidentRideCheck"] = obj(OrderedDict([
+    ("checkId", s("The app's id of the check that opened or last raised the incident.", minLength=1, maxLength=64)),
+    ("trigger", ref("RideCheckTrigger")),
+    ("by", s("The side whose check it is.", enum=["rider", "driver"])),
+    ("answer", s("need_help = someone asked for help (alarm); no_answer = nobody answered within contract.json#safety.rideCheck.noAnswerSeconds.", enum=RC["incidentAnswers"])),
+    ("shownAt", {"allOf": [ref("Timestamp")], "description": "When the server learnt the card showed."}),
+    ("answeredAt", ref("Timestamp")),
+    ("lateAnswer", s("An answer that came after the no-answer incident opened; the incident stays open for the admin.", enum=RC["answers"])),
+]), ["checkId", "trigger", "by", "answer"], "v0.12.0 (CONTRACT.md §22).")
+S["RideCheckReport"] = obj(OrderedDict([
+    ("checkId", s("The app's id of this check, the same on the shown report and the answer (unique per trip and side).", pattern="^[A-Za-z0-9_-]{1,64}$")),
+    ("trigger", ref("RideCheckTrigger")),
+    ("at", {"allOf": [ref("Timestamp")], "description": "When it happened on the phone (shown, or answered)."}),
+    ("answer", s("Absent = the card just showed (starts the 2-minute no-answer clock); ok = saved on the trip only; need_help = opens the alarm incident.", enum=RC["answers"])),
+    ("position", {"allOf": [ref("IncidentPosition")], "description": "The phone's last GPS, when it has one."}),
+]), ["checkId", "trigger", "at"], "v0.12.0 (CONTRACT.md §22).")
+S["RideCheckReceipt"] = obj(OrderedDict([
+    ("checkId", s(maxLength=64)), ("tripId", ref("Id")),
+    ("answer", s("The check's stored answer; absent while it waits for one.", enum=RC["answers"])),
+    ("receivedAt", ref("Timestamp")),
+    ("incidentId", {"allOf": [ref("Id")], "description": "Set when this check is part of a ride_check incident."}),
+]), ["checkId", "tripId", "receivedAt"], "v0.12.0: the report reached Movera. The app shows only \"Sent\" after an answer.")
 S["SosRequest"] = obj({"at": {"allOf": [ref("Timestamp")], "description": "When the person pressed SOS on the phone."},
                        "position": {"allOf": [ref("IncidentPosition")], "description": "The phone's last GPS, sent once; absent when the phone has none."}},
                       ["at"], "v0.7.0 (CONTRACT.md §15).")
@@ -1485,6 +1512,13 @@ for who, path, opid in [("rider", "/rider/trips/{tripId}/sos", "riderSos"), ("dr
        desc=f"v0.7.0. Only the trip's own {who}, while the trip is live (contract.json#safety.sos.{who}Statuses); otherwise 409 invalid_transition with the trip. "
             "Creates the trip's one open SOS incident, or returns it when one is open (a second SOS from either side). The app opens the emergency call (112) itself; "
             "it retries with the same Idempotency-Key and then shows only \"SOS sent\".")
+# ---- v0.12.0 (CONTRACT.md §22): ride check answers
+for who, path, opid in [("rider", "/rider/trips/{tripId}/ride-check", "riderRideCheck"), ("driver", "/driver/trips/{tripId}/ride-check", "driverRideCheck")]:
+    op("post", path, opid, f"The {who} app reports a ride check (shown, or answered)", [who], "Safety", params=TID, body="RideCheckReport", ok=(200, "RideCheckReceipt"), mutation=True,
+       desc=f"v0.12.0. Only the trip's own {who}, while the trip is live or up to contract.json#safety.rideCheck.completedWithinMinutes after it completed "
+            f"(contract.json#safety.rideCheck.{who}Statuses); otherwise 409 invalid_transition with the trip. Without answer: the card showed; the server opens a ride_check "
+            "incident without the alarm when no answer comes within noAnswerSeconds (120 s). answer ok: saved on the trip only. answer need_help: opens or joins the trip's "
+            "ride_check incident with the alarm. Idempotent by checkId and by Idempotency-Key (contract.json#safety.rideCheck.idempotency).")
 op("get", "/admin/incidents/stream", "adminStreamIncidents", "Admin incident feed (opened, updated, escalated, closed)", ["admin"], "Admin · Safety",
    params=[pref("After"), pref("LastEventId")], content=sse("Server-sent events.", "AdminIncidentEvent", "AdminIncidentEventPage"), permission="overview.read",
    desc="v0.7.0. Any signed-in admin may listen. Events of an incident go to admins with incidents.read whose zones cover its zone; once it is escalated "
