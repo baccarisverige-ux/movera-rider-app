@@ -1,4 +1,12 @@
-# Movera shared contract v0.10.0
+# Movera shared contract v0.12.0
+
+v0.12.0 (owner safety part 2, 2026-10-28; X-Api-Version stays `0.5`, additive): **Ride check answers** (§22, `contract.json#safety.rideCheck`): `POST /rider/trips/{tripId}/ride-check` and `POST /driver/trips/{tripId}/ride-check` with `RideCheckReport { checkId, trigger, at, answer?: ok | need_help, position? }` → `RideCheckReceipt`. "I'm OK" is only saved on the trip; "I need help" opens the trip's `ride_check` incident with the red alarm and the 2-minute escalation; no answer within 120 s opens it without sound. `Incident` gains `alarm` and `rideCheck`; `ride_check` joins `safety.alarmKinds` (alarm only with `alarm: true`). Builds on v0.11.0; the version is reconciled with the other open contract changes at merge.
+
+v0.11.0 (owner 2026-10-28 and decision #9 "the server's list is the truth"; X-Api-Version stays `0.5`, additive): **Zones from the server** (§21, `contract.json#zones`, `fixtures/zones.json`): `Zone { zoneId, names { sv, fr, en }, country, currency, timeZone, kind, polygon, bounds, center, open, version }`; the admin's Zones page `GET /admin/zones`, `POST /admin/zones`, `PUT /admin/zones/{zoneId}`, `POST /admin/zones/{zoneId}/open|close` (`zones.edit`, one admin, audited; never deleted, only closed); the apps' `GET /rider/zones`, `GET /driver/zones` (open zones with outline and names). A pickup outside every open zone is `403 forbidden service_not_available` and the rider app shows "Movera isn't here yet". Paris & Île-de-France (FR-PC, open) gets the whole region's outline, with open airport zones CDG and ORY inside it; Grand Tunis (TN-TC) is added closed. Zone changes and content arrive on the app config streams. Builds on v0.10.0; independent of the pending v0.10.1.
+
+v0.10.4 (owner 2026-10-28): **One status word list** (§20, `contract.json#statusWords`): the sv/fr/en word for every status code of every family, used by the admin, rider and driver apps; new enums `documentStatus`, `vehicleReviewStatus`, `ticketStatus`.
+
+v0.10.3 (owner Reports answers of 2026-10-28; X-Api-Version stays `0.5`, additive): **Reports › Money** (§18 KPIs, `contract.json#kpis.money`): `KpiDay` gains `tips`, `refunds`, `fees`, `moveraEarnings`. Bookings (`gross`) = ride price + cancel/no-show fees, VAT included; tips on their own line, not in bookings; refunds are subtracted on the trip's day (an older day changes when a refund comes later, the nightly summary re-sums that day); Movera earnings = commission + fees − pickup pay − driver bonuses Movera paid (may be negative); each currency apart, never added across countries; a day is the zone's local day. Fleet views have no owners' share. Taxes have no server source: the admin shows "Inte kopplad än".
 
 v0.10.0 (owner Content answers of 2026-10-28; X-Api-Version stays `0.5`): **Content from the admin to the apps** (§19, `contract.json#content`): 11 places (driver Home, driver event, 6 rider banners, Help, Legal, App versions) with texts in sv, fr and en, published by one admin to the zones chosen at the top; `GET /rider/content`, `GET /driver/content`; app versions per app (rider, driver) block below the minimum (never during a trip; SOS always works); new legal terms with "users must accept again" are accepted before the next trip (`POST /account/terms/accept`).
 
@@ -623,7 +631,7 @@ Owner safety part 1 decisions (2026-10-27); values in `contract.json#safety`.
 - **Statuses.** `open` (New) → `investigating` (Taken, `takenBy`, `takenAt`) → `resolved` (Solved) or `dismissed` (False alarm), with `resolvedBy`, `resolvedAt` and the note as `resolution`. `POST /admin/incidents/{incidentId}/take|resolve|dismiss { expectedVersion, note? }` (`safety.edit`, the admin's zones); a status the command cannot leave → `409 invalid_transition`, a stale version → `409 version_mismatch`, each with the incident. Every change is written in the audit.
 - **Admin reads.** `GET /admin/incidents` (`incidents.read`, zone-scoped, as before) and `GET /admin/incidents/{incidentId}` with `driverPosition`, the car's latest position, read live.
 - **Alarm feed.** `GET /admin/incidents/stream` (SSE; without `Accept: text/event-stream` a JSON page, for polling): `incident_opened`, `incident_updated`, `incident_escalated`, `incident_closed`, each with the whole `Incident`, replay with `after` / `Last-Event-ID`. First only admins with `incidents.read` whose zones cover the incident's zone get its events; an `sos` or `driver_silent` incident not taken within `safety.escalateAfterSeconds` (120 s) is escalated (`escalatedAt`) and from then on goes to every signed-in admin. No SMS when nobody is online. The admin panel rings a repeating alarm for open `sos` and `driver_silent` incidents until one is taken.
-- **Ride check** answers are safety part 2 (`ride_check` is reserved).
+- **Ride check** answers: safety part 2, §22 (v0.12.0).
 
 ## 16. Pricing rework part 2 (v0.7.1)
 
@@ -658,7 +666,7 @@ Owner decisions of 2026-10-27: the live admin shows only what the server sends; 
 - **Support** (`contract.json#support`). The rider and driver apps open tickets with `POST /support/tickets` (ride disputes and help requests; `category` from `support.categories`). Admin Support lists them (`GET /admin/tickets`, the admin's zones), opens one with its messages (`GET /admin/tickets/{ticketId}`) and answers (`POST /admin/tickets/{ticketId}/reply`; status `pending` by default, or `resolved` / `closed`). The apps read their tickets and the answers with `GET /support/tickets` and `GET /support/tickets/{ticketId}`.
 - **Ratings** (`contract.json#ratings.tags`). Stars, optional tags and an optional comment, sent by both apps with `POST /trips/{tripId}/rating`. A rider uses `aboutDriver` tags, a driver `aboutRider` tags; any other tag is 400 `invalid_body`. Admin › Reviews lists them (`GET /admin/ratings`) and hides or restores one (`POST /admin/ratings/{tripId}/{from}/hide|restore`, with a reason, written in the audit). A hidden rating stops counting in the person's average (`Driver.rating`, `Rider.rating`) and in the low-rating risk signal; restoring counts it again.
 - **Risk** (`contract.json#risk`). `GET /admin/risk/signals` counts three signals per person: cancels (percent, 30 days), failed payments (riders, 30 days) and low rating (drivers, the last 50 visible ratings). Fake GPS, many accounts on one phone and one card on many accounts come later.
-- **KPIs** (`contract.json#kpis`). `GET /admin/kpis?zoneId&fromDate&toDate` gives one `KpiDay` per zone and zone-local day: today counted live (`source: live`), earlier days from the nightly summary (`source: summary`). The summary job is safe to run again and has a backfill command.
+- **KPIs** (`contract.json#kpis`). v0.10.3 money rules (`kpis.money`): `gross` = bookings (ride price + cancel/no-show fees, VAT included, tips not included); `fees` = the cancel/no-show fees inside it; `tips` apart; `refunds` counted on the trip's zone-local day (a later refund re-sums that day); `moveraEarnings` = commission + Movera's fee share − pickup pay − driver bonuses Movera paid (may be negative); net revenue (shown by the admin, not sent) = moveraEarnings − refunds; rows are per currency and never added across currencies; fleets see only driver earnings. `GET /admin/kpis?zoneId&fromDate&toDate` gives one `KpiDay` per zone and zone-local day: today counted live (`source: live`), earlier days from the nightly summary (`source: summary`). The summary job is safe to run again and has a backfill command.
 - **Dispatch feed**. `GET /admin/dispatch/stream` (already in the contract): the offers sent, declined, expired, withdrawn and accepted, the lock and the driver bonuses, as SSE or a JSON page after a sequence number.
 
 ## 19. Content (v0.10.0)
@@ -670,3 +678,50 @@ Owner Content answers of 2026-10-28; the machine-readable rules are in `contract
 - **Apps.** `GET /rider/content?zoneId`, `GET /driver/content?zoneId` on start and on `config_published` (doc `content`); expired items are left out; the last answer is kept offline.
 - **App versions.** Separate `min` / `recommended` for the rider and the driver app. Below min: "Uppdatera appen" full screen with a store button; below recommended: a closable message; during a trip only a small message, the block after the trip; SOS always works.
 - **Legal.** With `reaccept`, the new terms show at the next app start (never during a trip) with "Jag godkänner"; `POST /account/terms/accept { contentVersion }`; until accepted the rider cannot book and the driver cannot go online.
+
+## 20. One status word list (v0.10.4)
+
+Owner decision of 2026-10-28 (and #16, "the server's words everywhere in the admin"). `contract.json#statusWords.families` gives, for each family, every code's word in sv, fr and en; `statusWords.sources` names where each family's codes are listed. The admin, rider and driver apps show these words and no words of their own; `reference_check.py` fails when a code has no word or an empty one.
+
+| Family | Codes from |
+| --- | --- |
+| tripStatus | `tripStatus.values` (19) |
+| driverAccountStatus | `driverAccountStatus` |
+| driverOnlineStatus | `driverOnlineStatus` |
+| paymentStatus | `paymentStatus` (incl. `partially_refunded`) |
+| feeStatus | `outstandingFee.feeStatus` |
+| payoutStatus | `payouts.statuses` |
+| documentStatus | `documentStatus.values` (new) |
+| incidentStatus | `safety.statuses` |
+| ticketStatus | `ticketStatus.values` (new) |
+| vehicleReviewStatus | `vehicleReviewStatus.values` (new; vehicles and fleets) |
+| offerStatus | `offerStatus` |
+| ratingStatus | `ratingStatus` |
+
+- The same code can have different words in different families (trip `expired` is "Utgången", document `expired` is "Utgånget"): an app picks the family of the record it shows.
+- Chosen words: finished trip "Slutförd" / "Terminée"; the rider is "Resenär" in Swedish (never "Passagerare"); driver account `on_hold` "Väntar på granskning" / "En cours de validation" (`pending` stays "Väntande" / "En attente"); document `needed` "Krävs"; Swedish agrees with the noun (documents are neuter: "Godkänt", "Utgånget", "Avslaget").
+
+## 21. Zones from the server (v0.11.0)
+
+Owner decisions of 2026-10-28 and #9 ("the server's list is the truth; the admin reads it and creates zones on the server"); the machine-readable rules are in `contract.json#zones`, cases in `fixtures/zones.json`.
+
+- **Zone.** `{ zoneId, names { sv, fr, en }, country, currency, timeZone, kind: operating | airport, polygon [[lat, lng], …], bounds { south, west, north, east }, center, open, version, createdAt, updatedAt, updatedBy? }`. The polygon is the outline the admin draws on the map (3–500 points, not closed, not self-crossing); the server computes `bounds` (its rectangle, which earlier sections such as the driver surge map still use) and `center`.
+- **Ids.** Fixed at creation. Stockholm keeps `Z001`–`Z009`; a new city zone is `<country>-<two letters>` (`FR-PC` Paris & Île-de-France, `TN-TC` Grand Tunis, as the apps already use); an airport is its IATA code (`ARN`, `BMA`, `CDG`, `ORY`).
+- **Admin.** `GET /admin/zones?country` (`zones.read`, the admin's zones; Super admin all, open and closed). `POST /admin/zones` (201; `409 conflict zone_exists`), `PUT /admin/zones/{zoneId} { expectedVersion, names?, kind?, polygon? }`, `POST /admin/zones/{zoneId}/open|close { expectedVersion }` — all `zones.edit`, one admin is enough, one audit row each (`zone.create`, `zone.update`, `zone.open`, `zone.close`), `409 version_mismatch` on a stale version. An admin changes zones in its scope; creating needs the whole scope or a zone of the same country. `country`, `currency` and `timeZone` never change.
+- **Never deleted.** There is no delete; a zone is closed. A closed zone takes no new rides; rides already booked go on.
+- **Apps.** `GET /rider/zones?country`, `GET /driver/zones?country` → `{ zones }`: the open zones only, with polygon and names (shown in the app language). Read on start and on `config_published` with `doc: "zones"`, which every zone change sends on every rider and driver config stream (`doc: "content"` goes to the streams of its zone); the SSE id stays the app document's version.
+- **Which zone.** Zones whose bounds hold the point, then whose polygon holds it (the edge counts as inside); an open zone before a closed one, a city zone before an airport, then the smallest. An airport inside a city zone (ARN, CDG, ORY) never takes the ride; it adds the airport fees, open or not.
+- **Not here.** A quote or booking whose pickup is in no open zone is `403 forbidden`, reason `service_not_available`. The rider app shows "Movera isn't here yet" (sv "Movera finns inte här än", fr "Movera n’est pas encore ici") and cannot book.
+- **Seed.** `Z001` Stockholm län (open); `FR-PC` Paris & Île-de-France (the whole region, Paris and 77, 78, 91, 92, 93, 94, 95; open) with the open airport zones `CDG` and `ORY` inside it (airport fees as at ARN), EUR, Europe/Paris; `TN-TC` Grand Tunis (Tunis, Ariana, Ben Arous, Manouba), TND, Africa/Tunis — closed until an admin opens it.
+
+## 22. Ride check answers (v0.12.0, safety part 2)
+
+Owner safety part 2 decisions (2026-10-28); values in `contract.json#safety.rideCheck`.
+
+- **Who starts a check.** The apps, as today: the rider and driver apps watch the trip with the admin's `rider.rideCheck` / `driver.rideCheck` numbers and open the "Is everything OK?" card for a trigger `dropped_far`, `long_stop`, `off_route` or `possible_crash`. The app makes a `checkId` (unique per trip and side) and reports the check twice with `POST /rider/trips/{tripId}/ride-check` or `POST /driver/trips/{tripId}/ride-check`, body `RideCheckReport { checkId, trigger, at, answer?, position? }`: once when the card shows (no `answer`), once with the answer (`ok` | `need_help`). An answer without an earlier shown report is fine. The server starts no check itself.
+- **Answers.** `ok` ("I'm OK"): only saved on the trip, no incident. `need_help` ("I need help"): opens the trip's `ride_check` incident at once (`raisedBy` the side, `alarm: true`): the admin panel rings the red alarm like an SOS and the incident escalates after `safety.escalateAfterSeconds` (120 s) untaken. The app does not call 112 for this answer by itself (its Call 112 button stays a separate SOS).
+- **No answer.** When the server has a shown report and no answer `noAnswerSeconds` (120 s) after it received it, it opens the `ride_check` incident itself (`raisedBy: system`, `rideCheck.answer: no_answer`, `alarm: false`): it shows in the cases list without sound and never escalates.
+- **One incident per trip.** At most one open `ride_check` incident per trip, for both sides. A no-answer incident that then gets `need_help` (either side) turns into `alarm: true` (`incident_updated`; the escalation clock starts then). Later checks join an open incident. An answer that comes after the no-answer incident opened is kept as `rideCheck.lateAnswer` (`incident_updated`); the admin still closes it.
+- **When.** Only the trip's own rider or driver, while the trip is live (the SOS statuses) or up to `completedWithinMinutes` (30) after it completed (`dropped_far` comes at the end); otherwise `409 invalid_transition` with the trip.
+- **Idempotent.** The app keeps the Idempotency-Key per report and retries until it gets an answer. The same `checkId` is the same check: a shown report for a known check changes nothing; `ok` then `need_help` moves to `need_help`; `need_help` then `ok` keeps `need_help`. The answer is `RideCheckReceipt { checkId, tripId, answer?, receivedAt, incidentId? }`; after answering the app shows only "Sent" (no later update).
+- **Incident.** `kind: ride_check`, `severity: critical`, `alarm`, `rideCheck { checkId, trigger, by: rider | driver, answer: need_help | no_answer, shownAt?, answeredAt?, lateAnswer? }`, `position` (the phone's GPS from the report, when sent), with the usual trip, zone, rider, driver, car position and statuses (§15). `GET /admin/incidents?kind=ride_check` lists them; the stream carries them with the same zone rules. Every `Incident` now has `alarm` (`true` for `sos` and `driver_silent`): the panel rings for open incidents with `alarm: true` until taken.

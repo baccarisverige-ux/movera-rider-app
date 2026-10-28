@@ -2154,6 +2154,8 @@
   "rcCall112NowSemantics": "Call 112 now. If someone is hurt or in danger, call emergency services.",
   "rcCall112Now": "Call 112 now",
   "rcCall112NowBody": "If someone is hurt or in danger, call emergency services.",
+  "rcSent": "Sent",
+  "@rcSent": {"description": "Ride check (live builds): the answer reached Movera. Nothing else is shown."},
   "rcAlertSentTitle": "Movera safety team alerted",
   "rcAlertSentBody": "Trip, driver and rider details were sent.",
   "rcAlertSendingTitle": "Alerting the Movera safety team…",

@@ -211,6 +211,10 @@ class RideCheckController extends ChangeNotifier {
 
   /// The rider's switch and admin's triggers, as last read.
   RideCheckPolicy get policy => _service.policy();
+
+  /// Live builds (contract v0.12.0): after answering, the card shows only
+  /// "Sent".
+  bool get reportsToMovera => _service.reportsToMovera;
   RideCheckTripContext? get trip => _trip;
   bool get recording => _audio.isRecording;
 

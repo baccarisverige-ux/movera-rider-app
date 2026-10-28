@@ -12,6 +12,9 @@ class RideCheckService {
 
   RideCheckPolicy policy() => _store.rideCheck;
 
+  /// True when answers go to movera-server, which shows only "Sent".
+  bool get reportsToMovera => _store.reportsRideCheck;
+
   List<RideCheckEvent> events() => _store.rideCheckEvents;
 
   Future<List<RideCheckEvent>> refresh(String rideId) =>
@@ -53,7 +56,14 @@ class RideCheckService {
     required RideCheckTrigger trigger,
     required DateTime at,
     RideCheckReason reason = const RideCheckReason(),
-  }) {
+  }) async {
+    // Contract v0.12.0: Movera starts its 2-minute clock on this report.
+    await _store.reportRideCheckShown(
+      tripId: rideId,
+      checkId: eventId,
+      trigger: trigger,
+      at: at,
+    );
     return _store.postEvent(
       RideCheckEvent(
         eventId: eventId,

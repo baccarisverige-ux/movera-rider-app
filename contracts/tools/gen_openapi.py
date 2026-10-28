@@ -372,7 +372,7 @@ S["IncidentPosition"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum
                             ["lat", "lng", "at"], "v0.7.0: a phone's GPS position, measured once (CONTRACT.md §15).")
 S["Incident"] = obj(OrderedDict([
     ("incidentId", ref("Id")), ("tripId", ref("Id")),
-    ("kind", s("v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; ride_check is safety part 2). Older rows may hold other snake_case kinds.",
+    ("kind", s("v0.7.0: contract.json#safety.incidentKinds (sos, driver_silent; v0.12.0 ride_check). Older rows may hold other snake_case kinds.",
                pattern="^[a-z][a-z0-9_]{0,63}$", examples=SF["incidentKinds"])),
     ("severity", s(enum=["low", "medium", "high", "critical"])),
     ("status", s("open = New, investigating = Taken, resolved = Solved, dismissed = False alarm (contract.json#safety.statusLabels).",
@@ -389,7 +389,34 @@ S["Incident"] = obj(OrderedDict([
     ("resolvedBy", {"allOf": [ref("Id")], "description": "v0.7.0: the admin who solved it or called it a false alarm; absent when the system closed it."}),
     ("resolvedAt", ref("Timestamp")),
     ("resolution", s("v0.7.0: the closing note; 'position back' when the system closes a driver_silent incident.", maxLength=1000)),
+    ("alarm", b("v0.12.0: the admin panel rings the alarm for this incident while it is open, and it escalates after escalateAfterSeconds untaken. "
+                "true for sos, driver_silent and a ride_check someone answered need_help; false for a no-answer ride_check (cases list, no sound).")),
+    ("rideCheck", {"allOf": [ref("IncidentRideCheck")], "description": "v0.12.0: only on kind ride_check."}),
 ]), ["incidentId", "kind", "severity", "status", "openedAt"])
+RC = SF["rideCheck"]
+S["RideCheckTrigger"] = s("v0.12.0: what made the app open the ride check card (contract.json#safety.rideCheck.triggers).", enum=RC["triggers"])
+S["IncidentRideCheck"] = obj(OrderedDict([
+    ("checkId", s("The app's id of the check that opened or last raised the incident.", minLength=1, maxLength=64)),
+    ("trigger", ref("RideCheckTrigger")),
+    ("by", s("The side whose check it is.", enum=["rider", "driver"])),
+    ("answer", s("need_help = someone asked for help (alarm); no_answer = nobody answered within contract.json#safety.rideCheck.noAnswerSeconds.", enum=RC["incidentAnswers"])),
+    ("shownAt", {"allOf": [ref("Timestamp")], "description": "When the server learnt the card showed."}),
+    ("answeredAt", ref("Timestamp")),
+    ("lateAnswer", s("An answer that came after the no-answer incident opened; the incident stays open for the admin.", enum=RC["answers"])),
+]), ["checkId", "trigger", "by", "answer"], "v0.12.0 (CONTRACT.md §22).")
+S["RideCheckReport"] = obj(OrderedDict([
+    ("checkId", s("The app's id of this check, the same on the shown report and the answer (unique per trip and side).", pattern="^[A-Za-z0-9_-]{1,64}$")),
+    ("trigger", ref("RideCheckTrigger")),
+    ("at", {"allOf": [ref("Timestamp")], "description": "When it happened on the phone (shown, or answered)."}),
+    ("answer", s("Absent = the card just showed (starts the 2-minute no-answer clock); ok = saved on the trip only; need_help = opens the alarm incident.", enum=RC["answers"])),
+    ("position", {"allOf": [ref("IncidentPosition")], "description": "The phone's last GPS, when it has one."}),
+]), ["checkId", "trigger", "at"], "v0.12.0 (CONTRACT.md §22).")
+S["RideCheckReceipt"] = obj(OrderedDict([
+    ("checkId", s(maxLength=64)), ("tripId", ref("Id")),
+    ("answer", s("The check's stored answer; absent while it waits for one.", enum=RC["answers"])),
+    ("receivedAt", ref("Timestamp")),
+    ("incidentId", {"allOf": [ref("Id")], "description": "Set when this check is part of a ride_check incident."}),
+]), ["checkId", "tripId", "receivedAt"], "v0.12.0: the report reached Movera. The app shows only \"Sent\" after an answer.")
 S["SosRequest"] = obj({"at": {"allOf": [ref("Timestamp")], "description": "When the person pressed SOS on the phone."},
                        "position": {"allOf": [ref("IncidentPosition")], "description": "The phone's last GPS, sent once; absent when the phone has none."}},
                       ["at"], "v0.7.0 (CONTRACT.md §15).")
@@ -431,7 +458,7 @@ S["RiskPage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items
 KF = C["kpis"]["fields"]
 S["KpiDay"] = obj(OrderedDict([("date", s("The zone-local day, YYYY-MM-DD.", pattern="^\\d{4}-\\d{2}-\\d{2}$")), ("zoneId", ref("Id")),
                                ("source", s("live: counted now (today); summary: the nightly summary.", enum=["live", "summary"])),
-                               ("currency", ref("CurrencyCode"))] + [(k, i(minimum=0) if k in ("completedTrips", "cancelledTrips", "noShows", "newRiders", "newDrivers") else i("Minor units of currency.")) for k in KF]),
+                               ("currency", ref("CurrencyCode"))] + [(k, i(minimum=0) if k in ("completedTrips", "cancelledTrips", "noShows", "newRiders", "newDrivers") else i(C["kpis"]["money"].get(k, "Minor units of currency."))) for k in KF]),
                   ["date", "zoneId", "source", "currency"] + KF, "v0.9.0: one zone's numbers for one day (contract.json#kpis).")
 S["KpiReport"] = obj({"days": arr(ref("KpiDay")), "generatedAt": ref("Timestamp")}, ["days", "generatedAt"], "v0.9.0: GET /admin/kpis.")
 S["EarningsPeriod"] = obj({"periodStart": ref("Timestamp"), "periodEnd": ref("Timestamp"), "tripCount": i(minimum=0),
@@ -1485,6 +1512,13 @@ for who, path, opid in [("rider", "/rider/trips/{tripId}/sos", "riderSos"), ("dr
        desc=f"v0.7.0. Only the trip's own {who}, while the trip is live (contract.json#safety.sos.{who}Statuses); otherwise 409 invalid_transition with the trip. "
             "Creates the trip's one open SOS incident, or returns it when one is open (a second SOS from either side). The app opens the emergency call (112) itself; "
             "it retries with the same Idempotency-Key and then shows only \"SOS sent\".")
+# ---- v0.12.0 (CONTRACT.md §22): ride check answers
+for who, path, opid in [("rider", "/rider/trips/{tripId}/ride-check", "riderRideCheck"), ("driver", "/driver/trips/{tripId}/ride-check", "driverRideCheck")]:
+    op("post", path, opid, f"The {who} app reports a ride check (shown, or answered)", [who], "Safety", params=TID, body="RideCheckReport", ok=(200, "RideCheckReceipt"), mutation=True,
+       desc=f"v0.12.0. Only the trip's own {who}, while the trip is live or up to contract.json#safety.rideCheck.completedWithinMinutes after it completed "
+            f"(contract.json#safety.rideCheck.{who}Statuses); otherwise 409 invalid_transition with the trip. Without answer: the card showed; the server opens a ride_check "
+            "incident without the alarm when no answer comes within noAnswerSeconds (120 s). answer ok: saved on the trip only. answer need_help: opens or joins the trip's "
+            "ride_check incident with the alarm. Idempotent by checkId and by Idempotency-Key (contract.json#safety.rideCheck.idempotency).")
 op("get", "/admin/incidents/stream", "adminStreamIncidents", "Admin incident feed (opened, updated, escalated, closed)", ["admin"], "Admin · Safety",
    params=[pref("After"), pref("LastEventId")], content=sse("Server-sent events.", "AdminIncidentEvent", "AdminIncidentEventPage"), permission="overview.read",
    desc="v0.7.0. Any signed-in admin may listen. Events of an incident go to admins with incidents.read whose zones cover its zone; once it is escalated "
@@ -1648,7 +1682,7 @@ o = op("post", "/rides/{rideId}/cancel", "cancelRideDeprecated", "Deprecated ali
        params=[pref("RideId")], body="CancelCommand", ok=(200, TP), mutation=True, transition="cancel", deprecated=True)
 
 # ---------------------------------------------------------------- document
-TAG_DESC = {"Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
+TAG_DESC = {"Admin · Zones": "Zones from the server: list, create, outline, open and close (v0.11.0)", "Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
             "Maps": "Address search, geocoding and road routes through the server (v0.5.1); read-only, no Idempotency-Key",
             "Telemetry": "Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
             "Deprecated": "Legacy /rides aliases kept for one release"}
@@ -1740,6 +1774,31 @@ op("get", "/admin/content/legal/acceptances", "adminTermsAcceptances", "Who acce
 op("get", "/rider/content", "riderContent", "Content for the rider app", ["rider"], "Rider · Config", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
 op("get", "/driver/content", "driverContent", "Content for the driver app", ["driver"], "Driver · Session", params=[q("zoneId", ref("Id"))], ok=(200, "ContentList"), desc="v0.10.0. " + CT["apps_read"] + " " + CT["appVersions"])
 op("post", "/account/terms/accept", "acceptTerms", "Accept the published legal terms", ["rider", "driver"], "Account", body="TermsAcceptCommand", ok=(204, None), mutation=True, desc="v0.10.0. " + CT["legal"])
+
+# ---- v0.11.0: zones from the server (owner 2026-10-28, decision #9)
+ZN = C["zones"]
+TZ = s(pattern=r"^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$")
+S["ZoneNames"] = obj({"sv": s(minLength=1, maxLength=80), "fr": s(minLength=1, maxLength=80), "en": s(minLength=1, maxLength=80)}, ["sv", "fr", "en"], ZN["names"])
+S["ZoneKind"] = s(enum=["operating", "airport"])
+S["ZonePoint"] = arr(n(), minItems=2, maxItems=2, description="[lat, lng]")
+S["ZonePolygon"] = arr(ref("ZonePoint"), minItems=3, maxItems=500, description=ZN["polygon"])
+S["Zone"] = obj({"zoneId": ref("Id"), "names": ref("ZoneNames"), "country": ref("CountryCode"), "currency": ref("CurrencyCode"), "timeZone": TZ,
+                 "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon"), "bounds": ref("ZoneBounds"), "center": obj({"lat": n(), "lng": n()}, ["lat", "lng"]),
+                 "open": b(), "version": i(minimum=1), "createdAt": ref("Timestamp"), "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
+                ["zoneId", "names", "country", "currency", "timeZone", "kind", "polygon", "bounds", "center", "open", "version"], "v0.11.0: " + ZN["zone"] + " " + ZN["idScheme"])
+S["ZoneList"] = obj({"zones": arr(ref("Zone"))}, ["zones"])
+S["ZoneCreateCommand"] = obj({"zoneId": ref("Id"), "names": ref("ZoneNames"), "country": ref("CountryCode"), "currency": ref("CurrencyCode"), "timeZone": TZ,
+                              "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon"), "open": b("default false")},
+                             ["zoneId", "names", "country", "currency", "timeZone", "polygon"], "A new zone starts closed unless open is true. 409 conflict zone_exists when the id is taken.")
+S["ZoneUpdateCommand"] = obj({**EV, "names": ref("ZoneNames"), "kind": ref("ZoneKind"), "polygon": ref("ZonePolygon")}, ["expectedVersion"], ZN["version"])
+S["ZoneOpenCommand"] = obj({**EV, "note": s(maxLength=1000)}, ["expectedVersion"])
+op("get", "/admin/zones", "adminListZones", "Every zone in the admin's scope, open and closed", ["admin"], "Admin · Zones", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), permission="zones.read", desc="v0.11.0. " + ZN["permissions"])
+op("post", "/admin/zones", "adminCreateZone", "Create a zone", ["admin"], "Admin · Zones", body="ZoneCreateCommand", ok=(201, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["idScheme"] + " " + ZN["neverDeleted"])
+op("put", "/admin/zones/{zoneId}", "adminUpdateZone", "Change a zone's names, kind or outline", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneUpdateCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["polygon"])
+op("post", "/admin/zones/{zoneId}/open", "adminOpenZone", "Open a zone for new rides", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneOpenCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["open"])
+op("post", "/admin/zones/{zoneId}/close", "adminCloseZone", "Close a zone (never deleted)", ["admin"], "Admin · Zones", params=[pref("ZoneId")], body="ZoneOpenCommand", ok=(200, "Zone"), mutation=True, permission="zones.edit", desc="v0.11.0. " + ZN["open"] + " " + ZN["neverDeleted"])
+op("get", "/rider/zones", "riderZones", "The open zones, with outline and names", ["rider"], "Rider · Config", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"] + " " + ZN["notHere"])
+op("get", "/driver/zones", "driverZones", "The open zones, with outline and names", ["driver"], "Driver · Session", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"])
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"

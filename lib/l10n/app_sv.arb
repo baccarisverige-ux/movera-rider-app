@@ -1028,6 +1028,7 @@
   "rcCall112NowSemantics": "Ring 112 nu. Om någon är skadad eller i fara, ring räddningstjänsten.",
   "rcCall112Now": "Ring 112 nu",
   "rcCall112NowBody": "Om någon är skadad eller i fara, ring räddningstjänsten.",
+  "rcSent": "Skickat",
   "rcAlertSentTitle": "Moveras säkerhetsteam har larmats",
   "rcAlertSentBody": "Uppgifter om resan, föraren och resenären har skickats.",
   "rcAlertSendingTitle": "Larmar Moveras säkerhetsteam…",
