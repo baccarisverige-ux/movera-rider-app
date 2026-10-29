@@ -1,0 +1,14 @@
+{
+  "note": "v0.15.0 (CONTRACT.md §24, owner 2026-10-29 decision 4): how the rider and driver apps show a sign-in wait (retryAfterSeconds of a 429). Under one minute: whole seconds. Otherwise whole minutes, rounded up (\"Try again in 42 min\").",
+  "waitDisplay": [
+    { "retryAfterSeconds": 1, "expect": { "unit": "seconds", "value": 1 } },
+    { "retryAfterSeconds": 30, "expect": { "unit": "seconds", "value": 30 } },
+    { "retryAfterSeconds": 59, "expect": { "unit": "seconds", "value": 59 } },
+    { "retryAfterSeconds": 60, "expect": { "unit": "minutes", "value": 1 } },
+    { "retryAfterSeconds": 61, "expect": { "unit": "minutes", "value": 2 } },
+    { "retryAfterSeconds": 600, "expect": { "unit": "minutes", "value": 10 } },
+    { "retryAfterSeconds": 2501, "expect": { "unit": "minutes", "value": 42 } },
+    { "retryAfterSeconds": 2520, "expect": { "unit": "minutes", "value": 42 } },
+    { "retryAfterSeconds": 3600, "expect": { "unit": "minutes", "value": 60 } }
+  ]
+}

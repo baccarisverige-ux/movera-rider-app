@@ -2978,5 +2978,22 @@
   "categoryWomenDriver": "Women driver",
   "@categoryWomenDriver": {"description": "Ride category name (built-in Women driver)."},
   "categoryDelivery": "Delivery",
-  "@categoryDelivery": {"description": "Ride category name (built-in Delivery)."}
+  "@categoryDelivery": {"description": "Ride category name (built-in Delivery)."},
+  "startingServer": "Starting the server…",
+  "@startingServer": {"description": "Owner 2026-10-29 decision 1: shown while a sign-in call waits for a sleeping server."},
+  "errTooManyWrongCodes": "Too many wrong tries – tap {button}",
+  "@errTooManyWrongCodes": {"description": "Owner decision 3: after 5 wrong codes. {button} is the resend button label.", "placeholders": {"button": {"type": "String"}}},
+  "retryMinutes": "{count, plural, =1{1 min} other{{count} min}}",
+  "@retryMinutes": {"description": "Owner decision 4: a sign-in wait of a minute or more, rounded up.", "placeholders": {"count": {"type": "int"}}},
+  "signInRestricted": "This number isn’t open for sign-in yet. Join the waiting list and we’ll let you know.",
+  "joinWaitlist": "Join the waiting list",
+  "waitlistSaved": "You’re on the waiting list. We’ll let you know when sign-in opens for your number.",
+  "testNumbersTitle": "Test numbers (test build only)",
+  "testStatusNew": "Test · no account yet",
+  "testStatusActive": "Active",
+  "testStatusSuspended": "Suspended",
+  "startCouldNotLoad": "Couldn’t start Movera.",
+  "startSignOut": "Sign out",
+  "startContactSupport": "Contact support",
+  "startSupportUnavailable": "Couldn’t open e-mail. Write to Movera support from another device."
 }

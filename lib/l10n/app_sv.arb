@@ -1507,5 +1507,19 @@
   "categoryAirport": "Flygplats",
   "categoryKidsSeat": "Barnstol",
   "categoryWomenDriver": "Kvinnlig förare",
-  "categoryDelivery": "Leverans"
+  "categoryDelivery": "Leverans",
+  "startingServer": "Servern startar…",
+  "errTooManyWrongCodes": "För många fel försök – tryck på {button}",
+  "retryMinutes": "{count, plural, =1{1 minut} other{{count} minuter}}",
+  "signInRestricted": "Det här numret kan inte logga in än. Gå med i väntelistan så hör vi av oss.",
+  "joinWaitlist": "Gå med i väntelistan",
+  "waitlistSaved": "Du står på väntelistan. Vi hör av oss när inloggningen öppnar för ditt nummer.",
+  "testNumbersTitle": "Testnummer (endast testversion)",
+  "testStatusNew": "Test · inget konto än",
+  "testStatusActive": "Aktiv",
+  "testStatusSuspended": "Avstängd",
+  "startCouldNotLoad": "Kunde inte starta Movera.",
+  "startSignOut": "Logga ut",
+  "startContactSupport": "Kontakta support",
+  "startSupportUnavailable": "Kunde inte öppna e-post. Skriv till Movera-supporten från en annan enhet."
 }

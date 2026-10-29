@@ -1507,5 +1507,19 @@
   "categoryAirport": "Aéroport",
   "categoryKidsSeat": "Siège enfant",
   "categoryWomenDriver": "Conductrice",
-  "categoryDelivery": "Livraison"
+  "categoryDelivery": "Livraison",
+  "startingServer": "Démarrage du serveur…",
+  "errTooManyWrongCodes": "Trop d’essais erronés – touchez {button}",
+  "retryMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "signInRestricted": "Ce numéro ne peut pas encore se connecter. Rejoignez la liste d’attente et nous vous préviendrons.",
+  "joinWaitlist": "Rejoindre la liste d’attente",
+  "waitlistSaved": "Vous êtes sur la liste d’attente. Nous vous préviendrons quand la connexion ouvrira pour votre numéro.",
+  "testNumbersTitle": "Numéros de test (version de test uniquement)",
+  "testStatusNew": "Test · pas encore de compte",
+  "testStatusActive": "Actif",
+  "testStatusSuspended": "Suspendu",
+  "startCouldNotLoad": "Impossible de démarrer Movera.",
+  "startSignOut": "Se déconnecter",
+  "startContactSupport": "Contacter l’assistance",
+  "startSupportUnavailable": "Impossible d’ouvrir l’e-mail. Écrivez à l’assistance Movera depuis un autre appareil."
 }

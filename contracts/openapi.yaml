@@ -1,11 +1,11 @@
-# Movera API v0.14.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.15.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.14.0
+  version: 0.15.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.14.0 in this folder; this file must agree with them.
+    v0.15.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -78,15 +78,17 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.14.0
+  version: 0.15.0
   source: contract.json
 paths:
   /auth/otp/request:
     post:
       operationId: requestOtp
       summary: Start a phone sign-in (SMS code)
-      description: Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn,
-        outside production) gets no SMS and accepts the fixed code.
+      description: 'Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn,
+        outside production) gets no SMS and accepts the fixed code. v0.15.0: 429 reasons otp_resend_too_soon and otp_too_many
+        (contract.json#auth.limits: per phone and app, per address, in an hour); 403 forbidden, reason sign_in_restricted,
+        for a number not open for sign-in (the app offers POST /auth/waitlist).'
       tags:
       - Auth
       x-actor:
@@ -130,9 +132,9 @@ paths:
     post:
       operationId: verifyOtp
       summary: Verify the code and sign in
-      description: Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session
-        → 400 invalid_request (reason invalid_otp_session); expired session → 410 otp_expired; too many attempts → 429. With
-        a linkToken the verified phone is linked to the provider account.
+      description: 'Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session
+        → 400 invalid_request (reason invalid_otp_session); expired session → 410 otp_expired; too many attempts → 429 (v0.15.0:
+        reason otp_too_many_attempts; ask for a new code). With a linkToken the verified phone is linked to the provider account.'
       tags:
       - Auth
       x-actor:
@@ -257,6 +259,95 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /auth/waitlist:
+    post:
+      operationId: joinWaitlist
+      summary: Join the waiting list (number not open for sign-in yet)
+      description: 'v0.15.0 (owner 2026-10-29, decision 5): a number answered 403 sign_in_restricted can join the waiting
+        list until an SMS provider is chosen. No bearer token. POST /auth/waitlist { phone (E.164), app: rider | driver, locale?
+        } → 200 WaitlistReceipt { status: saved, requestId }; sending the same phone and app again is fine (one row, its count
+        and lastAt go up). A number already on the test list is still saved. Rate limited per address (429 rate_limited, reason
+        waitlist_too_many, Retry-After).'
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /auth/test-accounts:
+    get:
+      operationId: listTestAccounts
+      summary: Test numbers and their account status (not in production)
+      description: 'v0.15.0 (owner 2026-10-29, decision 6, "Only in test builds"): GET /auth/test-accounts → TestAccountList
+        { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one''s account status,
+        so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is
+        not production: a production server answers 404 not_found and the store builds never call it.'
+      tags:
+      - Auth
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestAccountList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4318,6 +4409,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/waitlist:
+    get:
+      operationId: adminListWaitlist
+      summary: The sign-in waiting list (newest first)
+      description: 'v0.15.0 (owner 2026-10-29, decision 5): the numbers that asked to join, newest lastAt first; the admin
+        page reads it again every 15 s. GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app,
+        locale?, firstAt, lastAt, count }, newest lastAt first; the admin''s Waiting list page reads it again every 15 s (live).'
+      tags:
+      - Admin · Lists
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: app
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - rider
+          - driver
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryPage'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -13498,6 +13638,102 @@ components:
         refreshToken:
           type: string
           minLength: 1
+    WaitlistRequest:
+      type: object
+      description: 'v0.15.0: join the waiting list after 403 sign_in_restricted (contract.json#auth.waitlist).'
+      required:
+      - phone
+      - app
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        app:
+          type: string
+          enum:
+          - rider
+          - driver
+        locale:
+          $ref: '#/components/schemas/Language'
+    WaitlistReceipt:
+      type: object
+      description: 'v0.15.0: the number is on the waiting list.'
+      required:
+      - status
+      - requestId
+      properties:
+        status:
+          type: string
+          const: saved
+        requestId:
+          type: string
+    WaitlistEntry:
+      type: object
+      description: 'v0.15.0: one number on the waiting list, per app.'
+      required:
+      - phone
+      - app
+      - firstAt
+      - lastAt
+      - count
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        app:
+          type: string
+          enum:
+          - rider
+          - driver
+        locale:
+          $ref: '#/components/schemas/Language'
+        firstAt:
+          $ref: '#/components/schemas/Timestamp'
+        lastAt:
+          $ref: '#/components/schemas/Timestamp'
+        count:
+          type: integer
+          minimum: 1
+          description: How many times this number asked.
+    TestAccount:
+      type: object
+      description: 'v0.15.0: a test number and its account''s status.'
+      required:
+      - phone
+      - app
+      - status
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        app:
+          type: string
+          enum:
+          - rider
+          - driver
+        status:
+          type: string
+          enum:
+          - test
+          - pending
+          - active
+          - on_hold
+          - suspended
+          description: 'test: the number has no account in that app yet (the first sign-in creates it); otherwise the account''s
+            status: the driver''s accountStatus (pending, active, on_hold, suspended), the rider''s (active, suspended).'
+        name:
+          type: string
+          description: The account's first name, when it has one.
+    TestAccountList:
+      type: object
+      description: 'v0.15.0 (owner 2026-10-29, decision 6, "Only in test builds"): GET /auth/test-accounts → TestAccountList
+        { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one''s account status,
+        so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is
+        not production: a production server answers 404 not_found and the store builds never call it.'
+      required:
+      - accounts
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestAccount'
     PushDeviceRequest:
       type: object
       description: POST /push/devices { token, provider, platform, appVersion?, locale? } registers the device for push, keyed
@@ -15481,8 +15717,9 @@ components:
         reason:
           type: string
           pattern: ^[a-z][a-z0-9_]{0,63}$
-          description: optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code,
-            invalid_otp_session; never shown to users as is
+          description: 'optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone,
+            invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in
+            auth.signInErrors.'
         details:
           type: array
           items:
@@ -16849,6 +17086,16 @@ components:
         note:
           type: string
           maxLength: 1000
+    WaitlistEntryPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/WaitlistEntry'
+      description: Page<WaitlistEntry>
     UseStandardCommand:
       type: object
       description: 'v0.8.0 (owner 2026-10-27): POST /admin/config/{doc}/use-standard { zoneId, expectedVersion } (the zone''s

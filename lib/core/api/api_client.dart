@@ -76,6 +76,18 @@ class ApiClient {
   final Duration requestTimeout;
   Duration get _timeout => requestTimeout;
 
+  /// Contract v0.15.0 `auth.slowStart.waitSeconds` (owner 2026-10-29,
+  /// decision 1): a sleeping server answers its first request after about
+  /// 50 s, so the sign-in calls (and the waiting list) wait up to 60 s.
+  static const signInTimeout = Duration(seconds: 60);
+
+  static const _slowStartPaths = {
+    '/api/v1/auth/otp/request',
+    '/api/v1/auth/otp/verify',
+    '/api/v1/auth/provider',
+    '/api/v1/auth/waitlist',
+  };
+
   /// Sign-in calls: their 401 means wrong credentials, never an expired
   /// session, whatever token the request happened to carry.
   static const _signInPaths = {
@@ -168,7 +180,13 @@ class ApiClient {
             case final key?)
           'Idempotency-Key': key,
       };
-      var response = await _request(method, uri, headers, body);
+      var response = await _request(
+        method,
+        uri,
+        headers,
+        body,
+        timeout: _slowStartPaths.contains(path) ? signInTimeout : null,
+      );
       if (response.statusCode == 401 &&
           access?.isNotEmpty == true &&
           !_signInPaths.contains(path)) {
@@ -235,8 +253,9 @@ class ApiClient {
     String method,
     Uri uri,
     Map<String, String> headers,
-    Map<String, dynamic>? body,
-  ) async {
+    Map<String, dynamic>? body, {
+    Duration? timeout,
+  }) async {
     if (method == 'GET') {
       return _getWithRetry(uri, headers);
     } else if (method == 'DELETE') {
@@ -251,7 +270,7 @@ class ApiClient {
       return _client
           .send(request)
           .then(http.Response.fromStream)
-          .timeout(_timeout);
+          .timeout(timeout ?? _timeout);
     }
   }
 

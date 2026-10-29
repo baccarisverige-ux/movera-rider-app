@@ -68,8 +68,9 @@ void main() {
     expect(codeFocused(tester), isTrue);
   });
 
-  testWidgets('the installed app still opens the keyboard at once',
-      (tester) async {
+  testWidgets('the installed app still opens the keyboard at once', (
+    tester,
+  ) async {
     PhoneVerification.debugWeb = false;
     await pumpVerify(tester);
     expect(tester.widget<Pinput>(find.byType(Pinput)).autofocus, isTrue);

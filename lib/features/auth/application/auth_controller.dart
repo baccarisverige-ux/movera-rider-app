@@ -7,6 +7,7 @@ import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/domain/test_account.dart';
 
 class AuthController {
   AuthController({AuthRepository? auth, PushPermissionGate? pushPermission})
@@ -74,6 +75,13 @@ class AuthController {
   }
 
   Future<bool> hasSession() => _auth.hasSession();
+
+  /// Contract v0.15.0 (decision 5): `POST /auth/waitlist`.
+  Future<void> joinWaitlist({required String phone, String? locale}) =>
+      _auth.joinWaitlist(phone: phone, locale: locale);
+
+  /// Contract v0.15.0 (decision 6): the test numbers, test builds only.
+  Future<List<TestAccount>> testAccounts() => _auth.testAccounts();
 
   /// Registers push only for a rider who already accepted the in-app
   /// explanation (UI-17); a first sign-in sees the explanation on Home

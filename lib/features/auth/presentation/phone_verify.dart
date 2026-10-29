@@ -15,6 +15,7 @@ import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/slow_server_note.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -33,6 +34,14 @@ class PhoneVerification extends StatefulWidget {
   /// (owner, live test 2026-10-26). In a browser the code field waits for
   /// the tap; the installed apps open the keyboard at once.
   static bool get autofocusCode => !(debugWeb ?? kIsWeb);
+
+  /// Owner 2026-10-29, decision 9b: in a browser EVERY tap on the code
+  /// field must open the keyboard, also when the field still has focus
+  /// (after a wrong code, after "Resend code", after the keyboard was
+  /// closed by a swipe or a tap outside). A tap on a focused field asks
+  /// for nothing new, so the browser keeps its keyboard closed; the tap
+  /// therefore lets go of the focus and takes it again, inside the tap.
+  static bool get refocusOnTap => debugWeb ?? kIsWeb;
 
   const PhoneVerification({
     super.key,
@@ -64,6 +73,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   bool _resending = false;
   String? _error;
   String? _info;
+
+  /// Owner decision 3: 5 wrong codes spent the code; the resend control is
+  /// highlighted until a new code is sent.
+  bool _tooManyWrong = false;
 
   String? get _phone => _challenge?.phone ?? widget.phoneNumber;
 
@@ -132,6 +145,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       setState(() {
         _challenge = next;
         _info = context.l10n.newCodeSent;
+        _tooManyWrong = false;
       });
       _startResendWindow(next.retryAfter);
     } catch (error) {
@@ -173,7 +187,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       }
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = authErrorMessage(error, AuthAction.verifyCode));
+      setState(() {
+        _error = authErrorMessage(error, AuthAction.verifyCode);
+        if (isTooManyWrongCodes(error)) _tooManyWrong = true;
+      });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -223,6 +240,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             controller: _pin,
             focusNode: _pinFocus,
             autofocus: PhoneVerification.autofocusCode,
+            onTap: _refocus,
+            // Owner decision 7: one-time-code autofill (iOS, the web's
+            // autocomplete="one-time-code", Android autofill services).
+            autofillHints: const [AutofillHints.oneTimeCode],
             keyboardType: TextInputType.number,
             forceErrorState: _error != null,
             onCompleted: (_) => setState(() {}),
@@ -252,6 +273,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
               text: context.l10n.demoCode,
             ),
           ],
+          SlowServerNote(busy: _submitting || _resending),
           const SizedBox(height: 16),
           Center(child: _resendRow()),
           const SizedBox(height: 16),
@@ -269,6 +291,18 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         ],
       ),
     );
+  }
+
+  void _refocus() {
+    if (!PhoneVerification.refocusOnTap || !_pinFocus.hasFocus) return;
+    // Both changes are applied at once, not in the next microtask, so the
+    // browser sees its text field blurred and focused again while the tap
+    // (pointerup) is still being handled; only then does it open the
+    // keyboard.
+    _pinFocus.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
+    _pinFocus.requestFocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
   }
 
   /// Owner round 3: each digit on its own underline, ink while focused.
@@ -302,38 +336,60 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.ink),
       );
     }
-    if (wait > 0) {
-      final mm = wait ~/ 60;
-      final ss = (wait % 60).toString().padLeft(2, '0');
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.schedule_rounded, size: 16, color: AuthColors.muted),
-          const SizedBox(width: 7),
-          Text.rich(
-            TextSpan(
-              text: context.l10n.resendCodeIn,
-              children: [
-                TextSpan(
-                  text: '$mm:$ss',
-                  style: const TextStyle(
-                    color: AuthColors.green,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-            style: style,
-          ),
-        ],
+    if (wait > 0 && _tooManyWrong) {
+      return DecoratedBox(
+        key: const ValueKey('auth-resend-wait-highlight'),
+        decoration: BoxDecoration(
+          color: AuthColors.green.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: _waitRow(wait, style),
+        ),
       );
     }
+    if (wait > 0) return _waitRow(wait, style);
+    return _resendButton();
+  }
+
+  Widget _waitRow(int wait, TextStyle style) {
+    final mm = wait ~/ 60;
+    final ss = (wait % 60).toString().padLeft(2, '0');
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.schedule_rounded, size: 16, color: AuthColors.muted),
+        const SizedBox(width: 7),
+        Text.rich(
+          TextSpan(
+            text: context.l10n.resendCodeIn,
+            children: [
+              TextSpan(
+                text: '$mm:$ss',
+                style: const TextStyle(
+                  color: AuthColors.green,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          style: style,
+        ),
+      ],
+    );
+  }
+
+  Widget _resendButton() {
     return TextButton(
+      key: ValueKey(_tooManyWrong ? 'auth-resend-highlight' : 'auth-resend'),
       onPressed: _resend,
       style: TextButton.styleFrom(
-        foregroundColor: AuthColors.green,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        foregroundColor: _tooManyWrong ? Colors.white : AuthColors.green,
+        backgroundColor: _tooManyWrong ? AuthColors.green : null,
+        shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(horizontal: _tooManyWrong ? 18 : 8),
         minimumSize: const Size(0, 36),
       ),
       child: Text(
