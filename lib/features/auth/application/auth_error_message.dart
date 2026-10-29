@@ -50,6 +50,9 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
     // R-O4: the contract code (`invalid_request`, `unauthenticated`) with
     // the server's lower-case reason beside it.
     switch (error.detail) {
+      // The contract's reason for a wrong code (400 invalid_request);
+      // `invalid_otp` stays as a harmless older alias.
+      case 'invalid_otp_code':
       case 'invalid_otp':
         return L10n.current.errWrongCode;
       case 'otp_expired':

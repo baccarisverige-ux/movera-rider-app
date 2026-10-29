@@ -106,7 +106,7 @@ void main() {
         isA<ApiError>().having(
           (error) => error.detail,
           'detail',
-          'invalid_otp',
+          'invalid_otp_code',
         ),
       ),
     );

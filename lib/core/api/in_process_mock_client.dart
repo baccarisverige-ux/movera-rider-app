@@ -709,8 +709,12 @@ class InProcessMockClient extends http.BaseClient {
           status = 410;
           payload = _error('invalid_request', requestId, reason: 'otp_expired');
         } else if (session['code'] != code.trim()) {
-          status = 401;
-          payload = _error('unauthenticated', requestId, reason: 'invalid_otp');
+          status = 400;
+          payload = _error(
+            'invalid_request',
+            requestId,
+            reason: 'invalid_otp_code',
+          );
         } else {
           otpSessions.remove(sessionId);
           final normalizedPhone = phone.trim();
