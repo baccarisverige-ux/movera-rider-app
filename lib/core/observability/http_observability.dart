@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
 /// Privacy-safe remote observability sink. It intentionally uses raw HTTP
@@ -22,9 +23,44 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     this.routineLinesPerMinute = 20,
     this.queueLimit = 40,
     this.muteAfterNotFound = const Duration(minutes: 10),
+    this.app = 'rider',
+    this.appVersion,
+    this.build,
+    this.platform,
+    this.accessToken,
+    this.burstWindow = const Duration(minutes: 1),
+    this.retryDelay = const Duration(seconds: 30),
+    this.maxRetryDelay = const Duration(minutes: 10),
+    this.maxAttempts = 6,
     DateTime Function()? clock,
   }) : _client = client ?? http.Client(),
        _clock = clock ?? DateTime.now;
+
+  /// Contract v0.16.0 crash report fields (`contract.json#telemetry.crashReport`).
+  final String app;
+  final String? appVersion;
+  final String? build;
+  final String? platform;
+
+  /// The signed-in rider's access token, sent like every other call; null
+  /// when signed out. A failure to read it never stops the report.
+  final Future<String?> Function()? accessToken;
+
+  /// The same crash again within this window is counted, not sent again.
+  final Duration burstWindow;
+
+  /// Crash reports that could not be delivered (offline, 5xx, 429) are kept
+  /// and tried again after [retryDelay], doubling up to [maxRetryDelay], at
+  /// most [maxAttempts] times.
+  final Duration retryDelay;
+  final Duration maxRetryDelay;
+  final int maxAttempts;
+
+  final Map<String, DateTime> _recentCrashes = {};
+
+  /// Crash reports not sent because the same one was just sent.
+  int get repeatedCount => _repeated;
+  int _repeated = 0;
 
   final String baseUrl;
   final http.Client _client;
@@ -59,7 +95,12 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     _droppedTotal += 1;
   }
 
-  void _post(String path, Map<String, Object?> body, {required bool routine}) {
+  void _post(
+    String path,
+    Map<String, Object?> body, {
+    required bool routine,
+    bool retry = false,
+  }) {
     if (_disposed) return;
     final queue = _queues.putIfAbsent(path, () => _PathQueue());
     final now = _clock();
@@ -71,11 +112,11 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
       _drop();
       return;
     }
-    if (_routineDropped > 0) {
+    if (_routineDropped > 0 && !retry) {
       body = {...body, 'droppedLines': _routineDropped};
       _routineDropped = 0;
     }
-    queue.pending.add(_Entry(body, routine: routine));
+    queue.pending.add(_Entry(body, routine: routine, retry: retry));
     while (queue.pending.length > queueLimit) {
       final index = queue.pending.indexWhere((e) => e.routine);
       queue.pending.removeAt(index == -1 ? 0 : index);
@@ -96,33 +137,82 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
 
   void _drain(String path, _PathQueue queue) {
     if (queue.inFlight || queue.pending.isEmpty || _disposed) return;
+    if (queue.retryTimer != null) return;
     final entry = queue.pending.removeAt(0);
     queue.inFlight = true;
     _sent += 1;
+    var failed = false;
     unawaited(
-      _client
-          .post(
-            Uri.parse('$baseUrl$path'),
-            headers: const {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(entry.body),
-          )
-          .timeout(const Duration(seconds: 10))
+      _send(path, entry)
           .then((response) {
             if (response.statusCode == 404) {
               // Not enabled on this server: nothing more to send for now.
               queue.mutedUntil = _clock().add(muteAfterNotFound);
               queue.pending.clear();
+            } else if (response.statusCode >= 500 ||
+                response.statusCode == 429) {
+              failed = true;
             }
           })
-          .catchError((_) {})
+          .catchError((_) {
+            failed = true;
+          })
           .whenComplete(() {
             queue.inFlight = false;
+            if (failed && entry.retry && !_disposed) {
+              _retryLater(path, queue, entry);
+              return;
+            }
+            if (!failed) queue.failures = 0;
             _drain(path, queue);
           }),
     );
+  }
+
+  Future<http.Response> _send(String path, _Entry entry) async {
+    String? token;
+    if (accessToken != null) {
+      try {
+        token = await accessToken!();
+      } catch (_) {
+        token = null;
+      }
+    }
+    return _client
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            if (token != null && token.isNotEmpty)
+              'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(entry.body),
+        )
+        .timeout(const Duration(seconds: 10));
+  }
+
+  /// Offline or the server is busy: keep the report (at the front, so the
+  /// order holds) and try again later instead of losing it.
+  void _retryLater(String path, _PathQueue queue, _Entry entry) {
+    entry.attempts += 1;
+    if (entry.attempts >= maxAttempts) {
+      _droppedTotal += 1;
+      _drain(path, queue);
+      return;
+    }
+    queue.pending.insert(0, entry);
+    while (queue.pending.length > queueLimit) {
+      queue.pending.removeLast();
+      _droppedTotal += 1;
+    }
+    queue.failures += 1;
+    var delay = retryDelay * (1 << (queue.failures - 1).clamp(0, 16));
+    if (delay > maxRetryDelay) delay = maxRetryDelay;
+    queue.retryTimer = Timer(delay, () {
+      queue.retryTimer = null;
+      _drain(path, queue);
+    });
   }
 
   @override
@@ -169,21 +259,59 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     }, routine: true);
   }
 
+  /// Contract v0.16.0: a crash (uncaught) or an error (caught and shown),
+  /// with the app, platform, version, build, screen and time. `extra` may
+  /// carry `screen` and `kind`; they go into the report's own fields.
   @override
   void record(
     Object error,
     StackTrace stackTrace, {
     Map<String, Object?> extra = const {},
   }) {
-    _post('/api/v1/telemetry/crashes', {
-      'error': Observability.scrubText(error.toString()),
-      'stack': Observability.scrubText(stackTrace.toString()),
-      'extra': Observability.sanitize(extra),
-    }, routine: false);
+    if (_disposed) return;
+    try {
+      final now = _clock();
+      final kind = extra['kind'] == CrashReport.kindError
+          ? CrashReport.kindError
+          : CrashReport.kindCrash;
+      final screen = extra['screen'] is String
+          ? extra['screen'] as String
+          : CrashReport.currentScreen;
+      final body = CrashReport.body(
+        error: error,
+        stackTrace: stackTrace,
+        extra: extra,
+        app: app,
+        platform: platform,
+        appVersion: appVersion,
+        build: build,
+        screen: screen,
+        kind: kind,
+        occurredAt: now,
+      );
+      final key = CrashReport.fingerprint(
+        kind,
+        body['error']! as String,
+        body['stack']! as String,
+      );
+      _recentCrashes.removeWhere((_, at) => now.difference(at) >= burstWindow);
+      if (_recentCrashes.containsKey(key)) {
+        _repeated += 1;
+        return;
+      }
+      if (_recentCrashes.length >= 100) _recentCrashes.clear();
+      _recentCrashes[key] = now;
+      _post('/api/v1/telemetry/crashes', body, routine: false, retry: true);
+    } catch (_) {
+      // A crash report must never crash the app.
+    }
   }
 
   void dispose() {
     _disposed = true;
+    for (final queue in _queues.values) {
+      queue.retryTimer?.cancel();
+    }
     _queues.clear();
     _client.close();
   }
@@ -193,10 +321,14 @@ class _PathQueue {
   final List<_Entry> pending = <_Entry>[];
   bool inFlight = false;
   DateTime? mutedUntil;
+  Timer? retryTimer;
+  int failures = 0;
 }
 
 class _Entry {
-  _Entry(this.body, {required this.routine});
+  _Entry(this.body, {required this.routine, this.retry = false});
   final Map<String, Object?> body;
   final bool routine;
+  final bool retry;
+  int attempts = 0;
 }

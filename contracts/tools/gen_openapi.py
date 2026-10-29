@@ -897,7 +897,22 @@ S["OsrmRouteResponse"] = obj({"code": s("Ok, or NoRoute (still 200).", examples=
 TL = C["telemetry"]
 S["TelemetryLog"] = obj({"level": s(enum=TL["levels"]), "event": s(minLength=1, maxLength=200), "extra": {"type": "object"}, "error": s(maxLength=4000)}, ["level", "event"])
 S["TelemetryEvent"] = obj({"event": s(minLength=1, maxLength=200), "extra": {"type": "object"}}, ["event"])
-S["TelemetryCrash"] = obj({"error": s(maxLength=4000), "stack": s(maxLength=12000), "extra": {"type": "object"}}, ["error"])
+# v0.16.0 (owner 2026-10-29, Crashes & errors): optional fields that let the server group and filter reports (contract.json#telemetry.crashReport).
+TC = TL["crashReport"]; TE = TL["errorGroups"]
+S["TelemetryCrash"] = obj({"error": s(maxLength=4000), "stack": s(maxLength=12000), "extra": {"type": "object"},
+                           "app": s("v0.16.0", enum=TC["apps"]), "platform": s("v0.16.0", enum=TC["platforms"]),
+                           "appVersion": s("v0.16.0: e.g. 1.4.2.", maxLength=40), "build": s("v0.16.0: store build number.", maxLength=40),
+                           "screen": s("v0.16.0: route or screen name, no ids.", maxLength=200),
+                           "kind": s(f"v0.16.0: crash (the app stopped) or error (caught). Default {TC['defaultKind']}.", enum=TC["kinds"]),
+                           "occurredAt": ref("Timestamp")}, ["error"], TC["note"])
+S["ErrorGroup"] = obj({"id": ref("Id"), "app": s(enum=TE["apps"]), "platform": s(enum=TE["platforms"]),
+                       "appVersions": arr(s(), description="Versions seen in this group, newest first."), "message": s("Scrubbed message of the latest report."),
+                       "topFrame": s("Top stack frame used in the fingerprint, when there was a stack."), "kind": s(enum=TC["kinds"]),
+                       "count": i("Reports in this group.", minimum=1), "devices": i("Distinct devices (or addresses) that sent one.", minimum=0),
+                       "firstSeen": ref("Timestamp"), "lastSeen": ref("Timestamp"), "status": s(enum=TE["statuses"]),
+                       "fixedAt": {"anyOf": [ref("Timestamp"), {"type": "null"}]}},
+                      ["id", "app", "platform", "appVersions", "message", "kind", "count", "devices", "firstSeen", "lastSeen", "status"], TE["note"])
+S["ErrorGroupStatusCommand"] = obj({"status": s(enum=TE["statuses"])}, ["status"], "v0.16.0: " + TE["reopen"] + ".")
 LD = C["liveDrivers"]
 S["LiveDriver"] = obj(OrderedDict([("driverId", ref("Id")), ("firstName", s()), ("onlineStatus", ref("DriverOnlineStatus")), ("moving", b()),
                                    ("location", ref("GeoFix")), ("lastFixAt", ref("Timestamp")),
@@ -1119,7 +1134,7 @@ def path_id(name, desc=None):
     if desc: p["description"] = desc
     return p
 for nm in ["tripId", "offerId", "paymentId", "paymentMethodId", "placeId", "notificationId", "driverId", "riderId",
-           "vehicleId", "documentId", "approvalId", "fleetId", "invitationId", "incidentId", "payoutId", "ticketId"]:
+           "vehicleId", "documentId", "approvalId", "fleetId", "invitationId", "incidentId", "payoutId", "ticketId", "errorId"]:
     PARAMS[nm[0].upper() + nm[1:]] = path_id(nm)
 PARAMS["RideId"] = path_id("rideId", "Deprecated alias of tripId.")
 PARAMS["RatingFrom"] = {"name": "from", "in": "path", "required": True, "description": "v0.9.0: who gave the rating.", "schema": {"type": "string", "enum": ["rider", "driver"]}}
@@ -1485,6 +1500,15 @@ S["WaitlistEntryPage"] = {"allOf": [ref("Page"), {"type": "object", "properties"
 op("get", "/admin/waitlist", "adminListWaitlist", "The sign-in waiting list (newest first)", ["admin"], "Admin · Lists",
    params=AL + [q("app", {"type": "string", "enum": ["rider", "driver"]})], ok=(200, "WaitlistEntryPage"), permission="overview.read",
    desc="v0.15.0 (owner 2026-10-29, decision 5): the numbers that asked to join, newest lastAt first; the admin page reads it again every 15 s. " + AU["waitlist"]["admin"])
+# v0.16.0 (owner 2026-10-29): Crashes & errors (contract.json#telemetry.errorGroups).
+S["ErrorGroupPage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref("ErrorGroup"))}}], "description": "Page<ErrorGroup>"}
+op("get", "/admin/errors", "adminListErrors", "Crashes & errors, grouped (newest first)", ["admin"], "Admin · System",
+   params=AL + [q("app", s(enum=TE["apps"])), q("platform", s(enum=TE["platforms"])), q("version", s(), "An app version the group was seen in."),
+                q("status", s(enum=TE["statuses"]))], ok=(200, "ErrorGroupPage"),
+   desc="v0.16.0: " + TE["fingerprint"] + ". " + TE["admin"] + " Permission: " + TE["permission"] + ".")
+op("patch", "/admin/errors/{errorId}", "adminSetErrorStatus", "Mark a crash or error group fixed (or open)", ["admin"], "Admin · System",
+   params=[pref("ErrorId")], body="ErrorGroupStatusCommand", ok=(200, "ErrorGroup"), mutation=True,
+   desc="v0.16.0: " + TE["reopen"] + ". Audited. Permission: " + TE["permission"] + ".")
 op("get", "/admin/trips/{tripId}", "adminGetTrip", "Trip detail incl. money split", ["admin"], "Admin · Trips",
    params=TID, ok=(200, TP), permission="trips.read")
 for seg, cmd, opid, body, summ, perm, appr, okc in [
@@ -1717,7 +1741,7 @@ o = op("post", "/rides/{rideId}/cancel", "cancelRideDeprecated", "Deprecated ali
        params=[pref("RideId")], body="CancelCommand", ok=(200, TP), mutation=True, transition="cancel", deprecated=True)
 
 # ---------------------------------------------------------------- document
-TAG_DESC = {"Admin · Zones": "Zones from the server: list, create, outline, open and close (v0.11.0)", "Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
+TAG_DESC = {"Admin · System": "Crashes & errors from the apps and the server, grouped (v0.16.0)", "Admin · Zones": "Zones from the server: list, create, outline, open and close (v0.11.0)", "Auth": "Sign-in, tokens and push devices for the rider and driver apps (v0.5.0)", "Admin · Auth": "Admin panel sign-in with e-mail and password (v0.5.1)",
             "Maps": "Address search, geocoding and road routes through the server (v0.5.1); read-only, no Idempotency-Key",
             "Telemetry": "Fire-and-forget app logs, analytics and crashes (v0.5.1); no auth required", "Trips": "Shared trip resource (rider, driver, admin)", "Realtime": "Streams: SSE (or WebSocket) + JSON replay",
             "Deprecated": "Legacy /rides aliases kept for one release"}

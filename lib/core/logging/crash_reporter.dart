@@ -3,7 +3,12 @@ import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
-/// Sentry/Crashlytics adapter. No DSN is stored in the app.
+/// Sends crashes and reported errors to `POST /telemetry/crashes` through
+/// [Observability.crashes] (contract v0.16.0 §11). No vendor, no DSN.
+///
+/// Owner 2026-10-29: "Add automatic and add this in term and condition":
+/// automatic, no switch. [fatal] marks an uncaught error (`kind: crash`);
+/// a caught error shown to the rider is `kind: error`.
 class CrashReporter {
   const CrashReporter();
 
@@ -14,12 +19,14 @@ class CrashReporter {
     String? screen,
     String? operation,
     String? requestId,
+    bool fatal = false,
   }) {
     final extra = Observability.sanitize({
       'rideId': rideId,
       'screen': screen,
       'operation': operation,
       'requestId': requestId,
+      'kind': fatal ? 'crash' : 'error',
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'appVersion': appVersion,
     });

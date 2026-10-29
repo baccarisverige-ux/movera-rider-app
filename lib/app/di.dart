@@ -30,6 +30,8 @@ import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/core/observability/crash_report.dart';
+import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/api_payment_gateway.dart';
@@ -134,7 +136,18 @@ class AppScope {
         : FirebasePushService(api: api, environment: environment);
 
     if (environment.isReleaseLike) {
-      final sink = HttpObservabilitySink(baseUrl: environment.apiBaseUrl);
+      // Contract v0.16.0 (owner 2026-10-29, "Add automatic and add this in
+      // term and condition"): crash reports go out on their own, with the
+      // rider's token when signed in, like every other call.
+      final version = CrashReport.splitVersion(appVersion);
+      final sink = HttpObservabilitySink(
+        baseUrl: environment.apiBaseUrl,
+        app: 'rider',
+        appVersion: version.version,
+        build: version.build,
+        platform: CrashReport.platformName(),
+        accessToken: tokens.readAccess,
+      );
       observabilitySink = sink;
       Observability.configure(
         loggerSink: sink,

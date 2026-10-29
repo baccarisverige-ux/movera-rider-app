@@ -138,12 +138,15 @@ Future<void> bootstrap() async {
     AppScope.instance.crashes.record(
       details.exception,
       details.stack ?? StackTrace.empty,
-      screen: details.library,
+      // The library (e.g. "widgets library") is not a screen; the
+      // sink takes the screen on top instead (contract v0.16.0).
+      operation: details.library,
+      fatal: true,
     );
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
-    AppLog.fatal('platform.error', error: error, stackTrace: stack);
+    AppScope.instance.crashes.record(error, stack, fatal: true);
     return true;
   };
 
@@ -233,8 +236,7 @@ Future<void> bootstrap() async {
       );
     },
     (error, stack) {
-      AppScope.instance.crashes.record(error, stack);
-      AppLog.fatal('zone.error', error: error, stackTrace: stack);
+      AppScope.instance.crashes.record(error, stack, fatal: true);
     },
   );
 }

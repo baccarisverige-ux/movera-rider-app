@@ -1,11 +1,11 @@
-# Movera API v0.15.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.16.0 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.15.0
+  version: 0.16.0
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.15.0 in this folder; this file must agree with them.
+    v0.16.0 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -53,6 +53,8 @@ tags:
 - name: Driver · Account
 - name: Driver · Fleet
 - name: Admin · Lists
+- name: Admin · System
+  description: Crashes & errors from the apps and the server, grouped (v0.16.0)
 - name: Admin · Trips
 - name: Admin · Dispatch
 - name: Admin · Money
@@ -78,7 +80,7 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.15.0
+  version: 0.16.0
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4466,6 +4468,128 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/errors:
+    get:
+      operationId: adminListErrors
+      summary: Crashes & errors, grouped (newest first)
+      description: 'v0.16.0: app + platform + the message with numbers, hex and ids replaced + the top stack frame. GET /admin/errors?app=&platform=&version=&status=&cursor=&limit=
+        → ErrorGroupPage, newest lastSeen first; PATCH /admin/errors/{errorId} { status } → ErrorGroup. Permission: any signed-in
+        admin, every role, for the list and for marking fixed; no permission id, like GET /admin/auth/me (owner 2026-10-29:
+        "No code now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..'
+      tags:
+      - Admin · System
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: app
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - driver
+          - rider
+          - server
+      - name: platform
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+          - server
+      - name: version
+        in: query
+        required: false
+        schema:
+          type: string
+        description: An app version the group was seen in.
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - open
+          - fixed
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorGroupPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/errors/{errorId}:
+    patch:
+      operationId: adminSetErrorStatus
+      summary: Mark a crash or error group fixed (or open)
+      description: 'v0.16.0: a group marked fixed that occurs again is open again. Audited. Permission: any signed-in admin,
+        every role, for the list and for marking fixed; no permission id, like GET /admin/auth/me (owner 2026-10-29: "No code
+        now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..'
+      tags:
+      - Admin · System
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/ErrorId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorGroupStatusCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -9520,6 +9644,12 @@ components:
         $ref: '#/components/schemas/Id'
     TicketId:
       name: ticketId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    ErrorId:
+      name: errorId
       in: path
       required: true
       schema:
@@ -15426,6 +15556,10 @@ components:
           type: object
     TelemetryCrash:
       type: object
+      description: 'v0.16.0 (owner 2026-10-29, "Want section on dispatch to show all crash droids and bugs detected from server"):
+        POST /telemetry/crashes takes optional app, platform, appVersion, build, screen, kind and occurredAt next to error,
+        stack and extra (additive; an older app sends none). The server scrubs again, groups each report and keeps the reports
+        keepDays days.'
       required:
       - error
       properties:
@@ -15437,6 +15571,119 @@ components:
           maxLength: 12000
         extra:
           type: object
+        app:
+          type: string
+          enum:
+          - driver
+          - rider
+          description: v0.16.0
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+          description: v0.16.0
+        appVersion:
+          type: string
+          maxLength: 40
+          description: 'v0.16.0: e.g. 1.4.2.'
+        build:
+          type: string
+          maxLength: 40
+          description: 'v0.16.0: store build number.'
+        screen:
+          type: string
+          maxLength: 200
+          description: 'v0.16.0: route or screen name, no ids.'
+        kind:
+          type: string
+          enum:
+          - crash
+          - error
+          description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash.'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+    ErrorGroup:
+      type: object
+      description: 'v0.16.0 (owner 2026-10-29): the admin "Crashes & errors" section. Reports with the same fingerprint are
+        one ErrorGroup. The server also records its own unhandled 5xx errors as app server (scrubbed, platform server).'
+      required:
+      - id
+      - app
+      - platform
+      - appVersions
+      - message
+      - kind
+      - count
+      - devices
+      - firstSeen
+      - lastSeen
+      - status
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        app:
+          type: string
+          enum:
+          - driver
+          - rider
+          - server
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+          - server
+        appVersions:
+          type: array
+          items:
+            type: string
+          description: Versions seen in this group, newest first.
+        message:
+          type: string
+          description: Scrubbed message of the latest report.
+        topFrame:
+          type: string
+          description: Top stack frame used in the fingerprint, when there was a stack.
+        kind:
+          type: string
+          enum:
+          - crash
+          - error
+        count:
+          type: integer
+          minimum: 1
+          description: Reports in this group.
+        devices:
+          type: integer
+          minimum: 0
+          description: Distinct devices (or addresses) that sent one.
+        firstSeen:
+          $ref: '#/components/schemas/Timestamp'
+        lastSeen:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          type: string
+          enum:
+          - open
+          - fixed
+        fixedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+    ErrorGroupStatusCommand:
+      type: object
+      description: 'v0.16.0: a group marked fixed that occurs again is open again.'
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - open
+          - fixed
     LiveDriver:
       type: object
       required:
@@ -17096,6 +17343,16 @@ components:
             items:
               $ref: '#/components/schemas/WaitlistEntry'
       description: Page<WaitlistEntry>
+    ErrorGroupPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/ErrorGroup'
+      description: Page<ErrorGroup>
     UseStandardCommand:
       type: object
       description: 'v0.8.0 (owner 2026-10-27): POST /admin/config/{doc}/use-standard { zoneId, expectedVersion } (the zone''s

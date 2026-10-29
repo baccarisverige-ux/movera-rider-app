@@ -1401,6 +1401,8 @@
   "termsS11Body": "Du kan när som helst radera ditt konto under Konto › Integritet. Raderingen kan inte ångras och du loggas ut på den här enheten direkt. Kvitton och underlag som bokföringslagen kräver att vi sparar behålls bara så länge lagen kräver. Vi kan stänga ett konto som bryter mot dessa villkor.",
   "termsS12Title": "Ändringar och tillämplig lag",
   "termsS12Body": "Vi kan uppdatera villkoren när tjänsten ändras; appen visar datumet för gällande version och ber dig godkänna väsentliga ändringar. Svensk lag gäller. Tvister kan prövas i svensk domstol, och som konsument kan du också vända dig till Allmänna reklamationsnämnden (ARN) eller EU:s plattform för tvistlösning online.",
+  "termsS14Title": "Krasch- och felrapporter",
+  "termsS14Body": "När appen kraschar eller visar ett fel skickar den automatiskt en rapport till Movera så att vi kan rätta felet: felet, var i appen det hände, appversion, plattform och tid. Namn, telefonnummer, e-postadresser, adresser och platser tas bort innan rapporten lämnar din enhet. Rapporterna sparas i 30 dagar.",
   "termsS13Title": "Kontakt",
   "termsS13Body": "Frågor om villkoren: [supportmejl], eller Hjälp i appen.",
   "privacyS1Title": "Vem som ansvarar",
