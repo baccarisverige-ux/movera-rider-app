@@ -18,6 +18,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/need_help.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/slow_server_note.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -427,6 +428,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           ),
           if (_providerError != null) AuthErrorText(_providerError!),
           if (_testAccounts.isNotEmpty) _testAccountList(),
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: NeedHelpLink(),
+          ),
         ],
       ),
     );

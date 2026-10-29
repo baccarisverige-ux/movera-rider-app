@@ -2995,5 +2995,7 @@
   "startCouldNotLoad": "Couldn’t start Movera.",
   "startSignOut": "Sign out",
   "startContactSupport": "Contact support",
-  "startSupportUnavailable": "Couldn’t open e-mail. Write to Movera support from another device."
+  "authNeedHelp": "Need help?",
+  "authHelpComingSoon": "Contact details coming soon",
+  "authHelpCompany": "Company"
 }

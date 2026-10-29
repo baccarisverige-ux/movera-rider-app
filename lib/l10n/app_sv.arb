@@ -1521,5 +1521,7 @@
   "startCouldNotLoad": "Kunde inte starta Movera.",
   "startSignOut": "Logga ut",
   "startContactSupport": "Kontakta support",
-  "startSupportUnavailable": "Kunde inte öppna e-post. Skriv till Movera-supporten från en annan enhet."
+  "authNeedHelp": "Behöver du hjälp?",
+  "authHelpComingSoon": "Kontaktuppgifter kommer snart",
+  "authHelpCompany": "Företag"
 }

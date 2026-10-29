@@ -1527,7 +1527,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'startCouldNotLoad': l.startCouldNotLoad,
   'startSignOut': l.startSignOut,
   'startContactSupport': l.startContactSupport,
-  'startSupportUnavailable': l.startSupportUnavailable,
+  'authNeedHelp': l.authNeedHelp,
+  'authHelpComingSoon': l.authHelpComingSoon,
+  'authHelpCompany': l.authHelpCompany,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4786,5 +4788,9 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get startContactSupport => '';
   @override
-  String get startSupportUnavailable => '';
+  String get authNeedHelp => '';
+  @override
+  String get authHelpComingSoon => '';
+  @override
+  String get authHelpCompany => '';
 }
