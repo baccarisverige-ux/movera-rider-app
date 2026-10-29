@@ -9,6 +9,12 @@ on:
       - 'test/responsive/**'
       - 'test/web/**'
       - '.github/workflows/qa-device-pwa-responsive.yml'
+  # A change to this robot is proven on its PR against the base branch's
+  # deployed Pages build (as qa-critical-rider-flow.yml).
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-device-pwa-responsive.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,8 +34,10 @@ jobs:
           npx playwright install --with-deps chromium webkit >/dev/null
 
       - name: Wait for this exact Pages build
+        env:
+          TARGET_LIVE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
         run: |
-          SHORT="${GITHUB_SHA::8}"
+          SHORT="${TARGET_LIVE_SHA::8}"
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
@@ -55,7 +63,7 @@ jobs:
           import { chromium, webkit } from 'playwright';
           import fs from 'fs';
 
-          const base = 'https://baccarisverige-ux.github.io/movera-rider-app/';
+          const base = process.env.QA_BASE || 'https://baccarisverige-ux.github.io/movera-rider-app/';
           const evidence = {};
           const fatalPattern = /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i;
 
@@ -146,7 +154,7 @@ jobs:
               const errors = collector(page);
               const label = `portrait-${width}x${height}`;
               await page.goto(base + `?phase14=${label}&v=${Date.now()}`, {
-                waitUntil: 'networkidle',
+                waitUntil: 'load',
                 timeout: 120000,
               });
               await page.waitForTimeout(4200);
@@ -176,7 +184,7 @@ jobs:
             const page = await context.newPage();
             const errors = collector(page);
             await page.goto(base + `?phase14=landscape&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
             await page.waitForTimeout(4200);
@@ -227,7 +235,7 @@ jobs:
             const page = await context.newPage();
             const errors = collector(page);
             await page.goto(base + `?phase14=keyboard&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
             await page.waitForTimeout(4200);
@@ -292,58 +300,69 @@ jobs:
             return { value: after, box, fatal };
           }
 
-          async function openSelection(page, label) {
-            await enableA11y(page);
-            const where = page.getByText('Where to', { exact: false });
-            if (await where.count()) {
-              await where.last().click().catch(() => {});
-            }
-            await page.waitForTimeout(900);
+          // Tap a control by its accessible name (string = exact, RegExp = pattern).
+          async function tapNamed(page, name, label, timeout = 10000) {
+            const button = page.getByRole('button', typeof name === 'string' ? { name, exact: true } : { name });
+            await button.first().waitFor({ state: 'visible', timeout }).catch(() => {
+              throw new Error(`${label}: button ${name} not found`);
+            });
+            await button.first().click();
+          }
 
-            let inputs = page.locator(
+          async function visibleButtons(page) {
+            return page.evaluate(() => [...document.querySelectorAll('flt-semantics[role=button]')]
+              .map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60))
+              .filter(Boolean).slice(0, 25)).catch(() => []);
+          }
+
+          async function waitOwner(page, expected, label, timeout = 15000) {
+            await page.waitForFunction(owner => window.moveraMapOwner === owner, expected, { timeout })
+              .catch(async error => {
+                const actual = await page.evaluate(() => window.moveraMapOwner || 'none');
+                throw new Error(`${label}: expected map owner ${expected}, got ${actual}; screen buttons: ${JSON.stringify(await visibleButtons(page))}`, { cause: error });
+              });
+          }
+
+          // The installed (standalone) demo starts at the sign-in preview (web/index.html
+          // adds auth_preview=1 for home-screen launches); a rider passes it with
+          // 'Skip for now (demo)'. A browser tab opens on Home and this does nothing.
+          async function skipAuthPreview(page, label) {
+            const skip = page.getByRole('button', { name: 'Skip for now (demo)', exact: true });
+            await skip.first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+            if (!(await skip.count())) return;
+            await skip.first().click();
+            await waitOwner(page, 'home', `${label}: skip sign-in preview`, 30000);
+            await page.waitForTimeout(1200);
+          }
+
+          // The current booking screens: 'Where to?' -> type -> pick the suggestion
+          // (no Next button) -> Select ride -> 'Select Movera' -> pickup ->
+          // 'Confirm and search' -> Finding.
+          async function openSelection(page, label) {
+            await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
+            await page.waitForFunction(() => document.querySelector('flt-semantics'), null, { timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(400);
+            await skipAuthPreview(page, label);
+            await waitOwner(page, 'home', `${label}: Home`, 60000);
+            await tapNamed(page, 'Where to?', `${label}: Home`);
+            await page.waitForTimeout(1200);
+            const inputs = page.locator(
               'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
             );
-            let count = await inputs.count().catch(() => 0);
-            if (!count) {
-              await page.mouse.click(190, 708);
-              await page.waitForTimeout(1000);
-              inputs = page.locator(
-                'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
-              );
-              count = await inputs.count().catch(() => 0);
-            }
-            if (!count) {
-              await page.mouse.click(185, 274);
-              await page.waitForTimeout(500);
-              inputs = page.locator(
-                'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
-              );
-              count = await inputs.count().catch(() => 0);
-            }
-            if (!count) {
+            await inputs.last().waitFor({ state: 'visible', timeout: 10000 }).catch(async () => {
               await page.screenshot({ path: `qa-${label}-open-failed.png`, fullPage: true });
               throw new Error(`${label}: destination input missing`);
-            }
-            await inputs.last().fill('Stockholm Central Station');
-            await page.waitForTimeout(650);
-            const next = page.getByText('Next', { exact: true });
-            if (await next.count()) await next.last().click();
-            else await page.mouse.click(195, 804);
-            await page.waitForTimeout(3200);
-            await page.mouse.click(195, 797);
-            await page.waitForTimeout(6500);
-            const select = page.getByText('Select Movera', { exact: true });
-            if (await select.count()) await select.last().click();
-            else {
-              await page.mouse.click(195, 808);
-              await page.waitForTimeout(800);
-              await page.touchscreen.tap(195, 808);
-            }
-            await page.waitForFunction(
-              () => window.moveraMapOwner === 'finding',
-              null,
-              { timeout: 15000 },
-            );
+            });
+            await inputs.last().pressSequentially('Stockholm Central Station', { delay: 10 });
+            await page.waitForTimeout(1500);
+            await tapNamed(page, /^Stockholm Central Station\b/, `${label}: destination suggestion`);
+            await waitOwner(page, 'select_ride', `${label}: selection`, 20000);
+            await page.waitForTimeout(1200);
+            await tapNamed(page, 'Select Movera', `${label}: Select ride`);
+            await waitOwner(page, 'pickup', `${label}: pickup`);
+            await page.waitForTimeout(1200);
+            await tapNamed(page, 'Confirm and search', `${label}: Confirm pickup`);
+            await waitOwner(page, 'finding', `${label}: finding`);
           }
 
           async function installedStandaloneLifecycle(browser) {
@@ -368,7 +387,7 @@ jobs:
             const page = await context.newPage();
             const errors = collector(page);
             await page.goto(base + `?phase14=standalone&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
             await page.waitForTimeout(4200);
@@ -400,7 +419,7 @@ jobs:
             }
             if (!resumed.snapshot) throw new Error('standalone resume: active snapshot was cleared');
 
-            await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
+            await page.reload({ waitUntil: 'load', timeout: 120000 });
             await page.waitForTimeout(4500);
             await page.waitForFunction(
               () => ['finding', 'waiting'].includes(window.moveraMapOwner || ''),
@@ -450,7 +469,7 @@ jobs:
             const page = await context.newPage();
             const errors = collector(page);
             await page.goto(base + `?phase14=webkit&v=${Date.now()}`, {
-              waitUntil: 'networkidle',
+              waitUntil: 'load',
               timeout: 120000,
             });
             await page.waitForTimeout(5000);

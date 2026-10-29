@@ -7,6 +7,12 @@ on:
       - 'lib/**'
       - 'web/**'
       - '.github/workflows/qa-live-rider-flow.yml'
+  # A change to this robot is proven on its PR against the base branch's
+  # deployed Pages build (as qa-critical-rider-flow.yml).
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-live-rider-flow.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,8 +32,10 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null
 
       - name: Wait for this exact Pages build
+        env:
+          TARGET_LIVE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
         run: |
-          SHORT="${GITHUB_SHA::8}"
+          SHORT="${TARGET_LIVE_SHA::8}"
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
@@ -49,7 +57,7 @@ jobs:
           import { chromium } from 'playwright';
           import fs from 'fs';
 
-          const base='https://baccarisverige-ux.github.io/movera-rider-app/';
+          const base=process.env.QA_BASE||'https://baccarisverige-ux.github.io/movera-rider-app/';
           const browser=await chromium.launch({headless:true});
           // Phase 47: rider addresses and coordinates never go to a public
           // geocoder from the browser; Flutter geocodes via the Movera API.
@@ -77,7 +85,49 @@ jobs:
           function fatalErrors(){return[...pageErrors.map(x=>x.message),...consoleErrors].filter(x=>/Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i.test(x));}
           function requireChanged(a,b,label){if(Buffer.compare(a,b)===0)throw new Error(`${label} produced no live UI change`);}
 
-          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(5000); await dump('home'); const home=await shot('home');
+          // The map keeps fetching tiles, so the network never goes idle: wait for
+          // the page to load, then for Home itself (the Home map and its 'Where to?').
+          async function enableA11y(p){
+            // Flutter parks 'Enable accessibility' at (-1,-1): click it through the DOM.
+            await p.evaluate(()=>document.querySelector('flt-semantics-placeholder')?.click());
+            await p.waitForFunction(()=>document.querySelector('flt-semantics'),null,{timeout:5000}).catch(()=>{});
+            await p.waitForTimeout(400);
+          }
+          async function waitOwner(p,expected,label,timeout=15000){
+            await p.waitForFunction(o=>window.moveraMapOwner===o,expected,{timeout}).catch(async error=>{
+              const actual=await p.evaluate(()=>window.moveraMapOwner||'none');
+              throw new Error(`${label}: expected map owner ${expected}, got ${actual}; screen buttons: ${JSON.stringify((await buttonNames(p).catch(()=>[])).filter(Boolean).slice(0,25))}`,{cause:error});
+            });
+          }
+          async function openHome(p,query,label){
+            await p.goto(base+`?${query}=${Date.now()}`,{waitUntil:'load',timeout:120000});
+            await p.waitForFunction(()=>document.querySelector('flutter-view, flt-glass-pane'),null,{timeout:90000});
+            await waitOwner(p,'home',`${label}: Home map`,90000);
+            await enableA11y(p);
+            await p.getByRole('button',{name:'Where to?',exact:true}).first().waitFor({state:'visible',timeout:30000}).catch(()=>{throw new Error(`${label}: Home 'Where to?' not shown`);});
+          }
+          // Tap a control by its accessible name (string = exact, RegExp = pattern).
+          async function tapNamed(p,name,label,timeout=10000){
+            const button=p.getByRole('button',typeof name==='string'?{name,exact:true}:{name});
+            await button.first().waitFor({state:'visible',timeout}).catch(()=>{throw new Error(`${label}: button ${name} not found`);});
+            await button.first().click();
+          }
+          async function buttonNames(p){return await p.evaluate(()=>[...document.querySelectorAll('flt-semantics[role=button]')].map(e=>(e.getAttribute('aria-label')||e.textContent||'').trim().replace(/\s+/g,' ')));}
+          async function hasButton(p,re){return (await buttonNames(p)).some(n=>re.test(n));}
+          // Home 'Where to?' -> type -> pick the suggestion (the planner has no Next
+          // button) -> Select ride (the categories).
+          async function routeToSelection(p,label){
+            await tapNamed(p,'Where to?',`${label}: Home`);
+            await p.waitForTimeout(1200);
+            const field=p.locator('input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible');
+            await field.last().waitFor({state:'visible',timeout:10000}).catch(()=>{throw new Error(`${label}: route planner destination input did not become editable`);});
+            await field.last().pressSequentially('Stockholm Central Station',{delay:10});
+            await p.waitForTimeout(1500);
+            await tapNamed(p,/^Stockholm Central Station\b/,`${label}: destination suggestion`);
+            await waitOwner(p,'select_ride',`${label}: Select ride`,20000);
+            await p.waitForTimeout(1200);
+          }
+          await openHome(page,'v','Home'); await page.waitForTimeout(1500); await dump('home'); const home=await shot('home');
           if(fatalErrors().length)throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
 
           const headingOnce=await page.evaluate(async()=>await window.moveraStartHeading());
@@ -140,61 +190,50 @@ jobs:
           if(typeof safetySnap.rideCheckEnabled!=='boolean') throw new Error('Safety snapshot missing rideCheckEnabled');
           if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
           console.log('PASS: public Safety navigation bridge opened the real Safety hub and published live Safety state');
-          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(4000);
-          await page.waitForFunction(()=>typeof window.moveraMapOwner==='string',{timeout:60000});
-          await page.waitForTimeout(1500);
-          await page.mouse.click(200,420);await page.waitForTimeout(400);
+          await openHome(page,'v','Route');
           // Phase 47 removed the public browser geocoding bridge; Flutter
           // geocodes through the authenticated Movera API instead.
           const geo=await page.evaluate(()=>({forward:typeof window.moveraGeocodeAddress,reverse:typeof window.moveraReverseGeocode})); await dump('geocoding',{geo});
           if(geo.forward!=='undefined'||geo.reverse!=='undefined')throw new Error('Public browser geocoding bridge is exposed: '+JSON.stringify(geo));
+          await routeToSelection(page,'live');await shot('route-filled');await dump('categories');
+          const categoriesInitial=await shot('categories');if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
 
-          await page.mouse.click(190,708);await page.waitForTimeout(1200);await shot('route-open');
-          let visibleInputs=page.locator('input,textarea').filter({visible:true});let count=await visibleInputs.count().catch(()=>0);if(!count){await page.mouse.click(185,274);await page.waitForTimeout(400);visibleInputs=page.locator('input,textarea');count=await visibleInputs.count();}if(!count)throw new Error('Route planner destination input did not become editable');
-          await visibleInputs.nth(count-1).fill('Stockholm Central Station');await page.waitForTimeout(700);await shot('route-filled');
-          await page.mouse.click(195,804);await page.waitForTimeout(3500);await shot('pickup-picker');await page.waitForTimeout(3500);await page.mouse.click(195,797);await page.waitForTimeout(7000);await dump('after-pickup-confirm');
-          const categoriesInitial=await shot('after-pickup-confirm');if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
-          await touchSwipe(195,640,240,24);await page.waitForTimeout(700);const categoriesExpanded=await shot('categories-expanded');
-
-          // Runs without Flutter's semantics tree, as a rider does: it reroutes
-          // the touch swipes below. (The old 'Enable accessibility' click never
-          // landed anyway: Flutter parks it at (-1,-1).) Label lookups fall
-          // back to positions.
-          await page.waitForTimeout(400);
-          const ridePoints=[['comfort','Comfort',195,380],['premium','Premium',195,460],['xl','Movera XL',195,620],['electric','Electric',195,700]];
-          let previous=categoriesExpanded;
-          let categoryChanges=0;
-          for (const [name,label,x,y] of ridePoints) {
-            const node=page.getByText(label,{exact:true});
-            if (await node.count()) { await node.last().click(); }
-            else { await page.mouse.click(x,y); }
-            await page.waitForTimeout(550);
-            const current=await shot(`ride-${name}`);
-            if (Buffer.compare(previous,current)!==0) categoryChanges++;
-            previous=current;
-            if (fatalErrors().length) throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));
+          // Every category is a button; picking one moves the main button to it
+          // ('Select Comfort'), so each tap is checked by what the rider reads.
+          const rideTypes=['Comfort','Priority','Movera XL','Van','Movera'];
+          const picked=[];
+          for(const label of rideTypes){
+            await tapNamed(page,new RegExp(`^${label} \\d`),`Category ${label}`);
+            await page.waitForTimeout(600);
+            if(!(await hasButton(page,new RegExp(`^Select ${label}$`))))throw new Error(`Category ${label}: main button did not become 'Select ${label}'`);
+            picked.push(label);
+            await shot(`ride-${label.toLowerCase().replace(/\W+/g,'-')}`);
+            if(fatalErrors().length)throw new Error(`Fatal runtime error selecting ${label}: `+fatalErrors().join(' | '));
           }
-          fs.writeFileSync('qa-ride-categories.json', JSON.stringify({categoryChanges,labels:ridePoints.map(p=>p[1])},null,2));
-          if (categoryChanges<2) throw new Error('Ride category taps produced no live UI change ('+categoryChanges+' of '+ridePoints.length+')');
-          await page.mouse.click(50,677);await page.waitForTimeout(350);const fareDown=await shot('fare-down');
-          await page.mouse.click(340,677);await page.waitForTimeout(350);const fareUp=await shot('fare-up');
-          await page.mouse.click(104,743);await page.waitForTimeout(650);const paymentOpen=await shot('payment-open');requireChanged(fareUp,paymentOpen,'Payment sheet');await page.mouse.click(195,548);await page.waitForTimeout(650);const paymentCash=await shot('payment-cash');requireChanged(paymentOpen,paymentCash,'Cash payment selection');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
+          fs.writeFileSync('qa-ride-categories.json',JSON.stringify({picked},null,2));
 
-          const panelBefore=await panelCrop('panel-before-swipe');await touchSwipe(195,450,220,20);const panelAfter=await panelCrop('panel-after-swipe');const scrolled=await shot('categories-touch-scrolled');
-          await page.mouse.click(285,743);await page.waitForTimeout(750);const bookingSheet=await shot('pickup-time-sheet');requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
-          await page.mouse.click(195,702);await page.waitForTimeout(700);const afterBookNow=await shot('after-book-now');requireChanged(bookingSheet,afterBookNow,'Book now selection');
-          await page.mouse.click(285,743);await page.waitForTimeout(650);const bookingSheetAgain=await shot('pickup-time-sheet-again');requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
-          await page.mouse.click(195,778);await page.waitForTimeout(1200);const laterPicker=await shot('book-for-later-picker');requireChanged(bookingSheetAgain,laterPicker,'Book for later picker');
-          await page.mouse.click(338,680);await page.waitForTimeout(900);const timePicker=await shot('book-for-later-time-picker');requireChanged(laterPicker,timePicker,'Book for later time picker');
+          // Payment: the row under the categories opens 'Pay with'; picking a method
+          // closes it and the row names the new method.
+          const paymentRow=/^(Cash|Card|Apple Pay|Google Pay)\b/;
+          for(const method of ['Apple Pay','Cash']){
+            await tapNamed(page,paymentRow,'Payment row');await page.waitForTimeout(800);await shot(`payment-open-${method.toLowerCase().replace(' ','-')}`);
+            await tapNamed(page,new RegExp(`^${method}\\b`),`Pay with ${method}`);await page.waitForTimeout(800);
+            if(!(await hasButton(page,/^Select Movera$/)))throw new Error(`Payment: 'Pay with' sheet did not close after ${method}`);
+            if(!(await hasButton(page,new RegExp(`^${method}\\b`))))throw new Error(`Payment: row did not switch to ${method}`);
+          }
+          const paymentCash=await shot('payment-cash');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
 
-          const continueBtn=page.getByText('Continue',{exact:true});
-          if(await continueBtn.count()){await continueBtn.last().click();}
-          else {await page.mouse.click(195,808);}
-          await page.waitForTimeout(1200);const scheduled=await shot('scheduled-ride');requireChanged(timePicker,scheduled,'Scheduled ride confirmation');await dump('scheduled-ride');
-          if(fatalErrors().length)throw new Error('Fatal runtime error scheduling ride: '+fatalErrors().join(' | '));
+          // 'Book now or later': both choices; Book now keeps the categories.
+          await tapNamed(page,'Book now or later','Pickup time');await page.waitForTimeout(800);const bookingSheet=await shot('pickup-time-sheet');
+          if(!(await hasButton(page,/^Book for later\b/)))throw new Error("Pickup time sheet: 'Book for later' missing");
+          await tapNamed(page,/^Book now\b/,'Book now');await page.waitForTimeout(800);const afterBookNow=await shot('after-book-now');
+          if(!(await hasButton(page,/^Select Movera$/)))throw new Error("Book now did not return to 'Select Movera'");
 
-          await page.mouse.click(195,808);await page.waitForTimeout(900);
-          await page.mouse.click(195,808);await page.waitForTimeout(4000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
+          await tapNamed(page,'Select Movera','Select ride');
+          await waitOwner(page,'pickup','Pickup');await page.waitForTimeout(1200);await shot('pickup');
+          await tapNamed(page,'Confirm and search','Confirm pickup');
+          await waitOwner(page,'finding','Finding',15000);await page.waitForTimeout(1500);
+          const findingDrivers=await shot('after-final-booking-cta');await dump('after-final-booking-cta');
           if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
 
           const matchingHooks=await page.evaluate(()=>typeof window.moveraHoldMatching==='function');
@@ -228,14 +267,14 @@ jobs:
             throw error;
           }
 
-          console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
+          console.log('PASS: exact live Rider completed route entry, ride types, Cash payment, Book now, pickup and the final booking transition to Finding with no fatal runtime errors');
 
           async function seedRestore(page, snapshot, shotName, expectedSurface){
-            await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+            await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'load',timeout:120000});
             await page.waitForFunction(() => typeof window.moveraSeedActiveRide === 'function', null, {timeout:60000});
             const seeded = await page.evaluate(async (raw) => await window.moveraSeedActiveRide(raw), JSON.stringify(snapshot));
             if(seeded !== 'ok') throw new Error('moveraSeedActiveRide failed: '+seeded);
-            await page.reload({waitUntil:'networkidle'});
+            await page.reload({waitUntil:'load'});
             await page.waitForFunction(() => window.moveraFirstSurface && window.moveraFirstSurface !== 'hold', null, {timeout:60000});
             const first = await page.evaluate(() => window.moveraFirstSurface);
             const homeBuilt = await page.evaluate(() => window.moveraHomeBuilt === true);
@@ -286,52 +325,37 @@ jobs:
           const stressPage=await stressContext.newPage();
           stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
           stressPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
-          await stressPage.goto(base+`?mapstress=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-          await stressPage.waitForTimeout(4000);
+          await openHome(stressPage,'mapstress','Map stress');
           const stressHome=await stressPage.screenshot({path:'qa-map-stress-home.png',fullPage:true});
-          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
-          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
-          const stressPickup=await stressPage.screenshot({path:'qa-map-stress-pickup.png',fullPage:true});
-          if(Buffer.compare(stressHome, stressPickup)===0) throw new Error('Map stress pickup overlay did not open');
-          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup');
-          await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
-          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-back');
-          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
-          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
-          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
-          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-reopen');
-          if(fatalErrors().length) throw new Error('Map stress nested pickup fatal: '+fatalErrors().join(' | '));
-
-          await stressPage.goto(base+`?mapflow=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-          await stressPage.waitForTimeout(4000);
-          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
-          let stressInputs=stressPage.locator('input,textarea').filter({visible:true});
-          let stressCount=await stressInputs.count().catch(()=>0);
-          if(!stressCount){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); stressInputs=stressPage.locator('input,textarea'); stressCount=await stressInputs.count();}
-          if(!stressCount) throw new Error('Map stress destination input did not become editable');
-          try {
-            await stressInputs.nth(stressCount-1).fill('Stockholm Central Station', {timeout:8000});
-          } catch (_) {
-            await stressInputs.nth(stressCount-1).click({force:true, timeout:5000});
-            await stressPage.keyboard.type('Stockholm Central Station');
-          }
-          await stressPage.waitForTimeout(700);
-          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(3500);
-          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
-          await stressPage.mouse.click(195,797); await stressPage.waitForTimeout(7000);
+          // Open the route planner, close it, open it again: Home takes the map back.
+          await tapNamed(stressPage,'Where to?','Map stress: Home');await stressPage.waitForTimeout(1200);
+          const stressPlanner=await stressPage.screenshot({path:'qa-map-stress-planner.png',fullPage:true});
+          if(Buffer.compare(stressHome, stressPlanner)===0) throw new Error('Map stress route planner did not open');
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','pickup','finding','waiting'], 'planner');
+          await tapNamed(stressPage,'Close','Map stress: planner');
+          await waitOwner(stressPage,'home','Map stress: planner closed');
+          await stressPage.waitForTimeout(800);
+          // Select ride, Back, and again: no stale ride map stays in charge.
+          await routeToSelection(stressPage,'Map stress');
+          await tapNamed(stressPage,'Back','Map stress: Select ride');await stressPage.waitForTimeout(1500);
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','pickup','finding','waiting'], 'select-ride-back');
+          await stressPage.screenshot({path:'qa-map-stress-back.png',fullPage:true});
+          await openHome(stressPage,'mapflow','Map flow');
+          await routeToSelection(stressPage,'Map flow');
           await stressPage.screenshot({path:'qa-map-stress-select.png',fullPage:true});
           const selectOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
           const selectGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
           forbidOwner(selectOwner, ['waiting','finding'], 'select-ride');
-          await stressPage.mouse.click(285,743); await stressPage.waitForTimeout(650);
-          await stressPage.mouse.click(195,702); await stressPage.waitForTimeout(700);
-          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(900);
-          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(4000);
+          await tapNamed(stressPage,'Select Movera','Map flow: Select ride');
+          await waitOwner(stressPage,'pickup','Map flow: pickup');await stressPage.waitForTimeout(1000);
+          await tapNamed(stressPage,'Confirm and search','Map flow: Confirm pickup');
+          await waitOwner(stressPage,'finding','Map flow: finding');
           await stressPage.screenshot({path:'qa-map-stress-finding.png',fullPage:true});
           const findingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
           const findingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
           forbidOwner(findingOwner, ['home','pickup'], 'finding');
-          await stressPage.waitForTimeout(14000);
+          // The demo assigns a driver: Finding becomes Waiting.
+          await waitOwner(stressPage,'waiting','Map flow: waiting',45000);
           await stressPage.screenshot({path:'qa-map-stress-waiting.png',fullPage:true});
           const waitingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
           const waitingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
@@ -345,93 +369,61 @@ jobs:
           if(resumeGen && waitingGen && Number(resumeGen) < Number(waitingGen)) throw new Error('resume dropped map generation');
           if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
           fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],selectOwner,selectGen,findingOwner,findingGen,waitingOwner,waitingGen,resumeOwner,resumeGen},null,2));
-          console.log('PASS: map stress Home to Finding to Waiting resume with no fatal runtime errors');
+          console.log('PASS: map stress planner and Select ride back out cleanly; Home to Finding to Waiting resume with no fatal runtime errors');
           await stressContext.close();
 
+          // Book for later: date and time, then 'Schedule Movera', then the pickup's
+          // 'Confirm and schedule' shows 'Your ride is scheduled' and never Finding.
           const laterContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
-          // Round 4: the app speaks the zone's language (sv in Stockholm); these
-          // checks read the English copy, so pin the rider's choice to English.
           await laterContext.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
           watchGeocoders(laterContext);
           const laterPage=await laterContext.newPage();
           laterPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
           laterPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
-          let bookLater={attempted:true,pickerCompleted:false,ctaSchedule:false,openedRideScheduled:false,openedFindingDriver:false,manualLiveDateTimeRequired:true};
-          try {
-            await laterPage.goto(base+`?booklater=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-            await laterPage.waitForTimeout(4000);
-            await laterPage.waitForFunction(()=>typeof window.moveraMapOwner==='string',{timeout:60000});
-            await laterPage.waitForTimeout(600);
-            await laterPage.mouse.click(190,708); await laterPage.waitForTimeout(1200);
-            let laterInputs=laterPage.locator('input,textarea').filter({visible:true});
-            let laterCount=await laterInputs.count().catch(()=>0);
-            if(!laterCount){await laterPage.mouse.click(185,274); await laterPage.waitForTimeout(400); laterInputs=laterPage.locator('input,textarea'); laterCount=await laterInputs.count();}
-            if(!laterCount) throw new Error('Book-later destination input missing');
-            await laterInputs.nth(laterCount-1).fill('Stockholm Central Station');
-            await laterPage.waitForTimeout(700);
-            await laterPage.mouse.click(195,804); await laterPage.waitForTimeout(3500);
-            await laterPage.mouse.click(195,797); await laterPage.waitForTimeout(7000);
-            await laterPage.screenshot({path:'qa-book-later-categories.png',fullPage:true});
-            await laterPage.mouse.click(350,800); await laterPage.waitForTimeout(900);
-            await laterPage.screenshot({path:'qa-book-later-when-sheet.png',fullPage:true});
-            const bookLaterBtn=laterPage.getByText('Book for later',{exact:true});
-            if(await bookLaterBtn.count()){await bookLaterBtn.last().click();}
-            else {await laterPage.mouse.click(195,778);}
-            await laterPage.waitForTimeout(1200);
-            await laterPage.screenshot({path:'qa-book-later-date.png',fullPage:true});
-            async function tapLabel(page, labels){
-              for (const label of labels){
-                const node=page.getByText(label,{exact:true});
-                if(await node.count()){await node.last().click(); await page.waitForTimeout(700); return true;}
-              }
-              return false;
-            }
-            const dateOk=await tapLabel(laterPage,['OK','Ok','Continue']);
-            await laterPage.screenshot({path:'qa-book-later-time.png',fullPage:true});
-            const timeOk=await tapLabel(laterPage,['OK','Ok','Continue']);
-            bookLater.pickerCompleted=dateOk && timeOk;
-            await laterPage.waitForTimeout(800);
-            await laterPage.screenshot({path:'qa-book-later-after-picker.png',fullPage:true});
-            const scheduleCta=laterPage.getByText(/Schedule /);
-            bookLater.ctaSchedule=await scheduleCta.count()>0;
-            if(bookLater.ctaSchedule){
-              await scheduleCta.last().click();
-              await laterPage.waitForTimeout(2500);
-            } else if(bookLater.pickerCompleted){
-              await laterPage.mouse.click(160,800);
-              await laterPage.waitForTimeout(2500);
-            }
-            await laterPage.screenshot({path:'qa-book-later-after-cta.png',fullPage:true});
-            const rideScheduled=await laterPage.getByText('Ride scheduled',{exact:true}).count();
-            const finding=await laterPage.getByText('Connecting you with nearby drivers').count();
-            bookLater.openedRideScheduled=rideScheduled>0;
-            bookLater.openedFindingDriver=finding>0;
-            if(bookLater.pickerCompleted && bookLater.openedFindingDriver){
-              throw new Error('Book later completed date/time but opened Finding Driver');
-            }
-            if(bookLater.ctaSchedule && bookLater.openedFindingDriver){
-              throw new Error('Schedule CTA opened Finding Driver');
-            }
-            bookLater.manualLiveDateTimeRequired=!(bookLater.pickerCompleted && (bookLater.ctaSchedule || bookLater.openedRideScheduled));
-            if(bookLater.openedRideScheduled){
-              console.log('PASS: live Book-later opened Ride scheduled and did not enter Finding Driver');
-            } else {
-              console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
-            }
-          } catch (error) {
-            await laterPage.screenshot({path:'qa-book-later-failed.png',fullPage:true}).catch(()=>{});
-            bookLater.error=String(error);
-            bookLater.manualLiveDateTimeRequired=true;
-            if(/Finding Driver/.test(String(error))) throw error;
-            console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
-          }
-          fs.writeFileSync('qa-book-later.json', JSON.stringify({...bookLater,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          const ownersSeen=new Set();
+          await openHome(laterPage,'booklater','Book later');
+          await routeToSelection(laterPage,'Book later');
+          await laterPage.screenshot({path:'qa-book-later-categories.png',fullPage:true});
+          await tapNamed(laterPage,'Book now or later','Book later: pickup time');await laterPage.waitForTimeout(800);
+          await laterPage.screenshot({path:'qa-book-later-when-sheet.png',fullPage:true});
+          await tapNamed(laterPage,/^Book for later\b/,'Book later: sheet');await laterPage.waitForTimeout(1200);
+          await laterPage.screenshot({path:'qa-book-later-date.png',fullPage:true});
+          if(!(await hasButton(laterPage,/^Date\b/))||!(await hasButton(laterPage,/^Time\b/)))throw new Error('Book later: date and time rows missing');
+          await tapNamed(laterPage,/^Time\b/,'Book later: time row');await laterPage.waitForTimeout(900);
+          await laterPage.screenshot({path:'qa-book-later-time.png',fullPage:true});
+          await tapNamed(laterPage,'Done','Book later: time picker');await laterPage.waitForTimeout(800);
+          await tapNamed(laterPage,'Continue','Book later: date and time');
+          await waitOwner(laterPage,'select_ride','Book later: categories',20000);await laterPage.waitForTimeout(1000);
+          await laterPage.screenshot({path:'qa-book-later-after-picker.png',fullPage:true});
+          await tapNamed(laterPage,'Schedule Movera','Book later: Schedule');
+          await waitOwner(laterPage,'pickup','Book later: pickup');await laterPage.waitForTimeout(1000);
+          ownersSeen.add(await laterPage.evaluate(()=>window.moveraMapOwner||''));
+          await tapNamed(laterPage,'Confirm and schedule','Book later: Confirm and schedule');
+          await laterPage.getByText('Your ride is scheduled',{exact:true}).first().waitFor({state:'visible',timeout:15000}).catch(()=>{throw new Error("Book later: 'Your ride is scheduled' not shown");});
+          for(let i=0;i<6;i++){ownersSeen.add(await laterPage.evaluate(()=>window.moveraMapOwner||''));await laterPage.waitForTimeout(500);}
+          await laterPage.screenshot({path:'qa-book-later-after-cta.png',fullPage:true});
+          if(ownersSeen.has('finding'))throw new Error('Book later opened Finding Driver');
+          await tapNamed(laterPage,'Done','Book later: scheduled');
+          await waitOwner(laterPage,'home','Book later: back Home');
+          if(!(await hasButton(laterPage,/^Reservation in\b/)))throw new Error("Book later: Home shows no 'Reservation in' chip");
+          await laterPage.screenshot({path:'qa-book-later-home.png',fullPage:true});
+          fs.writeFileSync('qa-book-later.json', JSON.stringify({ownersSeen:[...ownersSeen],pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(fatalErrors().length) throw new Error('Book later fatal: '+fatalErrors().join(' | '));
+          console.log('PASS: Book for later picked a time, scheduled the ride, showed Ride scheduled and the Home reservation chip, never Finding Driver');
           await laterContext.close();
 
           await browser.close();
-          if(publicGeocoderRequests.length)throw new Error('Rider data sent to a public geocoder: '+[...new Set(publicGeocoderRequests)].join(' | '));
-          console.log('PASS: no browser-side public geocoding across the live flow');
-
+          // The demo build (movera-environment.json flavor 'demo') may ask public
+          // Nominatim for a street name when its in-process transport has none
+          // (AppGeocoding.allowPublicReverseFallback, demo/dev/test only). Any other
+          // public geocoding, and any of it from a staging or production build, fails.
+          let flavor='unknown';
+          try{flavor=(await (await fetch(base+'movera-environment.json',{cache:'no-store'})).json()).flavor||'unknown';}catch(_){}
+          const demoReverse=u=>/^https:\/\/nominatim\.openstreetmap\.org\/reverse\?/.test(u);
+          const forbiddenGeocoding=[...new Set(publicGeocoderRequests)].filter(u=>!(flavor==='demo'&&demoReverse(u)));
+          fs.writeFileSync('qa-geocoding-requests.json',JSON.stringify({flavor,all:[...new Set(publicGeocoderRequests)],forbidden:forbiddenGeocoding},null,2));
+          if(forbiddenGeocoding.length)throw new Error(`Rider data sent to a public geocoder (${flavor} build): `+forbiddenGeocoding.join(' | '));
+          console.log(`PASS: no forbidden browser-side public geocoding across the live flow (${flavor} build; demo street-name fallback requests: ${publicGeocoderRequests.filter(demoReverse).length})`);
           JS
           node qa-live.mjs
 

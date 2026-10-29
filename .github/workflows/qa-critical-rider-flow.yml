@@ -59,7 +59,7 @@ jobs:
           import { chromium } from 'playwright';
           import fs from 'fs';
 
-          const base = 'https://baccarisverige-ux.github.io/movera-rider-app/';
+          const base = process.env.QA_BASE || 'https://baccarisverige-ux.github.io/movera-rider-app/';
           const evidence = {};
 
           // Flutter parks its 'Enable accessibility' placeholder at (-1,-1), outside
@@ -72,6 +72,28 @@ jobs:
             await page.waitForTimeout(400);
           }
 
+          // Diagnostics for a failed step: the page's recent console errors and the
+          // map generation (window.moveraMapGeneration).
+          const consoleTail = new WeakMap();
+          function watchConsole(page) {
+            const tail = [];
+            consoleTail.set(page, tail);
+            page.on('console', m => {
+              if (m.type() === 'error' || /map/i.test(m.text())) tail.push(`${m.type()}: ${m.text().slice(0, 200)}`);
+              if (tail.length > 15) tail.shift();
+            });
+          }
+          async function diagnostics(page) {
+            const generation = await page.evaluate(() => window.moveraMapGeneration ?? null).catch(() => null);
+            return `map generation ${generation}; recent console: ${JSON.stringify(consoleTail.get(page) || [])}`;
+          }
+
+          async function visibleButtons(page) {
+            return page.evaluate(() => [...document.querySelectorAll('flt-semantics[role=button]')]
+              .map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60))
+              .filter(Boolean).slice(0, 25)).catch(() => []);
+          }
+
           async function waitOwner(page, expected, label, timeout = 15000) {
             await page.waitForFunction(
               owner => window.moveraMapOwner === owner,
@@ -79,7 +101,7 @@ jobs:
               { timeout },
             ).catch(async error => {
               const actual = await page.evaluate(() => window.moveraMapOwner || 'none');
-              throw new Error(`${label}: expected map owner ${expected}, got ${actual}`, { cause: error });
+              throw new Error(`${label}: expected map owner ${expected}, got ${actual}; screen buttons: ${JSON.stringify(await visibleButtons(page))}; ${await diagnostics(page)}`, { cause: error });
             });
           }
 
@@ -108,6 +130,7 @@ jobs:
           }
 
           async function openHome(page, name) {
+            watchConsole(page);
             const errors = [];
             page.on('pageerror', error => errors.push(String(error)));
             // 'load', not 'networkidle': the live map keeps fetching tiles,
