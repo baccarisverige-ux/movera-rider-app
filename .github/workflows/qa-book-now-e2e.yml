@@ -62,6 +62,22 @@ jobs:
 
           const base = process.env.QA_BASE || 'https://baccarisverige-ux.github.io/movera-rider-app/';
 
+          // Diagnostics for a failed step: the page's recent console errors and the
+          // map generation (window.moveraMapGeneration).
+          const consoleTail = new WeakMap();
+          function watchConsole(page) {
+            const tail = [];
+            consoleTail.set(page, tail);
+            page.on('console', m => {
+              if (m.type() === 'error' || /map/i.test(m.text())) tail.push(`${m.type()}: ${m.text().slice(0, 200)}`);
+              if (tail.length > 15) tail.shift();
+            });
+          }
+          async function diagnostics(page) {
+            const generation = await page.evaluate(() => window.moveraMapGeneration ?? null).catch(() => null);
+            return `map generation ${generation}; recent console: ${JSON.stringify(consoleTail.get(page) || [])}`;
+          }
+
           async function visibleButtons(page) {
             return page.evaluate(() => [...document.querySelectorAll('flt-semantics[role=button]')]
               .map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60))
@@ -77,7 +93,7 @@ jobs:
               );
             } catch (error) {
               const actual = await page.evaluate(() => window.moveraMapOwner || '');
-              throw new Error(`${name}: expected map owner ${expected}, got ${actual || 'none'}; screen buttons: ${JSON.stringify(await visibleButtons(page))}`, { cause: error });
+              throw new Error(`${name}: expected map owner ${expected}, got ${actual || 'none'}; screen buttons: ${JSON.stringify(await visibleButtons(page))}; ${await diagnostics(page)}`, { cause: error });
             }
           }
 
@@ -127,6 +143,7 @@ jobs:
             // checks read the English copy, so pin the rider's choice to English.
             await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
             const page = await context.newPage();
+            watchConsole(page);
             const errors = [];
             page.on('pageerror', e => errors.push(String(e)));
             // 'load', not 'networkidle': the map keeps fetching tiles. Wait for Home.
@@ -159,7 +176,7 @@ jobs:
             await page.screenshot({ path: `qa-book-now-${name}-categories.png`, fullPage: true });
             if (categoryOwner === 'schedule') throw new Error(`${name}: Book now opened Ride scheduled`);
             if (categoryOwner !== 'select_ride') {
-              throw new Error(`${name}: expected ride selection, got map owner ${categoryOwner || 'none'}; screen buttons: ${JSON.stringify(await visibleButtons(page))}`);
+              throw new Error(`${name}: expected ride selection, got map owner ${categoryOwner || 'none'}; screen buttons: ${JSON.stringify(await visibleButtons(page))}; ${await diagnostics(page)}`);
             }
 
             await tapNamed(page, 'Select Movera', `${name}: Select ride`);
