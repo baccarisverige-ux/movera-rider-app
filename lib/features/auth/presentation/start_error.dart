@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
-import 'package:movera_rider/features/support/application/support_contact.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Owner 2026-10-29, decision 2 (the driver app's start screen, done the
@@ -14,7 +14,7 @@ class StartError extends StatefulWidget {
     required this.onRetry,
     required this.onSignedOut,
     this.auth,
-    this.support,
+    this.supportBuilder,
   });
 
   final VoidCallback onRetry;
@@ -23,24 +23,22 @@ class StartError extends StatefulWidget {
   /// Null: the app's controller.
   final AuthController? auth;
 
-  /// Null: the build's support address (`MOVERA_SUPPORT_EMAIL`).
-  final SupportContact? support;
+  /// "Contact support" opens the in-app support messages (owner
+  /// 2026-10-29: "Open the in-app support chat"); null: SupportMessages.
+  final Widget Function()? supportBuilder;
 
   @override
   State<StartError> createState() => _StartErrorState();
 }
 
 class _StartErrorState extends State<StartError> {
-  bool _supportFailed = false;
   bool _signingOut = false;
 
-  Future<void> _contact() async {
-    final support = widget.support ?? const SupportContact();
-    final opened = await support.openEmail(
-      subject: context.l10n.startCouldNotLoad,
-    );
-    if (mounted) setState(() => _supportFailed = !opened);
-  }
+  void _contact() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => widget.supportBuilder?.call() ?? const SupportMessages(),
+    ),
+  );
 
   Future<void> _signOut() async {
     setState(() => _signingOut = true);
@@ -102,16 +100,6 @@ class _StartErrorState extends State<StartError> {
                 style: outline,
                 child: Text(context.l10n.startContactSupport),
               ),
-              if (_supportFailed)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    context.l10n.startSupportUnavailable,
-                    key: const ValueKey('start-support-failed'),
-                    textAlign: TextAlign.center,
-                    style: AuthText.small(),
-                  ),
-                ),
             ],
           ),
         ),

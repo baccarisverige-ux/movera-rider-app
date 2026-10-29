@@ -1521,5 +1521,7 @@
   "startCouldNotLoad": "Impossible de démarrer Movera.",
   "startSignOut": "Se déconnecter",
   "startContactSupport": "Contacter l’assistance",
-  "startSupportUnavailable": "Impossible d’ouvrir l’e-mail. Écrivez à l’assistance Movera depuis un autre appareil."
+  "authNeedHelp": "Besoin d’aide ?",
+  "authHelpComingSoon": "Coordonnées bientôt disponibles",
+  "authHelpCompany": "Société"
 }
