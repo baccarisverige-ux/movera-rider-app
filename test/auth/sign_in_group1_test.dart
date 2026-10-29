@@ -21,7 +21,7 @@ import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/auth/presentation/start_error.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
-import 'package:movera_rider/features/support/application/support_contact.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:pinput/pinput.dart';
 
@@ -412,32 +412,42 @@ void main() {
       expect(find.text('home'), findsOneWidget);
     });
 
-    testWidgets('Contact support opens e-mail, or says it could not', (
+    // Owner 2026-10-29 (screen driver-01c): "Open the in-app support chat".
+    testWidgets('Contact support opens the in-app support messages', (
       tester,
     ) async {
-      final opened = <Uri>[];
       await tester.pumpWidget(
-        _app(
-          StartError(
-            onRetry: () {},
-            onSignedOut: () {},
-            support: SupportContact(
-              email: 'help@movera.test',
-              launcher: (uri) async {
-                opened.add(uri);
-                return false;
-              },
-            ),
-          ),
-        ),
+        _app(StartError(onRetry: () {}, onSignedOut: () {})),
       );
       await tester.tap(find.byKey(const ValueKey('start-support')));
-      await tester.pump();
-      expect(opened.single.scheme, 'mailto');
-      expect(
-        find.byKey(const ValueKey('start-support-failed')),
-        findsOneWidget,
+      await _settle(tester);
+      expect(find.byType(SupportMessages), findsOneWidget);
+    });
+  });
+
+  // Owner 2026-10-29: "It's not help page !! It's only written need help ?
+  // When clic user can see info"; details come later ("coming soon").
+  group('Need help? before sign-in', () {
+    testWidgets('a small text that shows a box with the contact details', (
+      tester,
+    ) async {
+      _phoneSize(tester);
+      final server = _Server((_) => http.Response('', 204));
+      await tester.pumpWidget(
+        _app(SignIn(controller: _controller(server), showTestAccounts: false)),
       );
+      await tester.pump(const Duration(seconds: 6));
+      final link = find.byKey(const ValueKey('auth-need-help'));
+      expect(link, findsOneWidget);
+      expect(find.text('Need help?'), findsOneWidget);
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('auth-need-help-box')), findsOneWidget);
+      expect(find.text('Contact details coming soon'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('auth-need-help-close')));
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('auth-need-help-box')), findsNothing);
     });
   });
 }
