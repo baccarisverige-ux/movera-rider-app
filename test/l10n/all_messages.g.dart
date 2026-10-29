@@ -1514,6 +1514,20 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'categoryKidsSeat': l.categoryKidsSeat,
   'categoryWomenDriver': l.categoryWomenDriver,
   'categoryDelivery': l.categoryDelivery,
+  'startingServer': l.startingServer,
+  'errTooManyWrongCodes': l.errTooManyWrongCodes('<button>'),
+  'retryMinutes': l.retryMinutes(37),
+  'signInRestricted': l.signInRestricted,
+  'joinWaitlist': l.joinWaitlist,
+  'waitlistSaved': l.waitlistSaved,
+  'testNumbersTitle': l.testNumbersTitle,
+  'testStatusNew': l.testStatusNew,
+  'testStatusActive': l.testStatusActive,
+  'testStatusSuspended': l.testStatusSuspended,
+  'startCouldNotLoad': l.startCouldNotLoad,
+  'startSignOut': l.startSignOut,
+  'startContactSupport': l.startContactSupport,
+  'startSupportUnavailable': l.startSupportUnavailable,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1531,6 +1545,7 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'safetyContactsCount': l.safetyContactsCount(1),
   'retrySeconds': l.retrySeconds(1),
   'resSeatsPayment': l.resSeatsPayment(1, '<payment>'),
+  'retryMinutes': l.retryMinutes(1),
 };
 
 /// The String placeholders of each message, by key.
@@ -1701,6 +1716,8 @@ const messagePlaceholders = <String, List<String>>{
   'promotionApplied': ['percent'],
   'arriveEtaMin': ['arrive', 'minutes'],
   'notHereZones': ['zones'],
+  'errTooManyWrongCodes': ['button'],
+  'retryMinutes': [],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -1717,6 +1734,7 @@ const messageCounts = <String, List<String>>{
   'safetyContactsCount': ['count'],
   'retrySeconds': ['count'],
   'resSeatsPayment': ['count'],
+  'retryMinutes': ['count'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -4741,4 +4759,32 @@ class _Exhaustive implements AppLocalizations {
   String get categoryWomenDriver => '';
   @override
   String get categoryDelivery => '';
+  @override
+  String get startingServer => '';
+  @override
+  String errTooManyWrongCodes(String button) => '';
+  @override
+  String retryMinutes(int count) => '';
+  @override
+  String get signInRestricted => '';
+  @override
+  String get joinWaitlist => '';
+  @override
+  String get waitlistSaved => '';
+  @override
+  String get testNumbersTitle => '';
+  @override
+  String get testStatusNew => '';
+  @override
+  String get testStatusActive => '';
+  @override
+  String get testStatusSuspended => '';
+  @override
+  String get startCouldNotLoad => '';
+  @override
+  String get startSignOut => '';
+  @override
+  String get startContactSupport => '';
+  @override
+  String get startSupportUnavailable => '';
 }

@@ -471,4 +471,15 @@ for fam, path in _sw['sources'].items():
 for fam, codes in _sw['families'].items():
     for code, w in codes.items():
         if 'Passagerare' in w.get('sv', ''): bad += 1; print('STATUS WORD sv rider is Resenär', fam, code)
+# v0.15.0 (CONTRACT.md §24): sign-in group 1.
+_au = c['auth']
+def wait_display(sec):
+    return {'unit': 'seconds', 'value': sec} if sec < 60 else {'unit': 'minutes', 'value': -(-sec // 60)}
+for case in json.load(open('fixtures/sign_in.json'))['waitDisplay']:
+    if wait_display(case['retryAfterSeconds']) != case['expect']: bad += 1; print('SIGN-IN WAIT', case)
+if _au['slowStart']['waitSeconds'] < 50 or _au['slowStart']['showAfterSeconds'] >= _au['slowStart']['waitSeconds']: bad += 1; print('SLOW START wait')
+if (_au['limits']['perPhonePerHour'], _au['limits']['perIpPerHour']) != (10, 60): bad += 1; print('SIGN-IN LIMITS')
+for r in ['invalid_otp_code', 'invalid_otp_session', 'otp_expired', 'otp_too_many_attempts', 'otp_resend_too_soon', 'otp_too_many', 'sign_in_restricted']:
+    if r not in _au['signInErrors']: bad += 1; print('SIGN-IN REASON missing', r)
+if not set(c['driverAccountStatus']) <= set(_au['testAccounts']['statuses']) or 'test' not in _au['testAccounts']['statuses']: bad += 1; print('TEST ACCOUNT statuses')
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

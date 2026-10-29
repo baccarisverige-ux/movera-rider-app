@@ -678,6 +678,16 @@ S["PhoneRequired"] = obj({"code": s(const="PHONE_REQUIRED"), "linkToken": s(minL
                          "No account is linked to this provider identity yet: verify a phone with this linkToken on the OTP calls and the account is created linked.")
 S["ProviderSignInResult"] = {"oneOf": [ref("AuthTokens"), ref("PhoneRequired")], "description": AU["providerNote"]}
 S["RefreshRequest"] = obj({"refreshToken": s(minLength=1)}, ["refreshToken"])
+# v0.15.0 (owner 2026-10-29, sign-in group 1): waiting list and the test accounts of staging builds.
+S["WaitlistRequest"] = obj({"phone": ref("PhoneE164"), "app": s(enum=["rider", "driver"]), "locale": ref("Language")}, ["phone", "app"],
+                           "v0.15.0: join the waiting list after 403 sign_in_restricted (contract.json#auth.waitlist).")
+S["WaitlistReceipt"] = obj({"status": s(const="saved"), "requestId": s()}, ["status", "requestId"], "v0.15.0: the number is on the waiting list.")
+S["WaitlistEntry"] = obj({"phone": ref("PhoneE164"), "app": s(enum=["rider", "driver"]), "locale": ref("Language"),
+                          "firstAt": ref("Timestamp"), "lastAt": ref("Timestamp"), "count": i("How many times this number asked.", minimum=1)},
+                         ["phone", "app", "firstAt", "lastAt", "count"], "v0.15.0: one number on the waiting list, per app.")
+S["TestAccount"] = obj({"phone": ref("PhoneE164"), "app": s(enum=["rider", "driver"]), "status": s(AU["testAccounts"]["statusNote"], enum=AU["testAccounts"]["statuses"]),
+                        "name": s("The account's first name, when it has one.")}, ["phone", "app", "status"], "v0.15.0: a test number and its account's status.")
+S["TestAccountList"] = obj({"accounts": arr(ref("TestAccount"))}, ["accounts"], AU["testAccounts"]["note"])
 S["PushDeviceRequest"] = obj({"token": s("Push token from the provider.", minLength=1), "provider": s(enum=AU["devices"]["providers"]),
                               "platform": s(enum=AU["devices"]["platforms"]), "appVersion": s(pattern=r"^\d+\.\d+\.\d+$"), "locale": ref("Language")},
                              ["token", "provider", "platform"], AU["devices"]["note"])
@@ -1214,11 +1224,12 @@ TID = [pref("TripId")]
 for o in [
     op("post", "/auth/otp/request", "requestOtp", "Start a phone sign-in (SMS code)", ["rider", "driver"], "Auth",
        body="OtpRequest", ok=(200, "OtpChallenge"),
-       desc="Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn, outside production) gets no SMS and accepts the fixed code."),
+       desc="Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn, outside production) gets no SMS and accepts the fixed code. "
+            "v0.15.0: 429 reasons otp_resend_too_soon and otp_too_many (contract.json#auth.limits: per phone and app, per address, in an hour); 403 forbidden, reason sign_in_restricted, for a number not open for sign-in (the app offers POST /auth/waitlist)."),
     op("post", "/auth/otp/verify", "verifyOtp", "Verify the code and sign in", ["rider", "driver"], "Auth",
        body="OtpVerifyRequest", ok=(200, "AuthTokens"),
        desc="Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session → 400 invalid_request (reason invalid_otp_session); "
-            "expired session → 410 otp_expired; too many attempts → 429. With a linkToken the verified phone is linked to the provider account."),
+            "expired session → 410 otp_expired; too many attempts → 429 (v0.15.0: reason otp_too_many_attempts; ask for a new code). With a linkToken the verified phone is linked to the provider account."),
     op("post", "/auth/provider", "signInWithProvider", "Sign in with Apple or Google", ["rider", "driver"], "Auth",
        body="ProviderSignInRequest", ok=(200, "ProviderSignInResult")),
     op("post", "/auth/refresh", "refreshTokens", "Rotate the refresh token for new tokens", ["rider", "driver"], "Auth",
@@ -1226,6 +1237,14 @@ for o in [
 ]:
     o["security"] = []
 PATHS["/auth/otp/verify"]["post"]["responses"]["410"] = err("otp_expired: the code or the session expired; request a new code.")
+# v0.15.0 (owner 2026-10-29): sign-in group 1.
+for o in [
+    op("post", "/auth/waitlist", "joinWaitlist", "Join the waiting list (number not open for sign-in yet)", ["rider", "driver"], "Auth",
+       body="WaitlistRequest", ok=(200, "WaitlistReceipt"), desc=AU["waitlist"]["note"]),
+    op("get", "/auth/test-accounts", "listTestAccounts", "Test numbers and their account status (not in production)", ["rider", "driver"], "Auth",
+       ok=(200, "TestAccountList"), desc=AU["testAccounts"]["note"]),
+]:
+    o["security"] = []
 op("post", "/auth/sign-out", "signOut", "End this session (revokes the refresh token)", ["rider", "driver"], "Auth", ok=(204, None),
    desc="Idempotent; also unregister the push device.")
 op("post", "/push/devices", "registerPushDevice", "Register this device's push token", ["rider", "driver"], "Auth",
@@ -1462,6 +1481,10 @@ for name, (page, perm, filt) in lists.items():
     op("get", f"/admin/{name}", f"adminList{name.capitalize()}", f"List {name} (cursor paging)", ["admin"], "Admin · Lists",
        params=AL + filt, ok=(200, page), permission=perm, permission_v050=PERM_V050.get(name),
        desc="Results are limited to the zones in the admin's token scope.")
+S["WaitlistEntryPage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref("WaitlistEntry"))}}], "description": "Page<WaitlistEntry>"}
+op("get", "/admin/waitlist", "adminListWaitlist", "The sign-in waiting list (newest first)", ["admin"], "Admin · Lists",
+   params=AL + [q("app", {"type": "string", "enum": ["rider", "driver"]})], ok=(200, "WaitlistEntryPage"), permission="overview.read",
+   desc="v0.15.0 (owner 2026-10-29, decision 5): the numbers that asked to join, newest lastAt first; the admin page reads it again every 15 s. " + AU["waitlist"]["admin"])
 op("get", "/admin/trips/{tripId}", "adminGetTrip", "Trip detail incl. money split", ["admin"], "Admin · Trips",
    params=TID, ok=(200, TP), permission="trips.read")
 for seg, cmd, opid, body, summ, perm, appr, okc in [

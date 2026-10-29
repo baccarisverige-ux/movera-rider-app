@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -835,7 +835,7 @@
       "retryAfterSeconds": 30,
       "maxAttempts": 5,
       "channel": "sms",
-      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited."
+      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors."
     },
     "providers": [
       "apple",
@@ -902,7 +902,46 @@
     "providerKeys": {
       "apple": "APPLE_CLIENT_IDS (the app bundle ids / service id), tokens verified against Apple's public keys",
       "google": "GOOGLE_CLIENT_IDS (the OAuth client ids), tokens verified against Google's public keys"
-    }
+    },
+    "limits": {
+      "note": "v0.15.0 (owner 2026-10-29, group 1 decision 4): how many sign-in codes may be started. Over a limit: 429 rate_limited, reason otp_too_many, with Retry-After and retryAfterSeconds (whole seconds) for the real wait. The apps show the wait in minutes (\"Try again in 42 min\", rounded up); only a wait under one minute is shown in seconds.",
+      "perPhonePerHour": 10,
+      "perIpPerHour": 60
+    },
+    "signInErrors": {
+      "note": "v0.15.0 (owner 2026-10-29, sign-in group 1): the reasons the two OTP calls answer and what the rider and driver apps show for each, in sv, fr and en.",
+      "invalid_otp_code": "400 invalid_request: a wrong code (counts as an attempt) or not 4 digits",
+      "invalid_otp_session": "400 invalid_request: unknown, replaced or used sign-in session",
+      "otp_expired": "410 otp_expired: the code is older than otp.expiresSeconds; the app says so (no separate expiry hint, owner decision 8)",
+      "otp_too_many_attempts": "429 rate_limited after otp.maxAttempts wrong codes on one session (decision 3): the app says \"Too many wrong tries – tap Send new code\" and highlights its resend button; a new code starts a new session",
+      "otp_resend_too_soon": "429 rate_limited: a new code within otp.retryAfterSeconds of the last one",
+      "otp_too_many": "429 rate_limited: auth.limits reached (decision 4, wait in minutes)",
+      "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)"
+    },
+    "slowStart": {
+      "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds.",
+      "waitSeconds": 60,
+      "showAfterSeconds": 5
+    },
+    "waitlist": {
+      "note": "v0.15.0 (owner 2026-10-29, decision 5): a number answered 403 sign_in_restricted can join the waiting list until an SMS provider is chosen. No bearer token. POST /auth/waitlist { phone (E.164), app: rider | driver, locale? } → 200 WaitlistReceipt { status: saved, requestId }; sending the same phone and app again is fine (one row, its count and lastAt go up). A number already on the test list is still saved. Rate limited per address (429 rate_limited, reason waitlist_too_many, Retry-After).",
+      "endpoint": "POST /auth/waitlist",
+      "perIpPerHour": 30,
+      "admin": "GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app, locale?, firstAt, lastAt, count }, newest lastAt first; the admin's Waiting list page reads it again every 15 s (live)."
+    },
+    "testAccounts": {
+      "note": "v0.15.0 (owner 2026-10-29, decision 6, \"Only in test builds\"): GET /auth/test-accounts → TestAccountList { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one's account status, so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is not production: a production server answers 404 not_found and the store builds never call it.",
+      "endpoint": "GET /auth/test-accounts",
+      "statuses": [
+        "test",
+        "pending",
+        "active",
+        "on_hold",
+        "suspended"
+      ],
+      "statusNote": "test: the number has no account in that app yet (the first sign-in creates it); otherwise the account's status: the driver's accountStatus (pending, active, on_hold, suspended), the rider's (active, suspended)."
+    },
+    "codeAutofill": "v0.15.0 (owner 2026-10-29, decision 7): the apps mark the code field for one-time-code autofill (iOS / web autocomplete=one-time-code, Android SMS User Consent where available). No wire change; it does nothing until SMS codes are sent."
   },
   "configVersion": {
     "note": "v0.8.0 (owner 2026-10-27, \"the server's version number counts\"): the SERVER stamps version and publishedAt on every publish; whatever the admin sends in those two fields is ignored. version is strictly increasing per zone and document as the apps see it: a zone that served its country's standard (configDocs.standard) and then gets its own document continues above the standard's version. config_published carries the same version. Apps keep the last good document and ignore an older or equal version."
@@ -2271,7 +2310,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is"
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
