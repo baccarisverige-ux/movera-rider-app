@@ -574,6 +574,23 @@
     map.setHeading(rest.heading || 0);
     map.setTilt(rest.tilt || 0);
     state.reattach(div, id);
+    // google_maps_flutter_web reports a map as created (onMapCreated) on its
+    // first 'tilesloaded', which Google fires once per Map: a reused map
+    // whose tiles are already loaded never fires it again, so the screen
+    // never got its controller (Select ride stayed uncreated, Set pickup
+    // never moved off the opening view). The plugin listens right after
+    // this constructor returns, so the event is replayed on the next task.
+    // The camera is set again then too, now that the map's new element is
+    // laid out, so the screen opens on its own target, not the last view.
+    setTimeout(() => {
+      try {
+        const camera = {heading: rest.heading || 0, tilt: rest.tilt || 0};
+        if (rest.center) camera.center = rest.center;
+        if (rest.zoom != null) camera.zoom = rest.zoom;
+        map.moveCamera(camera);
+      } catch (_) { /* best effort */ }
+      try { sdk.event.trigger(map, 'tilesloaded'); } catch (_) { /* best effort */ }
+    }, 0);
     recycled += 1;
     return map;
   }
