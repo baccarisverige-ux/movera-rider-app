@@ -482,4 +482,10 @@ if (_au['limits']['perPhonePerHour'], _au['limits']['perIpPerHour']) != (10, 60)
 for r in ['invalid_otp_code', 'invalid_otp_session', 'otp_expired', 'otp_too_many_attempts', 'otp_resend_too_soon', 'otp_too_many', 'sign_in_restricted']:
     if r not in _au['signInErrors']: bad += 1; print('SIGN-IN REASON missing', r)
 if not set(c['driverAccountStatus']) <= set(_au['testAccounts']['statuses']) or 'test' not in _au['testAccounts']['statuses']: bad += 1; print('TEST ACCOUNT statuses')
+# v0.16.0 (CONTRACT.md §11): Crashes & errors.
+_tc = c['telemetry']['crashReport']; _te = c['telemetry']['errorGroups']
+if set(_tc['apps']) != {'driver', 'rider'} or not set(_tc['apps']) < set(_te['apps']) or 'server' not in _te['apps']: bad += 1; print('ERROR GROUP apps')
+if not set(_tc['platforms']) < set(_te['platforms']) or _tc['defaultKind'] not in _tc['kinds']: bad += 1; print('ERROR GROUP platforms/kind')
+if _te['statuses'] != ['open', 'fixed'] or _te['maxEventsPerGroup'] < 1 or 'every role' not in _te['permission']: bad += 1; print('ERROR GROUP statuses/permission')
+if 'system.read' not in c['adminPermissions']['values']: bad += 1; print('ERROR GROUP system.read missing')
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

@@ -1401,6 +1401,8 @@
   "termsS11Body": "Vous pouvez supprimer votre compte à tout moment dans Compte › Confidentialité. La suppression est irréversible et vous êtes immédiatement déconnecté sur cet appareil. Les reçus et documents que la loi comptable nous oblige à conserver le sont uniquement pendant la durée prévue par cette loi. Nous pouvons fermer un compte qui enfreint ces conditions.",
   "termsS12Title": "Modifications et droit applicable",
   "termsS12Body": "Nous pouvons mettre à jour ces conditions lorsque le service évolue ; l’application affiche la date de la version en vigueur et vous demande d’accepter les changements importants. Le droit suédois s’applique. Les litiges peuvent être portés devant les tribunaux suédois ; en tant que consommateur, vous pouvez aussi saisir la commission nationale des litiges de consommation (ARN) ou la plateforme européenne de règlement en ligne des litiges.",
+  "termsS14Title": "Rapports de plantage et d’erreur",
+  "termsS14Body": "Quand l’application plante ou affiche une erreur, elle envoie automatiquement un rapport à Movera pour que nous puissions corriger le problème : l’erreur, l’endroit de l’application où elle s’est produite, la version, la plateforme et l’heure. Les noms, numéros de téléphone, adresses e-mail, adresses et positions sont retirés avant que le rapport ne quitte votre appareil. Les rapports sont conservés 30 jours.",
   "termsS13Title": "Nous contacter",
   "termsS13Body": "Questions sur ces conditions : [e-mail du support], ou Aide dans l’application.",
   "privacyS1Title": "Qui est responsable",

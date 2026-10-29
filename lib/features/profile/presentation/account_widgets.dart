@@ -449,6 +449,8 @@ class AccountLegalPage extends StatelessWidget {
         LegalSection(l.termsS10Title, l.termsS10Body),
         LegalSection(l.termsS11Title, l.termsS11Body),
         LegalSection(l.termsS12Title, l.termsS12Body),
+        // Contract v0.16.0 (owner 2026-10-29): crash reports are automatic.
+        LegalSection(l.termsS14Title, l.termsS14Body),
         LegalSection(l.termsS13Title, l.termsS13Body),
       ];
     }

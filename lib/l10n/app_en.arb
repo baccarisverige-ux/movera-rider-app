@@ -2777,6 +2777,8 @@
   "termsS11Body": "You can delete your account at any time in Account › Privacy. Deletion cannot be undone, and you are signed out on this device at once. Receipts and records that bookkeeping law requires us to keep are kept only for as long as that law says. We may close an account that breaks these terms.",
   "termsS12Title": "Changes and governing law",
   "termsS12Body": "We may update these terms when the service changes; the app shows the date of the current version and asks you to accept material changes. Swedish law applies. Disputes can be brought before the Swedish courts, and as a consumer you can also turn to the National Board for Consumer Disputes (ARN) or the EU online dispute resolution platform.",
+  "termsS14Title": "Crash and error reports",
+  "termsS14Body": "When the app crashes or shows an error, it automatically sends a report to Movera so we can fix it: the error, where in the app it happened, the app version, the platform and the time. Names, phone numbers, e-mail addresses, addresses and locations are removed before the report leaves your device. Reports are kept for 30 days.",
   "termsS13Title": "Contact",
   "termsS13Body": "Questions about these terms: [support email], or Help in the app.",
   "privacyS1Title": "Who is responsible",

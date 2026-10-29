@@ -1407,6 +1407,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termsS11Body': l.termsS11Body,
   'termsS12Title': l.termsS12Title,
   'termsS12Body': l.termsS12Body,
+  'termsS14Title': l.termsS14Title,
+  'termsS14Body': l.termsS14Body,
   'termsS13Title': l.termsS13Title,
   'termsS13Body': l.termsS13Body,
   'privacyS1Title': l.privacyS1Title,
@@ -4547,6 +4549,10 @@ class _Exhaustive implements AppLocalizations {
   String get termsS12Title => '';
   @override
   String get termsS12Body => '';
+  @override
+  String get termsS14Title => '';
+  @override
+  String get termsS14Body => '';
   @override
   String get termsS13Title => '';
   @override

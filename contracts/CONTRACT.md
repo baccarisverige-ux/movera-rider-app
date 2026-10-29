@@ -1,4 +1,6 @@
-# Movera shared contract v0.15.0
+# Movera shared contract v0.16.0
+
+v0.16.0 (owner decisions of 2026-10-29, "Crashes & errors"; X-Api-Version stays `0.5`, additive): **Crashes & errors** (§11, `contract.json#telemetry.crashReport`, `telemetry.errorGroups`): `POST /telemetry/crashes` takes optional `app`, `platform`, `appVersion`, `build`, `screen`, `kind` and `occurredAt` (no new path); the server groups reports by fingerprint and records its own unhandled 5xx errors as app `server`; the admin reads `GET /admin/errors` → `ErrorGroupPage` and marks a group with `PATCH /admin/errors/{errorId} { status }`, open to any signed-in admin of every role (owner: "All admin roles (Recommended)").
 
 v0.15.0 (owner decisions of 2026-10-29, driver app group 1 "Sign in, sign up, language"; X-Api-Version stays `0.5`, additive): **Sign-in on a slow server, clear limits, the waiting list and test accounts** (§24, `contract.json#auth.slowStart`, `auth.limits`, `auth.signInErrors`, `auth.waitlist`, `auth.testAccounts`, `auth.codeAutofill`): the apps wait up to 60 s for the sign-in calls with the line "Starting the server…"; every OTP reason is listed with what the apps show (`otp_too_many_attempts` → "Too many wrong tries – tap Send new code"; `otp_too_many` → the wait in minutes); `POST /auth/waitlist { phone, app, locale? }` → `WaitlistReceipt` for a number answered `403 sign_in_restricted`, read by the admin with `GET /admin/waitlist` (`overview.read`); `GET /auth/test-accounts` → `TestAccountList` exists only outside production (production `404`).
 
@@ -605,6 +607,12 @@ Auth (all apps): bearer token; actor and scope come from the token, never from t
 ## 11. Telemetry (v0.5.1)
 
 `contract.json#telemetry`. `POST /telemetry/logs { level: debug | info | warning | error | fatal, event, extra?, error? }`, `POST /telemetry/analytics { event, extra? }`, `POST /telemetry/crashes { error, stack?, extra? }` from any app: no bearer token needed (one is used when sent), no `Idempotency-Key`, `X-Request-Id` and `X-Api-Version` optional. The answer is `202` with an empty body; the apps do not wait for it. A body is at most 16 KB (else `400 invalid_request`, `payload_too_large`); calls are rate limited per address and device (`429`). The apps scrub e-mails, phone numbers and coordinates; the server scrubs again and keeps the data 30 days.
+
+**v0.16.0: Crashes & errors** (owner 2026-10-29: "Want section on dispatch to show all crash droids and bugs detected from server is that poss"; who may mark fixed: "No code now every one can see and later we add"; who may see it: "All admin roles (Recommended)").
+
+- **Report.** `POST /telemetry/crashes` also takes, all optional: `app` (`driver` | `rider`), `platform` (`android` | `ios` | `web`), `appVersion`, `build`, `screen` (route or screen name, no ids), `kind` (`crash`: the app stopped, the default; `error`: caught and shown) and `occurredAt`. An app that sends none of them still works. Nothing else changes: no bearer token needed, `202`, same size limit, rate limit and scrubbing.
+- **Groups.** The server puts reports with the same fingerprint (app + platform + the message with numbers, hex and ids replaced + the top stack frame) in one `ErrorGroup { id, app, platform, appVersions, message, topFrame?, kind, count, devices, firstSeen, lastSeen, status, fixedAt? }`. The server's own unhandled `5xx` errors are recorded too, as app and platform `server`, scrubbed the same way. At most 200 reports are kept per group (the count goes on); reports are kept 30 days.
+- **Admin.** `GET /admin/errors?app=&platform=&version=&status=&cursor=&limit=` → `ErrorGroupPage`, newest `lastSeen` first. `PATCH /admin/errors/{errorId} { status: open | fixed }` → `ErrorGroup`, audited. Both are open to any signed-in admin, every role (no permission id and no entry code for now; the rest of System keeps `system.read`). A group marked `fixed` that occurs again is `open` again.
 
 ## 12. Admin live drivers and trip traces (v0.5.1)
 

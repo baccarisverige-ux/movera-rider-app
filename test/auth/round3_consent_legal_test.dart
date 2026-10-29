@@ -131,7 +131,8 @@ void main() {
       final l = await AppLocalizations.delegate.load(Locale(code));
       final terms = AccountLegalPage.sections(l, terms: true);
       final privacy = AccountLegalPage.sections(l, terms: false);
-      expect(terms, hasLength(13), reason: code);
+      // v0.16.0: + "Crash and error reports" (owner 2026-10-29).
+      expect(terms, hasLength(14), reason: code);
       expect(privacy, hasLength(12), reason: code);
       for (final s in [...terms, ...privacy]) {
         expect(s.title.trim(), isNotEmpty, reason: code);
