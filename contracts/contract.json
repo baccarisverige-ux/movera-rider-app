@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.3",
+  "version": "0.18.4",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -949,9 +949,21 @@
       "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)"
     },
     "slowStart": {
-      "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds.",
+      "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds. v0.18.4 (owner, driver group 3 'Already decided' + G3-R5): the same wait and line also cover POST /driver/availability (going online): the driver app waits up to waitSeconds and shows the line after showAfterSeconds.",
       "waitSeconds": 60,
-      "showAfterSeconds": 5
+      "showAfterSeconds": 5,
+      "covers": [
+        "POST /auth/otp/request",
+        "POST /auth/otp/verify",
+        "POST /auth/provider",
+        "POST /auth/waitlist",
+        "POST /driver/availability"
+      ],
+      "text": {
+        "sv": "Startar servern…",
+        "fr": "Démarrage du serveur…",
+        "en": "Starting the server…"
+      }
     },
     "waitlist": {
       "note": "v0.15.0 (owner 2026-10-29, decision 5): a number answered 403 sign_in_restricted can join the waiting list until an SMS provider is chosen. No bearer token. POST /auth/waitlist { phone (E.164), app: rider | driver, locale? } → 200 WaitlistReceipt { status: saved, requestId }; sending the same phone and app again is fine (one row, its count and lastAt go up). A number already on the test list is still saved. Rate limited per address (429 rate_limited, reason waitlist_too_many, Retry-After).",
@@ -1432,14 +1444,15 @@
     "keep": "trip GPS traces are deleted after traceKeepDays; only each driver's latest position is kept beyond that"
   },
   "riderNearby": {
-    "note": "v0.5.2 (CONTRACT.md §13): the free cars near the rider, drawn on the rider's map while it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day.",
+    "note": "v0.5.2 (CONTRACT.md §13): the free cars near the rider, drawn on the rider's map while it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day. v0.18.4 (G3-D4): positions moved 100–200 m, stable per 10 min (contract.json#driverHome.nearbyBlur).",
     "radiusMeters": 3000,
     "maxVehicles": 15,
     "freshSeconds": 120,
     "refreshSeconds": 5,
     "roundDecimals": 4,
     "keyRotation": "daily, Europe/Stockholm",
-    "who": "drivers online and free (not on a trip, no accepted trip), with a fix not older than freshSeconds"
+    "who": "drivers online and free (not on a trip, no accepted trip), with a fix not older than freshSeconds",
+    "blur": "driverHome.nearbyBlur"
   },
   "driverOnboarding": {
     "note": "v0.5.3 (CONTRACT.md §14), owner decisions of 2026-10-25: the driver app signs in with the phone and the code (§8) and then sends its details once (POST /driver/onboarding); the account waits on hold until Movera approves it. Two account types: a driver who works for a fleet, and a fleet (a company with cars and drivers; its owner may drive too). Documents are listed per country and account type and uploaded to the server for review in the admin panel. Tunisia is shown but not open yet.",
@@ -3305,7 +3318,8 @@
         "mode": null
       }
     },
-    "cancelDriverSharePct": 100
+    "cancelDriverSharePct": 100,
+    "noFixMinutesBeforeOffline": 5
   },
   "realtime": {
     "envelope": [
@@ -4305,5 +4319,127 @@
     "frozen": "POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected } with the trip's latest previewId before expiresAt: complete uses the frozen price exactly (total, fareLines, driverEarnings, earlyEnd): no early-end flip, no extra minutes or waiting. On a cash trip cashCollected must equal its cashDue (and the wallet part must be unchanged); otherwise 409 conflict, reason price_changed, with a fresh preview in the error's preview field.",
     "unfrozen": "previewId missing, unknown or expired: complete prices the trip as now. If the app sent previewId with cashCollected and that no longer equals the cash part of the new price: 409 conflict, reason price_changed, with a fresh preview (error.preview); the trip is not completed and the driver is never trapped by a 400. Without previewId (older apps) cashCollected keeps its old rule (at most the fare less the wallet, else 400 cash_above_fare).",
     "stored": "A completed trip's cashCollected is always the cash part of its final fare when a previewId was sent."
+  },
+  "driverHome": {
+    "note": "v0.18.4 (owner decisions of 2026-10-29/30, driver group 3 'Home & going online', decisions 1–3 and G3-R1..R5, Rules decisions/driver-g3.md). Works the same in every country (SE and FR). G3-D2 performance, G3-D4 nearbyBlur, G3-D5 zoneSupply added on the same version (deep second audit).",
+    "setOffline": {
+      "note": "G3-R1 + decision 3. Server: a driver whose onlineStatus is online (not on_trip, no active trip) and whose latest position (driver_locations, received by the server) is older than DriverAppConfig.offers.autoOffline.noFixMinutes minutes of the zone (default configDefaults.noFixMinutesBeforeOffline = 5; 0 = never) is set offline by a server job that runs every jobEverySeconds; a driver online with no position at all counts from online since. The driver's open offers are withdrawn as when going offline by hand, the Driver.version goes up, a bell notice (GET /notifications, also sent as a push, auth.devices.sending) of kind noticeKind in the driver's language opens deepLink, and the admin audit gets a line action auditAction (target driver, detail { reason: no_position, lastFixAt|null, minutes }). Driver app (decision 3): an app restarted while the driver was online sets him offline (POST /driver/availability offline) and shows the same text.",
+      "configPath": "DriverAppConfig.offers.autoOffline.noFixMinutes",
+      "default": 5,
+      "jobEverySeconds": 30,
+      "noticeKind": "set_offline",
+      "deepLink": "movera-driver://home",
+      "auditAction": "driver.auto_offline",
+      "reasons": {
+        "no_position": "no position for noFixMinutes minutes (server job)",
+        "app_restart": "the app was restarted while online (driver app, decision 3)"
+      },
+      "text": {
+        "title": {
+          "sv": "Du har satts offline",
+          "fr": "Vous avez été mis hors ligne",
+          "en": "You were set offline"
+        },
+        "body": {
+          "sv": "Tryck för att gå online igen",
+          "fr": "Appuyez pour repasser en ligne",
+          "en": "Tap to go online again"
+        },
+        "line": {
+          "sv": "Du har satts offline – tryck för att gå online igen",
+          "fr": "Vous avez été mis hors ligne – appuyez pour repasser en ligne",
+          "en": "You were set offline – tap to go online again"
+        }
+      }
+    },
+    "outsideArea": {
+      "note": "G3-R2. A driver may go online anywhere (POST /driver/availability online is 200 even outside his zones), but he gets trips only while his latest position is inside one of his own zones (Driver.zoneIds): dispatch offers nothing to an online driver whose latest fix is outside all of them, and offers only trips of his own zones (as before). Driver (GET /driver/profile and the POST /driver/availability answer) and DriverLocationAck (POST /driver/location) carry outsideArea (true/false, missing while the server has no position) and, when true, areaZones (the driver's own zones with their names). The driver app shows the popup when outsideArea turns true (on going online and when he drives out), not again until it was false. Admin direct assign is the admin's choice and is not limited.",
+      "text": {
+        "title": {
+          "sv": "Du får inte köra i det här området",
+          "fr": "Vous n'êtes pas autorisé à conduire dans cette zone",
+          "en": "You are not eligible to drive in this area"
+        },
+        "body": {
+          "sv": "Du får inga resor här. Kör tillbaka till {zones} för att få resor.",
+          "fr": "Vous ne recevrez aucune course ici. Retournez dans {zones} pour recevoir des courses.",
+          "en": "You get no trips here. Drive back to {zones} to get trips."
+        },
+        "ok": {
+          "sv": "OK",
+          "fr": "OK",
+          "en": "OK"
+        }
+      }
+    },
+    "locationRequired": {
+      "note": "Decision 2 + G3-R5. POST /driver/availability online needs a fresh position: a location in the body measured at most freshSeconds ago, or a position the server received at most freshSeconds ago (POST /driver/location). Otherwise 409 invalid_transition, reason location_required (checked after every other reason, so the reason card shows the first thing to fix). Driver app: with the phone's location off (or permission denied) Go online is blocked before calling the server and shows text + openSettings; with battery saver on it shows batterySaver once (per install) and may still go online.",
+      "reason": "location_required",
+      "freshSeconds": 120,
+      "text": {
+        "location_required": {
+          "sv": "Slå på platstjänster för att gå online",
+          "fr": "Activez la localisation pour passer en ligne",
+          "en": "Turn on location to go online"
+        },
+        "openSettings": {
+          "sv": "Öppna inställningar",
+          "fr": "Ouvrir les réglages",
+          "en": "Open Settings"
+        },
+        "batterySaver": {
+          "sv": "Batterisparläget är på. Movera kan sluta skicka din position – stäng av det för att få resor.",
+          "fr": "L'économiseur de batterie est activé. Movera peut cesser d'envoyer votre position – désactivez-le pour recevoir des courses.",
+          "en": "Battery saver is on. Movera may stop sending your position – turn it off to get trips."
+        }
+      }
+    },
+    "backgroundLocation": {
+      "note": "Decision 1 (app only, no wire change): while online the driver app keeps sending POST /driver/location (about every 10 s while moving, at least every 60 s) also with the phone locked or the app in the background, with a persistent notification; it stops when offline. A driver who stops sending is set offline after setOffline.default minutes.",
+      "notification": {
+        "title": {
+          "sv": "Movera är online",
+          "fr": "Movera est en ligne",
+          "en": "Movera is online"
+        },
+        "body": {
+          "sv": "Din position skickas för att du ska få resor",
+          "fr": "Votre position est envoyée pour recevoir des courses",
+          "en": "Your position is sent so you get trips"
+        }
+      }
+    },
+    "scheduledRidesPerDriver": "G3-R3 (owner 2026-10-30 'Remove the switch'): the admin's per-driver 'Scheduled driver access' switch is removed; every driver can take booked rides (the zone's reservations.on still decides). No server path ever set Driver.scheduledRides; the field (owner decision 2, v0.4.2) stays in the schema for older apps and is never sent; apps ignore it.",
+    "ridersOnline": {
+      "note": "G3-R4 (owner 'Real numbers only'): riders online per zone = distinct riders who in the last windowSeconds called GET /rider/nearby-vehicles (the open rider map) or POST /quotes (zone of the map point / pickup), plus riders with an open request (trip requested, searching or offered) in that zone. Served on GET /admin/live/drivers as LiveDriverList.ridersOnline [{ zoneId, count }] (the admin's zones only, zones with 0 included) — the admin Dashboard's 'Riders online' shows it; no invented numbers.",
+      "windowSeconds": 120
+    },
+    "performance": {
+      "note": "G3-D2 (owner 2026-10-30, 'Real numbers'). The server computes the driver's own numbers over the last windowDays days (rolling, server clock) and sends them as Driver.performance on GET /driver/profile (the driver himself) and GET /admin/drivers/{driverId} (admin). Same counts as the dispatch score inputs (CONTRACT.md §3.6 factors acceptance and cancel): offersAnswerable = the driver's offers of kind exclusive or assigned sent in the window that ended claimed, declined or expired (withdrawn and claimed_elsewhere are not counted: he could not answer them); offersAccepted = those claimed; acceptancePct = round(offersAccepted / offersAnswerable × 100); tripsCancelled = the driver's cancels after accepting (driver_cancels) in the window; cancellationPct = round(min(100, tripsCancelled / offersAccepted × 100)). acceptancePct is null while offersAnswerable < minOffers; cancellationPct is null while offersAccepted < minTrips. rating = the average of the riders' visible ratings (hidden ratings not counted, 2 decimals), null while ratingCount < minRatings. The app shows '—' for null (sv/fr/en: same dash). Dispatch (§3.6) uses these same counts unrounded as soon as there is any data (the minimums only decide what the apps show); with no data at all it uses the §3.6 defaults (rating 4.7, acceptance 85 %, cancels 5 %).",
+      "windowDays": 30,
+      "minOffers": 10,
+      "minTrips": 10,
+      "minRatings": 1,
+      "dispatchDefaults": {
+        "rating": 4.7,
+        "acceptancePct": 85,
+        "cancellationPct": 5
+      },
+      "emptyText": "—"
+    },
+    "nearbyBlur": {
+      "note": "G3-D4 (owner 2026-10-30, 'Slightly moved'). GET /rider/nearby-vehicles never gives a driver's exact position: each car is moved by an offset of minMeters..maxMeters in a direction, both taken from an HMAC of the driver id and the time slot of stableMinutes (server clock), so a car does not jump between answers inside a slot; the offset changes at the next slot. The answer still carries no identity (opaque key, contract.json#riderNearby). The exact position is shown only to the rider of a trip a driver accepted, through the existing trip views (TripProjection driver location).",
+      "minMeters": 100,
+      "maxMeters": 200,
+      "stableMinutes": 10
+    },
+    "zoneSupply": {
+      "note": "G3-D5 (owner 2026-10-30, 'Fix it'). LiveDriverList.zoneSupply on GET /admin/live/drivers: one row per zone of the answer, the Dashboard's supply/demand rows AND its shortage alert use these same numbers. Every driver online or on_trip counts in his zone (LiveDriver.zoneId: the zone of his latest position, else his first own zone), stale position included. online = those drivers; free = online drivers with onlineStatus online and no active trip; busy = online − free; waiting = trips of the zone in status requested, searching or offered with no driver yet (live rides only, not reservations before their search starts). level: ok when waiting = 0; tight when 0 < waiting <= free; short when waiting > free. shortage = level short. The panel shows the shortage alert only when at least one row has shortage true and names those rows.",
+      "levels": [
+        "ok",
+        "tight",
+        "short"
+      ]
+    }
   }
 }

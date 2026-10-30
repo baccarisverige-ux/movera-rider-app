@@ -130,5 +130,34 @@ void main() {
       );
       expect(identical(tester.widget(mapKey), second), isFalse);
     });
+    testWidgets(
+      'the map is told to redraw when its box grows (iOS Safari toolbar)',
+      (tester) async {
+        HomeMapLayer.debugRedrawRequests = 0;
+        Widget sized(double height) => Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(width: 402, height: height, child: layer()),
+          ),
+        );
+        await tester.pumpWidget(sized(420));
+        await tester.pump(const Duration(seconds: 1));
+        expect(HomeMapLayer.debugRedrawRequests, 0);
+
+        // The toolbar collapses: the same map widget, a taller box.
+        final before = tester.widget(mapKey);
+        await tester.pumpWidget(sized(495));
+        expect(identical(tester.widget(mapKey), before), isTrue);
+        await tester.pump(HomeMapLayer.redrawSettle);
+        await tester.pump();
+        expect(HomeMapLayer.debugRedrawRequests, 1);
+
+        // A shorter box is only clipped: no redraw.
+        await tester.pumpWidget(sized(400));
+        await tester.pump(const Duration(seconds: 1));
+        expect(HomeMapLayer.debugRedrawRequests, 1);
+      },
+    );
   });
 }

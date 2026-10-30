@@ -226,7 +226,7 @@ S["Driver"] = obj({"driverId": ref("Id"), "accountStatus": ref("DriverAccountSta
                    "moving": b("Mirror of the latest GeoFix.moving the driver app sent (contract.json#driverMotion, v0.5.0); decides the offer limits while driving."),
                    "firstName": s(), "rating": n(minimum=0, maximum=5), "zoneIds": arr(ref("Id")),
                    "categoryIds": arr(ref("CategoryId")), "vehicleId": ref("Id"), "documents": arr(ref("DocumentSummary")),
-                   "activeTripId": ref("Id"), "scheduledRides": ref("DriverScheduledRides"), "version": i(minimum=1),
+                   "activeTripId": ref("Id"), "scheduledRides": {"allOf": [ref("DriverScheduledRides")], "description": C["driverHome"]["scheduledRidesPerDriver"]}, "version": i(minimum=1),
                    "location": {"allOf": [ref("GeoFix")], "description": "v0.5.1, admin view only: the latest fix (CONTRACT.md §12)."},
                    "lastFixAt": {"allOf": [ref("Timestamp")], "description": "v0.5.1, admin view only: when the latest fix was received."}},
                   ["driverId", "accountStatus", "onlineStatus", "firstName", "zoneIds", "categoryIds", "documents", "version"])
@@ -280,7 +280,18 @@ S["FleetDriverEarnings"] = obj({"driverId": ref("Id"), "firstName": s(), "lastNa
                                ["driverId", "firstName", "trips", "earnings"])
 S["FleetEarnings"] = obj({"from": ref("Timestamp"), "to": ref("Timestamp"), "items": arr(ref("FleetDriverEarnings")), "total": ref("Money")},
                          ["from", "to", "items", "total"], "v0.5.3: every driver's earnings in the period, for the fleet owner.")
+PF = C["driverHome"]["performance"]
+S["DriverPerformance"] = obj(OrderedDict([
+    ("windowDays", {**i(minimum=1), "default": PF["windowDays"]}), ("from", ref("Timestamp")),
+    ("offersAnswerable", i(minimum=0)), ("offersAccepted", i(minimum=0)), ("tripsCancelled", i(minimum=0)), ("ratingCount", i(minimum=0)),
+    ("acceptancePct", {"type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": f"null while offersAnswerable < {PF['minOffers']}."}),
+    ("cancellationPct", {"type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": f"null while offersAccepted < {PF['minTrips']}."}),
+    ("rating", {"type": ["number", "null"], "minimum": 0, "maximum": 5, "description": f"null while ratingCount < {PF['minRatings']}."}),
+]), ["windowDays", "from", "offersAnswerable", "offersAccepted", "tripsCancelled", "ratingCount", "acceptancePct", "cancellationPct", "rating"], "v0.18.4 (G3-D2): " + PF["note"])
 S["Driver"]["properties"].update({
+    "performance": {"allOf": [ref("DriverPerformance")], "description": "v0.18.4 (G3-D2): on GET /driver/profile and GET /admin/drivers/{driverId} only."},
+    "outsideArea": b("v0.18.4 (G3-R2), driver view: the latest position is outside all of Driver.zoneIds; missing with no position. The app shows contract.json#driverHome.outsideArea.text."),
+    "areaZones": arr(ref("AreaZone"), description="v0.18.4: with outsideArea true, the driver's own zones (names for the popup)."),
     "accountType": {"allOf": [ref("DriverAccountType")], "description": "v0.5.3; missing before POST /driver/onboarding."},
     "lastName": s("v0.5.3"), "dateOfBirth": s("v0.5.3: YYYY-MM-DD; at least contract.json#driverOnboarding.minAge years.", format="date"),
     "email": s("v0.5.3", format="email"), "country": {"allOf": [ref("DriverCountry")], "description": "v0.5.3"},
@@ -473,7 +484,10 @@ S["EarningsPeriod"] = obj({"periodStart": ref("Timestamp"), "periodEnd": ref("Ti
                           ["periodStart", "periodEnd", "tripCount", "gross", "commission", "tips", "adjustments", "net"])
 S["EarningsReport"] = obj({"driverId": ref("Id"), "period": s(enum=["day", "week", "month"]), "timeZone": s(),
                            "periods": arr(ref("EarningsPeriod"))}, ["driverId", "period", "periods"])
-S["DriverLocationAck"] = obj({"accepted": i(minimum=0), "serverTime": ref("Timestamp")}, ["accepted", "serverTime"])
+S["AreaZone"] = obj({"zoneId": ref("Id"), "name": s()}, ["zoneId", "name"], "v0.18.4: one of the driver's own zones.")
+S["DriverLocationAck"] = obj({"accepted": i(minimum=0), "serverTime": ref("Timestamp"),
+                              "outsideArea": b("v0.18.4 (G3-R2): the driver's latest position is outside all his zones (no trips there). " + C["driverHome"]["outsideArea"]["note"]),
+                              "areaZones": arr(ref("AreaZone"), description="v0.18.4: with outsideArea true, the driver's own zones.")}, ["accepted", "serverTime"])
 S["PinCode"] = obj({"tripId": ref("Id"), "pin": s(pattern=r"^\d{4}$"), "expiresAt": ref("Timestamp")},
                    ["tripId", "pin", "expiresAt"], "Per-trip PIN shown to the rider when pinRequired.")
 S["PinVerification"] = obj({"verifiedPinToken": s("Short-lived proof passed to `board`; the raw PIN is never stored or logged.", minLength=16),
@@ -729,6 +743,7 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
                                   "additionalProperties": {"type": "boolean"}},
                     "exclusiveReasons": arr(obj({"id": s(pattern="^[a-z][a-z0-9_-]{0,63}$"), "text": s(), "on": b()}, ["id", "text", "on"])),
                     "autoOffline": obj({"missedExclusive": i("Missed or declined exclusive offers in a row before the driver is set offline (default 10, owner decision 35; 3 before v0.5.6). " + C["autoOffline"]["note"], minimum=0),
+                                        "noFixMinutes": i("v0.18.4 (G3-R1): no position for this many minutes while online (not on a trip) → the server sets the driver offline (default 5; 0 = never). " + C["driverHome"]["setOffline"]["note"], minimum=0),
                                         "hiddenComesBackMin": n(minimum=0)})})),
     ("pickupPay", ref("DriverPickupPay")),
     ("driverBonus", ref("DriverBonusLimits")),
@@ -935,21 +950,28 @@ S["LiveDriver"] = obj(OrderedDict([("driverId", ref("Id")), ("firstName", s()), 
                                    ("stale", b(f"No fix for more than staleAfterSeconds ({LD['staleAfterSeconds']} s).")), ("activeTripId", ref("Id")),
                                    ("tripStatus", ref("TripStatus")), ("vehicleId", ref("Id")), ("plate", s()), ("zoneId", ref("Id"))]),
                       ["driverId", "firstName", "onlineStatus", "stale", "zoneId"])
-S["LiveDriverList"] = obj({"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp")},
+S["ZoneRidersOnline"] = obj({"zoneId": ref("Id"), "count": i(minimum=0)}, ["zoneId", "count"], "v0.18.4 (G3-R4): " + C["driverHome"]["ridersOnline"]["note"])
+DS = C["driverHome"]["zoneSupply"]
+S["ZoneSupply"] = obj(OrderedDict([("zoneId", ref("Id")), ("online", i(minimum=0)), ("free", i(minimum=0)), ("busy", i(minimum=0)), ("waiting", i(minimum=0)),
+                                   ("level", s(enum=DS["levels"])), ("shortage", b())]),
+                      ["zoneId", "online", "free", "busy", "waiting", "level", "shortage"], "v0.18.4 (G3-D5): " + DS["note"])
+S["LiveDriverList"] = obj({"zoneSupply": arr(ref("ZoneSupply"), description="v0.18.4 (G3-D5): supply and demand per zone; the Dashboard's rows and shortage alert."),"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp"),
+                           "ridersOnline": arr(ref("ZoneRidersOnline"), description="v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard's 'Riders online'."),
+                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]}},
                           ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
 S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
                      f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
 RN = C["riderNearby"]
 S["NearbyVehicle"] = obj(OrderedDict([
     ("key", s("Opaque, the same for one car through the day (it changes every day), so the app can move the car smoothly between answers. Not a driver or vehicle id.", minLength=6, maxLength=32)),
-    ("lat", n(f"Rounded to {RN['roundDecimals']} decimals.", minimum=-90, maximum=90)),
-    ("lng", n(f"Rounded to {RN['roundDecimals']} decimals.", minimum=-180, maximum=180)),
+    ("lat", n(f"Moved {C['driverHome']['nearbyBlur']['minMeters']}–{C['driverHome']['nearbyBlur']['maxMeters']} m (v0.18.4, G3-D4), then rounded to {RN['roundDecimals']} decimals.", minimum=-90, maximum=90)),
+    ("lng", n(f"Moved {C['driverHome']['nearbyBlur']['minMeters']}–{C['driverHome']['nearbyBlur']['maxMeters']} m (v0.18.4, G3-D4), then rounded to {RN['roundDecimals']} decimals.", minimum=-180, maximum=180)),
     ("heading", n("Degrees clockwise from north, from the latest fix; absent when unknown.", minimum=0, maximum=360)),
 ]), ["key", "lat", "lng"], "A free car near the rider (v0.5.2). Nothing that tells who drives it.")
 S["NearbyVehicleList"] = obj({"items": arr(ref("NearbyVehicle"), maxItems=RN["maxVehicles"], description="Nearest first."),
                               "refreshSeconds": {**i(minimum=1), "default": RN["refreshSeconds"]},
                               "radiusMeters": {**i(minimum=1), "default": RN["radiusMeters"]}},
-                             ["items", "refreshSeconds"], "CONTRACT.md §13: " + RN["note"])
+                             ["items", "refreshSeconds"], "CONTRACT.md §13: " + RN["note"] + " " + C["driverHome"]["nearbyBlur"]["note"])
 S["AccountDeletion"] = obj({"status": s(enum=C["accountDeletion"]["status"])}, ["status"], C["accountDeletion"]["note"])
 S["RiderConsents"] = obj({"rideUpdates": b(), "emailUpdates": b(), "promotions": b()})
 
@@ -1397,7 +1419,9 @@ op("post", "/support/tickets", "createTicket", "Open a support ticket", ["rider"
 op("post", "/driver/availability", "setDriverAvailability", "Go online / offline", ["driver"], "Driver · Session",
    body="AvailabilityRequest", ok=(200, "Driver"), mutation=True,
    desc="409 when on a trip, account not active, documents expired or driving limit reached (projection = Driver). v0.14.0: a car whose Vehicle.requiredDocuments are not all approved → 409 documents_not_approved (reason vehicle_documents_not_approved, details). "
-        "v0.18.0: " + C["driverOnboarding"]["documentExpiry"]["block"] + " With no car picked: reason fleet_no_approved_car when the fleet has no car that can be picked, else no_vehicle (contract.json#driverOnboarding.reminders).")
+        "v0.18.0: " + C["driverOnboarding"]["documentExpiry"]["block"] + " With no car picked: reason fleet_no_approved_car when the fleet has no car that can be picked, else no_vehicle (contract.json#driverOnboarding.reminders). "
+        "v0.18.4: " + C["driverHome"]["locationRequired"]["note"] + " Outside the driver's zones going online still works and the Driver carries outsideArea: true (contract.json#driverHome.outsideArea). "
+        "Slow server: contract.json#auth.slowStart covers this call.")
 op("post", "/driver/location", "postDriverLocation", "Upload a batch of GPS fixes", ["driver"], "Driver · Session",
    body="LocationBatch", ok=(200, "DriverLocationAck"), mutation=True,
    desc="Fixes are fanned out as kind=location on the active trip's stream; they never change the projection version.")
@@ -1713,10 +1737,10 @@ op("post", "/admin/agents/{adminId}/setup-link", "adminIssueSetupLink", "Issue a
    params=[pref("AdminId")], ok=(201, "SetupLink"), mutation=True, permission="team.edit",
    desc=f"Single use, {AU_A['setupLinkHours']} h; a new link revokes the admin's earlier unused one. The first Super admin's link comes from the server seed / CLI.")
 # Locations and routes (CONTRACT.md §10, owner decision 4). Read-only POSTs: no Idempotency-Key.
-op("post", "/locations/autocomplete", "autocompleteAddress", "Address suggestions while typing", ["rider"], "Maps",
+op("post", "/locations/autocomplete", "autocompleteAddress", "Address suggestions while typing", ["rider", "driver"], "Maps",
    body="AutocompleteRequest", ok=(200, "AddressSuggestionList"), read_only=True,
    desc="Body uses latitude / longitude (wire exception). Google Places through the server; the server keeps its own session tokens and cache. An empty list = nothing found.")
-op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address or a suggestion", ["rider"], "Maps",
+op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address or a suggestion", ["rider", "driver"], "Maps",
    body="GeocodeRequest", ok=(200, "GeocodeResult"), read_only=True, desc="No match → 200 without coordinates (never 404).")
 op("post", "/locations/reverse-geocode", "reverseGeocode", "Address of a point", ["rider", "driver"], "Maps",
    body="ReverseGeocodeRequest", ok=(200, "ReverseGeocodeResult"), read_only=True, desc="Bad coordinates → 400 invalid_request (invalid_coordinates).")

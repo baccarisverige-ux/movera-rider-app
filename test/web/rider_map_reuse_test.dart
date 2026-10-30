@@ -28,4 +28,19 @@ void main() {
     expect(camera['lng'], closeTo(18.06, 1e-9));
     expect(camera['zoom'], 16);
   });
+
+  test('rider map: redraw(id) makes Google measure the grown element '
+      'again and redraw on the same camera', () async {
+    final run = await Process.run('node', [
+      'test/web/rider_map_reuse_harness.js',
+      'web/rider_map_camera.js',
+    ]);
+    expect(run.exitCode, 0, reason: '${run.stderr}');
+    final out = jsonDecode(run.stdout as String) as Map<String, dynamic>;
+    final redraw = out['redraw'] as Map<String, dynamic>;
+    expect(redraw['resized'], 1);
+    expect(redraw['centerSet'], 1);
+    expect(redraw['lat'], closeTo(59.33, 1e-9));
+    expect(redraw['lng'], closeTo(18.06, 1e-9));
+  });
 }

@@ -101,6 +101,13 @@
       #movera-boot .movera-boot-fill { animation: none; width: 100%; }
       #movera-boot { transition: none; }
     }
+    /* Owner decision (rider map, 2026-10-30): Google's legacy markers lay
+       an invisible hit area over each marker, an <img> of
+       maps.gstatic.com/mapfiles/transparent.png. When that image does not
+       load (blocked or slow network), the browser draws a broken-image box
+       with a frame around the rider's dot. The hit area's <div> still takes
+       taps; only its image is hidden. */
+    .gm-style img[src*="/mapfiles/transparent.png"] { visibility: hidden !important; }
   </style>
 </head>
 <body>
