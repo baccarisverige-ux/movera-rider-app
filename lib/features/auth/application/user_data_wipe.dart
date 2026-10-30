@@ -64,7 +64,7 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   language (rider-r4-41).
 ///
 /// Not prefs: the access/refresh tokens (`movera_access_token`,
-/// `movera_refresh_token`, secure storage or web sessionStorage) are cleared
+/// `movera_refresh_token`, secure storage or web localStorage) are cleared
 /// by `AuthRepository.signOut`; `movera_search_live` (web sessionStorage) is
 /// cleared here. In memory: profile, saved places, saved cards, default
 /// payment, wallet ledger, reservations, account security, promotion,
