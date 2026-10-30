@@ -98,10 +98,48 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     super.dispose();
   }
 
+  /// True while a wrong code is being cleared from the boxes, so the
+  /// error line stays (v0.18.2 `auth.codeClearOnWrong`).
+  bool _clearingWrongCode = false;
+
+  /// The complete code the last digit already sent (v0.18.2
+  /// `auth.codeAutoSubmit`): the same code is not sent by itself twice.
+  String? _autoSent;
+
   void _pinChanged() {
+    if (_clearingWrongCode) return;
+    if (!RidePin.isValidFormat(_pin.text.trim())) _autoSent = null;
     setState(() {
       if (_error != null) _error = null;
     });
+  }
+
+  /// v0.18.2 `auth.codeAutoSubmit` (owner 2026-10-30, "Check by itself
+  /// (Recommended)"): the last digit sends the code at once, one call per
+  /// complete code. Verify stays for slow connections; while a check runs
+  /// it is busy, so a tap on it sends nothing more.
+  void _codeCompleted(String value) {
+    final code = value.trim();
+    setState(() {});
+    if (!RidePin.isValidFormat(code) || _submitting || _autoSent == code) {
+      return;
+    }
+    _autoSent = code;
+    unawaited(_verify());
+  }
+
+  /// v0.18.2 `auth.codeClearOnWrong` (owner 2026-10-30, "Clear boxes
+  /// (Recommended)"): a wrong code empties the boxes; the error line stays
+  /// and the field keeps its focus for the next code.
+  void _clearWrongCode() {
+    _clearingWrongCode = true;
+    try {
+      _pin.clear();
+    } finally {
+      _clearingWrongCode = false;
+    }
+    _autoSent = null;
+    if (!_pinFocus.hasFocus) _pinFocus.requestFocus();
   }
 
   /// Counts the server's retry window down once a second.
@@ -191,6 +229,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         _error = authErrorMessage(error, AuthAction.verifyCode);
         if (isTooManyWrongCodes(error)) _tooManyWrong = true;
       });
+      if (isWrongCode(error)) _clearWrongCode();
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -246,7 +285,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             autofillHints: const [AutofillHints.oneTimeCode],
             keyboardType: TextInputType.number,
             forceErrorState: _error != null,
-            onCompleted: (_) => setState(() {}),
+            onCompleted: _codeCompleted,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             defaultPinTheme: _box(),
             focusedPinTheme: _box(focused: true),

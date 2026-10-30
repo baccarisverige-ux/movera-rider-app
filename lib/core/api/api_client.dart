@@ -96,6 +96,47 @@ class ApiClient {
     '/api/v1/auth/provider',
   };
 
+  /// Contract v0.18.2 `auth.beforeSignIn.allowed` (owner 2026-10-30, "Yes,
+  /// stop it (Recommended)"): the only calls that need no bearer token.
+  /// Telemetry goes through its own sink, not this client.
+  static const _noSessionPaths = {
+    '/api/v1/auth/otp/request',
+    '/api/v1/auth/otp/verify',
+    '/api/v1/auth/provider',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/waitlist',
+    '/api/v1/auth/test-accounts',
+  };
+
+  /// Whether [path] (query ignored) needs the rider's bearer token.
+  static bool needsSession(String path) {
+    final query = path.indexOf('?');
+    final bare = query < 0 ? path : path.substring(0, query);
+    return !_noSessionPaths.contains(bare) &&
+        !bare.startsWith('/api/v1/telemetry/');
+  }
+
+  /// v0.18.2 `auth.beforeSignIn`: on the contract wire, with no stored
+  /// session, a call that needs a bearer token is not sent at all (live:
+  /// /rider/config, its stream, zones, profile and content answered 401
+  /// dozens of times a minute on the Sign in screen). The caller gets the
+  /// same `401` it would have got, without the request, and nothing is
+  /// logged for it.
+  ApiError? _withoutSession(String path, String? access, String requestId) {
+    if (!contractWire || _tokens == null) return null;
+    if (access != null && access.isNotEmpty) return null;
+    if (!needsSession(path)) return null;
+    return ApiError(
+      code: noSessionCode,
+      message: 'Not signed in',
+      requestId: requestId,
+      statusCode: 401,
+    );
+  }
+
+  /// [ApiError.code] of a call held back because no rider is signed in.
+  static const noSessionCode = 'no_session';
+
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
 
   /// A Server-Sent Events GET (contract §4, e.g. `/rider/config/stream`):
@@ -107,6 +148,8 @@ class ApiClient {
   }) async {
     final requestId = newRequestId();
     final access = await _tokens?.readAccess();
+    final held = _withoutSession(path, access, requestId);
+    if (held != null) throw held;
     final request = http.Request('GET', Uri.parse('${_env.apiBaseUrl}$path'))
       ..headers.addAll({
         'Accept': 'text/event-stream',
@@ -164,6 +207,8 @@ class ApiClient {
     final uri = Uri.parse('${_env.apiBaseUrl}$path');
     try {
       final access = await _tokens?.readAccess();
+      final held = _withoutSession(path, access, requestId);
+      if (held != null) throw held;
       final headers = <String, String>{
         'Accept': 'application/json',
         'Content-Type': 'application/json',

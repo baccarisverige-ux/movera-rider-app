@@ -9,6 +9,12 @@ enum AuthAction { sendCode, verifyCode, providerSignIn }
 bool isTooManyWrongCodes(Object error) =>
     error is ApiError && error.detail == 'otp_too_many_attempts';
 
+/// The contract's reason for a wrong code (`400 invalid_request`, reason
+/// `invalid_otp_code`; `invalid_otp` is an older alias).
+bool isWrongCode(Object error) =>
+    error is ApiError &&
+    (error.detail == 'invalid_otp_code' || error.detail == 'invalid_otp');
+
 /// Contract v0.15.0 `403 forbidden`, reason `sign_in_restricted`: the number
 /// can join the waiting list (owner 2026-10-29, decision 5).
 bool isSignInRestricted(Object error) =>

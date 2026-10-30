@@ -76,14 +76,24 @@ abstract final class PhoneCountries {
     return null;
   }
 
+  /// The countries the phone field may start with (contract v0.18.2
+  /// `auth.startCountry.countries`, owner 2026-10-30 "France or sweden").
+  static final List<PhoneCountry> startCountries = [sweden, france];
+
+  /// [country] when the phone field may start with it, else null.
+  static PhoneCountry? _startable(PhoneCountry? country) =>
+      startCountries.contains(country) ? country : null;
+
   /// The phone field's starting country, from what the app already knows
-  /// without asking for location:
-  /// 1. the app's last good fix, when it lies in a zone country;
+  /// without asking for location. Contract v0.18.2 `auth.startCountry`
+  /// (owner 2026-10-30, "France or sweden"): only Sweden or France, each
+  /// step only when it gives one of them:
+  /// 1. the app's last good fix;
   /// 2. with no fix, the zone of the last fix this device ever had (a fix
   ///    outside every zone was saved as the home zone, so it is skipped
   ///    when the fix itself is known to be elsewhere);
   /// 3. the device's region (the country of its locale);
-  /// 4. Sweden, the home zone's country.
+  /// 4. Sweden. Any other country can still be picked from the list.
   static PhoneCountry defaultFor({
     double? lastFixLat,
     double? lastFixLng,
@@ -94,7 +104,9 @@ abstract final class PhoneCountries {
     final fromLocation = hasFix
         ? atPoint(lastFixLat, lastFixLng)
         : (lastZone == null ? null : ofZone(lastZone));
-    return fromLocation ?? byIso(localeRegion) ?? sweden;
+    return _startable(fromLocation) ??
+        _startable(byIso(localeRegion)) ??
+        sweden;
   }
 
   /// The countries whose name (English or in [language]) or ISO code

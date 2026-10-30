@@ -488,4 +488,41 @@ if set(_tc['apps']) != {'driver', 'rider'} or not set(_tc['apps']) < set(_te['ap
 if not set(_tc['platforms']) < set(_te['platforms']) or _tc['defaultKind'] not in _tc['kinds']: bad += 1; print('ERROR GROUP platforms/kind')
 if _te['statuses'] != ['open', 'fixed'] or _te['maxEventsPerGroup'] < 1 or 'every role' not in _te['permission']: bad += 1; print('ERROR GROUP statuses/permission')
 if 'system.read' not in c['adminPermissions']['values']: bad += 1; print('ERROR GROUP system.read missing')
+# v0.18.0 (CONTRACT.md §27): driver onboarding group 2, France and Sweden alike, Tunisia closed.
+_do = c['driverOnboarding']; _st = _do['settings']; _ty = _do['documents']['types']
+if set(_st['defaults']) != set(_do['countries']): bad += 1; print('ONBOARDING defaults countries')
+_base = {'SE': 2015, 'FR': 2016, 'TN': 2012}
+for _cc, _d in _st['defaults'].items():
+    _req = _do['documents']['required'].get(_cc, {'driver': [], 'fleet': [], 'vehicle': []})
+    if _d['documents'] != _req: bad += 1; print('ONBOARDING defaults documents differ from required', _cc)
+    for _scope, _owner in [('driver', 'driver'), ('fleet', 'driver'), ('vehicle', 'vehicle')]:
+        for _t in _d['documents'][_scope]:
+            if _ty.get(_t, {}).get('owner') != _owner: bad += 1; print('ONBOARDING type owner', _cc, _scope, _t)
+    if _do['countries'][_cc]['open'] and 'driving_license' not in _d['documents']['driver']: bad += 1; print('ONBOARDING driving_license', _cc)
+    if [s['id'] for s in _d['steps']] != _st['stepIds'] or [s['days'] for s in _d['steps']] != [3, 7, 3, 5, 2]: bad += 1; print('ONBOARDING steps', _cc)
+    if _d['signUpReminders'] != {'on': True, 'everyDays': 2, 'stuckAfterDays': 10}: bad += 1; print('ONBOARDING reminders', _cc)
+    _w = _d['expiry']['warnDays']
+    if _w != [30, 7, 1] or _d['expiry']['blockAtExpiry'] is not True: bad += 1; print('ONBOARDING expiry', _cc)
+    _v = _d['vehicles']; _cats = {r['category']: r for r in _v['categories']}
+    if _cats['economy']['minYear'] != _base[_cc] or _cats['comfort']['minYear'] != _base[_cc] + 4 or _cats['premium']['minYear'] != _base[_cc] + 6 or _cats['electric']['minYear'] != _base[_cc] + 2: bad += 1; print('VEHICLE RULES years', _cc)
+    if _cats['xl']['minSeats'] != 6 or _cats['electric']['fuels'] != ['electric'] or (_v['warnDays'], _v['autoHold'], _v['photosNeeded']) != (30, True, True): bad += 1; print('VEHICLE RULES', _cc)
+    if not set(_cats) <= set(c['categories']['seed']) or any(not set(r['fuels']) <= set(_st['fuels']) for r in _v['categories']): bad += 1; print('VEHICLE RULES ids', _cc)
+    if not set(_d['expiringTypes']) <= set(_ty) or {'terms', 'info_session', 'profile_photo'} & set(_d['expiringTypes']): bad += 1; print('ONBOARDING expiringTypes', _cc)
+if _do['countries']['TN']['open'] or any(_st['defaults']['TN']['documents'].values()): bad += 1; print('ONBOARDING TN must stay closed with no documents')
+if any('info_session' not in _st['defaults'][_cc]['documents']['driver'] for _cc in ['SE', 'FR']): bad += 1; print('INFO SESSION SE and FR (owner item 13)')
+if set(_st['defaults']['FR']['expiringTypes']) != {'driving_license', 'national_id', 'vtc_card', 'vehicle_registration', 'insurance', 'rc_pro_insurance', 'urssaf_certificate', 'vtc_sticker', 'vtc_register_certificate'}: bad += 1; print('FR expiringTypes (owner item 14)')
+if set(_st['defaults']['SE']['expiringTypes']) & {'terms', 'info_session', 'profile_photo', 'company_registration', 'bank_statement', 'tax_settings'}: bad += 1; print('SE expiringTypes')
+if any(_d['customTypes'] != [] or _d['texts'] != {} for _d in _st['defaults'].values()) or _st['customTypes']['owners'] != ['driver', 'fleet', 'vehicle'] or _st['customTypes']['kinds'] != ['file', 'admin_check']: bad += 1; print('CUSTOM TYPES')
+if not all(_ty.get(p, {}).get('owner') == 'vehicle' and set(_ty[p]['name']) == {'en', 'sv', 'fr'} for p in _st['photoTypes']) or len(_st['photoTypes']) != 4: bad += 1; print('PHOTO types')
+if 'onboarding' not in c['configDocs']['rules'] or c['configDocs']['countryOnly'] != ['onboarding']: bad += 1; print('ONBOARDING config doc')
+if 'waiting_for_movera' not in c['documentStatus']['values'] or _do['infoSession']['contentSlot'] not in c['content']['slots'] or c['content']['apps'][_do['infoSession']['contentSlot']] != 'driver': bad += 1; print('INFO SESSION status/slot')
+if not set(_do['reminders']['levels']) == {'blocks_online', 'due_soon', 'waiting'} or 'fleet_no_approved_car' not in _do['reminders']['kinds']: bad += 1; print('REMINDERS')
+if set(_do['signUpReminders']['text']['title']) != {'sv', 'fr', 'en'} or _do['signUpReminders']['text']['title']['en'] != 'Finish your sign-up': bad += 1; print('SIGN-UP reminder text')
+if _do['documentExpiry']['validityHints']['urssaf_certificate']['months'] != 6 or 'vehicle_photos_needed' not in _do['reminders']['kinds'] or set(_do['reminders']['texts']['vehicle_photos_needed']) != {'sv', 'fr', 'en'}: bad += 1; print('v0.18.0 photos / URSSAF')
+# v0.17.1 (CONTRACT.md §9): the admin saves their own language.
+_ml = c['auth']['admin'].get('meLanguage') or {}
+if 'PATCH /admin/auth/me' not in c['auth']['admin']['paths'] or 'every role' not in _ml.get('permission', '') or c['languages']['values'] != ['en', 'fr', 'sv']: bad += 1; print('ADMIN ME LANGUAGE')
+_aa = c['driverOnboarding']['adminActions']
+if _aa['bankType'] not in c['driverOnboarding']['documents']['types'] or 'Approve all' not in _aa['note'] or any(k not in _aa for k in ['updateVehicle', 'linkDriver', 'driverCategories', 'bankReview']): bad += 1; print('ADMIN ACTIONS v0.18.0')
+if c['driverOnboarding']['carDocuments']['reason'] != 'fleet_owner_only': bad += 1; print('CAR DOCUMENTS owner only')
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

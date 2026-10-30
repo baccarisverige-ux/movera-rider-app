@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.16.0",
+  "version": "0.18.2",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -231,7 +231,7 @@
     "skipped"
   ],
   "documentStatus": {
-    "note": "v0.10.4: what a driver/fleet document shows. The server stores missing, in_review, approved, rejected, expired (openapi DocumentStatus); needed (required, not uploaded) and expiring (approved, expires within the warning window) are shown states.",
+    "note": "v0.10.4: what a driver/fleet document shows. The server stores missing, in_review, approved, rejected, expired (openapi DocumentStatus); needed (required, not uploaded) and expiring (approved, expires within the warning window) are shown states. v0.18.0: waiting_for_movera is a shown state of an admin_check document (the info session) not approved yet (driverOnboarding.infoSession).",
     "values": [
       "needed",
       "in_review",
@@ -239,7 +239,8 @@
       "rejected",
       "expired",
       "expiring",
-      "missing"
+      "missing",
+      "waiting_for_movera"
     ]
   },
   "vehicleReviewStatus": {
@@ -874,8 +875,14 @@
         "POST /admin/auth/refresh",
         "POST /admin/auth/sign-out",
         "GET /admin/auth/me",
+        "PATCH /admin/auth/me",
         "POST /admin/agents/{adminId}/setup-link"
       ],
+      "meLanguage": {
+        "note": "v0.17.1 (owner 2026-10-29, \"Why change languages in admin doesn't work\"; \"Fix fully (Recommended)\"): PATCH /admin/auth/me { language } saves the signed-in admin's own panel language on the server; null clears it (the panel then uses its default). Any signed-in admin, every role, no permission id, like GET /admin/auth/me. Audited. Answers AdminMe.",
+        "values": "languages.values or null",
+        "permission": "any signed-in admin, every role"
+      },
       "passwordMinLength": 10,
       "passwordHash": "argon2id, server side; the password never leaves the sign-in and setup calls",
       "setupLinkHours": 72,
@@ -941,7 +948,49 @@
       ],
       "statusNote": "test: the number has no account in that app yet (the first sign-in creates it); otherwise the account's status: the driver's accountStatus (pending, active, on_hold, suspended), the rider's (active, suspended)."
     },
-    "codeAutofill": "v0.15.0 (owner 2026-10-29, decision 7): the apps mark the code field for one-time-code autofill (iOS / web autocomplete=one-time-code, Android SMS User Consent where available). No wire change; it does nothing until SMS codes are sent."
+    "codeAutofill": "v0.15.0 (owner 2026-10-29, decision 7): the apps mark the code field for one-time-code autofill (iOS / web autocomplete=one-time-code, Android SMS User Consent where available). No wire change; it does nothing until SMS codes are sent.",
+    "codeAutoSubmit": "v0.18.2 (owner 2026-10-30, 'Check by itself (Recommended)'): typing the last digit of the code sends POST /auth/otp/verify at once (one call per complete code); the Verify button stays for slow connections.",
+    "codeClearOnWrong": "v0.18.2 (owner 2026-10-30, 'Clear boxes (Recommended)'): after a wrong code (invalid_otp_code) the code boxes empty themselves, the error line stays, and the field keeps focus so the next code can be typed at once.",
+    "startCountry": {
+      "note": "v0.18.2 (owner 2026-10-30, 'France or sweden'): the phone field of both apps starts with Sweden (+46) or France (+33) only; any other country can still be picked from the list.",
+      "countries": [
+        "SE",
+        "FR"
+      ],
+      "order": [
+        "lastFix",
+        "lastZone",
+        "deviceRegion"
+      ],
+      "fallback": "SE"
+    },
+    "firstLanguage": {
+      "note": "v0.18.2 (owner 2026-10-30, 'Phone language (Recommended)'): until the person picks a language (globe button) both apps speak the phone's language when it is sv, fr or en; otherwise the default of the start country (SE sv, FR fr); else en. A picked language is kept and wins.",
+      "supported": [
+        "sv",
+        "fr",
+        "en"
+      ],
+      "countryDefault": {
+        "SE": "sv",
+        "FR": "fr"
+      },
+      "fallback": "en"
+    },
+    "beforeSignIn": {
+      "note": "v0.18.2 (owner 2026-10-30, 'Yes, stop it (Recommended)'): with no stored session the apps call only endpoints that need no bearer token; config, config stream, zones, content and profile load right after sign-in. A 401 is never retried in a loop and is not sent as an error report.",
+      "allowed": [
+        "POST /auth/otp/request",
+        "POST /auth/otp/verify",
+        "POST /auth/provider",
+        "POST /auth/waitlist",
+        "GET /auth/test-accounts",
+        "POST /telemetry/logs",
+        "POST /telemetry/analytics",
+        "POST /telemetry/crashes"
+      ]
+    },
+    "driverTermsOnce": "v0.18.2 (owner 2026-10-30, 'Ask once (Recommended)'): the driver app asks for the terms once, on the phone-number screen (as the rider app); its details step has no second tick and still sends termsAccepted: true on POST /driver/onboarding (server unchanged)."
   },
   "configVersion": {
     "note": "v0.8.0 (owner 2026-10-27, \"the server's version number counts\"): the SERVER stamps version and publishedAt on every publish; whatever the admin sends in those two fields is ignored. version is strictly increasing per zone and document as the apps see it: a zone that served its country's standard (configDocs.standard) and then gets its own document continues above the standard's version. config_published carries the same version. Apps keep the last good document and ignore an older or equal version."
@@ -1066,10 +1115,13 @@
     "mustMatchNote": "mustMatch binds the documents published for one zone. v0.6.0: the sample documents fixtures/config/rider_app_config.json and driver_app_config.json are aligned with fixtures/config/pricing_document.json (12.26 kr/min, Premium 16.90, no-show fee 65 kr) and reference_check.py checks the rule against them.",
     "publishPricing": "v0.6.0 (owner 2026-10-27): publishing the pricing document keeps the app documents in step. In the same transaction the server writes the zone's live rider_app_config and driver_app_config again with waiting.byCategory (freeWaitMin, perMin, noShowAfterMin, noShowFee), the top-level waiting terms of the headline category, RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee taken from the new pricing document; every other field stays as published. Each app document whose values change gets the next version and publishedAt and sends config_published; one whose values are already equal is left as it is. A zone with no app document published yet gets none (the admin publishes the first one). An app document's draft, when there is one, takes the same values and its draft version goes up by 1 (an admin holding the old draft version gets 409 version_mismatch and reloads), so a later app publish does not undo them.",
     "rules": [
-      "country_rules"
+      "country_rules",
+      "onboarding"
     ],
-    "countryOnly": [],
-    "countryOnlyNote": "v0.8.1: empty; country_rules (configDocs.rules) is now published per zone or per country like the others.",
+    "countryOnly": [
+      "onboarding"
+    ],
+    "countryOnlyNote": "v0.8.1: country_rules is published per zone or per country. v0.18.0: onboarding (driverOnboarding.settings) is published per country only; a zoneId is 400 invalid_request (reason scope_country_only).",
     "scope": "v0.8.0: GET, PUT and POST …/publish on /admin/config/{doc} name exactly one of zoneId (the zone's own document) or country (ISO alpha-2; the country's standard). Both or neither → 400 invalid_request (reason scope_required). v0.8.1: country_rules too may name a zoneId (the zone's own tips and limits) or a country (its standard). A country scope is open to any admin who covers at least one zone of that country and holds the document's permission (owner 2026-10-27).",
     "standard": "v0.8.0 (owner 2026-10-27): every country has one standard rider_app_config, driver_app_config, pricing and dispatch, set in the admin, in the country's currency. A zone with no own published document of a kind uses its country's standard of that kind: the server serves it (GET /rider/config, /driver/config) and prices and dispatches with it, with zoneId set to the zone's id and usesStandard: true; its version is the standard's version. A zone with its own published document never uses the standard. Publishing a standard sends config_published (app documents) for every zone of the country that uses it. A zone's first own publish gets version max(own live, standard live) + 1. A standard document carries zoneId \"standard-<CC>\" (e.g. standard-SE) and its country's currency, country and timeZone. GET /admin/config/{doc}?zoneId returns usesStandard: true and the standard as the draft's starting point while the zone has nothing of its own.",
     "countryRules": "v0.8.1 (owner 2026-10-28: Tips & limits apply only to the zones chosen at the top; for the whole country the admin chooses all zones): tips, raiseSteps and driverBonus are the country_rules document { version, publishedAt, country, currency, tips: [AmountOption], raiseSteps: [AmountOption], driverBonus: { defaultLimit, hardMax } }, like the other documents published per zone (?zoneId, the zone's own) or per country (?country, the country's standard). A zone's rules are its own once published for it, else its country's standard (usesStandard: true); a zone with its own rules never uses the standard again until 'Go back to Standard' (useStandard, also for country_rules). Publishing a zone's own rules writes, in the same transaction, RiderAppConfig.tips / raiseSteps and DriverAppConfig.driverBonus of that zone's live and draft app documents; a zone that uses the standard app documents gets its own, copied from the standard with the new values (as publishPricing does), each changed one as its next version with config_published. Publishing the standard rules writes them into the standard app documents and into the own app documents of every zone of the country that has no own rules; zones with their own rules keep them. While a zone's rules (own or standard) are live, PUT and publish of that zone's app documents take those three fields from them, whatever the admin sent; the dispatch driver bonus limit of a trip is its zone's rules. The admin panel publishes to exactly the zones chosen at the top ('All zones' = every zone of the country it may work in, each as its own) and to the standard only when it is chosen.",
@@ -1099,6 +1151,8 @@
     },
     "quoteAndFare": "The quote prices the server's own route (OSRM km and minutes; a client distance is a hint) with no waiting. The fare at completion is the same calculation with the quote's km and minutes, the quote's surge multiplier, the stops made and the waiting the trip had (Waiting.chargedSeconds, stop waits from the driver's arrive / leave taps), rounded once. A reservation (kind=scheduled) keeps the price of its booking: no surge in force later is added (owner 2026-10-27).",
     "endEarly": "owner decisions 8 and 19: ride part = base + km driven × perKm + minutes on board × perMin, × the booked surge multiplier, then minimum and maximum; no extras; + app fee + pickup fee. If that exceeds the booked fare (Quote.total plus route changes, without outstanding_fee) the ride part is lowered (maximum_adjust) to (booked − pickup fee) / (1 + appFeePct / 100), so the exact sum is the booked fare; then rounded once to priceStep. driverEarnings from that ride part.",
+    "driverEndsEarly": "v0.18.1, owner decision 28: when the driver completes a trip and the driver's latest fix (POST /driver/location) is farther than completeNearDropoffMeters from the drop-off, the trip ended early: the rider pays what was driven, priced exactly as endEarly (km on board from the trip trace, minutes since boarding, the category minimum and maximum, never more than the booked fare). Within completeNearDropoffMeters (or with no fix) the booked fare stands, plus the waiting at middle stops. An admin's force-complete fare is taken as given.",
+    "completeNearDropoffMeters": 300,
     "surgeSource": "first match: the zone's active surge schedule (§3.4, PUT /admin/zones/{zoneId}/surge: the manual Start/Stop), then the highest pricing.surge.scheduled window in force (v0.7.1: overlapping planned surges, the higher counts; the admin is warned on save), then smart surge when smart.enabled (v0.7.1: contract.json#smartSurge, off by default); else 1.0. Every source is clamped to [1, 6]; the maximum of each is the value the admin chose on its slider (manual surge, planned window, smart profile cap; v0.7.1, no separate maximum). The quote keeps its multiplier; a reservation keeps the price shown at booking (no surge added later).",
     "requestExtras": {
       "note": "v0.7.1 (owner 2026-10-27): the only priced thing the rider sends is fixedRouteId (QuoteRequest, repeated unchanged on CreateTripRequest, else 400 invalid_request quote_mismatch). Seats and airport are no longer sent: a child_seat trip always includes one seat, and the airport fees come from the airport zones (server).",
@@ -1311,6 +1365,41 @@
       "admin": "GET /admin/errors?app=&platform=&version=&status=&cursor=&limit= → ErrorGroupPage, newest lastSeen first; PATCH /admin/errors/{errorId} { status } → ErrorGroup."
     }
   },
+  "adminListFilters": {
+    "note": "v0.17.2 (owner 2026-10-29, \"if I chose France it show Sweden trips\"; decision \"Fix fully (Recommended)\"): the admin lists follow the country and zones picked in the panel's top bar (CONTRACT.md §7).",
+    "lists": [
+      "GET /admin/trips",
+      "GET /admin/drivers",
+      "GET /admin/riders",
+      "GET /admin/payments",
+      "GET /admin/refunds",
+      "GET /admin/payouts",
+      "GET /admin/tickets",
+      "GET /admin/ratings",
+      "GET /admin/incidents",
+      "GET /admin/live/drivers",
+      "GET /admin/risk/signals",
+      "GET /admin/kpis"
+    ],
+    "reservations": "reservations are trips: GET /admin/trips?kind=scheduled with the same filters",
+    "params": {
+      "zoneId": "one zone id",
+      "zoneIds": "several zone ids, comma separated or repeated, at most 200; joined with zoneId",
+      "country": "ISO 3166-1 alpha-2: every zone of that country"
+    },
+    "rules": [
+      "the filters only narrow: a list never leaves the admin's own zones",
+      "a zone named in zoneId or zoneIds outside the admin's zones is 403 forbidden (reason zone_out_of_scope)",
+      "country alone: the zones of that country the admin covers (none covered: an empty page)",
+      "country with zoneId or zoneIds: only the named zones that are in that country",
+      "riders have no zone: a rider is in a zone when one of the rider's trips is",
+      "drivers: by any of the driver's zones; live drivers: the zone of the latest fix, else the driver's first zone",
+      "a ticket without a zone is in no zone: it is left out as soon as a filter is given",
+      "no filter: the list as before (every zone of the admin)",
+      "a query key the list does not know is 400 invalid_request (reason unknown_filter); a malformed value is 400 invalid_request"
+    ],
+    "panel": "the admin sends zoneIds (or zoneId for one zone) of the zones picked, and country when \"All zones\" of a country is picked; each money value is shown in its own currency, never the picked country's"
+  },
   "liveDrivers": {
     "note": "v0.5.1 (CONTRACT.md §12), owner decision 11: the admin live map reads driver positions from the server.",
     "staleAfterSeconds": 120,
@@ -1376,7 +1465,7 @@
       "joinAttemptsPerHour": 10
     },
     "activation": {
-      "note": "v0.14.0 (owner decisions, PROGRESS.md #6 and 2026-10-28): account activation and car approval are separate. POST /admin/drivers/{driverId}/status with status active is refused with 409 documents_not_approved unless every required document has a document with status approved (kinds acceptance and admin_check included): a driver attached to a fleet needs every type in Driver.requiredDocuments; a fleet owner (also a driver who drives his own car; a fleet may have one car) needs every type in Driver.requiredDocuments AND Driver.requiredFleetDocuments. No car is needed for activation, and a missing car never puts an account on hold. Cars: only a car with status approved whose Vehicle.requiredDocuments are all approved can be picked (PATCH /driver/profile { vehicleId }) or driven online (POST /driver/availability); otherwise 409 documents_not_approved, reason vehicle_documents_not_approved, with details.",
+      "note": "v0.14.0 (owner decisions, PROGRESS.md #6 and 2026-10-28): account activation and car approval are separate. POST /admin/drivers/{driverId}/status with status active is refused with 409 documents_not_approved unless every required document has a document with status approved (kinds acceptance and admin_check included): a driver attached to a fleet needs every type in Driver.requiredDocuments; a fleet owner (also a driver who drives his own car; a fleet may have one car) needs every type in Driver.requiredDocuments AND Driver.requiredFleetDocuments. No car is needed for activation, and a missing car never puts an account on hold. Cars: only a car with status approved whose Vehicle.requiredDocuments are all approved can be picked (PATCH /driver/profile { vehicleId }) or driven online (POST /driver/availability); otherwise 409 documents_not_approved, reason vehicle_documents_not_approved, with details. v0.18.0: an expired document counts as approved for activation while the country's settings.expiry.blockAtExpiry is false.",
       "errorCode": "documents_not_approved",
       "vehicleReason": "vehicle_documents_not_approved",
       "details": "string[] of \"<scope>:<type>\" for each required type that is missing or not approved; scope driver (Driver.requiredDocuments), fleet (Driver.requiredFleetDocuments) or vehicle (Vehicle.requiredDocuments), e.g. driver:info_session, fleet:company_registration, vehicle:insurance"
@@ -1388,7 +1477,7 @@
       "note": "Driver.payoutTo tells who is paid: fleet for a driver linked to a fleet (the fleet's bank; the driver sees his own trips and earnings, the owner sees every driver's earnings with GET /driver/fleet/earnings), self for a fleet account."
     },
     "documents": {
-      "note": "kind file: uploaded with POST /driver/documents (multipart) and reviewed by an admin; acceptance: terms, accepted on POST /driver/onboarding (termsAccepted) and stored approved; admin_check: no file, an admin marks it approved (the session was held). required[country].driver are the person's documents (every account); required[country].fleet are the company's (fleet accounts; the fleet is approved on them, and the owner needs his driver documents too to go online himself); required[country].vehicle per car. Driver.requiredDocuments and Vehicle.requiredDocuments carry the lists so the app never computes them.",
+      "note": "kind file: uploaded with POST /driver/documents (multipart) and reviewed by an admin; acceptance: terms, accepted on POST /driver/onboarding (termsAccepted) and stored approved; admin_check: no file, an admin marks it approved (the session was held). required[country].driver are the person's documents (every account); required[country].fleet are the company's (fleet accounts; the fleet is approved on them, and the owner needs his driver documents too to go online himself); required[country].vehicle per car. Driver.requiredDocuments and Vehicle.requiredDocuments carry the lists so the app never computes them. v0.18.0: required[country] are the contract's starting lists; the live lists are the onboarding document's (driverOnboarding.settings), editable by the admin per country and account type.",
       "types": {
         "terms": {
           "owner": "driver",
@@ -1542,6 +1631,42 @@
             "sv": "VTC-dekal",
             "fr": "Macaron VTC"
           }
+        },
+        "vehicle_photo_front": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Photo: front with plate",
+            "sv": "Foto: framifrån med registreringsskylt",
+            "fr": "Photo : avant avec plaque"
+          }
+        },
+        "vehicle_photo_back": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Photo: back with plate",
+            "sv": "Foto: bakifrån med registreringsskylt",
+            "fr": "Photo : arrière avec plaque"
+          }
+        },
+        "vehicle_photo_side": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Photo: side",
+            "sv": "Foto: från sidan",
+            "fr": "Photo : côté"
+          }
+        },
+        "vehicle_photo_inside": {
+          "owner": "vehicle",
+          "kind": "file",
+          "name": {
+            "en": "Photo: inside",
+            "sv": "Foto: insidan",
+            "fr": "Photo : intérieur"
+          }
         }
       },
       "required": {
@@ -1567,6 +1692,7 @@
         "FR": {
           "driver": [
             "terms",
+            "info_session",
             "vtc_card",
             "driving_license",
             "national_id",
@@ -1616,6 +1742,663 @@
         "en": "{driver} wants to join {fleet} in Movera. Open the app to answer."
       },
       "appLink": "the SMS to a number without an account ends with the app's install link (deploy setting)"
+    },
+    "settings": {
+      "note": "v0.18.0 (owner decisions of 2026-10-29, driver group 2 \"Onboarding\", items 1, 3, 10, 11 and the note check \"Use admin's settings (Recommended)\"): the admin's Drivers › Onboarding and Vehicles › Rules settings are one config document per country, onboarding (configDocs.rules, configDocs.countryOnly), saved and published with GET/PUT /admin/config/onboarding?country and POST /admin/config/onboarding/publish { country } (settings.edit / settings.publish), the same draft / publish / version rule as the other documents. Until a country has one published, the server and the apps use defaults[country] (the admin's own defaults). Publishing changes at once: the documents each new and existing account needs (Driver.requiredDocuments, requiredFleetDocuments, Vehicle.requiredDocuments), the expiry warnings, the sign-up reminders and the car rules. Tunisia stays present but closed (no documents). v0.18.0 (owner item 14: \"First answer , and admin can change text and add or delete documents so must add on contract and server and admin ! Also same for Sweden\"): per country the admin also creates new document types (customTypes), changes the name and help text of any type (texts), sets which expire (expiringTypes), and adds or removes types in each list.",
+      "doc": "onboarding",
+      "schema": "OnboardingSettings",
+      "defaults": {
+        "SE": {
+          "documents": {
+            "driver": [
+              "terms",
+              "info_session",
+              "driving_license",
+              "profile_photo",
+              "taxi_driver_license"
+            ],
+            "fleet": [
+              "company_registration",
+              "taxi_traffic_permit",
+              "tax_settings",
+              "bank_statement"
+            ],
+            "vehicle": [
+              "vehicle_registration",
+              "insurance"
+            ]
+          },
+          "expiringTypes": [
+            "driving_license",
+            "taxi_driver_license",
+            "taxi_traffic_permit",
+            "vehicle_registration",
+            "insurance"
+          ],
+          "steps": [
+            {
+              "id": "signup",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "documents",
+              "on": true,
+              "days": 7
+            },
+            {
+              "id": "checks",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "training",
+              "on": true,
+              "days": 5
+            },
+            {
+              "id": "ready",
+              "on": true,
+              "days": 2
+            }
+          ],
+          "signUpReminders": {
+            "on": true,
+            "everyDays": 2,
+            "stuckAfterDays": 10
+          },
+          "expiry": {
+            "warnDays": [
+              30,
+              7,
+              1
+            ],
+            "blockAtExpiry": true
+          },
+          "vehicles": {
+            "categories": [
+              {
+                "category": "economy",
+                "on": true,
+                "minYear": 2015,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "comfort",
+                "on": true,
+                "minYear": 2019,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "premium",
+                "on": true,
+                "minYear": 2021,
+                "minSeats": 4,
+                "fuels": [
+                  "hybrid",
+                  "electric",
+                  "petrol",
+                  "diesel"
+                ]
+              },
+              {
+                "category": "priority",
+                "on": true,
+                "minYear": 2015,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "xl",
+                "on": true,
+                "minYear": 2015,
+                "minSeats": 6,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "electric",
+                "on": true,
+                "minYear": 2017,
+                "minSeats": 4,
+                "fuels": [
+                  "electric"
+                ]
+              },
+              {
+                "category": "pet",
+                "on": true,
+                "minYear": 2015,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              }
+            ],
+            "warnDays": 30,
+            "autoHold": true,
+            "photosNeeded": true
+          },
+          "customTypes": [],
+          "texts": {}
+        },
+        "FR": {
+          "documents": {
+            "driver": [
+              "terms",
+              "info_session",
+              "vtc_card",
+              "driving_license",
+              "national_id",
+              "profile_photo"
+            ],
+            "fleet": [
+              "company_registration",
+              "vtc_register_certificate",
+              "rc_pro_insurance",
+              "urssaf_certificate",
+              "national_id",
+              "bank_statement"
+            ],
+            "vehicle": [
+              "vehicle_registration",
+              "insurance",
+              "vtc_sticker"
+            ]
+          },
+          "expiringTypes": [
+            "driving_license",
+            "national_id",
+            "vtc_card",
+            "vehicle_registration",
+            "insurance",
+            "rc_pro_insurance",
+            "urssaf_certificate",
+            "vtc_sticker",
+            "vtc_register_certificate"
+          ],
+          "steps": [
+            {
+              "id": "signup",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "documents",
+              "on": true,
+              "days": 7
+            },
+            {
+              "id": "checks",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "training",
+              "on": true,
+              "days": 5
+            },
+            {
+              "id": "ready",
+              "on": true,
+              "days": 2
+            }
+          ],
+          "signUpReminders": {
+            "on": true,
+            "everyDays": 2,
+            "stuckAfterDays": 10
+          },
+          "expiry": {
+            "warnDays": [
+              30,
+              7,
+              1
+            ],
+            "blockAtExpiry": true
+          },
+          "vehicles": {
+            "categories": [
+              {
+                "category": "economy",
+                "on": true,
+                "minYear": 2016,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "comfort",
+                "on": true,
+                "minYear": 2020,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "premium",
+                "on": true,
+                "minYear": 2022,
+                "minSeats": 4,
+                "fuels": [
+                  "hybrid",
+                  "electric",
+                  "petrol",
+                  "diesel"
+                ]
+              },
+              {
+                "category": "priority",
+                "on": true,
+                "minYear": 2016,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "xl",
+                "on": true,
+                "minYear": 2016,
+                "minSeats": 6,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "electric",
+                "on": true,
+                "minYear": 2018,
+                "minSeats": 4,
+                "fuels": [
+                  "electric"
+                ]
+              },
+              {
+                "category": "pet",
+                "on": true,
+                "minYear": 2016,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              }
+            ],
+            "warnDays": 30,
+            "autoHold": true,
+            "photosNeeded": true
+          },
+          "customTypes": [],
+          "texts": {}
+        },
+        "TN": {
+          "documents": {
+            "driver": [],
+            "fleet": [],
+            "vehicle": []
+          },
+          "expiringTypes": [],
+          "steps": [
+            {
+              "id": "signup",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "documents",
+              "on": true,
+              "days": 7
+            },
+            {
+              "id": "checks",
+              "on": true,
+              "days": 3
+            },
+            {
+              "id": "training",
+              "on": true,
+              "days": 5
+            },
+            {
+              "id": "ready",
+              "on": true,
+              "days": 2
+            }
+          ],
+          "signUpReminders": {
+            "on": true,
+            "everyDays": 2,
+            "stuckAfterDays": 10
+          },
+          "expiry": {
+            "warnDays": [
+              30,
+              7,
+              1
+            ],
+            "blockAtExpiry": true
+          },
+          "vehicles": {
+            "categories": [
+              {
+                "category": "economy",
+                "on": true,
+                "minYear": 2012,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "comfort",
+                "on": true,
+                "minYear": 2016,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "premium",
+                "on": true,
+                "minYear": 2018,
+                "minSeats": 4,
+                "fuels": [
+                  "hybrid",
+                  "electric",
+                  "petrol",
+                  "diesel"
+                ]
+              },
+              {
+                "category": "priority",
+                "on": true,
+                "minYear": 2012,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "xl",
+                "on": true,
+                "minYear": 2012,
+                "minSeats": 6,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              },
+              {
+                "category": "electric",
+                "on": true,
+                "minYear": 2014,
+                "minSeats": 4,
+                "fuels": [
+                  "electric"
+                ]
+              },
+              {
+                "category": "pet",
+                "on": true,
+                "minYear": 2012,
+                "minSeats": 4,
+                "fuels": [
+                  "petrol",
+                  "diesel",
+                  "hybrid",
+                  "electric"
+                ]
+              }
+            ],
+            "warnDays": 30,
+            "autoHold": true,
+            "photosNeeded": true
+          },
+          "customTypes": [],
+          "texts": {}
+        }
+      },
+      "stepIds": [
+        "signup",
+        "documents",
+        "checks",
+        "training",
+        "ready"
+      ],
+      "fuels": [
+        "petrol",
+        "diesel",
+        "hybrid",
+        "electric"
+      ],
+      "photoTypes": [
+        "vehicle_photo_front",
+        "vehicle_photo_back",
+        "vehicle_photo_side",
+        "vehicle_photo_inside"
+      ],
+      "limits": {
+        "stepDays": [
+          1,
+          60
+        ],
+        "remindEveryDays": [
+          1,
+          30
+        ],
+        "stuckAfterDays": [
+          2,
+          90
+        ],
+        "warnDays": [
+          1,
+          90
+        ],
+        "vehicleWarnDays": [
+          1,
+          120
+        ],
+        "minYear": [
+          1990,
+          2030
+        ],
+        "minSeats": [
+          1,
+          9
+        ]
+      },
+      "rules": [
+        "documents.driver, documents.fleet: types whose owner is driver; documents.vehicle: types whose owner is vehicle (documents.types). An unknown type or one of the wrong owner is 400 invalid_document. A new type needs a contract change (it has names in sv / fr / en and a kind).",
+        "documents.driver always contains driving_license (admin rule \"The driving licence is always needed\").",
+        "expiringTypes: the listed types need an expiry date when an admin approves them (documentExpiry).",
+        "steps: every id of stepIds once, at least one on, days within limits.stepDays. The server stores and serves them; the admin panel shows the funnel with them.",
+        "signUpReminders.everyDays within limits.remindEveryDays, stuckAfterDays within limits.stuckAfterDays.",
+        "expiry.warnDays: 1 to 3 numbers within limits.warnDays, largest first, each smaller than the one before.",
+        "vehicles.categories: each category of the catalog at most once; minYear, minSeats within limits; a category that is on allows at least one fuel of fuels; vehicles.warnDays within limits.vehicleWarnDays.",
+        "customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver, fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en."
+      ],
+      "driverRead": "GET /driver/onboarding/settings → OnboardingSettings of the driver's country (published, else defaults; version 0 = defaults), so the app offers only the car categories a car fits, asks the photos and shows the warnings the server uses. A driver with no country yet names it: ?country=SE. v0.18.0 (item 14): the answer also has documentTypes: { [type]: { owner, kind, expires, name, help? } } for every type in the country's lists, contract types with the admin's texts and the custom types, so the app renders a type it does not know from this data.",
+      "admin": "The draft and publish calls take country only; a zoneId is 400 invalid_request (reason scope_country_only).",
+      "customTypes": {
+        "note": "v0.18.0 (owner item 14): a document type the admin creates for one country. { id, owner: driver | fleet | vehicle, kind: file | admin_check, expires: boolean, name: { sv, fr, en }, help: { sv, fr, en } } (all three languages, non-empty). The server makes the id (custom_ + 10 lower-case letters or digits) the first time the draft is saved: a new entry is sent without id and with draftKey (any short text the panel chooses), and the lists (documents.driver / fleet / vehicle, expiringTypes) may name it by \"draft:<draftKey>\"; the server replaces each with the new id and drops draftKey. An id once made never changes; an entry with an id the country does not have is 400 invalid_document. expires true puts the type in expiringTypes, false takes it out (the server keeps the two in step). owner fleet is a company document of a fleet account (owner_kind driver); owner vehicle a car document. Deleting an entry removes the type from the country: it must not stay in a list. Documents already uploaded for it stay stored.",
+        "idPattern": "^custom_[a-z0-9]{10}$",
+        "draftRef": "draft:",
+        "owners": [
+          "driver",
+          "fleet",
+          "vehicle"
+        ],
+        "kinds": [
+          "file",
+          "admin_check"
+        ]
+      },
+      "texts": "v0.18.0 (owner item 14): texts[type] = { name?: { sv, fr, en }, help?: { sv, fr, en } } replaces the contract name, and adds a help / checklist text, of a contract type in this country. A key that is not a contract type of documents.types is 400 invalid_document (a custom type carries its own texts).",
+      "adminCheck": "v0.18.0 (owner items 8 and 13): an admin marks a kind admin_check document (the info session, or a custom one) with POST /admin/drivers/{driverId}/documents/{type}/check { decision: approved | rejected, note? } (documents.approve); approved counts for activation like any approved document. Until then the driver sees waiting_for_movera."
+    },
+    "documentExpiry": {
+      "note": "v0.18.0 (owner item 1: \"First answer but add reminder to driver one month before expire\"; item 3; note check): the admin types the expiry date when approving (POST /admin/documents/{documentId}/review { decision: approved, expiresAt }). For a type in settings.expiringTypes of the driver's country, approving without expiresAt is 400 invalid_request (reason expiry_required) and a date not in the future is 400 (reason expiry_in_past); other types keep expiresAt optional. A driver may send expiresAt on upload; the admin's date wins.",
+      "expire": "At expiresAt the server marks the document expired (a sweep every hour; every check before that already counts a document whose expiresAt has passed as expired). The driver uploads a new one (in_review) and an admin approves it with a new date.",
+      "block": "settings.expiry.blockAtExpiry true (default): with any document of Driver.requiredDocuments (and requiredFleetDocuments for a fleet owner) expired, POST /driver/availability online is 409 documents_not_approved, reason documents_expired, details \"<scope>:<type>\". false: an expired document does not stop going online (it still shows red). Car documents follow settings.vehicles.autoHold the same way (reason vehicle_documents_not_approved).",
+      "warn": "From the largest of settings.expiry.warnDays (cars: settings.vehicles.warnDays) before expiresAt the document is expiring (shown orange). Push (GET /notifications, kind document_expiring, data { documentId, type, scope, vehicleId?, daysLeft, expiresAt }) once per warning day reached (30, 7, 1 by default; when several are reached at once only the smallest is sent); at expiry one notice kind document_expired. deepLink movera-driver://documents/{type} (cars: ?vehicleId=).",
+      "kinds": [
+        "document_expiring",
+        "document_expired"
+      ],
+      "daysLeft": "whole days until expiresAt, rounded up (0 = expired).",
+      "validityHints": {
+        "note": "v0.18.0 (checker, owner item 14 \"URSSAF (6 months)\"): a suggested validity the admin panel fills in as the expiry date when approving (the admin may change it); the server does not apply it.",
+        "urssaf_certificate": {
+          "months": 6
+        }
+      }
+    },
+    "reminders": {
+      "note": "v0.18.0 (owner items 2 and 3: \"add on the home page sheet that reminder ! Dont copy it's only example\"; \"Yes, build this (Recommended)\"; item 9): GET /driver/reminders → DriverReminderList, what the driver Home sheet \"Important reminders (N)\" shows, one line per issue with tap-to-fix. blocks_online lines first (red), then due_soon (orange), then waiting; inside a level by expiresAt then type. Also covers why an account is not active (group 1): the driver sees the whole app but cannot go online, with the exact reason and action.",
+      "levels": {
+        "blocks_online": "red: going online is refused until it is fixed",
+        "due_soon": "orange: expires within the warning window, still works",
+        "waiting": "nothing to do, Movera acts next (e.g. an info session or a document in review)"
+      },
+      "kinds": {
+        "document_needed": "blocks_online: a required document has none (fix: document)",
+        "document_rejected": "blocks_online: rejected; reviewNote says why (fix: document)",
+        "document_expired": "blocks_online when blockAtExpiry (cars: autoHold), else due_soon (fix: document)",
+        "document_expiring": "due_soon: approved, expires within the warning window (fix: document)",
+        "document_in_review": "waiting: uploaded, Movera reviews it (no fix)",
+        "info_session_waiting": "waiting: the info session (kind admin_check) is not marked held yet; status waiting_for_movera; fix: info_session (content slot driver-info-session \"How to book your info session\")",
+        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done; Movera activates it (no fix)",
+        "fleet_not_approved": "blocks_online: the fleet is pending / rejected / blocked (no fix)",
+        "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
+        "no_vehicle": "blocks_online: the fleet has a car that can be picked but this driver has none picked (fix: pick_vehicle)",
+        "admin_check_waiting": "waiting: a custom admin_check document not marked yet; status waiting_for_movera (no fix)",
+        "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\""
+      },
+      "fixTargets": [
+        "document",
+        "info_session",
+        "fleet_vehicles",
+        "pick_vehicle"
+      ],
+      "scope": "driver (Driver.requiredDocuments), fleet (requiredFleetDocuments), vehicle (the picked car, or for a fleet owner every car of the fleet)",
+      "texts": {
+        "vehicle_photos_needed": {
+          "sv": "Lägg till 4 foton av din bil",
+          "fr": "Ajoutez 4 photos de votre voiture",
+          "en": "Add 4 photos of your car"
+        }
+      }
+    },
+    "infoSession": {
+      "note": "v0.18.0 (owner item 8: \"How to book + 'Waiting for Movera' (Recommended)\"): the info_session document (kind admin_check; Sweden and France (owner item 13: \"Yes, same as Sweden\")) shows the shown state waiting_for_movera until an admin marks it approved. Tapping it opens \"How to book your info session\", the admin's content slot driver-info-session (title, text sv / fr / en, an https link in the text) from GET /driver/content.",
+      "type": "info_session",
+      "status": "waiting_for_movera",
+      "contentSlot": "driver-info-session"
+    },
+    "vehicleRules": {
+      "note": "v0.18.0 (owner item 11: \"Make them real (Recommended)\"): POST /driver/vehicles is checked against settings.vehicles of the fleet's country. Each categoryId must fit: the category on, year ≥ minYear, seats ≥ minSeats, fuel in fuels; else 400 invalid_request, reason category_not_allowed, details \"<category>:<problem>\" with problem category_off, year_too_old, too_few_seats, fuel_not_allowed or fuel_required (fuel missing while the category does not allow every fuel). A category with no rule in the document (e.g. child_seat) is not checked. With photosNeeded the four photo types (settings.photoTypes) are added to Vehicle.requiredDocuments, uploaded like other car documents (POST /driver/documents, ownerId = vehicleId) and approved by an admin; the car cannot be picked or driven without them.",
+      "problems": [
+        "category_off",
+        "year_too_old",
+        "too_few_seats",
+        "fuel_not_allowed",
+        "fuel_required"
+      ],
+      "reason": "category_not_allowed",
+      "photosForAll": "v0.18.0 (owner item 16: \"Before approve any car must have photos uppload led and approv it\"; \"First answer and keep approved account works for test only\"): every car, also one approved before v0.18.0, needs the four photos approved before it can be picked or driven (409 documents_not_approved, reason vehicle_documents_not_approved, details vehicle:vehicle_photo_*). The Home sheet shows one line vehicle_photos_needed (\"Add 4 photos of your car\"). Exempt: a test account (its phone is a driver-app number of the test phones, the seeded test drivers included): it is never asked for the photos."
+    },
+    "startCompany": {
+      "note": "v0.18.0 (owner item 7: \"First answer but his account become like fleet company account and the documents that already exist no need to uppload again only the new documents and procces like fleet account and wait for admin approv\"): POST /driver/fleet/start-company { expectedVersion, company } (\"Start my own company\" in My fleet). Only an account of type driver, not on a trip (409 invalid_transition, reasons already_fleet, on_trip). The driver leaves his fleet (car released, offline), the account becomes type fleet with a new pending fleet he owns, and the account goes on_hold. Every document he has stays as it is (approved ones count, nothing is uploaded again); only requiredFleetDocuments he does not have yet and the new cars' documents are needed. An admin then reviews the fleet (POST /admin/fleets/{fleetId}/review) and activates the account (POST /admin/drivers/{driverId}/status, the fleet documents checked) like a new fleet.",
+      "reasons": [
+        "already_fleet",
+        "on_trip"
+      ]
+    },
+    "signUpReminders": {
+      "note": "v0.18.0 (note check: \"Sign-up reminders to stuck drivers (every 2 days, stuck after 10 days) also go live (push 'Finish your sign-up'), editable in admin\"): while settings.signUpReminders.on, an account that is pending or on_hold and still waits on itself (details not sent, or a required file document of Driver.requiredDocuments / requiredFleetDocuments missing or rejected) gets the notice kind finish_sign_up (GET /notifications, deepLink movera-driver://home) every everyDays days counted from sign-up, then from the last one. From stuckAfterDays after sign-up the admin driver view shows signUp.stuck true. No reminder while Movera is the one to act (documents in review, info session, activation).",
+      "kind": "finish_sign_up",
+      "text": {
+        "title": {
+          "sv": "Slutför din registrering",
+          "fr": "Terminez votre inscription",
+          "en": "Finish your sign-up"
+        },
+        "body": {
+          "sv": "Några steg återstår innan du kan börja köra med Movera.",
+          "fr": "Il reste quelques étapes avant de rouler avec Movera.",
+          "en": "A few steps are left before you can drive with Movera."
+        }
+      }
+    },
+    "adminActions": {
+      "note": "v0.18.0 (owner rule: every admin item of the group works on live; the group 2 admin part): the admin's Vehicles › Update, Vehicles › Link driver, Drivers › Category and Drivers › Bank details. Each is audited and limited to the admin's zones (a car by its fleet's zone, else its driver's; a driver by his zones): outside them 403 forbidden, reason zone_out_of_scope, checked before the body. \"Approve all\" was removed by the owner and has no endpoint.",
+      "updateVehicle": "PATCH /admin/vehicles/{vehicleId} { expectedVersion, make?, model?, year?, color?, plate?, seats?, fuel?, categoryIds? } (vehicles.edit) → Vehicle. The car after the change must fit every one of its categories (driverOnboarding.vehicleRules: 400 invalid_request, reason category_not_allowed, details \"<category>:<problem>\"); a plate another car has is 409 conflict, reason plate_taken. A driver who has the car picked keeps only the categories the car still has.",
+      "linkDriver": "POST /admin/vehicles/{vehicleId}/driver { expectedVersion, driverId: Id | null } (vehicles.edit) → Vehicle. driverId: a driver of the car's fleet (else 400 invalid_request, reason driver_not_in_fleet) gets the car picked as if he picked it himself (PATCH /driver/profile { vehicleId }): the car approved (409 invalid_transition, vehicle_not_approved) with its documents (409 documents_not_approved, vehicle_documents_not_approved; the photos not asked of a test account), not in use by another driver who is online or on a trip (409 conflict, vehicle_in_use); the target driver not online or on a trip (409 invalid_transition, driver_online); any car he had goes back to the fleet. null takes the car from its driver (not while he is online or on a trip, driver_online).",
+      "driverCategories": "PUT /admin/drivers/{driverId}/categories { expectedVersion, categoryIds: CategoryId[] } (vehicles.edit) → Driver. Only categories of the driver's picked car that the car fits (400 invalid_request, reason category_not_allowed, details \"<category>:<problem>\", problem not_on_car or a vehicleRules problem); no car picked: 409 invalid_transition, reason no_vehicle; at least one category.",
+      "bankReview": "POST /admin/drivers/{driverId}/bank/review { decision: approved | rejected, note? } (documents.approve) → Document: the review of the account's bank details document (bank_statement: Kontobevis in Sweden, RIB in France), like POST /admin/documents/{documentId}/review (no expiry date: the type does not expire by default). No such document uploaded: 404 not_found, reason bank_not_uploaded. Rejecting needs a note (400 invalid_request, reason note_required).",
+      "bankType": "bank_statement"
+    },
+    "carDocuments": {
+      "note": "v0.18.0 (owner decision 19: \"Driver dont see documents of cars only fleet owner ! Driver can only pick car to drive ! He can see all fleet cars and pick one\"): a car's documents (registration, insurance, the four photos and any other car type) are uploaded and read only by the owner of the car's fleet (an owner who also drives sees them as owner). A member gets 403 forbidden, reason fleet_owner_only, on POST /driver/documents with a car's ownerId and on GET /driver/documents/{documentId}/file of a car document; GET /driver/documents lists only his own documents; his GET /driver/reminders has no car-document lines (they go to the owner). He still lists every car of the fleet (GET /driver/vehicles, GET /driver/fleet) with pickable and, when false, notPickableReason, and without the cars' documents and requiredDocuments.",
+      "reason": "fleet_owner_only",
+      "notPickableReasons": [
+        "vehicle_not_approved",
+        "vehicle_documents_not_approved",
+        "vehicle_in_use"
+      ]
     }
   },
   "outstandingFee": {
@@ -2748,7 +3531,8 @@
       "rider-banner-6",
       "help",
       "legal",
-      "app-versions"
+      "app-versions",
+      "driver-info-session"
     ],
     "apps": {
       "driver-home": "driver",
@@ -2761,7 +3545,8 @@
       "rider-banner-6": "rider",
       "help": "both",
       "legal": "both",
-      "app-versions": "both"
+      "app-versions": "both",
+      "driver-info-session": "driver"
     },
     "item": "ContentItem { slot, zoneId, version, publishedAt, publishedBy, title, text: { sv, fr, en } (all three required, non-empty), image? (https URL), expiresAt? (future Timestamp; after it the apps hide the item), reaccept? (legal only), versions? (app-versions only: { rider: { min, recommended }, driver: { min, recommended } }, semantic x.y.z, recommended ≥ min) }",
     "admin": "GET /admin/content?zoneId (settings.read) → { items: ContentItem[] } (the zone's published items); POST /admin/content/{slot}/publish { zoneIds: [ZoneId], title, text, image?, expiresAt?, reaccept?, versions? } (settings.publish) → { items: ContentItem[] } one new version per zone, written in the audit; GET /admin/content/{slot}/history?zoneId; POST /admin/content/{slot}/rollback { zoneId, version } → the earlier version again as the next version.",
@@ -3115,6 +3900,11 @@
           "sv": "Saknas",
           "fr": "Manquant",
           "en": "Missing"
+        },
+        "waiting_for_movera": {
+          "sv": "Väntar på Movera",
+          "fr": "En attente de Movera",
+          "en": "Waiting for Movera"
         }
       },
       "incidentStatus": {
@@ -3257,5 +4047,31 @@
       "closed": "409 invalid_transition, reason chat_closed, outside the open statuses.",
       "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'."
     }
+  },
+  "tripPath": {
+    "note": "v0.17.0 (owner 2026-10-29, driver past ride detail; CONTRACT.md §25): the route of an ended trip for the trip's own driver or rider, drawn on the past-ride map with pickup and drop-off pins.",
+    "path": "GET /trips/{tripId}/path → TripPath { tripId, source: driven | planned, points: LatLng[], pickup, dropoff, stops, keptUntil? }",
+    "actors": "the trip's rider or the trip's driver (anyone else: 404 not_found, like GET /trips/{tripId}); only once the trip is terminal (tripStatus.terminal), else 409 invalid_transition, reason trip_not_ended",
+    "sources": [
+      "driven",
+      "planned"
+    ],
+    "driven": "The driven path is made from the trip's own GPS trace (the fixes of POST /driver/location kept in the trip trace, §12) from boarding to the end: fixes with accuracy ≤ 50 m, a step only once the car moved 25 m, no step faster than 150 km/h, then evenly thinned to at most maxPoints. At least 2 such points are needed.",
+    "planned": "No usable trace (the trace was deleted after liveDrivers.traceKeepDays, or never sent): the server's road route (§10, OSRM or the straight-line estimate) from the pickup through the stops to the drop-off.",
+    "maxPoints": 300,
+    "retention": "No new storage: the driven path is read from the trip trace and follows its rule (deleted traceKeepDays = 30 days after the fix); afterwards the answer is the planned route. keptUntil is when the trace goes.",
+    "apps": "The driver's past-ride screen (and the rider's, when it reads the server) shows the line and pins; a failed call shows the pickup and drop-off pins only."
+  },
+  "completePreview": {
+    "note": "v0.18.1 (owner 2026-10-29, live bug A, 'Server's final price (Recommended)'; CONTRACT.md §26): the driver app asks the server for the final price before it shows Collect cash, so the driver, the rider, the receipt and the history all show the same amount.",
+    "path": "GET /driver/trips/{tripId}/complete-preview → CompletePreview { previewId, expiresAt, tripId, total: Money, cashDue: Money, driverEarnings: Money, earlyEnd: boolean, fareLines: FareLine[] }",
+    "actors": "the trip's own driver (anyone else 404 not_found); only while the trip is on board (rider_onboard, in_trip, approaching_dropoff), else 409 invalid_transition, reason trip_not_on_board. No Idempotency-Key; the wallet is not touched; the trip's version does not change. Each call freezes its price for freezeSeconds and replaces the trip's earlier preview.",
+    "same": "total and fareLines are computed by the same code as POST /trips/{tripId}/complete would at that moment with the driver's latest fix (pricing.driverEndsEarly): earlyEnd is true when the driver is farther than pricing.completeNearDropoffMeters from the drop-off. cashDue = total − the part the rider's wallet would pay. driverEarnings = the driver's part of that total (as TripProjection.driverEarnings after complete), for the sheet's cash balance.",
+    "cashCollected": "The app sends POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected = the cashDue it showed } on a cash trip. On 409 price_changed it shows the sheet again with error.preview (never resends the old amount). After completing the app shows the fare of the returned TripProjection. An older server without the preview (404) leaves the app on the old flow (complete without cashCollected).",
+    "apps": "Collect <cashDue>; when earlyEnd also 'Ending before the destination – price recalculated' (sv: 'Avslutas före destinationen – priset räknades om', fr: 'Fin avant la destination – prix recalculé'). If the preview fails the app does not show a booked price as the amount to collect. The sheet's earnings line is the driver's own earnings from the preview (driverEarnings), labelled 'Your earnings' / 'Din intäkt' / 'Vos gains'.",
+    "freezeSeconds": 120,
+    "frozen": "POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected } with the trip's latest previewId before expiresAt: complete uses the frozen price exactly (total, fareLines, driverEarnings, earlyEnd): no early-end flip, no extra minutes or waiting. On a cash trip cashCollected must equal its cashDue (and the wallet part must be unchanged); otherwise 409 conflict, reason price_changed, with a fresh preview in the error's preview field.",
+    "unfrozen": "previewId missing, unknown or expired: complete prices the trip as now. If the app sent previewId with cashCollected and that no longer equals the cash part of the new price: 409 conflict, reason price_changed, with a fresh preview (error.preview); the trip is not completed and the driver is never trapped by a 400. Without previewId (older apps) cashCollected keeps its old rule (at most the fare less the wallet, else 400 cash_above_fare).",
+    "stored": "A completed trip's cashCollected is always the cash part of its final fare when a previewId was sent."
   }
 }

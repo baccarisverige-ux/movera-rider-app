@@ -7,6 +7,7 @@ import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/bundled_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/app/signed_in_loads.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
@@ -18,7 +19,6 @@ import 'package:movera_rider/core/maps/native_maps_config.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
 import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
-import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -171,11 +171,12 @@ Future<void> bootstrap() async {
     AppScope.instance.profile.hydrateLocalThenServer,
   );
   // v0.11.0 §21: the kept zone list before anything asks for a zone; the
-  // server's is read again below and on config_published doc zones.
+  // server's is read again (startServerReads) and on config_published doc
+  // zones.
   await bootStep('zones.cached', AppScope.instance.zones.loadCached);
-  unawaited(AppScope.instance.zones.refresh());
-  // Q48: the saved language, else the default of the rider's zone; a
-  // later good fix in another zone moves the default with it.
+  // Q48 / v0.18.2 auth.firstLanguage: the saved language, else the phone's
+  // language (sv, fr, en), else the start country's default; a later good
+  // fix in another zone moves that default with it.
   await bootStep(
     'language.load',
     () async => AppScope.instance.language.load(
@@ -199,9 +200,6 @@ Future<void> bootstrap() async {
       unawaited(AppScope.instance.content.start(zone.id));
     }
   };
-  // Owner 2026-10-27: new rider settings reach an open app at once
-  // (config_published on /rider/config/stream) and are read again on start;
-  // the car types follow the published catalog.
   final config = AppScope.instance.riderConfig;
   if (config is ApiRiderConfigRepository) {
     final zone = await currentRiderZone();
@@ -211,15 +209,13 @@ Future<void> bootstrap() async {
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
-    unawaited(AppScope.instance.content.start(zone.id));
-    unawaited(config.watch(zone.id));
   }
-  // Ride categories from the server. Not awaited: the built-in list stands
-  // in until the answer lands, and Select Ride asks again when it opens.
-  unawaited(AppScope.instance.catalog.load());
-  // Scheduled-ride rules (cancel window, fee); defaults until they land.
-  unawaited(AppScope.instance.reservations.refreshRules());
-  unawaited(FindingDriverController.flushPendingCancels());
+  // v0.18.2 auth.beforeSignIn: the reads that need a session start now
+  // only when one is stored; otherwise right after sign-in
+  // (enterMoveraApp). Until then the built-in defaults stand in.
+  await bootStep('server_reads', () async {
+    await SignedInLoads.app.atLaunch();
+  });
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(

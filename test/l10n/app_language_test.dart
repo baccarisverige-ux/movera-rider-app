@@ -34,7 +34,16 @@ class _Config implements RiderConfigRepository {
 }
 
 /// Round 4 (owner Q48): the pickup zone's config picks the default; the
-/// rider's own choice in Account wins and is saved.
+/// rider's own choice in Account wins and is saved. Since v0.18.2
+/// (`auth.firstLanguage`) the phone's language comes first when the app
+/// ships it, so these run on a phone in a language it does not ship.
+AppLanguageController _controller(AppLanguageStore store) =>
+    AppLanguageController(
+      store: store,
+      deviceLanguage: () => 'de',
+      deviceRegion: () => 'FR',
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -49,7 +58,7 @@ void main() {
         (RiderZones.france, 'fr'),
         (RiderZones.tunisia, 'fr'),
       ]) {
-        final language = AppLanguageController(store: MemoryAppLanguageStore());
+        final language = _controller(MemoryAppLanguageStore());
         await language.load(config: seeds, zone: zone);
         expect(language.code, code, reason: zone.id);
         expect(language.locale, Locale(code));
@@ -59,13 +68,13 @@ void main() {
 
     test('it is the config document that decides, not the country', () async {
       final config = _Config({RiderZones.sweden.id: 'fr'});
-      final language = AppLanguageController(store: MemoryAppLanguageStore());
+      final language = _controller(MemoryAppLanguageStore());
       await language.load(config: config, zone: RiderZones.sweden);
       expect(language.code, 'fr');
     });
 
     test('a good fix in another zone moves the default', () async {
-      final language = AppLanguageController(store: MemoryAppLanguageStore());
+      final language = _controller(MemoryAppLanguageStore());
       await language.load(config: seeds, zone: RiderZones.sweden);
       expect(language.code, 'sv');
       var notified = 0;
@@ -80,7 +89,7 @@ void main() {
     test('overrides the zone default and survives a restart', () async {
       final store = MemoryAppLanguageStore();
       const seeds = SeedRiderConfigRepository();
-      final first = AppLanguageController(store: store);
+      final first = _controller(store);
       await first.load(config: seeds, zone: RiderZones.france);
       expect(first.code, 'fr');
 
@@ -89,7 +98,7 @@ void main() {
       expect(store.value, 'en');
 
       // Next launch, still in France: the saved choice wins.
-      final relaunched = AppLanguageController(store: store);
+      final relaunched = _controller(store);
       await relaunched.load(config: seeds, zone: RiderZones.france);
       expect(relaunched.choice, 'en');
       expect(relaunched.code, 'en');
@@ -101,7 +110,7 @@ void main() {
     test('is kept in SharedPreferences on the device', () async {
       SharedPreferences.setMockInitialValues({});
       const store = PrefsAppLanguageStore();
-      final language = AppLanguageController(store: store);
+      final language = _controller(store);
       await language.load(
         config: const SeedRiderConfigRepository(),
         zone: RiderZones.sweden,
@@ -113,9 +122,7 @@ void main() {
     });
 
     test('an unknown saved code falls back to the zone default', () async {
-      final language = AppLanguageController(
-        store: MemoryAppLanguageStore('ar'),
-      );
+      final language = _controller(MemoryAppLanguageStore('ar'));
       await language.load(
         config: const SeedRiderConfigRepository(),
         zone: RiderZones.sweden,
@@ -129,7 +136,7 @@ void main() {
     ) async {
       SharedPreferences.setMockInitialValues({});
       final store = MemoryAppLanguageStore();
-      final language = AppLanguageController(store: store);
+      final language = _controller(store);
       await language.load(
         config: const SeedRiderConfigRepository(),
         zone: RiderZones.france,
@@ -170,7 +177,7 @@ void main() {
   });
 
   testWidgets('a new language reaches screens already open', (tester) async {
-    final language = AppLanguageController(store: MemoryAppLanguageStore());
+    final language = _controller(MemoryAppLanguageStore());
     await language.load(
       config: const SeedRiderConfigRepository(),
       zone: RiderZones.sweden,
