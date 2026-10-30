@@ -7639,6 +7639,7 @@ paths:
       - Maps
       x-actor:
       - rider
+      - driver
       x-read-only: true
       parameters:
       - $ref: '#/components/parameters/RequestId'
@@ -7682,6 +7683,7 @@ paths:
       - Maps
       x-actor:
       - rider
+      - driver
       x-read-only: true
       parameters:
       - $ref: '#/components/parameters/RequestId'

@@ -616,8 +616,10 @@ Auth (all apps): bearer token; actor and scope come from the token, never from t
 
 `contract.json#maps`, owner decision 4 (2026-10-24): address search goes through the server (Google Places / Geocoding; the server keeps the provider's session tokens and a cache), routes, distances and arrival times come from Movera's own OSRM. All of these are read-only: no `Idempotency-Key`.
 
-- `POST /locations/autocomplete { query, latitude?, longitude?, limit: 8 }` (rider) → `{ suggestions: [{ title, subtitle?, latitude?, longitude?, placeId? }] }`; the point biases the search; an empty list means nothing was found. A suggestion without coordinates is resolved with geocode.
-- `POST /locations/geocode { query, placeId? }` (rider) → `{ address?, latitude?, longitude?, placeId? }`; no coordinates means no match (`200`, never `404`).
+v0.18.4 (extended): owner decision G3-D3 ("Search + his recent"): the driver app's destination mode searches any address, so `POST /locations/autocomplete` and `/locations/geocode` take the `driver` actor as well as `rider` (same rate limits; `/locations/reverse-geocode` already took both). Provider session tokens are kept per actor and account.
+
+- `POST /locations/autocomplete { query, latitude?, longitude?, limit: 8 }` (rider, driver) → `{ suggestions: [{ title, subtitle?, latitude?, longitude?, placeId? }] }`; the point biases the search; an empty list means nothing was found. A suggestion without coordinates is resolved with geocode.
+- `POST /locations/geocode { query, placeId? }` (rider, driver) → `{ address?, latitude?, longitude?, placeId? }`; no coordinates means no match (`200`, never `404`).
 - `POST /locations/reverse-geocode { latitude, longitude }` (rider, driver) → `{ address: string | null, latitude, longitude }`, in the caller's profile language (or `Accept-Language`). Bad coordinates: `400 invalid_request` (`invalid_coordinates`).
 - These three bodies say `latitude` / `longitude` (§1, the only exception).
 - `POST /routes { mode: driving, from: { lat, lng }, to: { lat, lng } }` (rider, driver) → `RoadRoute { points: [{ lat, lng }], distanceMeters?, durationSeconds?, provider? }`; no route is `404 not_found` (`no_route`), and the app draws a straight line. The rider's ETA stays `TripProjection.etaSeconds`.

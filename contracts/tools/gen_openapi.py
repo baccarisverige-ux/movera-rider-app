@@ -1737,10 +1737,10 @@ op("post", "/admin/agents/{adminId}/setup-link", "adminIssueSetupLink", "Issue a
    params=[pref("AdminId")], ok=(201, "SetupLink"), mutation=True, permission="team.edit",
    desc=f"Single use, {AU_A['setupLinkHours']} h; a new link revokes the admin's earlier unused one. The first Super admin's link comes from the server seed / CLI.")
 # Locations and routes (CONTRACT.md §10, owner decision 4). Read-only POSTs: no Idempotency-Key.
-op("post", "/locations/autocomplete", "autocompleteAddress", "Address suggestions while typing", ["rider"], "Maps",
+op("post", "/locations/autocomplete", "autocompleteAddress", "Address suggestions while typing", ["rider", "driver"], "Maps",
    body="AutocompleteRequest", ok=(200, "AddressSuggestionList"), read_only=True,
    desc="Body uses latitude / longitude (wire exception). Google Places through the server; the server keeps its own session tokens and cache. An empty list = nothing found.")
-op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address or a suggestion", ["rider"], "Maps",
+op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address or a suggestion", ["rider", "driver"], "Maps",
    body="GeocodeRequest", ok=(200, "GeocodeResult"), read_only=True, desc="No match → 200 without coordinates (never 404).")
 op("post", "/locations/reverse-geocode", "reverseGeocode", "Address of a point", ["rider", "driver"], "Maps",
    body="ReverseGeocodeRequest", ok=(200, "ReverseGeocodeResult"), read_only=True, desc="Bad coordinates → 400 invalid_request (invalid_coordinates).")
