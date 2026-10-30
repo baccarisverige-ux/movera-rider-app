@@ -11,7 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/home/application/home_presence.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
@@ -99,6 +101,30 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     motion: AppScope.instance.motion,
   );
   late final HomePlacesController _places = HomePlacesController();
+
+  /// Live test 2026-10-30 (contract v0.18.4 `driverHome.ridersOnline`): a
+  /// rider on Home is counted online in his zone by the server.
+  late final HomePresence _presence = HomePresence(
+    ping: HomePresence.nearbyCars(AppScope.instance.api),
+    position: () {
+      final at = _currentLatLng;
+      return at == null ? null : GeoPoint(at.latitude, at.longitude);
+    },
+    signedIn: _riderSignedIn,
+  );
+
+  /// Only a live build: the demo has no server to count riders.
+  void _startPresence() {
+    if (AppEnv.current.authRequired) _presence.start();
+  }
+
+  /// A live build with a session; the demo never asks the server.
+  static Future<bool> _riderSignedIn() async {
+    if (!AppEnv.current.authRequired) return false;
+    final access = await AppScope.instance.tokens.readAccess();
+    return access != null && access.isNotEmpty;
+  }
+
   StreamSubscription<void>? _savedPlacesSubscription;
   bool _showRecenterButton = true;
   BitmapDescriptor? _locationPuckCompact;
@@ -225,6 +251,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _restoreAddressData();
     _startHeadingTracking();
     _announceInterruptedSearch();
+    _startPresence();
   }
 
   /// A reload during Finding Driver drops the search. Landing on an empty Home
@@ -310,6 +337,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     setWebOverlayOpen(false);
     _webOverlayCovering = null;
     _mapParked.value = true;
+    _presence.stop();
     _locationCtl.pauseLiveUpdates();
     AppScope.instance.mapLifecycle.park();
     AppScope.instance.maps.detach(owner: MapOwners.home);
@@ -320,6 +348,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     AppScope.instance.mapLifecycle.resume();
     _locationCtl.resumeLiveUpdates();
     _mapParked.value = false;
+    _startPresence();
     // The sheet may rest open over the map again without moving.
     final offset = _homeSheetController.hasClient
         ? _homeSheetController.metrics?.offset
@@ -333,6 +362,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       _locationCtl.pauseLiveUpdates();
+      _presence.stop();
       return;
     }
     if (state != AppLifecycleState.resumed) return;
@@ -340,6 +370,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // it resumes when the map is unparked.
     if (_mapParked.value) return;
     _locationCtl.resumeLiveUpdates();
+    _startPresence();
     // rider-u118: no first fix was ever bound (it failed or is still
     // pending): run the whole first-fix path (puck, label, stream, camera).
     // Restarting only the stream tracked GPS but never drew the puck.
@@ -373,6 +404,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _routeFlowResumeTimer?.cancel();
     _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
+    _presence.dispose();
     _sheetCtl.dispose();
     _locationCtl.dispose();
     _puckCompactImage?.dispose();
