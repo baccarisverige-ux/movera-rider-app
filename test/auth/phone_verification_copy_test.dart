@@ -42,11 +42,15 @@ void main() {
   Future<void> unmount(WidgetTester tester) =>
       tester.pumpWidget(const SizedBox());
 
-  AuthController controller() {
+  AuthController controller({Duration latency = Duration.zero}) {
     final tokens = MemoryTokenStore();
     return AuthController(
       auth: AuthRepository(
-        api: ApiClient(env: env, client: InProcessMockClient(), tokens: tokens),
+        api: ApiClient(
+          env: env,
+          client: InProcessMockClient(latency: latency),
+          tokens: tokens,
+        ),
         tokens: tokens,
       ),
     );
@@ -139,8 +143,11 @@ void main() {
   testWidgets('Verify stays locked until four digits are entered', (
     tester,
   ) async {
-    final auth = controller();
-    final challenge = await auth.requestOtp(phone: '+46701234567');
+    const latency = Duration(milliseconds: 300);
+    final auth = controller(latency: latency);
+    final challenge = (await tester.runAsync(
+      () => auth.requestOtp(phone: '+46701234567'),
+    ))!;
     await pump(
       tester,
       PhoneVerification(challenge: challenge, controller: auth),
@@ -165,9 +172,19 @@ void main() {
     await tester.enterText(input, '123');
     await tester.pump();
     expect(verifyEnabled(), isFalse);
-    await tester.enterText(input, '1234');
+    // v0.18.2 auth.codeAutoSubmit: the 4th digit unlocks Verify and sends
+    // the code by itself, so the button is busy while it is checked.
+    await tester.enterText(input, '9876');
     await tester.pump();
-    expect(verifyEnabled(), isTrue);
+    // While busy the button shows a spinner instead of its label.
+    final verify = tester.widget<AuthPrimaryButton>(
+      find.byType(AuthPrimaryButton),
+    );
+    expect(verify.onPressed, isNotNull);
+    expect(verify.busy, isTrue);
+    // A wrong code empties the boxes (auth.codeClearOnWrong): locked again.
+    await tester.pump(latency * 2);
+    expect(verifyEnabled(), isFalse);
     await unmount(tester);
   });
 

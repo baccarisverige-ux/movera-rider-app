@@ -605,7 +605,11 @@ void main() {
 
   test('rider-u153: a zone that offers French and English never speaks '
       'Swedish', () async {
-    final language = AppLanguageController(store: MemoryAppLanguageStore());
+    // A phone language the app does not ship (v0.18.2 auth.firstLanguage).
+    final language = AppLanguageController(
+      store: MemoryAppLanguageStore(),
+      deviceLanguage: () => 'de',
+    );
     addTearDown(() => L10n.use('en'));
     await language.choose('sv');
     await language.useZone(config: _FrenchZone(), zone: RiderZones.france);

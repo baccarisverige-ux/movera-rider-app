@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -125,10 +126,14 @@ class ApiRiderConfigRepository extends ChangeNotifier
       }
       return _documents[zoneId];
     } catch (error) {
-      AppLog.warning(
-        'rider_config.fetch_failed',
-        extra: {'zoneId': zoneId, 'error': error.toString()},
-      );
+      // v0.18.2 auth.beforeSignIn: no session is not an error worth a
+      // report; the kept or built-in document stands in.
+      if (!_isUnauthorized(error)) {
+        AppLog.warning(
+          'rider_config.fetch_failed',
+          extra: {'zoneId': zoneId, 'error': error.toString()},
+        );
+      }
       return null;
     }
   }
@@ -165,6 +170,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     if (_watching == zoneId && _stream != null) return;
     await _stopStream();
     _watching = zoneId;
+    _renewTried = false;
     unawaited(refresh(zoneId));
     await _connect(zoneId);
   }
@@ -176,6 +182,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
         '$streamPath?zoneId=${Uri.encodeComponent(zoneId)}',
         lastEventId: _documents[zoneId]?.version.toString(),
       );
+      _renewTried = false;
       final events = ConfigEventParser();
       _stream = lines.listen(
         (line) {
@@ -199,6 +206,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
         cancelOnError: true,
       );
     } catch (error) {
+      if (_isUnauthorized(error)) {
+        await _afterUnauthorized(zoneId);
+        return;
+      }
       AppLog.warning(
         'rider_config.stream_failed',
         extra: {'error': error.toString()},
@@ -206,6 +217,28 @@ class ApiRiderConfigRepository extends ChangeNotifier
       _reconnect(zoneId);
     }
   }
+
+  static bool _isUnauthorized(Object error) =>
+      error is ApiError && error.isUnauthorized;
+
+  /// v0.18.2 `auth.beforeSignIn`: a 401 is never retried in a loop. The
+  /// document is read once (that call can renew an expired access token);
+  /// when it is read, the stream connects once more, else the watch stops
+  /// until [watch] is called again after sign-in.
+  Future<void> _afterUnauthorized(String zoneId) async {
+    _stream = null;
+    if (_disposed || _watching != zoneId) return;
+    if (!_renewTried) {
+      _renewTried = true;
+      if (await refresh(zoneId) != null) {
+        await _connect(zoneId);
+        return;
+      }
+    }
+    if (_watching == zoneId) _watching = null;
+  }
+
+  bool _renewTried = false;
 
   void _reconnect(String zoneId) {
     _stream = null;

@@ -152,7 +152,11 @@ void main() {
         (_) =>
             http.Response(jsonEncode({'code': 'OK', 'newPriceKr': 300}), 200),
       );
-      final api = ApiClient(client: rec, env: _env, tokens: MemoryTokenStore());
+      // v0.18.2 auth.beforeSignIn: a signed-in rider (a stored session);
+      // without one the client sends no bearer call at all.
+      final tokens = MemoryTokenStore();
+      await tokens.save(access: 'access', refresh: 'refresh');
+      final api = ApiClient(client: rec, env: _env, tokens: tokens);
       final c = RouteChangeController(api: api, geocoding: _Geo());
       final snapshot = RideSnapshot(
         status: RideStatus.driverArriving,

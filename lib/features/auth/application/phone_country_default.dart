@@ -24,12 +24,15 @@ Future<PhoneCountry> defaultPhoneCountry({
   }
 }
 
-/// The best guess before the saved fix is read: the device's region, else
-/// Sweden.
+/// The best guess before the saved fix is read: the device's region when
+/// it is Sweden or France, else Sweden (contract v0.18.2
+/// `auth.startCountry`).
 PhoneCountry initialPhoneCountry() =>
     PhoneCountries.defaultFor(localeRegion: _deviceRegion());
 
 /// The country of the device's locale ("SE" in sv-SE or en-SE), or null.
+String? deviceRegion() => _deviceRegion();
+
 String? _deviceRegion() {
   try {
     return WidgetsBinding.instance.platformDispatcher.locale.countryCode;

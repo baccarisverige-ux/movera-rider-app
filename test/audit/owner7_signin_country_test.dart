@@ -55,35 +55,41 @@ void main() {
     }
   });
 
-  test(
-    'the starting country: saved fix, else last zone, else device, else Sweden',
-    () {
-      // A last fix in Paris.
-      expect(
-        PhoneCountries.defaultFor(lastFixLat: 48.85, lastFixLng: 2.35),
-        fr,
-      );
-      // A fix outside every zone: the device's region, not the home zone.
-      expect(
-        PhoneCountries.defaultFor(
-          lastFixLat: 52.5,
-          lastFixLng: 13.4,
-          lastZone: RiderZones.sweden,
-          localeRegion: 'DE',
-        ),
-        de,
-      );
-      expect(
-        PhoneCountries.defaultFor(
-          lastZone: RiderZones.tunisia,
-          localeRegion: 'SE',
-        ),
-        tn,
-      );
-      expect(PhoneCountries.defaultFor(localeRegion: 'US'), us);
-      expect(PhoneCountries.defaultFor(), se);
-    },
-  );
+  test('the starting country: saved fix, else last zone, else device, else '
+      'Sweden; only Sweden or France (v0.18.2 auth.startCountry)', () {
+    // A last fix in Paris.
+    expect(PhoneCountries.defaultFor(lastFixLat: 48.85, lastFixLng: 2.35), fr);
+    // A fix outside every zone: the device's region, not the home zone;
+    // a German phone is not a start country (owner 2026-10-30), so Sweden.
+    expect(
+      PhoneCountries.defaultFor(
+        lastFixLat: 52.5,
+        lastFixLng: 13.4,
+        lastZone: RiderZones.sweden,
+        localeRegion: 'DE',
+      ),
+      se,
+    );
+    expect(
+      PhoneCountries.defaultFor(
+        lastFixLat: 52.5,
+        lastFixLng: 13.4,
+        lastZone: RiderZones.sweden,
+        localeRegion: 'FR',
+      ),
+      fr,
+    );
+    // The Tunisia zone is skipped; the device's Swedish region is next.
+    expect(
+      PhoneCountries.defaultFor(
+        lastZone: RiderZones.tunisia,
+        localeRegion: 'SE',
+      ),
+      se,
+    );
+    expect(PhoneCountries.defaultFor(localeRegion: 'US'), se);
+    expect(PhoneCountries.defaultFor(), se);
+  });
 
   Future<void> pump(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(390, 844);

@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
@@ -224,6 +225,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     StackTrace? stackTrace,
   }) {
     if (_isAnsweredApiCall(level, event, extra)) return;
+    if (isUnauthorizedNoise(extra: extra, error: error)) return;
     _post('/api/v1/telemetry/logs', {
       'level': level.name,
       'event': event,
@@ -231,6 +233,35 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
       if (error != null) 'error': Observability.scrubText(error.toString()),
     }, routine: level == TelemetryLevel.debug || level == TelemetryLevel.info);
   }
+
+  /// Contract v0.18.2 `auth.beforeSignIn` (owner 2026-10-30): a 401 (no
+  /// session, or one that ended) is not sent as a log line or an error
+  /// report. Live, the Sign in screen sent 45 such lines a minute.
+  static bool isUnauthorizedNoise({
+    Map<String, Object?> extra = const {},
+    Object? error,
+  }) {
+    if (extra['status'] == 401 || extra['statusCode'] == 401) return true;
+    if (error is ApiError && error.isUnauthorized) return true;
+    try {
+      final texts = [
+        if (error != null) error.toString(),
+        for (final value in extra.values)
+          if (value is String) value,
+      ];
+      return texts.any(_unauthorizedText.hasMatch);
+    } catch (_) {
+      // A report must never crash the app.
+      return false;
+    }
+  }
+
+  /// `ApiError(code, …)` as the app logs it for a 401: the server's
+  /// `unauthorized`, a body without a code (`HTTP_401`), or a call held
+  /// back without a session (`no_session`).
+  static final RegExp _unauthorizedText = RegExp(
+    r'ApiError\((unauthorized|unauthenticated|HTTP_401|no_session),',
+  );
 
   /// Audit Phase 7: every API call was also sent as a telemetry line, so the
   /// trip screens' 2 s ride poll cost a second request each time (measured
@@ -269,6 +300,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     Map<String, Object?> extra = const {},
   }) {
     if (_disposed) return;
+    if (isUnauthorizedNoise(extra: extra, error: error)) return;
     try {
       final now = _clock();
       final kind = extra['kind'] == CrashReport.kindError

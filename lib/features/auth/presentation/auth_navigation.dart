@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/app/signed_in_loads.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart'
     show LocationPromptGate;
 import 'package:movera_rider/features/home/presentation/home.dart';
@@ -30,6 +31,9 @@ void enterMoveraApp(BuildContext context) {
   if (shown) {
     unawaited(RideRestoreCoordinator.instance.resumeIfNeeded());
   }
+  // v0.18.2 auth.beforeSignIn: the reads that need a session (config and
+  // its stream, zones, content, categories, rules) start now.
+  unawaited(SignedInLoads.app.afterSignIn());
   // rider-u148: a returning rider gets their server profile (name,
   // language, consents) on this device; rider-r5-42: a language picked on
   // Sign in goes to it.
