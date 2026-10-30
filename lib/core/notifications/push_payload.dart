@@ -26,7 +26,9 @@ class PushPayload {
     String? body,
     DateTime? sentAt,
   }) {
-    final rawType = data['type'];
+    // Contract v0.18.3 (R7): the server's pushes carry the bell notice's
+    // `kind` (with notificationId and deepLink) instead of `type`.
+    final rawType = data['type'] ?? data['kind'];
     if (rawType is! String || rawType.trim().isEmpty) {
       throw const FormatException('Push payload type is required.');
     }
@@ -43,7 +45,10 @@ class PushPayload {
       deepLink: readString('deepLink', 'deep_link'),
       title: _clean(title) ?? readString('title', 'title'),
       body: _clean(body) ?? readString('body', 'body'),
-      messageId: _clean(messageId) ?? readString('messageId', 'message_id'),
+      messageId:
+          _clean(messageId) ??
+          readString('messageId', 'message_id') ??
+          readString('notificationId', 'notification_id'),
       sentAt: sentAt,
     );
   }

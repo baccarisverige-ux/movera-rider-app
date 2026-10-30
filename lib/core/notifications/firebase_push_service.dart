@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/core/web/web_push_open.dart';
 
 enum PushAuthorizationStatus { authorized, provisional, denied }
 
@@ -128,14 +129,18 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
       .cast<PushPayload>();
 
   @override
-  Stream<PushPayload> get onOpenedMessage => FirebaseMessaging
-      .onMessageOpenedApp
-      .map(_payloadFromRemoteMessage)
-      .where((payload) => payload != null)
-      .cast<PushPayload>();
+  Stream<PushPayload> get onOpenedMessage => kIsWeb
+      // Contract v0.18.3 (R7): FlutterFire has no tap event on the web; the
+      // service worker tells the page (lib/core/web/web_push_open.dart).
+      ? webPushOpens()
+      : FirebaseMessaging.onMessageOpenedApp
+            .map(_payloadFromRemoteMessage)
+            .where((payload) => payload != null)
+            .cast<PushPayload>();
 
   @override
   Future<PushPayload?> getInitialMessage() async {
+    if (kIsWeb) return takeWebLaunchPush();
     final message = await _messaging.getInitialMessage();
     return message == null ? null : _payloadFromRemoteMessage(message);
   }
@@ -171,6 +176,10 @@ class FirebasePushService implements PushService {
        _environment = environment,
        _gateway = gateway ?? FlutterFirebasePushGateway();
 
+  /// Contract v0.18.3 (R7): the public Firebase settings when the build has
+  /// none of its own (no key in the repository).
+  static const configPath = '/api/v1/push/config?app=rider';
+
   final ApiClient _api;
   final AppEnv _environment;
   final FirebasePushGateway _gateway;
@@ -192,20 +201,43 @@ class FirebasePushService implements PushService {
   @override
   Stream<PushPayload> get openedMessages => _opened.stream;
 
+  /// The build's own Firebase settings (MOVERA_FIREBASE_* defines), else
+  /// the server's `GET /push/config?app=rider` (contract v0.18.3, R7).
+  Future<AppEnv> _firebaseEnvironment() async {
+    if (_environment.hasFirebaseConfig) return _environment;
+    final Map<String, dynamic> answer;
+    try {
+      answer = await _api.get(configPath);
+    } catch (error) {
+      throw PushConfigurationException(
+        'Push settings could not be read (${error.runtimeType}).',
+      );
+    }
+    final web = answer['webConfig'];
+    String text(String key) =>
+        web is Map && web[key] is String ? web[key] as String : '';
+    final runtime = AppEnv(
+      flavor: _environment.flavor,
+      apiBaseUrl: _environment.apiBaseUrl,
+      authRequired: _environment.authRequired,
+      firebaseApiKey: text('apiKey'),
+      firebaseAppId: text('appId'),
+      firebaseMessagingSenderId: text('messagingSenderId'),
+      firebaseProjectId: text('projectId'),
+    );
+    if (answer['enabled'] != true || !runtime.hasFirebaseConfig) {
+      throw const PushConfigurationException(
+        'Push is off on the server (no Firebase settings).',
+      );
+    }
+    return runtime;
+  }
+
   @override
   Future<void> register() async {
-    if (!_environment.hasFirebaseConfig) {
-      throw const PushConfigurationException(
-        'Firebase push configuration is missing.',
-      );
-    }
-    if (kIsWeb && _environment.firebaseVapidKey.trim().isEmpty) {
-      throw const PushConfigurationException(
-        'Firebase web push VAPID key is missing.',
-      );
-    }
+    final environment = await _firebaseEnvironment();
 
-    await _gateway.initialize(_environment);
+    await _gateway.initialize(environment);
     final permission = await _gateway.requestPermission();
     if (permission == PushAuthorizationStatus.denied) {
       throw const PushPermissionDeniedException();
@@ -217,8 +249,10 @@ class FirebasePushService implements PushService {
     await _attachInboundStreams();
 
     await _gateway.ensureAppleTransportReady();
+    // Without a VAPID key of its own the web SDK uses Firebase's default.
+    final vapid = environment.firebaseVapidKey.trim();
     final token = await _gateway.getToken(
-      vapidKey: kIsWeb ? _environment.firebaseVapidKey : null,
+      vapidKey: kIsWeb && vapid.isNotEmpty ? vapid : null,
     );
     if (token == null || token.trim().isEmpty) {
       throw const PushRegistrationException(
@@ -299,7 +333,9 @@ class FirebasePushService implements PushService {
       '/api/v1/push/devices',
       body: {'token': token, 'provider': 'fcm', 'platform': _platformName},
     );
-    if (response['code'] != 'OK' || response['status'] != 'registered') {
+    // movera-server answers { status, requestId } (contract PushDeviceAck);
+    // the in-process mock also sends code OK.
+    if (!_acknowledged(response, 'registered')) {
       throw const PushRegistrationException(
         'Push token registration was not acknowledged.',
       );
@@ -323,7 +359,7 @@ class FirebasePushService implements PushService {
       '/api/v1/push/devices/unregister',
       body: {'token': token},
     );
-    if (response['code'] != 'OK' || response['status'] != 'unregistered') {
+    if (!_acknowledged(response, 'unregistered')) {
       throw const PushRegistrationException(
         'Push token removal was not acknowledged.',
       );
@@ -378,9 +414,17 @@ class FirebasePushService implements PushService {
     await _opened.close();
   }
 
+  static bool _acknowledged(Map<String, dynamic> response, String status) =>
+      response['status'] == status &&
+      (response['code'] == null || response['code'] == 'OK');
+
+  /// Contract `PushDeviceRequest.platform`: ios, android or web.
   String get _platformName {
     if (kIsWeb) return 'web';
-    return defaultTargetPlatform.name;
+    return defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS
+        ? 'ios'
+        : 'android';
   }
 }
 

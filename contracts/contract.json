@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.2",
+  "version": "0.18.3",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -864,7 +864,30 @@
         "ios",
         "android",
         "web"
-      ]
+      ],
+      "sending": {
+        "note": "v0.18.3 (owner decision R7, 2026-10-30): the server sends a push for every bell notice (Notification) to the subject's registered fcm devices through Firebase Cloud Messaging HTTP v1, after the notice is stored (never inside its transaction), with one retry. Title and body are the notice's, already in the account's language. A token FCM reports UNREGISTERED or INVALID_ARGUMENT (invalid token) is removed. Without the server's Firebase service account sending is off and nothing else changes.",
+        "data": {
+          "notificationId": "the Notification id",
+          "kind": "Notification.kind",
+          "deepLink": "Notification.deepLink when it has one, else empty"
+        },
+        "riderConsent": "A rider with consents.rideUpdates false gets no push (the bell notice is still stored). Drivers have no push consent: the operating system's permission is the switch.",
+        "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty)."
+      },
+      "config": {
+        "note": "v0.18.3 (R7): GET /push/config?app=driver|rider needs no token and gives the public Firebase web settings so no key is kept in the apps' code: { provider: fcm, enabled, projectId?, webConfig? { apiKey, appId, messagingSenderId, projectId, authDomain? } }. The server reads the web app (display name 'Movera Driver web' / 'Movera Rider web') from the Firebase Management API with its service account once and keeps it in memory. enabled false (no projectId, no webConfig) when the server has no Firebase settings; the app then skips push.",
+        "path": "GET /push/config",
+        "apps": [
+          "driver",
+          "rider"
+        ],
+        "webAppNames": {
+          "driver": "Movera Driver web",
+          "rider": "Movera Rider web"
+        }
+      },
+      "appFlow": "v0.18.3 (R7): after sign-in the app explains why (sv / fr / en) before the operating system asks for the notification permission once; when allowed it gets the FCM token (on the web with the settings from GET /push/config and the service worker firebase-messaging-sw.js, which loads the same settings), registers it with POST /push/devices, registers again when the token changes and unregisters it on sign-out."
     },
     "admin": {
       "note": "v0.5.1 (CONTRACT.md §9), owner decisions 9 and 14 (2026-10-24): the admin panel signs in with e-mail and password through the server; this replaces \"outside this contract\" in auth.note for the admin. No second factor in v0.5.1.",
@@ -987,7 +1010,8 @@
         "GET /auth/test-accounts",
         "POST /telemetry/logs",
         "POST /telemetry/analytics",
-        "POST /telemetry/crashes"
+        "POST /telemetry/crashes",
+        "GET /push/config"
       ]
     },
     "driverTermsOnce": "v0.18.2 (owner 2026-10-30, 'Ask once (Recommended)'): the driver app asks for the terms once, on the phone-number screen (as the rider app); its details step has no second tick and still sends termsAccepted: true on POST /driver/onboarding (server unchanged)."
@@ -1531,6 +1555,13 @@
             "en": "Taxi driver licence",
             "sv": "Taxiförarlegitimation",
             "fr": "Carte de chauffeur de taxi"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Taxi driver licence (Transportstyrelsen)",
+              "sv": "Taxiförarlegitimation",
+              "fr": "Carte de conducteur de taxi (Transportstyrelsen)"
+            }
           }
         },
         "vtc_card": {
@@ -1549,6 +1580,18 @@
             "en": "Company registration",
             "sv": "Registreringsbevis (Bolagsverket)",
             "fr": "Extrait Kbis ou avis SIRENE (moins de 3 mois)"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Company registration certificate (Bolagsverket)",
+              "sv": "Registreringsbevis (Bolagsverket)",
+              "fr": "Certificat d’enregistrement de la société (Bolagsverket)"
+            },
+            "FR": {
+              "en": "Kbis extract or SIRENE notice (under 3 months)",
+              "sv": "Kbis-utdrag eller SIRENE-intyg (högst 3 månader)",
+              "fr": "Extrait Kbis ou avis SIRENE (moins de 3 mois)"
+            }
           }
         },
         "taxi_traffic_permit": {
@@ -1558,6 +1601,13 @@
             "en": "Taxi traffic permit",
             "sv": "Taxitrafiktillstånd (Transportstyrelsen)",
             "fr": "Licence de taxi"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Taxi traffic permit (Transportstyrelsen)",
+              "sv": "Taxitrafiktillstånd (Transportstyrelsen)",
+              "fr": "Autorisation de trafic taxi (Transportstyrelsen)"
+            }
           }
         },
         "tax_settings": {
@@ -1567,6 +1617,13 @@
             "en": "Tax settings (F-skatt)",
             "sv": "F-skattsedel",
             "fr": "Attestation fiscale"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "F-tax certificate (Skatteverket)",
+              "sv": "F-skattsedel",
+              "fr": "Attestation F-skatt (Skatteverket)"
+            }
           }
         },
         "bank_statement": {
@@ -1576,6 +1633,18 @@
             "en": "Bank details",
             "sv": "Kontobevis",
             "fr": "RIB de la société"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Company bank account statement",
+              "sv": "Kontobevis",
+              "fr": "Relevé bancaire de l’entreprise"
+            },
+            "FR": {
+              "en": "Company bank details (RIB)",
+              "sv": "Företagets bankuppgifter (RIB)",
+              "fr": "RIB de la société"
+            }
           }
         },
         "vtc_register_certificate": {
@@ -1612,6 +1681,18 @@
             "en": "Registration certificate",
             "sv": "Registreringsbevis",
             "fr": "Certificat d’immatriculation (carte grise)"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Registration certificate (Transportstyrelsen)",
+              "sv": "Registreringsbevis",
+              "fr": "Certificat d’immatriculation (Transportstyrelsen)"
+            },
+            "FR": {
+              "en": "Registration certificate (carte grise)",
+              "sv": "Registreringsbevis (carte grise)",
+              "fr": "Certificat d’immatriculation (carte grise)"
+            }
           }
         },
         "insurance": {
@@ -1621,6 +1702,18 @@
             "en": "Vehicle insurance",
             "sv": "Försäkringsbrev",
             "fr": "Assurance transport de personnes"
+          },
+          "nameByCountry": {
+            "SE": {
+              "en": "Vehicle insurance (taxi)",
+              "sv": "Försäkringsbrev",
+              "fr": "Assurance du véhicule (taxi)"
+            },
+            "FR": {
+              "en": "Passenger transport insurance",
+              "sv": "Försäkring för persontransport",
+              "fr": "Assurance transport de personnes"
+            }
           }
         },
         "vtc_sticker": {
@@ -1722,7 +1815,8 @@
           "application/pdf"
         ],
         "note": "Files are stored by the server (encrypted at rest, Europe) and read only through GET /driver/documents/{documentId}/file (the owner) and GET /admin/documents/{documentId}/file (documents.approve). fileUrl is that path, never a public link."
-      }
+      },
+      "namesByCountry": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R5 \"Name per country (Recommended)\"): a type may carry nameByCountry[country] = { en, sv, fr }; the name shown for a document is, in order: the admin's settings.texts[type].name of the country, nameByCountry[country], name. So the Swedish bank statement reads \"Relevé bancaire de l’entreprise\" in French and the French one \"RIB de la société\"; the Swedish company registration is not called Kbis. The server already puts the country's name in DocumentTypeInfo.name (GET /driver/onboarding/settings documentTypes) and in its notices; the admin panel shows and edits names per country (settings.texts)."
     },
     "fleetInvitations": {
       "note": "Owner decision 2026-10-25: joining a fleet is a two-sided invitation. driver_request: the driver asks with the code, the owner's name and e-mail (POST /driver/fleet/join); the owner accepts or declines. owner_invite: the owner invites a phone number (POST /driver/fleet/invite); a driver with an account gets it at once, one without gets it the moment he signs up with that number; he accepts or declines. Either side may cancel its own. The other side is told in the app (GET /notifications, kind fleet_invitation; a badge on Home and My fleet) and by one SMS. An admin sees pending invitations on the fleet and may accept or cancel one. Accepting links the driver (Driver.fleet) and closes every other pending invitation of his.",
@@ -1904,7 +1998,9 @@
             "photosNeeded": true
           },
           "customTypes": [],
-          "texts": {}
+          "texts": {},
+          "validMonths": {},
+          "guides": {}
         },
         "FR": {
           "documents": {
@@ -2070,7 +2166,11 @@
             "photosNeeded": true
           },
           "customTypes": [],
-          "texts": {}
+          "texts": {},
+          "validMonths": {
+            "urssaf_certificate": 6
+          },
+          "guides": {}
         },
         "TN": {
           "documents": {
@@ -2208,7 +2308,9 @@
             "photosNeeded": true
           },
           "customTypes": [],
-          "texts": {}
+          "texts": {},
+          "validMonths": {},
+          "guides": {}
         }
       },
       "stepIds": [
@@ -2258,6 +2360,10 @@
         "minSeats": [
           1,
           9
+        ],
+        "validMonths": [
+          1,
+          120
         ]
       },
       "rules": [
@@ -2268,9 +2374,10 @@
         "signUpReminders.everyDays within limits.remindEveryDays, stuckAfterDays within limits.stuckAfterDays.",
         "expiry.warnDays: 1 to 3 numbers within limits.warnDays, largest first, each smaller than the one before.",
         "vehicles.categories: each category of the catalog at most once; minYear, minSeats within limits; a category that is on allows at least one fuel of fuels; vehicles.warnDays within limits.vehicleWarnDays.",
-        "customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver, fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en."
+        "customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver, fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en.",
+        "v0.18.3: guides and validMonths keys are types of the country (contract types or its customTypes); guide lines within guideLimits; validMonths within limits.validMonths."
       ],
-      "driverRead": "GET /driver/onboarding/settings → OnboardingSettings of the driver's country (published, else defaults; version 0 = defaults), so the app offers only the car categories a car fits, asks the photos and shows the warnings the server uses. A driver with no country yet names it: ?country=SE. v0.18.0 (item 14): the answer also has documentTypes: { [type]: { owner, kind, expires, name, help? } } for every type in the country's lists, contract types with the admin's texts and the custom types, so the app renders a type it does not know from this data.",
+      "driverRead": "GET /driver/onboarding/settings → OnboardingSettings of the driver's country (published, else defaults; version 0 = defaults), so the app offers only the car categories a car fits, asks the photos and shows the warnings the server uses. A driver with no country yet names it: ?country=SE. v0.18.0 (item 14): the answer also has documentTypes: { [type]: { owner, kind, expires, name, help? } } for every type in the country's lists, contract types with the admin's texts and the custom types, so the app renders a type it does not know from this data. v0.18.3: DocumentTypeInfo.name is the country's name (documents.namesByCountry); DocumentTypeInfo.guide (R8) and validMonths (R9) when the country has them.",
       "admin": "The draft and publish calls take country only; a zoneId is 400 invalid_request (reason scope_country_only).",
       "customTypes": {
         "note": "v0.18.0 (owner item 14): a document type the admin creates for one country. { id, owner: driver | fleet | vehicle, kind: file | admin_check, expires: boolean, name: { sv, fr, en }, help: { sv, fr, en } } (all three languages, non-empty). The server makes the id (custom_ + 10 lower-case letters or digits) the first time the draft is saved: a new entry is sent without id and with draftKey (any short text the panel chooses), and the lists (documents.driver / fleet / vehicle, expiringTypes) may name it by \"draft:<draftKey>\"; the server replaces each with the new id and drops draftKey. An id once made never changes; an entry with an id the country does not have is 400 invalid_document. expires true puts the type in expiringTypes, false takes it out (the server keeps the two in step). owner fleet is a company document of a fleet account (owner_kind driver); owner vehicle a car document. Deleting an entry removes the type from the country: it must not stay in a list. Documents already uploaded for it stay stored.",
@@ -2287,10 +2394,16 @@
         ]
       },
       "texts": "v0.18.0 (owner item 14): texts[type] = { name?: { sv, fr, en }, help?: { sv, fr, en } } replaces the contract name, and adds a help / checklist text, of a contract type in this country. A key that is not a contract type of documents.types is 400 invalid_document (a custom type carries its own texts).",
-      "adminCheck": "v0.18.0 (owner items 8 and 13): an admin marks a kind admin_check document (the info session, or a custom one) with POST /admin/drivers/{driverId}/documents/{type}/check { decision: approved | rejected, note? } (documents.approve); approved counts for activation like any approved document. Until then the driver sees waiting_for_movera."
+      "adminCheck": "v0.18.0 (owner items 8 and 13): an admin marks a kind admin_check document (the info session, or a custom one) with POST /admin/drivers/{driverId}/documents/{type}/check { decision: approved | rejected, note? } (documents.approve); approved counts for activation like any approved document. Until then the driver sees waiting_for_movera.",
+      "guides": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R8 \"Admin edits all text (Recommended)\"): guides[type] = { checklist: LocalText[], tips: LocalText[] } (each 0 to 10 lines, every line in sv, fr and en, at most 300 characters) is the upload guide of that document type in this country (a contract type or the country's own custom type; any other key is 400 invalid_document). The driver app shows the admin's lines; a type with no guide (or an empty list) falls back to the app's built-in text; the drawing stays Movera's. Served to the app in DocumentTypeInfo.guide.",
+      "validMonths": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R9 \"Auto 6 months, editable (Recommended)\"): validMonths[type] = N (1 to 120) is how long a document of that type is valid from its issue date in this country (default FR urssaf_certificate 6). When an admin approves it with issuedAt (the date on the paper, not in the future) and no expiresAt, the server sets expiresAt = issuedAt + N months; an expiresAt the admin types wins. A type of expiringTypes still needs one of the two (400 expiry_required). Any key must be a type of the country (400 invalid_document).",
+      "guideLimits": {
+        "lines": 10,
+        "lineChars": 300
+      }
     },
     "documentExpiry": {
-      "note": "v0.18.0 (owner item 1: \"First answer but add reminder to driver one month before expire\"; item 3; note check): the admin types the expiry date when approving (POST /admin/documents/{documentId}/review { decision: approved, expiresAt }). For a type in settings.expiringTypes of the driver's country, approving without expiresAt is 400 invalid_request (reason expiry_required) and a date not in the future is 400 (reason expiry_in_past); other types keep expiresAt optional. A driver may send expiresAt on upload; the admin's date wins.",
+      "note": "v0.18.0 (owner item 1: \"First answer but add reminder to driver one month before expire\"; item 3; note check): the admin types the expiry date when approving (POST /admin/documents/{documentId}/review { decision: approved, expiresAt }). For a type in settings.expiringTypes of the driver's country, approving without expiresAt is 400 invalid_request (reason expiry_required) and a date not in the future is 400 (reason expiry_in_past); other types keep expiresAt optional. A driver may send expiresAt on upload; the admin's date wins. v0.18.3 (R9): the review may send issuedAt instead of expiresAt for a type with settings.validMonths: expiresAt = issuedAt + validMonths months (an issuedAt in the future is 400 invalid_request, reason issued_in_future; an issuedAt whose computed date is already past is 400 expiry_in_past).",
       "expire": "At expiresAt the server marks the document expired (a sweep every hour; every check before that already counts a document whose expiresAt has passed as expired). The driver uploads a new one (in_review) and an admin approves it with a new date.",
       "block": "settings.expiry.blockAtExpiry true (default): with any document of Driver.requiredDocuments (and requiredFleetDocuments for a fleet owner) expired, POST /driver/availability online is 409 documents_not_approved, reason documents_expired, details \"<scope>:<type>\". false: an expired document does not stop going online (it still shows red). Car documents follow settings.vehicles.autoHold the same way (reason vehicle_documents_not_approved).",
       "warn": "From the largest of settings.expiry.warnDays (cars: settings.vehicles.warnDays) before expiresAt the document is expiring (shown orange). Push (GET /notifications, kind document_expiring, data { documentId, type, scope, vehicleId?, daysLeft, expiresAt }) once per warning day reached (30, 7, 1 by default; when several are reached at once only the smallest is sent); at expiry one notice kind document_expired. deepLink movera-driver://documents/{type} (cars: ?vehicleId=).",
@@ -2300,7 +2413,7 @@
       ],
       "daysLeft": "whole days until expiresAt, rounded up (0 = expired).",
       "validityHints": {
-        "note": "v0.18.0 (checker, owner item 14 \"URSSAF (6 months)\"): a suggested validity the admin panel fills in as the expiry date when approving (the admin may change it); the server does not apply it.",
+        "note": "v0.18.0 hint, replaced in v0.18.3 (R9) by settings.validMonths, which the server applies from issuedAt. Kept for the panel's older builds.",
         "urssaf_certificate": {
           "months": 6
         }
@@ -2320,8 +2433,9 @@
         "document_expiring": "due_soon: approved, expires within the warning window (fix: document)",
         "document_in_review": "waiting: uploaded, Movera reviews it (no fix)",
         "info_session_waiting": "waiting: the info session (kind admin_check) is not marked held yet; status waiting_for_movera; fix: info_session (content slot driver-info-session \"How to book your info session\")",
-        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done; Movera activates it (no fix)",
+        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left); Movera activates it (no fix)",
         "fleet_not_approved": "blocks_online: the fleet is pending / rejected / blocked (no fix)",
+        "no_fleet": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4 \"Red 'Join a fleet' line (Recommended)\"): blocks_online: an account of type driver that is in no fleet; text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company] (two buttons, labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet)",
         "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
         "no_vehicle": "blocks_online: the fleet has a car that can be picked but this driver has none picked (fix: pick_vehicle)",
         "admin_check_waiting": "waiting: a custom admin_check document not marked yet; status waiting_for_movera (no fix)",
@@ -2331,7 +2445,9 @@
         "document",
         "info_session",
         "fleet_vehicles",
-        "pick_vehicle"
+        "pick_vehicle",
+        "join_fleet",
+        "start_company"
       ],
       "scope": "driver (Driver.requiredDocuments), fleet (requiredFleetDocuments), vehicle (the picked car, or for a fleet owner every car of the fleet)",
       "texts": {
@@ -2339,26 +2455,52 @@
           "sv": "Lägg till 4 foton av din bil",
           "fr": "Ajoutez 4 photos de votre voiture",
           "en": "Add 4 photos of your car"
+        },
+        "no_fleet": {
+          "sv": "Gå med i ett åkeri för att köra – be din åkare om Movera-koden",
+          "fr": "Rejoignez une flotte pour rouler – demandez le code Movera à votre gérant de flotte",
+          "en": "Join a fleet to drive – ask your fleet owner for the Movera code"
+        },
+        "actions": {
+          "join_fleet": {
+            "sv": "Gå med i ett åkeri",
+            "fr": "Rejoindre une flotte",
+            "en": "Join a fleet"
+          },
+          "start_company": {
+            "sv": "Starta mitt eget företag",
+            "fr": "Créer ma propre société",
+            "en": "Start my own company"
+          }
         }
-      }
+      },
+      "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company)."
     },
     "infoSession": {
-      "note": "v0.18.0 (owner item 8: \"How to book + 'Waiting for Movera' (Recommended)\"): the info_session document (kind admin_check; Sweden and France (owner item 13: \"Yes, same as Sweden\")) shows the shown state waiting_for_movera until an admin marks it approved. Tapping it opens \"How to book your info session\", the admin's content slot driver-info-session (title, text sv / fr / en, an https link in the text) from GET /driver/content.",
+      "note": "v0.18.0 (owner item 8: \"How to book + 'Waiting for Movera' (Recommended)\"): the info_session document (kind admin_check; Sweden and France (owner item 13: \"Yes, same as Sweden\")) shows the shown state waiting_for_movera until an admin marks it approved. Tapping it opens \"How to book your info session\", the admin's content slot driver-info-session (title, text sv / fr / en, an https link in the text) from GET /driver/content. v0.18.3 (R10): the admin edits the slot with the Content API (POST /admin/content/driver-info-session/publish { zoneIds, title, text: { sv, fr, en } }), per zone of Sweden and France; the driver app falls back to its built-in text while nothing is published.",
       "type": "info_session",
       "status": "waiting_for_movera",
       "contentSlot": "driver-info-session"
     },
     "vehicleRules": {
-      "note": "v0.18.0 (owner item 11: \"Make them real (Recommended)\"): POST /driver/vehicles is checked against settings.vehicles of the fleet's country. Each categoryId must fit: the category on, year ≥ minYear, seats ≥ minSeats, fuel in fuels; else 400 invalid_request, reason category_not_allowed, details \"<category>:<problem>\" with problem category_off, year_too_old, too_few_seats, fuel_not_allowed or fuel_required (fuel missing while the category does not allow every fuel). A category with no rule in the document (e.g. child_seat) is not checked. With photosNeeded the four photo types (settings.photoTypes) are added to Vehicle.requiredDocuments, uploaded like other car documents (POST /driver/documents, ownerId = vehicleId) and approved by an admin; the car cannot be picked or driven without them.",
+      "note": "v0.18.0 (owner item 11: \"Make them real (Recommended)\"): POST /driver/vehicles is checked against settings.vehicles of the fleet's country. Each categoryId must fit: the category on, year ≥ minYear, seats ≥ minSeats, fuel in fuels; else 400 invalid_request, reason category_not_allowed, details \"<category>:<problem>\" with problem category_off, year_too_old, too_few_seats, fuel_not_allowed or fuel_required (fuel missing while the category does not allow every fuel). v0.18.3: a category with no rule in the document (e.g. child_seat) is no longer skipped: the car must still meet the base year (baseYear) and an extra needs a ride category (extraCategories). With photosNeeded the four photo types (settings.photoTypes) are added to Vehicle.requiredDocuments, uploaded like other car documents (POST /driver/documents, ownerId = vehicleId) and approved by an admin; the car cannot be picked or driven without them.",
       "problems": [
         "category_off",
         "year_too_old",
         "too_few_seats",
         "fuel_not_allowed",
-        "fuel_required"
+        "fuel_required",
+        "extra_needs_ride"
       ],
       "reason": "category_not_allowed",
-      "photosForAll": "v0.18.0 (owner item 16: \"Before approve any car must have photos uppload led and approv it\"; \"First answer and keep approved account works for test only\"): every car, also one approved before v0.18.0, needs the four photos approved before it can be picked or driven (409 documents_not_approved, reason vehicle_documents_not_approved, details vehicle:vehicle_photo_*). The Home sheet shows one line vehicle_photos_needed (\"Add 4 photos of your car\"). Exempt: a test account (its phone is a driver-app number of the test phones, the seeded test drivers included): it is never asked for the photos."
+      "photosForAll": "v0.18.0 (owner item 16: \"Before approve any car must have photos uppload led and approv it\"; \"First answer and keep approved account works for test only\"): every car, also one approved before v0.18.0, needs the four photos approved before it can be picked or driven (409 documents_not_approved, reason vehicle_documents_not_approved, details vehicle:vehicle_photo_*). The Home sheet shows one line vehicle_photos_needed (\"Add 4 photos of your car\"). Exempt: a test account (its phone is a driver-app number of the test phones, the seeded test drivers included): it is never asked for the photos.",
+      "baseYear": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2 \"Year rule for every car (Recommended)\"): every car must be built in or after the country's base year whatever its categories: the smallest minYear among the country's settings.vehicles.categories that are on and are not extraCategories (defaults: SE 2015, FR 2016, TN 2012). An older car is 400 invalid_request, reason category_not_allowed, with details \"<category>:year_too_old\" for each of its categories (\"car:year_too_old\" when it has none), on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}.",
+      "extraCategories": [
+        "child_seat"
+      ],
+      "extras": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2): an extra category (extraCategories: child_seat, the driver app's \"Booster Seat\") is only allowed together with at least one ride category (any category that is not an extra); alone it is details \"child_seat:extra_needs_ride\".",
+      "approval": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2: \"admin sees a red warning and cannot approve a rule-breaking car\"): POST /admin/vehicles/{vehicleId}/review { decision: approved } of a car that breaks the rules now (base year, a category problem, an extra alone) is 409 invalid_transition, reason vehicle_rules_not_met, details \"<category>:<problem>\"; rejected and blocked are always allowed. Vehicle.ruleProblems (admin and fleet-owner views) lists the same details while the car breaks the rules, so the panel shows them in red and disables Approve. Server migration 0035 put every approved car below its country's base year back to pending (the 2012 test car TST G2A included).",
+      "approvalReason": "vehicle_rules_not_met"
     },
     "startCompany": {
       "note": "v0.18.0 (owner item 7: \"First answer but his account become like fleet company account and the documents that already exist no need to uppload again only the new documents and procces like fleet account and wait for admin approv\"): POST /driver/fleet/start-company { expectedVersion, company } (\"Start my own company\" in My fleet). Only an account of type driver, not on a trip (409 invalid_transition, reasons already_fleet, on_trip). The driver leaves his fleet (car released, offline), the account becomes type fleet with a new pending fleet he owns, and the account goes on_hold. Every document he has stays as it is (approved ones count, nothing is uploaded again); only requiredFleetDocuments he does not have yet and the new cars' documents are needed. An admin then reviews the fleet (POST /admin/fleets/{fleetId}/review) and activates the account (POST /admin/drivers/{driverId}/status, the fleet documents checked) like a new fleet.",
@@ -2399,6 +2541,96 @@
         "vehicle_documents_not_approved",
         "vehicle_in_use"
       ]
+    },
+    "reviewNotices": {
+      "note": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R6 \"Update + notice (Recommended)\"): every admin decision on a document (POST /admin/documents/{documentId}/review, POST /admin/drivers/{driverId}/documents/{type}/check, POST /admin/drivers/{driverId}/bank/review) and on a car (POST /admin/vehicles/{vehicleId}/review) writes one in-app notice (GET /notifications, the bell) to the account concerned, in its language (sv / fr / en, else en), with the reason (the admin's note) when there is one. A document goes to the account it belongs to (a car document to the car's fleet owner); a car to its fleet owner (a car without fleet: its driver). The driver app also re-reads documents and reminders when a screen comes back and every 60 s while open (no server change). Push to a closed phone follows the push decision (R7, not part of 0.18.3).",
+      "kinds": [
+        "document_approved",
+        "document_rejected",
+        "vehicle_approved",
+        "vehicle_rejected",
+        "vehicle_blocked"
+      ],
+      "data": "document_*: { documentId, type, scope: driver | fleet | vehicle, vehicleId?, decision, note? }; vehicle_*: { vehicleId, plate, decision, note? }",
+      "deepLink": "document_*: movera-driver://documents/{type} (a car's: ?vehicleId=); vehicle_*: movera-driver://fleet",
+      "texts": {
+        "document_approved": {
+          "title": {
+            "sv": "{name} är godkänt",
+            "fr": "{name} : approuvé",
+            "en": "{name} was approved"
+          },
+          "body": {
+            "sv": "Bra! Inget mer att göra för det här dokumentet.",
+            "fr": "Parfait ! Rien d’autre à faire pour ce document.",
+            "en": "All good, nothing more to do for this document."
+          }
+        },
+        "document_rejected": {
+          "title": {
+            "sv": "{name} godkändes inte",
+            "fr": "{name} : refusé",
+            "en": "{name} was rejected"
+          },
+          "body": {
+            "sv": "Anledning: {note}. Ladda upp ett nytt.",
+            "fr": "Motif : {note}. Envoyez-en un nouveau.",
+            "en": "Reason: {note}. Please upload a new one."
+          },
+          "bodyNoNote": {
+            "sv": "Ladda upp ett nytt.",
+            "fr": "Envoyez-en un nouveau.",
+            "en": "Please upload a new one."
+          }
+        },
+        "vehicle_approved": {
+          "title": {
+            "sv": "Bilen {plate} är godkänd",
+            "fr": "Le véhicule {plate} est approuvé",
+            "en": "Car {plate} was approved"
+          },
+          "body": {
+            "sv": "Bilen kan väljas när alla dess dokument är godkända.",
+            "fr": "Le véhicule peut être choisi quand tous ses documents sont approuvés.",
+            "en": "The car can be picked once all its documents are approved."
+          }
+        },
+        "vehicle_rejected": {
+          "title": {
+            "sv": "Bilen {plate} godkändes inte",
+            "fr": "Le véhicule {plate} est refusé",
+            "en": "Car {plate} was rejected"
+          },
+          "body": {
+            "sv": "Anledning: {note}.",
+            "fr": "Motif : {note}.",
+            "en": "Reason: {note}."
+          },
+          "bodyNoNote": {
+            "sv": "Kontakta Movera om du har frågor.",
+            "fr": "Contactez Movera pour toute question.",
+            "en": "Contact Movera if you have questions."
+          }
+        },
+        "vehicle_blocked": {
+          "title": {
+            "sv": "Bilen {plate} är spärrad",
+            "fr": "Le véhicule {plate} est bloqué",
+            "en": "Car {plate} was blocked"
+          },
+          "body": {
+            "sv": "Anledning: {note}.",
+            "fr": "Motif : {note}.",
+            "en": "Reason: {note}."
+          },
+          "bodyNoNote": {
+            "sv": "Kontakta Movera om du har frågor.",
+            "fr": "Contactez Movera pour toute question.",
+            "en": "Contact Movera if you have questions."
+          }
+        }
+      },
+      "placeholders": "{name} = the document's name in the country and language (namesByCountry); {plate} = the car's plate; {note} = the admin's note as typed."
     }
   },
   "outstandingFee": {
