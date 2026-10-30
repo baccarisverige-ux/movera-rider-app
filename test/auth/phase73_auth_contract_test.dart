@@ -211,7 +211,10 @@ void main() {
       tokens: tokens,
     );
 
-    final result = await auth.signIn(provider: 'apple');
+    final result = await auth.signIn(
+      provider: 'apple',
+      idToken: 'apple-id-token',
+    );
 
     expect(result, isA<ProviderPhoneRequired>());
     final link = (result as ProviderPhoneRequired).link;
@@ -230,7 +233,10 @@ void main() {
 
     // With a verified phone on file, Apple now signs straight in.
     await tokens.clear();
-    expect(await auth.signIn(provider: 'apple'), isA<ProviderSignedIn>());
+    expect(
+      await auth.signIn(provider: 'apple', idToken: 'apple-id-token'),
+      isA<ProviderSignedIn>(),
+    );
     expect(await tokens.readAccess(), 'mock-access-apple');
   });
 

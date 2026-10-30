@@ -5,16 +5,23 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
+import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
+import 'package:movera_rider/features/auth/data/provider_token_source.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/domain/test_account.dart';
 
 class AuthController {
-  AuthController({AuthRepository? auth, PushPermissionGate? pushPermission})
-    : _auth = auth ?? AuthRepository(),
-      _pushPermission = pushPermission;
+  AuthController({
+    AuthRepository? auth,
+    PushPermissionGate? pushPermission,
+    ProviderTokenSource? providerTokens,
+  }) : _auth = auth ?? AuthRepository(),
+       _pushPermission = pushPermission,
+       _providerTokens = providerTokens ?? const NoProviderTokenSource();
 
   final AuthRepository _auth;
+  final ProviderTokenSource _providerTokens;
   final PushPermissionGate? _pushPermission;
   OtpChallenge? lastChallenge;
 
@@ -44,10 +51,19 @@ class AuthController {
     return result;
   }
 
-  /// Apple or Google. Push registers only once a session exists, which for
-  /// a first-time provider rider is after the phone code.
-  Future<ProviderSignInResult> signIn({required String provider}) async {
-    final result = await _auth.signIn(provider: provider);
+  /// Apple or Google: the provider's identity token first, then `POST
+  /// /auth/provider`. Null when the rider closed the provider's sheet.
+  /// Throws [ProviderUnavailable] when this build cannot ask the provider.
+  /// Push registers only once a session exists, which for a first-time
+  /// provider rider is after the phone code.
+  Future<ProviderSignInResult?> signIn({required String provider}) async {
+    final token = await _providerTokens.obtain(provider);
+    if (token == null) return null;
+    final result = await _auth.signIn(
+      provider: provider,
+      idToken: token.idToken,
+      name: token.name,
+    );
     if (result is ProviderSignedIn) {
       await _enterSession(provider: provider);
       unawaited(_registerPushBestEffort());
@@ -58,6 +74,7 @@ class AuthController {
   /// A different rider than the one whose session expired on this device:
   /// wipe the previous rider's data before the app opens (FLOW-1).
   Future<void> _enterSession({String? phone, String? provider}) async {
+    SignedOutNotice.clear();
     try {
       final riderId = UserDataWipe.riderIdFor(
         accessToken: await _auth.readAccessToken(),
@@ -103,6 +120,11 @@ class AuthController {
   /// Ends the session and removes everything the rider left on this device
   /// (UserDataWipe), even when the backend cannot be reached.
   Future<void> signOut() async {
+    // v0.18.5 auth.signedOut.ownSignOut: no message after the rider's own
+    // Sign out.
+    SignedOutNotice.clear();
+    // v0.18.5 legal: nothing to accept while signed out.
+    _legalSignedOut();
     // Queued cancels still go out with this rider's own session.
     await UserDataWipe.flushPendingCancels();
     // Unregister while the access token is still available. Even when the
@@ -125,10 +147,19 @@ class AuthController {
     }
   }
 
+  static void _legalSignedOut() {
+    try {
+      AppScope.instance.legal.signedOut();
+    } catch (_) {
+      // No app scope (tests of the controller alone).
+    }
+  }
+
   /// Ends the session on this device without calling the backend, which has
   /// already ended it (an accepted account deletion revokes the rider's
   /// sessions and push devices). Same local wipe as [signOut].
   Future<void> signOutLocally() async {
+    _legalSignedOut();
     try {
       await _auth.clearLocalSession();
     } finally {

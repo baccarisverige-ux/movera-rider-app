@@ -1,6 +1,8 @@
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
+import 'package:movera_rider/app/legal_country.dart';
 import 'package:movera_rider/core/content/rider_content_controller.dart';
+import 'package:movera_rider/core/legal/rider_legal.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
@@ -125,6 +127,8 @@ class AppScope {
         // Sign in becomes the root gate's child so the gate survives. The
         // screen is registered from app.dart so DI never imports
         // presentation (ARCH-17).
+        // v0.18.5 legal: no re-accept screen over Sign in.
+        AppScope.instance.legal.signedOut();
         AppScope.showSignInOnSessionExpired?.call();
       },
     );
@@ -413,6 +417,14 @@ class AppScope {
   late final RiderContentController content = RiderContentController(
     api: api.contractWire ? api : null,
     onTrip: RideSnapshotStore.rideLive,
+  );
+
+  /// Terms of use and privacy policy (contract v0.18.5 `legal`, owner G1-B2):
+  /// `GET /legal/{country}` on the contract wire, also before sign-in.
+  late final RiderLegalController legal = RiderLegalController(
+    api: api.contractWire ? api : null,
+    onTrip: RideSnapshotStore.rideLive,
+    country: riderLegalCountry,
   );
 
   /// Demo saved cards (stored on this device until the payment partner's

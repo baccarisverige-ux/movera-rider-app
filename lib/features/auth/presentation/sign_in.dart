@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/application/phone_country_default.dart';
@@ -87,13 +87,9 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     });
   }
 
-  /// FLOW-16: the consent line names the Terms and the Privacy Policy, so
-  /// both open them.
-  late final _termsTap = TapGestureRecognizer()
-    ..onTap = () => _openLegal('terms');
-  late final _privacyTap = TapGestureRecognizer()
-    ..onTap = () => _openLegal('privacy');
-
+  /// FLOW-16 / G1-B6: the consent line names the Terms and the Privacy
+  /// policy; they open from their own links under it ([LegalLinksRow]), so
+  /// a tap anywhere on the line only ticks the box.
   void _openLegal(String kind) {
     Navigator.of(
       context,
@@ -170,8 +166,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    _termsTap.dispose();
-    _privacyTap.dispose();
     _story.dispose();
     _phone.dispose();
     _phoneFocus.dispose();
@@ -207,10 +201,14 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     }
     setState(() {
       _busy = _Busy.phone;
+      // G1-B6: a new try starts without the last try's error line.
+      _phoneError = null;
       _providerError = null;
       _restrictedNumber = null;
       _waitlistSaved = false;
     });
+    // v0.18.5 auth.signedOut: the rider is signing in again.
+    SignedOutNotice.clear();
     try {
       final challenge = await _auth.requestOtp(phone: number);
       if (!mounted) return;
@@ -244,7 +242,11 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
       final result = await _auth.signIn(provider: provider);
       if (!mounted) return;
       switch (result) {
+        case null:
+          // The rider closed Apple's or Google's sheet.
+          break;
         case ProviderSignedIn():
+          SignedOutNotice.clear();
           enterMoveraApp(context);
         case ProviderPhoneRequired(:final link):
           await Navigator.push(
@@ -286,6 +288,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const SignedOutBanner(),
           Text(context.l10n.enterPhone, style: AuthText.cardTitle()),
           const SizedBox(height: 2),
           Text(context.l10n.textFourDigitCode, style: AuthText.cardSub()),
@@ -345,7 +348,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                         children: [
                           TextSpan(
                             text: context.l10n.consentTerms,
-                            recognizer: _termsTap,
                             style: GoogleFonts.urbanist(
                               fontWeight: FontWeight.w700,
                               color: AuthColors.ink,
@@ -354,7 +356,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                           TextSpan(text: context.l10n.and),
                           TextSpan(
                             text: context.l10n.consentPrivacy,
-                            recognizer: _privacyTap,
                             style: GoogleFonts.urbanist(
                               fontWeight: FontWeight.w700,
                               color: AuthColors.ink,
@@ -383,7 +384,11 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                 ),
               ),
             ),
-          const SizedBox(height: 18),
+          // G1-B2 / G1-B6: Terms and Privacy as two separate links, each
+          // its own button for screen readers (the consent row is one
+          // checkbox to them).
+          LegalLinksRow(onOpen: _openLegal),
+          const SizedBox(height: 12),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _agreed ? null : _nudgeConsent,
@@ -519,6 +524,109 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// v0.18.5 `auth.signedOut` (owner G1-D3 "Show a message (Recommended)"):
+/// "You were signed out – please sign in again" and the reason line, after
+/// the server ended the session. Nothing after the rider's own Sign out.
+class SignedOutBanner extends StatelessWidget {
+  const SignedOutBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<SignedOut?>(
+      valueListenable: SignedOutNotice.current,
+      builder: (context, notice, _) {
+        if (notice == null) return const SizedBox.shrink();
+        final detail = notice.detail;
+        return Padding(
+          key: const ValueKey('auth-signed-out'),
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Semantics(
+            liveRegion: true,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: AuthColors.ink,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          notice.text,
+                          style: AuthText.small().copyWith(
+                            color: AuthColors.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (detail != null)
+                          Text(detail, style: AuthText.small()),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// G1-B2 / G1-B6: "Terms of use" and "Privacy policy", two separate links.
+class LegalLinksRow extends StatelessWidget {
+  const LegalLinksRow({super.key, required this.onOpen});
+
+  /// `terms` or `privacy`.
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget link(String kind, String label) => Semantics(
+      link: true,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: () => onOpen(kind),
+      child: InkWell(
+        key: ValueKey('auth-legal-$kind'),
+        onTap: () => onOpen(kind),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          child: Text(
+            label,
+            style: AuthText.small().copyWith(
+              fontSize: 13,
+              color: AuthColors.ink,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(
+        spacing: 18,
+        children: [
+          link('terms', context.l10n.legalTermsLink),
+          link('privacy', context.l10n.legalPrivacyLink),
         ],
       ),
     );

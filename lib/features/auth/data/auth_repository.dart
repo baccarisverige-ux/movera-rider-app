@@ -88,32 +88,52 @@ class AuthRepository {
     return OtpVerifyResult(isNewRider: isNewRider);
   }
 
-  /// Signs in with Apple or Google.
+  /// Signs in with Apple or Google: `POST /auth/provider { provider,
+  /// idToken, app: rider, name? }` (contract §8, owner G1-B1 "Fix it
+  /// (Recommended)"; builds before sent `{ provider }` alone).
   ///
   /// The backend either returns tokens (the account already has a verified
   /// phone) or `PHONE_REQUIRED` with a short-lived link token. In the second
   /// case nothing is saved: the session starts only once the phone code is
-  /// verified, so a phone number stays mandatory.
-  Future<ProviderSignInResult> signIn({required String provider}) async {
+  /// verified, so a phone number stays mandatory. A server without the
+  /// provider's keys answers `503 unavailable` (`provider_not_configured`).
+  Future<ProviderSignInResult> signIn({
+    required String provider,
+    required String idToken,
+    String? name,
+  }) async {
     final normalized = provider.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(provider, 'provider', 'Provider is required.');
     }
+    if (idToken.trim().isEmpty) {
+      throw ArgumentError.value(idToken, 'idToken', 'A token is required.');
+    }
     final response = await _api.post(
       '/api/v1/auth/provider',
-      body: {'provider': normalized},
+      body: {
+        'provider': normalized,
+        'idToken': idToken,
+        'app': 'rider',
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+      },
     );
     if (response['code'] == 'PHONE_REQUIRED') {
       final linkToken = response['linkToken'];
       if (linkToken is! String || linkToken.isEmpty) {
         throw StateError('Phone-required response had no link token.');
       }
-      final name = response['name'];
+      String? text(Object? value) =>
+          value is String && value.trim().isNotEmpty ? value.trim() : null;
+      final given = [
+        text(response['firstName']),
+        text(response['lastName']),
+      ].whereType<String>().join(' ');
       return ProviderPhoneRequired(
         ProviderLink(
           provider: normalized,
           linkToken: linkToken,
-          name: name is String && name.trim().isNotEmpty ? name.trim() : null,
+          name: given.isNotEmpty ? given : text(response['name']) ?? text(name),
         ),
       );
     }

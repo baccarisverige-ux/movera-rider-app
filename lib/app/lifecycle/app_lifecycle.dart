@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
@@ -38,6 +41,9 @@ class AppLifecycleObserver with WidgetsBindingObserver {
           );
         });
         RideRestoreCoordinator.instance.resumeIfNeeded();
+        // v0.18.5 legal.read: again when the app comes back (no stream
+        // event carries it).
+        unawaited(AppScope.instance.legal.load());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:

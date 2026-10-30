@@ -9,6 +9,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
@@ -113,7 +114,9 @@ class ApiClient {
     final query = path.indexOf('?');
     final bare = query < 0 ? path : path.substring(0, query);
     return !_noSessionPaths.contains(bare) &&
-        !bare.startsWith('/api/v1/telemetry/');
+        !bare.startsWith('/api/v1/telemetry/') &&
+        // v0.18.5 auth.beforeSignIn.allowed: GET /legal/{country}.
+        !bare.startsWith('/api/v1/legal/');
   }
 
   /// v0.18.2 `auth.beforeSignIn`: on the contract wire, with no stored
@@ -261,6 +264,11 @@ class ApiClient {
           await _expireSession(
             replacement ?? access,
             cause: replacement == null ? refresh.cause : 'retry_401',
+            // v0.18.5 auth.signedOut: only a refresh the server answered
+            // 401 tells the rider why on the sign-in screen.
+            notice: replacement == null && refresh.cause == 'refresh_401'
+                ? SignedOutNotice.forReason(refresh.reason)
+                : null,
           );
         }
       }
@@ -343,41 +351,79 @@ class ApiClient {
     if (refresh == null || refresh.isEmpty) {
       return const _Refresh.rejected('no_refresh_token');
     }
-    try {
-      final response = await _client
-          .post(
-            Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'refreshToken': refresh}),
-          )
-          .timeout(_timeout);
-      final status = response.statusCode;
-      if (status == 400 || status == 401 || status == 403) {
-        return _Refresh.rejected('refresh_$status');
-      }
-      if (status != 200) return const _Refresh.unavailable();
-      final payload = jsonDecode(response.body);
-      if (payload is! Map<String, dynamic>) return const _Refresh.unavailable();
-      final access = payload['accessToken'];
-      final nextRefresh = payload['refreshToken'];
-      if (access is! String ||
-          access.isEmpty ||
-          nextRefresh is! String ||
-          nextRefresh.isEmpty) {
+    // Contract v0.18.5 `auth.tokens.refreshRetry` (G1-B6): one refresh at a
+    // time ([_refreshAccess]); an answer lost on the way (no response at
+    // all) is asked again at once with the SAME refresh token, well inside
+    // the server's 60 s retry window. A 5xx or 429 is an answer: kept for a
+    // later try, never resent in a loop.
+    for (var attempt = 1; ; attempt++) {
+      final http.Response response;
+      try {
+        response = await _client
+            .post(
+              Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({'refreshToken': refresh}),
+            )
+            .timeout(_timeout);
+      } catch (error) {
+        AppLog.warning(
+          'api.refresh_unavailable',
+          extra: {'error': error.runtimeType.toString(), 'attempt': attempt},
+        );
+        if (attempt < refreshAttempts) continue;
         return const _Refresh.unavailable();
       }
-      await _tokens?.save(access: access, refresh: nextRefresh);
-      return _Refresh.refreshed(access);
-    } catch (error) {
-      AppLog.warning(
-        'api.refresh_unavailable',
-        extra: {'error': error.runtimeType.toString()},
-      );
-      return const _Refresh.unavailable();
+      try {
+        final status = response.statusCode;
+        if (status == 400 || status == 401 || status == 403) {
+          return _Refresh.rejected(
+            'refresh_$status',
+            reason: status == 401 ? _reasonOf(response) : null,
+          );
+        }
+        if (status != 200) return const _Refresh.unavailable();
+        final payload = jsonDecode(response.body);
+        if (payload is! Map<String, dynamic>) {
+          return const _Refresh.unavailable();
+        }
+        final access = payload['accessToken'];
+        final nextRefresh = payload['refreshToken'];
+        if (access is! String ||
+            access.isEmpty ||
+            nextRefresh is! String ||
+            nextRefresh.isEmpty) {
+          return const _Refresh.unavailable();
+        }
+        await _tokens?.save(access: access, refresh: nextRefresh);
+        return _Refresh.refreshed(access);
+      } catch (error) {
+        AppLog.warning(
+          'api.refresh_unavailable',
+          extra: {'error': error.runtimeType.toString()},
+        );
+        return const _Refresh.unavailable();
+      }
     }
+  }
+
+  /// How many times one refresh token is sent when no answer comes back
+  /// (`auth.tokens.refreshRetry`: the first try and one retry at once).
+  static const refreshAttempts = 2;
+
+  static String? _reasonOf(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['reason'] is String) {
+        return decoded['reason'] as String;
+      }
+    } catch (_) {
+      // No JSON body: no reason line.
+    }
+    return null;
   }
 
   /// Runs once per rejected access token, so a burst of concurrent 401s
@@ -385,9 +431,11 @@ class ApiClient {
   Future<void> _expireSession(
     String failedAccess, {
     required String? cause,
+    SignedOut? notice,
   }) async {
     if (_expiredAccess == failedAccess) return;
     _expiredAccess = failedAccess;
+    if (notice != null) SignedOutNotice.current.value = notice;
     // Why the rider was signed out (never the tokens), so a real expiry can
     // be told apart from a reload that only lost the session.
     AppLog.warning(
@@ -459,19 +507,24 @@ class ApiClient {
 class _Refresh {
   const _Refresh.refreshed(String this.access)
     : unavailable = false,
-      cause = null;
-  const _Refresh.rejected(String this.cause)
+      cause = null,
+      reason = null;
+  const _Refresh.rejected(String this.cause, {this.reason})
     : access = null,
       unavailable = false;
   const _Refresh.unavailable()
     : access = null,
       unavailable = true,
-      cause = null;
+      cause = null,
+      reason = null;
 
   final String? access;
 
   /// Why the refresh was refused (`refresh_401`, `no_refresh_token`, ...).
   final String? cause;
+
+  /// The 401 reason of a refused refresh (`session_expired`, ...).
+  final String? reason;
 
   /// The refresh endpoint could not answer; the tokens are kept.
   final bool unavailable;

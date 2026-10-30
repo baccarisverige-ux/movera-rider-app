@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -792,7 +793,7 @@ class BookingCoordinator {
     final key = attempt.idempotencyKey;
     onSending?.call();
     final json = contract
-        ? await _client.post(
+        ? await _postTrip(
             '/api/v1/trips',
             body: contractTripBody(
               quoteId: quoteId,
@@ -809,6 +810,7 @@ class BookingCoordinator {
               walletFirst: useWalletFirst && walletAmountMinor > 0,
             ),
             idempotencyKey: key,
+            client: _client,
           )
         : await _client.post(
             '/api/v1/rides',
@@ -1071,5 +1073,23 @@ class _BookingQuoteBinding {
         'Selected fare no longer matches the authoritative quote',
       );
     }
+  }
+}
+
+/// `POST /trips`; v0.18.5 `legal.accept`: a refusal with `409 conflict`,
+/// reason `terms_not_accepted`, shows the new terms with "I accept" at once.
+Future<Map<String, dynamic>> _postTrip(
+  String path, {
+  required Map<String, dynamic> body,
+  String? idempotencyKey,
+  required ApiClient client,
+}) async {
+  try {
+    return await client.post(path, body: body, idempotencyKey: idempotencyKey);
+  } on ApiError catch (error) {
+    if (error.detail == 'terms_not_accepted') {
+      unawaited(AppScope.instance.legal.onTermsNotAccepted());
+    }
+    rethrow;
   }
 }

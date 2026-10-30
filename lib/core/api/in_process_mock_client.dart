@@ -739,7 +739,13 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/provider' && method == 'POST') {
       final provider = body['provider'];
-      if (provider is! String || provider.trim().isEmpty) {
+      final idToken = body['idToken'];
+      if (provider is! String ||
+          provider.trim().isEmpty ||
+          // Contract §8 ProviderSignInRequest: provider, idToken and app.
+          idToken is! String ||
+          idToken.isEmpty ||
+          (body['app'] != 'rider' && body['app'] != 'driver')) {
         status = 400;
         payload = _error(
           'invalid_request',

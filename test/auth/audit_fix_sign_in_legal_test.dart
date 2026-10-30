@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,7 +31,7 @@ void main() {
   }
 
   for (final (link, kind) in [
-    ('terms and conditions', 'terms'),
+    ('terms of service', 'terms'), // G1-B5: driver's words
     ('privacy policy', 'privacy'),
   ]) {
     testWidgets('"$link" on Sign in opens the $kind page', (tester) async {
@@ -55,9 +54,12 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      final recognizer = spanFor(tester, link).recognizer;
-      expect(recognizer, isA<TapGestureRecognizer>());
-      (recognizer! as TapGestureRecognizer).onTap!();
+      // G1-B6: Terms and Privacy are their own links under the consent
+      // line (the line itself only ticks the box).
+      expect(spanFor(tester, link).recognizer, isNull);
+      final button = find.byKey(ValueKey('auth-legal-$kind'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
       for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }

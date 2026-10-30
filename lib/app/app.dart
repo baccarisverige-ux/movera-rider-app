@@ -45,6 +45,7 @@ class MoveraApp extends StatelessWidget {
             code: language.code,
             child: ContentGate(
               controller: AppScope.instance.content,
+              legal: AppScope.instance.legal,
               child: child!,
             ),
           ),

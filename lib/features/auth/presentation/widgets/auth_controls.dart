@@ -408,38 +408,50 @@ class AuthPhoneField extends StatelessWidget {
           child: AuthInputShell(
             focusNode: focusNode,
             hasError: hasError,
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              autofocus: autofocus,
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              inputFormatters: [
-                // rider-30: before the filter drops the '+'.
-                NationalNumberFormatter(country: current, onCountry: onChanged),
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
-                LengthLimitingTextInputFormatter(18),
-              ],
-              onSubmitted: onSubmitted,
-              style: AuthText.input().copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-              cursorColor: AuthColors.ink,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: phoneHintOf(current),
-                hintStyle: AuthText.input().copyWith(
-                  color: const Color(0xFF9AA79F),
-                  fontWeight: FontWeight.w400,
-                ),
-                semanticCounterText: '',
+            // G1-B6: screen readers name the field.
+            child: MergeSemantics(
+              child: Semantics(
+                label: context.l10n.phoneNumber,
+                child: _field(),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _field() {
+    final current = country ?? PhoneCountries.sweden;
+    final onChanged = onCountryChanged;
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      keyboardType: TextInputType.phone,
+      textInputAction: TextInputAction.done,
+      autofillHints: const [AutofillHints.telephoneNumber],
+      inputFormatters: [
+        // rider-30: before the filter drops the '+'.
+        NationalNumberFormatter(country: current, onCountry: onChanged),
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+        LengthLimitingTextInputFormatter(18),
+      ],
+      onSubmitted: onSubmitted,
+      style: AuthText.input().copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      cursorColor: AuthColors.ink,
+      decoration: InputDecoration(
+        isCollapsed: true,
+        border: InputBorder.none,
+        hintText: phoneHintOf(current),
+        hintStyle: AuthText.input().copyWith(
+          color: const Color(0xFF9AA79F),
+          fontWeight: FontWeight.w400,
+        ),
+        semanticCounterText: '',
+      ),
     );
   }
 }
@@ -647,7 +659,7 @@ class AuthOrDivider extends StatelessWidget {
         const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(context.l10n.orContinueWith, style: AuthText.small()),
+          child: Text(context.l10n.authOr, style: AuthText.small()),
         ),
         const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
       ],

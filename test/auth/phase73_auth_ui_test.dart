@@ -10,6 +10,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
+import 'package:movera_rider/features/auth/data/provider_token_source.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/add_phone.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
@@ -45,6 +46,9 @@ void main() {
         api: ApiClient(env: env, client: c, tokens: tokens),
         tokens: tokens,
       ),
+      // v0.18.5 G1-B1: a build whose Apple / Google SDK gives a token (the
+      // shipped rider builds have none yet and say "coming soon").
+      providerTokens: _FakeProviderTokens(),
     );
   }
 
@@ -374,6 +378,12 @@ void main() {
     expect(find.textContaining('having trouble'), findsOneWidget);
     expect(await tokens.readAccess(), isNull);
   });
+}
+
+class _FakeProviderTokens implements ProviderTokenSource {
+  @override
+  Future<ProviderIdentityToken?> obtain(String provider) async =>
+      ProviderIdentityToken(provider: provider, idToken: 'id-$provider');
 }
 
 class _Pushes extends NavigatorObserver {

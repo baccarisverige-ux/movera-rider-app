@@ -110,7 +110,8 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     if (_clearingWrongCode) return;
     if (!RidePin.isValidFormat(_pin.text.trim())) _autoSent = null;
     setState(() {
-      if (_error != null) _error = null;
+      // v0.18.5 G1-B3: "Too many wrong tries" stays until a new code.
+      if (_error != null && !_tooManyWrong) _error = null;
     });
   }
 
@@ -121,7 +122,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   void _codeCompleted(String value) {
     final code = value.trim();
     setState(() {});
-    if (!RidePin.isValidFormat(code) || _submitting || _autoSent == code) {
+    if (!RidePin.isValidFormat(code) ||
+        _submitting ||
+        _tooManyWrong ||
+        _autoSent == code) {
       return;
     }
     _autoSent = code;
@@ -195,7 +199,8 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   }
 
   Future<void> _verify() async {
-    if (_submitting) return;
+    // v0.18.5 G1-B3: the code is spent; only a new code can be checked.
+    if (_submitting || _tooManyWrong) return;
     final challenge = _challenge;
     final code = _pin.text.trim();
     if (challenge == null) {
@@ -274,23 +279,29 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Pinput(
-            length: 4,
-            controller: _pin,
-            focusNode: _pinFocus,
-            autofocus: PhoneVerification.autofocusCode,
-            onTap: _refocus,
-            // Owner decision 7: one-time-code autofill (iOS, the web's
-            // autocomplete="one-time-code", Android autofill services).
-            autofillHints: const [AutofillHints.oneTimeCode],
-            keyboardType: TextInputType.number,
-            forceErrorState: _error != null,
-            onCompleted: _codeCompleted,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            defaultPinTheme: _box(),
-            focusedPinTheme: _box(focused: true),
-            submittedPinTheme: _box(),
-            errorPinTheme: _box(error: true),
+          // G1-B6: screen readers name the code boxes.
+          MergeSemantics(
+            child: Semantics(
+              label: context.l10n.authCodeFieldLabel,
+              child: Pinput(
+                length: 4,
+                controller: _pin,
+                focusNode: _pinFocus,
+                autofocus: PhoneVerification.autofocusCode,
+                onTap: _refocus,
+                // Owner decision 7: one-time-code autofill (iOS, the web's
+                // autocomplete="one-time-code", Android autofill services).
+                autofillHints: const [AutofillHints.oneTimeCode],
+                keyboardType: TextInputType.number,
+                forceErrorState: _error != null,
+                onCompleted: _codeCompleted,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                defaultPinTheme: _box(),
+                focusedPinTheme: _box(focused: true),
+                submittedPinTheme: _box(),
+                errorPinTheme: _box(error: true),
+              ),
+            ),
           ),
           if (_error != null) AuthErrorText(_error!),
           if (_info != null && _error == null)
@@ -325,7 +336,9 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             label: context.l10n.verify,
             showArrow: false,
             busy: _submitting,
-            onPressed: complete ? _verify : null,
+            // v0.18.5 G1-B3 (`auth.signInErrors.otp_too_many_attempts`):
+            // after the 5th wrong code Verify is off until a new code.
+            onPressed: complete && !_tooManyWrong ? _verify : null,
           ),
         ],
       ),

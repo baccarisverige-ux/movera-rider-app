@@ -50,7 +50,7 @@ void main() {
     final consent = find.byKey(const ValueKey('auth-consent'));
     expect(consent, findsOneWidget);
     expect(
-      find.textContaining('By registering', findRichText: true),
+      find.textContaining('By continuing', findRichText: true), // G1-B5
       findsOneWidget,
     );
     expect(enabled(tester, find.byType(AuthPrimaryButton)), isFalse);
@@ -91,7 +91,7 @@ void main() {
     final consent = find.byKey(const ValueKey('auth-consent'));
     final before = tester.getSemantics(consent);
     expect(before.flagsCollection.isChecked, CheckedState.isFalse);
-    expect(before.label, contains('terms and conditions'));
+    expect(before.label, contains('terms of service')); // G1-B5
     await tester.ensureVisible(consent);
     await tester.tap(consent);
     await tester.pumpAndSettle();
