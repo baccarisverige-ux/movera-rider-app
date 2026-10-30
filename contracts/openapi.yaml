@@ -1,11 +1,11 @@
-# Movera API v0.18.3 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.3
+  version: 0.18.4
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.3 in this folder; this file must agree with them.
+    v0.18.4 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -80,7 +80,7 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 x-contract:
   name: movera
-  version: 0.18.3
+  version: 0.18.4
   source: contract.json
 paths:
   /auth/otp/request:
@@ -2168,7 +2168,14 @@ paths:
         requiredFleetDocuments for a fleet owner) expired, POST /driver/availability online is 409 documents_not_approved,
         reason documents_expired, details "<scope>:<type>". false: an expired document does not stop going online (it still
         shows red). Car documents follow settings.vehicles.autoHold the same way (reason vehicle_documents_not_approved).
-        With no car picked: reason fleet_no_approved_car when the fleet has no car that can be picked, else no_vehicle (contract.json#driverOnboarding.reminders).'
+        With no car picked: reason fleet_no_approved_car when the fleet has no car that can be picked, else no_vehicle (contract.json#driverOnboarding.reminders).
+        v0.18.4: Decision 2 + G3-R5. POST /driver/availability online needs a fresh position: a location in the body measured
+        at most freshSeconds ago, or a position the server received at most freshSeconds ago (POST /driver/location). Otherwise
+        409 invalid_transition, reason location_required (checked after every other reason, so the reason card shows the first
+        thing to fix). Driver app: with the phone''s location off (or permission denied) Go online is blocked before calling
+        the server and shows text + openSettings; with battery saver on it shows batterySaver once (per install) and may still
+        go online. Outside the driver''s zones going online still works and the Driver carries outsideArea: true (contract.json#driverHome.outsideArea).
+        Slow server: contract.json#auth.slowStart covers this call.'
       tags:
       - Driver · Session
       x-actor:
@@ -11815,7 +11822,12 @@ components:
         activeTripId:
           $ref: '#/components/schemas/Id'
         scheduledRides:
-          $ref: '#/components/schemas/DriverScheduledRides'
+          allOf:
+          - $ref: '#/components/schemas/DriverScheduledRides'
+          description: 'G3-R3 (owner 2026-10-30 ''Remove the switch''): the admin''s per-driver ''Scheduled driver access''
+            switch is removed; every driver can take booked rides (the zone''s reservations.on still decides). No server path
+            ever set Driver.scheduledRides; the field (owner decision 2, v0.4.2) stays in the schema for older apps and is
+            never sent; apps ignore it.'
         version:
           type: integer
           minimum: 1
@@ -11827,6 +11839,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/Timestamp'
           description: 'v0.5.1, admin view only: when the latest fix was received.'
+        performance:
+          allOf:
+          - $ref: '#/components/schemas/DriverPerformance'
+          description: 'v0.18.4 (G3-D2): on GET /driver/profile and GET /admin/drivers/{driverId} only.'
+        outsideArea:
+          type: boolean
+          description: 'v0.18.4 (G3-R2), driver view: the latest position is outside all of Driver.zoneIds; missing with no
+            position. The app shows contract.json#driverHome.outsideArea.text.'
+        areaZones:
+          type: array
+          items:
+            $ref: '#/components/schemas/AreaZone'
+          description: 'v0.18.4: with outsideArea true, the driver''s own zones (names for the popup).'
         accountType:
           allOf:
           - $ref: '#/components/schemas/DriverAccountType'
@@ -12291,6 +12316,70 @@ components:
             $ref: '#/components/schemas/FleetDriverEarnings'
         total:
           $ref: '#/components/schemas/Money'
+    DriverPerformance:
+      type: object
+      description: 'v0.18.4 (G3-D2): G3-D2 (owner 2026-10-30, ''Real numbers''). The server computes the driver''s own numbers
+        over the last windowDays days (rolling, server clock) and sends them as Driver.performance on GET /driver/profile
+        (the driver himself) and GET /admin/drivers/{driverId} (admin). Same counts as the dispatch score inputs (CONTRACT.md
+        §3.6 factors acceptance and cancel): offersAnswerable = the driver''s offers of kind exclusive or assigned sent in
+        the window that ended claimed, declined or expired (withdrawn and claimed_elsewhere are not counted: he could not
+        answer them); offersAccepted = those claimed; acceptancePct = round(offersAccepted / offersAnswerable × 100); tripsCancelled
+        = the driver''s cancels after accepting (driver_cancels) in the window; cancellationPct = round(min(100, tripsCancelled
+        / offersAccepted × 100)). acceptancePct is null while offersAnswerable < minOffers; cancellationPct is null while
+        offersAccepted < minTrips. rating = the average of the riders'' visible ratings (hidden ratings not counted, 2 decimals),
+        null while ratingCount < minRatings. The app shows ''—'' for null (sv/fr/en: same dash). Dispatch (§3.6) uses these
+        same counts unrounded as soon as there is any data (the minimums only decide what the apps show); with no data at
+        all it uses the §3.6 defaults (rating 4.7, acceptance 85 %, cancels 5 %).'
+      required:
+      - windowDays
+      - from
+      - offersAnswerable
+      - offersAccepted
+      - tripsCancelled
+      - ratingCount
+      - acceptancePct
+      - cancellationPct
+      - rating
+      properties:
+        windowDays:
+          type: integer
+          minimum: 1
+          default: 30
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        offersAnswerable:
+          type: integer
+          minimum: 0
+        offersAccepted:
+          type: integer
+          minimum: 0
+        tripsCancelled:
+          type: integer
+          minimum: 0
+        ratingCount:
+          type: integer
+          minimum: 0
+        acceptancePct:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+          maximum: 100
+          description: null while offersAnswerable < 10.
+        cancellationPct:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+          maximum: 100
+          description: null while offersAccepted < 10.
+        rating:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          maximum: 5
+          description: null while ratingCount < 1.
     PaymentIntent:
       type: object
       description: tripId is required for purpose=trip|tip and absent for wallet_topup.
@@ -13355,6 +13444,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EarningsPeriod'
+    AreaZone:
+      type: object
+      description: 'v0.18.4: one of the driver''s own zones.'
+      required:
+      - zoneId
+      - name
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
     DriverLocationAck:
       type: object
       required:
@@ -13366,6 +13466,21 @@ components:
           minimum: 0
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        outsideArea:
+          type: boolean
+          description: 'v0.18.4 (G3-R2): the driver''s latest position is outside all his zones (no trips there). G3-R2. A
+            driver may go online anywhere (POST /driver/availability online is 200 even outside his zones), but he gets trips
+            only while his latest position is inside one of his own zones (Driver.zoneIds): dispatch offers nothing to an
+            online driver whose latest fix is outside all of them, and offers only trips of his own zones (as before). Driver
+            (GET /driver/profile and the POST /driver/availability answer) and DriverLocationAck (POST /driver/location) carry
+            outsideArea (true/false, missing while the server has no position) and, when true, areaZones (the driver''s own
+            zones with their names). The driver app shows the popup when outsideArea turns true (on going online and when
+            he drives out), not again until it was false. Admin direct assign is the admin''s choice and is not limited.'
+        areaZones:
+          type: array
+          items:
+            $ref: '#/components/schemas/AreaZone'
+          description: 'v0.18.4: with outsideArea true, the driver''s own zones.'
     PinCode:
       type: object
       description: Per-trip PIN shown to the rider when pinRequired.
@@ -14946,6 +15061,20 @@ components:
                     ANY accepted offer (Exclusive or Radar, any kind) and going online set the count back to 0. Both the server
                     (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce
                     it; fixtures/settings_flow.json#autoOffline.'
+                noFixMinutes:
+                  type: integer
+                  minimum: 0
+                  description: 'v0.18.4 (G3-R1): no position for this many minutes while online (not on a trip) → the server
+                    sets the driver offline (default 5; 0 = never). G3-R1 + decision 3. Server: a driver whose onlineStatus
+                    is online (not on_trip, no active trip) and whose latest position (driver_locations, received by the server)
+                    is older than DriverAppConfig.offers.autoOffline.noFixMinutes minutes of the zone (default configDefaults.noFixMinutesBeforeOffline
+                    = 5; 0 = never) is set offline by a server job that runs every jobEverySeconds; a driver online with no
+                    position at all counts from online since. The driver''s open offers are withdrawn as when going offline
+                    by hand, the Driver.version goes up, a bell notice (GET /notifications, also sent as a push, auth.devices.sending)
+                    of kind noticeKind in the driver''s language opens deepLink, and the admin audit gets a line action auditAction
+                    (target driver, detail { reason: no_position, lastFixAt|null, minutes }). Driver app (decision 3): an
+                    app restarted while the driver was online sets him offline (POST /driver/availability offline) and shows
+                    the same text.'
                 hiddenComesBackMin:
                   type: number
                   minimum: 0
@@ -16590,6 +16719,63 @@ components:
           type: string
         zoneId:
           $ref: '#/components/schemas/Id'
+    ZoneRidersOnline:
+      type: object
+      description: 'v0.18.4 (G3-R4): G3-R4 (owner ''Real numbers only''): riders online per zone = distinct riders who in
+        the last windowSeconds called GET /rider/nearby-vehicles (the open rider map) or POST /quotes (zone of the map point
+        / pickup), plus riders with an open request (trip requested, searching or offered) in that zone. Served on GET /admin/live/drivers
+        as LiveDriverList.ridersOnline [{ zoneId, count }] (the admin''s zones only, zones with 0 included) — the admin Dashboard''s
+        ''Riders online'' shows it; no invented numbers.'
+      required:
+      - zoneId
+      - count
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        count:
+          type: integer
+          minimum: 0
+    ZoneSupply:
+      type: object
+      description: 'v0.18.4 (G3-D5): G3-D5 (owner 2026-10-30, ''Fix it''). LiveDriverList.zoneSupply on GET /admin/live/drivers:
+        one row per zone of the answer, the Dashboard''s supply/demand rows AND its shortage alert use these same numbers.
+        Every driver online or on_trip counts in his zone (LiveDriver.zoneId: the zone of his latest position, else his first
+        own zone), stale position included. online = those drivers; free = online drivers with onlineStatus online and no
+        active trip; busy = online − free; waiting = trips of the zone in status requested, searching or offered with no driver
+        yet (live rides only, not reservations before their search starts). level: ok when waiting = 0; tight when 0 < waiting
+        <= free; short when waiting > free. shortage = level short. The panel shows the shortage alert only when at least
+        one row has shortage true and names those rows.'
+      required:
+      - zoneId
+      - online
+      - free
+      - busy
+      - waiting
+      - level
+      - shortage
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        online:
+          type: integer
+          minimum: 0
+        free:
+          type: integer
+          minimum: 0
+        busy:
+          type: integer
+          minimum: 0
+        waiting:
+          type: integer
+          minimum: 0
+        level:
+          type: string
+          enum:
+          - ok
+          - tight
+          - short
+        shortage:
+          type: boolean
     LiveDriverList:
       type: object
       description: Drivers on the admin live map; the panel polls about every 5 s.
@@ -16598,6 +16784,11 @@ components:
       - staleAfterSeconds
       - serverTime
       properties:
+        zoneSupply:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneSupply'
+          description: 'v0.18.4 (G3-D5): supply and demand per zone; the Dashboard''s rows and shortage alert.'
         items:
           type: array
           items:
@@ -16608,6 +16799,15 @@ components:
           default: 120
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        ridersOnline:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneRidersOnline'
+          description: 'v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard''s ''Riders online''.'
+        ridersOnlineWindowSeconds:
+          type: integer
+          minimum: 1
+          default: 120
     TripTrace:
       type: object
       description: The trip's GPS trace; deleted 30 days after the trip (owner decision 11).
@@ -16642,12 +16842,12 @@ components:
           type: number
           minimum: -90
           maximum: 90
-          description: Rounded to 4 decimals.
+          description: Moved 100–200 m (v0.18.4, G3-D4), then rounded to 4 decimals.
         lng:
           type: number
           minimum: -180
           maximum: 180
-          description: Rounded to 4 decimals.
+          description: Moved 100–200 m (v0.18.4, G3-D4), then rounded to 4 decimals.
         heading:
           type: number
           minimum: 0
@@ -16656,7 +16856,13 @@ components:
     NearbyVehicleList:
       type: object
       description: 'CONTRACT.md §13: v0.5.2 (CONTRACT.md §13): the free cars near the rider, drawn on the rider''s map while
-        it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day.'
+        it chooses a ride. No driver id, name, plate or trip; positions rounded; the key changes every day. v0.18.4 (G3-D4):
+        positions moved 100–200 m, stable per 10 min (contract.json#driverHome.nearbyBlur). G3-D4 (owner 2026-10-30, ''Slightly
+        moved''). GET /rider/nearby-vehicles never gives a driver''s exact position: each car is moved by an offset of minMeters..maxMeters
+        in a direction, both taken from an HMAC of the driver id and the time slot of stableMinutes (server clock), so a car
+        does not jump between answers inside a slot; the offset changes at the next slot. The answer still carries no identity
+        (opaque key, contract.json#riderNearby). The exact position is shown only to the rider of a trip a driver accepted,
+        through the existing trip views (TripProjection driver location).'
       required:
       - items
       - refreshSeconds

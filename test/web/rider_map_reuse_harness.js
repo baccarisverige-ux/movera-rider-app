@@ -37,7 +37,11 @@ class FakeMap {
     setTimeout(() => event.trigger(this, 'tilesloaded'), 5);
   }
   setOptions() {}
-  setCenter(c) { this.center = new LatLng(c.lat, c.lng); }
+  setCenter(c) {
+    this.centerSets = (this.centerSets || 0) + 1;
+    this.center = typeof c.lat === 'function'
+      ? new LatLng(c.lat(), c.lng()) : new LatLng(c.lat, c.lng);
+  }
   setZoom(z) { this.zoom = z; }
   setHeading(h) { this.heading = h; }
   setTilt(t) { this.tilt = t; }
@@ -101,6 +105,15 @@ const mount = (id, options) => {
   out.secondReady = second.isReady();
   out.camera = {lat: second.map.getCenter().lat(), lng: second.map.getCenter().lng(),
     zoom: second.map.getZoom()};
+  // Owner decision (rider map): the map's box grew; the layer makes Google
+  // measure its element again ('resize') and redraw on the same camera.
+  let resized = 0;
+  event.addListener(second.map, 'resize', () => { resized += 1; });
+  const sets = second.map.centerSets || 0;
+  layer.redraw(2);
+  layer.redraw(99); // an unknown map: nothing happens
+  out.redraw = {resized, centerSet: (second.map.centerSets || 0) - sets,
+    lat: second.map.getCenter().lat(), lng: second.map.getCenter().lng()};
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 })();

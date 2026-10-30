@@ -13,8 +13,14 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 const double markerPixelRatio = 3;
 
 /// Compact Rider location puck matching the Home map visual language.
+///
+/// Owner decision (rider map, 2026-10-30): the dot, its cone and its halo
+/// are Movera blue ([riderPuckBlue], AppColors.blue); the white ring stays.
 class MoveraRiderPuckMarker {
   const MoveraRiderPuckMarker._();
+
+  /// The dot's colour (AppColors.blue).
+  static const Color riderPuckBlue = Color(0xFF055B95);
 
   static final Map<bool, Future<BitmapDescriptor>> _iconCache =
       <bool, Future<BitmapDescriptor>>{};
@@ -40,17 +46,17 @@ class MoveraRiderPuckMarker {
       ..close();
     final beamPaint = Paint()
       ..shader = ui.Gradient.linear(const Offset(56, 4), center, [
-        const Color(0x08747B80),
-        const Color(0x35747B80),
+        const Color(0x08055B95),
+        const Color(0x35055B95),
       ]);
     canvas.drawPath(beam, beamPaint);
     canvas.drawCircle(
       center,
       expanded ? 31 : 25,
-      Paint()..color = const Color(0x18747B80),
+      Paint()..color = const Color(0x18055B95),
     );
     canvas.drawCircle(center, 20, Paint()..color = Colors.white);
-    canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
+    canvas.drawCircle(center, 15, Paint()..color = riderPuckBlue);
 
     final image = await recorder.endRecording().toImage(
       (width * pixelRatio).toInt(),

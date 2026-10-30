@@ -75,6 +75,7 @@
     ],
     "autoOffline": {
       "missedExclusive": 10,
+      "noFixMinutes": 5,
       "hiddenComesBackMin": 2
     },
     "radarOn": true,

@@ -48,6 +48,12 @@ void claim(int mapId) {
   _forMap(mapId)?.callMethod<JSAny?>('claim'.toJS, mapId.toJS);
 }
 
+void redraw(int mapId) {
+  final layer = _forMap(mapId);
+  if (layer == null || !layer.has('redraw')) return;
+  layer.callMethod<JSAny?>('redraw'.toJS, mapId.toJS);
+}
+
 void release(int mapId) {
   final layer = _forMap(mapId);
   if (layer == null || !layer.has('release')) return;

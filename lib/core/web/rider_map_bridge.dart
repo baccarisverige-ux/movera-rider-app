@@ -34,6 +34,10 @@ abstract final class RiderMapBridge {
   /// The next camera position the app sends lands at once (no glide).
   static void claim(int mapId) => impl.claim(mapId);
 
+  /// The map's element grew: Google measures it again and draws the new
+  /// area (web/rider_map_camera.js). A no-op off the web.
+  static void redraw(int mapId) => impl.redraw(mapId);
+
   /// The widget of this map is gone. google.maps.Map has no destroy(): the
   /// Maps script and google_maps_flutter_web both keep every map for the
   /// life of the page, so a map Flutter had removed kept its tiles,
