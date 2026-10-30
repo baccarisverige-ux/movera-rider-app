@@ -10,6 +10,7 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
   const EmergencyContactsPage({super.key, required this.controller});
@@ -391,25 +392,27 @@ class _ContactEditorState extends State<_ContactEditor> {
                   style: SafetyUi.text(13, color: SafetyUi.danger),
                 ),
               ),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SafetyUi.ink,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            KeyboardAnchor(
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SafetyUi.ink,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                ),
-                child: Text(
-                  _saving ? context.l10n.saving : context.l10n.save,
-                  style: SafetyUi.text(
-                    15.5,
-                    weight: FontWeight.w600,
-                    color: Colors.white,
+                  child: Text(
+                    _saving ? context.l10n.saving : context.l10n.save,
+                    style: SafetyUi.text(
+                      15.5,
+                      weight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

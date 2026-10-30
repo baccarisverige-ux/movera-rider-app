@@ -7,6 +7,7 @@ import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/phone_country_picker.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 
 /// Black call to action. [onPressed] null shows the disabled state: the same
 /// black, very light (owner round 3).
@@ -28,6 +29,12 @@ class AuthPrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
     final active = onPressed != null;
+    // Owner 2026-10-30 (iPhone video): the main button stays right above
+    // the keyboard while a field of its page is typed in.
+    return KeyboardAnchor(child: _button(enabled, active));
+  }
+
+  Widget _button(bool enabled, bool active) {
     return Semantics(
       button: true,
       enabled: enabled,

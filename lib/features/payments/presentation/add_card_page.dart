@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 
 /// "Add card" (demo). The form validates the number (Visa / Mastercard,
 /// Luhn), expiry, CVC and name, then saves a reference (brand, last four,
@@ -481,31 +482,33 @@ class _AddCardPageState extends State<AddCardPage> {
               Text(_saveError!, style: _t(12.5, c: _error)),
             ],
             const SizedBox(height: 18),
-            SizedBox(
-              height: 54,
-              child: FilledButton(
-                key: const ValueKey('add-card-save'),
-                onPressed: _valid && !_saving ? _save : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _cta,
-                  disabledBackgroundColor: const Color(0xFFD5DADD),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+            KeyboardAnchor(
+              child: SizedBox(
+                height: 54,
+                child: FilledButton(
+                  key: const ValueKey('add-card-save'),
+                  onPressed: _valid && !_saving ? _save : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _cta,
+                    disabledBackgroundColor: const Color(0xFFD5DADD),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Colors.white,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          context.l10n.saveCard,
+                          style: _t(16, w: FontWeight.w600, c: Colors.white),
                         ),
-                      )
-                    : Text(
-                        context.l10n.saveCard,
-                        style: _t(16, w: FontWeight.w600, c: Colors.white),
-                      ),
+                ),
               ),
             ),
           ],
