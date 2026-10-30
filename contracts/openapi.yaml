@@ -1,11 +1,11 @@
-# Movera API v0.18.4 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.5 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.4
+  version: 0.18.5
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.4 in this folder; this file must agree with them.
+    v0.18.5 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -78,9 +78,10 @@ tags:
 - name: Account
 - name: Admin · Zones
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
+- name: Rider · Trip
 x-contract:
   name: movera
-  version: 0.18.4
+  version: 0.18.5
   source: contract.json
 paths:
   /auth/otp/request:
@@ -136,7 +137,10 @@ paths:
       summary: Verify the code and sign in
       description: 'Wrong code → 400 invalid_request (reason invalid_otp_code; retryable until maxAttempts); unknown session
         → 400 invalid_request (reason invalid_otp_session); expired session → 410 otp_expired; too many attempts → 429 (v0.15.0:
-        reason otp_too_many_attempts; ask for a new code). With a linkToken the verified phone is linked to the provider account.'
+        reason otp_too_many_attempts; ask for a new code). With a linkToken the verified phone is linked to the provider account.
+        v0.18.5 (G1-B3): 429 rate_limited on the wrong code that reaches otp.maxAttempts (v0.18.5 G1-B3: the 5th wrong code
+        itself, counted before the answer) and on every try after it on that session: the app says "Too many wrong tries –
+        tap Send new code", disables Verify and highlights its resend button; a new code starts a new session'
       tags:
       - Auth
       x-actor:
@@ -234,7 +238,14 @@ paths:
     post:
       operationId: refreshTokens
       summary: Rotate the refresh token for new tokens
-      description: A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out.
+      description: 'A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out. v0.18.5: v0.18.5 (G1-B6):
+        an answer to POST /auth/refresh lost on a bad connection: the app may send the same refresh token again within refreshRetryWindowSeconds
+        (60 s) of its first use, as long as the new token it was given has not been used; the server then answers a fresh
+        pair and drops the lost one. After 60 s, or once the new token was used, the old token is treated as stolen: the whole
+        session ends (401 unauthenticated, reason refresh_token_reused). Apps send one refresh at a time and retry a lost
+        one at once. v0.18.5 (owner G1-D3 "Show a message (Recommended)"): when POST /auth/refresh answers 401 the app signs
+        out and its sign-in screen shows why, in sv / fr / en. The 401 reason says which. Reasons: session_expired = expired,
+        session_ended = revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked.'
       tags:
       - Auth
       x-actor:
@@ -1936,7 +1947,11 @@ paths:
       operationId: listTripMessages
       summary: Trip chat messages
       description: 'v0.13.0 (CONTRACT.md §23): the trip''s own rider or driver; an admin needs support.reply and the trip
-        in the admin''s zones (else 403, reason zone_out_of_scope). x-permission applies to admins only.'
+        in the admin''s zones (else 403, reason zone_out_of_scope). x-permission applies to admins only. v0.18.5 (G9): Once
+        the trip is terminal, GET /trips/{tripId}/messages answers { items: [], nextCursor: null, closed: true } to the rider
+        and the driver, and their trip events (GET /trips/{tripId}/events and the stream) carry no message text. The apps
+        clear the chat when the trip ends and keep no copy. Admins with support.reply keep the full chat in the trip details
+        (GET /trips/{tripId}/messages as admin), within chat.retentionDays.'
       tags:
       - Notifications & messages
       x-actor:
@@ -3146,6 +3161,14 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.5: v0.18.5 (owner G2-D5.3: "The owner never decide !! Admin who gave him the allowed cathegories
+        after approve !"): the fleet owner does not pick ride types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds
+        (accepted for older apps, never stored); the car is still checked against the country''s base year (400 category_not_allowed,
+        car:year_too_old). The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision:
+        approved, categoryIds } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without
+        at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year,
+        seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers
+        only the categories the car fits (Vehicle.fitCategories).'
   /driver/documents:
     get:
       operationId: listDriverDocuments
@@ -3235,6 +3258,20 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.5: v0.18.5 (owner G2-D1 "Keep old until new approved (Recommended)"): uploading a document of a
+        type that is approved (or was approved and expired) does not touch it: the new file waits as a separate renewal (a
+        Document with its own documentId and renewalOf = the approved document''s id, status in_review). The approved one
+        stays valid until its own expiresAt. Approving the renewal (POST /admin/documents/{renewal''s documentId}/review)
+        puts its file and end date on the approved document, which keeps its documentId (the answer is that Document; the
+        renewal is gone); rejecting it (a note is needed) leaves the approved one as it was and the renewal shows rejected.
+        A new upload while a renewal exists replaces that renewal (one per document). A type that was never approved (in review,
+        rejected) is still replaced as before. The file endpoints take the renewal''s documentId too. SE and FR alike. v0.18.5
+        (owner G2-D5.2 "Check real file (Recommended)"): the server reads the file''s first bytes; only a real JPEG (FF D8
+        FF), PNG (89 50 4E 47 0D 0A 1A 0A), HEIC (ftyp heic/heix/hevc/hevx/mif1/msf1/heim/heis) or PDF (%PDF-) is accepted,
+        whatever media type was sent; else 400 invalid_request, reason invalid_file_content, and the app says "This file is
+        not a photo or PDF". The stored media type is the one the content shows. v0.18.5 (owner G2-D5.8 "Max 15 years ahead
+        (Recommended)"): an expiresAt more than 15 years after today (admin review, valid months result, or the driver''s
+        upload) is 400 invalid_request, reason expiry_too_far; the admin panel says "Check the end date".'
   /driver/onboarding:
     post:
       operationId: submitDriverOnboarding
@@ -3370,9 +3407,11 @@ paths:
     post:
       operationId: inviteFleetDriver
       summary: 'Owner: invite a driver by phone number'
-      description: v0.5.3. Owner of an approved fleet only (else 403 / 409 fleet_not_approved). A number already in a fleet
-        → 409 invalid_transition (already_in_fleet); the owner's own number → 400. An open invite to the same number → 200
-        with it.
+      description: 'v0.5.3. Owner of an approved fleet only (else 403 / 409 fleet_not_approved). A number already in a fleet
+        → 409 invalid_transition (already_in_fleet); the owner''s own number → 400. An open invite to the same number → 200
+        with it. v0.18.5: v0.18.5 (owner G2-D5.5 "Name after he accepts (Recommended)"): an owner_invite shows the owner only
+        the phone number ("Invitation sent to +46 70…") until the driver accepts: no driverId or driverName in the owner''s
+        view, and a decline notice names the number, not the person.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -3690,8 +3729,11 @@ paths:
     get:
       operationId: getDriverDocumentFile
       summary: The uploaded file (own or own fleet's)
-      description: v0.5.3. The owner of the document, or the fleet owner for his drivers' and cars' documents; anyone else
-        → 404.
+      description: 'v0.5.3. The owner of the document, or the fleet owner for his drivers'' and cars'' documents; anyone else
+        → 404. v0.18.5: v0.18.5 (owner G2-D2: "Fleet owner see nothing about his driver documents ! He see only his documents
+        and Hulu''s cars documents"): a fleet owner sees only his own documents and his fleet''s cars'' documents. His drivers''
+        documents are never shown to him: no file (GET /driver/documents/{documentId}/file of a member is 404 document_not_found),
+        no status, no list (FleetView members carry no documents or documentStatus).'
       tags:
       - Driver · Account
       x-actor:
@@ -5718,10 +5760,15 @@ paths:
     post:
       operationId: riderSos
       summary: 'The rider presses SOS: alert Movera'
-      description: v0.7.0. Only the trip's own rider, while the trip is live (contract.json#safety.sos.riderStatuses); otherwise
-        409 invalid_transition with the trip. Creates the trip's one open SOS incident, or returns it when one is open (a
+      description: 'v0.7.0. Only the trip''s own rider, while the trip is live (contract.json#safety.sos.riderStatuses); otherwise
+        409 invalid_transition with the trip. Creates the trip''s one open SOS incident, or returns it when one is open (a
         second SOS from either side). The app opens the emergency call (112) itself; it retries with the same Idempotency-Key
-        and then shows only "SOS sent".
+        and then shows only "SOS sent". v0.18.5: v0.18.5 (owner 2026-10-30 "Only during a trip (Recommended)"): with no trip
+        the shield shows only ''Call 112'' (opens the phone''s dialer, nothing sent to Movera) and Safety preferences; during
+        a trip it shows SOS (112 + alert Movera), Share trip and Ride check. Same in the rider app; sv / fr / en. No demo
+        words ("others in preview"). POST /rider/trips/{tripId}/sos and POST /driver/trips/{tripId}/sos needs a trip; outside
+        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (unchanged, confirmed).
+        Sharing needs a live trip too.'
       tags:
       - Safety
       x-actor:
@@ -5767,10 +5814,15 @@ paths:
     post:
       operationId: driverSos
       summary: 'The driver presses SOS: alert Movera'
-      description: v0.7.0. Only the trip's own driver, while the trip is live (contract.json#safety.sos.driverStatuses); otherwise
-        409 invalid_transition with the trip. Creates the trip's one open SOS incident, or returns it when one is open (a
-        second SOS from either side). The app opens the emergency call (112) itself; it retries with the same Idempotency-Key
-        and then shows only "SOS sent".
+      description: 'v0.7.0. Only the trip''s own driver, while the trip is live (contract.json#safety.sos.driverStatuses);
+        otherwise 409 invalid_transition with the trip. Creates the trip''s one open SOS incident, or returns it when one
+        is open (a second SOS from either side). The app opens the emergency call (112) itself; it retries with the same Idempotency-Key
+        and then shows only "SOS sent". v0.18.5: v0.18.5 (owner 2026-10-30 "Only during a trip (Recommended)"): with no trip
+        the shield shows only ''Call 112'' (opens the phone''s dialer, nothing sent to Movera) and Safety preferences; during
+        a trip it shows SOS (112 + alert Movera), Share trip and Ride check. Same in the rider app; sv / fr / en. No demo
+        words ("others in preview"). POST /rider/trips/{tripId}/sos and POST /driver/trips/{tripId}/sos needs a trip; outside
+        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (unchanged, confirmed).
+        Sharing needs a live trip too.'
       tags:
       - Safety
       x-actor:
@@ -6294,6 +6346,17 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.5: v0.18.5 (owner G2-D5.3: "The owner never decide !! Admin who gave him the allowed cathegories
+        after approve !"): the fleet owner does not pick ride types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds
+        (accepted for older apps, never stored); the car is still checked against the country''s base year (400 category_not_allowed,
+        car:year_too_old). The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision:
+        approved, categoryIds } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without
+        at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year,
+        seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers
+        only the categories the car fits (Vehicle.fitCategories). v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"): every
+        rejection needs a reason: POST /admin/documents/{documentId}/review, /admin/drivers/{driverId}/documents/{type}/check
+        and /admin/drivers/{driverId}/bank/review with decision rejected, and /admin/vehicles/{vehicleId}/review with rejected
+        or blocked, without a non-empty note are 400 invalid_request, reason note_required. The driver always sees why.'
   /admin/documents/{documentId}/review:
     post:
       operationId: adminReviewDocument
@@ -6305,7 +6368,20 @@ paths:
         types keep expiresAt optional. A driver may send expiresAt on upload; the admin''s date wins. v0.18.3 (R9): the review
         may send issuedAt instead of expiresAt for a type with settings.validMonths: expiresAt = issuedAt + validMonths months
         (an issuedAt in the future is 400 invalid_request, reason issued_in_future; an issuedAt whose computed date is already
-        past is 400 expiry_in_past).'
+        past is 400 expiry_in_past). v0.18.5: v0.18.5 (owner G2-D5.8 "Max 15 years ahead (Recommended)"): an expiresAt more
+        than 15 years after today (admin review, valid months result, or the driver''s upload) is 400 invalid_request, reason
+        expiry_too_far; the admin panel says "Check the end date". v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"):
+        every rejection needs a reason: POST /admin/documents/{documentId}/review, /admin/drivers/{driverId}/documents/{type}/check
+        and /admin/drivers/{driverId}/bank/review with decision rejected, and /admin/vehicles/{vehicleId}/review with rejected
+        or blocked, without a non-empty note are 400 invalid_request, reason note_required. The driver always sees why. Approving
+        a renewal: v0.18.5 (owner G2-D1 "Keep old until new approved (Recommended)"): uploading a document of a type that
+        is approved (or was approved and expired) does not touch it: the new file waits as a separate renewal (a Document
+        with its own documentId and renewalOf = the approved document''s id, status in_review). The approved one stays valid
+        until its own expiresAt. Approving the renewal (POST /admin/documents/{renewal''s documentId}/review) puts its file
+        and end date on the approved document, which keeps its documentId (the answer is that Document; the renewal is gone);
+        rejecting it (a note is needed) leaves the approved one as it was and the renewal shows rejected. A new upload while
+        a renewal exists replaces that renewal (one per document). A type that was never approved (in review, rejected) is
+        still replaced as before. The file endpoints take the renewal''s documentId too. SE and FR alike.'
       tags:
       - Admin · People
       x-actor:
@@ -10236,6 +10312,247 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/driver-photo:
+    get:
+      operationId: riderDriverPhoto
+      summary: The driver's approved profile photo (trip's rider, while the driver comes and during the trip)
+      description: 'v0.18.5: GET /rider/trips/{tripId}/driver-photo (rider bearer token): the image, only for the trip''s
+        rider while the trip is in tripStatus.driverAssigned, and only the approved profile_photo (never one in review, rejected
+        or expired); else 404 not_found (reason driver_photo_unavailable). Cache-Control private, no-store; never a public
+        link.'
+      tags:
+      - Rider · Trip
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/heic:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /legal/{country}:
+    get:
+      operationId: getLegalTexts
+      summary: Terms of use and privacy policy of a country (no token)
+      description: 'v0.18.5: v0.18.5 (owner G1-B2 "Real texts from admin (Recommended)"): the terms of use and the privacy
+        policy per country (SE, FR) in sv / fr / en, edited by the admin (Content › Legal, the content place legal), versioned,
+        shown in both apps (also before sign-in) and accepted again when a new version asks for it. The built-in texts are
+        Movera-made drafts: a lawyer must review them before launch. GET /legal/{country} (no token, auth.beforeSignIn.allowed)
+        → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, terms: LegalDocument { title, text
+        } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled. version 0 =
+        the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read
+        it on start and when they come back to the foreground (no stream event), and keep the last answer offline. Both apps
+        show ''Terms'' and ''Privacy'' as two separate links on the sign-in screen and in the menu, read from GET /legal/{country}
+        of the start country (auth.startCountry), else of the account''s country. When reaccept is true and the person has
+        not accepted the live version, the next app start (never during a trip) shows the new terms with ''Jag godkänner''
+        / ''J''accepte'' / ''I accept''. Drafts (version 0) say so on their first line. A lawyer reviews the texts before
+        launch; the admin publishes the reviewed ones.'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/LegalCountryPath'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalTexts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+  /admin/legal/{country}:
+    get:
+      operationId: adminGetLegal
+      summary: The live legal texts of a country and their history
+      description: 'v0.18.5: GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with
+        placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: {
+        title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion
+        with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in
+        that country, or a Super admin, may edit it.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/LegalCountryPath'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalAdminView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/legal/{country}/publish:
+    post:
+      operationId: adminPublishLegal
+      summary: Publish new legal texts for a country
+      description: 'v0.18.5: GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with
+        placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: {
+        title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion
+        with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in
+        that country, or a Super admin, may edit it. LegalCompany { companyName?, orgNumber?, address?, supportEmail?, supportPhone?
+        }, filled by the admin. In the texts a placeholder {companyName} … is replaced by the admin''s value; a paragraph
+        whose placeholder has no value is left out, so nothing empty or made up is shown.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/LegalCountryPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalPublishCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/legal/accept:
+    post:
+      operationId: acceptLegal
+      summary: Accept the live legal texts of a country
+      description: 'v0.18.5: POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live
+        one (409 conflict, reason terms_version_not_current). With reaccept true on the live version, until accepted the rider
+        cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability
+        409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup
+        zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted at sign-up).'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalAcceptCommand'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -10534,6 +10851,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/ContentSlot'
+    LegalCountryPath:
+      name: country
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/LegalCountry'
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -11316,7 +11639,9 @@ components:
           minimum: 0
         photoUrl:
           type: string
-          format: uri
+          format: uri-reference
+          description: 'v0.18.5 (G2-D3): TripProjection.driver.photoUrl (DriverSummary) = /api/v1/rider/trips/{tripId}/driver-photo,
+            set when the driver accepts and only when his profile_photo is approved.'
         vehicle:
           $ref: '#/components/schemas/VehicleSummary'
     TripProjection:
@@ -11733,6 +12058,12 @@ components:
           $ref: '#/components/schemas/DocumentStatus'
         expiresAt:
           $ref: '#/components/schemas/Timestamp'
+        renewalOf:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.5 (G2-D1): GET /driver/documents, Driver.documents (DocumentSummary with renewalOf) and the
+            admin driver page list both: the approved one and, right after it, its renewal. The Home line of the approved
+            one (expiring / expired) carries renewalStatus (in_review | rejected).'
     Document:
       type: object
       required:
@@ -11779,6 +12110,18 @@ components:
           allOf:
           - $ref: '#/components/schemas/Timestamp'
           description: 'v0.5.3: when an admin decided.'
+        renewalOf:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.5 (G2-D1): this upload renews that approved document; v0.18.5 (owner G2-D1 "Keep old until new
+            approved (Recommended)"): uploading a document of a type that is approved (or was approved and expired) does not
+            touch it: the new file waits as a separate renewal (a Document with its own documentId and renewalOf = the approved
+            document''s id, status in_review). The approved one stays valid until its own expiresAt. Approving the renewal
+            (POST /admin/documents/{renewal''s documentId}/review) puts its file and end date on the approved document, which
+            keeps its documentId (the answer is that Document; the renewal is gone); rejecting it (a note is needed) leaves
+            the approved one as it was and the renewal shows rejected. A new upload while a renewal exists replaces that renewal
+            (one per document). A type that was never approved (in review, rejected) is still replaced as before. The file
+            endpoints take the renewal''s documentId too. SE and FR alike.'
     Driver:
       type: object
       required:
@@ -12060,6 +12403,12 @@ components:
           - vehicle_documents_not_approved
           - vehicle_in_use
           description: 'v0.18.0: why not (pickable false); the app says "Can''t be driven".'
+        fitCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          description: 'v0.18.5: Vehicle.fitCategories (admin and fleet-owner views) = the country''s ride categories and
+            extras the car fits now (no problem from categoryProblem); the admin picks among them.'
     DriverAccountType:
       type: string
       enum:
@@ -12224,6 +12573,10 @@ components:
           description: The driver concerned; missing while an owner_invite waits for a number without an account.
         driverName:
           type: string
+          description: 'v0.18.5 (G2-D5.5): never in the owner''s view of an owner_invite before it is accepted. v0.18.5 (owner
+            G2-D5.5 "Name after he accepts (Recommended)"): an owner_invite shows the owner only the phone number ("Invitation
+            sent to +46 70…") until the driver accepts: no driverId or driverName in the owner''s view, and a decline notice
+            names the number, not the person.'
         phone:
           type: string
           description: 'owner_invite: the invited number (owner and admin views).'
@@ -12660,7 +13013,11 @@ components:
         reason (the admin''s note) when there is one. A document goes to the account it belongs to (a car document to the
         car''s fleet owner); a car to its fleet owner (a car without fleet: its driver). The driver app also re-reads documents
         and reminders when a screen comes back and every 60 s while open (no server change). Push to a closed phone follows
-        the push decision (R7, not part of 0.18.3).'
+        the push decision (R7, not part of 0.18.3). v0.18.5 (G2-D4): v0.18.5 (owner G2-D4 "Notice to the other (Recommended)"):
+        when an owner removes a driver, the driver gets a bell notice (and push); when a driver leaves, the owner gets one.
+        Kind fleet_membership, in the person''s language. SE and FR. data { fleetId, driverId, change: removed | left }. v0.18.5
+        (G9): The server writes no stored notification (GET /notifications) for a chat message, so no bell line carries a
+        message. Notices kind trip_message already stored are deleted (server migration).'
     Message:
       type: object
       description: 'A trip chat message. v0.13.0 (CONTRACT.md §23): kept 90 days (longer when the trip has a safety case);
@@ -17046,7 +17403,8 @@ components:
           pattern: ^[a-z][a-z0-9_]{0,63}$
           description: 'optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone,
             invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in
-            auth.signInErrors.'
+            auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
+            driver_photo_unavailable, legal_country_unknown.'
         details:
           type: array
           items:
@@ -17219,6 +17577,9 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Message'
+          closed:
+            type: boolean
+            description: 'v0.18.5 (G9): true for the rider and the driver once the trip is terminal; items is then empty.'
       description: Page<Message>
     SupportTicketPage:
       allOf:
@@ -17875,6 +18236,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CategoryId'
+          description: 'Deprecated v0.18.5 (G2-D5.3): ignored, never stored. v0.18.5 (owner G2-D5.3: "The owner never decide
+            !! Admin who gave him the allowed cathegories after approve !"): the fleet owner does not pick ride types when
+            adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds (accepted for older apps, never stored);
+            the car is still checked against the country''s base year (400 category_not_allowed, car:year_too_old). The admin
+            gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision: approved, categoryIds
+            } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride
+            category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel
+            per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only
+            the categories the car fits (Vehicle.fitCategories).'
+          deprecated: true
         fuel:
           type: string
           enum:
@@ -18258,6 +18629,24 @@ components:
         note:
           type: string
           maxLength: 1000
+          description: 'v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"): every rejection needs a reason: POST /admin/documents/{documentId}/review,
+            /admin/drivers/{driverId}/documents/{type}/check and /admin/drivers/{driverId}/bank/review with decision rejected,
+            and /admin/vehicles/{vehicleId}/review with rejected or blocked, without a non-empty note are 400 invalid_request,
+            reason note_required. The driver always sees why.'
+        categoryIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          uniqueItems: true
+          description: 'v0.18.5 (G2-D5.3): the categories the admin gives on approval. v0.18.5 (owner G2-D5.3: "The owner
+            never decide !! Admin who gave him the allowed cathegories after approve !"): the fleet owner does not pick ride
+            types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds (accepted for older apps, never
+            stored); the car is still checked against the country''s base year (400 category_not_allowed, car:year_too_old).
+            The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision: approved, categoryIds
+            } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride
+            category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel
+            per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only
+            the categories the car fits (Vehicle.fitCategories).'
     DocumentReviewCommand:
       type: object
       description: 'Document has no version in CONTRACT.md §2; Idempotency-Key only. v0.18.0: v0.18.0 (owner item 1: "First
@@ -18281,6 +18670,10 @@ components:
         note:
           type: string
           maxLength: 1000
+          description: 'v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"): every rejection needs a reason: POST /admin/documents/{documentId}/review,
+            /admin/drivers/{driverId}/documents/{type}/check and /admin/drivers/{driverId}/bank/review with decision rejected,
+            and /admin/vehicles/{vehicleId}/review with rejected or blocked, without a non-empty note are 400 invalid_request,
+            reason note_required. The driver always sees why.'
         issuedAt:
           $ref: '#/components/schemas/Timestamp'
     FleetCompany:
@@ -19333,6 +19726,8 @@ components:
           - pick_vehicle
           - join_fleet
           - start_company
+          - accept_invitation
+          - decline_invitation
         documentType:
           $ref: '#/components/schemas/DocumentType'
         scope:
@@ -19347,6 +19742,10 @@ components:
           type: string
           enum:
           - driver-info-session
+        invitationId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.5: accept_invitation / decline_invitation.'
     DriverReminder:
       type: object
       description: 'v0.18.0: document_needed: blocks_online: a required document has none (fix: document). document_rejected:
@@ -19366,7 +19765,9 @@ components:
         car yet…"). no_vehicle: blocks_online: the fleet has a car that can be picked but this driver has none picked (fix:
         pick_vehicle). admin_check_waiting: waiting: a custom admin_check document not marked yet; status waiting_for_movera
         (no fix). vehicle_photos_needed: blocks_online: a car''s four photos are not all uploaded and approved (fix: document,
-        the first photo missing); text "Add 4 photos of your car".'
+        the first photo missing); text "Add 4 photos of your car". fleet_invitation: v0.18.5 (G2-D5.6): waiting: an owner
+        invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation;
+        the line goes when he answers or it expires.'
       required:
       - kind
       - level
@@ -19387,6 +19788,7 @@ components:
           - no_vehicle
           - admin_check_waiting
           - vehicle_photos_needed
+          - fleet_invitation
         level:
           type: string
           enum:
@@ -19435,6 +19837,20 @@ components:
             when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself.
             join_fleet = My fleet › Join a fleet (code, owner''s name and e-mail); start_company = My fleet › Start my own
             company (POST /driver/fleet/start-company).'
+        invitationId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.5 (G2-D5.6): fleet_invitation lines.'
+        fleetName:
+          type: string
+          description: 'v0.18.5 (G2-D5.6): fleet_invitation lines.'
+        renewalStatus:
+          type: string
+          enum:
+          - in_review
+          - rejected
+          description: 'v0.18.5 (G2-D1): DriverReminder.renewalStatus (in_review | rejected) on an expiring / expired line
+            whose renewal waits or was rejected; the line keeps its level (a renewal never unblocks).'
     DriverReminderList:
       type: object
       description: 'v0.18.0 (owner items 2 and 3: "add on the home page sheet that reminder ! Dont copy it''s only example";
@@ -20379,3 +20795,194 @@ components:
         note:
           type: string
           maxLength: 1000
+    LegalDocument:
+      type: object
+      description: 'v0.18.5: one legal text (terms or privacy) in sv / fr / en.'
+      required:
+      - title
+      - text
+      properties:
+        title:
+          type: object
+          required:
+          - sv
+          - fr
+          - en
+          properties:
+            sv:
+              type: string
+              minLength: 1
+              maxLength: 200
+            fr:
+              type: string
+              minLength: 1
+              maxLength: 200
+            en:
+              type: string
+              minLength: 1
+              maxLength: 200
+        text:
+          type: object
+          required:
+          - sv
+          - fr
+          - en
+          properties:
+            sv:
+              type: string
+              minLength: 1
+              maxLength: 20000
+            fr:
+              type: string
+              minLength: 1
+              maxLength: 20000
+            en:
+              type: string
+              minLength: 1
+              maxLength: 20000
+    LegalCompany:
+      type: object
+      description: 'v0.18.5: LegalCompany { companyName?, orgNumber?, address?, supportEmail?, supportPhone? }, filled by
+        the admin. In the texts a placeholder {companyName} … is replaced by the admin''s value; a paragraph whose placeholder
+        has no value is left out, so nothing empty or made up is shown.'
+      properties:
+        companyName:
+          type: string
+          maxLength: 200
+        orgNumber:
+          type: string
+          maxLength: 60
+        address:
+          type: string
+          maxLength: 300
+        supportEmail:
+          type: string
+          format: email
+          maxLength: 200
+        supportPhone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+    LegalCountry:
+      type: string
+      enum:
+      - SE
+      - FR
+    LegalTexts:
+      type: object
+      description: 'v0.18.5: GET /legal/{country} (no token, auth.beforeSignIn.allowed) → LegalTexts { country, version, source:
+        default | admin, publishedAt?, reaccept, terms: LegalDocument { title, text } , privacy: LegalDocument } with title
+        and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing published).
+        Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come back to the
+        foreground (no stream event), and keep the last answer offline.'
+      required:
+      - country
+      - version
+      - source
+      - reaccept
+      - terms
+      - privacy
+      properties:
+        country:
+          $ref: '#/components/schemas/LegalCountry'
+        version:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum:
+          - default
+          - admin
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        reaccept:
+          type: boolean
+        terms:
+          $ref: '#/components/schemas/LegalDocument'
+        privacy:
+          $ref: '#/components/schemas/LegalDocument'
+    LegalVersion:
+      type: object
+      description: 'v0.18.5: the raw texts with their placeholders.'
+      required:
+      - country
+      - version
+      - source
+      - reaccept
+      - terms
+      - privacy
+      - company
+      properties:
+        country:
+          $ref: '#/components/schemas/LegalCountry'
+        version:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum:
+          - default
+          - admin
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedBy:
+          $ref: '#/components/schemas/Id'
+        reaccept:
+          type: boolean
+        terms:
+          $ref: '#/components/schemas/LegalDocument'
+        privacy:
+          $ref: '#/components/schemas/LegalDocument'
+        company:
+          $ref: '#/components/schemas/LegalCompany'
+    LegalAdminView:
+      type: object
+      description: 'v0.18.5: GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with
+        placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: {
+        title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion
+        with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in
+        that country, or a Super admin, may edit it.'
+      required:
+      - live
+      - history
+      properties:
+        live:
+          $ref: '#/components/schemas/LegalVersion'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegalVersion'
+    LegalPublishCommand:
+      type: object
+      description: 'v0.18.5: GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with
+        placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: {
+        title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion
+        with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in
+        that country, or a Super admin, may edit it.'
+      required:
+      - terms
+      - privacy
+      properties:
+        terms:
+          $ref: '#/components/schemas/LegalDocument'
+        privacy:
+          $ref: '#/components/schemas/LegalDocument'
+        company:
+          $ref: '#/components/schemas/LegalCompany'
+        reaccept:
+          type: boolean
+    LegalAcceptCommand:
+      type: object
+      description: 'v0.18.5: POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live
+        one (409 conflict, reason terms_version_not_current). With reaccept true on the live version, until accepted the rider
+        cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability
+        409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup
+        zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted at sign-up).'
+      required:
+      - country
+      - version
+      properties:
+        country:
+          $ref: '#/components/schemas/LegalCountry'
+        version:
+          type: integer
+          minimum: 1

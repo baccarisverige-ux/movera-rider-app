@@ -2032,6 +2032,67 @@ op("post", "/admin/zones/{zoneId}/close", "adminCloseZone", "Close a zone (never
 op("get", "/rider/zones", "riderZones", "The open zones, with outline and names", ["rider"], "Rider · Config", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"] + " " + ZN["notHere"])
 op("get", "/driver/zones", "driverZones", "The open zones, with outline and names", ["driver"], "Driver · Session", params=[q("country", ref("CountryCode"))], ok=(200, "ZoneList"), desc="v0.11.0. " + ZN["apps"])
 
+# ---- v0.18.5: deep-fix job of driver groups 1 and 2 (G1-B2/B3/B6/D3, G2-D1..D5.8) + chat storage (G9) + safety (G14)
+AU5 = C["auth"]; DO5 = C["driverOnboarding"]; LG = C["legal"]
+PATHS["/auth/otp/verify"]["post"]["description"] = PATHS["/auth/otp/verify"]["post"].get("description", "") + " v0.18.5 (G1-B3): " + AU5["signInErrors"]["otp_too_many_attempts"]
+PATHS["/auth/refresh"]["post"]["description"] = PATHS["/auth/refresh"]["post"].get("description", "") + " v0.18.5: " + AU5["tokens"]["refreshRetry"] + " " + AU5["signedOut"]["note"] + " Reasons: " + ", ".join(f"{k} = {v}" for k, v in AU5["signedOut"]["reasons"].items()) + "."
+# G2-D1 renewal, D5.2 content check, D5.8 expiry limit, D2 owner privacy
+S["Document"]["properties"]["renewalOf"] = {"allOf": [ref("Id")], "description": "v0.18.5 (G2-D1): this upload renews that approved document; " + DO5["documentRenewal"]["note"]}
+S["DocumentSummary"]["properties"]["renewalOf"] = {"allOf": [ref("Id")], "description": "v0.18.5 (G2-D1): " + DO5["documentRenewal"]["views"]}
+PATHS["/driver/documents"]["post"]["description"] = PATHS["/driver/documents"]["post"].get("description", "") + " v0.18.5: " + DO5["documentRenewal"]["note"] + " " + DO5["documents"]["upload"]["contentCheck"] + " " + DO5["documentExpiry"]["maxNote"]
+PATHS["/driver/documents/{documentId}/file"]["get"]["description"] = PATHS["/driver/documents/{documentId}/file"]["get"].get("description", "") + " v0.18.5: " + DO5["ownerPrivacy"]["note"]
+PATHS["/admin/documents/{documentId}/review"]["post"]["description"] += " v0.18.5: " + DO5["documentExpiry"]["maxNote"] + " " + DO5["reviewReason"] + " Approving a renewal: " + DO5["documentRenewal"]["note"]
+S["DriverReminder"]["properties"]["invitationId"] = {"allOf": [ref("Id")], "description": "v0.18.5 (G2-D5.6): fleet_invitation lines."}
+S["DriverReminder"]["properties"]["fleetName"] = s("v0.18.5 (G2-D5.6): fleet_invitation lines.")
+S["DriverReminder"]["properties"]["renewalStatus"] = s(DO5["reminders"]["renewal"], enum=["in_review", "rejected"])
+S["ReminderFix"]["properties"]["invitationId"] = {"allOf": [ref("Id")], "description": "v0.18.5: accept_invitation / decline_invitation."}
+PATHS["/driver/fleet/invite"]["post"]["description"] += " v0.18.5: " + DO5["fleetInvitations"]["privacy"]
+S["FleetInvitation"]["properties"]["driverName"] = s("v0.18.5 (G2-D5.5): never in the owner's view of an owner_invite before it is accepted. " + DO5["fleetInvitations"]["privacy"])
+# G2-D5.3 categories by the admin
+S["VehicleRequest"]["properties"]["categoryIds"] = arr(ref("CategoryId"), description="Deprecated v0.18.5 (G2-D5.3): ignored, never stored. " + DO5["vehicleRules"]["categoriesByAdmin"], deprecated=True)
+S["VehicleReviewCommand"]["properties"]["categoryIds"] = arr(ref("CategoryId"), uniqueItems=True, description="v0.18.5 (G2-D5.3): the categories the admin gives on approval. " + DO5["vehicleRules"]["categoriesByAdmin"])
+S["VehicleReviewCommand"]["properties"]["note"]["description"] = DO5["reviewReason"]
+S["Vehicle"]["properties"]["fitCategories"] = arr(ref("CategoryId"), description=DO5["vehicleRules"]["fitCategories"])
+PATHS["/admin/vehicles/{vehicleId}/review"]["post"]["description"] = PATHS["/admin/vehicles/{vehicleId}/review"]["post"].get("description", "") + " v0.18.5: " + DO5["vehicleRules"]["categoriesByAdmin"] + " " + DO5["reviewReason"]
+PATHS["/driver/vehicles"]["post"]["description"] = PATHS["/driver/vehicles"]["post"].get("description", "") + " v0.18.5: " + DO5["vehicleRules"]["categoriesByAdmin"]
+S["DocumentReviewCommand"]["properties"]["note"]["description"] = DO5["reviewReason"]
+# G2-D3 the driver's approved photo
+S["DriverSummary"]["properties"]["photoUrl"] = s("v0.18.5 (G2-D3): " + DO5["riderDriverPhoto"]["url"], format="uri-reference")
+op("get", "/rider/trips/{tripId}/driver-photo", "riderDriverPhoto", "The driver's approved profile photo (trip's rider, while the driver comes and during the trip)", ["rider"], "Rider · Trip",
+   params=TID, content={mt: {"schema": {"type": "string", "format": "binary"}} for mt in ["image/jpeg", "image/png", "image/heic"]}, desc="v0.18.5: " + DO5["riderDriverPhoto"]["endpoint"])
+# G2-D4 notices
+S["Notification"]["description"] += " v0.18.5 (G2-D4): " + DO5["fleetLeaveNotices"]["note"] + " data " + DO5["fleetLeaveNotices"]["data"] + ". v0.18.5 (G9): " + C["chat"]["appStorage"]["noBellNotice"]
+# G9 chat after the trip
+S["MessagePage"] = {"allOf": [ref("Page"), {"type": "object", "properties": {"items": arr(ref("Message")),
+                    "closed": b("v0.18.5 (G9): true for the rider and the driver once the trip is terminal; items is then empty.")}}], "description": "Page<Message>"}
+PATHS["/trips/{tripId}/messages"]["get"]["description"] += " v0.18.5 (G9): " + C["chat"]["appStorage"]["afterTrip"] + " " + C["chat"]["appStorage"]["admin"]
+# G14
+for _sos in ("/rider/trips/{tripId}/sos", "/driver/trips/{tripId}/sos"):
+    PATHS[_sos]["post"]["description"] = PATHS[_sos]["post"].get("description", "") + " v0.18.5: " + C["safety"]["onlyDuringTrip"]["note"] + " " + C["safety"]["onlyDuringTrip"]["server"]
+# G1-B2 legal texts per country
+LANG3 = obj({"sv": s(minLength=1, maxLength=200), "fr": s(minLength=1, maxLength=200), "en": s(minLength=1, maxLength=200)}, ["sv", "fr", "en"])
+LTEXT = obj({"sv": s(minLength=1, maxLength=20000), "fr": s(minLength=1, maxLength=20000), "en": s(minLength=1, maxLength=20000)}, ["sv", "fr", "en"])
+S["LegalDocument"] = obj({"title": LANG3, "text": LTEXT}, ["title", "text"], "v0.18.5: one legal text (terms or privacy) in sv / fr / en.")
+S["LegalCompany"] = obj({"companyName": s(maxLength=200), "orgNumber": s(maxLength=60), "address": s(maxLength=300), "supportEmail": s(format="email", maxLength=200),
+                         "supportPhone": s(pattern=r"^\+[1-9]\d{6,14}$")}, [], "v0.18.5: " + LG["company"])
+S["LegalCountry"] = s(enum=LG["countries"])
+S["LegalTexts"] = obj({"country": ref("LegalCountry"), "version": i(minimum=0), "source": s(enum=["default", "admin"]), "publishedAt": ref("Timestamp"),
+                       "reaccept": b(), "terms": ref("LegalDocument"), "privacy": ref("LegalDocument")},
+                      ["country", "version", "source", "reaccept", "terms", "privacy"], "v0.18.5: " + LG["read"])
+S["LegalVersion"] = obj({"country": ref("LegalCountry"), "version": i(minimum=0), "source": s(enum=["default", "admin"]), "publishedAt": ref("Timestamp"), "publishedBy": ref("Id"),
+                         "reaccept": b(), "terms": ref("LegalDocument"), "privacy": ref("LegalDocument"), "company": ref("LegalCompany")},
+                        ["country", "version", "source", "reaccept", "terms", "privacy", "company"], "v0.18.5: the raw texts with their placeholders.")
+S["LegalAdminView"] = obj({"live": ref("LegalVersion"), "history": arr(ref("LegalVersion"))}, ["live", "history"], "v0.18.5: " + LG["admin"])
+S["LegalPublishCommand"] = obj({"terms": ref("LegalDocument"), "privacy": ref("LegalDocument"), "company": ref("LegalCompany"), "reaccept": b()}, ["terms", "privacy"], "v0.18.5: " + LG["admin"])
+S["LegalAcceptCommand"] = obj({"country": ref("LegalCountry"), "version": i(minimum=1)}, ["country", "version"], "v0.18.5: " + LG["accept"])
+PARAMS["LegalCountryPath"] = {"name": "country", "in": "path", "required": True, "schema": ref("LegalCountry")}
+o = op("get", "/legal/{country}", "getLegalTexts", "Terms of use and privacy policy of a country (no token)", ["rider", "driver"], "Account", params=[pref("LegalCountryPath")], ok=(200, "LegalTexts"),
+       desc="v0.18.5: " + LG["note"] + " " + LG["read"] + " " + LG["apps"] + " " + LG["lawyerReview"])
+o["security"] = []
+op("get", "/admin/legal/{country}", "adminGetLegal", "The live legal texts of a country and their history", ["admin"], "Admin · Config", params=[pref("LegalCountryPath")], ok=(200, "LegalAdminView"), permission="settings.read", desc="v0.18.5: " + LG["admin"])
+op("post", "/admin/legal/{country}/publish", "adminPublishLegal", "Publish new legal texts for a country", ["admin"], "Admin · Config", params=[pref("LegalCountryPath")], body="LegalPublishCommand", ok=(200, "LegalVersion"), mutation=True, permission="settings.publish", desc="v0.18.5: " + LG["admin"] + " " + LG["company"])
+op("post", "/account/legal/accept", "acceptLegal", "Accept the live legal texts of a country", ["rider", "driver"], "Account", body="LegalAcceptCommand", ok=(204, None), mutation=True, desc="v0.18.5: " + LG["accept"])
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {
