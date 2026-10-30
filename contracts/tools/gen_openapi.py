@@ -1816,6 +1816,15 @@ S["OnboardingSettings"] = obj(OrderedDict([
                      C["driverOnboarding"]["vehicleRules"]["note"])),
 ]), ["version", "country", "documents", "expiringTypes", "steps", "signUpReminders", "expiry", "vehicles"],
     "v0.18.0, per country only: " + DOS["note"] + " Rules: " + " ".join(DOS["rules"]), **{"x-server-only": True, "x-defaults": DOS["defaults"]})
+# ---- v0.18.3 (R8 upload guides, R9 valid months, R5 names per country)
+GL = DOS["guideLimits"]
+GUIDE_LINE = obj({"sv": s(minLength=1, maxLength=GL["lineChars"]), "fr": s(minLength=1, maxLength=GL["lineChars"]), "en": s(minLength=1, maxLength=GL["lineChars"])}, ["sv", "fr", "en"])
+S["DocumentGuide"] = obj({"checklist": arr(GUIDE_LINE, maxItems=GL["lines"]), "tips": arr(GUIDE_LINE, maxItems=GL["lines"])}, [], DOS["guides"])
+S["OnboardingSettings"]["properties"]["guides"] = {"type": "object", "description": DOS["guides"], "additionalProperties": ref("DocumentGuide")}
+S["OnboardingSettings"]["properties"]["validMonths"] = {"type": "object", "description": DOS["validMonths"], "additionalProperties": rng("validMonths")}
+S["DocumentTypeInfo"]["properties"]["guide"] = ref("DocumentGuide")
+S["DocumentTypeInfo"]["properties"]["validMonths"] = rng("validMonths", "v0.18.3 (R9): months from the issue date (settings.validMonths).")
+S["DocumentTypeInfo"]["description"] = "v0.18.3: name is the country's (" + C["driverOnboarding"]["documents"]["namesByCountry"] + ")"
 op("get", "/driver/onboarding/settings", "getDriverOnboardingSettings", "The onboarding settings of the driver's country", ["driver"], "Driver · Account",
    params=[q("country", ref("CountryCode"), "Only for an account with no country yet.")], ok=(200, "OnboardingSettings"), desc="v0.18.0: " + DOS["driverRead"])
 RM = C["driverOnboarding"]["reminders"]
@@ -1827,6 +1836,7 @@ S["DriverReminder"] = obj({"kind": s(enum=list(RM["kinds"].keys())), "level": s(
                            "status": s("The shown document state (contract.json#documentStatus), e.g. waiting_for_movera.", enum=C["documentStatus"]["values"]),
                            "expiresAt": ref("Timestamp"), "daysLeft": i(C["driverOnboarding"]["documentExpiry"]["daysLeft"], minimum=0), "reviewNote": s(),
                            "fix": ref("ReminderFix")}, ["kind", "level"], "v0.18.0: " + " ".join(f"{k}: {v}." for k, v in RM["kinds"].items()))
+S["DriverReminder"]["properties"]["actions"] = arr(ref("ReminderFix"), description="v0.18.3: " + RM["actions"])
 S["DriverReminderList"] = obj({"items": arr(ref("DriverReminder")), "blocksOnline": i("Lines with level blocks_online.", minimum=0)}, ["items", "blocksOnline"], RM["note"])
 op("get", "/driver/reminders", "getDriverReminders", "Important reminders for the Home sheet", ["driver"], "Driver · Account", ok=(200, "DriverReminderList"),
    desc="v0.18.0: " + RM["note"])
@@ -1843,6 +1853,20 @@ S["Driver"]["properties"]["signUp"] = obj({"since": ref("Timestamp"), "stuck": b
                                            "remindersSent": i(minimum=0), "lastReminderAt": ref("Timestamp")}, ["since", "stuck", "remindersSent"],
                                           "v0.18.0, admin view only, while the account is pending or on_hold: " + C["driverOnboarding"]["signUpReminders"]["note"])
 S["DocumentReviewCommand"]["description"] += " v0.18.0: " + C["driverOnboarding"]["documentExpiry"]["note"]
+S["DocumentReviewCommand"]["properties"]["issuedAt"] = ref("Timestamp")
+S["Vehicle"]["properties"]["ruleProblems"] = arr(s(), description="v0.18.3 (admin and fleet-owner views): " + C["driverOnboarding"]["vehicleRules"]["approval"] + " " + C["driverOnboarding"]["vehicleRules"]["baseYear"])
+S["Notification"]["description"] = "v0.18.3 review notices: " + C["driverOnboarding"]["reviewNotices"]["note"]
+# ---- v0.18.3 (R7): push to a closed phone through Firebase Cloud Messaging
+PD = AU["devices"]
+S["PushWebConfig"] = obj({"apiKey": s("Public Firebase web API key (not a secret)."), "appId": s(), "messagingSenderId": s(), "projectId": s(),
+                          "authDomain": s()}, ["apiKey", "appId", "messagingSenderId", "projectId"], "v0.18.3: the Firebase web app's public settings.")
+S["PushConfig"] = obj({"provider": s(enum=["fcm"]), "enabled": b("False when the server has no Firebase settings; the app then skips push."),
+                       "projectId": s(), "webConfig": ref("PushWebConfig")}, ["provider", "enabled"], PD["config"]["note"])
+o = op("get", "/push/config", "getPushConfig", "Public push settings for the app (Firebase web config)", ["rider", "driver"], "Auth",
+       params=[{"name": "app", "in": "query", "required": True, "schema": s(enum=PD["config"]["apps"])}], ok=(200, "PushConfig"),
+       desc=PD["config"]["note"] + " " + PD["appFlow"])
+o["security"] = []
+PATHS["/push/devices"]["post"]["description"] += " v0.18.3: " + PD["sending"]["note"] + " " + PD["sending"]["riderConsent"]
 
 # ---- v0.18.0: group 2 admin actions on live (contract.json#driverOnboarding.adminActions)
 AA = C["driverOnboarding"]["adminActions"]
