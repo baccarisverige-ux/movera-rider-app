@@ -7,15 +7,19 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Movera — premium rides in Sweden.">
-  <!-- No viewport-fit=cover: it lays the page out edge to edge, underneath the
-       status and gesture bars. In a browser tab that is harmless because the
-       browser's own UI already occupies that space, but installed from the home
-       screen there is no browser UI, so the app drew under the status bar while
-       taps landed in the visible area below it — every control was offset by the
-       status bar's height, and tapping "Where to?" hit the bottom nav instead.
-       Covering that area is only safe for a layout that pays it back with
-       env(safe-area-inset-*) padding, and this one does not. -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <!-- Owner 2026-10-30 "Map under the strip": edge to edge, like a native
+       app. viewport-fit=cover lets the page (and the Home map) go under the
+       status bar and the home indicator; the screens pay the space back with
+       env(safe-area-inset-*), which Dart reads from a probe element
+       (lib/core/platform/safe_area_insets*.dart) into MediaQuery, because
+       Flutter web reports no viewPadding. Flutter web swaps this tag for its
+       own at start (without viewport-fit), so the script below puts
+       viewport-fit=cover back on whichever tag is there.
+       The old tap-offset bug (installed app drew under the status bar while
+       taps landed in the area below it) came from a page that could sit
+       lower than the screen's top: html and body are now position: fixed at
+       0,0 with no scrolling, so drawing, taps and insets share one origin. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#eef1e8">
   <meta name="color-scheme" content="light">
   <meta http-equiv="Cache-Control" content="no-store">
@@ -32,7 +36,34 @@
 
   <title>Movera</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Flutter web replaces <meta name="viewport"> with its own when it
+    // starts, without viewport-fit=cover; without it env(safe-area-inset-*)
+    // are all 0 and nothing can draw under the status bar. Put it back on
+    // whichever viewport tag is there, now and after the engine's swap.
+    (function () {
+      function cover() {
+        var metas = document.querySelectorAll('meta[name="viewport"]');
+        for (var i = 0; i < metas.length; i++) {
+          var c = metas[i].getAttribute('content') || '';
+          if (c.indexOf('viewport-fit=cover') < 0) {
+            metas[i].setAttribute('content', (c ? c + ', ' : '') + 'viewport-fit=cover');
+          }
+        }
+      }
+      cover();
+      new MutationObserver(cover).observe(document.head, { childList: true });
+    })();
+  </script>
   <style>
+    html, body {
+      /* One coordinate space for drawing and for taps (see the viewport
+         comment): the page is exactly the screen, fixed at 0,0 and never
+         scrolled. */
+      position: fixed;
+      inset: 0;
+      width: 100%;
+    }
     html, body, flt-glass-pane, flt-scene-host {
       height: 100%;
       margin: 0;
@@ -43,6 +74,14 @@
       -webkit-tap-highlight-color: transparent;
       -webkit-text-size-adjust: 100%;
     }
+    /* iPhone 15 / iOS 17 (driver app check 2026-10-30, same engine): Safari
+       zooms the page in, and stays zoomed, when a text field under 16px gets
+       focus. Flutter's hidden <input>/<textarea> (flt-text-editing-host and
+       the screen reader's fields) take the Flutter field's font size, e.g.
+       13-15px; they are invisible (Flutter draws the text), so 16px changes
+       nothing on screen and Safari never zooms. Flutter's own viewport tag
+       allows pinch zoom (maximum-scale=5), kept for accessibility. */
+    input, textarea, select { font-size: 16px !important; }
     body.movera-overlay-open iframe,
     body.movera-overlay-open flt-platform-view,
     body.movera-overlay-open .gm-style {
