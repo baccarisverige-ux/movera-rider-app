@@ -750,6 +750,18 @@
       const state = states.get(id); state?.callbacks.add(callback);
       return () => state?.callbacks.delete(callback);
     },
+    // Owner decision (rider map, 2026-10-30): the map's box grew (iOS
+    // Safari's toolbar collapsed). Make Google measure its element again
+    // and draw the new area, instead of keeping the old, shorter tiles.
+    redraw(id) {
+      const state = states.get(id); if (!state) return;
+      const map = state.map;
+      try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
+      try {
+        const center = map.getCenter?.();
+        if (center) map.setCenter(center);
+      } catch (_) { /* best effort */ }
+    },
     // Dart disposed this map's widget: release it once Flutter has taken
     // its <div> out of the DOM (the observer above does the same).
     release(id) {
