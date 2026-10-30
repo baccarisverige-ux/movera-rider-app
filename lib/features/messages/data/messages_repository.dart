@@ -18,18 +18,56 @@ class MessagesRepository extends ChangeNotifier {
   factory MessagesRepository.forRide(String rideId) {
     final key = rideId.trim();
     if (key.isEmpty) return MessagesRepository();
+    // An ended trip's chat stays closed and empty (v0.18.5 chat.appStorage).
+    if (_endedRides.contains(key)) return MessagesRepository().._closed = true;
     return _rideSessions.putIfAbsent(key, MessagesRepository.new);
   }
 
+  /// Trips whose chat ended in this process (ids only, never a message).
+  static final Set<String> _endedRides = <String>{};
+
   /// Drops every ride conversation held in this process (end of a rider's
   /// session).
-  static void clearAllSessions() => _rideSessions.clear();
+  static void clearAllSessions() {
+    _rideSessions.clear();
+    _endedRides.clear();
+  }
+
+  /// Contract v0.18.5 `chat.appStorage` (owner 2026-10-30: "Never store
+  /// messages between rider or driver in driver app or rider app"): the
+  /// trip of [rideId] ended, so its chat is emptied (also on a screen that
+  /// still shows it), closed and forgotten. The chat only ever lived in
+  /// memory; no copy is written anywhere.
+  static void endRide(String rideId) {
+    final key = rideId.trim();
+    if (key.isEmpty) return;
+    _endedRides.add(key);
+    final session = _rideSessions.remove(key);
+    session?._end();
+  }
+
+  /// Every trip ended (no live ride any more): the same for all chats.
+  static void endAllRides() {
+    final sessions = _rideSessions.values.toList();
+    _endedRides.addAll(_rideSessions.keys);
+    _rideSessions.clear();
+    for (final session in sessions) {
+      session._end();
+    }
+  }
+
+  void _end() {
+    _messages.clear();
+    _closed = true;
+    notifyListeners();
+  }
 
   final List<ChatMessage> _messages = <ChatMessage>[];
   bool _closed = false;
 
   /// The trip ended (contract v0.13.0 §22): the chat closes at drop-off.
-  /// The history stays readable; nothing more can be written.
+  /// Nothing more can be written; v0.18.5 `chat.appStorage`: nothing stays
+  /// to read either ([endRide] empties it).
   bool get closed => _closed;
 
   void markClosed() {

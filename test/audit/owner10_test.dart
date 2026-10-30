@@ -116,6 +116,7 @@ void main() {
           key: key,
           rideId: 'ride_o10',
           controller: safety,
+          duringTrip: true,
         ),
       ),
     );

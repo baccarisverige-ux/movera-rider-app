@@ -13,6 +13,7 @@ class MatchedDriver {
     this.vehicleColor,
     this.plate,
     this.photoAsset,
+    this.photoUrl,
     this.vehicleImageAsset,
     this.languages = const [],
     this.yearsOnMovera,
@@ -27,6 +28,12 @@ class MatchedDriver {
   final String? vehicleColor;
   final String? plate;
   final String? photoAsset;
+
+  /// Contract v0.18.5 `DriverSummary.photoUrl` (owner G2-D3 "Yes, approved
+  /// photo (Recommended)"): `/api/v1/rider/trips/{tripId}/driver-photo`,
+  /// only while the driver has an approved photo. Opened with the rider's
+  /// token (DriverPhoto); a path on the API host, never a public link.
+  final String? photoUrl;
   final String? vehicleImageAsset;
   final List<String> languages;
   final int? yearsOnMovera;
@@ -75,6 +82,7 @@ class MatchedDriver {
       if (plate != null) 'plate': plate,
     },
     if (photoAsset != null) 'photoAsset': photoAsset,
+    if (photoUrl != null) 'photoUrl': photoUrl,
     if (vehicleImageAsset != null) 'vehicleImageAsset': vehicleImageAsset,
     if (languages.isNotEmpty) 'languages': languages,
     if (yearsOnMovera != null) 'yearsOnMovera': yearsOnMovera,
@@ -103,6 +111,7 @@ class MatchedDriver {
           vehicle['color'] as String? ?? json['vehicleColor'] as String?,
       plate: vehicle['plate'] as String? ?? json['plate'] as String?,
       photoAsset: json['photoAsset'] as String?,
+      photoUrl: json['photoUrl'] is String ? json['photoUrl'] as String : null,
       vehicleImageAsset: json['vehicleImageAsset'] as String?,
       languages: langs is List
           ? langs.whereType<String>().where((item) => item.isNotEmpty).toList()

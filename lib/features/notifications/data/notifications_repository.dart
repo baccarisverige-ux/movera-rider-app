@@ -26,6 +26,10 @@ class NotificationsRepository {
   Stream<List<AppNotification>> watch() => _changes.stream;
 
   void ingest(PushPayload payload, {required bool read}) {
+    // v0.18.5 chat.appStorage: a chat message never becomes a stored line
+    // (the server no longer sends trip_message notices; an older one that
+    // still arrives is not kept either).
+    if (payload.type == 'trip_message') return;
     final title = payload.title?.trim();
     final body = payload.body?.trim();
 

@@ -216,8 +216,9 @@ void main() {
               sent.add(
                 (jsonDecode(request.body) as Map)['refreshToken'] as String,
               );
-              if (sent.length == 1)
+              if (sent.length == 1) {
                 throw http.ClientException('connection lost');
+              }
               return _json(200, {
                 'accessToken': 'new-access',
                 'refreshToken': 'r2',

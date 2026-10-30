@@ -200,6 +200,35 @@ class ApiClient {
     return _send('DELETE', path, body: body, idempotencyKey: idempotencyKey);
   }
 
+  /// A file the rider's token opens (v0.18.5 `GET /rider/trips/{tripId}/
+  /// driver-photo`): the body's bytes, or null on 404. Same bearer and
+  /// refresh rules as every call; the bytes are never written anywhere.
+  Future<List<int>?> getBytes(String path) async {
+    final requestId = newRequestId();
+    final uri = Uri.parse('${_env.apiBaseUrl}$path');
+    final access = await _tokens?.readAccess();
+    final held = _withoutSession(path, access, requestId);
+    if (held != null) throw held;
+    Map<String, String> headers(String? token) => {
+      'X-Request-Id': requestId,
+      'X-Api-Version': apiVersion,
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+    var response = await _getWithRetry(uri, headers(access));
+    if (response.statusCode == 401 && access?.isNotEmpty == true) {
+      final refresh = await _refreshAccess(access!);
+      final replacement = refresh.access;
+      if (replacement != null) {
+        response = await _getWithRetry(uri, headers(replacement));
+      }
+    }
+    if (response.statusCode == 404) return null;
+    if (response.statusCode >= 400) {
+      throw _errorFromResponse(response, requestId);
+    }
+    return response.bodyBytes;
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {

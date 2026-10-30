@@ -17,6 +17,7 @@ import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dar
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
+import 'package:movera_rider/features/driver_arriving/application/driver_photo.dart';
 
 /// Removes everything a rider left on this device (FLOW-1, ARCH-15).
 ///
@@ -166,7 +167,10 @@ abstract final class UserDataWipe {
     // PIN and contacts back after the wipe (PR-9 follow-up to FLOW-9).
     safetyMockForProcess().reset();
     NotificationsRepository.shared.clear();
+    MessagesRepository.endAllRides();
     MessagesRepository.clearAllSessions();
+    // v0.18.5 G2-D3: no driver photo stays after sign-out.
+    DriverPhotos.clear();
     LastCompletedRide.clear();
   }
 

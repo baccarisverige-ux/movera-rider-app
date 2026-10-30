@@ -17,6 +17,7 @@ import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 
 String shortPickupPlace(String raw) {
   final value = L10n.place(raw);
@@ -304,27 +305,21 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    CircleAvatar(
+                    // G2-D3: the driver's approved photo, else the
+                    // Movera avatar.
+                    DriverPhotoAvatar(
+                      driver: d,
                       radius: 28,
-                      backgroundImage: d.photoAsset != null
-                          ? AssetImage(d.photoAsset!)
-                          : null,
-                      backgroundColor: const Color(0xFFF3F6FB),
-                      child: d.photoAsset == null
-                          ? (d.initial.isEmpty
-                                ? const Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 22,
-                                    color: Color(0xFF6E7881),
-                                  )
-                                : Text(
-                                    d.initial,
-                                    style: waitingText(
-                                      18,
-                                      weight: FontWeight.w700,
-                                    ),
-                                  ))
-                          : null,
+                      fallback: (d.initial.isEmpty
+                          ? const Icon(
+                              Icons.person_outline_rounded,
+                              size: 22,
+                              color: Color(0xFF6E7881),
+                            )
+                          : Text(
+                              d.initial,
+                              style: waitingText(18, weight: FontWeight.w700),
+                            )),
                     ),
                     if (d.ratingLabel != null)
                       Positioned(
