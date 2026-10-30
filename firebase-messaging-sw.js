@@ -1,9 +1,13 @@
 // Firebase Cloud Messaging service worker for Movera web push.
 //
-// Inert by default: nothing registers this file unless the build has Firebase
-// configured. FirebasePushService only calls getToken (which registers this
-// worker) when every MOVERA_FIREBASE_* define and the VAPID key are set; the
-// demo build sets none, so on the demo this file is served but never runs.
+// Inert by default: nothing registers this file unless push is configured.
+// FirebasePushService only calls getToken (which registers this worker) with
+// Firebase settings: the build's MOVERA_FIREBASE_* defines or, since contract
+// v0.18.3 (owner decision R7), the public settings the server gives at run
+// time (GET /push/config?app=rider). The demo build has neither.
+//
+// movera-server sends web pushes as data messages: { notificationId, kind,
+// deepLink, title, body }, already in the rider's language.
 //
 // It deliberately loads no Firebase SDK and holds no project config: the page
 // owns the FCM subscription, and this worker hands a push to a visible tab
@@ -50,29 +54,46 @@ self.addEventListener('push', function(event) {
         });
         return undefined;
       }
-      // Only FCM-shaped payloads with a visible notification are shown.
-      if (!notification || typeof notification !== 'object') return undefined;
-      return self.registration.showNotification(String(notification.title || 'Movera'), {
-        body: notification.body ? String(notification.body) : '',
+      // A notification block, or the server's data message (v0.18.3, R7).
+      var shown = notification && typeof notification === 'object' ? notification : null;
+      if (!shown && data.notificationId && data.title) shown = {title: data.title, body: data.body};
+      if (!shown) return undefined;
+      return self.registration.showNotification(String(shown.title || 'Movera'), {
+        body: shown.body ? String(shown.body) : '',
         icon: 'icons/Icon-192.png',
         data: data,
-        tag: data.rideId ? 'movera-ride-' + data.rideId : undefined
+        tag: data.rideId ? 'movera-ride-' + data.rideId : (data.notificationId || undefined)
       });
     })
   );
 });
 
+// A tap opens the app on the notice (contract v0.18.3, R7): an open tab gets
+// a movera-push-open message, else the app opens with ?movera_push=<id>.
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   var target = new URL('./', self.registration.scope).href;
+  var data = event.notification.data || {};
+  var open = {
+    type: 'movera-push-open',
+    notificationId: String(data.notificationId || ''),
+    kind: String(data.kind || data.type || ''),
+    deepLink: String(data.deepLink || '')
+  };
   event.waitUntil(
     self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(clients) {
       for (var i = 0; i < clients.length; i += 1) {
         if (clients[i].url.indexOf(target) === 0 && 'focus' in clients[i]) {
+          if (open.notificationId) clients[i].postMessage(open);
           return clients[i].focus();
         }
       }
-      return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
+      var url = open.notificationId
+        ? target + '?movera_push=' + encodeURIComponent(open.notificationId) +
+          '&movera_kind=' + encodeURIComponent(open.kind) +
+          '&movera_link=' + encodeURIComponent(open.deepLink)
+        : target;
+      return self.clients.openWindow ? self.clients.openWindow(url) : undefined;
     })
   );
 });
