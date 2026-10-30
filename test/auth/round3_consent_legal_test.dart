@@ -91,7 +91,7 @@ void main() {
     final consent = find.byKey(const ValueKey('auth-consent'));
     final before = tester.getSemantics(consent);
     expect(before.flagsCollection.isChecked, CheckedState.isFalse);
-    expect(before.label, contains('terms of service')); // G1-B5
+    expect(before.label, 'I accept the terms and the privacy policy'); // G1-B5
     await tester.ensureVisible(consent);
     await tester.tap(consent);
     await tester.pumpAndSettle();

@@ -1543,6 +1543,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'authOr': l.authOr,
   'providerComingSoon': l.providerComingSoon,
   'authCodeFieldLabel': l.authCodeFieldLabel,
+  'consentAnd': l.consentAnd,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4832,4 +4833,6 @@ class _Exhaustive implements AppLocalizations {
   String get providerComingSoon => '';
   @override
   String get authCodeFieldLabel => '';
+  @override
+  String get consentAnd => '';
 }

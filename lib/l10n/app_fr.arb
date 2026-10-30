@@ -1369,10 +1369,10 @@
   "searchCountry": "Rechercher un pays ou un indicatif",
   "noCountryFound": "Aucun pays ne correspond à votre recherche.",
   "changeLanguage": "Changer de langue",
-  "consentPrefix": "En continuant, vous acceptez nos ",
-  "consentTerms": "conditions d’utilisation",
+  "consentPrefix": "En continuant, vous acceptez les ",
+  "consentTerms": "conditions",
   "consentPrivacy": "politique de confidentialité",
-  "consentLabel": "J’accepte les conditions d’utilisation et la politique de confidentialité",
+  "consentLabel": "J’accepte les conditions et la politique de confidentialité",
   "consentTickFirst": "Cochez la case pour accepter avant de continuer.",
   "legalUpdatedOn": "Dernière mise à jour : 22 octobre 2026",
   "legalTermsIntro": "Ces conditions s’appliquent lorsque vous utilisez l’application Movera et les courses réservées avec elle. Lisez-les : en créant un compte, vous les acceptez.",
@@ -1536,5 +1536,6 @@
   "legalPrivacyLink": "Politique de confidentialité",
   "authOr": "ou",
   "providerComingSoon": "La connexion avec Apple et Google arrive bientôt. Utilisez votre numéro de téléphone.",
-  "authCodeFieldLabel": "Code de vérification"
+  "authCodeFieldLabel": "Code de vérification",
+  "consentAnd": " et la "
 }

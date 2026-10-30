@@ -2745,10 +2745,10 @@
   "searchCountry": "Search country or code",
   "noCountryFound": "No country matches your search.",
   "changeLanguage": "Change language",
-  "consentPrefix": "By continuing you agree to our ",
-  "consentTerms": "terms of service",
+  "consentPrefix": "By continuing you accept the ",
+  "consentTerms": "terms",
   "consentPrivacy": "privacy policy",
-  "consentLabel": "I agree to the terms of service and the privacy policy",
+  "consentLabel": "I accept the terms and the privacy policy",
   "consentTickFirst": "Tick the box to agree before you continue.",
   "legalUpdatedOn": "Last updated: 22 October 2026",
   "legalTermsIntro": "These terms apply when you use the Movera app and the rides booked through it. Please read them; by creating an account you accept them.",
@@ -3021,5 +3021,7 @@
   "providerComingSoon": "Sign-in with Apple and Google is coming soon. Use your phone number.",
   "@providerComingSoon": {"description": "G1-B1 / G1-E: Apple and Google not set up yet, same words as the driver app (authProviderComingSoon)."},
   "authCodeFieldLabel": "Verification code",
-  "@authCodeFieldLabel": {"description": "G1-B6: screen-reader label of the 4 code boxes."}
+  "@authCodeFieldLabel": {"description": "G1-B6: screen-reader label of the 4 code boxes."},
+  "consentAnd": " and ",
+  "@consentAnd": {"description": "G1-B5 owner's sentence, same as the driver app (authAnd): between the terms and the privacy policy in the consent line."}
 }

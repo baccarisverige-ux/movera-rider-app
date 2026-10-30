@@ -411,12 +411,58 @@ void main() {
       handle.dispose();
     });
 
+    test('the owner\'s G1-B5 sentence, sv / fr / en', () {
+      const want = {
+        'en': (
+          'By continuing you accept the ',
+          'terms',
+          ' and ',
+          'privacy policy',
+          'I accept the terms and the privacy policy',
+          'or',
+        ),
+        'sv': (
+          'Genom att fortsätta godkänner du ',
+          'villkoren',
+          ' och ',
+          'integritetspolicyn',
+          'Jag godkänner villkoren och integritetspolicyn',
+          'eller',
+        ),
+        'fr': (
+          'En continuant, vous acceptez les ',
+          'conditions',
+          ' et la ',
+          'politique de confidentialité',
+          'J’accepte les conditions et la politique de confidentialité',
+          'ou',
+        ),
+      };
+      for (final MapEntry(key: lang, value: w) in want.entries) {
+        L10n.use(lang);
+        final l = L10n.current;
+        expect(
+          [
+            l.consentPrefix,
+            l.consentTerms,
+            l.consentAnd,
+            l.consentPrivacy,
+            l.consentLabel,
+            l.authOr,
+          ],
+          [w.$1, w.$2, w.$3, w.$4, w.$5, w.$6],
+          reason: lang,
+        );
+      }
+    });
+
     test('same words as the driver app, sv / fr / en', () {
       final pairs = {
         'consentPrefix': 'authConsentPrefix',
         'consentTerms': 'authConsentTerms',
         'consentPrivacy': 'authConsentPrivacy',
         'consentLabel': 'authConsentLabel',
+        'consentAnd': 'authAnd',
         'authOr': 'authOr',
         'providerComingSoon': 'authProviderComingSoon',
       };

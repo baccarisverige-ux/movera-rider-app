@@ -353,7 +353,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                               color: AuthColors.ink,
                             ),
                           ),
-                          TextSpan(text: context.l10n.and),
+                          TextSpan(text: context.l10n.consentAnd),
                           TextSpan(
                             text: context.l10n.consentPrivacy,
                             style: GoogleFonts.urbanist(

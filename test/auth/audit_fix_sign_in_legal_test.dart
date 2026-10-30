@@ -31,7 +31,7 @@ void main() {
   }
 
   for (final (link, kind) in [
-    ('terms of service', 'terms'), // G1-B5: driver's words
+    ('terms', 'terms'), // G1-B5: the owner's sentence
     ('privacy policy', 'privacy'),
   ]) {
     testWidgets('"$link" on Sign in opens the $kind page', (tester) async {

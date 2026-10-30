@@ -1369,10 +1369,10 @@
   "searchCountry": "Sök land eller landsnummer",
   "noCountryFound": "Inget land matchar din sökning.",
   "changeLanguage": "Byt språk",
-  "consentPrefix": "Genom att fortsätta godkänner du våra ",
-  "consentTerms": "användarvillkor",
-  "consentPrivacy": "integritetspolicy",
-  "consentLabel": "Jag godkänner användarvillkoren och integritetspolicyn",
+  "consentPrefix": "Genom att fortsätta godkänner du ",
+  "consentTerms": "villkoren",
+  "consentPrivacy": "integritetspolicyn",
+  "consentLabel": "Jag godkänner villkoren och integritetspolicyn",
   "consentTickFirst": "Bocka i rutan för att godkänna innan du fortsätter.",
   "legalUpdatedOn": "Senast uppdaterad: 22 oktober 2026",
   "legalTermsIntro": "Dessa villkor gäller när du använder Movera-appen och de resor du bokar genom den. Läs dem – genom att skapa ett konto godkänner du dem.",
@@ -1536,5 +1536,6 @@
   "legalPrivacyLink": "Integritetspolicy",
   "authOr": "eller",
   "providerComingSoon": "Inloggning med Apple och Google kommer snart. Använd ditt telefonnummer.",
-  "authCodeFieldLabel": "Verifieringskod"
+  "authCodeFieldLabel": "Verifieringskod",
+  "consentAnd": " och "
 }
