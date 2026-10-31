@@ -76,6 +76,8 @@
     // keyboard's real height. Nothing moves the origin: drawing and taps
     // still start at 0,0. iPad Split View / Slide Over (window narrower than
     // the screen) is left alone.
+    // Applied only when the missing height equals env(safe-area-inset-top)
+    // (within 2px), i.e. the page really starts under the status bar.
     (function () {
       var nav = window.navigator;
       var platform = String(nav.platform || '');
@@ -91,6 +93,22 @@
       var widthOf = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
       if (!heightOf || !heightOf.get || !widthOf || !widthOf.get) return;
       var MAX_GAP = 100; // a status bar is at most ~62pt
+      // The gap is the status bar only when the page really starts under it
+      // (black-translucent): then it equals env(safe-area-inset-top). An old
+      // Home Screen icon saved with an opaque status bar starts below the
+      // bar, so its short viewport is right and is left alone.
+      var topProbe = null;
+      function insetTop() {
+        if (!topProbe) {
+          topProbe = document.createElement('div');
+          topProbe.setAttribute('aria-hidden', 'true');
+          topProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;' +
+            'visibility:hidden;pointer-events:none;' +
+            'padding-top:env(safe-area-inset-top, 0px)';
+          root.appendChild(topProbe);
+        }
+        return parseFloat(getComputedStyle(topProbe).paddingTop) || 0;
+      }
 
       function measure() {
         var w = widthOf.get.call(root);
@@ -108,7 +126,8 @@
       }
       function gapTo(full, h) {
         var gap = full - h;
-        return full > 0 && gap >= 1 && gap <= MAX_GAP ? gap : 0;
+        if (!(full > 0 && gap >= 1 && gap <= MAX_GAP)) return 0;
+        return Math.abs(gap - insetTop()) <= 2 ? gap : 0;
       }
       function publish(gap) {
         if (gap === window.moveraViewportGap) return;
@@ -154,7 +173,13 @@
       window.addEventListener('resize', sample);
       window.addEventListener('orientationchange', function () {
         sample();
-        setTimeout(sample, 300);
+        // iOS settles the size a moment after a rotation: publish the new
+        // gap, then make Flutter measure again.
+        setTimeout(function () {
+          sample();
+          try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+          try { if (vv) vv.dispatchEvent(new Event('resize')); } catch (_) {}
+        }, 300);
       });
       if (vv) vv.addEventListener('resize', sample);
     })();
