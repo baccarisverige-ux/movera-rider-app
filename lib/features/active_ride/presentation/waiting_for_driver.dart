@@ -1307,6 +1307,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     return L10n.current.noFeeToCancel;
   }
 
+  static void _showCancelFee(ScaffoldMessengerState? messenger, String? text) {
+    if (messenger == null || text == null || !messenger.mounted) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('cancel-fee-outcome'),
+          content: Text(text),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   Future<void> _confirmCancel() async {
     if (_leaving) return;
     final feeNote = await _cancelFeeNote();
@@ -1365,6 +1378,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // D-013: the server is asked first; local state only commits once it
       // has answered. Show that the request is in flight meanwhile.
       setState(() => _cancelling = true);
+      // G5 live test: the stream's cancelled_by_rider can take the app Home
+      // (this screen gone) before the cancel answer lands; the fee notice
+      // is shown on the app's messenger all the same.
+      final appMessenger = ScaffoldMessenger.maybeOf(context);
       final result = await _ride.markCancelled(
         reasonId: outcome.reasonId,
         // R-O1: nothing tracked (for example right after a reload) is
@@ -1373,7 +1390,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             ? _tracking.drivenMeters
             : null,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        if (result == RideCancelOutcome.confirmed && _ride.endedEarly == null) {
+          _showCancelFee(appMessenger, riderCancelFeeText(_ride.lastCancelFee));
+        }
+        return;
+      }
       _cancelInFlight = false;
       if (result != RideCancelOutcome.confirmed) {
         setState(() {
@@ -1386,7 +1408,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       }
       _tracking.dispose();
       await _parkMapForStageChange();
-      if (!mounted) return;
+      if (!mounted) {
+        if (_ride.endedEarly == null) {
+          _showCancelFee(appMessenger, riderCancelFeeText(_ride.lastCancelFee));
+        }
+        return;
+      }
       final endedEarly = _ride.endedEarly;
       if (endedEarly != null) {
         // UI-01: an on-board end is a finished trip with a receipt, not a
@@ -1397,19 +1424,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // v0.18.7 (Q2/Q6): the rider sees the fee and its kind, never a
       // silent amount on the next quote.
       final feeText = riderCancelFeeText(_ride.lastCancelFee);
-      final messenger = ScaffoldMessenger.maybeOf(context);
+      final messenger = ScaffoldMessenger.maybeOf(context) ?? appMessenger;
       RideNavigator.home(context);
-      if (feeText != null) {
-        messenger
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              key: const ValueKey('cancel-fee-outcome'),
-              content: Text(feeText),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-      }
+      _showCancelFee(messenger, feeText);
     } catch (error, stack) {
       final scheduled = widget.onCancel != null;
       AppScope.instance.crashes.record(
@@ -2811,6 +2828,11 @@ class _WaitingRideMap extends StatefulWidget {
   State<_WaitingRideMap> createState() => _WaitingRideMapState();
 }
 
+/// G5 live test: the "1 min" ETA bubble over the pickup is the driver's
+/// way there; once the driver has arrived it is gone (the plain pickup pin).
+@visibleForTesting
+bool pickupEtaPinShown(RideStatus status) => status != RideStatus.driverWaiting;
+
 class _WaitingRideMapState extends State<_WaitingRideMap>
     with SingleTickerProviderStateMixin {
   // U7: the markers live in a notifier so the moving driver only updates the
@@ -2830,6 +2852,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   // Pins that carry times: "N min" over the pickup, "Arrive by HH:MM" over
   // the destination. Rebuilt only when the minute changes.
   BitmapDescriptor? _pickupTimePin;
+  bool _etaPinShown = true;
   BitmapDescriptor? _destinationTimePin;
   String? _timePinKey;
   DateTime? _lastPaint;
@@ -2943,7 +2966,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     _syncTimePins();
 
     final next = _buildMarkers();
-    final markersChanged = !_sameMarkers(_markers, next);
+    // The pickup pin's look changes on arrival, not its place.
+    final pinShown = pickupEtaPinShown(widget.tracking.status);
+    final pinChanged = pinShown != _etaPinShown;
+    _etaPinShown = pinShown;
+    final markersChanged = pinChanged || !_sameMarkers(_markers, next);
     if (markersChanged && mounted) {
       // U7: no setState, no new map leaf; the marker listener updates it.
       _markers = next;
@@ -3115,7 +3142,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
           );
     final pickupLabel = context.l10n.minLineBreak('$toPickupMin');
     final arriveLabel = context.l10n.arriveBy(clockTime(arrive));
-    final key = '$inTrip|$pickupLabel|$arriveLabel';
+    final shown = pickupEtaPinShown(widget.tracking.status);
+    final key = '$inTrip|$shown|$pickupLabel|$arriveLabel';
     if (key == _timePinKey) return;
     _timePinKey = key;
     unawaited(() async {
@@ -3140,7 +3168,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
 
   Set<Marker> _buildMarkers() {
     final driverPosition = _currentDriverPosition();
-    final pickupIcon = _pickupTimePin ?? _riderPuck;
+    final timePin = pickupEtaPinShown(widget.tracking.status)
+        ? _pickupTimePin
+        : null;
+    final pickupIcon = timePin ?? _riderPuck;
     final destinationIcon = _destinationTimePin ?? _destinationPin;
     return {
       if (!_inTrip && pickupIcon != null)
@@ -3149,7 +3180,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
           icon: pickupIcon,
-          anchor: _pickupTimePin != null
+          anchor: timePin != null
               ? RouteTimeMarker.anchor
               : const Offset(0.5, 0.5),
         ),

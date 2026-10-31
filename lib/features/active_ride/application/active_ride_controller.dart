@@ -171,6 +171,9 @@ class ActiveRideController {
       await _commitCancelled(null, reasonId: reasonId);
       return RideCancelOutcome.confirmed;
     }
+    // Checker: a late answer without a fee object must never show the
+    // previous ride's fee.
+    _lastCancelFee = null;
     final result = await _requestServerCancel(id, reasonId: reasonId);
     if (result.outcome == RideCancelOutcome.confirmed) {
       final endedEarly = result.command == PendingCancelCommand.endEarly
