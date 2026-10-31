@@ -78,11 +78,8 @@ class GoogleMapProvider implements MapProvider {
   }
 
   /// Camera pose for [target] at [zoom] on the active map, tilted for the
-  /// zoom unless that map stays flat. Never closer than [riderMaxZoom]
-  /// (owner 2026-10-31): a recenter or address move asked for street zoom
-  /// lands on the cap.
-  CameraPosition _pose(GeoPoint target, double requestedZoom, double bearing) {
-    final zoom = capRiderZoom(requestedZoom);
+  /// zoom unless that map stays flat.
+  CameraPosition _pose(GeoPoint target, double zoom, double bearing) {
     final map = controller;
     final tilt = map == null ? tiltForZoom(zoom) : mapViewOf(map).tiltFor(zoom);
     return CameraPosition(

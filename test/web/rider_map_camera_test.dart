@@ -31,7 +31,7 @@ void main() {
     final flight = of('flight');
     expect(flight['landed'], isTrue);
     expect(flight['frames'], inInclusiveRange(29, 32));
-    expect((flight['last'] as Map<String, dynamic>)['zoom'], 13.5);
+    expect((flight['last'] as Map<String, dynamic>)['zoom'], 15);
 
     // A 300 px follow glide settles in about 450 ms (was 2-3 s), moving
     // one way only, leaving gently and landing exactly.
@@ -50,7 +50,7 @@ void main() {
     final zoomTurn = of('zoomTurn');
     expect(zoomTurn['landed'], isTrue);
     expect(zoomTurn['frames'], lessThanOrEqualTo(40));
-    expect((zoomTurn['last'] as Map<String, dynamic>)['zoom'], 13.6);
+    expect((zoomTurn['last'] as Map<String, dynamic>)['zoom'], 14);
     expect((zoomTurn['last'] as Map<String, dynamic>)['heading'], 40);
 
     // A newer goal keeps the glide's speed: no stop, no restart from rest.
@@ -74,36 +74,15 @@ void main() {
     expect(cancel['movedAfter'], 0);
   }, skip: _hasNode() ? false : 'node is not installed');
 
-  test('rider-02d: no web gesture or app camera move goes past the max zoom '
-      '13.8 (owner 2026-10-31)', () async {
+  test('rider-02d: two fingers zoom past the location button\'s 13.8 '
+      '(owner 2026-10-31)', () async {
     final run = await Process.run('node', [
       'test/web/rider_map_camera_harness.js',
       'web/rider_map_camera.js',
     ]);
     expect(run.exitCode, 0, reason: '${run.stderr}');
     final out = jsonDecode(run.stdout as String) as Map<String, dynamic>;
-    Map<String, dynamic> of(String key) => out[key] as Map<String, dynamic>;
-    num lastOf(String key, String field) =>
-        (of(key)['last'] as Map<String, dynamic>)[field] as num;
-
-    // Google's own controls are capped and a closer opening zoom is not
-    // used.
-    expect(of('options')['maxZoom'], 13.8);
-    expect(of('options')['zoom'], 13.8);
-
-    // 67.5 * (13.8 - 12) / 3.5: the tilt of the cap zoom.
-    const capTilt = 67.5 * 1.8 / 3.5;
-    for (final key in ['capFlight', 'capGlide', 'capRetarget']) {
-      expect(of(key)['landed'], isTrue, reason: key);
-      expect(lastOf(key, 'zoom'), 13.8, reason: key);
-      expect(of(key)['highest'] as num, lessThanOrEqualTo(13.8), reason: key);
-    }
-    expect(lastOf('capFlight', 'tilt'), closeTo(capTilt, 1e-9));
-    expect(lastOf('capGlide', 'tilt'), closeTo(capTilt, 1e-9));
-
-    for (final key in ['pinch', 'doubleTap', 'wheel']) {
-      expect(of(key)['zoom'], closeTo(13.8, 1e-9), reason: key);
-      expect(of(key)['highest'] as num, lessThanOrEqualTo(13.8), reason: key);
-    }
+    final pinch = out['pinch'] as Map<String, dynamic>;
+    expect(pinch['zoom'] as num, greaterThan(13.8));
   }, skip: _hasNode() ? false : 'node is not installed');
 }

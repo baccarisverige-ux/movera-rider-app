@@ -99,7 +99,7 @@ const mount = (id, options) => {
   await sleep(300);
   out.pooled = layer.stats().pooled;
   // Set pickup mounts its own map at the rider's position.
-  const second = mount(2, {center: {lat: 59.33, lng: 18.06}, zoom: 13.5});
+  const second = mount(2, {center: {lat: 59.33, lng: 18.06}, zoom: 16});
   await sleep(30);
   out.reused = second.map === first.map;
   out.secondReady = second.isReady();

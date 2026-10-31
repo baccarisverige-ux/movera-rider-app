@@ -27,8 +27,8 @@ class LatLng {
   lng() { return this._lng; }
 }
 class FakeMap {
-  constructor(div, options) {
-    this.div = div; this.options = options; this.center = new LatLng(59.33, 18.06);
+  constructor(div) {
+    this.div = div; this.center = new LatLng(59.33, 18.06);
     this.zoom = 13; this.heading = 0; this.tilt = 0; this.moves = [];
   }
   getCenter() { return this.center; }
@@ -71,8 +71,7 @@ const context = {
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(layerPath, 'utf8'), context);
 const layer = context.riderMapCamera;
-// A screen asks for a closer opening zoom than the rider's cap.
-const map = new context.google.maps.Map(div, {zoom: 17});
+const map = new context.google.maps.Map(div, {});
 
 // --- Scenarios -------------------------------------------------------------
 const place = pose => {
@@ -107,7 +106,7 @@ const steps = moves => {
   out.hasGlide = typeof layer.glide === 'function';
 
   place(start);
-  let run = await settle(layer.flight(1, east300.lat, east300.lng, 13.5, 0, 0, 500));
+  let run = await settle(layer.flight(1, east300.lat, east300.lng, 15, 0, 0, 500));
   out.flight = {frames: run.frames, landed: run.result, last: run.moves.at(-1)};
 
   place(start);
@@ -119,7 +118,7 @@ const steps = moves => {
 
   // A zoom-and-turn glide: zoom and heading arrive with the pan.
   place(start);
-  run = await settle(layer.glide(1, east300.lat, east300.lng, 13.6, 40, 0, 450));
+  run = await settle(layer.glide(1, east300.lat, east300.lng, 14, 40, 0, 450));
   out.zoomTurn = {frames: run.frames, landed: run.result, last: run.moves.at(-1)};
 
   // A newer goal mid-glide keeps the speed it has.
@@ -161,54 +160,16 @@ const steps = moves => {
   for (let i = 0; i < 30; i++) frame();
   out.cancel = {pose: at, live: map.pose(), movedAfter: map.moves.length - 2};
 
-  // Owner 2026-10-31: max zoom 13.8. Google's own controls get it.
-  out.options = {maxZoom: map.options.maxZoom, zoom: map.options.zoom};
-
-  // A flight, a glide and a retarget past the cap land on the cap, with
-  // the cap's tilt.
-  place(start);
-  run = await settle(layer.flight(1, east300.lat, east300.lng, 17, 0, 67.5, 500));
-  out.capFlight = {landed: run.result, last: run.moves.at(-1),
-    highest: Math.max(...run.moves.map(m => m.zoom))};
-  place(start);
-  run = await settle(layer.glide(1, east300.lat, east300.lng, 16, 0, 67.5, 450));
-  out.capGlide = {landed: run.result, last: run.moves.at(-1),
-    highest: Math.max(...run.moves.map(m => m.zoom))};
-  place(start);
-  run = await settle(layer.flight(1, east300.lat, east300.lng, 13.5, 0, 0, 500), 600, f => {
-    if (f === 5) layer.retarget(1, east300.lat, east300.lng, 19, 0, 0);
-  });
-  out.capRetarget = {landed: run.result, last: run.moves.at(-1),
-    highest: Math.max(...run.moves.map(m => m.zoom))};
-
+  // Owner 2026-10-31: the location button's zoom 13.8 is no limit for the
+  // rider's fingers. A long two-finger pinch out from 13 goes past it.
   const fingers = (...xs) => xs.map(x => ({clientX: x, clientY: 300}));
-  const touchEvent = (type, touches) => ({type, touches, preventDefault() {},
-    stopImmediatePropagation() {}, target: {}});
-  const fire = (type, touches) => listeners[type].forEach(l => l(touchEvent(type, touches)));
-
-  // A long pinch out stops at the cap and never passes it.
+  const fire = (type, touches) => listeners[type].forEach(l => l({type, touches,
+    preventDefault() {}, stopImmediatePropagation() {}, target: {}}));
   place({...start, zoom: 13});
   fire('touchstart', fingers(170, 220));
   for (let i = 1; i <= 20; i++) fire('touchmove', fingers(170 - 8 * i, 220 + 8 * i));
   fire('touchend', []);
-  out.pinch = {zoom: map.zoom, highest: Math.max(...map.moves.map(m => m.zoom))};
-
-  // A double tap one level in from 13.5 stops at the cap.
-  place({...start, zoom: 13.5});
-  for (let i = 0; i < 2; i++) {
-    fire('touchstart', fingers(200));
-    fire('touchend', []);
-  }
-  out.doubleTap = {zoom: map.zoom, highest: Math.max(...map.moves.map(m => m.zoom))};
-
-  // Wheel / trackpad zoom in stops at the cap.
-  place({...start, zoom: 13});
-  for (let i = 0; i < 5; i++) {
-    listeners.wheel.forEach(l => l({deltaY: -150, deltaMode: 0, clientX: 200,
-      clientY: 300, preventDefault() {}, stopImmediatePropagation() {}}));
-  }
-  for (let i = 0; i < 120; i++) frame();
-  out.wheel = {zoom: map.zoom, highest: Math.max(...map.moves.map(m => m.zoom))};
+  out.pinch = {zoom: map.zoom};
 
   process.stdout.write(JSON.stringify(out));
 })();

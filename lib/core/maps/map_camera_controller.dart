@@ -1,13 +1,16 @@
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
-import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 
-/// Recenter zoom on every rider map: the closest the rider map goes
-/// ([riderMaxZoom], owner 2026-10-31), tilted 35° by the zoom's tilt curve.
-const double recenterZoom = riderMaxZoom;
+/// Zoom the location (recenter) button flies to on every rider map (owner,
+/// 2026-10-31: "I meant with localisation botton ! But with two finger he
+/// can zoom !!"). Measured from the owner's iPhone screenshot of rider Home
+/// in Södertälje: zoom 13.8, tilted ~35° by the zoom's tilt curve. Only the
+/// button (and the locate glide it starts) uses it; pinch, double tap and
+/// wheel still zoom in further.
+const double recenterZoom = 13.8;
 
 class MapCameraController {
   MapCameraController(this._maps, {LocationRepository? location})

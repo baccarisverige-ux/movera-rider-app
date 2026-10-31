@@ -25,11 +25,6 @@
   // 0 deg at zoom 12, then proportional to zoom up to 67.5 deg at zoom
   // 15.5, under the SDKs' own per-zoom limit.
   const MAX_TILT = 67.5, FLAT_ZOOM = 12, FULL_TILT_ZOOM = 15.5;
-  // The closest every rider map goes (owner, 2026-10-31, measured from his
-  // iPhone screenshot: zoom 13.8, 35 deg tilt). lib/core/maps/camera_tilt.dart
-  // riderMaxZoom; keep both in step. Pinch, double tap, wheel and every app
-  // flight or glide stop here; Google's own controls get it as maxZoom.
-  const MIN_ZOOM = 3, MAX_ZOOM = 13.8;
   const sdkMaxTilt = zoom => zoom <= 10 ? 30 : zoom <= 14 ?
     30 + (zoom - 10) / 4 * 15 : zoom < 15.5 ?
     45 + (zoom - 14) / 1.5 * (MAX_TILT - 45) : MAX_TILT;
@@ -40,11 +35,6 @@
   // so the horizon rises as the rider zooms in and flattens as they zoom
   // out, frame by frame. A tilt set by hand is kept as an offset.
   // Rounding residue (1e-16) would keep a zoomed-out map a hair tilted.
-  // A pose no closer than MAX_ZOOM; its tilt keeps its offset from the
-  // zoom's tilt (lib/core/maps/camera_tilt.dart capRiderCamera).
-  const capPose = pose => !(pose && pose.zoom > MAX_ZOOM) ? pose : {...pose,
-    zoom: MAX_ZOOM, tilt: clamp((pose.tilt || 0) - tiltForZoom(pose.zoom) +
-      tiltForZoom(MAX_ZOOM), 0, sdkMaxTilt(MAX_ZOOM))};
   const tiltWithZoom = (tilt, from, to) => {
     const next = clamp(tilt + tiltForZoom(to) - tiltForZoom(from), 0, sdkMaxTilt(to));
     return next < 1e-9 ? 0 : next;
@@ -186,7 +176,7 @@
       return {lat: c.lat(), lng: c.lng(), zoom: Number(map.getZoom()),
         heading: map.getHeading() || 0, tilt: map.getTilt() || 0};
     };
-    state.retarget = to => { if (flight) flight.to = capPose(to); };
+    state.retarget = to => { if (flight) flight.to = to; };
     const camera = () => {
       const c = map.getCenter(), zoom = Number(map.getZoom());
       if (!c || !Number.isFinite(zoom)) return null;
@@ -224,7 +214,7 @@
       f.frame = globalThis.requestAnimationFrame(tick);
     };
     state.flight = (to, ms) => new Promise(resolve => {
-      const f = {to: capPose(to), resolve, started: null, prev: 0, frame: 0};
+      const f = {to, resolve, started: null, prev: 0, frame: 0};
       run(f, now => {
         // The first frame already moves, like the Dart loop's frame 0.
         if (f.started == null) f.started = now - 16;
@@ -240,7 +230,7 @@
     // constant, gaining at most ACCEL, and lands exactly on the goal.
     state.glide = (to, ms) => new Promise(resolve => {
       const tau = Math.max(200, ms) * GLIDE_TAU / 1000;
-      const f = {to: capPose(to), resolve, last: null, speed: 0, frame: 0};
+      const f = {to, resolve, last: null, speed: 0, frame: 0};
       run(f, now => {
         // The first frame already moves; a stalled frame does not leap.
         const dt = f.last == null ? .016 : clamp((now - f.last) / 1000, .001, .064);
@@ -272,7 +262,7 @@
     const zoomAt = (amount, x, y, camera = {}, gestureX = 0, gestureY = 0) => {
       const current = Number(map.getZoom());
       if (!Number.isFinite(current)) return;
-      const next = state.zoom ? clamp(current + amount, MIN_ZOOM, MAX_ZOOM) : current;
+      const next = state.zoom ? clamp(current + amount, 3, 21) : current;
       if (supports3D() && state.tiltFollowsZoom && !('tilt' in camera)) {
         camera = {...camera, tilt: tiltWithZoom(map.getTilt() || 0, current, next)};
       }
@@ -344,7 +334,7 @@
       const current = Number(map.getZoom());
       if (!Number.isFinite(current)) return;
       const step = clamp(-(event.deltaY || 0) * unit / 150, -1, 1);
-      wheelGoal = clamp((wheelGoal ?? current) + step, MIN_ZOOM, MAX_ZOOM);
+      wheelGoal = clamp((wheelGoal ?? current) + step, 3, 21);
       wheelPoint = {x: event.clientX, y: event.clientY};
       if (!wheelFrame) {
         wheelSet = null;
@@ -578,9 +568,9 @@
     // mapId cannot change after the first render (every rider map uses the
     // same one); the rest of the options are applied afresh.
     const {mapId, ...rest} = options || {};
-    map.setOptions({...rest, isFractionalZoomEnabled: true, maxZoom: MAX_ZOOM});
+    map.setOptions({...rest, isFractionalZoomEnabled: true});
     if (rest.center) map.setCenter(rest.center);
-    if (rest.zoom != null) map.setZoom(Math.min(rest.zoom, MAX_ZOOM));
+    if (rest.zoom != null) map.setZoom(rest.zoom);
     map.setHeading(rest.heading || 0);
     map.setTilt(rest.tilt || 0);
     state.reattach(div, id);
@@ -596,7 +586,7 @@
       try {
         const camera = {heading: rest.heading || 0, tilt: rest.tilt || 0};
         if (rest.center) camera.center = rest.center;
-        if (rest.zoom != null) camera.zoom = Math.min(rest.zoom, MAX_ZOOM);
+        if (rest.zoom != null) camera.zoom = rest.zoom;
         map.moveCamera(camera);
       } catch (_) { /* best effort */ }
       try { sdk.event.trigger(map, 'tilesloaded'); } catch (_) { /* best effort */ }
@@ -719,10 +709,7 @@
         }
         // Fractional zoom: pinch and app eases move in small steps (raster
         // tiles default to whole levels, so 11.7 would snap to 12).
-        // maxZoom: Google's own controls never go past the rider's cap.
-        const map = Reflect.construct(target, [div, {...options,
-          isFractionalZoomEnabled: true, maxZoom: MAX_ZOOM,
-          ...(options?.zoom > MAX_ZOOM ? {zoom: MAX_ZOOM} : {})}]);
+        const map = Reflect.construct(target, [div, {...options, isFractionalZoomEnabled: true}]);
         created += 1;
         install(map, div, id);
         return map;

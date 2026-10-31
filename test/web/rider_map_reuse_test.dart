@@ -26,7 +26,7 @@ void main() {
     final camera = out['camera'] as Map<String, dynamic>;
     expect(camera['lat'], closeTo(59.33, 1e-9));
     expect(camera['lng'], closeTo(18.06, 1e-9));
-    expect(camera['zoom'], 13.5);
+    expect(camera['zoom'], 16);
   });
 
   test('rider map: redraw(id) makes Google measure the grown element '
