@@ -47,6 +47,9 @@ void main() {
         connection: connection,
         clock: () => now,
         pollInterval: const Duration(seconds: 2),
+        // This is the poll's own backoff; the trip stream (v0.18.7) has its
+        // own tests in test/g5/follow_stream_test.dart.
+        followStream: false,
       );
       final events = <RideRealtimeEvent>[];
       var done = false;
@@ -111,6 +114,9 @@ void main() {
         connection: connection,
         clock: () => now,
         pollInterval: const Duration(seconds: 2),
+        // This is the poll's own backoff; the trip stream (v0.18.7) has its
+        // own tests in test/g5/follow_stream_test.dart.
+        followStream: false,
       );
       final sub = rt.subscribe('trp_1').listen((_) {});
       async.flushMicrotasks();

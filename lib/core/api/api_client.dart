@@ -480,6 +480,7 @@ class ApiClient {
     String message = 'Request failed';
     String? reason;
     Map<String, dynamic>? projection;
+    List<String>? details;
     try {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
@@ -501,6 +502,10 @@ class ApiClient {
         if (rawProjection is Map) {
           projection = Map<String, dynamic>.from(rawProjection);
         }
+        final rawDetails = decoded['details'];
+        if (rawDetails is List) {
+          details = [for (final item in rawDetails) item.toString()];
+        }
       }
     } catch (_) {
       // Non-JSON error bodies still retain the HTTP status and request id.
@@ -514,6 +519,7 @@ class ApiClient {
       retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
       reason: reason,
       projection: projection,
+      details: details,
     );
   }
 

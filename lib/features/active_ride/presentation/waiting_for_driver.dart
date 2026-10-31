@@ -35,6 +35,13 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/active_ride/application/pickup_move_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/cancel_fee_texts.dart';
+import 'package:movera_rider/features/active_ride/presentation/trip_terms_note.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
+import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
@@ -170,6 +177,7 @@ class WaitingForDriver extends StatefulWidget {
     this.cancelFeeNote,
     this.controller,
     this.location,
+    this.pickupMove,
   });
 
   final String pickupAddress;
@@ -228,6 +236,11 @@ class WaitingForDriver extends StatefulWidget {
   /// Test seam: the controller the cancel and end-early requests go
   /// through (its API client). Production uses the shared one.
   final ActiveRideController? controller;
+
+  /// v0.18.7 (item 4): moves the pickup on the server (`PATCH
+  /// /trips/{tripId}`), on the contract wire; the demo's route screen
+  /// otherwise. Tests pass their own.
+  final PickupMoveController? pickupMove;
 
   /// Test seam: the clock the live cancel fee preview is worked out with.
   @visibleForTesting
@@ -396,17 +409,27 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       if (!mounted || terms == null) return;
       // Never a rate in another currency than the trip's.
       if (terms.perMin.currency != widget.currency) return;
-      setState(() => _waitingTerms = terms);
+      setState(() {
+        _waitingTerms = terms;
+        _zoneConfig = config;
+        _categoryIdNow = category;
+      });
     } catch (_) {
       // No counter without terms.
     }
   }
 
-  /// The live waiting clock while the driver is at the pickup (Q42).
+  /// The live waiting clock while the driver is at the pickup (Q42): the
+  /// TIME only (group 6 decision 4); the prices are in the Terms. The
+  /// trip's own `terms` (v0.18.7) first, the zone's served config before
+  /// a projection carried them.
   Widget? _waitingFeeCounter() {
-    final terms = _waitingTerms;
-    if (terms == null ||
-        !terms.perMin.isPositive ||
+    final tripTerms = _tracking.terms;
+    final free = tripTerms?.freeWaitMin.round() ?? _waitingTerms?.freeWaitMin;
+    final perMin = tripTerms?.waitPerMin ?? _waitingTerms?.perMin;
+    if (free == null ||
+        perMin == null ||
+        !perMin.isPositive ||
         _tracking.status != RideStatus.driverWaiting) {
       return null;
     }
@@ -415,12 +438,26 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // wait (never "now" again on each rebuild).
       since:
           _tracking.waitingSince ?? (_waitingSinceFallback ??= DateTime.now()),
-      freeWaitMin: terms.freeWaitMin,
-      perMin: terms.perMin,
+      freeWaitMin: free,
+      perMin: perMin,
       // rider-r4-13: the server's end of the free wait, when it says.
       freeUntil: _tracking.waitingFreeUntil,
     );
   }
+
+  /// v0.18.7: the waiting and cancel rules in words, from the trip's
+  /// `terms`, else from the zone's served config (never the app's own
+  /// numbers). Null until either is known.
+  TripTermsLines? _termsLines() {
+    final tripTerms = _tracking.terms;
+    if (tripTerms != null) return TripTermsLines.fromTerms(tripTerms);
+    final config = _zoneConfig;
+    if (config == null || config.currency != widget.currency) return null;
+    return TripTermsLines.fromConfig(config, categoryId: _categoryIdNow);
+  }
+
+  RiderAppConfig? _zoneConfig;
+  String? _categoryIdNow;
 
   DateTime? _waitingSinceFallback;
 
@@ -484,6 +521,27 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _onLiveTick() {
     if (!mounted) return;
     final status = _tracking.status;
+    // v0.18.7 (item 4): the server moved the pickup (`pickup_moved`).
+    if (_tracking.takeMovedPickup() case final moved?) {
+      final changed =
+          GeoDistance.metersBetween(
+            _pickupPosition.latitude,
+            _pickupPosition.longitude,
+            moved.lat,
+            moved.lng,
+          ) >
+          1;
+      if (changed) {
+        _applyMovedPickup(
+          address: moved.address,
+          lat: moved.lat,
+          lng: moved.lng,
+        );
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(context.l10n.pickupMoved)));
+      }
+    }
 
     // The arrived sheet is a modal route sitting on top of this screen, so
     // stage navigation deliberately waits for it to close before acting (see
@@ -823,6 +881,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       final searchAgain = await showRideEndedSearchAgainSheet(
         context,
         status: status,
+        // v0.18.7 (Q6): a no-show says its fee (or "No fee").
+        feeLine: status == RideStatus.noShow
+            ? riderCancelFeeText(_tracking.cancellation)
+            : null,
       );
       if (!mounted) return;
       await _parkMapForStageChange();
@@ -1161,6 +1223,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         return null;
       }
     }
+    // v0.18.7: the trip's own terms (booking snapshot) first: the cancel
+    // rule, and after the driver arrived the no-show fee when the zone's
+    // switch is on (always free inside the free minutes after accept).
+    final terms = _tracking.terms;
+    if (terms != null && terms.currency == widget.currency) {
+      return _termsCancelNote(terms);
+    }
     try {
       final category = await _tripCategoryId();
       if (category == null) return null;
@@ -1192,6 +1261,45 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     } catch (_) {
       return null;
     }
+  }
+
+  /// The cancel line from `TripProjection.terms` (v0.18.7
+  /// `pickupWaiting.cancelAfterArrived`).
+  String? _termsCancelNote(TripTerms terms) {
+    final rule = terms.cancelRule;
+    final now = WaitingForDriver.cancelFeeClock();
+    final elapsed = now.difference(_acceptedAt);
+    final minutes = elapsed.isNegative ? 0 : elapsed.inMinutes;
+    final fare = Money.fromLegacyMajor(_price, widget.currency);
+    final free = rule == null ? 0 : rule.freeMin;
+    if (minutes < free) {
+      final left = free - minutes;
+      return left == 1
+          ? L10n.current.cancelFreeUnderMinute
+          : L10n.current.cancelFreeMinutes('$left');
+    }
+    var fee = rule == null
+        ? Money(0, widget.currency)
+        : CancelFeeCalculator.live(rule, fare, minutes);
+    // Checker round 1: the no-show fee only once the free waiting is over
+    // (`waiting.freeUntil`, the moment the driver could press no-show).
+    final freeUntil =
+        _tracking.waitingFreeUntil ??
+        _tracking.waitingSince?.add(
+          Duration(seconds: (terms.freeWaitMin * 60).round()),
+        );
+    if (_tracking.status == RideStatus.driverWaiting &&
+        terms.cancelAfterArrivedIsNoShow &&
+        terms.noShowFee.isPositive &&
+        freeUntil != null &&
+        !now.isBefore(freeUntil)) {
+      fee = terms.noShowFee;
+    }
+    if (fee.isPositive) {
+      _cancelFeeChargedNow = true;
+      return L10n.current.cancelCostsNow(formatMoney(fee));
+    }
+    return L10n.current.noFeeToCancel;
   }
 
   Future<void> _confirmCancel() async {
@@ -1281,7 +1389,22 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         _openEndedEarlySummary(endedEarly);
         return;
       }
+      // v0.18.7 (Q2/Q6): the rider sees the fee and its kind, never a
+      // silent amount on the next quote.
+      final feeText = riderCancelFeeText(_ride.lastCancelFee);
+      final messenger = ScaffoldMessenger.maybeOf(context);
       RideNavigator.home(context);
+      if (feeText != null) {
+        messenger
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              key: const ValueKey('cancel-fee-outcome'),
+              content: Text(feeText),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
     } catch (error, stack) {
       final scheduled = widget.onCancel != null;
       AppScope.instance.crashes.record(
@@ -1450,7 +1573,151 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _changeRoute(null, RouteChangeEntry.destination);
 
   double? _changedPrice;
-  double get _price => _changedPrice ?? widget.price;
+
+  /// v0.18.7 (Q5): from boarding on, the trip's `fare` (it already holds
+  /// the charged waiting) is the total the rider pays; before that the
+  /// booked (or changed) price.
+  double get _price {
+    final fare = _tracking.fare;
+    if (_isInTrip && fare != null && fare.currency == widget.currency) {
+      return fare.major;
+    }
+    return _changedPrice ?? widget.price;
+  }
+
+  /// v0.18.7 (item 4): the pickup moves on the server (`PATCH
+  /// /trips/{tripId}`) on the contract wire, where the demo's route
+  /// screen is not served.
+  bool get _serverPickupMove {
+    if (widget.pickupMove != null) return true;
+    final realtime = widget.realtime;
+    return realtime is ApiRideRealtime && realtime.contractWire;
+  }
+
+  /// The three dots on the driver card and the ride card: the route
+  /// screen (demo), or the pickup move until the driver is there (hidden
+  /// after arrival, `pickupWaiting.pickupMove`).
+  VoidCallback? get _moreAction {
+    if (_serverPickupMove) return _pickupEditable ? _movePickup : null;
+    return widget.routeChangeSupported ? _openDetails : null;
+  }
+
+  /// The pickup as booked: the server measures a move from it.
+  late final GeoPoint _bookedPickup = GeoPoint(
+    widget.pickupPosition.latitude,
+    widget.pickupPosition.longitude,
+  );
+  bool _pickupMoveOpen = false;
+
+  Future<void> _movePickup() async {
+    if (_pickupMoveOpen || _leaving) return;
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (!_pickupEditable) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(context.l10n.pickupMoveFixedAfterArrival)),
+      );
+      return;
+    }
+    _pickupMoveOpen = true;
+    _modalHandoffInProgress = true;
+    try {
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      final picked = await ConfirmPickupSpot.open(
+        context,
+        initialPosition: _pickupPosition,
+        initialAddress: _pickupAddress,
+        title: context.l10n.movePickup,
+        confirmLabel: context.l10n.confirmPickup,
+      );
+      if (!mounted) return;
+      _mapParked = false;
+      setState(() {});
+      if (picked == null) return;
+      final to = GeoPoint(picked.position.latitude, picked.position.longitude);
+      final controller =
+          widget.pickupMove ??
+          PickupMoveController(
+            api: AppScope.instance.api,
+            session: AppScope.instance.ride,
+          );
+      final maxMeters =
+          _tracking.terms?.maxPickupMoveMeters ??
+          _zoneConfig?.maxPickupMoveMeters ??
+          await _maxPickupMoveFromConfig();
+      if (!mounted) return;
+      try {
+        final projection = await controller.move(
+          tripId: rideId,
+          address: picked.address,
+          to: to,
+          bookedPickup: _bookedPickup,
+          maxMeters: maxMeters,
+        );
+        if (!mounted) return;
+        final pickup = projection['pickup'];
+        final lat = pickup is Map && pickup['lat'] is num
+            ? (pickup['lat'] as num).toDouble()
+            : to.latitude;
+        final lng = pickup is Map && pickup['lng'] is num
+            ? (pickup['lng'] as num).toDouble()
+            : to.longitude;
+        final address = pickup is Map && pickup['address'] is String
+            ? (pickup['address'] as String)
+            : picked.address;
+        _applyMovedPickup(address: address, lat: lat, lng: lng);
+        messenger
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(context.l10n.pickupMoved)));
+      } on PickupMoveException catch (error) {
+        messenger
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      _pickupMoveOpen = false;
+      _modalHandoffInProgress = false;
+    }
+  }
+
+  Future<int> _maxPickupMoveFromConfig() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: widget.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (config != null) return config.maxPickupMoveMeters;
+    } catch (_) {
+      // The contract default below.
+    }
+    return RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters;
+  }
+
+  /// The pickup the server now has (the rider's own move, or a
+  /// `pickup_moved` event): the route, the marker and the tracking follow.
+  void _applyMovedPickup({
+    required String address,
+    required double lat,
+    required double lng,
+  }) {
+    if (address.trim().isNotEmpty) _pickupAddress = address.trim();
+    _pickupPosition = LatLng(lat, lng);
+    _tracking
+      ..pickupLat = lat
+      ..pickupLng = lng;
+    final realtime = _realtime;
+    if (realtime is MockRideRealtime) realtime.movePickup(lat, lng);
+    final rideId = _rideId?.trim();
+    if (rideId != null && rideId.isNotEmpty) {
+      RideCheckController.shared.replan(rideId, _rideCheckPlan());
+    }
+    // The device copy is not rewritten here: a restore reads the trip
+    // from the server, whose projection carries the moved pickup.
+    if (mounted) setState(() {});
+  }
 
   /// The ride as the server knows it, for pricing a route change.
   Future<RideSnapshot?> _currentRide() async {
@@ -2442,7 +2709,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: _callDriver,
-        onMore: widget.routeChangeSupported ? _openDetails : null,
+        // v0.18.7: on the contract wire a route change is not served yet
+        // (`route_change_not_available`); nothing to open on board.
+        onMore: _serverPickupMove
+            ? null
+            : (widget.routeChangeSupported ? _openDetails : null),
         onCancel: _confirmCancel,
       );
     }
@@ -2457,7 +2728,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             rideId: _rideId,
             onOpenProfile: _openProfile,
             onCall: _callDriver,
-            onMore: widget.routeChangeSupported ? _openDetails : null,
+            onMore: _moreAction,
           ),
           const SizedBox(height: 12),
           if (_waitingFeeCounter() case final counter?) ...[
@@ -2473,8 +2744,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             currency: widget.currency,
-            onMore: widget.routeChangeSupported ? _openDetails : null,
+            onMore: _moreAction,
           ),
+          if (_termsLines() case final lines?) ...[
+            const SizedBox(height: 12),
+            TripTermsNote(lines: lines),
+          ],
           WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
         ],
       ),

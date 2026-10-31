@@ -10,6 +10,8 @@ import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
@@ -190,6 +192,32 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 ),
               ),
             ],
+          ),
+          // v0.18.7 (Q3): unpaid cash fees, one line per currency; a
+          // Swedish debt is never added to a French ride.
+          ValueListenableBuilder<RiderOutstanding>(
+            valueListenable: RiderOutstanding.current,
+            builder: (context, owed, _) {
+              if (!owed.owesAnything) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: AccountGroup(
+                  key: const ValueKey('account-outstanding'),
+                  children: [
+                    for (final (i, money) in owed.byCurrency.indexed)
+                      AccountTile(
+                        mark: const AccountIcon(Icons.receipt_long_outlined),
+                        title: context.l10n.accountOutstandingFees,
+                        body: context.l10n.outstandingInCurrency(
+                          formatMoney(money),
+                          money.currency,
+                        ),
+                        showDivider: i < owed.byCurrency.length - 1,
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
           if (!checkupComplete) ...[
             const SizedBox(height: 14),

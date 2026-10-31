@@ -81,7 +81,7 @@ abstract final class ZoneDefaults {
   };
 
   static const maxStops = 3;
-  static const maxPickupMoveMeters = 500;
+  static const maxPickupMoveMeters = 200;
   static const freeWaitMin = 5;
   static const freeWaitMinXl = 3;
 

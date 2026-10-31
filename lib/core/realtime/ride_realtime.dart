@@ -2,6 +2,8 @@ import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_eta.dart';
+import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
 enum RideRealtimeSignal { driverArrived, riderOnTheWay }
@@ -23,6 +25,17 @@ const String waitingArrivedAtKey = 'waitingArrivedAt';
 /// starts) and `waiting.noShowAt` (when the driver may report a no-show).
 const String waitingFreeUntilKey = 'waitingFreeUntil';
 const String waitingNoShowAtKey = 'waitingNoShowAt';
+
+/// v0.18.7 (`pickupWaiting`): the server ETA (`TripProjection.eta` or a
+/// `location` event's `eta`), the trip's `terms`, the waiting cost so far
+/// while the driver waits, the `cancellation` (fee + feeKind) and the
+/// projection's `pickup` (a `pickup_moved` event).
+const String etaKey = 'eta';
+const String termsKey = 'terms';
+const String waitingChargedSoFarKey = 'waitingChargedSoFar';
+const String waitingChargedSecondsNowKey = 'waitingChargedSecondsNow';
+const String cancellationKey = 'cancellation';
+const String pickupKey = 'pickup';
 
 class RideRealtimeEvent {
   RideRealtimeEvent({
@@ -107,6 +120,45 @@ class RideRealtimeEvent {
   /// From when the driver may report the rider as a no-show (Q41).
   DateTime? get waitingNoShowAt =>
       WireTime.tryParse(payload[waitingNoShowAtKey]);
+
+  /// v0.18.7 (Q4): the server's road-route ETA, when the event carries one.
+  TripEta? get eta => TripEta.fromWire(payload[etaKey]);
+
+  /// v0.18.7: the rules this trip is charged by, when the projection says.
+  TripTerms? get terms => TripTerms.fromWire(payload[termsKey]);
+
+  /// v0.18.7 (Q5): the waiting cost so far while the driver waits.
+  Money? get waitingChargedSoFar =>
+      Money.fromWire(payload[waitingChargedSoFarKey]);
+
+  /// v0.18.7 (Q5): the paid waiting seconds so far while the driver waits.
+  int? get waitingChargedSecondsNow {
+    final raw = payload[waitingChargedSecondsNowKey];
+    return raw is num && raw >= 0 ? raw.round() : null;
+  }
+
+  /// v0.18.7 (Q2/Q6): the cancel fee and which rule set it, once the trip
+  /// is cancelled; null while the projection carries no `cancellation`.
+  RiderCancelOutcomeFee? get cancellation =>
+      RiderCancelOutcomeFee.fromProjection({
+        'cancellation': payload[cancellationKey],
+      });
+
+  /// v0.18.7 (item 4): the projection's pickup (address and point), when
+  /// the event carries it (a `pickup_moved` event always does).
+  ({String address, double lat, double lng})? get pickup {
+    final raw = payload[pickupKey];
+    if (raw is! Map) return null;
+    final lat = raw['lat'];
+    final lng = raw['lng'];
+    if (lat is! num || lng is! num) return null;
+    final address = raw['address'];
+    return (
+      address: address is String ? address.trim() : '',
+      lat: lat.toDouble(),
+      lng: lng.toDouble(),
+    );
+  }
 
   /// The contract event kind (`contract.json#realtime.kinds`). The server
   /// says it; for a transport that does not, it follows from the event.

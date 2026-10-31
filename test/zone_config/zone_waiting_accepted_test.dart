@@ -267,15 +267,18 @@ void main() {
         ),
       );
       expect(find.text('Free waiting · 2:00 left'), findsOneWidget);
-      expect(find.text('Then 1,15 €/min waiting fee'), findsOneWidget);
+      // v0.18.7 / group 6 decision 4: the sheet shows the time only; the
+      // price is in the Terms.
+      expect(
+        find.text('Waiting time is charged after the free minutes'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('€'), findsNothing);
 
       now = since.add(const Duration(minutes: 6, seconds: 5));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('Waiting fee 3,55 €'), findsOneWidget);
-      expect(
-        find.text('3:05 after the free 3 min · 1,15 €/min'),
-        findsOneWidget,
-      );
+      expect(find.text('Waiting 3:05 past the free 3 min'), findsOneWidget);
+      expect(find.textContaining('€'), findsNothing);
     });
 
     test('each category has its own free wait and rate', () async {

@@ -40,6 +40,7 @@ bool canSearchAgainAfter(RideStatus status) =>
 Future<bool> showRideEndedSearchAgainSheet(
   BuildContext context, {
   required RideStatus status,
+  String? feeLine,
 }) async {
   final base = RideTerminalStateSpec.fromStatus(status);
   final again = await MoveraSheet.show<bool>(
@@ -51,7 +52,9 @@ Future<bool> showRideEndedSearchAgainSheet(
       spec: RideTerminalStateSpec(
         eyebrow: base.eyebrow,
         title: base.title,
-        message: base.message,
+        // v0.18.7 (Q6): the fee amount and kind from the projection
+        // ("No-show fee 65 kr" / "No fee"), never "a fee may apply".
+        message: feeLine == null ? base.message : '${base.message} $feeLine',
         reassurance: base.reassurance,
         primaryLabel: context.l10n.searchAgain,
         icon: base.icon,

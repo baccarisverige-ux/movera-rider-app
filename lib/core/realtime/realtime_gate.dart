@@ -33,6 +33,9 @@ enum RealtimeKind {
   paymentUpdated,
   ratingUpdated,
   message,
+
+  /// v0.18.7: the rider moved the pickup (carries the projection).
+  pickupMoved,
 }
 
 extension RealtimeKindWire on RealtimeKind {
@@ -46,6 +49,7 @@ extension RealtimeKindWire on RealtimeKind {
     RealtimeKind.paymentUpdated => 'payment_updated',
     RealtimeKind.ratingUpdated => 'rating_updated',
     RealtimeKind.message => 'message',
+    RealtimeKind.pickupMoved => 'pickup_moved',
   };
 
   /// `contract.json#realtime.afterTerminal`.
