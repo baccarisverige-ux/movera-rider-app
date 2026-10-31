@@ -999,9 +999,11 @@ class HomeLocationController extends ChangeNotifier {
           position: target,
           icon: haloIcon,
           anchor: const Offset(0.5, 0.5),
-          // Under the pin and every other pin; taps go to the map.
+          // Under the pin and every other pin. Taking the tap: on phones a
+          // marker that lets it through makes Google move the camera onto
+          // it, so a tap near the rider would jump the map (checker).
           zIndexInt: 1,
-          consumeTapEvents: false,
+          consumeTapEvents: true,
         ),
       // A screen-facing marker: the same size on screen at every zoom.
       Marker(

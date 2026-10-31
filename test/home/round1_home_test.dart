@@ -219,7 +219,7 @@ void main() {
       expect(pin.flat, isFalse);
       expect(halo.flat, isFalse);
       expect(halo.zIndexInt, lessThan(pin.zIndexInt));
-      expect(halo.consumeTapEvents, isFalse);
+      expect(halo.consumeTapEvents, isTrue);
       final halo120 = halo.icon as BytesMapBitmap;
       expect(halo120.width, 120);
       expect(halo120.height, 120);

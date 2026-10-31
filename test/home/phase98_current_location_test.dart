@@ -230,7 +230,7 @@ void main() {
     expect(halo.position, at);
     expect(halo.anchor, const Offset(0.5, 0.5));
     expect(halo.flat, isFalse, reason: 'faces the screen: no tilt ellipse');
-    expect(halo.consumeTapEvents, isFalse);
+    expect(halo.consumeTapEvents, isTrue);
     expect(halo.zIndexInt, lessThan(pin.zIndexInt));
     expect(ctl.locationCircles, isEmpty, reason: 'no ground circle');
     final before = ctl.markers;
