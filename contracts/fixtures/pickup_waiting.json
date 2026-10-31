@@ -1,0 +1,294 @@
+{
+  "note": "v0.18.7 (contract.json#pickupWaiting): debt per currency, cancel after the driver arrived, the ETA distance display and the pickup move limit. reference_check.py replays them; the server and the apps give the same answers.",
+  "debtByCurrency": [
+    {
+      "id": "swedish-debt-not-charged-in-paris",
+      "owed": [
+        {
+          "amountMinor": 10000,
+          "currency": "SEK",
+          "tripId": "trp_se1"
+        }
+      ],
+      "quoteCurrency": "EUR",
+      "expect": {
+        "outstandingFee": null,
+        "sourceTripId": null
+      }
+    },
+    {
+      "id": "swedish-debt-charged-in-stockholm",
+      "owed": [
+        {
+          "amountMinor": 10000,
+          "currency": "SEK",
+          "tripId": "trp_se1"
+        }
+      ],
+      "quoteCurrency": "SEK",
+      "expect": {
+        "outstandingFee": 10000,
+        "sourceTripId": "trp_se1"
+      }
+    },
+    {
+      "id": "two-currencies-only-the-matching-one",
+      "owed": [
+        {
+          "amountMinor": 10000,
+          "currency": "SEK",
+          "tripId": "trp_se1"
+        },
+        {
+          "amountMinor": 500,
+          "currency": "EUR",
+          "tripId": "trp_fr1"
+        },
+        {
+          "amountMinor": 3500,
+          "currency": "SEK",
+          "tripId": "trp_se2"
+        }
+      ],
+      "quoteCurrency": "SEK",
+      "expect": {
+        "outstandingFee": 13500,
+        "sourceTripId": "trp_se1"
+      }
+    },
+    {
+      "id": "rider-view-oldest-currency-first",
+      "owed": [
+        {
+          "amountMinor": 10000,
+          "currency": "SEK",
+          "tripId": "trp_se1"
+        },
+        {
+          "amountMinor": 500,
+          "currency": "EUR",
+          "tripId": "trp_fr1"
+        }
+      ],
+      "quoteCurrency": "EUR",
+      "expect": {
+        "outstandingFee": 500,
+        "sourceTripId": "trp_fr1"
+      },
+      "riderView": {
+        "outstanding": {
+          "amountMinor": 10000,
+          "currency": "SEK"
+        },
+        "outstandingByCurrency": [
+          {
+            "amountMinor": 10000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 500,
+            "currency": "EUR"
+          }
+        ]
+      }
+    }
+  ],
+  "cancelAfterArrived": [
+    {
+      "id": "inside-free-minutes-always-free-even-arrived",
+      "status": "arrived",
+      "minutesSinceAccept": 1.5,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "switch": true,
+      "expect": {
+        "fee": null,
+        "feeKind": null
+      }
+    },
+    {
+      "id": "arrived-switch-on-no-show-fee",
+      "status": "arrived",
+      "minutesSinceAccept": 6,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "switch": true,
+      "expect": {
+        "fee": 6500,
+        "feeKind": "no_show"
+      }
+    },
+    {
+      "id": "arrived-switch-off-cancel-fee",
+      "status": "arrived",
+      "minutesSinceAccept": 6,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "switch": false,
+      "expect": {
+        "fee": 3500,
+        "feeKind": "cancel"
+      }
+    },
+    {
+      "id": "on-the-way-switch-on-cancel-fee",
+      "status": "driver_to_pickup",
+      "minutesSinceAccept": 6,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "switch": true,
+      "expect": {
+        "fee": 3500,
+        "feeKind": "cancel"
+      }
+    },
+    {
+      "id": "arrived-no-show-fee-zero-means-none",
+      "status": "arrived",
+      "minutesSinceAccept": 6,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 0,
+      "switch": true,
+      "expect": {
+        "fee": null,
+        "feeKind": null
+      }
+    }
+  ],
+  "distanceDisplay": [
+    {
+      "meters": 3449,
+      "unit": "km",
+      "value": 3.4
+    },
+    {
+      "meters": 3450,
+      "unit": "km",
+      "value": 3.4
+    },
+    {
+      "meters": 1000,
+      "unit": "km",
+      "value": 1.0
+    },
+    {
+      "meters": 1099,
+      "unit": "km",
+      "value": 1.0
+    },
+    {
+      "meters": 999,
+      "unit": "m",
+      "value": 900
+    },
+    {
+      "meters": 850,
+      "unit": "m",
+      "value": 800
+    },
+    {
+      "meters": 100,
+      "unit": "m",
+      "value": 100
+    },
+    {
+      "meters": 99,
+      "unit": "m",
+      "value": 90
+    },
+    {
+      "meters": 85,
+      "unit": "m",
+      "value": 80
+    },
+    {
+      "meters": 12,
+      "unit": "m",
+      "value": 10
+    },
+    {
+      "meters": 3,
+      "unit": "m",
+      "value": 10
+    },
+    {
+      "meters": 0,
+      "unit": "m",
+      "value": 10
+    }
+  ],
+  "pickupMove": [
+    {
+      "id": "within-200-m-allowed",
+      "status": "driver_to_pickup",
+      "meters": 150,
+      "maxMeters": 200,
+      "expect": "moved"
+    },
+    {
+      "id": "exactly-the-limit-allowed",
+      "status": "accepted",
+      "meters": 200,
+      "maxMeters": 200,
+      "expect": "moved"
+    },
+    {
+      "id": "over-the-limit-refused",
+      "status": "searching",
+      "meters": 201,
+      "maxMeters": 200,
+      "expect": "pickup_move_too_far"
+    },
+    {
+      "id": "admin-raised-the-limit",
+      "status": "searching",
+      "meters": 450,
+      "maxMeters": 500,
+      "expect": "moved"
+    },
+    {
+      "id": "after-arrival-fixed",
+      "status": "arrived",
+      "meters": 10,
+      "maxMeters": 200,
+      "expect": "pickup_fixed_after_arrival"
+    },
+    {
+      "id": "on-board-fixed",
+      "status": "in_trip",
+      "meters": 10,
+      "maxMeters": 200,
+      "expect": "pickup_fixed_after_arrival"
+    }
+  ]
+}

@@ -55,7 +55,7 @@
   ],
   "booking": {
     "maxStops": 3,
-    "maxPickupMoveMeters": 500
+    "maxPickupMoveMeters": 200
   },
   "offers": {
     "radarSeconds": 15,
@@ -239,7 +239,8 @@
           "currency": "SEK"
         }
       }
-    }
+    },
+    "cancelAfterArrivedIsNoShow": true
   },
   "destinationMode": {
     "perDay": 2

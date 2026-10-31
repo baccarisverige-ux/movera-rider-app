@@ -1,11 +1,11 @@
-# Movera API v0.18.6 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.7 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.6
+  version: 0.18.7
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.6 in this folder; this file must agree with them.
+    v0.18.7 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.6
+  version: 0.18.7
   source: contract.json
 paths:
   /auth/otp/request:
@@ -509,7 +509,12 @@ paths:
     post:
       operationId: createQuotes
       summary: Quote every (or the given) category for a route
-      description: Quotes MUST include stops. Server owns the price; client never computes fares.
+      description: 'Quotes MUST include stops. Server owns the price; client never computes fares. v0.18.7 (Q3, contract.json#pickupWaiting.debtByCurrency):
+        Q3 (CRITICAL fix): an owed cash fee (cancel or no-show, CONTRACT.md §3.7) is charged again only on a trip in the SAME
+        currency. A rider who owes 100 kr from Stockholm is quoted in Paris without it (never +100 €); the debt waits for
+        the next Swedish trip. The server sums the owed fees per currency: a quote and the fare of the next trip carry outstanding_fee
+        = the owed fees in the pricing document''s currency (FareLine.sourceTripId = the oldest of them); a paid cash trip
+        settles only owed fees of its own currency, oldest first.'
       tags:
       - Rider · Booking
       x-actor:
@@ -633,9 +638,11 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (contract.json#pickupWaiting.follow): the apps follow the trip on its stream and poll this only
+        while the stream is down, every 10 s (never under 5).'
     patch:
       operationId: updateTrip
-      summary: Change route (with routeQuoteId) or payment method
+      summary: Move the pickup (v0.18.7); route / payment change later
       tags:
       - Rider · Booking
       x-actor:
@@ -677,6 +684,18 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (contract.json#pickupWaiting.pickupMove): Status item 4 + note check (owner ''200 m default,
+        admin can change''): the rider moves the pickup with PATCH /trips/{tripId} { expectedVersion, pickup } while the trip
+        is requested, searching, offered, accepted or driver_to_pickup. The server measures the straight-line distance from
+        the BOOKED pickup (the first one) to the new one and refuses more than the zone''s booking.maxPickupMoveMeters (the
+        zone''s driver document, admin Dispatch › Booking ''Pickup move after accept''; default 200, range 0–2000; server
+        migration sets every published document still on the old 500 to 200): 400 invalid_request, reason pickup_move_too_far,
+        details ["maxMeters=200", "meters=…"]. After the driver arrived: 409 invalid_transition, reason pickup_fixed_after_arrival.
+        A move changes pickup, version + 1, and sends one event of kind pickup_moved (new realtime kind, with the projection,
+        before terminal only) to the rider, the driver and the admin; the driver app re-routes and shows texts.island on the
+        island; open offers show the new pickup on their next read; the fare does not change (≤ 200 m). The other UpdateTripRequest
+        fields (dropoff, stops, routeQuoteId, payment method) are not served yet: 400 invalid_request, reason route_change_not_available
+        (destination change is the next job, decision 5).'
   /trips/{tripId}/route-quote:
     post:
       operationId: quoteRouteChange
@@ -728,7 +747,13 @@ paths:
       summary: Cancel the trip (rider or driver)
       description: 'rider: requested…arrived → cancelled_by_rider (fee per config cancelFees). driver live: accepted/driver_to_pickup/arrived
         → searching (reassign); driver scheduled: accepted → requested; driver onboard+: → cancelled_by_driver. Anything else
-        → 409 invalid_transition.'
+        → 409 invalid_transition. v0.18.7 (Q2, contract.json#pickupWaiting.cancelAfterArrived): Q2 rule on the server (rider
+        cancel, POST /trips/{tripId}/cancel): inside the cancel rule''s free minutes after accept the rider ALWAYS cancels
+        free (owner 2026-10-29 ''before 2 min always free for rider''), also after the driver arrived. After them: trip status
+        arrived and the zone''s cancelAfterArrivedIsNoShow on → the fee is the trip''s no-show fee (terms.noShowFee, driver
+        share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel
+        fee (cancelFees, the came-closer check, cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition
+        table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).'
       tags:
       - Trips
       x-actor:
@@ -1231,6 +1256,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (contract.json#pickupWaiting.servedConfig): HIGH fix (apps showed 5 kr/min and 50 kr while the
+        server charged 12.26 kr/min and 65 kr; a driver in Paris saw Swedish terms): GET /driver/config and GET /rider/config
+        are always served with waiting (top-level terms and byCategory) and the rider pickup fees taken from the zone''s LIVE
+        pricing document (configDocs.mustMatch applied when serving, like the raise limit), whatever the published app document
+        says. So a driver or rider in a French zone gets the French zone''s terms in euro, a Swedish one the Swedish terms
+        in kronor. The apps read freeWaitMin, perMin, noShowAfterMin and noShowFee from there (and from TripProjection.terms
+        once a trip exists) and never from their own constants.'
   /rider/config/stream:
     get:
       operationId: streamRiderConfig
@@ -1305,6 +1337,9 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (Q3): Rider.outstanding = the owed fees in the rider''s oldest owed currency (Money, null when
+        nothing is owed); Rider.outstandingByCurrency = every currency with an owed amount (Money[], one per currency, ascending
+        by first debt). The admin rider view shows all of them.'
     patch:
       operationId: updateRiderProfile
       summary: Update own rider profile
@@ -2599,6 +2634,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (Q6): waiting.noShowFee and waiting.noShowDriverShare are set here.'
   /trips/{tripId}/board:
     post:
       operationId: boardRider
@@ -2915,6 +2951,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.7 (contract.json#pickupWaiting.servedConfig): HIGH fix (apps showed 5 kr/min and 50 kr while the
+        server charged 12.26 kr/min and 65 kr; a driver in Paris saw Swedish terms): GET /driver/config and GET /rider/config
+        are always served with waiting (top-level terms and byCategory) and the rider pickup fees taken from the zone''s LIVE
+        pricing document (configDocs.mustMatch applied when serving, like the raise limit), whatever the published app document
+        says. So a driver or rider in a French zone gets the French zone''s terms in euro, a Swedish one the Swedish terms
+        in kronor. The apps read freeWaitMin, perMin, noShowAfterMin and noShowFee from there (and from TripProjection.terms
+        once a trip exists) and never from their own constants.'
   /driver/config/stream:
     get:
       operationId: streamDriverConfig
@@ -3826,7 +3869,10 @@ paths:
       summary: List trips (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.7: Admin phase item: every GET /admin/trips row of a trip with a driver that is not over carries
+        driverLocation (GeoFix) and eta (TripEta), so the live trips table shows driver_to_pickup with the live ETA and a
+        map link (the driver''s position and the pickup coordinates; the admin opens its own map). GET /admin/trips/{tripId}
+        carries the same.'
       tags:
       - Admin · Lists
       x-actor:
@@ -12529,6 +12575,7 @@ components:
       - payment_updated
       - rating_updated
       - message
+      - pickup_moved
       x-after-terminal:
       - payment_updated
       - rating_updated
@@ -12632,6 +12679,23 @@ components:
           $ref: '#/components/schemas/Timestamp'
         chargedSeconds:
           $ref: '#/components/schemas/DurationSeconds'
+        noShowFee:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.7 (Q6): the no-show fee of this trip (terms.noShowFee), set at arrive.'
+        noShowDriverShare:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.7 (Q6): what the driver gets of it (noShowDriverSharePct), for the no-show confirm.'
+        chargedSecondsNow:
+          type: integer
+          minimum: 0
+          description: 'v0.18.7 (Q5): while status is arrived, the paid seconds so far at read time (no version change).'
+        chargedSoFar:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.7 (Q5): while status is arrived, the waiting cost so far at read time (chargedSecondsNow × waitPerMin
+            per minute).'
     Cancellation:
       type: object
       required:
@@ -12662,6 +12726,16 @@ components:
           - waived
           description: 'v0.5.1 (CONTRACT.md §3.7): owed = an unpaid cash fee, in Rider.outstanding and the next trip''s outstanding_fee
             line.'
+        feeKind:
+          type: string
+          enum:
+          - cancel
+          - no_show
+          description: 'v0.18.7 (Q2): cancel | no_show: which rule set the fee (absent when fee is null)'
+        driverShare:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.7 (Q6): Money: the driver''s part of the fee, credited at once (absent when fee is null)'
     VehicleSummary:
       type: object
       properties:
@@ -12845,6 +12919,19 @@ components:
           - $ref: '#/components/schemas/RadarZoneSend'
           description: 'v0.18.6 (G4-F4), admin view of GET /admin/trips/{tripId} only: the trip''s repeating radar-zone send
             while it is active; absent once a driver accepted, an admin stopped it, the search ended or the trip ended.'
+        rider:
+          allOf:
+          - $ref: '#/components/schemas/RiderSummary'
+          description: 'v0.18.7 (Q1): driver and admin views only, from accept to the end; never in the rider''s own view.'
+        terms:
+          allOf:
+          - $ref: '#/components/schemas/TripTerms'
+          description: 'v0.18.7: the rules this trip is charged by, from booking to the end (all views).'
+        eta:
+          allOf:
+          - $ref: '#/components/schemas/TripEta'
+          description: 'v0.18.7 (Q4): the server''s road-route ETA, refreshed every 30 s while a driver is on the way or driving
+            (all views). etaSeconds repeats eta.etaSeconds for older builds.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -13092,7 +13179,7 @@ components:
           - $ref: '#/components/schemas/Money'
           - type: 'null'
           description: 'v0.5.1 (CONTRACT.md §3.7): unpaid cash fees the rider owes (positive); null or missing = none. On
-            GET /rider/profile and the admin rider view.'
+            GET /rider/profile and the admin rider view. v0.18.7: the owed fees in the rider''s oldest owed currency (contract.json#pickupWaiting.debtByCurrency).'
         language:
           type: string
           pattern: ^[a-z]{2}(-[A-Z]{2})?$
@@ -13101,6 +13188,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/RiderConsents'
           description: 'v0.5.1: the rider''s message consents.'
+        outstandingByCurrency:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          description: 'v0.18.7 (Q3): Rider.outstanding = the owed fees in the rider''s oldest owed currency (Money, null
+            when nothing is owed); Rider.outstandingByCurrency = every currency with an owed amount (Money[], one per currency,
+            ascending by first debt). The admin rider view shows all of them.'
     DocumentStatus:
       type: string
       enum:
@@ -15403,6 +15497,12 @@ components:
             $ref: '#/components/schemas/CategoryId'
           additionalProperties:
             $ref: '#/components/schemas/CategoryWaiting'
+        cancelAfterArrivedIsNoShow:
+          type: boolean
+          description: 'v0.18.7 (Q2): Q2 (owner 2026-10-31 ''This can be adjusted by admin''): admin setting per zone or country
+            standard, Settings › Driver app › Waiting (DriverAppConfig.waiting): ''Cancel after the driver arrived counts
+            as a no-show''. Default on. The server copies it to RiderAppConfig.waiting.cancelAfterArrivedIsNoShow when serving
+            GET /rider/config, so the rider app can show the rule in its Terms. Default true.'
     DriverWaiting:
       allOf:
       - $ref: '#/components/schemas/RiderWaiting'
@@ -16367,7 +16467,8 @@ components:
             maxPickupMoveMeters:
               type: integer
               minimum: 0
-              description: How far the rider may move the pickup after accept; further = cancel and rebook.
+              description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
+                200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
@@ -16472,7 +16573,8 @@ components:
             maxPickupMoveMeters:
               type: integer
               minimum: 0
-              description: Pickup move limit after accept; the driver is notified of a move.
+              description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
+                0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
         offers:
           type: object
           properties:
@@ -18421,7 +18523,8 @@ components:
       description: 'Trip event envelope (contract.json#realtime). Client gate: reject sequence < 1 or blank tripId; drop a
         seen eventId or sequence <= last seen; a gap (sequence > last + 1) is accepted and triggers a resync; after a terminal
         lifecycle status only afterTerminal kinds are accepted; a location event never replaces the cached projection; resync:
-        GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}.'
+        GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}; v0.18.7: pickup_moved carries the projection
+        like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds.'
       required:
       - eventId
       - tripId
@@ -18466,12 +18569,17 @@ components:
           - type: 'null'
         message:
           $ref: '#/components/schemas/Message'
+        eta:
+          allOf:
+          - $ref: '#/components/schemas/TripEta'
+          description: 'v0.18.7: on a kind=location event sent by the ETA tick (every 30 s).'
       x-optional:
       - projection
       - location
       - etaSeconds
       - cancelFee
       - message
+      - eta
     OfferEvent:
       type: object
       description: Driver offer feed event.
@@ -18560,7 +18668,8 @@ components:
           description: 'optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone,
             invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
-            driver_photo_unavailable, legal_country_unknown.'
+            driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
+            route_change_not_available.'
         details:
           type: array
           items:
@@ -22859,3 +22968,119 @@ components:
             $ref: '#/components/schemas/DriverEvent'
         at:
           $ref: '#/components/schemas/Timestamp'
+    RiderSummary:
+      type: object
+      description: 'v0.18.7 (Q1): Q1 (owner ''First name + rating''): TripProjection.rider = RiderSummary { firstName, rating?
+        } in the driver and admin views from accept to the end (set when the driver accepts, kept on the trip). Never in the
+        rider''s own view. No surname, no phone number (call and chat stay as they are). rating = the rider''s average (2
+        decimals) only while the zone''s DriverAppConfig.offers.offerCard.riderRating is on (the same switch as the offer
+        card, driverOffers.riderRating); no rating → no field, never a made-up value. The trip screen shows it as the G4 offer
+        card does (one decimal + star).'
+      required:
+      - firstName
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          description: The rider's average (2 decimals); only while DriverAppConfig.offers.offerCard.riderRating is on and
+            the rider has one.
+    TripTerms:
+      type: object
+      description: 'v0.18.7: TripProjection.terms (TripTerms) on every trip, rider, driver and admin views, from booking to
+        the end: the rules this trip is charged by, taken from the booking snapshot (contract.json#bookingSnapshot: the category''s
+        waiting terms and cancel rule of booking time) plus the zone''s waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters
+        at booking time. The apps show these numbers (driver: waiting sheet and no-show confirm; rider: driver-arrived sheet
+        shows the waiting TIME only, the prices go in the Terms — group 6 decision 4) and never their own.'
+      required:
+      - currency
+      - freeWaitMin
+      - waitPerMin
+      - noShowAfterMin
+      - noShowFee
+      - noShowDriverSharePct
+      - cancelRule
+      - cancelDriverSharePct
+      - cancelAfterArrivedIsNoShow
+      - maxPickupMoveMeters
+      properties:
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        freeWaitMin:
+          type: number
+          minimum: 0
+          description: 'free waiting minutes after the driver arrived (reservation: after the booked time)'
+        waitPerMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Money per minute after the free minutes (charged per second)
+        noShowAfterMin:
+          type: number
+          minimum: 0
+          description: minutes after arrival when the driver may mark a no-show
+        noShowFee:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Money, the no-show fee
+        noShowDriverSharePct:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: the driver's share of the no-show fee (0–100)
+        cancelRule:
+          description: 'FeeRule | null: the rider cancel fee rule (live: freeMin after accept; reservation: freeMin before
+            pickup)'
+          oneOf:
+          - $ref: '#/components/schemas/FeeRule'
+          - type: 'null'
+        cancelDriverSharePct:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: the driver's share of a cancel fee (0–100)
+        cancelAfterArrivedIsNoShow:
+          type: boolean
+          description: bool, servedConfig.cancelAfterArrivedIsNoShow at booking time
+        maxPickupMoveMeters:
+          type: integer
+          minimum: 0
+          description: how far the rider may move the pickup after booking (pickupMove)
+    TripEta:
+      type: object
+      description: 'v0.18.7 (Q4): Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every
+        everySeconds from the driver''s latest position with its router (Movera''s OSRM, else the straight-line estimate;
+        maps.serverRoutes), to the pickup from accept until boarding and to the drop-off from boarding to the end. It is TripProjection.eta
+        (TripEta) on every read and rides on a kind=location event (etaSeconds + eta; no version change) on the trip stream,
+        for the rider, the driver and the admin. Both apps show eta.etaSeconds (whole minutes rounded up, at least 1) and
+        eta.distanceMeters as distanceDisplay says; neither app computes its own ETA for the trip screen (the driver''s navigation
+        app is a separate thing).'
+      required:
+      - etaSeconds
+      - distanceMeters
+      - target
+      - at
+      - source
+      properties:
+        etaSeconds:
+          type: integer
+          minimum: 60
+          description: int ≥ 60
+        distanceMeters:
+          type: integer
+          minimum: 0
+          description: int ≥ 0, road distance
+        target:
+          type: string
+          enum:
+          - pickup
+          - dropoff
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        source:
+          type: string
+          enum:
+          - osrm
+          - estimate
