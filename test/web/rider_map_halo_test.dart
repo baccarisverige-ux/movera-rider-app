@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// under the rider's pin is drawn by web/rider_map_camera.js. It runs here
 /// against a fake Google map (node), not read as text.
 void main() {
-  test('rider-pin: the web halo is grey #7797A8 at 35 %, no border, its real '
-      'accuracy kept 60-110 pt on screen on every zoom step', () async {
+  test('rider-pin: the web halo is grey #7797A8 at 35 %, no border, and 60 '
+      'pt on screen at every zoom step', () async {
     final run = await Process.run('node', [
       'test/web/rider_map_halo_harness.js',
       'web/rider_map_camera.js',
@@ -23,21 +23,19 @@ void main() {
       'onMap': true,
     });
     expect(out['circles'], 1);
-    // Zoomed out: a 40 m fix keeps the 60 pt minimum.
+    // Owner: "Blue must be same in all zoom steps": 60 pt at every zoom,
+    // re-sized in the same camera move as each zoom step.
     expect(out['at15'] as num, closeTo(60, 1e-6));
     expect(out['at11'] as num, closeTo(60, 1e-6));
-    // Each zoom step of a pinch re-clamps it in the same camera move.
     final pinch = (out['pinch'] as List).cast<Map<String, dynamic>>();
+    expect(pinch.map((s) => s['zoom']), containsAll([12, 14.5, 17, 19]));
     for (final step in pinch) {
-      expect(step['points'] as num, inInclusiveRange(60 - 1e-6, 110 + 1e-6));
+      expect(step['points'] as num, closeTo(60, 1e-6), reason: '$step');
     }
-    // In between the clamps it is the real accuracy (40 m).
-    final real = pinch.where((s) => s['zoom'] == 17 || s['zoom'] == 17.5);
-    expect(real.map((s) => s['meters']), everyElement(40));
-    // Zoomed in: capped at 110 pt.
-    expect(pinch.last['points'] as num, closeTo(110, 1e-6));
-    // A new fix moves the same circle; unknown accuracy is the minimum.
+    // A new fix moves the same circle; neither a 5 km nor an unknown
+    // accuracy changes its size.
     expect(out['afterMove'], {'circles': 1, 'lat': 59.21});
+    expect(out['worseFix'] as num, closeTo(60, 1e-6));
     expect(out['unknown'] as num, closeTo(60, 0.1));
     // A null centre removes it.
     expect(out['removed'], {'onMap': false, 'haloOf': null});

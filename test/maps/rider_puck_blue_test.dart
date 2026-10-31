@@ -104,6 +104,28 @@ void main() {
     expect(ratioAt(67.5), MoveraRiderPuckMarker.fullLeanRatio);
   });
 
+  test('owner: "Blue must be same in all zoom steps": the maps keep the '
+      'flat pin, its blue 9 pt, at every zoom and tilt', () async {
+    expect(MoveraRiderPuckMarker.tiltsWithCamera, isFalse);
+    const ratio = 3.0;
+    final visual = await MoveraRiderPuckMarker.createVisual(pixelRatio: ratio);
+    final at = await reader(visual.image, ratio);
+    final c = MoveraRiderPuckMarker.geometry(0).centre;
+    // Blue out to 4.2 pt each way, white by 5.4 pt: a 9 pt round dot.
+    for (final d in [
+      const Offset(4.2, 0),
+      const Offset(-4.2, 0),
+      const Offset(0, 4.2),
+      const Offset(0, -4.2),
+    ]) {
+      expect(at(c.dx + d.dx, c.dy + d.dy).b, 250, reason: '$d');
+    }
+    for (final d in [const Offset(5.4, 0), const Offset(0, 5.4)]) {
+      expect(at(c.dx + d.dx, c.dy + d.dy).r, 255, reason: '$d');
+    }
+    visual.image.dispose();
+  });
+
   test('the anchor is the centre of the pin top', () {
     expect(MoveraRiderPuckMarker.anchorFor(0), const Offset(0.5, 0.5));
     final tilted = MoveraRiderPuckMarker.anchorFor(60);
@@ -144,30 +166,23 @@ void main() {
       expect((seen.b * 255).round(), closeTo(0xDC, 8));
     });
 
-    test('real accuracy in metres, clamped to 60-110 pt on screen', () {
-      const lat = 59.2;
-      double px(double? acc, double zoom) => RiderAccuracyHalo.screenRadius(
-        accuracyMeters: acc,
-        latitude: lat,
-        zoom: zoom,
-      );
-      // Zoomed in: a 100 m fix would cover far more than 110 pt.
-      expect(px(100, 18), closeTo(110, 1e-6));
-      // Zoomed out: it would be a dot; the halo keeps 60 pt.
-      expect(px(100, 11), closeTo(60, 1e-6));
-      // In between it is the real accuracy.
-      final perPoint = RiderAccuracyHalo.metersPerPoint(lat, 15.5);
-      expect(px(80 * perPoint, 15.5), closeTo(80, 1e-6));
-      expect(
-        RiderAccuracyHalo.radiusMeters(
-          accuracyMeters: 80 * perPoint,
-          latitude: lat,
-          zoom: 15.5,
-        ),
-        closeTo(80 * perPoint, 1e-6),
-      );
-      // Unknown accuracy: the smallest halo.
-      expect(px(null, 16), closeTo(60, 1e-6));
+    test('owner: "Blue must be same in all zoom steps": the halo is 60 pt '
+        'on screen at every zoom, whatever the accuracy', () {
+      expect(RiderAccuracyHalo.radius, 60);
+      for (final lat in [59.2, 48.85]) {
+        for (final zoom in [11.0, 12.0, 14.5, 17.0, 19.0, 21.0]) {
+          final meters = RiderAccuracyHalo.radiusMeters(
+            latitude: lat,
+            zoom: zoom,
+          );
+          final onScreen = meters / RiderAccuracyHalo.metersPerPoint(lat, zoom);
+          expect(onScreen, closeTo(60, 1e-9), reason: 'zoom $zoom');
+        }
+      }
+      // One zoom step in: half the metres, so the same points.
+      final at17 = RiderAccuracyHalo.radiusMeters(latitude: 59.2, zoom: 17);
+      final at18 = RiderAccuracyHalo.radiusMeters(latitude: 59.2, zoom: 18);
+      expect(at18, closeTo(at17 / 2, 1e-9));
     });
   });
 }

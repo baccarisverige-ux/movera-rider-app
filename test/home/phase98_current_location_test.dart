@@ -208,44 +208,43 @@ void main() {
     expect(detected.address, isNot('Current location'));
   });
 
-  test('rider-pin SPEC: every fix paints one grey halo, its real accuracy '
-      'kept 60-110 pt on screen', () async {
+  test('rider-pin SPEC: every fix paints one grey halo, 60 pt on screen at '
+      'every zoom whatever the accuracy ("Blue must be same in all zoom '
+      'steps")', () async {
     final location = _Location();
     final ctl = _controller(location);
     addTearDown(ctl.dispose);
     const at = LatLng(59.33, 18.06);
+    double onScreen(double zoom) =>
+        ctl.locationCircles.single.radius /
+        RiderAccuracyHalo.metersPerPoint(at.latitude, zoom);
     ctl.lastMapZoom = 15.5;
-    final perPoint = RiderAccuracyHalo.metersPerPoint(at.latitude, 15.5);
-    ctl.lastFixAccuracyMeters = 80 * perPoint;
-    ctl.paintUserPuck(
-      target: at,
-      icon: BitmapDescriptor.defaultMarker,
-      heading: 0,
-    );
+    for (final accuracy in [3.0, 80.0, 900.0, null]) {
+      ctl.lastFixAccuracyMeters = accuracy;
+      ctl.paintUserPuck(
+        target: at,
+        icon: BitmapDescriptor.defaultMarker,
+        heading: 0,
+      );
+      expect(onScreen(15.5), closeTo(60, 1e-6), reason: 'accuracy $accuracy');
+    }
     final halo = ctl.locationCircles.single;
-    expect(halo.radius, closeTo(80 * perPoint, 1e-6));
     expect(halo.fillColor, RiderAccuracyHalo.color);
     expect(halo.strokeWidth, 0, reason: 'no border');
     expect(halo.center, at);
-    // A sharp fix keeps the smallest halo (60 pt), not none.
-    ctl.lastFixAccuracyMeters = 3;
-    ctl.paintUserPuck(
-      target: at,
-      icon: BitmapDescriptor.defaultMarker,
-      heading: 0,
-    );
-    expect(ctl.locationCircles.single.radius, closeTo(60 * perPoint, 1e-6));
-    // Zooming in keeps 60 pt: the circle is re-clamped in metres.
+    // Zooming in or out keeps 60 pt: the circle is re-sized in metres.
     var notified = 0;
     ctl.addListener(() => notified += 1);
-    ctl.lastMapZoom = 17.5;
-    ctl.noteCameraMove();
-    final perPointIn = RiderAccuracyHalo.metersPerPoint(at.latitude, 17.5);
-    expect(ctl.locationCircles.single.radius, closeTo(60 * perPointIn, 1e-6));
-    expect(notified, 1);
+    for (final zoom in [12.0, 14.5, 17.0, 19.0]) {
+      ctl.lastMapZoom = zoom;
+      ctl.noteCameraMove();
+      expect(onScreen(zoom), closeTo(60, 1e-6), reason: 'zoom $zoom');
+      expect(ctl.locationCircles.single.fillColor, RiderAccuracyHalo.color);
+    }
+    expect(notified, 4);
     // A camera move that changes nothing does not rebuild the map.
     ctl.noteCameraMove();
-    expect(notified, 1);
+    expect(notified, 4);
   });
 
   test('rider-pin SPEC: the pin is a screen-facing marker anchored at its '

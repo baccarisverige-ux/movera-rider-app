@@ -214,10 +214,10 @@ class HomeLocationController extends ChangeNotifier {
   final bool _pulseAnimates;
 
   /// On the web the accuracy halo is drawn by the map's gesture layer
-  /// (web/rider_map_camera.js), which re-clamps its radius on the same
-  /// frame as every zoom step; [userHalo] carries it there and
+  /// (web/rider_map_camera.js), which re-sizes it on the same frame as
+  /// every zoom step; [userHalo] carries it there and
   /// [locationCircles] stays empty. Phones get a [Circle] in
-  /// [locationCircles], re-clamped on every camera move.
+  /// [locationCircles], re-sized on every camera move.
   final bool _haloOnWebLayer;
 
   /// UI-12: a compass sample repaints the puck only when it turned at least
@@ -243,7 +243,7 @@ class HomeLocationController extends ChangeNotifier {
   double lastMapTilt = 0;
 
   /// The map camera moved (an onCameraMove report). [lastMapZoom] is the
-  /// new zoom; the halo keeps its on-screen size clamp at it.
+  /// new zoom; the halo keeps its on-screen size at it.
   void noteCameraMove({double bearing = 0, double tilt = 0}) {
     _cameraMovedAt = _now();
     lastMapBearing = bearing.isFinite ? bearing : 0;
@@ -288,8 +288,9 @@ class HomeLocationController extends ChangeNotifier {
   /// radius of its accuracy halo (U2; owner 2026-10-31, rider-pin SPEC).
   double? lastFixAccuracyMeters;
 
-  /// The accuracy halo under the pin: its centre and the fix accuracy in
-  /// metres (null: unknown). Null while no pin is painted.
+  /// The halo under the pin: its centre and the fix accuracy in metres
+  /// (null: unknown; the halo's size does not depend on it). Null while
+  /// no pin is painted.
   ({LatLng center, double? accuracyMeters})? userHalo;
 
   static const detectFixTimeout = Duration(seconds: 16);
@@ -984,7 +985,6 @@ class HomeLocationController extends ChangeNotifier {
         circleId: const CircleId('live_user_accuracy'),
         center: halo.center,
         radius: RiderAccuracyHalo.radiusMeters(
-          accuracyMeters: halo.accuracyMeters,
           latitude: halo.center.latitude,
           zoom: lastMapZoom,
         ),
@@ -995,8 +995,8 @@ class HomeLocationController extends ChangeNotifier {
     };
   }
 
-  /// A zoom changes how many metres the halo's on-screen clamp is: draw it
-  /// again when its radius moved by more than 1 %.
+  /// A zoom changes how many metres the halo's fixed on-screen size is:
+  /// draw it again when its radius moved by more than 1 %.
   void _reclampHalo() {
     if (_haloOnWebLayer || _livePaused || userHalo == null) return;
     final next = _haloCircles();
@@ -1031,8 +1031,8 @@ class HomeLocationController extends ChangeNotifier {
       return;
     }
     _paintedAccuracy = accuracy;
-    // Owner 2026-10-31 (rider-pin SPEC): one grey halo under the pin, the
-    // fix's real accuracy kept 60-110 points on screen; no border, no pulse.
+    // Owner 2026-10-31 (rider-pin SPEC): one grey halo under the pin, no
+    // border, no pulse, the same size on screen at every zoom.
     userHalo = (center: target, accuracyMeters: accuracy);
     locationCircles = _haloCircles();
     locationDirection = {};

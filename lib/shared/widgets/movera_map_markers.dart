@@ -58,6 +58,13 @@ class MoveraRiderPuckMarker {
   /// Room around the pin for its shadow.
   static const double margin = 4;
 
+  /// Owner, after the before/after: "Blue must be same in all zoom steps".
+  /// Rider maps tilt with zoom, so a puck that leans with the camera would
+  /// change the blue's size from one zoom step to the next: the maps show
+  /// the flat pin at every zoom and tilt. The tilted puck below (SPEC)
+  /// stays drawable for when the owner wants it back.
+  static const bool tiltsWithCamera = false;
+
   /// Below this camera tilt (degrees) the map counts as flat.
   static const double puckFromTilt = 4;
 
@@ -206,17 +213,17 @@ class MoveraRiderPuckMarker {
   }
 }
 
-/// The grey accuracy halo under the rider's pin (owner 2026-10-31,
+/// The grey halo under the rider's pin (owner 2026-10-31,
 /// plan/rider-pin/SPEC.md): one flat circle, no border, no pulse, slightly
-/// see-through. Its radius is the fix's real accuracy in metres, kept on
-/// screen between [minRadius] and [maxRadius] points.
+/// see-through. Owner, after the before/after: "Blue must be same in all
+/// zoom steps" => like the pin, the halo is the same size on screen at
+/// every zoom: [radius] points, whatever the fix's accuracy.
 abstract final class RiderAccuracyHalo {
   /// #7797A8 at 35 %: about #CBD6DC over a light map, roads show through.
   static const Color color = Color(0x597797A8);
 
-  /// The on-screen radius bounds, in logical points.
-  static const double minRadius = 60;
-  static const double maxRadius = 110;
+  /// The halo's radius on screen, in logical points, at every zoom.
+  static const double radius = 60;
 
   /// Metres one logical point covers at [latitude] and [zoom] (Web
   /// Mercator; Google's world is 256 points wide at zoom 0 on every
@@ -226,33 +233,12 @@ abstract final class RiderAccuracyHalo {
     return 156543.03392 * math.cos(lat) / math.pow(2, zoom);
   }
 
-  /// The circle radius in metres: [accuracyMeters], clamped so it is
-  /// [minRadius]..[maxRadius] points on screen at [zoom]. An unknown
-  /// accuracy shows the smallest halo.
+  /// The map circle's radius in metres that is [radius] points on screen
+  /// at [latitude] and [zoom].
   static double radiusMeters({
-    required double? accuracyMeters,
     required double latitude,
     required double zoom,
-  }) {
-    final perPoint = metersPerPoint(latitude, zoom.isFinite ? zoom : 15);
-    final accuracy = accuracyMeters != null && accuracyMeters.isFinite
-        ? accuracyMeters
-        : 0.0;
-    return accuracy.clamp(minRadius * perPoint, maxRadius * perPoint);
-  }
-
-  /// The halo's radius on screen, in points.
-  static double screenRadius({
-    required double? accuracyMeters,
-    required double latitude,
-    required double zoom,
-  }) =>
-      radiusMeters(
-        accuracyMeters: accuracyMeters,
-        latitude: latitude,
-        zoom: zoom,
-      ) /
-      metersPerPoint(latitude, zoom);
+  }) => radius * metersPerPoint(latitude, zoom.isFinite ? zoom : 15);
 }
 
 /// Same top-down Movera vehicle marker used by the Driver app.

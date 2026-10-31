@@ -1948,8 +1948,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  /// Owner 2026-10-31 (rider-pin SPEC): the flat pin first, then the
-  /// tilted pucks, all at the screen's pixel ratio so they are sharp.
+  /// Owner 2026-10-31 (rider-pin SPEC): the flat pin, and the tilted pucks
+  /// when the pin leans with the camera
+  /// ([MoveraRiderPuckMarker.tiltsWithCamera]), all at the screen's pixel
+  /// ratio so they are sharp.
   Future<void> _prepareLocationPuckIcons() async {
     // Read from the platform, not the widget tree: this also runs from
     // initState's first-fix path.
@@ -1963,7 +1965,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (_pins[0] == null) {
       _pins[0] ??= await _drawPin(0, ratio);
     }
-    if (_tiltPinsStarted) return;
+    if (_tiltPinsStarted || !MoveraRiderPuckMarker.tiltsWithCamera) return;
     _tiltPinsStarted = true;
     unawaited(() async {
       for (
@@ -1992,12 +1994,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   /// The pin bitmap the camera's tilt asks for.
-  int get _pinBucket =>
-      MoveraRiderPuckMarker.tiltBucket(_locationCtl.lastMapTilt);
+  int get _pinBucket => MoveraRiderPuckMarker.tiltsWithCamera
+      ? MoveraRiderPuckMarker.tiltBucket(_locationCtl.lastMapTilt)
+      : 0;
 
-  /// Paints the rider's pin: a screen-fixed bitmap (same size at every
-  /// zoom), the flat dot or, on a tilted map, the puck for that tilt. It
-  /// is round, so the heading does not turn it (no cone).
+  /// Paints the rider's pin: a screen-fixed bitmap, the same size at every
+  /// zoom ("Blue must be same in all zoom steps"). It is round, so the
+  /// heading does not turn it (no cone).
   void _updateLocationVisuals() {
     final target = _currentLatLng;
     var bucket = _pinBucket;

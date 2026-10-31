@@ -727,9 +727,10 @@
       installSdk();
     }, 25);
   }
-  // Owner 2026-10-31 (rider-pin SPEC): the accuracy halo under the rider's
-  // pin. Its radius is the fix's accuracy in metres, kept between minPx and
-  // maxPx points on screen; it is sized again on every zoom_changed, i.e.
+  // Owner 2026-10-31 (rider-pin SPEC): the halo under the rider's pin. The
+  // app asks for a fixed size (minPx = maxPx = 60 points: "Blue must be same
+  // in all zoom steps"); the metres that make it are worked out again on
+  // every zoom_changed, i.e.
   // on the same frame as each pinch or flight step (a Dart circle would
   // trail the gesture by a frame or two). Google's world is 256 points wide
   // at zoom 0 (lib/shared/widgets/movera_map_markers.dart RiderAccuracyHalo).
