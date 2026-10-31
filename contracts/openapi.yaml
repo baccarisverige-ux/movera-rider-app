@@ -1,11 +1,11 @@
-# Movera API v0.18.5 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.6 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.5
+  version: 0.18.6
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.5 in this folder; this file must agree with them.
+    v0.18.6 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -81,7 +81,7 @@ tags:
 - name: Rider · Trip
 x-contract:
   name: movera
-  version: 0.18.5
+  version: 0.18.6
   source: contract.json
 paths:
   /auth/otp/request:
@@ -2362,6 +2362,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OfferPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/offers/{offerId}:
+    get:
+      operationId: getDriverOffer
+      summary: Did my accept go through? One of my offers, now
+      description: 'v0.18.6 (G4 decision 4, contract.json#driverOffers.acceptCheck): the offer as it is now, any status; with
+        the trip when status is claimed. Read-only. Another driver''s offer or an unknown id → 404 offer_not_found.'
+      tags:
+      - Driver · Offers
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/OfferId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCheck'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -9593,10 +9631,11 @@ paths:
         the driver''s country whose surge now (as GET /admin/surge/now, before a category filter) is above 1.0. DriverSurgeZone
         { zoneId, level: low | medium | high, bounds: { south, west, north, east } } (the zone''s rectangle). Never the multiplier.
         the app asks while online on Home: on going online, then every 60 s, and when the app comes back to the front; it
-        keeps the last answer when a call fails; offline it shows no colours. The top bar''s waiting tip ''Hög bonus i närheten''
-        / ''Forte majoration à proximité'' / ''High boost nearby'' (no money, no number, no zone name) shows while the driver''s
-        position is inside a listed zone or less than 3 km from its rectangle, any level. The old ''+{kr} kr i {zone}'' tip
-        is removed.'
+        keeps the last answer when a call fails; offline it shows no colours. The top bar''s waiting tip driverSurgeMap.tipTexts
+        (no money, no number, no zone name, never the word surge / majoration) shows while the driver''s position is inside
+        a listed zone or less than 3 km from its rectangle, any level. The old ''+{kr} kr i {zone}'' tip is removed. v0.18.6
+        (G4 self-check): the French text ''Forte majoration à proximité'' said surge; it is now ''Bonus élevé à proximité'',
+        like the Swedish and English.'
       tags:
       - Driver · Session
       x-actor:
@@ -11909,6 +11948,9 @@ components:
           type: number
           minimum: 0
           maximum: 5
+          description: 'v0.18.6 (G4 decision 3, contract.json#driverOffers.riderRating): the rider''s average rating, 2 decimals,
+            taken when the offer is sent. Missing when the rider has no rating yet (never a made-up value) or the zone''s
+            DriverAppConfig.offers.offerCard.riderRating is false.'
         riderTrips:
           type: integer
           minimum: 0
@@ -11917,7 +11959,9 @@ components:
         reasonCode:
           type: string
           pattern: ^[a-z][a-z0-9_-]{0,63}$
-          description: Exclusive reason id (driver.offers.exclusiveReasons[].id) for kind=exclusive/assigned.
+          description: 'Deprecated in v0.18.6 and no longer sent (owner G4-E7, contract.json#driverOffers.whyYouRemoved):
+            the offer card shows no ''why you got this trip'' line. Older builds read it as optional.'
+          deprecated: true
     Quote:
       type: object
       required:
@@ -15301,6 +15345,26 @@ components:
           $ref: '#/components/schemas/RideCheck'
         appUpdate:
           $ref: '#/components/schemas/AppUpdate'
+        raisePrice:
+          type: object
+          properties:
+            maxFactor:
+              type: number
+              minimum: 1
+              maximum: 3
+              description: 'v0.18.6 (G4-E4): the most the fare may reach = maxFactor × the booked fare; the app hides raise
+                buttons above it. Written by the server from DispatchDocument.raisePrice.maxFactor of the zone (default 2).
+                Owner decision 25 (2026-10-26): POST /trips/{tripId}/raise-price while searching or offered. fare += increase
+                (rider_raise line); the whole raise goes to driverEarnings (Movera''s share unchanged); open offers are withdrawn
+                and a new search starts in which drivers who declined are asked again at the new price; version + 1. The new
+                fare may not pass maxFactor × the quoted (booked) fare (400 invalid_request, reason raise_too_high). The raise_price
+                waiting step stays skipped: the rider app offers the raise on its own schedule. v0.18.6 (owner G4-E4 ''2×,
+                admin can change''): maxFactor is a per-zone admin setting, DispatchDocument.raisePrice.maxFactor (Dispatch,
+                per zone or the country standard; default 2, range 1–3); the server uses the trip''s zone''s live dispatch
+                document at the moment of the raise. The rider app reads it as RiderAppConfig.raisePrice.maxFactor (the server
+                writes it there from the zone''s dispatch document and also sets it when it serves GET /rider/config) and
+                hides every raise button whose amount would take the fare above maxFactor × the booked fare (booked fare =
+                Trip fare minus its rider_raise lines). The same in SE and FR.'
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -15400,6 +15464,18 @@ components:
                   type: boolean
                 stops:
                   type: boolean
+                riderRating:
+                  type: boolean
+                  description: 'v0.18.6 (G4 decision 3): show the rider''s rating on the offer card (default true); false
+                    = the server sends no Offer.riderRating for trips of this zone. Decision 3 (owner ''Show it''): Offer.riderRating
+                    = the rider''s average of the visible ratings drivers gave him (riders'' own rating, as Rider.rating),
+                    rounded to 2 decimals; the card shows it with one decimal and a star. Shown by default. A rider with no
+                    rating yet gets NO riderRating (the card shows nothing; never a made-up value — the old 4.9 fallback idea
+                    is dropped). The admin turns it off per zone with DriverAppConfig.offers.offerCard.riderRating = false
+                    (Settings › Driver app › Offer card, per zone or the country standard): the server then sends no riderRating
+                    on offers of trips in that zone, and the app also hides it. The value is taken when the offer is sent
+                    and does not change on that offer.'
+                  default: true
               additionalProperties:
                 type: boolean
             exclusiveReasons:
@@ -15418,6 +15494,13 @@ components:
                     type: string
                   'on':
                     type: boolean
+              description: 'Deprecated in v0.18.6 and ignored (owner G4-E7): no ''why you got this trip'' line on offers.
+                E7 (owner ''Remove short line explain''): the ''why you got this trip'' line is removed from the offer card.
+                The server no longer sends Offer.reasonCode (deprecated, kept in the schema so older builds keep working:
+                they show no line when it is missing) and DriverAppConfig.offers.exclusiveReasons is deprecated and ignored
+                (apps never show it; the admin hides its Dispatch › Exclusive reasons editor). It was only used on the offer
+                card.'
+              deprecated: true
             autoOffline:
               type: object
               properties:
@@ -15425,13 +15508,16 @@ components:
                   type: integer
                   minimum: 0
                   description: 'Missed or declined exclusive offers in a row before the driver is set offline (default 10,
-                    owner decision 35; 3 before v0.5.6). v0.8.0 (owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive
-                    (default 10) Exclusive offers of live trips in a row that were declined or expired. Only kind=exclusive
-                    offers of live trips sent while the driver was free count; an Exclusive offer sent while the driver is
-                    on a trip never counts; Radar, assigned and reservation (scheduled) offers declined or expired never count.
-                    ANY accepted offer (Exclusive or Radar, any kind) and going online set the count back to 0. Both the server
-                    (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce
-                    it; fixtures/settings_flow.json#autoOffline.'
+                    owner decision 35; 3 before v0.5.6). v0.8.0 (owner 2026-10-27), v0.18.6 (owner G4-E3 2026-10-30 ''Count
+                    them'', decision 6 ''Both count''): a driver goes offline after offers.autoOffline.missedExclusive (default
+                    10, owner G4-E2 ''Set 10 everywhere'') Exclusive or hand-sent (assigned, admin Dispatch › send offer)
+                    offers of live trips in a row that were declined or expired (missed). Only kind=exclusive and kind=assigned
+                    offers of live trips sent while the driver was free count; an offer sent while the driver is on a trip
+                    never counts; Radar offers (automatic or an admin radar group) and reservation (scheduled) offers declined
+                    or expired never count. ANY accepted offer (any kind) and going online set the count back to 0. Both the
+                    server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app
+                    enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same
+                    in SE and FR. fixtures/settings_flow.json#autoOffline.'
                 noFixMinutes:
                   type: integer
                   minimum: 0
@@ -16116,6 +16202,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DispatchWaitingStep'
+        raisePrice:
+          type: object
+          required:
+          - maxFactor
+          properties:
+            maxFactor:
+              type: number
+              minimum: 1
+              maximum: 3
+              description: 'v0.18.6 (owner G4-E4 ''2×, admin can change''): the rider may raise the fare to at most maxFactor
+                × the booked fare in this zone (default 2). Missing = 2. The server copies it into RiderAppConfig.raisePrice.maxFactor.'
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
@@ -16147,6 +16244,9 @@ components:
         - 5
         other: auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode
           on
+        raisePrice.maxFactor:
+        - 1
+        - 3
     DispatchControl:
       type: object
       description: 'Live dispatch switch of a zone (outside publishing). DispatchControl { zoneId, paused, mode: radar | exclusive
@@ -17362,7 +17462,7 @@ components:
         driverOffline:
           type: boolean
           description: 'v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline
-            (contract.json#autoOffline).'
+            (contract.json#autoOffline). v0.18.6 (G4-E3): also a hand-sent (assigned) one.'
     ConfigEvent:
       type: object
       description: Apps re-fetch the config document on this event.
@@ -18869,6 +18969,25 @@ components:
         note:
           type: string
           maxLength: 1000
+    OfferCheck:
+      type: object
+      description: 'v0.18.6 (G4 decision 4): Decision 4 (owner ''Lock + Accepting… + check''). The app locks the Accept button
+        at the first tap and shows texts.accepting. It sends POST /offers/{offerId}/accept with an Idempotency-Key. When the
+        answer is lost (network error, no answer within answerTimeoutSeconds), it asks the server GET /driver/offers/{offerId}
+        → OfferCheck { offer, trip? } (every checkEverySeconds, until checkForSeconds): offer.status claimed and trip present
+        → open that trip (it is his); offer.status open and expiresAt not passed → send the SAME accept again with the SAME
+        Idempotency-Key (the server answers the first result if it already ran); any other status (claimed_elsewhere, expired,
+        withdrawn, declined) → texts.gone for 2 s on the island at the top of Home (decision 5; it is not a miss). Only the
+        offer''s own driver may read it (another driver''s offer is 404 offer_not_found).'
+      required:
+      - offer
+      properties:
+        offer:
+          $ref: '#/components/schemas/Offer'
+        trip:
+          allOf:
+          - $ref: '#/components/schemas/TripProjection'
+          description: 'Driver view of the trip; only when offer.status is claimed (the accept went through: the trip is his).'
     WaitlistEntryPage:
       allOf:
       - $ref: '#/components/schemas/Page'

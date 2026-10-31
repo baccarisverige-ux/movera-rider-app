@@ -369,5 +369,8 @@
   "appUpdate": {
     "minimumVersion": "1.0.0",
     "latestVersion": "1.2.0"
+  },
+  "raisePrice": {
+    "maxFactor": 2
   }
 }

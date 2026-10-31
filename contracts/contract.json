@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.5",
+  "version": "0.18.6",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -731,7 +731,7 @@
       "drivers": 1,
       "exclusive": true,
       "timer": "driver.offers.exclusiveSeconds",
-      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline."
+      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline (v0.18.6, owner G4-E3 'Count them': a declined or missed hand-sent offer counts toward the in-a-row limit like an Exclusive one; contract.json#autoOffline)."
     },
     "radarGroup": {
       "offerKind": "radar",
@@ -1187,7 +1187,8 @@
       "RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee = pricing.categories[].riderPickupFee",
       "RiderAppConfig.waiting and DriverAppConfig.waiting (the top-level terms) = pricing.categories[headline].waiting (economy, else the first category)",
       "DriverAppConfig.offers.radarSeconds / exclusiveSeconds / radarOn / exclusiveOn = dispatch.radar.seconds / exclusive.seconds / radar.on / exclusive.on",
-      "DriverAppConfig.offers.exclusiveWhileDriving = dispatch.exclusiveWhileDriving"
+      "DriverAppConfig.offers.exclusiveWhileDriving = dispatch.exclusiveWhileDriving",
+      "RiderAppConfig.raisePrice.maxFactor = dispatch.raisePrice.maxFactor (v0.18.6, G4-E4; the server writes it when dispatch is published and when it serves GET /rider/config)"
     ],
     "mustMatchNote": "mustMatch binds the documents published for one zone. v0.6.0: the sample documents fixtures/config/rider_app_config.json and driver_app_config.json are aligned with fixtures/config/pricing_document.json (12.26 kr/min, Premium 16.90, no-show fee 65 kr) and reference_check.py checks the rule against them.",
     "publishPricing": "v0.6.0 (owner 2026-10-27): publishing the pricing document keeps the app documents in step. In the same transaction the server writes the zone's live rider_app_config and driver_app_config again with waiting.byCategory (freeWaitMin, perMin, noShowAfterMin, noShowFee), the top-level waiting terms of the headline category, RiderAppConfig.pickupFee.byCategory and DriverAppConfig.pickupPay.byCategory[].riderFee taken from the new pricing document; every other field stays as published. Each app document whose values change gets the next version and publishedAt and sends config_published; one whose values are already equal is left as it is. A zone with no app document published yet gets none (the admin publishes the first one). An app document's draft, when there is one, takes the same values and its draft version goes up by 1 (an admin holding the old draft version gets 409 version_mismatch and reloads), so a later app publish does not undo them.",
@@ -1321,7 +1322,11 @@
         1,
         5
       ],
-      "other": "auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode on"
+      "other": "auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode on",
+      "raisePrice.maxFactor": [
+        1,
+        3
+      ]
     },
     "distance": "km = round1(equirectangular distance × 111.32 × roadFactor); a driver finishing a ride: km from the drop-off. round1(x) = floor(x × 10 + 0.5) / 10",
     "eta": "etaMin = max(1, round(km / pickupKmh × 60) + finishing.inMin), round = floor(x + 0.5)",
@@ -1358,7 +1363,13 @@
     "offerTimers": "DriverAppConfig.offers.radarSeconds, exclusiveSeconds, radarOn, exclusiveOn must equal dispatch.radar.seconds, exclusive.seconds, radar.on, exclusive.on of the same zone (contract.json#configDocs.mustMatch).",
     "raisePrice": {
       "maxFactor": 2,
-      "note": "Owner decision 25 (2026-10-26): POST /trips/{tripId}/raise-price while searching or offered. fare += increase (rider_raise line); the whole raise goes to driverEarnings (Movera's share unchanged); open offers are withdrawn and a new search starts in which drivers who declined are asked again at the new price; version + 1. The new fare may not pass maxFactor × the quoted fare (400 invalid_request, reason raise_too_high). The raise_price waiting step stays skipped: the rider app offers the raise on its own schedule."
+      "note": "Owner decision 25 (2026-10-26): POST /trips/{tripId}/raise-price while searching or offered. fare += increase (rider_raise line); the whole raise goes to driverEarnings (Movera's share unchanged); open offers are withdrawn and a new search starts in which drivers who declined are asked again at the new price; version + 1. The new fare may not pass maxFactor × the quoted (booked) fare (400 invalid_request, reason raise_too_high). The raise_price waiting step stays skipped: the rider app offers the raise on its own schedule. v0.18.6 (owner G4-E4 '2×, admin can change'): maxFactor is a per-zone admin setting, DispatchDocument.raisePrice.maxFactor (Dispatch, per zone or the country standard; default 2, range 1–3); the server uses the trip's zone's live dispatch document at the moment of the raise. The rider app reads it as RiderAppConfig.raisePrice.maxFactor (the server writes it there from the zone's dispatch document and also sets it when it serves GET /rider/config) and hides every raise button whose amount would take the fare above maxFactor × the booked fare (booked fare = Trip fare minus its rider_raise lines). The same in SE and FR.",
+      "configPath": "DispatchDocument.raisePrice.maxFactor",
+      "riderPath": "RiderAppConfig.raisePrice.maxFactor",
+      "range": [
+        1,
+        3
+      ]
     }
   },
   "maps": {
@@ -2796,7 +2807,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26).",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true.",
     "maxStops": 3,
     "maxPickupMoveMeters": 500,
     "freeWaitMin": {
@@ -3439,7 +3450,10 @@
             "message": "It is very busy right now. Please try again in a few minutes.",
             "extraMin": null
           }
-        ]
+        ],
+        "raisePrice": {
+          "maxFactor": 2
+        }
       },
       "control": {
         "paused": false,
@@ -3447,7 +3461,9 @@
       }
     },
     "cancelDriverSharePct": 100,
-    "noFixMinutesBeforeOffline": 5
+    "noFixMinutesBeforeOffline": 5,
+    "raiseMaxFactor": 2,
+    "offerCardRiderRating": true
   },
   "realtime": {
     "envelope": [
@@ -3531,9 +3547,10 @@
     ]
   },
   "autoOffline": {
-    "note": "v0.8.0 (owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive (default 10) Exclusive offers of live trips in a row that were declined or expired. Only kind=exclusive offers of live trips sent while the driver was free count; an Exclusive offer sent while the driver is on a trip never counts; Radar, assigned and reservation (scheduled) offers declined or expired never count. ANY accepted offer (Exclusive or Radar, any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; fixtures/settings_flow.json#autoOffline.",
+    "note": "v0.8.0 (owner 2026-10-27), v0.18.6 (owner G4-E3 2026-10-30 'Count them', decision 6 'Both count'): a driver goes offline after offers.autoOffline.missedExclusive (default 10, owner G4-E2 'Set 10 everywhere') Exclusive or hand-sent (assigned, admin Dispatch › send offer) offers of live trips in a row that were declined or expired (missed). Only kind=exclusive and kind=assigned offers of live trips sent while the driver was free count; an offer sent while the driver is on a trip never counts; Radar offers (automatic or an admin radar group) and reservation (scheduled) offers declined or expired never count. ANY accepted offer (any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same in SE and FR. fixtures/settings_flow.json#autoOffline.",
     "counts": [
-      "exclusive"
+      "exclusive",
+      "assigned"
     ],
     "countsStatuses": [
       "declined",
@@ -3545,10 +3562,17 @@
     ],
     "neverCounts": [
       "radar",
-      "assigned",
       "reservation",
-      "exclusive sent while on a trip"
-    ]
+      "any offer sent while on a trip"
+    ],
+    "changes": {
+      "v0.18.6": "assigned (hand-sent) offers now count (G4-E3); every zone whose published driver_app_config had another limit than 10 (Z001, FR-PC were at 3 since 25 Oct) is set to 10 by server migration 0039 (G4-E2); the admin can still change it per zone."
+    },
+    "adminText": {
+      "sv": "Föraren går offline efter {n} missade eller nekade Exklusiva eller manuellt skickade erbjudanden i rad (Radar räknas inte).",
+      "fr": "Le chauffeur passe hors ligne après {n} offres Exclusives ou envoyées à la main manquées ou refusées d’affilée (le Radar ne compte pas).",
+      "en": "The driver goes offline after {n} missed or declined Exclusive or hand-sent offers in a row (Radar does not count)."
+    }
   },
   "safety": {
     "note": "v0.7.0 (CONTRACT.md §15, owner safety part 1 decisions 2026-10-27). SOS from the rider or the driver and the server's 'car lost' alarm become incidents the admin takes, solves or calls a false alarm. The apps open the phone's emergency call (112) themselves AND send the SOS to Movera; afterwards they show only 'SOS sent' (no later update).",
@@ -3788,8 +3812,29 @@
     "levels": "low: multiplier above 1.0 and below 1.5 (×1.1–×1.4); medium: 1.5 to 2.5 inclusive; high: above 2.5. A zone at 1.0 is not listed (no colour).",
     "colours": "low #FFC79E (light orange), medium #FF8A3D (orange, the demo's 'Hög bonus' colour), high #E5482B (red); fill about 40 % opacity with a 2 px edge of the same colour.",
     "refresh": "the app asks while online on Home: on going online, then every 60 s, and when the app comes back to the front; it keeps the last answer when a call fails; offline it shows no colours.",
-    "tip": "The top bar's waiting tip 'Hög bonus i närheten' / 'Forte majoration à proximité' / 'High boost nearby' (no money, no number, no zone name) shows while the driver's position is inside a listed zone or less than 3 km from its rectangle, any level. The old '+{kr} kr i {zone}' tip is removed.",
-    "tipDistanceKm": 3
+    "tip": "The top bar's waiting tip driverSurgeMap.tipTexts (no money, no number, no zone name, never the word surge / majoration) shows while the driver's position is inside a listed zone or less than 3 km from its rectangle, any level. The old '+{kr} kr i {zone}' tip is removed. v0.18.6 (G4 self-check): the French text 'Forte majoration à proximité' said surge; it is now 'Bonus élevé à proximité', like the Swedish and English.",
+    "tipDistanceKm": 3,
+    "tipTexts": {
+      "sv": "Hög bonus i närheten",
+      "fr": "Bonus élevé à proximité",
+      "en": "High boost nearby"
+    },
+    "forbiddenWords": {
+      "note": "v0.18.6: no driver-visible text says surge in any language.",
+      "sv": [
+        "surge",
+        "prishöjning",
+        "pristillägg"
+      ],
+      "fr": [
+        "surge",
+        "majoration"
+      ],
+      "en": [
+        "surge",
+        "surcharge"
+      ]
+    }
   },
   "surgeNoticeRemoved": "v0.7.2 (owner 2026-10-28): drivers get NO surge notice. pricing.surge.notifyDrivers is deprecated and ignored, POST /admin/zones/{zoneId}/surge/notify is gone (404) and the server sends no surge_started notification. The driver sees surges only as coloured zones on the Home map (contract.json#driverSurgeMap).",
   "support": {
@@ -4672,5 +4717,101 @@
         }
       }
     }
+  },
+  "driverOffers": {
+    "note": "v0.18.6 (owner decisions 1–7 of 2026-10-29 and answers G4-E1..E7 of 2026-10-30, driver group 4 'Incoming offer & exclusive offer', Rules decisions/driver-g4.md). Works the same in every country (SE and FR); every text in sv / fr / en.",
+    "push": {
+      "note": "Decision 1 + E6. For every new offer (feed event offer_created) the server also sends a push to the driver's registered fcm devices (auth.devices.sending: after the command commits, one retry, dead tokens removed), so a driver whose app is in the background or whose phone is locked hears and sees it. It is NOT a bell notice: it never appears in GET /notifications, is not counted unread and cannot be marked read (404). A push not handed to Firebase before the offer's expiresAt is dropped. Title and body in the driver's account language (else the zone's default). The app in the foreground ignores the push (the offer stream already shows the offer). A tap opens the app at data.deepLink: the offer card while the offer is still open, else Home.",
+      "kind": "new_offer",
+      "deepLink": "movera-driver://offers/{offerId}",
+      "rule": "E6 (owner 'Sound + vibration'): Exclusive and hand-sent (assigned) offers play the Movera offer sound and vibrate (vibration only while the driver's own Vibrate setting in the app is on), in the foreground and in the push; Radar offers stay quiet (no sound, no vibration).",
+      "sound": {
+        "exclusive": "offer",
+        "assigned": "offer",
+        "radar": "none"
+      },
+      "vibrate": {
+        "exclusive": true,
+        "assigned": true,
+        "radar": false
+      },
+      "data": {
+        "notificationId": "the push id (not a Notification)",
+        "kind": "new_offer",
+        "deepLink": "movera-driver://offers/{offerId}",
+        "offerId": "Offer.offerId",
+        "tripId": "Offer.tripId",
+        "offerKind": "exclusive | assigned | radar",
+        "sound": "offer | none",
+        "vibrate": "'true' | 'false' (FCM data values are strings)",
+        "expiresAt": "Offer.expiresAt (ISO time); the app shows nothing after it"
+      },
+      "native": {
+        "note": "Android: an offer with sound uses the notification channel androidChannel (sound file soundFile, vibration on, high importance); a quiet one androidQuietChannel (no sound, no vibration). iOS: aps.sound iosSound, none when quiet; interruption-level time-sensitive. Web: data-only message; the service worker shows it (silent when quiet; vibrate webVibratePattern when vibrate is 'true') and the open page plays the sound. The native apps add the sound file and the two channels when their store builds are made.",
+        "androidChannel": "movera_offers",
+        "androidQuietChannel": "movera_offers_quiet",
+        "soundFile": "movera_offer",
+        "iosSound": "movera_offer.caf",
+        "webVibratePattern": [
+          300,
+          150,
+          300
+        ]
+      },
+      "texts": {
+        "title": {
+          "exclusive": {
+            "sv": "Ny resa till dig",
+            "fr": "Nouvelle course pour vous",
+            "en": "New trip for you"
+          },
+          "radar": {
+            "sv": "Ny resa i närheten",
+            "fr": "Nouvelle course à proximité",
+            "en": "New trip nearby"
+          }
+        },
+        "body": {
+          "sv": "Tryck för att se resan",
+          "fr": "Appuyez pour voir la course",
+          "en": "Tap to see the trip"
+        }
+      }
+    },
+    "riderRating": {
+      "note": "Decision 3 (owner 'Show it'): Offer.riderRating = the rider's average of the visible ratings drivers gave him (riders' own rating, as Rider.rating), rounded to 2 decimals; the card shows it with one decimal and a star. Shown by default. A rider with no rating yet gets NO riderRating (the card shows nothing; never a made-up value — the old 4.9 fallback idea is dropped). The admin turns it off per zone with DriverAppConfig.offers.offerCard.riderRating = false (Settings › Driver app › Offer card, per zone or the country standard): the server then sends no riderRating on offers of trips in that zone, and the app also hides it. The value is taken when the offer is sent and does not change on that offer.",
+      "configPath": "DriverAppConfig.offers.offerCard.riderRating",
+      "default": true,
+      "decimals": 2,
+      "texts": {
+        "label": {
+          "sv": "Kundens betyg",
+          "fr": "Note du client",
+          "en": "Rider rating"
+        }
+      }
+    },
+    "acceptCheck": {
+      "note": "Decision 4 (owner 'Lock + Accepting… + check'). The app locks the Accept button at the first tap and shows texts.accepting. It sends POST /offers/{offerId}/accept with an Idempotency-Key. When the answer is lost (network error, no answer within answerTimeoutSeconds), it asks the server GET /driver/offers/{offerId} → OfferCheck { offer, trip? } (every checkEverySeconds, until checkForSeconds): offer.status claimed and trip present → open that trip (it is his); offer.status open and expiresAt not passed → send the SAME accept again with the SAME Idempotency-Key (the server answers the first result if it already ran); any other status (claimed_elsewhere, expired, withdrawn, declined) → texts.gone for 2 s on the island at the top of Home (decision 5; it is not a miss). Only the offer's own driver may read it (another driver's offer is 404 offer_not_found).",
+      "route": "GET /driver/offers/{offerId}",
+      "answerTimeoutSeconds": 8,
+      "checkEverySeconds": 2,
+      "checkForSeconds": 20,
+      "texts": {
+        "accepting": {
+          "sv": "Accepterar…",
+          "fr": "Acceptation…",
+          "en": "Accepting…"
+        },
+        "gone": {
+          "sv": "Erbjudandet är inte längre tillgängligt",
+          "fr": "Cette offre n’est plus disponible",
+          "en": "Offer no longer available"
+        }
+      }
+    },
+    "whyYouRemoved": "E7 (owner 'Remove short line explain'): the 'why you got this trip' line is removed from the offer card. The server no longer sends Offer.reasonCode (deprecated, kept in the schema so older builds keep working: they show no line when it is missing) and DriverAppConfig.offers.exclusiveReasons is deprecated and ignored (apps never show it; the admin hides its Dispatch › Exclusive reasons editor). It was only used on the offer card.",
+    "declinedComesBack": "E1 (owner 'Can come back later'): no change. An Exclusive offer the driver declined or missed may come back to him later as a Radar offer if nobody else took the trip.",
+    "notDecided": "E5 (rider 'Keep waiting?' steps vs the rider app's own 3-minute card) is NOT decided (owner: ask again later); the rider-waiting steps are unchanged in v0.18.6."
   }
 }

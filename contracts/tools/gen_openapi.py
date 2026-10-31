@@ -181,10 +181,12 @@ S["Offer"] = obj(OrderedDict([
     ("categoryId", ref("CategoryId")), ("paymentMethod", ref("PaymentMethod")),
     ("pickupEtaSeconds", ref("DurationSeconds")), ("pickupMeters", i(minimum=0)),
     ("tripSeconds", ref("DurationSeconds")), ("tripMeters", i(minimum=0)),
-    ("riderRating", n(minimum=0, maximum=5)), ("riderTrips", i(minimum=0)),
+    ("riderRating", n("v0.18.6 (G4 decision 3, contract.json#driverOffers.riderRating): the rider's average rating, 2 decimals, taken when the offer is sent. "
+                      "Missing when the rider has no rating yet (never a made-up value) or the zone's DriverAppConfig.offers.offerCard.riderRating is false.", minimum=0, maximum=5)),
+    ("riderTrips", i(minimum=0)),
     ("scheduledAt", ref("Timestamp")),
-    ("reasonCode", s("Exclusive reason id (driver.offers.exclusiveReasons[].id) for kind=exclusive/assigned.",
-                     pattern="^[a-z][a-z0-9_-]{0,63}$")),
+    ("reasonCode", {**s("Deprecated in v0.18.6 and no longer sent (owner G4-E7, contract.json#driverOffers.whyYouRemoved): the offer card shows no 'why you got this trip' line. "
+                        "Older builds read it as optional.", pattern="^[a-z][a-z0-9_-]{0,63}$"), "deprecated": True}),
 ]), ["offerId", "tripId", "kind", "status", "version", "expiresAt", "fare", "driverEarnings", "pickup", "dropoff",
      "stops", "categoryId", "paymentMethod", "pickupEtaSeconds", "pickupMeters", "tripSeconds", "tripMeters"],
     "One driver's offer for a trip. One trip has many offers; offerId is never a tripId.")
@@ -725,6 +727,9 @@ S["RiderAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
     ("cancelReasons", arr(obj({"code": ref("RiderCancelReasonCode"), "title": s(minLength=1)}, ["code", "title"]))),
     ("rideCheck", ref("RideCheck")),
     ("appUpdate", ref("AppUpdate")),
+    ("raisePrice", obj({"maxFactor": n("v0.18.6 (G4-E4): the most the fare may reach = maxFactor × the booked fare; the app hides raise buttons above it. "
+                                       "Written by the server from DispatchDocument.raisePrice.maxFactor of the zone (default 2). " + C["dispatch"]["raisePrice"]["note"],
+                                       minimum=C["dispatch"]["raisePrice"]["range"][0], maximum=C["dispatch"]["raisePrice"]["range"][1])})),
 ]), ["version", "publishedAt", "zoneId", "currency", "timeZone"],
     "Per-zone rider document built by Admin exporters. Unknown keys are ignored; missing keys fall back to the app seed.")
 S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
@@ -739,9 +744,11 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
                     "assignAcceptSeconds": i("Time to accept a ride assigned by Movera (v0.5.0; also reservations.assignAcceptSeconds).", minimum=1),
                     "radarApp": ref("RadarAppLimits"), "exclusiveWhileDriving": ref("ExclusiveWhileDriving"),
                     "offerCard": {"type": "object", "description": "Which fields the offer card shows.",
-                                  "properties": {"netFare": b(), "pickupAddress": b(), "dropoffAreaOnly": b(), "stops": b()},
+                                  "properties": {"netFare": b(), "pickupAddress": b(), "dropoffAreaOnly": b(), "stops": b(),
+                                                 "riderRating": {**b("v0.18.6 (G4 decision 3): show the rider's rating on the offer card (default true); false = the server sends no Offer.riderRating for trips of this zone. " + C["driverOffers"]["riderRating"]["note"]), "default": True}},
                                   "additionalProperties": {"type": "boolean"}},
-                    "exclusiveReasons": arr(obj({"id": s(pattern="^[a-z][a-z0-9_-]{0,63}$"), "text": s(), "on": b()}, ["id", "text", "on"])),
+                    "exclusiveReasons": {**arr(obj({"id": s(pattern="^[a-z][a-z0-9_-]{0,63}$"), "text": s(), "on": b()}, ["id", "text", "on"]),
+                                               description="Deprecated in v0.18.6 and ignored (owner G4-E7): no 'why you got this trip' line on offers. " + C["driverOffers"]["whyYouRemoved"]), "deprecated": True},
                     "autoOffline": obj({"missedExclusive": i("Missed or declined exclusive offers in a row before the driver is set offline (default 10, owner decision 35; 3 before v0.5.6). " + C["autoOffline"]["note"], minimum=0),
                                         "noFixMinutes": i("v0.18.4 (G3-R1): no position for this many minutes while online (not on a trip) → the server sets the driver offline (default 5; 0 = never). " + C["driverHome"]["setOffline"]["note"], minimum=0),
                                         "hiddenComesBackMin": n(minimum=0)})})),
@@ -841,6 +848,9 @@ S["DispatchDocument"] = obj(OrderedDict([
     ("favourite", obj({"on": b(), "maxKm": n(minimum=0)}, ["on", "maxKm"])),
     ("exclusiveWhileDriving", ref("ExclusiveWhileDriving")),
     ("waiting", arr(ref("DispatchWaitingStep"))),
+    ("raisePrice", obj({"maxFactor": n("v0.18.6 (owner G4-E4 '2×, admin can change'): the rider may raise the fare to at most maxFactor × the booked fare in this zone (default 2). "
+                                       "Missing = 2. The server copies it into RiderAppConfig.raisePrice.maxFactor.",
+                                       minimum=C["dispatch"]["raisePrice"]["range"][0], maximum=C["dispatch"]["raisePrice"]["range"][1])}, ["maxFactor"])),
     ("usesStandard", b("v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).")),
 ]), ["version", "publishedAt", "zoneId", "country", "timeZone", "radar", "exclusive", "choose", "radius", "factors", "finishing", "favourite", "exclusiveWhileDriving", "waiting"],
     "Server-only (contract.json#configDocs): the zone's automatic dispatch rules (admin Dispatch, a subset of the movera.dispatch.rules export, admin field names). "
@@ -997,7 +1007,8 @@ S["OfferEvent"] = obj({"eventId": ref("Id"), "sequence": i("Per-driver feed curs
                        "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp"),
                        "offer": {"allOf": [ref("Offer")],
                                  "description": "For offer_withdrawn, offer.status is claimed_elsewhere | expired | withdrawn."},
-                       "driverOffline": b("v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline (contract.json#autoOffline).")},
+                       "driverOffline": b("v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline (contract.json#autoOffline). "
+                                          "v0.18.6 (G4-E3): also a hand-sent (assigned) one.")},
                       ["eventId", "sequence", "kind", "occurredAt", "serverTime", "offer"], "Driver offer feed event.")
 S["ConfigEvent"] = obj({"eventId": ref("Id"), "kind": s(const="config_published"), "doc": ref("ConfigDocName"),
                         "zoneId": ref("Id"), "version": i(minimum=1), "publishedAt": ref("Timestamp"),
@@ -1431,6 +1442,13 @@ op("get", "/driver/offers", "listDriverOffers", "Current offers for the driver",
 op("get", "/driver/offers/stream", "streamDriverOffers", "Offer feed (offer_created / offer_updated / offer_withdrawn)", ["driver"],
    "Realtime", params=[pref("After"), pref("LastEventId")], content=sse("Server-sent events.", "OfferEvent", "OfferPage"),
    ok_desc="SSE feed; `Accept: application/json` returns the current open offers.")
+S["OfferCheck"] = obj({"offer": ref("Offer"),
+                       "trip": {"allOf": [ref("TripProjection")], "description": "Driver view of the trip; only when offer.status is claimed (the accept went through: the trip is his)."}},
+                      ["offer"], "v0.18.6 (G4 decision 4): " + C["driverOffers"]["acceptCheck"]["note"])
+op("get", "/driver/offers/{offerId}", "getDriverOffer", "Did my accept go through? One of my offers, now", ["driver"], "Driver · Offers",
+   params=[pref("OfferId")], ok=(200, "OfferCheck"),
+   desc="v0.18.6 (G4 decision 4, contract.json#driverOffers.acceptCheck): the offer as it is now, any status; with the trip when status is claimed. "
+        "Read-only. Another driver's offer or an unknown id → 404 offer_not_found.")
 op("post", "/offers/{offerId}/accept", "acceptOffer", "Accept / claim an offer (incl. reservation claim)", ["driver"], "Driver · Offers",
    params=[pref("OfferId")], body="OfferCommand", ok=(200, TP), mutation=True, transition="accept",
    desc="expectedVersion is the OFFER version. Another driver won → 409 conflict with projection = Offer(status=claimed_elsewhere). "

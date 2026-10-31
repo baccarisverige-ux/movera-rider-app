@@ -64,15 +64,9 @@
       "netFare": true,
       "pickupAddress": true,
       "dropoffAreaOnly": false,
-      "stops": true
+      "stops": true,
+      "riderRating": true
     },
-    "exclusiveReasons": [
-      {
-        "id": "closest",
-        "text": "You are the closest driver",
-        "on": true
-      }
-    ],
     "autoOffline": {
       "missedExclusive": 10,
       "noFixMinutes": 5,
