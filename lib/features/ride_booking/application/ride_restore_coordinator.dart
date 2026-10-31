@@ -479,6 +479,8 @@ class RideRestoreCoordinator {
         snapshot.paymentMethodId ?? session.bookedPaymentMethodId;
     session.bookedMaxOfferMinor =
         snapshot.maxOfferMinor ?? session.bookedMaxOfferMinor;
+    session.bookedFareMinor =
+        snapshot.bookedFareMinor ?? session.bookedFareMinor;
   }
 
   Future<Widget> root() async {

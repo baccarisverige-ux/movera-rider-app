@@ -301,6 +301,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pickupUpdated': l.pickupUpdated,
   'editOfferTooLate': l.editOfferTooLate,
   'editOfferFailed': l.editOfferFailed,
+  'raiseAboveLimit': l.raiseAboveLimit,
   'offerSentUnconfirmed': l.offerSentUnconfirmed,
   'offerUpdatedTo': l.offerUpdatedTo('<amount>'),
   'driverAlreadyAccepted': l.driverAlreadyAccepted,
@@ -510,7 +511,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1184,7 +1190,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2350,6 +2359,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get editOfferFailed => '';
   @override
+  String get raiseAboveLimit => '';
+  @override
   String get offerSentUnconfirmed => '';
   @override
   String offerUpdatedTo(String amount) => '';
@@ -2768,7 +2779,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupLocation => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override

@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -206,6 +207,15 @@ class _FindingDriversState extends State<FindingDrivers> {
       createdAt: widget.createdAt,
     );
     unawaited(_loadZoneConfig());
+    // v0.18.6 (G4-E4): a new rider config version (config_published, e.g.
+    // the admin changed the raise limit) or a refused raise reads the
+    // zone's config again.
+    final source = AppScope.instance.riderConfig;
+    _configSource = source;
+    if (source case final Listenable listenable) {
+      listenable.addListener(_onConfigChanged);
+    }
+    _match.onRaiseLimitRefused = _onRaiseLimitRefused;
     // R-O2: a queued cancel the launch flush refused or dropped before this
     // screen existed (a cold restore) is told now.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -225,6 +235,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     DateTime? searchStartedAt,
     DateTime? createdAt,
     int? maxOfferMinor,
+    int? bookedFareMinor,
   }) {
     final effectivePrice =
         price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
@@ -245,6 +256,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       searchStartedAt: searchStartedAt,
       createdAt: createdAt,
       maxOfferMinor: maxOfferMinor,
+      bookedFareMinor: bookedFareMinor,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(
@@ -336,6 +348,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     // the session kept from booking.
     final maxOfferMinor =
         current?.maxOfferMinor ?? _match.ownershipSnapshot?.maxOfferMinor;
+    final bookedFareMinor =
+        current?.bookedFareMinor ?? _match.ownershipSnapshot?.bookedFareMinor;
     _leaving = false;
     _cancelSheetOpen = false;
     _driverMatched.value = false;
@@ -349,6 +363,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       price: effectivePrice,
       searchStartedAt: DateTime.now(),
       maxOfferMinor: maxOfferMinor,
+      bookedFareMinor: bookedFareMinor,
     );
     _loadMapBits();
   }
@@ -884,6 +899,10 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   @override
   void dispose() {
+    if (_configSource case final Listenable source) {
+      source.removeListener(_onConfigChanged);
+    }
+    _match.onRaiseLimitRefused = null;
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _sheetController.dispose();
@@ -1202,8 +1221,12 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 
-  /// The pickup zone's config (Q6 raise steps), once read.
+  /// The pickup zone's config (Q6 raise steps, v0.18.6 raise limit), once
+  /// read.
   RiderAppConfig? _zoneConfig;
+
+  /// The config repository listened to for new versions.
+  RiderConfigRepository? _configSource;
 
   Future<void> _loadZoneConfig() async {
     try {
@@ -1213,10 +1236,31 @@ class _FindingDriversState extends State<FindingDrivers> {
         pickupLng: _pickupPosition.longitude,
       );
       if (!mounted || config == null) return;
+      // v0.18.6 (G4-E4): the zone's raise limit (raisePrice.maxFactor).
+      _match.raiseMaxFactor = config.raiseMaxFactor;
       setState(() => _zoneConfig = config);
     } catch (_) {
-      // The seed's steps stay.
+      // The seed's steps and the default limit stay.
     }
+  }
+
+  void _onConfigChanged() {
+    if (!mounted) return;
+    unawaited(_loadZoneConfig());
+  }
+
+  /// v0.18.6 (G4-E4): the server refused a raise as above the limit (the
+  /// admin lowered it): the zone's document is asked for again.
+  void _onRaiseLimitRefused() {
+    final source = _configSource;
+    if (source is ApiRiderConfigRepository) {
+      final zoneId = _zoneConfig?.zoneId;
+      if (zoneId != null && zoneId.isNotEmpty) {
+        unawaited(source.refresh(zoneId).then((_) => _onConfigChanged()));
+        return;
+      }
+    }
+    _onConfigChanged();
   }
 
   /// The enabled raise steps of the trip's zone in [currency], whole units;

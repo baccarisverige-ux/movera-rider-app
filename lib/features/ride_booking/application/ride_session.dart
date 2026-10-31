@@ -75,6 +75,10 @@ class RideSession {
   /// RideSnapshot.maxOfferMinor). Set by booking and by restore.
   int? bookedMaxOfferMinor;
 
+  /// v0.18.6 (G4-E4): the booked fare of [rideId], in minor units (see
+  /// RideSnapshot.bookedFareMinor). Set by booking and by restore.
+  int? bookedFareMinor;
+
   /// Strict client-side mutation path. Local/UI actions must obey the graph.
   RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
@@ -120,6 +124,7 @@ class RideSession {
       bookedCategoryId = null;
       bookedPaymentMethodId = null;
       bookedMaxOfferMinor = null;
+      bookedFareMinor = null;
     } else if (!_isFreshBackendProjection(
       backendStatus,
       version: version,
@@ -232,6 +237,7 @@ class RideSession {
     bookedCategoryId = null;
     bookedPaymentMethodId = null;
     bookedMaxOfferMinor = null;
+    bookedFareMinor = null;
     tripStatus = TripStatus.draft;
     paymentStatus = PaymentStatus.notStarted;
     ratingStatus = RatingStatus.notRequested;

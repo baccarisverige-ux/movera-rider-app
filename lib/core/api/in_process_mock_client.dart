@@ -12,6 +12,7 @@ import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/raise_limit.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/trip_settlement.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -2300,10 +2301,16 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// The highest fare a rider may offer for a ride priced [fareMinor] in
-  /// [code]: 1.8×, in whole major units (kronor, euros, dinars).
-  static int _maxOfferMinorFor(int fareMinor, String code) {
+  /// [code]: the zone's `raisePrice.maxFactor` (contract v0.18.6, owner
+  /// G4-E4, default 2×), in whole major units (kronor, euros, dinars),
+  /// rounded down so it never passes the limit.
+  int _maxOfferMinorFor(int fareMinor, String code) {
     final unit = Money.minorPerMajor(code);
-    return (fareMinor * 1.8 / unit).round() * unit;
+    final ceiling = RaiseLimit.ceilingMinor(
+      fareMinor,
+      _configFor(code).raiseMaxFactor,
+    );
+    return (ceiling ~/ unit) * unit;
   }
 
   /// Money on the wire, in [code] (the home currency unless a trip or a

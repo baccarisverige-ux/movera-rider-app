@@ -28,7 +28,27 @@ class PriceBumpCard extends StatefulWidget {
   /// Quick raise steps in whole units of [currency] (the zone's
   /// `raiseSteps`, owner Q6; see [wholeSteps]).
   final List<int> steps;
+
+  /// The highest fare the rider may offer (v0.18.6, owner G4-E4: the zone's
+  /// `raisePrice.maxFactor` × the booked fare). A step that would go above
+  /// it is not shown.
   final double maxPrice;
+
+  /// v0.18.6 (G4-E4): the [steps] whose raise keeps a fare of
+  /// [currentMinor] at or under [maxMinor], all in minor units of
+  /// [currency].
+  static List<int> stepsUnder(
+    List<int> steps, {
+    required int currentMinor,
+    required int maxMinor,
+    required String currency,
+  }) {
+    final unit = Money.minorPerMajor(currency);
+    return [
+      for (final step in steps)
+        if (currentMinor + step * unit <= maxMinor) step,
+    ];
+  }
 
   /// Q7: the trip's currency. Prices, steps and the typed price are whole
   /// units of it.
@@ -91,6 +111,19 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   int get _currentMinor => _minorOf(widget.currentPrice);
 
+  /// The ceiling to the minor unit (never rounded up past the server's
+  /// limit).
+  int get _maxMinor =>
+      Money.fromLegacyMajor(widget.maxPrice, widget.currency).amountMinor;
+
+  /// v0.18.6 (G4-E4): only the steps that stay under the limit.
+  List<int> get _steps => PriceBumpCard.stepsUnder(
+    widget.steps,
+    currentMinor: _currentMinor,
+    maxMinor: _maxMinor,
+    currency: widget.currency,
+  );
+
   /// [amount] whole units of the trip's currency, as the fare is shown.
   String _money(num amount) => formatMajor(amount, widget.currency);
 
@@ -110,12 +143,10 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
     if (total == null) {
       if (step == null) return null;
       final increase = step * _unitMinor;
-      return _currentMinor + increase > _minorOf(widget.maxPrice)
-          ? null
-          : increase;
+      return _currentMinor + increase > _maxMinor ? null : increase;
     }
     final extra = total * _unitMinor - _currentMinor;
-    if (extra <= 0 || total * _unitMinor > _minorOf(widget.maxPrice)) {
+    if (extra <= 0 || total * _unitMinor > _maxMinor) {
       return null;
     }
     return extra;
@@ -166,8 +197,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
       // minor unit (27 on a 24,60 € fare is +2,40 €, no step).
       final extraMinor = total * _unitMinor - _currentMinor;
       final extra = extraMinor ~/ _unitMinor;
-      _selectedStep =
-          extraMinor % _unitMinor == 0 && widget.steps.contains(extra)
+      _selectedStep = extraMinor % _unitMinor == 0 && _steps.contains(extra)
           ? extra
           : null;
     });
@@ -175,6 +205,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   @override
   Widget build(BuildContext context) {
+    final steps = _steps;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -231,24 +262,18 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           ),
         ),
         const SizedBox(height: 10),
-        for (var row = 0; row < widget.steps.length; row += 2) ...[
+        for (var row = 0; row < steps.length; row += 2) ...[
           if (row > 0) const SizedBox(height: 8),
           Row(
             children: [
-              for (
-                var i = row;
-                i < row + 2 && i < widget.steps.length;
-                i++
-              ) ...[
+              for (var i = row; i < row + 2 && i < steps.length; i++) ...[
                 if (i > row) const SizedBox(width: 8),
                 Expanded(
                   child: _Step(
                     label:
-                        '+${formatMoneyShort(Money.fromLegacyMajor(widget.steps[i], widget.currency))}',
-                    selected: _selectedStep == widget.steps[i],
-                    onTap: widget.busy
-                        ? null
-                        : () => _selectStep(widget.steps[i]),
+                        '+${formatMoneyShort(Money.fromLegacyMajor(steps[i], widget.currency))}',
+                    selected: _selectedStep == steps[i],
+                    onTap: widget.busy ? null : () => _selectStep(steps[i]),
                   ),
                 ),
               ],

@@ -262,7 +262,12 @@ void main() {
     final rideId = await book(booking, quote);
 
     final serverMax = mock.rides[rideId]!['maxOfferMinor'] as int;
-    expect(serverMax, ((quote.totalMinor / 100 * 1.8).round()) * 100);
+    // v0.18.6 (owner G4-E4 "2×, admin can change"): the zone's limit, 2×
+    // by default, in whole kronor rounded down (was 1.8×).
+    expect(serverMax, (quote.totalMinor * 2) ~/ 100 * 100);
+    // The booked fare the limit counts from is kept too.
+    expect(AppScope.instance.ride.bookedFareMinor, quote.totalMinor);
+    expect((await RideSnapshotStore.read())?.bookedFareMinor, quote.totalMinor);
     expect(AppScope.instance.ride.bookedMaxOfferMinor, serverMax);
     expect((await RideSnapshotStore.read())?.maxOfferMinor, serverMax);
   });

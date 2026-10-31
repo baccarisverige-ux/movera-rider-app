@@ -14,6 +14,7 @@ import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/raise_limit.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
@@ -25,7 +26,6 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
-import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
@@ -216,6 +216,7 @@ class FindingDriverController {
       !_assignmentPending;
   bool get showPriceBump =>
       elapsedSeconds >= priceBumpAfter.inSeconds &&
+      canRaise &&
       !_bumpDismissed &&
       !_assigned &&
       !_assignmentPending &&
@@ -228,14 +229,49 @@ class FindingDriverController {
   /// [maxOfferPrice] are whole units of it.
   String get currency => _snapshot?.currency ?? Money.defaultCurrency;
 
-  /// ARCH-20: the ceiling the booking carries (server or booked fare), so a
-  /// raised offer plus a reload does not lift it; the catalog rule only for
-  /// a snapshot without one.
+  /// Contract v0.18.6 `RiderAppConfig.raisePrice.maxFactor` of the trip's
+  /// zone (owner G4-E4 "2×, admin can change"). The Finding screen sets it
+  /// from the zone's config and again on every new config version.
+  double get raiseMaxFactor => _raiseMaxFactor;
+  double _raiseMaxFactor = RaiseLimit.defaultMaxFactor;
+  set raiseMaxFactor(double value) {
+    final valid = RaiseLimit.validFactor(value);
+    if (valid == null || valid == _raiseMaxFactor) return;
+    _raiseMaxFactor = valid;
+    _onTick?.call(elapsedSeconds);
+  }
+
+  /// The highest fare the rider may offer. v0.18.6 (G4-E4): the zone's
+  /// [raiseMaxFactor] × the booked fare, as the server checks it. ARCH-20:
+  /// a snapshot without the booked fare keeps the ceiling it carries, so a
+  /// raised offer plus a reload does not lift it; else the factor × the
+  /// fare this search started at.
   double get maxOfferPrice {
+    final booked = _snapshot?.bookedFareMinor;
+    if (booked != null) {
+      return Money(
+        RaiseLimit.ceilingMinor(booked, _raiseMaxFactor),
+        currency,
+      ).major;
+    }
     final minor = _snapshot?.maxOfferMinor;
     if (minor != null) return Money(minor, currency).major;
-    return FareRules.maximum(_catalogPrice ?? currentPrice);
+    final start = Money.fromLegacyMajor(
+      _catalogPrice ?? currentPrice,
+      currency,
+    ).amountMinor;
+    return Money(
+      RaiseLimit.ceilingMinor(start, _raiseMaxFactor),
+      currency,
+    ).major;
   }
+
+  /// v0.18.6 (G4-E4): false when not even one whole unit of the currency
+  /// fits under [maxOfferPrice]; the raise card is then not shown at all.
+  bool get canRaise =>
+      Money.fromLegacyMajor(currentPrice, currency).amountMinor +
+          Money.minorPerMajor(currency) <=
+      Money.fromLegacyMajor(maxOfferPrice, currency).amountMinor;
 
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
@@ -273,6 +309,7 @@ class FindingDriverController {
     DateTime? searchStartedAt,
     DateTime? createdAt,
     int? maxOfferMinor,
+    int? bookedFareMinor,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
@@ -303,6 +340,10 @@ class FindingDriverController {
         maxOfferMinor: rideId == null
             ? null
             : maxOfferMinor ?? session.bookedMaxOfferMinor,
+        // v0.18.6 (G4-E4): the booked fare the raise limit is counted from.
+        bookedFareMinor: rideId == null
+            ? null
+            : bookedFareMinor ?? session.bookedFareMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
@@ -915,14 +956,15 @@ class FindingDriverController {
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
-    final catalog = _catalogPrice ?? snapshot.price;
     final next = Money(
       snapshot.fare.amountMinor + increase.amountMinor,
       currency,
     ).major;
-    if (next > maxOfferPrice ||
-        (snapshot.maxOfferMinor == null &&
-            !FareRules.allowsTotal(total: next, catalog: catalog))) {
+    // v0.18.6 (G4-E4): never above the zone's raise limit.
+    if (snapshot.fare.amountMinor + increase.amountMinor >
+        Money.fromLegacyMajor(maxOfferPrice, currency).amountMinor) {
+      editFeedback = L10n.current.raiseAboveLimit;
+      _onTick?.call(elapsedSeconds);
       return false;
     }
     if (await _walletCannotPay(snapshot, next)) {
@@ -1020,6 +1062,7 @@ class FindingDriverController {
         price: serverPrice,
         savedAt: DateTime.now(),
         maxOfferMinor: _serverMaxOfferMinor(response),
+        bookedFareMinor: _serverBookedFareMinor(response),
       );
       await _store.save(_snapshot!);
       if (_appliedEditDropped(editToken)) return false;
@@ -1036,6 +1079,17 @@ class FindingDriverController {
       _reportQa();
       return true;
     } catch (error) {
+      if (_raiseTooHigh(error)) {
+        // v0.18.6 (G4-E4): the server's limit is lower than this screen
+        // knew (the admin lowered it). Nothing changed; the zone's config
+        // is read again so the buttons over the limit go away.
+        _priceMutation.reset();
+        editFeedback = L10n.current.raiseAboveLimit;
+        onRaiseLimitRefused?.call();
+        _onTick?.call(elapsedSeconds);
+        _reportQa();
+        return false;
+      }
       editFeedback = _staleEdit(error, _priceMutation)
           ? rideJustChangedMessage
           : L10n.current.editOfferFailed;
@@ -1046,6 +1100,14 @@ class FindingDriverController {
       _finishEdit(editToken);
     }
   }
+
+  /// v0.18.6 (G4-E4): `400 invalid_request` with reason `raise_too_high`.
+  static bool _raiseTooHigh(Object error) =>
+      error is ApiError && error.detail == RaiseLimit.tooHighReason;
+
+  /// Called when the server refused a raise as above the zone's limit, so
+  /// the screen reads the zone's config (and its limit) again.
+  void Function()? onRaiseLimitRefused;
 
   /// R-O2: an edit refused as stale changed nothing; its key is dropped so
   /// the rider's next try is a new request on the trip as it is now. The
@@ -1066,6 +1128,15 @@ class FindingDriverController {
       );
     }
     return true;
+  }
+
+  /// The booked fare the server's answer carries, when it says.
+  int? _serverBookedFareMinor(Map<String, dynamic> response) {
+    final ride = response['ride'];
+    return RaiseLimit.bookedFareMinorOf(
+      ride is Map ? ride : response,
+      currency,
+    );
   }
 
   /// The offer ceiling the server says the ride has, when it says.

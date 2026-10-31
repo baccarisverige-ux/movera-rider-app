@@ -8,6 +8,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/raise_limit.dart';
 import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
@@ -877,10 +878,19 @@ class BookingCoordinator {
           FareRules.maximum(price),
           quoteCurrency,
         ).amountMinor;
+    // v0.18.6 (G4-E4): the booked fare the raise limit counts from: the
+    // server's quote total, else the price booked here.
+    final createdRide = _created(json);
+    final bookedFareMinor =
+        (createdRide == null
+            ? null
+            : RaiseLimit.bookedFareMinorOf(createdRide, quoteCurrency)) ??
+        Money.fromLegacyMajor(price, quoteCurrency).amountMinor;
     session
       ..bookedCategoryId = rideType
       ..bookedPaymentMethodId = paymentMethod
-      ..bookedMaxOfferMinor = maxOfferMinor;
+      ..bookedMaxOfferMinor = maxOfferMinor
+      ..bookedFareMinor = bookedFareMinor;
     final now = DateTime.now();
     // ARCH-1 / RIDE-17: the first snapshot already carries the server's
     // ordering (version + updatedAt) and the stops, so a reload in the first
@@ -896,6 +906,7 @@ class BookingCoordinator {
         categoryId: rideType,
         paymentMethodId: paymentMethod,
         maxOfferMinor: maxOfferMinor,
+        bookedFareMinor: bookedFareMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
