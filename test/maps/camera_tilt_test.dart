@@ -133,16 +133,19 @@ void main() {
       expect(_zoom(fake.poses.single), 11.7);
     });
 
-    test('recenter is street zoom 15 with that zoom\'s tilt', () async {
+    test('recenter is the owner\'s zoom 13.8 with that zoom\'s tilt', () async {
       final camera = MapCameraController(maps);
       await camera.followUser(const GeoPoint(59.33, 18.06));
-      expect(recenterZoom, 15);
-      expect(_zoom(fake.poses.single), 15);
-      expect(_tilt(fake.poses.single), closeTo(tiltForZoom(15), 1e-9));
-      expect(_tilt(fake.poses.single), greaterThan(57));
-      // A recentred map hides the recenter button.
-      expect(camera.showRecenter(zoom: 15, metersFromUser: 0), isFalse);
+      expect(recenterZoom, 13.8);
+      expect(_zoom(fake.poses.single), 13.8);
+      expect(_tilt(fake.poses.single), closeTo(tiltForZoom(13.8), 1e-9));
+      expect(_tilt(fake.poses.single), closeTo(67.5 * 1.8 / 3.5, 1e-9));
+      // A recentred map hides the recenter button; so does the rider's own
+      // closer pinch on the same spot. Zoomed well out, it shows.
+      expect(camera.showRecenter(zoom: 13.8, metersFromUser: 0), isFalse);
+      expect(camera.showRecenter(zoom: 16, metersFromUser: 0), isFalse);
       expect(camera.showRecenter(zoom: 13, metersFromUser: 0), isTrue);
+      expect(camera.showRecenter(zoom: 13.8, metersFromUser: 80), isTrue);
     });
 
     test('a whole-route fit is flat, a close fit leans', () async {

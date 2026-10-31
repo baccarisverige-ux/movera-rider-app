@@ -4,9 +4,13 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 
-/// Recenter zoom on every rider map, the driver app's guidance zoom: street
-/// level, tilted ~58° by the zoom's tilt curve.
-const double recenterZoom = 15;
+/// Zoom the location (recenter) button flies to on every rider map (owner,
+/// 2026-10-31: "I meant with localisation botton ! But with two finger he
+/// can zoom !!"). Measured from the owner's iPhone screenshot of rider Home
+/// in Södertälje: zoom 13.8, tilted ~35° by the zoom's tilt curve. Only the
+/// button (and the locate glide it starts) uses it; pinch, double tap and
+/// wheel still zoom in further.
+const double recenterZoom = 13.8;
 
 class MapCameraController {
   MapCameraController(this._maps, {LocationRepository? location})
@@ -16,7 +20,7 @@ class MapCameraController {
   final stale = StaleGuard();
 
   /// The map is off the rider: zoomed well out of [recenterZoom], or moved
-  /// away. A recentred map (zoom 15) hides the button.
+  /// away. A recentred map ([recenterZoom]) hides the button.
   bool showRecenter({required double zoom, required double metersFromUser}) {
     return zoom < recenterZoom - 0.5 || metersFromUser > 35;
   }

@@ -160,5 +160,16 @@ const steps = moves => {
   for (let i = 0; i < 30; i++) frame();
   out.cancel = {pose: at, live: map.pose(), movedAfter: map.moves.length - 2};
 
+  // Owner 2026-10-31: the location button's zoom 13.8 is no limit for the
+  // rider's fingers. A long two-finger pinch out from 13 goes past it.
+  const fingers = (...xs) => xs.map(x => ({clientX: x, clientY: 300}));
+  const fire = (type, touches) => listeners[type].forEach(l => l({type, touches,
+    preventDefault() {}, stopImmediatePropagation() {}, target: {}}));
+  place({...start, zoom: 13});
+  fire('touchstart', fingers(170, 220));
+  for (let i = 1; i <= 20; i++) fire('touchmove', fingers(170 - 8 * i, 220 + 8 * i));
+  fire('touchend', []);
+  out.pinch = {zoom: map.zoom};
+
   process.stdout.write(JSON.stringify(out));
 })();

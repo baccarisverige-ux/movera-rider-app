@@ -73,4 +73,16 @@ void main() {
     expect(cancel['pose'], cancel['live']);
     expect(cancel['movedAfter'], 0);
   }, skip: _hasNode() ? false : 'node is not installed');
+
+  test('rider-02d: two fingers zoom past the location button\'s 13.8 '
+      '(owner 2026-10-31)', () async {
+    final run = await Process.run('node', [
+      'test/web/rider_map_camera_harness.js',
+      'web/rider_map_camera.js',
+    ]);
+    expect(run.exitCode, 0, reason: '${run.stderr}');
+    final out = jsonDecode(run.stdout as String) as Map<String, dynamic>;
+    final pinch = out['pinch'] as Map<String, dynamic>;
+    expect(pinch['zoom'] as num, greaterThan(13.8));
+  }, skip: _hasNode() ? false : 'node is not installed');
 }
