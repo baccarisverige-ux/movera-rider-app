@@ -418,6 +418,12 @@ if not (_rp['maxFactor'] == c['configDefaults']['raiseMaxFactor'] == ddoc['raise
 _push = c['driverOffers']['push']
 if _push['sound'] != {'exclusive': 'offer', 'assigned': 'offer', 'radar': 'none'} or _push['vibrate'] != {'exclusive': True, 'assigned': True, 'radar': False}: bad += 1; print('OFFER PUSH sound rule (E6)')
 if dcfg['offers']['offerCard'].get('riderRating') is not c['configDefaults']['offerCardRiderRating'] is not True or 'exclusiveReasons' in dcfg['offers']: bad += 1; print('OFFER CARD rider rating / why-you line')
+# v0.18.6 (G4-F2..F6, offline reason): every text in sv / fr / en, no surge word; ranges sane.
+for _p, _t in list(_texts(c['dispatchTools'])) + list(_texts(c['driverHome']['setOffline']['reasons'])):
+    if any(not _t[l].strip() for l in ('sv', 'fr', 'en')): bad += 1; print('EMPTY TEXT', _p)
+    if any(w.lower() in _t[l].lower() for l in ('sv', 'fr', 'en') for w in c['driverSurgeMap']['forbiddenWords'][l]): bad += 1; print('SURGE WORD', _p)
+if set(c['driverHome']['setOffline']['offlineReasons']) | {'app_restart'} != set(c['driverHome']['setOffline']['reasons']): bad += 1; print('OFFLINE REASONS')
+if c['dispatchTools']['radarZones']['ranges'] != {'seconds': [5, 120], 'maxDrivers': [1, 10]} or c['dispatchTools']['groups']['sendMax'] != c['adminDispatch']['radarGroup']['maxDrivers']: bad += 1; print('DISPATCH TOOLS ranges')
 # v0.7.2: the driver map's colour levels (contract.json#driverSurgeMap.levels)
 def surge_level(m):
     return None if m <= 1.0 else 'low' if m < 1.5 else 'medium' if m <= 2.5 else 'high'

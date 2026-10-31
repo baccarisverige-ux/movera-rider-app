@@ -2112,6 +2112,93 @@ op("get", "/admin/legal/{country}", "adminGetLegal", "The live legal texts of a 
 op("post", "/admin/legal/{country}/publish", "adminPublishLegal", "Publish new legal texts for a country", ["admin"], "Admin · Config", params=[pref("LegalCountryPath")], body="LegalPublishCommand", ok=(200, "LegalVersion"), mutation=True, permission="settings.publish", desc="v0.18.5: " + LG["admin"] + " " + LG["company"])
 op("post", "/account/legal/accept", "acceptLegal", "Accept the live legal texts of a country", ["rider", "driver"], "Account", body="LegalAcceptCommand", ok=(204, None), mutation=True, desc="v0.18.5: " + LG["accept"])
 
+
+# ---------------------------------------------------------------- v0.18.6: driver group 4 Dispatch tools (G4-F1..F6) and offline reason
+DT = C["dispatchTools"]
+SO6 = C["driverHome"]["setOffline"]
+S["Driver"]["properties"].update({
+    "offlineReason": s("v0.18.6 (owner 'Send the real reason'): why the server set the driver offline; only while onlineStatus is offline, cleared on going online. " + SO6["offlineReason"], enum=SO6["offlineReasons"]),
+    "offlineNote": s("v0.18.6: with offlineReason vehicle_blocked, the admin's note.", maxLength=1000),
+    "offlineAt": ref("Timestamp"),
+})
+for nm in ["presetId", "groupId", "radarZoneId", "ruleId", "eventId"]:
+    PARAMS[nm[0].upper() + nm[1:]] = path_id(nm)
+PARAMS["CountryQuery"] = {"name": "country", "in": "query", "required": False, "description": "v0.18.6: one country (SE, FR); without it every country in the admin's scope.", "schema": ref("CountryCode")}
+PARAMS["ExpectedVersionQuery"] = {"name": "expectedVersion", "in": "query", "required": True, "schema": {"type": "integer", "minimum": 1}}
+NAME40 = s(minLength=1, maxLength=40)
+AUD = {"version": i(minimum=1), "createdBy": ref("Id"), "createdAt": ref("Timestamp"), "updatedBy": ref("Id"), "updatedAt": ref("Timestamp")}
+S["DispatchPresetValues"] = {"type": "object", "description": "v0.18.6 (F2): a DispatchDocument without version, publishedAt, zoneId, country, timeZone, usesStandard.", "additionalProperties": True}
+S["DispatchPreset"] = obj(dict({"presetId": ref("Id"), "country": ref("CountryCode"), "name": NAME40, "values": ref("DispatchPresetValues")}, **AUD),
+                          ["presetId", "country", "name", "values", "version", "createdAt"], "v0.18.6: " + DT["presets"]["note"])
+S["DispatchPresetCreate"] = obj({"country": ref("CountryCode"), "name": NAME40, "values": ref("DispatchPresetValues")}, ["country", "name", "values"])
+S["DispatchPresetUpdate"] = obj({"expectedVersion": i(minimum=1), "name": NAME40, "values": ref("DispatchPresetValues")}, ["expectedVersion"])
+S["DispatchPresetList"] = obj({"items": arr(ref("DispatchPreset"))}, ["items"])
+S["DriverGroup"] = obj(dict({"groupId": ref("Id"), "country": ref("CountryCode"), "name": NAME40, "driverIds": arr(ref("Id"), maxItems=DT["groups"]["maxDrivers"], uniqueItems=True)}, **AUD),
+                       ["groupId", "country", "name", "driverIds", "version", "createdAt"], "v0.18.6: " + DT["groups"]["note"])
+S["DriverGroupCreate"] = obj({"country": ref("CountryCode"), "name": NAME40, "driverIds": arr(ref("Id"), maxItems=DT["groups"]["maxDrivers"], uniqueItems=True)}, ["country", "name", "driverIds"])
+S["DriverGroupUpdate"] = obj({"expectedVersion": i(minimum=1), "name": NAME40, "driverIds": arr(ref("Id"), maxItems=DT["groups"]["maxDrivers"], uniqueItems=True)}, ["expectedVersion"])
+S["DriverGroupList"] = obj({"items": arr(ref("DriverGroup"))}, ["items"])
+S["RadarZone"] = obj(dict({"radarZoneId": ref("Id"), "country": ref("CountryCode"), "zoneId": ref("Id"), "name": NAME40, "polygon": ref("ZonePolygon")}, **AUD),
+                     ["radarZoneId", "country", "zoneId", "name", "polygon", "version", "createdAt"], "v0.18.6: " + DT["radarZones"]["note"])
+S["RadarZoneCreate"] = obj({"zoneId": ref("Id"), "name": NAME40, "polygon": ref("ZonePolygon")}, ["zoneId", "name", "polygon"], "The country is the zone's.")
+S["RadarZoneUpdate"] = obj({"expectedVersion": i(minimum=1), "name": NAME40, "polygon": ref("ZonePolygon")}, ["expectedVersion"])
+S["RadarZoneList"] = obj({"items": arr(ref("RadarZone"))}, ["items"])
+RZR = DT["radarZones"]["ranges"]
+RULE = {"name": NAME40, "radarZoneIds": {"oneOf": [s(const="all"), arr(ref("Id"), minItems=1, uniqueItems=True)]},
+        "seconds": i(minimum=RZR["seconds"][0], maximum=RZR["seconds"][1]), "maxDrivers": i(minimum=RZR["maxDrivers"][0], maximum=RZR["maxDrivers"][1]), "repeat": b("Send again by itself until taken (F4).")}
+S["RadarZoneRule"] = obj(dict({"ruleId": ref("Id"), "country": ref("CountryCode")}, **RULE, **AUD),
+                         ["ruleId", "country", "name", "radarZoneIds", "seconds", "maxDrivers", "repeat", "version", "createdAt"], "v0.18.6 (F4)")
+S["RadarZoneRuleCreate"] = obj(dict({"country": ref("CountryCode")}, **RULE), ["country", "name", "radarZoneIds", "seconds", "maxDrivers", "repeat"])
+S["RadarZoneRuleUpdate"] = obj(dict({"expectedVersion": i(minimum=1)}, **RULE), ["expectedVersion"])
+S["RadarZoneRuleList"] = obj({"items": arr(ref("RadarZoneRule"))}, ["items"])
+S["RadarZoneSend"] = obj({"sendId": ref("Id"), "tripId": ref("Id"), "radarZoneId": ref("Id"), "ruleId": ref("Id"), "seconds": i(), "intervalSeconds": i("Same as seconds: the time between rounds."), "maxDrivers": i(), "repeat": b(), "active": b(),
+                          "rounds": i(minimum=1), "startedAt": ref("Timestamp"), "stoppedAt": ref("Timestamp"),
+                          "stopReason": s(enum=["admin", "accepted", "search_ended", "trip_over", "replaced"])},
+                         ["sendId", "tripId", "radarZoneId", "ruleId", "seconds", "intervalSeconds", "maxDrivers", "repeat", "active", "rounds", "startedAt"], "v0.18.6 (F4): " + DT["radarZones"]["sendView"])
+S["TripProjection"]["properties"]["radarZoneSend"] = {"allOf": [ref("RadarZoneSend")], "description": "v0.18.6 (G4-F4), admin view of GET /admin/trips/{tripId} only: the trip's repeating radar-zone send while it is active; absent once a driver accepted, an admin stopped it, the search ended or the trip ended."}
+S["RadarZoneFree"] = obj({"radarZoneId": ref("Id"), "free": i(minimum=0), "at": ref("Timestamp")}, ["radarZoneId", "free", "at"], "v0.18.6 (F4): free drivers inside the radar zone now.")
+S["RadarZoneStopCommand"] = obj({"note": s(maxLength=1000)})
+S["LocalizedText"] = obj({"sv": s(minLength=1), "fr": s(minLength=1), "en": s(minLength=1)}, ["sv", "fr", "en"])
+S["EventDetails"] = obj({"title": ref("LocalizedText"), "description": ref("LocalizedText"), "pickupNote": ref("LocalizedText")}, ["title", "description"],
+                        "title ≤ 80, description ≤ 1000, pickupNote ≤ 300 characters per language.")
+S["LatLngPoint"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180)}, ["lat", "lng"])
+EVF = {"name": s(minLength=1, maxLength=80), "location": ref("LatLngPoint"), "polygon": ref("ZonePolygon"), "startsAt": ref("Timestamp"), "endsAt": ref("Timestamp"), "on": b(), "details": ref("EventDetails")}
+S["DispatchEvent"] = obj(dict({"eventId": ref("Id"), "country": ref("CountryCode")}, **EVF, **AUD),
+                         ["eventId", "country", "name", "location", "startsAt", "endsAt", "on", "details", "version", "createdAt"], "v0.18.6: " + DT["events"]["note"])
+S["DispatchEventCreate"] = obj(dict({"country": ref("CountryCode")}, **EVF), ["country", "name", "location", "startsAt", "endsAt", "details"], "on defaults to true.")
+S["DispatchEventUpdate"] = obj(dict({"expectedVersion": i(minimum=1)}, **EVF), ["expectedVersion"])
+S["DispatchEventList"] = obj({"items": arr(ref("DispatchEvent"))}, ["items"])
+S["DriverEvent"] = obj({"eventId": ref("Id"), "name": s(), "location": ref("LatLngPoint"), "polygon": ref("ZonePolygon"), "startsAt": ref("Timestamp"), "endsAt": ref("Timestamp"),
+                        "running": b(), "title": s(), "description": s(), "pickupNote": s(), "language": ref("Language")},
+                       ["eventId", "name", "location", "startsAt", "endsAt", "running", "title", "description", "language"], "v0.18.6 (F6): " + DT["events"]["driverEntity"])
+S["DriverEventList"] = obj({"items": arr(ref("DriverEvent")), "at": ref("Timestamp")}, ["items", "at"])
+S["AdminRadarGroupCommand"]["required"] = ["expectedVersion"]
+S["AdminRadarGroupCommand"]["properties"].update({"groupId": ref("Id"), "radarZoneId": ref("Id"), "ruleId": ref("Id")})
+S["AdminRadarGroupCommand"]["description"] += " " + C["adminDispatch"]["radarGroup"]["v0186"]
+S["AdminRadarGroup"]["properties"].update({"pickedFrom": s(enum=["drivers", "group", "radar_zone"]), "radarZoneSend": ref("RadarZoneSend")})
+ADM = "Admin · Dispatch"
+def crud(base, idp, ent, plural, label, audit):
+    op("get", f"/admin/dispatch/{base}", f"adminList{plural}", f"{label}s per country", ["admin"], ADM, params=[pref("CountryQuery")], ok=(200, f"{ent}List"), permission=DT["permissions"]["read"])
+    op("post", f"/admin/dispatch/{base}", f"adminCreate{ent}", f"Create a {label.lower()}", ["admin"], ADM, body=f"{ent}Create", ok=(201, ent), mutation=True, permission=DT["permissions"]["write"],
+       desc=f"v0.18.6. Audited ({audit}.create). 409 name_taken.")
+    op("put", f"/admin/dispatch/{base}/{{{idp}}}", f"adminUpdate{ent}", f"Change a {label.lower()}", ["admin"], ADM, params=[pref(idp[0].upper() + idp[1:])], body=f"{ent}Update", ok=(200, ent), mutation=True,
+       permission=DT["permissions"]["write"], desc=f"v0.18.6. Audited ({audit}.update). 409 version_mismatch / name_taken.")
+    op("delete", f"/admin/dispatch/{base}/{{{idp}}}", f"adminDelete{ent}", f"Delete a {label.lower()}", ["admin"], ADM, params=[pref(idp[0].upper() + idp[1:]), pref("ExpectedVersionQuery")], ok=(204, None), mutation=True,
+       permission=DT["permissions"]["write"], desc=f"v0.18.6. Audited ({audit}.delete).")
+crud("presets", "presetId", "DispatchPreset", "DispatchPresets", "Dispatch preset", "dispatch.preset")
+crud("groups", "groupId", "DriverGroup", "DriverGroups", "Driver group", "dispatch.group")
+crud("radar-zones", "radarZoneId", "RadarZone", "RadarZones", "Radar zone", "dispatch.radar_zone")
+crud("radar-rules", "ruleId", "RadarZoneRule", "RadarZoneRules", "Radar zone rule", "dispatch.radar_rule")
+crud("events", "eventId", "DispatchEvent", "DispatchEvents", "Event", "dispatch.event")
+op("get", "/admin/dispatch/radar-zones/{radarZoneId}/free", "adminRadarZoneFree", "Free drivers inside a radar zone now", ["admin"], ADM,
+   params=[pref("RadarZoneId"), q("categoryId", ref("CategoryId"))], ok=(200, "RadarZoneFree"), permission=DT["permissions"]["read"])
+op("post", "/admin/trips/{tripId}/radar-zone/stop", "adminStopRadarZone", "Stop the repeating radar-zone send of a trip", ["admin"], ADM,
+   params=TID, body="RadarZoneStopCommand", ok=(200, "RadarZoneSend"), mutation=True, permission=DT["permissions"]["send"],
+   desc="v0.18.6 (F4). Audited (trip.radar_zone_stop). 404 radar_zone_send_not_found when none runs.")
+op("get", "/driver/events", "listDriverEvents", "Events on the driver's map (running and upcoming)", ["driver"], "Driver · Home", ok=(200, "DriverEventList"),
+   desc="v0.18.6 (F6): " + DT["events"]["note"])
+
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

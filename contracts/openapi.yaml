@@ -79,6 +79,7 @@ tags:
 - name: Admin · Zones
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 - name: Rider · Trip
+- name: Driver · Home
 x-contract:
   name: movera
   version: 0.18.6
@@ -10603,6 +10604,971 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/presets:
+    get:
+      operationId: adminListDispatchPresets
+      summary: Dispatch presets per country
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/CountryQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchPresetList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateDispatchPreset
+      summary: Create a dispatch preset
+      description: v0.18.6. Audited (dispatch.preset.create). 409 name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchPresetCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchPreset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/presets/{presetId}:
+    put:
+      operationId: adminUpdateDispatchPreset
+      summary: Change a dispatch preset
+      description: v0.18.6. Audited (dispatch.preset.update). 409 version_mismatch / name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/PresetId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchPresetUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchPreset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminDeleteDispatchPreset
+      summary: Delete a dispatch preset
+      description: v0.18.6. Audited (dispatch.preset.delete).
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/PresetId'
+      - $ref: '#/components/parameters/ExpectedVersionQuery'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/groups:
+    get:
+      operationId: adminListDriverGroups
+      summary: Driver groups per country
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/CountryQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverGroupList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateDriverGroup
+      summary: Create a driver group
+      description: v0.18.6. Audited (dispatch.group.create). 409 name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverGroupCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/groups/{groupId}:
+    put:
+      operationId: adminUpdateDriverGroup
+      summary: Change a driver group
+      description: v0.18.6. Audited (dispatch.group.update). 409 version_mismatch / name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverGroupUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminDeleteDriverGroup
+      summary: Delete a driver group
+      description: v0.18.6. Audited (dispatch.group.delete).
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/ExpectedVersionQuery'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/radar-zones:
+    get:
+      operationId: adminListRadarZones
+      summary: Radar zones per country
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/CountryQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateRadarZone
+      summary: Create a radar zone
+      description: v0.18.6. Audited (dispatch.radar_zone.create). 409 name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadarZoneCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/radar-zones/{radarZoneId}:
+    put:
+      operationId: adminUpdateRadarZone
+      summary: Change a radar zone
+      description: v0.18.6. Audited (dispatch.radar_zone.update). 409 version_mismatch / name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/RadarZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadarZoneUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminDeleteRadarZone
+      summary: Delete a radar zone
+      description: v0.18.6. Audited (dispatch.radar_zone.delete).
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/RadarZoneId'
+      - $ref: '#/components/parameters/ExpectedVersionQuery'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/radar-rules:
+    get:
+      operationId: adminListRadarZoneRules
+      summary: Radar zone rules per country
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/CountryQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneRuleList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateRadarZoneRule
+      summary: Create a radar zone rule
+      description: v0.18.6. Audited (dispatch.radar_rule.create). 409 name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadarZoneRuleCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/radar-rules/{ruleId}:
+    put:
+      operationId: adminUpdateRadarZoneRule
+      summary: Change a radar zone rule
+      description: v0.18.6. Audited (dispatch.radar_rule.update). 409 version_mismatch / name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/RuleId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadarZoneRuleUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminDeleteRadarZoneRule
+      summary: Delete a radar zone rule
+      description: v0.18.6. Audited (dispatch.radar_rule.delete).
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/RuleId'
+      - $ref: '#/components/parameters/ExpectedVersionQuery'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/events:
+    get:
+      operationId: adminListDispatchEvents
+      summary: Events per country
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/CountryQuery'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchEventList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateDispatchEvent
+      summary: Create a event
+      description: v0.18.6. Audited (dispatch.event.create). 409 name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchEventCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/events/{eventId}:
+    put:
+      operationId: adminUpdateDispatchEvent
+      summary: Change a event
+      description: v0.18.6. Audited (dispatch.event.update). 409 version_mismatch / name_taken.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/EventId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchEventUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminDeleteDispatchEvent
+      summary: Delete a event
+      description: v0.18.6. Audited (dispatch.event.delete).
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: dispatch.edit
+      parameters:
+      - $ref: '#/components/parameters/EventId'
+      - $ref: '#/components/parameters/ExpectedVersionQuery'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/dispatch/radar-zones/{radarZoneId}/free:
+    get:
+      operationId: adminRadarZoneFree
+      summary: Free drivers inside a radar zone now
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/RadarZoneId'
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CategoryId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneFree'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/radar-zone/stop:
+    post:
+      operationId: adminStopRadarZone
+      summary: Stop the repeating radar-zone send of a trip
+      description: v0.18.6 (F4). Audited (trip.radar_zone_stop). 404 radar_zone_send_not_found when none runs.
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.intervene
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadarZoneStopCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadarZoneSend'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/events:
+    get:
+      operationId: listDriverEvents
+      summary: Events on the driver's map (running and upcoming)
+      description: 'v0.18.6 (F6): F6 (owner ''small premium icon at the exact location of the event; tap → all details''):
+        events per country made by the admin: name, the exact point (location { lat, lng }, where the icon stands), an optional
+        area (polygon), startsAt / endsAt (UTC, endsAt after startsAt), on/off and details in sv / fr / en (title, description,
+        pickupNote; each language required, title ≤ 80, description ≤ 1000, pickupNote ≤ 300). Drivers: GET /driver/events
+        → { items: DriverEvent[], at } = the events that are on and not ended (running or upcoming within upcomingDays) of
+        the driver''s country (the country of his zones), soonest first, the texts in the driver''s language (else English,
+        else the country''s language). The driver app shows a small premium event icon on the Home map at location; a tap
+        shows name, time, place and the details. Refresh: when an event of his country is created, changed or deleted, every
+        driver config stream of that country gets a config_published with doc ''events'' (zoneId = the stream''s zone); the
+        app then reads GET /driver/events again (also on start and coming back to the front). No dispatch change, no rider
+        change, no notice (owner did not ask). The driver app''s built-in demo events are removed on live.'
+      tags:
+      - Driver · Home
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverEventList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -10907,6 +11873,50 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/LegalCountry'
+    PresetId:
+      name: presetId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    GroupId:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    RadarZoneId:
+      name: radarZoneId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    CountryQuery:
+      name: country
+      in: query
+      required: false
+      description: 'v0.18.6: one country (SE, FR); without it every country in the admin''s scope.'
+      schema:
+        $ref: '#/components/schemas/CountryCode'
+    ExpectedVersionQuery:
+      name: expectedVersion
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 1
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -11830,6 +12840,11 @@ components:
           - $ref: '#/components/schemas/DriverSilentAlert'
           description: 'v0.7.0 (CONTRACT.md §15), admin view only: the rider is on board and the server has had no driver
             position for 30 min ("car lost"). Gone when positions come back. Changing it does not change version.'
+        radarZoneSend:
+          allOf:
+          - $ref: '#/components/schemas/RadarZoneSend'
+          description: 'v0.18.6 (G4-F4), admin view of GET /admin/trips/{tripId} only: the trip''s repeating radar-zone send
+            while it is active; absent once a driver accepted, an admin stopped it, the search ended or the trip ended.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -12333,6 +13348,35 @@ components:
               minimum: 0
             lastReminderAt:
               $ref: '#/components/schemas/Timestamp'
+        offlineReason:
+          type: string
+          enum:
+          - no_position
+          - missed_offers
+          - vehicle_blocked
+          - fleet_removed
+          - account_status
+          - admin
+          description: 'v0.18.6 (owner ''Send the real reason''): why the server set the driver offline; only while onlineStatus
+            is offline, cleared on going online. v0.18.6 (owner 2026-10-31 ''Send the real reason'', Rules decisions/driver-g3.md):
+            every time the SERVER sets a driver offline it stores why: Driver.offlineReason (no_position | missed_offers |
+            vehicle_blocked | fleet_removed | account_status | admin), Driver.offlineNote (only vehicle_blocked: the admin''s
+            note) and Driver.offlineAt, on GET /driver/profile (and the admin driver view) while onlineStatus is offline;
+            cleared when the driver goes online again. The server also sends the set_offline bell + push notice with data
+            { reason, note?, minutes? (no_position), count? (missed_offers) } for every server reason; its body is the reason
+            text (no_position keeps ''Tap to go online again''). Paths: the no-position job (no_position), auto-offline after
+            missed offers (missed_offers), car review rejected / blocked (vehicle_blocked), removed from the fleet or fleet
+            blocked (fleet_removed), account status not active (account_status), and the end of a trip when the driver, car
+            or fleet was blocked during it (account_status / vehicle_blocked / fleet_removed). A driver who leaves his fleet
+            himself or starts his own company gets no reason (his own action). app_restart is set by the app only. Outside
+            his area never sets a driver offline. The driver app''s offline card shows reasons[offlineReason] in sv / fr /
+            en.'
+        offlineNote:
+          type: string
+          maxLength: 1000
+          description: 'v0.18.6: with offlineReason vehicle_blocked, the admin''s note.'
+        offlineAt:
+          $ref: '#/components/schemas/Timestamp'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -18456,10 +19500,11 @@ components:
     AdminRadarGroupCommand:
       type: object
       description: 'Radar group: one radar offer per chosen driver on the zone''s normal timer; the first to accept wins.
-        Repeatable until locked.'
+        Repeatable until locked. v0.18.6 (G4-F3, F4): AdminRadarGroupCommand takes exactly one of driverIds (as before), groupId
+        (a driver group: the server picks its free members, nearest first, max 10) or radarZoneId + ruleId (free drivers inside
+        the radar zone, rule''s seconds and maxDrivers, repeat). contract.json#dispatchTools.'
       required:
       - expectedVersion
-      - driverIds
       properties:
         expectedVersion:
           type: integer
@@ -18482,6 +19527,12 @@ components:
         priority:
           type: boolean
           description: Show the Priority badge on the offer.
+        groupId:
+          $ref: '#/components/schemas/Id'
+        radarZoneId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
     AdminRadarGroup:
       type: object
       required:
@@ -18505,6 +19556,14 @@ components:
           description: Countdown end shown to the admin.
         projection:
           $ref: '#/components/schemas/TripProjection'
+        pickedFrom:
+          type: string
+          enum:
+          - drivers
+          - group
+          - radar_zone
+        radarZoneSend:
+          $ref: '#/components/schemas/RadarZoneSend'
     AdminDriverBonusCommand:
       type: object
       description: Add money to the trip for the driver (paid by Movera). Open offers are updated (offer_updated) with the
@@ -21132,3 +22191,671 @@ components:
         version:
           type: integer
           minimum: 1
+    DispatchPresetValues:
+      type: object
+      description: 'v0.18.6 (F2): a DispatchDocument without version, publishedAt, zoneId, country, timeZone, usesStandard.'
+      additionalProperties: true
+    DispatchPreset:
+      type: object
+      description: 'v0.18.6: F2 (owner ''Per country only''): saved Dispatch presets per country. values = a DispatchDocument
+        without version, publishedAt, zoneId, country, timeZone and usesStandard (checked like the document; 400 invalid_document).
+        Any admin with dispatch.edit may save, rename, change or delete one. Applying a preset is the panel''s job: it copies
+        values into the zone''s dispatch draft (PUT /admin/config/dispatch) and publishes as usual.'
+      required:
+      - presetId
+      - country
+      - name
+      - values
+      - version
+      - createdAt
+      properties:
+        presetId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        values:
+          $ref: '#/components/schemas/DispatchPresetValues'
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    DispatchPresetCreate:
+      type: object
+      required:
+      - country
+      - name
+      - values
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        values:
+          $ref: '#/components/schemas/DispatchPresetValues'
+    DispatchPresetUpdate:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        values:
+          $ref: '#/components/schemas/DispatchPresetValues'
+    DispatchPresetList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchPreset'
+    DriverGroup:
+      type: object
+      description: 'v0.18.6: F3 (owner ''Free ones, nearest first''): driver groups per country, admin only (drivers are never
+        told). Every driver must be of the group''s country (400 invalid_request, reason driver_not_in_country); at most 200
+        drivers. Send to a group: POST /admin/trips/{tripId}/radar-group { expectedVersion, groupId } — the server picks the
+        group''s FREE members (account active, online, not on a trip, a position newer than 120 s, the trip''s category, no
+        open offer for this trip), nearest to the pickup first, at most 10, and sends them a radar offer each (as a radar
+        group). A member who is not free is skipped, never an error; 409 conflict, reason no_free_driver, only when no member
+        is free. Reservations will use groups with group 15 (a group used by a reservation rule will then be 409 group_in_use
+        on delete; nothing uses groups yet).'
+      required:
+      - groupId
+      - country
+      - name
+      - driverIds
+      - version
+      - createdAt
+      properties:
+        groupId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        driverIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          maxItems: 200
+          uniqueItems: true
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    DriverGroupCreate:
+      type: object
+      required:
+      - country
+      - name
+      - driverIds
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        driverIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          maxItems: 200
+          uniqueItems: true
+    DriverGroupUpdate:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        driverIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          maxItems: 200
+          uniqueItems: true
+    DriverGroupList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverGroup'
+    RadarZone:
+      type: object
+      description: 'v0.18.6: F4 (owner ''Repeat until taken''): radar zones (an area drawn inside one operating zone of the
+        country; polygon as contract.json#zones.polygon, 3–500 points) and radar zone rules per country. A rule says which
+        radar zones it is for (''all'' or a list of radarZoneIds of its country), how long each send stays open (seconds 5–120),
+        how many drivers at most (maxDrivers 1–10) and whether it sends again by itself (repeat). Manual admin sends only:
+        automatic dispatch never uses radar zones. Send: POST /admin/trips/{tripId}/radar-group { expectedVersion, radarZoneId,
+        ruleId } (the rule must cover the radar zone: 400 rule_not_for_zone) → radar offers to the free drivers (as for groups)
+        whose latest position is inside the polygon, nearest to the pickup first, up to rule.maxDrivers, open rule.seconds.
+        Without repeat: 409 no_free_driver when nobody is free inside. With repeat: when the offers run out and nobody accepted,
+        the server sends again to whoever is free inside the area then (newcomers included; drivers who still hold an open
+        offer of this trip are skipped), every rule.seconds, until a driver accepts, an admin stops it (POST /admin/trips/{tripId}/radar-zone/stop),
+        the rider''s search ends (8 min) or the trip ends; a round with nobody free inside waits for the next. A new radar-zone
+        send on the same trip replaces the running one. GET /admin/dispatch/radar-zones/{radarZoneId}/free?categoryId= → {
+        radarZoneId, free, at } counts the free drivers inside now. A radar zone used by a rule''s list cannot be deleted
+        (409 conflict, reason radar_zone_in_use).'
+      required:
+      - radarZoneId
+      - country
+      - zoneId
+      - name
+      - polygon
+      - version
+      - createdAt
+      properties:
+        radarZoneId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    RadarZoneCreate:
+      type: object
+      description: The country is the zone's.
+      required:
+      - zoneId
+      - name
+      - polygon
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+    RadarZoneUpdate:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+    RadarZoneList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RadarZone'
+    RadarZoneRule:
+      type: object
+      description: v0.18.6 (F4)
+      required:
+      - ruleId
+      - country
+      - name
+      - radarZoneIds
+      - seconds
+      - maxDrivers
+      - repeat
+      - version
+      - createdAt
+      properties:
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        radarZoneIds:
+          oneOf:
+          - type: string
+            const: all
+          - type: array
+            items:
+              $ref: '#/components/schemas/Id'
+            minItems: 1
+            uniqueItems: true
+        seconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+        maxDrivers:
+          type: integer
+          minimum: 1
+          maximum: 10
+        repeat:
+          type: boolean
+          description: Send again by itself until taken (F4).
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    RadarZoneRuleCreate:
+      type: object
+      required:
+      - country
+      - name
+      - radarZoneIds
+      - seconds
+      - maxDrivers
+      - repeat
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        radarZoneIds:
+          oneOf:
+          - type: string
+            const: all
+          - type: array
+            items:
+              $ref: '#/components/schemas/Id'
+            minItems: 1
+            uniqueItems: true
+        seconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+        maxDrivers:
+          type: integer
+          minimum: 1
+          maximum: 10
+        repeat:
+          type: boolean
+          description: Send again by itself until taken (F4).
+    RadarZoneRuleUpdate:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        radarZoneIds:
+          oneOf:
+          - type: string
+            const: all
+          - type: array
+            items:
+              $ref: '#/components/schemas/Id'
+            minItems: 1
+            uniqueItems: true
+        seconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+        maxDrivers:
+          type: integer
+          minimum: 1
+          maximum: 10
+        repeat:
+          type: boolean
+          description: Send again by itself until taken (F4).
+    RadarZoneRuleList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RadarZoneRule'
+    RadarZoneSend:
+      type: object
+      description: 'v0.18.6 (F4): Every admin sees a running send: GET /admin/trips/{tripId} carries TripProjection.radarZoneSend
+        (RadarZoneSend: sendId, radarZoneId, ruleId, intervalSeconds, rounds, startedAt, active …) while it is active, and
+        nothing once it ended. The send ends at once (not at the next interval) when a driver accepts (stopReason accepted),
+        the trip is cancelled or ends (trip_over), the rider''s search ends (search_ended), an admin stops it (admin) or a
+        new radar-zone send replaces it (replaced).'
+      required:
+      - sendId
+      - tripId
+      - radarZoneId
+      - ruleId
+      - seconds
+      - intervalSeconds
+      - maxDrivers
+      - repeat
+      - active
+      - rounds
+      - startedAt
+      properties:
+        sendId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        radarZoneId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        seconds:
+          type: integer
+        intervalSeconds:
+          type: integer
+          description: 'Same as seconds: the time between rounds.'
+        maxDrivers:
+          type: integer
+        repeat:
+          type: boolean
+        active:
+          type: boolean
+        rounds:
+          type: integer
+          minimum: 1
+        startedAt:
+          $ref: '#/components/schemas/Timestamp'
+        stoppedAt:
+          $ref: '#/components/schemas/Timestamp'
+        stopReason:
+          type: string
+          enum:
+          - admin
+          - accepted
+          - search_ended
+          - trip_over
+          - replaced
+    RadarZoneFree:
+      type: object
+      description: 'v0.18.6 (F4): free drivers inside the radar zone now.'
+      required:
+      - radarZoneId
+      - free
+      - at
+      properties:
+        radarZoneId:
+          $ref: '#/components/schemas/Id'
+        free:
+          type: integer
+          minimum: 0
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    RadarZoneStopCommand:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 1000
+    LocalizedText:
+      type: object
+      required:
+      - sv
+      - fr
+      - en
+      properties:
+        sv:
+          type: string
+          minLength: 1
+        fr:
+          type: string
+          minLength: 1
+        en:
+          type: string
+          minLength: 1
+    EventDetails:
+      type: object
+      description: title ≤ 80, description ≤ 1000, pickupNote ≤ 300 characters per language.
+      required:
+      - title
+      - description
+      properties:
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        pickupNote:
+          $ref: '#/components/schemas/LocalizedText'
+    LatLngPoint:
+      type: object
+      required:
+      - lat
+      - lng
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+    DispatchEvent:
+      type: object
+      description: 'v0.18.6: F6 (owner ''small premium icon at the exact location of the event; tap → all details''): events
+        per country made by the admin: name, the exact point (location { lat, lng }, where the icon stands), an optional area
+        (polygon), startsAt / endsAt (UTC, endsAt after startsAt), on/off and details in sv / fr / en (title, description,
+        pickupNote; each language required, title ≤ 80, description ≤ 1000, pickupNote ≤ 300). Drivers: GET /driver/events
+        → { items: DriverEvent[], at } = the events that are on and not ended (running or upcoming within upcomingDays) of
+        the driver''s country (the country of his zones), soonest first, the texts in the driver''s language (else English,
+        else the country''s language). The driver app shows a small premium event icon on the Home map at location; a tap
+        shows name, time, place and the details. Refresh: when an event of his country is created, changed or deleted, every
+        driver config stream of that country gets a config_published with doc ''events'' (zoneId = the stream''s zone); the
+        app then reads GET /driver/events again (also on start and coming back to the front). No dispatch change, no rider
+        change, no notice (owner did not ask). The driver app''s built-in demo events are removed on live.'
+      required:
+      - eventId
+      - country
+      - name
+      - location
+      - startsAt
+      - endsAt
+      - 'on'
+      - details
+      - version
+      - createdAt
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        location:
+          $ref: '#/components/schemas/LatLngPoint'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        startsAt:
+          $ref: '#/components/schemas/Timestamp'
+        endsAt:
+          $ref: '#/components/schemas/Timestamp'
+        'on':
+          type: boolean
+        details:
+          $ref: '#/components/schemas/EventDetails'
+        version:
+          type: integer
+          minimum: 1
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    DispatchEventCreate:
+      type: object
+      description: on defaults to true.
+      required:
+      - country
+      - name
+      - location
+      - startsAt
+      - endsAt
+      - details
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        location:
+          $ref: '#/components/schemas/LatLngPoint'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        startsAt:
+          $ref: '#/components/schemas/Timestamp'
+        endsAt:
+          $ref: '#/components/schemas/Timestamp'
+        'on':
+          type: boolean
+        details:
+          $ref: '#/components/schemas/EventDetails'
+    DispatchEventUpdate:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        location:
+          $ref: '#/components/schemas/LatLngPoint'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        startsAt:
+          $ref: '#/components/schemas/Timestamp'
+        endsAt:
+          $ref: '#/components/schemas/Timestamp'
+        'on':
+          type: boolean
+        details:
+          $ref: '#/components/schemas/EventDetails'
+    DispatchEventList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchEvent'
+    DriverEvent:
+      type: object
+      description: 'v0.18.6 (F6): DriverEvent { eventId, name, location { lat, lng }, polygon?, startsAt, endsAt, running,
+        title, description, pickupNote?, language }'
+      required:
+      - eventId
+      - name
+      - location
+      - startsAt
+      - endsAt
+      - running
+      - title
+      - description
+      - language
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        location:
+          $ref: '#/components/schemas/LatLngPoint'
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        startsAt:
+          $ref: '#/components/schemas/Timestamp'
+        endsAt:
+          $ref: '#/components/schemas/Timestamp'
+        running:
+          type: boolean
+        title:
+          type: string
+        description:
+          type: string
+        pickupNote:
+          type: string
+        language:
+          $ref: '#/components/schemas/Language'
+    DriverEventList:
+      type: object
+      required:
+      - items
+      - at
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverEvent'
+        at:
+          $ref: '#/components/schemas/Timestamp'

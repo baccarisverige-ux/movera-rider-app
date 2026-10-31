@@ -739,7 +739,8 @@
       "maxDrivers": 10,
       "timer": "driver.offers.radarSeconds",
       "repeatable": true,
-      "note": "One offer per chosen driver, first to accept wins; the others get offer_withdrawn (claimed_elsewhere). The admin may send more groups while the trip is not locked."
+      "note": "One offer per chosen driver, first to accept wins; the others get offer_withdrawn (claimed_elsewhere). The admin may send more groups while the trip is not locked.",
+      "v0186": "v0.18.6 (G4-F3, F4): AdminRadarGroupCommand takes exactly one of driverIds (as before), groupId (a driver group: the server picks its free members, nearest first, max 10) or radarZoneId + ruleId (free drivers inside the radar zone, rule's seconds and maxDrivers, repeat). contract.json#dispatchTools."
     },
     "lockedStatuses": [
       "accepted",
@@ -4527,8 +4528,48 @@
       "deepLink": "movera-driver://home",
       "auditAction": "driver.auto_offline",
       "reasons": {
-        "no_position": "no position for noFixMinutes minutes (server job)",
-        "app_restart": "the app was restarted while online (driver app, decision 3)"
+        "no_position": {
+          "note": "no position for noFixMinutes minutes (server job); data.minutes",
+          "sv": "Telefonen skickade ingen position på {minutes} min",
+          "fr": "Votre téléphone n’a envoyé aucune position pendant {minutes} min",
+          "en": "Your phone sent no position for {minutes} min"
+        },
+        "missed_offers": {
+          "note": "offers.autoOffline.missedExclusive misses or declines in a row (contract.json#autoOffline); data.count",
+          "sv": "Du missade eller nekade {count} erbjudanden i rad",
+          "fr": "Vous avez manqué ou refusé {count} offres d’affilée",
+          "en": "You missed or declined {count} offers in a row"
+        },
+        "app_restart": {
+          "note": "the app was restarted while online (driver app only, decision 3; the server never sets it)",
+          "sv": "Appen startades om medan du var online",
+          "fr": "L’application a redémarré pendant que vous étiez en ligne",
+          "en": "The app was restarted while you were online"
+        },
+        "vehicle_blocked": {
+          "note": "an admin rejected or blocked the car he drives (POST /admin/vehicles/{id}/review), or the car was not approved at the end of a trip; offlineNote = the admin's note",
+          "sv": "Din bil kan inte användas just nu",
+          "fr": "Votre voiture ne peut pas être utilisée pour le moment",
+          "en": "Your car cannot be used right now"
+        },
+        "fleet_removed": {
+          "note": "removed from his fleet by the owner or an admin, or the fleet was blocked (also seen at the end of a trip)",
+          "sv": "Du är inte längre med i ett åkeri",
+          "fr": "Vous ne faites plus partie d’une flotte",
+          "en": "You are no longer in a fleet"
+        },
+        "account_status": {
+          "note": "an admin put the account on hold, suspended it or set it back to pending (also seen at the end of a trip)",
+          "sv": "Ditt konto är pausat – kontakta Movera",
+          "fr": "Votre compte est en pause – contactez Movera",
+          "en": "Your account is paused – contact Movera"
+        },
+        "admin": {
+          "note": "Movera set him offline for another reason (reserved: there is no admin set-offline action today)",
+          "sv": "Movera satte dig offline",
+          "fr": "Movera vous a mis hors ligne",
+          "en": "Movera set you offline"
+        }
       },
       "text": {
         "title": {
@@ -4546,7 +4587,16 @@
           "fr": "Vous avez été mis hors ligne – appuyez pour repasser en ligne",
           "en": "You were set offline – tap to go online again"
         }
-      }
+      },
+      "offlineReason": "v0.18.6 (owner 2026-10-31 'Send the real reason', Rules decisions/driver-g3.md): every time the SERVER sets a driver offline it stores why: Driver.offlineReason (no_position | missed_offers | vehicle_blocked | fleet_removed | account_status | admin), Driver.offlineNote (only vehicle_blocked: the admin's note) and Driver.offlineAt, on GET /driver/profile (and the admin driver view) while onlineStatus is offline; cleared when the driver goes online again. The server also sends the set_offline bell + push notice with data { reason, note?, minutes? (no_position), count? (missed_offers) } for every server reason; its body is the reason text (no_position keeps 'Tap to go online again'). Paths: the no-position job (no_position), auto-offline after missed offers (missed_offers), car review rejected / blocked (vehicle_blocked), removed from the fleet or fleet blocked (fleet_removed), account status not active (account_status), and the end of a trip when the driver, car or fleet was blocked during it (account_status / vehicle_blocked / fleet_removed). A driver who leaves his fleet himself or starts his own company gets no reason (his own action). app_restart is set by the app only. Outside his area never sets a driver offline. The driver app's offline card shows reasons[offlineReason] in sv / fr / en.",
+      "offlineReasons": [
+        "no_position",
+        "missed_offers",
+        "vehicle_blocked",
+        "fleet_removed",
+        "account_status",
+        "admin"
+      ]
     },
     "outsideArea": {
       "note": "G3-R2. A driver may go online anywhere (POST /driver/availability online is 200 even outside his zones), but he gets trips only while his latest position is inside one of his own zones (Driver.zoneIds): dispatch offers nothing to an online driver whose latest fix is outside all of them, and offers only trips of his own zones (as before). Driver (GET /driver/profile and the POST /driver/availability answer) and DriverLocationAck (POST /driver/location) carry outsideArea (true/false, missing while the server has no position) and, when true, areaZones (the driver's own zones with their names). The driver app shows the popup when outsideArea turns true (on going online and when he drives out), not again until it was false. Admin direct assign is the admin's choice and is not limited.",
@@ -4813,5 +4863,122 @@
     "whyYouRemoved": "E7 (owner 'Remove short line explain'): the 'why you got this trip' line is removed from the offer card. The server no longer sends Offer.reasonCode (deprecated, kept in the schema so older builds keep working: they show no line when it is missing) and DriverAppConfig.offers.exclusiveReasons is deprecated and ignored (apps never show it; the admin hides its Dispatch › Exclusive reasons editor). It was only used on the offer card.",
     "declinedComesBack": "E1 (owner 'Can come back later'): no change. An Exclusive offer the driver declined or missed may come back to him later as a Radar offer if nobody else took the trip.",
     "notDecided": "E5 (rider 'Keep waiting?' steps vs the rider app's own 3-minute card) is NOT decided (owner: ask again later); the rider-waiting steps are unchanged in v0.18.6."
+  },
+  "dispatchTools": {
+    "note": "v0.18.6 (owner decisions G4-F1..F6 of 2026-10-31, Rules decisions/driver-g4.md, research plan/g4-admin-features.md): the admin's Dispatch tools, real on the server. Everything is per country (SE, FR): an admin reads and changes a country's items only with a zone of that country in scope (Super admin: all), else 403 zone_out_of_scope. Writes need dispatch.edit, reads trips.read; every write is audited (auditActions) and takes an Idempotency-Key. Each item has a version: PUT and DELETE need expectedVersion (409 version_mismatch with the item). Names: 1–40 characters, unique per country (409 conflict, reason name_taken).",
+    "approvals": "F1 (owner 'Live now, remove box'): dispatch changes (publishing the dispatch document, the zone's dispatch switch, presets, groups, radar zones, rules, events, sends) never wait for a second admin: the one-admin rule of 2026-10-28 (adminControlMatrix.oneAdmin) stays. The panel removes the 'Waiting for a second admin' box and badge; History + Undo stay. Dispatch approvals still pending from before that rule were expired by server migration 0040.",
+    "presets": {
+      "note": "F2 (owner 'Per country only'): saved Dispatch presets per country. values = a DispatchDocument without version, publishedAt, zoneId, country, timeZone and usesStandard (checked like the document; 400 invalid_document). Any admin with dispatch.edit may save, rename, change or delete one. Applying a preset is the panel's job: it copies values into the zone's dispatch draft (PUT /admin/config/dispatch) and publishes as usual.",
+      "entity": "DispatchPreset { presetId, country, name, values, version, createdBy?, createdAt, updatedBy?, updatedAt }",
+      "routes": [
+        "GET /admin/dispatch/presets?country= → { items: DispatchPreset[] }",
+        "POST /admin/dispatch/presets { country, name, values } → 201 DispatchPreset",
+        "PUT /admin/dispatch/presets/{presetId} { expectedVersion, name?, values? } → DispatchPreset",
+        "DELETE /admin/dispatch/presets/{presetId}?expectedVersion= → 204"
+      ]
+    },
+    "groups": {
+      "note": "F3 (owner 'Free ones, nearest first'): driver groups per country, admin only (drivers are never told). Every driver must be of the group's country (400 invalid_request, reason driver_not_in_country); at most 200 drivers. Send to a group: POST /admin/trips/{tripId}/radar-group { expectedVersion, groupId } — the server picks the group's FREE members (account active, online, not on a trip, a position newer than 120 s, the trip's category, no open offer for this trip), nearest to the pickup first, at most 10, and sends them a radar offer each (as a radar group). A member who is not free is skipped, never an error; 409 conflict, reason no_free_driver, only when no member is free. Reservations will use groups with group 15 (a group used by a reservation rule will then be 409 group_in_use on delete; nothing uses groups yet).",
+      "entity": "DriverGroup { groupId, country, name, driverIds, version, createdBy?, createdAt, updatedBy?, updatedAt }",
+      "routes": [
+        "GET /admin/dispatch/groups?country= → { items: DriverGroup[] }",
+        "POST /admin/dispatch/groups { country, name, driverIds } → 201",
+        "PUT /admin/dispatch/groups/{groupId} { expectedVersion, name?, driverIds? }",
+        "DELETE /admin/dispatch/groups/{groupId}?expectedVersion= → 204"
+      ],
+      "maxDrivers": 200,
+      "sendMax": 10
+    },
+    "radarZones": {
+      "note": "F4 (owner 'Repeat until taken'): radar zones (an area drawn inside one operating zone of the country; polygon as contract.json#zones.polygon, 3–500 points) and radar zone rules per country. A rule says which radar zones it is for ('all' or a list of radarZoneIds of its country), how long each send stays open (seconds 5–120), how many drivers at most (maxDrivers 1–10) and whether it sends again by itself (repeat). Manual admin sends only: automatic dispatch never uses radar zones. Send: POST /admin/trips/{tripId}/radar-group { expectedVersion, radarZoneId, ruleId } (the rule must cover the radar zone: 400 rule_not_for_zone) → radar offers to the free drivers (as for groups) whose latest position is inside the polygon, nearest to the pickup first, up to rule.maxDrivers, open rule.seconds. Without repeat: 409 no_free_driver when nobody is free inside. With repeat: when the offers run out and nobody accepted, the server sends again to whoever is free inside the area then (newcomers included; drivers who still hold an open offer of this trip are skipped), every rule.seconds, until a driver accepts, an admin stops it (POST /admin/trips/{tripId}/radar-zone/stop), the rider's search ends (8 min) or the trip ends; a round with nobody free inside waits for the next. A new radar-zone send on the same trip replaces the running one. GET /admin/dispatch/radar-zones/{radarZoneId}/free?categoryId= → { radarZoneId, free, at } counts the free drivers inside now. A radar zone used by a rule's list cannot be deleted (409 conflict, reason radar_zone_in_use).",
+      "entities": [
+        "RadarZone { radarZoneId, country, zoneId, name, polygon, version, createdBy?, createdAt, updatedBy?, updatedAt }",
+        "RadarZoneRule { ruleId, country, name, radarZoneIds: 'all' | Id[], seconds, maxDrivers, repeat, version, createdBy?, createdAt, updatedBy?, updatedAt }",
+        "RadarZoneSend { sendId, tripId, radarZoneId, ruleId, seconds, maxDrivers, repeat, active, rounds, startedAt, stoppedAt?, stopReason?: admin | accepted | search_ended | trip_over | replaced }"
+      ],
+      "routes": [
+        "GET/POST /admin/dispatch/radar-zones, PUT/DELETE /admin/dispatch/radar-zones/{radarZoneId}",
+        "GET /admin/dispatch/radar-zones/{radarZoneId}/free?categoryId=",
+        "GET/POST /admin/dispatch/radar-rules, PUT/DELETE /admin/dispatch/radar-rules/{ruleId}",
+        "POST /admin/trips/{tripId}/radar-zone/stop { note? } → RadarZoneSend (404 radar_zone_send_not_found when none runs)"
+      ],
+      "ranges": {
+        "seconds": [
+          5,
+          120
+        ],
+        "maxDrivers": [
+          1,
+          10
+        ]
+      },
+      "sendView": "Every admin sees a running send: GET /admin/trips/{tripId} carries TripProjection.radarZoneSend (RadarZoneSend: sendId, radarZoneId, ruleId, intervalSeconds, rounds, startedAt, active …) while it is active, and nothing once it ended. The send ends at once (not at the next interval) when a driver accepts (stopReason accepted), the trip is cancelled or ends (trip_over), the rider's search ends (search_ended), an admin stops it (admin) or a new radar-zone send replaces it (replaced)."
+    },
+    "events": {
+      "note": "F6 (owner 'small premium icon at the exact location of the event; tap → all details'): events per country made by the admin: name, the exact point (location { lat, lng }, where the icon stands), an optional area (polygon), startsAt / endsAt (UTC, endsAt after startsAt), on/off and details in sv / fr / en (title, description, pickupNote; each language required, title ≤ 80, description ≤ 1000, pickupNote ≤ 300). Drivers: GET /driver/events → { items: DriverEvent[], at } = the events that are on and not ended (running or upcoming within upcomingDays) of the driver's country (the country of his zones), soonest first, the texts in the driver's language (else English, else the country's language). The driver app shows a small premium event icon on the Home map at location; a tap shows name, time, place and the details. Refresh: when an event of his country is created, changed or deleted, every driver config stream of that country gets a config_published with doc 'events' (zoneId = the stream's zone); the app then reads GET /driver/events again (also on start and coming back to the front). No dispatch change, no rider change, no notice (owner did not ask). The driver app's built-in demo events are removed on live.",
+      "entity": "DispatchEvent { eventId, country, name, location { lat, lng }, polygon?, startsAt, endsAt, on, details { title, description, pickupNote: { sv, fr, en } }, version, createdBy?, createdAt, updatedBy?, updatedAt }",
+      "driverEntity": "DriverEvent { eventId, name, location { lat, lng }, polygon?, startsAt, endsAt, running, title, description, pickupNote?, language }",
+      "routes": [
+        "GET /admin/dispatch/events?country=&from=&to= → { items: DispatchEvent[] }",
+        "POST /admin/dispatch/events → 201",
+        "PUT /admin/dispatch/events/{eventId} { expectedVersion, … }",
+        "DELETE /admin/dispatch/events/{eventId}?expectedVersion= → 204",
+        "GET /driver/events (driver)"
+      ],
+      "upcomingDays": 7,
+      "signalDoc": "events",
+      "texts": {
+        "running": {
+          "sv": "Pågår nu",
+          "fr": "En cours",
+          "en": "Happening now"
+        },
+        "upcoming": {
+          "sv": "Börjar {time}",
+          "fr": "Commence à {time}",
+          "en": "Starts {time}"
+        },
+        "pickupNote": {
+          "sv": "Upphämtning",
+          "fr": "Prise en charge",
+          "en": "Pickup"
+        }
+      }
+    },
+    "cancelChecks": "F5 (owner 'Later, with new rule'): the Cancel checks screen is built in group 5 with the 'heading to pickup 80 %' rule; not in v0.18.6 (hidden on live until then).",
+    "auditActions": [
+      "dispatch.preset.create",
+      "dispatch.preset.update",
+      "dispatch.preset.delete",
+      "dispatch.group.create",
+      "dispatch.group.update",
+      "dispatch.group.delete",
+      "dispatch.radar_zone.create",
+      "dispatch.radar_zone.update",
+      "dispatch.radar_zone.delete",
+      "dispatch.radar_rule.create",
+      "dispatch.radar_rule.update",
+      "dispatch.radar_rule.delete",
+      "dispatch.event.create",
+      "dispatch.event.update",
+      "dispatch.event.delete",
+      "trip.radar_group",
+      "trip.radar_zone_stop"
+    ],
+    "reasons": [
+      "name_taken",
+      "driver_not_in_country",
+      "no_free_driver",
+      "rule_not_for_zone",
+      "radar_zone_in_use",
+      "radar_zone_send_not_found",
+      "group_in_use",
+      "zone_not_in_country"
+    ],
+    "permissions": {
+      "read": "trips.read",
+      "write": "dispatch.edit",
+      "send": "trips.intervene"
+    }
   }
 }
