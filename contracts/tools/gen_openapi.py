@@ -2217,17 +2217,17 @@ S["TripTerms"] = obj(OrderedDict([
     ("cancelDriverSharePct", n(PW["terms"]["fields"]["cancelDriverSharePct"], minimum=0, maximum=100)),
     ("cancelAfterArrivedIsNoShow", b(PW["terms"]["fields"]["cancelAfterArrivedIsNoShow"])),
     ("maxPickupMoveMeters", i(PW["terms"]["fields"]["maxPickupMoveMeters"], minimum=0)),
-]), ["currency", "freeWaitMin", "waitPerMin", "noShowAfterMin", "noShowFee", "noShowDriverSharePct", "cancelRule", "cancelDriverSharePct", "cancelAfterArrivedIsNoShow", "maxPickupMoveMeters"],
+]), ["currency", "freeWaitMin", "waitPerMin", "noShowAfterMin", "noShowFee", "cancelRule", "cancelAfterArrivedIsNoShow", "maxPickupMoveMeters"],
     "v0.18.7: " + PW["terms"]["note"])
 S["TripEta"] = obj(OrderedDict([
     ("etaSeconds", i(PW["eta"]["fields"]["etaSeconds"], minimum=60)),
     ("distanceMeters", i(PW["eta"]["fields"]["distanceMeters"], minimum=0)),
     ("target", s(enum=["pickup", "dropoff"])),
     ("at", ref("Timestamp")),
-    ("source", s(enum=["osrm", "estimate"])),
+    ("source", s(PW["eta"]["fields"]["source"], enum=["osrm", "estimate", "stale"])),
 ]), ["etaSeconds", "distanceMeters", "target", "at", "source"], "v0.18.7 (Q4): " + PW["eta"]["note"])
 S["TripProjection"]["properties"]["rider"] = {"allOf": [ref("RiderSummary")], "description": "v0.18.7 (Q1): driver and admin views only, from accept to the end; never in the rider's own view."}
-S["TripProjection"]["properties"]["terms"] = {"allOf": [ref("TripTerms")], "description": "v0.18.7: the rules this trip is charged by, from booking to the end (all views)."}
+S["TripProjection"]["properties"]["terms"] = {"allOf": [ref("TripTerms")], "description": "v0.18.7: the rules this trip is charged by, from booking to the end (all views). " + PW["terms"]["riderView"]}
 S["TripProjection"]["properties"]["eta"] = {"allOf": [ref("TripEta")], "description": "v0.18.7 (Q4): the server's road-route ETA, refreshed every " + str(PW["eta"]["everySeconds"]) + " s while a driver is on the way or driving (all views). etaSeconds repeats eta.etaSeconds for older builds."}
 S["Waiting"]["properties"].update({
     "noShowFee": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): the no-show fee of this trip (terms.noShowFee), set at arrive."},

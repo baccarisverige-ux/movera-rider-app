@@ -749,11 +749,14 @@ paths:
         → searching (reassign); driver scheduled: accepted → requested; driver onboard+: → cancelled_by_driver. Anything else
         → 409 invalid_transition. v0.18.7 (Q2, contract.json#pickupWaiting.cancelAfterArrived): Q2 rule on the server (rider
         cancel, POST /trips/{tripId}/cancel): inside the cancel rule''s free minutes after accept the rider ALWAYS cancels
-        free (owner 2026-10-29 ''before 2 min always free for rider''), also after the driver arrived. After them: trip status
-        arrived and the zone''s cancelAfterArrivedIsNoShow on → the fee is the trip''s no-show fee (terms.noShowFee, driver
-        share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel
-        fee (cancelFees, the came-closer check, cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition
-        table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).'
+        free (owner 2026-10-29 ''before 2 min always free for rider''), also after the driver arrived. After them: the cancel
+        counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone''s cancelAfterArrivedIsNoShow
+        is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show;
+        a reservation''s clock runs from the booked time, so an early-arrived driver''s rider still pays the reservation late-cancel
+        rule before it) → the fee is the trip''s no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees
+        kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the came-closer check, cancellation.feeKind
+        cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling
+        after arrival (35 kr) was cheaper than a no-show (65 kr).'
       tags:
       - Trips
       x-actor:
@@ -12926,7 +12929,10 @@ components:
         terms:
           allOf:
           - $ref: '#/components/schemas/TripTerms'
-          description: 'v0.18.7: the rules this trip is charged by, from booking to the end (all views).'
+          description: 'v0.18.7: the rules this trip is charged by, from booking to the end (all views). Contract §2 wins:
+            the rider''s view of terms has no noShowDriverSharePct / cancelDriverSharePct, waiting has no noShowDriverShare
+            and cancellation no driverShare (the driver''s money is never the rider''s to see); the driver and admin views
+            have them.'
         eta:
           allOf:
           - $ref: '#/components/schemas/TripEta'
@@ -23001,9 +23007,7 @@ components:
       - waitPerMin
       - noShowAfterMin
       - noShowFee
-      - noShowDriverSharePct
       - cancelRule
-      - cancelDriverSharePct
       - cancelAfterArrivedIsNoShow
       - maxPickupMoveMeters
       properties:
@@ -23084,3 +23088,7 @@ components:
           enum:
           - osrm
           - estimate
+          - stale
+          description: 'osrm | estimate | stale (stale: the driver sent no position for more than 120 s, dispatch''s "gone"
+            age; the previous ETA is kept with at = now, nothing new is routed; the apps show the last number and may say
+            it is old)'

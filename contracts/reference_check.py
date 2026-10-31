@@ -568,7 +568,7 @@ for case in _pwf['debtByCurrency']:
 def cancel_after_arrived(case):
     rule = case['cancelRule']
     if case['minutesSinceAccept'] < rule['freeMin']: return {'fee': None, 'feeKind': None}
-    if case['status'] == 'arrived' and case['switch']:
+    if case['status'] == 'arrived' and case['switch'] and case['pastFreeWait']:
         return {'fee': case['noShowFee'] or None, 'feeKind': 'no_show' if case['noShowFee'] else None}
     fee = rule['value'] if rule['type'] == 'fixed' else None
     return {'fee': fee or None, 'feeKind': 'cancel' if fee else None}

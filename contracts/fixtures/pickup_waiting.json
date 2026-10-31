@@ -110,7 +110,8 @@
       "expect": {
         "fee": null,
         "feeKind": null
-      }
+      },
+      "pastFreeWait": false
     },
     {
       "id": "arrived-switch-on-no-show-fee",
@@ -128,6 +129,26 @@
       "expect": {
         "fee": 6500,
         "feeKind": "no_show"
+      },
+      "pastFreeWait": true
+    },
+    {
+      "id": "arrived-seconds-ago-free-wait-not-over-cancel-fee",
+      "status": "arrived",
+      "minutesSinceAccept": 3,
+      "pastFreeWait": false,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "switch": true,
+      "expect": {
+        "fee": 3500,
+        "feeKind": "cancel"
       }
     },
     {
@@ -146,7 +167,8 @@
       "expect": {
         "fee": 3500,
         "feeKind": "cancel"
-      }
+      },
+      "pastFreeWait": true
     },
     {
       "id": "on-the-way-switch-on-cancel-fee",
@@ -164,7 +186,8 @@
       "expect": {
         "fee": 3500,
         "feeKind": "cancel"
-      }
+      },
+      "pastFreeWait": false
     },
     {
       "id": "arrived-no-show-fee-zero-means-none",
@@ -182,7 +205,8 @@
       "expect": {
         "fee": null,
         "feeKind": null
-      }
+      },
+      "pastFreeWait": true
     }
   ],
   "distanceDisplay": [

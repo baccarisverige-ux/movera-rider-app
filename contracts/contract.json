@@ -5004,9 +5004,9 @@
         "riderCopy": "RiderAppConfig.waiting.cancelAfterArrivedIsNoShow",
         "default": true,
         "adminText": {
-          "sv": "Avbokning efter att föraren anlänt räknas som utebliven kund (avgift för utebliven kund)",
-          "fr": "Une annulation après l’arrivée du chauffeur compte comme un client absent (frais de client absent)",
-          "en": "Cancelling after the driver has arrived counts as a no-show (no-show fee)"
+          "sv": "Avbokning efter att föraren anlänt och den fria väntetiden gått ut räknas som utebliven kund (avgift för utebliven kund)",
+          "fr": "Une annulation après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent (frais de client absent)",
+          "en": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show (no-show fee)"
         }
       }
     },
@@ -5036,24 +5036,25 @@
           "en": "If you do not show up within {noShowAfter} min after the driver arrives, a {noShowFee} fee applies"
         },
         "cancelAfterArrived": {
-          "sv": "Avbokning efter att föraren anlänt räknas som utebliven kund",
-          "fr": "Annuler après l’arrivée du chauffeur compte comme un client absent",
-          "en": "Cancelling after the driver has arrived counts as a no-show"
+          "sv": "Avbokning efter att föraren anlänt och den fria väntetiden gått ut räknas som utebliven kund",
+          "fr": "Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent",
+          "en": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show"
         },
         "pickupMove": {
           "sv": "Du kan flytta upphämtningen högst {meters} m efter bokningen",
           "fr": "Vous pouvez déplacer le point de départ de {meters} m au plus après la réservation",
           "en": "You can move the pickup at most {meters} m after booking"
         }
-      }
+      },
+      "riderView": "Contract §2 wins: the rider's view of terms has no noShowDriverSharePct / cancelDriverSharePct, waiting has no noShowDriverShare and cancellation no driverShare (the driver's money is never the rider's to see); the driver and admin views have them."
     },
     "cancelAfterArrived": {
-      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: trip status arrived and the zone's cancelAfterArrivedIsNoShow on → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the came-closer check, cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).",
+      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: the cancel counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone's cancelAfterArrivedIsNoShow is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show; a reservation's clock runs from the booked time, so an early-arrived driver's rider still pays the reservation late-cancel rule before it) → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the came-closer check, cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).",
       "cancellationFields": {
         "feeKind": "cancel | no_show: which rule set the fee (absent when fee is null)",
         "driverShare": "Money: the driver's part of the fee, credited at once (absent when fee is null)"
       },
-      "cases": "fixtures/pickup_waiting.json#cancelAfterArrived"
+      "cases": "fixtures/pickup_waiting.json#cancelAfterArrived (pastFreeWait = now >= waiting.freeUntil)"
     },
     "feeAmountsShown": {
       "note": "Q6 (driver) and the rider side: the apps show the amount, never a silent +35 kr on the next quote. Driver: at arrive the server puts waiting.noShowFee (the fee) and waiting.noShowDriverShare (what the driver gets) on the trip, so the no-show confirm says texts.noShowConfirm; after a rider cancel the driver_cancelled / rider_cancelled event and the projection carry cancellation.fee and cancellation.driverShare, so the island says texts.riderCancelledFee or texts.riderCancelledNoFee (decision 7: 'Rider cancelled' at once, then the amount). Rider: after a cancel the projection's cancellation.fee + feeKind give texts.riderFee / texts.riderNoShowFee / texts.riderNoFee.",
@@ -5116,7 +5117,7 @@
         "distanceMeters": "int ≥ 0, road distance",
         "target": "pickup | dropoff",
         "at": "Timestamp, when computed",
-        "source": "osrm | estimate"
+        "source": "osrm | estimate | stale (stale: the driver sent no position for more than 120 s, dispatch's \"gone\" age; the previous ETA is kept with at = now, nothing new is routed; the apps show the last number and may say it is old)"
       },
       "distanceDisplay": {
         "note": "Owner 2026-10-29: kilometres with one decimal from 1 km (3.4 km), 100 m steps under 1 km (900, 800 m …), 10 m steps under 100 m (90, 80 m …). Steps are rounded DOWN so the number only shrinks as the car comes nearer; never under 10 m. The number is formatted in the app's language (sv 3,4 km).",
