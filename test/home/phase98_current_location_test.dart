@@ -13,6 +13,7 @@ import 'package:movera_rider/core/motion/location_smoother.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 
 /// Batch 9 Phase 98 — U2 current-location reliability, D-002, D-003, D-004.
 Position _position({
@@ -207,24 +208,58 @@ void main() {
     expect(detected.address, isNot('Current location'));
   });
 
-  test('U2: low-accuracy fixes paint an accuracy circle', () async {
+  test('rider-pin SPEC: every fix paints one grey halo, its real accuracy '
+      'kept 60-110 pt on screen', () async {
     final location = _Location();
     final ctl = _controller(location);
     addTearDown(ctl.dispose);
-    ctl.lastFixAccuracyMeters = 250;
+    const at = LatLng(59.33, 18.06);
+    ctl.lastMapZoom = 15.5;
+    final perPoint = RiderAccuracyHalo.metersPerPoint(at.latitude, 15.5);
+    ctl.lastFixAccuracyMeters = 80 * perPoint;
+    ctl.paintUserPuck(
+      target: at,
+      icon: BitmapDescriptor.defaultMarker,
+      heading: 0,
+    );
+    final halo = ctl.locationCircles.single;
+    expect(halo.radius, closeTo(80 * perPoint, 1e-6));
+    expect(halo.fillColor, RiderAccuracyHalo.color);
+    expect(halo.strokeWidth, 0, reason: 'no border');
+    expect(halo.center, at);
+    // A sharp fix keeps the smallest halo (60 pt), not none.
+    ctl.lastFixAccuracyMeters = 3;
+    ctl.paintUserPuck(
+      target: at,
+      icon: BitmapDescriptor.defaultMarker,
+      heading: 0,
+    );
+    expect(ctl.locationCircles.single.radius, closeTo(60 * perPoint, 1e-6));
+    // Zooming in keeps 60 pt: the circle is re-clamped in metres.
+    var notified = 0;
+    ctl.addListener(() => notified += 1);
+    ctl.lastMapZoom = 17.5;
+    ctl.noteCameraMove();
+    final perPointIn = RiderAccuracyHalo.metersPerPoint(at.latitude, 17.5);
+    expect(ctl.locationCircles.single.radius, closeTo(60 * perPointIn, 1e-6));
+    expect(notified, 1);
+    // A camera move that changes nothing does not rebuild the map.
+    ctl.noteCameraMove();
+    expect(notified, 1);
+  });
+
+  test('rider-pin SPEC: the pin is a screen-facing marker anchored at its '
+      'centre', () async {
+    final ctl = _controller(_Location());
+    addTearDown(ctl.dispose);
     ctl.paintUserPuck(
       target: const LatLng(59.33, 18.06),
       icon: BitmapDescriptor.defaultMarker,
       heading: 0,
     );
-    expect(ctl.locationCircles.single.radius, 250);
-    ctl.lastFixAccuracyMeters = 8;
-    ctl.paintUserPuck(
-      target: const LatLng(59.33, 18.06),
-      icon: BitmapDescriptor.defaultMarker,
-      heading: 0,
-    );
-    expect(ctl.locationCircles, isEmpty);
+    final pin = ctl.markers.single;
+    expect(pin.flat, isFalse);
+    expect(pin.anchor, const Offset(0.5, 0.5));
   });
 
   test('D-004: coordinate strings and placeholders are recognised', () {

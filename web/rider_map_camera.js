@@ -542,6 +542,7 @@
   const overlaysOf = map => (map.__moveraOverlays ||= new Set());
   function clearMapForReuse(state) {
     const {map, container} = state;
+    state.haloCircle = null; state.haloListener = null; state.halo = null;
     try { sdk.event.clearInstanceListeners(map); } catch (_) { /* best effort */ }
     for (const overlayItem of [...overlaysOf(map)]) {
       try { overlayItem.setMap(null); } catch (_) { /* best effort */ }
@@ -726,6 +727,46 @@
       installSdk();
     }, 25);
   }
+  // Owner 2026-10-31 (rider-pin SPEC): the accuracy halo under the rider's
+  // pin. Its radius is the fix's accuracy in metres, kept between minPx and
+  // maxPx points on screen; it is sized again on every zoom_changed, i.e.
+  // on the same frame as each pinch or flight step (a Dart circle would
+  // trail the gesture by a frame or two). Google's world is 256 points wide
+  // at zoom 0 (lib/shared/widgets/movera_map_markers.dart RiderAccuracyHalo).
+  const haloRadius = (halo, zoom) => {
+    const lat = clamp(halo.lat, -85, 85) * Math.PI / 180;
+    const perPoint = 156543.03392 * Math.cos(lat) / 2 ** zoom;
+    const accuracy = Number.isFinite(halo.accuracy) ? halo.accuracy : 0;
+    return clamp(accuracy, halo.minPx * perPoint, halo.maxPx * perPoint);
+  };
+  function sizeHalo(state) {
+    const circle = state.haloCircle, halo = state.halo;
+    if (!circle || !halo) return;
+    const zoom = Number(state.map.getZoom());
+    if (!Number.isFinite(zoom)) return;
+    const radius = haloRadius(halo, zoom);
+    if (Math.abs((circle.getRadius?.() || 0) - radius) > radius * 1e-4) circle.setRadius(radius);
+  }
+  function setHalo(state, lat, lng, accuracy, minPx, maxPx, color, opacity) {
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      try { state.haloCircle?.setMap(null); } catch (_) { /* best effort */ }
+      state.haloCircle = null; state.halo = null;
+      return;
+    }
+    state.halo = {lat, lng, accuracy: accuracy == null ? NaN : accuracy, minPx, maxPx};
+    if (!state.haloCircle || state.haloCircle.getMap?.() !== state.map) {
+      state.haloCircle = new sdk.Circle({map: state.map, center: {lat, lng},
+        radius: haloRadius(state.halo, Number(state.map.getZoom()) || 15),
+        fillColor: color, fillOpacity: opacity, strokeWeight: 0, strokeOpacity: 0,
+        clickable: false, zIndex: 0});
+    } else {
+      state.haloCircle.setCenter({lat, lng});
+    }
+    if (!state.haloListener) {
+      state.haloListener = state.map.addListener('zoom_changed', () => sizeHalo(state));
+    }
+    sizeHalo(state);
+  }
   const div_isConnected = div => { try { return !!div.isConnected; } catch (_) { return false; } };
   globalThis.riderMapCamera = {
     ready() { return sdk !== null; },
@@ -783,6 +824,17 @@
         `${key}${div_isConnected(state.div) ? '' : ':detached'}`);
       return {live: states.size, created, recycled, pooled: pool.length,
         pooledTotal, released, contextsReleased, ids};
+    },
+    // The accuracy halo under the rider's pin (setHalo); a null lat removes it.
+    halo(id, lat, lng, accuracy, minPx, maxPx, color, opacity) {
+      const state = states.get(id); if (!state) return;
+      setHalo(state, lat, lng, accuracy, minPx, maxPx, color, opacity);
+    },
+    // Test/verification hook: the halo's radius (metres) and centre.
+    haloOf(id) {
+      const circle = states.get(id)?.haloCircle; if (!circle) return null;
+      const c = circle.getCenter();
+      return {radius: circle.getRadius(), lat: c.lat(), lng: c.lng()};
     },
     claim(id) {
       const state = states.get(id); if (state) state.claim = true;

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
@@ -52,6 +53,8 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   CameraPosition? _camera;
   Size? _size;
   Timer? _redrawTimer;
+  ({LatLng center, double? accuracyMeters})? _sentHalo;
+  int? _haloMapId;
 
   @override
   void initState() {
@@ -104,6 +107,25 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
     widget.onMapCreated(controller);
+    _syncHalo();
+  }
+
+  /// On the web the accuracy halo is drawn by the map's gesture layer
+  /// ([RiderMapBridge.halo]), which keeps its on-screen clamp in step with
+  /// every zoom frame; phones get the controller's circle instead.
+  void _syncHalo() {
+    if (!kIsWeb) return;
+    final controller = _controller;
+    if (controller == null || widget.parked.value) return;
+    final halo = widget.location.userHalo;
+    if (_haloMapId == controller.mapId && _sentHalo == halo) return;
+    _haloMapId = controller.mapId;
+    _sentHalo = halo;
+    RiderMapBridge.halo(
+      controller.mapId,
+      center: halo?.center,
+      accuracyMeters: halo?.accuracyMeters,
+    );
   }
 
   void _onCameraMove(CameraPosition camera) {
@@ -112,7 +134,9 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _syncHalo();
+    setState(() {});
   }
 
   @override

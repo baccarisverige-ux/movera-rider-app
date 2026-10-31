@@ -4,6 +4,16 @@ void tiltFollowsZoom(int mapId, bool enabled) {}
 void Function() listen(int mapId, void Function() onGesture) => () {};
 void claim(int mapId) {}
 void redraw(int mapId) {}
+void halo(
+  int mapId,
+  double? lat,
+  double? lng,
+  double? accuracy,
+  double minRadius,
+  double maxRadius,
+  String color,
+  double opacity,
+) {}
 
 void release(int mapId) {}
 ({

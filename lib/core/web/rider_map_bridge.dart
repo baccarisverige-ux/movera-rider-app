@@ -38,6 +38,43 @@ abstract final class RiderMapBridge {
   /// area (web/rider_map_camera.js). A no-op off the web.
   static void redraw(int mapId) => impl.redraw(mapId);
 
+  /// Owner 2026-10-31 (rider-pin SPEC): the grey accuracy halo under the
+  /// rider's pin, drawn by the web layer on [mapId]: a flat circle at
+  /// [center], [accuracyMeters] in radius but kept [minRadius]..[maxRadius]
+  /// points on screen, re-clamped on the same frame as every zoom step so
+  /// it never lags a pinch. A null [center] removes it. A no-op off the web
+  /// (phones draw a [Circle]).
+  static void halo(
+    int mapId, {
+    required LatLng? center,
+    double? accuracyMeters,
+    double minRadius = 60,
+    double maxRadius = 110,
+    String color = '#7797A8',
+    double opacity = 0.35,
+  }) {
+    final fake = debugHalo;
+    if (fake != null) {
+      fake(mapId, center, accuracyMeters);
+      return;
+    }
+    impl.halo(
+      mapId,
+      center?.latitude,
+      center?.longitude,
+      accuracyMeters,
+      minRadius,
+      maxRadius,
+      color,
+      opacity,
+    );
+  }
+
+  /// Tests stand in for the web layer's [halo].
+  @visibleForTesting
+  static void Function(int mapId, LatLng? center, double? accuracyMeters)?
+  debugHalo;
+
   /// The widget of this map is gone. google.maps.Map has no destroy(): the
   /// Maps script and google_maps_flutter_web both keep every map for the
   /// life of the page, so a map Flutter had removed kept its tiles,

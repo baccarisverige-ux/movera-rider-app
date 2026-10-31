@@ -4,8 +4,6 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 import 'dart:math' as math;
 
-import 'dart:ui' as ui;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -127,12 +125,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   StreamSubscription<void>? _savedPlacesSubscription;
   bool _showRecenterButton = true;
-  BitmapDescriptor? _locationPuckCompact;
-  BitmapDescriptor? _locationPuckExpanded;
-  ui.Image? _puckCompactImage;
-  ui.Image? _puckExpandedImage;
-  int _webPuckPaintGen = 0;
-  final RotatedPuckCache _webPuckCache = RotatedPuckCache();
+
+  /// The rider's pin, one bitmap per camera tilt bucket
+  /// ([MoveraRiderPuckMarker.tiltBucket]); 0 is the flat dot.
+  final Map<int, BitmapDescriptor> _pins = {};
+  bool _tiltPinsStarted = false;
+  int? _paintedPinBucket;
 
   // The search card ends around 113 logical px from the top of the sheet.
   // Leave space for the floating navigation bar below it at the collapsed snap.
@@ -140,8 +138,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   static const double _sheetMaxHeight = 294;
 
   bool _destinationSheetOpen = false;
-  bool get _locationPulseExpanded => _locationCtl.pulseExpanded;
-  double get _locationHeading => _locationCtl.heading;
   set _locationHeading(double value) => _locationCtl.heading = value;
   set _hasCompassHeading(bool value) => _locationCtl.hasCompassHeading = value;
   set _lastMapZoom(double value) => _locationCtl.lastMapZoom = value;
@@ -407,8 +403,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _presence.dispose();
     _sheetCtl.dispose();
     _locationCtl.dispose();
-    _puckCompactImage?.dispose();
-    _puckExpandedImage?.dispose();
     _mapParked.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.home);
     setWebOverlayOpen(false);
@@ -1954,106 +1948,68 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
-    final visual = await MoveraRiderPuckMarker.createVisual(expanded: expanded);
-    // The rotated bitmaps were drawn from the old source images.
-    _webPuckCache.clear();
-    if (expanded) {
-      _puckExpandedImage?.dispose();
-      _puckExpandedImage = visual.image;
-    } else {
-      _puckCompactImage?.dispose();
-      _puckCompactImage = visual.image;
+  /// Owner 2026-10-31 (rider-pin SPEC): the flat pin first, then the
+  /// tilted pucks, all at the screen's pixel ratio so they are sharp.
+  Future<void> _prepareLocationPuckIcons() async {
+    // Read from the platform, not the widget tree: this also runs from
+    // initState's first-fix path.
+    final ratio =
+        WidgetsBinding
+            .instance
+            .platformDispatcher
+            .implicitView
+            ?.devicePixelRatio ??
+        markerPixelRatio;
+    if (_pins[0] == null) {
+      _pins[0] ??= await _drawPin(0, ratio);
     }
+    if (_tiltPinsStarted) return;
+    _tiltPinsStarted = true;
+    unawaited(() async {
+      for (
+        var tilt = MoveraRiderPuckMarker.tiltStep;
+        tilt <= 70;
+        tilt += MoveraRiderPuckMarker.tiltStep
+      ) {
+        _pins[tilt] = await _drawPin(tilt, ratio);
+      }
+      // A tilted camera got the flat pin while the pucks were drawn.
+      if (mounted && _paintedPinBucket != _pinBucket) {
+        _updateLocationVisuals();
+      }
+    }());
+  }
+
+  /// A fresh draw each time (no shared in-flight future, so a draw that
+  /// never finished cannot hold every later attempt).
+  static Future<BitmapDescriptor> _drawPin(int tilt, double ratio) async {
+    final visual = await MoveraRiderPuckMarker.createVisual(
+      tilt: tilt.toDouble(),
+      pixelRatio: ratio,
+    );
+    visual.image.dispose();
     return visual.icon;
   }
 
-  Future<void> _prepareLocationPuckIcons() async {
-    _locationPuckCompact ??= await _buildLocationPuckIcon(false);
-    _locationPuckExpanded ??= await _buildLocationPuckIcon(true);
-  }
+  /// The pin bitmap the camera's tilt asks for.
+  int get _pinBucket =>
+      MoveraRiderPuckMarker.tiltBucket(_locationCtl.lastMapTilt);
 
-  Future<BitmapDescriptor?> _webRotatedPuck({
-    required bool expanded,
-    required double heading,
-  }) async {
-    final src = expanded ? _puckExpandedImage : _puckCompactImage;
-    if (src == null) return null;
-    // U7: one bitmap per 5° bucket and pulse state, built once and reused,
-    // instead of toImage + PNG encode on every heading sample and pulse.
-    final bucket = _webPuckCache.bucketFor(heading);
-    final cached = _webPuckCache.lookup(expanded: expanded, bucket: bucket);
-    if (cached != null) return cached;
-    final icon = await _rasteriseRotatedPuck(
-      src,
-      _webPuckCache.headingFor(bucket),
-    );
-    if (icon != null &&
-        identical(src, expanded ? _puckExpandedImage : _puckCompactImage)) {
-      _webPuckCache.store(expanded: expanded, bucket: bucket, icon: icon);
-    }
-    return icon;
-  }
-
-  Future<BitmapDescriptor?> _rasteriseRotatedPuck(
-    ui.Image src,
-    double heading,
-  ) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final cx = src.width * 0.5;
-    final cy = src.height * 0.66;
-    canvas
-      ..translate(cx, cy)
-      ..rotate(heading * math.pi / 180)
-      ..translate(-cx, -cy)
-      ..drawImage(src, Offset.zero, Paint());
-    final image = await recorder.endRecording().toImage(src.width, src.height);
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    if (data == null) return null;
-    // The size given up front: the web plugin otherwise loads every new
-    // marker bitmap into an extra image just to measure it. Logical size:
-    // the bitmap holds pixelRatio pixels per logical pixel (uat-r2).
-    return BitmapDescriptor.bytes(
-      data.buffer.asUint8List(),
-      width: src.width / MoveraRiderPuckMarker.pixelRatio,
-      height: src.height / MoveraRiderPuckMarker.pixelRatio,
-    );
-  }
-
+  /// Paints the rider's pin: a screen-fixed bitmap (same size at every
+  /// zoom), the flat dot or, on a tilted map, the puck for that tilt. It
+  /// is round, so the heading does not turn it (no cone).
   void _updateLocationVisuals() {
     final target = _currentLatLng;
-    final expanded = _locationPulseExpanded;
-    final icon = expanded ? _locationPuckExpanded : _locationPuckCompact;
+    var bucket = _pinBucket;
+    if (_pins[bucket] == null) bucket = 0;
+    final icon = _pins[bucket];
     if (!mounted || target == null || icon == null) return;
-    final heading = _locationHeading;
-    if (kIsWeb) {
-      // The web bitmap is turned on screen, not on the ground: take the
-      // map's own bearing off, or a rotated map turns the arrow twice.
-      _paintWebPuck(
-        target: target,
-        expanded: expanded,
-        heading: heading - _locationCtl.lastMapBearing,
-      );
-      return;
-    }
-    _locationCtl.paintUserPuck(target: target, icon: icon, heading: heading);
-  }
-
-  Future<void> _paintWebPuck({
-    required LatLng target,
-    required bool expanded,
-    required double heading,
-  }) async {
-    final gen = ++_webPuckPaintGen;
-    final rotated = await _webRotatedPuck(expanded: expanded, heading: heading);
-    if (!mounted || gen != _webPuckPaintGen) return;
+    _paintedPinBucket = bucket;
     _locationCtl.paintUserPuck(
       target: target,
-      icon:
-          rotated ?? (expanded ? _locationPuckExpanded : _locationPuckCompact)!,
-      heading: rotated == null ? heading : 0,
+      icon: icon,
+      heading: 0,
+      anchor: MoveraRiderPuckMarker.anchorFor(bucket.toDouble()),
     );
   }
 
@@ -2071,7 +2027,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _handleMapCameraMove(CameraPosition camera) {
     _lastMapZoom = camera.zoom;
     _lastMapTarget = camera.target;
-    _locationCtl.noteCameraMove(bearing: camera.bearing);
+    _locationCtl.noteCameraMove(bearing: camera.bearing, tilt: camera.tilt);
+    if (_paintedPinBucket != null && _paintedPinBucket != _pinBucket) {
+      _updateLocationVisuals();
+    }
     final user = _currentLatLng;
     if (user == null) return;
     final shouldShow = AppScope.instance.camera.followOrFree(
