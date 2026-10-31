@@ -7,19 +7,15 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Movera — premium rides in Sweden.">
-  <!-- Owner 2026-10-30 "Map under the strip": edge to edge, like a native
-       app. viewport-fit=cover lets the page (and the Home map) go under the
-       status bar and the home indicator; the screens pay the space back with
-       env(safe-area-inset-*), which Dart reads from a probe element
-       (lib/core/platform/safe_area_insets*.dart) into MediaQuery, because
-       Flutter web reports no viewPadding. Flutter web swaps this tag for its
-       own at start (without viewport-fit), so the script below puts
-       viewport-fit=cover back on whichever tag is there.
-       The old tap-offset bug (installed app drew under the status bar while
-       taps landed in the area below it) came from a page that could sit
-       lower than the screen's top: html and body are now position: fixed at
-       0,0 with no scrolling, so drawing, taps and insets share one origin. -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- No viewport-fit=cover: it lays the page out edge to edge, underneath the
+       status and gesture bars. In a browser tab that is harmless because the
+       browser's own UI already occupies that space, but installed from the home
+       screen there is no browser UI, so the app drew under the status bar while
+       taps landed in the visible area below it — every control was offset by the
+       status bar's height, and tapping "Where to?" hit the bottom nav instead.
+       Covering that area is only safe for a layout that pays it back with
+       env(safe-area-inset-*) padding, and this one does not. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#eef1e8">
   <meta name="color-scheme" content="light">
   <meta http-equiv="Cache-Control" content="no-store">
@@ -36,163 +32,7 @@
 
   <title>Movera</title>
   <link rel="manifest" href="manifest.json">
-  <script>
-    // Flutter web replaces <meta name="viewport"> with its own when it
-    // starts, without viewport-fit=cover; without it env(safe-area-inset-*)
-    // are all 0 and nothing can draw under the status bar. Put it back on
-    // whichever viewport tag is there, now and after the engine's swap.
-    (function () {
-      function cover() {
-        var metas = document.querySelectorAll('meta[name="viewport"]');
-        for (var i = 0; i < metas.length; i++) {
-          var c = metas[i].getAttribute('content') || '';
-          if (c.indexOf('viewport-fit=cover') < 0) {
-            metas[i].setAttribute('content', (c ? c + ', ' : '') + 'viewport-fit=cover');
-          }
-        }
-      }
-      cover();
-      new MutationObserver(cover).observe(document.head, { childList: true });
-    })();
-  </script>
-  <script>
-    // Owner 2026-10-31 (iPhone Home Screen app with a Dynamic Island): after
-    // "Map under the strip" the app ended about one status bar (~59pt) above
-    // the bottom of the screen, with a band of page background under the
-    // bottom bar. iOS bug: in a Home Screen app with black-translucent +
-    // viewport-fit=cover the page starts at the very top of the screen, but
-    // the viewport WebKit reports (documentElement.clientHeight, innerHeight,
-    // 100%, and possibly visualViewport.height) is the screen height MINUS
-    // the status bar. Flutter web (3.47, full-page mode) sizes the app on
-    // iOS from documentElement.clientHeight (engine
-    // full_page_dimensions_provider.dart computePhysicalSize), so the whole
-    // app came out short by that much.
-    // Fix, iOS Home Screen app only (Safari tabs, Android and desktop are
-    // untouched): the page's clientHeight reports the real screen height
-    // (screen.height in portrait, screen.width in landscape), html/body grow
-    // by the same gap (--movera-viewport-gap), and visualViewport.height is
-    // corrected by its own measured gap, so the keyboard inset Flutter
-    // computes (clientHeight - visualViewport.height while typing) stays the
-    // keyboard's real height. Nothing moves the origin: drawing and taps
-    // still start at 0,0. iPad Split View / Slide Over (window narrower than
-    // the screen) is left alone.
-    // Applied only when the missing height equals env(safe-area-inset-top)
-    // (within 2px), i.e. the page really starts under the status bar.
-    (function () {
-      var nav = window.navigator;
-      var platform = String(nav.platform || '');
-      var lower = platform.toLowerCase();
-      // Same test as the engine's iOS detection (browser_detection.dart).
-      var ios = lower.indexOf('iphone') >= 0 || lower.indexOf('ipad') >= 0 ||
-        lower.indexOf('ipod') >= 0 ||
-        (platform.indexOf('Mac') === 0 && (nav.maxTouchPoints || 0) > 2);
-      window.moveraViewportGap = 0;
-      if (!ios || nav.standalone !== true) return;
-      var root = document.documentElement;
-      var heightOf = Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight');
-      var widthOf = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
-      if (!heightOf || !heightOf.get || !widthOf || !widthOf.get) return;
-      var MAX_GAP = 100; // a status bar is at most ~62pt
-      // The gap is the status bar only when the page really starts under it
-      // (black-translucent): then it equals env(safe-area-inset-top). An old
-      // Home Screen icon saved with an opaque status bar starts below the
-      // bar, so its short viewport is right and is left alone.
-      var topProbe = null;
-      function insetTop() {
-        if (!topProbe) {
-          topProbe = document.createElement('div');
-          topProbe.setAttribute('aria-hidden', 'true');
-          topProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;' +
-            'visibility:hidden;pointer-events:none;' +
-            'padding-top:env(safe-area-inset-top, 0px)';
-          root.appendChild(topProbe);
-        }
-        return parseFloat(getComputedStyle(topProbe).paddingTop) || 0;
-      }
-
-      function measure() {
-        var w = widthOf.get.call(root);
-        var h = heightOf.get.call(root);
-        var a = screen.width, b = screen.height;
-        var shortSide = Math.min(a, b), longSide = Math.max(a, b);
-        var full = 0, portrait = true;
-        if (Math.abs(w - shortSide) <= 1) {
-          full = longSide;
-        } else if (Math.abs(w - longSide) <= 1) {
-          full = shortSide;
-          portrait = false;
-        }
-        return { h: h, full: full, portrait: portrait, gap: gapTo(full, h) };
-      }
-      function gapTo(full, h) {
-        var gap = full - h;
-        if (!(full > 0 && gap >= 1 && gap <= MAX_GAP)) return 0;
-        return Math.abs(gap - insetTop()) <= 2 ? gap : 0;
-      }
-      function publish(gap) {
-        if (gap === window.moveraViewportGap) return;
-        window.moveraViewportGap = gap;
-        root.style.setProperty('--movera-viewport-gap', gap + 'px');
-      }
-
-      Object.defineProperty(root, 'clientHeight', {
-        configurable: true,
-        get: function () {
-          var m = measure();
-          publish(m.gap);
-          return m.h + m.gap;
-        }
-      });
-
-      var vv = window.visualViewport;
-      var vvHeightOf = vv && Object.getOwnPropertyDescriptor(Object.getPrototypeOf(vv), 'height');
-      if (vvHeightOf && vvHeightOf.get) {
-        // visualViewport.height's own gap, measured while the keyboard is
-        // closed (then it is at least the page height), per orientation.
-        var vvGap = {};
-        Object.defineProperty(vv, 'height', {
-          configurable: true,
-          get: function () {
-            var raw = vvHeightOf.get.call(vv);
-            var m = measure();
-            if (!m.full) return raw;
-            var key = m.portrait ? 'portrait' : 'landscape';
-            if (raw >= m.h - 1) vvGap[key] = gapTo(m.full, raw);
-            // Not measured yet: assume it is short like the page, which keeps
-            // the keyboard inset exactly as it was before this fix.
-            return raw + (key in vvGap ? vvGap[key] : m.gap);
-          }
-        });
-      }
-
-      function sample() {
-        publish(measure().gap);
-        if (vv) void vv.height;
-      }
-      sample();
-      window.addEventListener('resize', sample);
-      window.addEventListener('orientationchange', function () {
-        sample();
-        // iOS settles the size a moment after a rotation: publish the new
-        // gap, then make Flutter measure again.
-        setTimeout(function () {
-          sample();
-          try { window.dispatchEvent(new Event('resize')); } catch (_) {}
-          try { if (vv) vv.dispatchEvent(new Event('resize')); } catch (_) {}
-        }, 300);
-      });
-      if (vv) vv.addEventListener('resize', sample);
-    })();
-  </script>
   <style>
-    html, body {
-      /* One coordinate space for drawing and for taps (see the viewport
-         comment): the page is exactly the screen, fixed at 0,0 and never
-         scrolled. */
-      position: fixed;
-      inset: 0;
-      width: 100%;
-    }
     html, body, flt-glass-pane, flt-scene-host {
       height: 100%;
       margin: 0;
@@ -208,8 +48,7 @@
        focus. Flutter's hidden <input>/<textarea> (flt-text-editing-host and
        the screen reader's fields) take the Flutter field's font size, e.g.
        13-15px; they are invisible (Flutter draws the text), so 16px changes
-       nothing on screen and Safari never zooms. Flutter's own viewport tag
-       allows pinch zoom (maximum-scale=5), kept for accessibility. */
+       nothing on screen and Safari never zooms. */
     input, textarea, select { font-size: 16px !important; }
     body.movera-overlay-open iframe,
     body.movera-overlay-open flt-platform-view,
@@ -276,12 +115,6 @@
        with a frame around the rider's dot. The hit area's <div> still takes
        taps; only its image is hidden. */
     .gm-style img[src*="/mapfiles/transparent.png"] { visibility: hidden !important; }
-    /* iPhone Home Screen app: WebKit reports a viewport one status bar
-       shorter than the screen; the script after the viewport-fit one sets
-       --movera-viewport-gap to the missing height (0 everywhere else) so the
-       page, like the Flutter view, reaches the bottom of the screen. */
-    html, body { height: calc(100% + var(--movera-viewport-gap, 0px)); }
-    #movera-boot { bottom: auto; height: calc(100% + var(--movera-viewport-gap, 0px)); }
   </style>
 </head>
 <body>
@@ -358,7 +191,7 @@
   </script>
   <script src="movera_ride_snapshot_wipe.js"></script>
   <!-- Map gestures: tilt follows zoom live during a pinch (like the driver app). -->
-  <script src="rider_map_camera.js?v=3e9e5045"></script>
+  <script src="rider_map_camera.js?v=e84139d4"></script>
   <script>
     // A page restored from the back-forward cache already retains its live
     // Flutter state. Do not reload it: installed PWAs use this path when they
@@ -780,6 +613,6 @@
     // and for backgrounding, which previously killed listeners after grant.
   </script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJ_3q856NuoUBtnddNnIUC_-zs6ZJDml8" async defer></script>
-  <script src="flutter_bootstrap.3e9e5045.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
+  <script src="flutter_bootstrap.e84139d4.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
 </body>
 </html>
