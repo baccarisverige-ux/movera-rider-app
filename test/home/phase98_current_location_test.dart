@@ -207,24 +207,66 @@ void main() {
     expect(detected.address, isNot('Current location'));
   });
 
-  test('U2: low-accuracy fixes paint an accuracy circle', () async {
-    final location = _Location();
-    final ctl = _controller(location);
+  test('rider-pin SPEC: the halo is a second screen-fixed marker under the '
+      'pin; zoom, tilt and accuracy never change it ("Blue must be same in '
+      'all zoom steps")', () async {
+    final ctl = _controller(_Location());
     addTearDown(ctl.dispose);
-    ctl.lastFixAccuracyMeters = 250;
+    const at = LatLng(59.33, 18.06);
+    final pinIcon = BitmapDescriptor.defaultMarker;
+    final haloIcon = BitmapDescriptor.defaultMarkerWithHue(200);
+    ctl.lastFixAccuracyMeters = 80;
+    ctl.paintUserPuck(
+      target: at,
+      icon: pinIcon,
+      heading: 0,
+      haloIcon: haloIcon,
+    );
+    Marker byId(MarkerId id) => ctl.markers.firstWhere((m) => m.markerId == id);
+    final halo = byId(HomeLocationController.userHaloId);
+    final pin = byId(HomeLocationController.userPinId);
+    expect(ctl.markers, hasLength(2));
+    expect(identical(halo.icon, haloIcon), isTrue);
+    expect(halo.position, at);
+    expect(halo.anchor, const Offset(0.5, 0.5));
+    expect(halo.flat, isFalse, reason: 'faces the screen: no tilt ellipse');
+    expect(halo.consumeTapEvents, isTrue);
+    expect(halo.zIndexInt, lessThan(pin.zIndexInt));
+    expect(ctl.locationCircles, isEmpty, reason: 'no ground circle');
+    final before = ctl.markers;
+    var notified = 0;
+    ctl.addListener(() => notified += 1);
+    // Zoom and tilt steps leave the markers alone (no per-zoom repaint).
+    for (final zoom in [12.0, 15.5, 19.0]) {
+      ctl.lastMapZoom = zoom;
+      ctl.noteCameraMove(tilt: zoom > 12 ? 45 : 0);
+    }
+    expect(identical(ctl.markers, before), isTrue);
+    expect(notified, 0);
+    // Another accuracy paints the same markers: nothing to repaint.
+    ctl.lastFixAccuracyMeters = 900;
+    ctl.paintUserPuck(
+      target: at,
+      icon: pinIcon,
+      heading: 0,
+      haloIcon: haloIcon,
+    );
+    expect(identical(ctl.markers, before), isTrue);
+    expect(notified, 0);
+  });
+
+  test('rider-pin SPEC: the pin is a screen-facing marker anchored at its '
+      'centre', () async {
+    final ctl = _controller(_Location());
+    addTearDown(ctl.dispose);
     ctl.paintUserPuck(
       target: const LatLng(59.33, 18.06),
       icon: BitmapDescriptor.defaultMarker,
       heading: 0,
     );
-    expect(ctl.locationCircles.single.radius, 250);
-    ctl.lastFixAccuracyMeters = 8;
-    ctl.paintUserPuck(
-      target: const LatLng(59.33, 18.06),
-      icon: BitmapDescriptor.defaultMarker,
-      heading: 0,
-    );
-    expect(ctl.locationCircles, isEmpty);
+    final pin = ctl.markers.single;
+    expect(pin.flat, isFalse);
+    expect(pin.anchor, const Offset(0.5, 0.5));
   });
 
   test('D-004: coordinate strings and placeholders are recognised', () {

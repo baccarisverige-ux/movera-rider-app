@@ -9,12 +9,14 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('the puck is painted at 3x and tells the map its pixel ratio', () async {
+  test('the pin is painted at 3x by default and tells the map its pixel '
+      'ratio', () async {
     final visual = await MoveraRiderPuckMarker.createVisual();
-    expect(visual.image.width, greaterThanOrEqualTo(65 * 3));
-    expect(visual.image.height, greaterThanOrEqualTo(75 * 3));
+    final logical = MoveraRiderPuckMarker.geometry(0).size;
+    expect(visual.image.width, (logical.width * 3).ceil());
+    expect(visual.image.height, (logical.height * 3).ceil());
     final icon = visual.icon as BytesMapBitmap;
-    expect(icon.imagePixelRatio, MoveraRiderPuckMarker.pixelRatio);
+    expect(icon.imagePixelRatio, markerPixelRatio);
     visual.image.dispose();
   });
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show Color, Offset;
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
@@ -229,10 +229,14 @@ class HomeLocationController extends ChangeNotifier {
   /// Bearing of the map camera (degrees) as last reported.
   double lastMapBearing = 0;
 
+  /// Tilt of the map camera (degrees) as last reported.
+  double lastMapTilt = 0;
+
   /// The map camera moved (an onCameraMove report).
-  void noteCameraMove({double bearing = 0}) {
+  void noteCameraMove({double bearing = 0, double tilt = 0}) {
     _cameraMovedAt = _now();
     lastMapBearing = bearing.isFinite ? bearing : 0;
+    lastMapTilt = tilt.isFinite ? tilt : 0;
   }
 
   /// Whether a finger holds the map or an app glide is running (set by
@@ -268,8 +272,9 @@ class HomeLocationController extends ChangeNotifier {
   void Function(LatLng latLng, double heading)? _trackingOnFix;
   bool _resumeRefreshInFlight = false;
 
-  /// Accuracy (metres) of the last fix the puck was painted from, so a
-  /// low-accuracy fix is shown with its uncertainty circle (U2).
+  /// Accuracy (metres) of the last fix the puck was painted from. The
+  /// halo under the pin no longer shows it (owner: "Blue must be same in
+  /// all zoom steps": a fixed-size halo).
   double? lastFixAccuracyMeters;
 
   static const detectFixTimeout = Duration(seconds: 16);
@@ -952,54 +957,70 @@ class HomeLocationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  double? _paintedAccuracy;
-
+  /// Paints the rider's pin at [target]. [anchor] is the point of [icon]
+  /// on [target] (the pin's centre). [haloIcon], when given, is the grey
+  /// halo drawn under the pin as a second screen-fixed marker, centred on
+  /// the same point.
+  ///
+  /// Owner 2026-10-31 (rider-pin SPEC) + "Blue must be same in all zoom
+  /// steps": both are screen-space bitmaps, so neither changes size or
+  /// shape with the zoom or the tilt (a ground circle in metres flattened
+  /// into an ellipse on the tilted rider maps).
   void paintUserPuck({
     required LatLng target,
     required BitmapDescriptor icon,
     required double heading,
+    Offset anchor = const Offset(0.5, 0.5),
+    BitmapDescriptor? haloIcon,
   }) {
     if (_livePaused) return;
-    final accuracy = lastFixAccuracyMeters;
     // UI-12: the same puck again changes nothing, so it does not notify (a
     // new set identity rebuilds the map widget).
-    final painted = markers.length == 1 ? markers.first : null;
+    Marker? painted;
+    Marker? paintedHalo;
+    for (final marker in markers) {
+      if (marker.markerId == userPinId) painted = marker;
+      if (marker.markerId == userHaloId) paintedHalo = marker;
+    }
     if (painted != null &&
-        painted.markerId == const MarkerId('live_user_location') &&
         painted.position == target &&
         identical(painted.icon, icon) &&
+        painted.anchor == anchor &&
         painted.rotation == heading &&
-        _paintedAccuracy == accuracy) {
+        identical(paintedHalo?.icon, haloIcon)) {
       return;
     }
-    _paintedAccuracy = accuracy;
-    // U2: a low-accuracy fix is shown with its uncertainty, not hidden.
-    locationCircles = accuracy != null && accuracy.isFinite && accuracy > 30
-        ? {
-            Circle(
-              circleId: const CircleId('live_user_accuracy'),
-              center: target,
-              radius: accuracy.clamp(30, 2000).toDouble(),
-              fillColor: const Color(0x1F2D5878),
-              strokeColor: const Color(0x592D5878),
-              strokeWidth: 1,
-            ),
-          }
-        : {};
+    locationCircles = {};
     locationDirection = {};
     markers = {
+      if (haloIcon != null)
+        Marker(
+          markerId: userHaloId,
+          position: target,
+          icon: haloIcon,
+          anchor: const Offset(0.5, 0.5),
+          // Under the pin and every other pin. Taking the tap: on phones a
+          // marker that lets it through makes Google move the camera onto
+          // it, so a tap near the rider would jump the map (checker).
+          zIndexInt: 1,
+          consumeTapEvents: true,
+        ),
+      // A screen-facing marker: the same size on screen at every zoom.
       Marker(
-        markerId: const MarkerId('live_user_location'),
+        markerId: userPinId,
         position: target,
         icon: icon,
-        anchor: const Offset(0.5, 0.66),
+        anchor: anchor,
         rotation: heading,
-        flat: true,
         zIndexInt: 20,
       ),
     };
     notifyListeners();
   }
+
+  /// The rider's pin and the halo under it.
+  static const MarkerId userPinId = MarkerId('live_user_location');
+  static const MarkerId userHaloId = MarkerId('live_user_halo');
 
   @override
   void dispose() {

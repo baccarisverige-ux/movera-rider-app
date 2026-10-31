@@ -12,60 +12,240 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 /// it sharp instead of stretching a 1x image.
 const double markerPixelRatio = 3;
 
-/// Compact Rider location puck matching the Home map visual language.
+/// The rider's own position pin (owner 2026-10-31, plan/rider-pin/SPEC.md).
 ///
-/// Owner decision (rider map, 2026-10-30): the dot, its cone and its halo
-/// are Movera blue ([riderPuckBlue], AppColors.blue); the white ring stays.
+/// Seen from above (a flat map) it is a solid blue dot ([blue], [dotDiameter]
+/// across) in a thin white ring ([ringWidth]) with a very soft shadow. On a
+/// tilted map it becomes a small white puck: a short cylinder whose top is a
+/// white ellipse with the blue ellipse on it, its side wall light grey. The
+/// ellipses flatten with the camera tilt.
+///
+/// The pin is a screen-fixed marker: the same size on screen at every zoom.
+/// Its bitmap is drawn at the device pixel ratio and anchored at the centre
+/// of its top ([anchorFor]). No cone, no pulse.
 class MoveraRiderPuckMarker {
   const MoveraRiderPuckMarker._();
 
-  /// The dot's colour (AppColors.blue).
-  static const Color riderPuckBlue = Color(0xFF055B95);
+  /// The dot (rgb 0, 140, 250): flat, solid, no gradient.
+  static const Color blue = Color(0xFF008CFA);
 
-  static final Map<bool, Future<BitmapDescriptor>> _iconCache =
-      <bool, Future<BitmapDescriptor>>{};
+  /// The ring around the flat dot.
+  static const Color ring = Color(0xFFFFFFFF);
 
-  /// uat-r2: the puck is painted at [markerPixelRatio], else the map
-  /// stretches a 1x bitmap and it looks blurred on a phone screen.
-  static const double pixelRatio = markerPixelRatio;
+  /// The top of the tilted puck.
+  static const Color puckTop = Color(0xFFFAFBFC);
 
-  static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
-    bool expanded = false,
-  }) async {
-    const width = 65.9;
-    const height = 75.3;
+  /// The puck's side wall, top to bottom.
+  static const Color wallLight = Color(0xFFE3E6E9);
+  static const Color wallDark = Color(0xFFD5DADF);
+
+  /// The soft shadow under the pin.
+  static const Color shadow = Color(0x2E1B2733);
+
+  /// Flat pin: blue dot and white ring, in logical points.
+  static const double dotDiameter = 9;
+  static const double ringWidth = 1.75;
+  static const double flatDiameter = dotDiameter + 2 * ringWidth;
+
+  /// Tilted puck at full lean: top ellipse [puckWidth] x
+  /// [puckWidth] * [fullLeanRatio], blue ellipse [puckBlueWidth] wide, a
+  /// [puckWall] high side wall.
+  static const double puckWidth = 20;
+  static const double puckBlueWidth = 16;
+  static const double puckWall = 3;
+  static const double fullLeanRatio = 11 / 20;
+
+  /// Room around the pin for its shadow.
+  static const double margin = 4;
+
+  /// Owner, after the before/after: "Blue must be same in all zoom steps".
+  /// Rider maps tilt with zoom, so a puck that leans with the camera would
+  /// change the blue's size from one zoom step to the next: the maps show
+  /// the flat pin at every zoom and tilt. The tilted puck below (SPEC)
+  /// stays drawable for when the owner wants it back.
+  static const bool tiltsWithCamera = false;
+
+  /// Below this camera tilt (degrees) the map counts as flat.
+  static const double puckFromTilt = 4;
+
+  /// The tilted pin is drawn once per this many degrees of tilt.
+  static const int tiltStep = 5;
+
+  /// The tilt a bitmap is drawn for: 0 on a flat map, else [tilt] snapped
+  /// to [tiltStep] (at most the map engines' 67.5 deg, as 70).
+  static int tiltBucket(double tilt) {
+    if (!tilt.isFinite || tilt < puckFromTilt) return 0;
+    final snapped = (tilt / tiltStep).round() * tiltStep;
+    return snapped.clamp(tiltStep, 70);
+  }
+
+  /// How far [tilt] has turned the dot into the puck: 0 flat, 1 full puck.
+  /// The top's height/width follows the camera (cos tilt) down to
+  /// [fullLeanRatio], where the puck is complete.
+  static double lean(double tilt) {
+    final bucket = tiltBucket(tilt);
+    if (bucket == 0) return 0;
+    final ratio = math.cos(bucket * math.pi / 180);
+    return ((1 - ratio) / (1 - fullLeanRatio)).clamp(0.0, 1.0);
+  }
+
+  /// The pin's geometry at [tilt], in logical points.
+  static ({Size size, Offset centre, Size top, Size dot, double wall}) geometry(
+    double tilt,
+  ) {
+    final t = lean(tilt);
+    final ratio = 1 - t * (1 - fullLeanRatio);
+    final topW = ui.lerpDouble(flatDiameter, puckWidth, t)!;
+    final dotW = ui.lerpDouble(dotDiameter, puckBlueWidth, t)!;
+    final wall = puckWall * t;
+    final topH = topW * ratio;
+    final size = Size(topW + 2 * margin, topH + wall + 2 * margin);
+    return (
+      size: size,
+      centre: Offset(size.width / 2, margin + topH / 2),
+      top: Size(topW, topH),
+      dot: Size(dotW, dotW * ratio),
+      wall: wall,
+    );
+  }
+
+  /// The marker anchor at [tilt]: the centre of the pin's top, which is
+  /// the rider's position.
+  static Offset anchorFor(double tilt) {
+    final g = geometry(tilt);
+    return Offset(g.centre.dx / g.size.width, g.centre.dy / g.size.height);
+  }
+
+  /// Paints the pin for [tilt] in logical points (origin top left of
+  /// [geometry]'s size).
+  static void paint(Canvas canvas, double tilt) {
+    final g = geometry(tilt);
+    final c = g.centre;
+    final top = Rect.fromCenter(
+      center: c,
+      width: g.top.width,
+      height: g.top.height,
+    );
+    final base = top.shift(Offset(0, g.wall));
+    // Very soft shadow: under the dot, or under the puck's base.
+    canvas.drawOval(
+      base.shift(const Offset(0, 0.6)).inflate(0.4),
+      Paint()
+        ..color = shadow
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.3),
+    );
+    if (g.wall > 0) {
+      // The side wall: the base ellipse and the band up to the top.
+      final wallPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, c.dy),
+          Offset(0, base.bottom),
+          const [wallLight, wallDark],
+        );
+      canvas
+        ..drawOval(base, wallPaint)
+        ..drawRect(
+          Rect.fromLTRB(top.left, c.dy, top.right, base.center.dy),
+          wallPaint,
+        );
+    }
+    canvas
+      ..drawOval(top, Paint()..color = g.wall > 0 ? puckTop : ring)
+      ..drawOval(
+        Rect.fromCenter(center: c, width: g.dot.width, height: g.dot.height),
+        Paint()..color = blue,
+      );
+  }
+
+  static final Map<(int, int), Future<BitmapDescriptor>> _iconCache = {};
+
+  /// The pin bitmap for [tilt] at [pixelRatio] (the device's), with its
+  /// decoded image (tests read its pixels) and its logical size.
+  static Future<({BitmapDescriptor icon, ui.Image image, Size size})>
+  createVisual({double tilt = 0, double pixelRatio = markerPixelRatio}) async {
+    final ratio = pixelRatio.isFinite && pixelRatio > 0 ? pixelRatio : 1.0;
+    final bucket = tiltBucket(tilt).toDouble();
+    final size = geometry(bucket).size;
+    final width = (size.width * ratio).ceil();
+    final height = (size.height * ratio).ceil();
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)
-      ..scale(0.588 * pixelRatio, 0.588 * pixelRatio);
-    const center = Offset(56, 84);
-
-    final beam = Path()
-      ..moveTo(56, 80)
-      ..lineTo(23, 18)
-      ..quadraticBezierTo(56, 1, 89, 18)
-      ..close();
-    final beamPaint = Paint()
-      ..shader = ui.Gradient.linear(const Offset(56, 4), center, [
-        const Color(0x08055B95),
-        const Color(0x35055B95),
-      ]);
-    canvas.drawPath(beam, beamPaint);
-    canvas.drawCircle(
-      center,
-      expanded ? 31 : 25,
-      Paint()..color = const Color(0x18055B95),
-    );
-    canvas.drawCircle(center, 20, Paint()..color = Colors.white);
-    canvas.drawCircle(center, 15, Paint()..color = riderPuckBlue);
-
-    final image = await recorder.endRecording().toImage(
-      (width * pixelRatio).toInt(),
-      (height * pixelRatio).toInt(),
-    );
+    final canvas = Canvas(recorder)..scale(ratio, ratio);
+    paint(canvas, bucket);
+    final image = await recorder.endRecording().toImage(width, height);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    // Never fall back to Google's default pin for the Rider location.
-    // In the unlikely event PNG encoding fails, use an invisible descriptor
-    // rather than flashing a red pin underneath the Movera puck.
+    // Never fall back to Google's default pin for the rider's position. In
+    // the unlikely event PNG encoding fails, use an invisible descriptor
+    // rather than flashing a red pin.
+    final icon = data == null
+        ? BitmapDescriptor.bytes(
+            base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            ),
+          )
+        // The logical size given up front (rider-u58: the web plugin does
+        // not probe the bitmap) and the pixel ratio (uat-r2: sharp, not a
+        // stretched 1x image).
+        : BitmapDescriptor.bytes(
+            data.buffer.asUint8List(),
+            width: width / ratio,
+            height: height / ratio,
+            imagePixelRatio: ratio,
+          );
+    return (
+      icon: icon,
+      image: image,
+      size: Size(width / ratio, height / ratio),
+    );
+  }
+
+  /// The cached pin bitmap for [tilt] (snapped by [tiltBucket]) at
+  /// [pixelRatio].
+  static Future<BitmapDescriptor> createIcon({
+    double tilt = 0,
+    double pixelRatio = markerPixelRatio,
+  }) {
+    final key = (tiltBucket(tilt), (pixelRatio * 100).round());
+    return _iconCache.putIfAbsent(key, () async {
+      final visual = await createVisual(tilt: tilt, pixelRatio: pixelRatio);
+      visual.image.dispose();
+      return visual.icon;
+    });
+  }
+}
+
+/// The grey halo under the rider's pin (owner 2026-10-31,
+/// plan/rider-pin/SPEC.md): one flat disc, no border, no pulse, slightly
+/// see-through. Owner, after the before/after: "Blue must be same in all
+/// zoom steps" => it is a screen-space bitmap (a marker under the pin),
+/// [radius] points at every zoom and tilt, whatever the fix's accuracy.
+abstract final class RiderAccuracyHalo {
+  /// #7797A8 at 35 %: about #CBD6DC over a light map, roads show through.
+  static const Color color = Color(0x597797A8);
+
+  /// The halo's radius on screen, in logical points.
+  static const double radius = 60;
+
+  static final Map<int, Future<BitmapDescriptor>> _cache = {};
+
+  /// The halo bitmap at [pixelRatio], with its decoded image (tests read
+  /// its pixels).
+  static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
+    double pixelRatio = markerPixelRatio,
+  }) async {
+    final ratio = pixelRatio.isFinite && pixelRatio > 0 ? pixelRatio : 1.0;
+    final side = (2 * radius * ratio).ceil();
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..scale(ratio, ratio)
+      ..drawCircle(
+        const Offset(radius, radius),
+        radius,
+        Paint()
+          ..color = color
+          ..isAntiAlias = true,
+      );
+    final image = await recorder.endRecording().toImage(side, side);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
     final icon = data == null
         ? BitmapDescriptor.bytes(
             base64Decode(
@@ -74,14 +254,19 @@ class MoveraRiderPuckMarker {
           )
         : BitmapDescriptor.bytes(
             data.buffer.asUint8List(),
-            imagePixelRatio: pixelRatio,
+            width: side / ratio,
+            height: side / ratio,
+            imagePixelRatio: ratio,
           );
     return (icon: icon, image: image);
   }
 
-  static Future<BitmapDescriptor> createIcon({bool expanded = false}) {
-    return _iconCache.putIfAbsent(expanded, () async {
-      final visual = await createVisual(expanded: expanded);
+  /// The cached halo bitmap at [pixelRatio].
+  static Future<BitmapDescriptor> createIcon({
+    double pixelRatio = markerPixelRatio,
+  }) {
+    return _cache.putIfAbsent((pixelRatio * 100).round(), () async {
+      final visual = await createVisual(pixelRatio: pixelRatio);
       visual.image.dispose();
       return visual.icon;
     });

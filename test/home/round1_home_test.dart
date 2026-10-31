@@ -193,6 +193,43 @@ void main() {
       await tearDownHome(tester);
     });
 
+    testWidgets('rider-pin: Home draws the pin and its grey halo as two '
+        'screen-fixed markers on the same point, the halo under the pin, no '
+        'ground circle ("Blue must be same in all zoom steps")', (
+      tester,
+    ) async {
+      gps.lastKnown = _FakeGeolocator.at(59.3292, 18.0686);
+      await pumpHome(tester);
+      Marker? byId(String id) {
+        final map = tester.widget<CustomGoogleMap>(
+          find.byType(CustomGoogleMap),
+        );
+        for (final marker in map.markers ?? const <Marker>{}) {
+          if (marker.markerId == MarkerId(id)) return marker;
+        }
+        return null;
+      }
+
+      await waitFor(tester, () => byId('live_user_halo') != null);
+      final pin = byId('live_user_location')!;
+      final halo = byId('live_user_halo')!;
+      expect(halo.position, pin.position);
+      expect(halo.anchor, const Offset(0.5, 0.5));
+      expect(pin.anchor, const Offset(0.5, 0.5));
+      expect(pin.flat, isFalse);
+      expect(halo.flat, isFalse);
+      expect(halo.zIndexInt, lessThan(pin.zIndexInt));
+      expect(halo.consumeTapEvents, isTrue);
+      final halo120 = halo.icon as BytesMapBitmap;
+      expect(halo120.width, 120);
+      expect(halo120.height, 120);
+      expect(
+        tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap)).circles,
+        anyOf(isNull, isEmpty),
+      );
+      await tearDownHome(tester);
+    });
+
     testWidgets('an accurate fix far from the quick one moves the camera', (
       tester,
     ) async {
