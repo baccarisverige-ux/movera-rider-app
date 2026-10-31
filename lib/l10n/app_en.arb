@@ -3070,7 +3070,7 @@
       }
     }
   },
-  "termsCancelAfterArrived": "Cancelling after the driver has arrived counts as a no-show",
+  "termsCancelAfterArrived": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show",
   "termsPickupMove": "You can move the pickup at most {meters} m after booking",
   "@termsPickupMove": {
     "placeholders": {

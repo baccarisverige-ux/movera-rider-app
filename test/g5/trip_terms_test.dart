@@ -58,7 +58,7 @@ void main() {
     expect(lines, [
       'Attente gratuite 3 min, puis 1,10 € par minute',
       'Si vous n’êtes pas là 3 min après l’arrivée du chauffeur, des frais de 8,00 € s’appliquent',
-      'Annuler après l’arrivée du chauffeur compte comme un client absent',
+      'Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent',
       'Vous pouvez déplacer le point de départ de 200 m au plus après la réservation',
     ]);
   });
@@ -105,7 +105,9 @@ void main() {
     expect(lines.first, 'Free waiting 3 min, then 1,10 € per minute');
     expect(
       lines,
-      contains('Cancelling after the driver has arrived counts as a no-show'),
+      contains(
+        'Cancelling after the driver has arrived and the free waiting is over counts as a no-show',
+      ),
     );
     expect(lines.last, 'You can move the pickup at most 200 m after booking');
   });

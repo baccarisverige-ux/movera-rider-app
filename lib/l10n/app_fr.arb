@@ -1544,7 +1544,7 @@
   "tripTermsTitle": "Attente et annulation",
   "termsFreeWait": "Attente gratuite {free} min, puis {perMin} par minute",
   "termsNoShow": "Si vous n’êtes pas là {noShowAfter} min après l’arrivée du chauffeur, des frais de {noShowFee} s’appliquent",
-  "termsCancelAfterArrived": "Annuler après l’arrivée du chauffeur compte comme un client absent",
+  "termsCancelAfterArrived": "Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent",
   "termsPickupMove": "Vous pouvez déplacer le point de départ de {meters} m au plus après la réservation",
   "pickupMoved": "Le point de départ a été déplacé",
   "pickupMoveTooFar": "Vous pouvez déplacer le point de départ de {meters} m au plus. Annulez et réservez à nouveau pour un autre endroit.",

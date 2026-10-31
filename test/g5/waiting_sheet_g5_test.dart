@@ -222,7 +222,7 @@ void main() {
       expect(row.lines.lines, [
         'Free waiting 3 min, then 1,10 € per minute',
         'If you do not show up within 3 min after the driver arrives, a 8,00 € fee applies',
-        'Cancelling after the driver has arrived counts as a no-show',
+        'Cancelling after the driver has arrived and the free waiting is over counts as a no-show',
         'You can move the pickup at most 200 m after booking',
       ]);
     },

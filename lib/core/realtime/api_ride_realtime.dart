@@ -39,6 +39,7 @@ class ApiRideRealtime implements RideRealtime {
     this.failedAfter = 3,
     this.maxRetryWait = const Duration(seconds: 8),
     this.streamRetryWait = const Duration(seconds: 5),
+    this.streamSilenceLimit = defaultStreamSilenceLimit,
     DateTime Function()? clock,
     this.onProjectionVersion,
     bool? followStream,
@@ -50,6 +51,13 @@ class ApiRideRealtime implements RideRealtime {
   /// `pickupWaiting.follow.pollSeconds` / `minPollSeconds`.
   static const defaultPollInterval = Duration(seconds: 10);
   static const minPollInterval = Duration(seconds: 5);
+
+  /// The server sends a heartbeat comment every 15 s (openapi
+  /// `streamTripEvents`); 45 s without any line is a dropped stream.
+  static const defaultStreamSilenceLimit = Duration(seconds: 45);
+
+  /// How long the stream may stay silent before it counts as dropped.
+  final Duration streamSilenceLimit;
 
   final ApiClient _api;
   final RealtimeConnection connection;
@@ -157,6 +165,8 @@ class ApiRideRealtime implements RideRealtime {
     _stopPolling(poll);
     poll.streamRetry?.cancel();
     poll.streamRetry = null;
+    poll.watchdog?.cancel();
+    poll.watchdog = null;
     final stream = poll.stream;
     poll.stream = null;
     poll.streamUp = false;
@@ -178,15 +188,30 @@ class ApiRideRealtime implements RideRealtime {
         after > 0 ? '$path?after=$after' : path,
         lastEventId: after > 0 ? '$after' : null,
       );
-      if (_disposed || !identical(_rides[poll.id], poll)) return;
+      if (_disposed ||
+          !identical(_rides[poll.id], poll) ||
+          !(poll.controller?.hasListener ?? false)) {
+        // Disposed or unsubscribed while the stream was opening: close it.
+        unawaited(lines.listen((_) {}).cancel());
+        return;
+      }
       poll.streamUp = true;
-      poll.streamFailures = 0;
       _stopPolling(poll);
       final parser = SseEventParser();
+      final openedAt = _clock();
+      _armWatchdog(poll);
       poll.stream = lines.listen(
         (line) {
+          _armWatchdog(poll);
           final event = parser.add(line);
-          if (event != null) _onStreamEvent(poll, event);
+          if (event != null) {
+            // A stream that delivered an event is healthy again.
+            poll.streamFailures = 0;
+            _onStreamEvent(poll, event);
+          } else if (poll.streamFailures > 0 &&
+              _clock().difference(openedAt) >= const Duration(seconds: 30)) {
+            poll.streamFailures = 0;
+          }
         },
         onDone: () => _streamDown(poll, null),
         onError: (Object error) => _streamDown(poll, error),
@@ -199,7 +224,23 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
+  /// Restarts the silence timer: no line (event or heartbeat) within
+  /// [streamSilenceLimit] means the stream dropped without closing.
+  void _armWatchdog(_RidePoll poll) {
+    poll.watchdog?.cancel();
+    poll.watchdog = Timer(streamSilenceLimit, () {
+      poll.watchdog = null;
+      if (!poll.streamUp) return;
+      final stream = poll.stream;
+      poll.stream = null;
+      if (stream != null) unawaited(stream.cancel());
+      _streamDown(poll, const _StreamSilent());
+    });
+  }
+
   void _streamDown(_RidePoll poll, Object? error) {
+    poll.watchdog?.cancel();
+    poll.watchdog = null;
     poll.stream = null;
     poll.streamUp = false;
     if (_disposed || !identical(_rides[poll.id], poll)) return;
@@ -827,6 +868,7 @@ class _RidePoll {
   bool streamOpening = false;
   int streamFailures = 0;
   Timer? streamRetry;
+  Timer? watchdog;
 
   /// The contract realtime gate for this trip.
   final RealtimeGate gate = RealtimeGate();
@@ -849,4 +891,12 @@ class _RidePoll {
   double? lastLng;
   DateTime? lastLocationAt;
   DateTime? lastEtaAt;
+}
+
+/// The trip stream went silent past its heartbeat.
+class _StreamSilent implements Exception {
+  const _StreamSilent();
+
+  @override
+  String toString() => 'stream silent';
 }

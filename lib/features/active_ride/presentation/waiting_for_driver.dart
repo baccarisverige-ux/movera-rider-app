@@ -361,6 +361,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       _startRideCheckStillTimer(rideId.trim());
       unawaited(_loadWaitingTerms());
+      AppScope.instance.ride.observeBookedPickup(
+        rideId,
+        widget.pickupPosition.latitude,
+        widget.pickupPosition.longitude,
+      );
       unawaited(_readArrivalAnnounced(rideId.trim()));
       if (AppScope.instance.tripMessages case final transport?) {
         _messages = MessagesController.forRide(rideId, transport: transport)
@@ -1602,11 +1607,26 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     return widget.routeChangeSupported ? _openDetails : null;
   }
 
-  /// The pickup as booked: the server measures a move from it.
-  late final GeoPoint _bookedPickup = GeoPoint(
-    widget.pickupPosition.latitude,
-    widget.pickupPosition.longitude,
-  );
+  /// The pickup as booked: the server measures a move from it. The
+  /// session keeps it per trip (a reopened screen may start from an
+  /// already moved pickup); this screen's first pickup otherwise.
+  GeoPoint get _bookedPickup {
+    final rideId = _rideId?.trim();
+    final session = AppScope.instance.ride;
+    session.observeBookedPickup(
+      rideId,
+      widget.pickupPosition.latitude,
+      widget.pickupPosition.longitude,
+    );
+    final booked = session.bookedPickupOf(rideId);
+    return booked == null
+        ? GeoPoint(
+            widget.pickupPosition.latitude,
+            widget.pickupPosition.longitude,
+          )
+        : GeoPoint(booked.lat, booked.lng);
+  }
+
   bool _pickupMoveOpen = false;
 
   Future<void> _movePickup() async {

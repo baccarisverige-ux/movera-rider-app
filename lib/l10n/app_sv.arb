@@ -1544,7 +1544,7 @@
   "tripTermsTitle": "Väntetid och avbokning",
   "termsFreeWait": "Fri väntetid {free} min, därefter {perMin} per minut",
   "termsNoShow": "Om du inte kommer inom {noShowAfter} min efter att föraren anlänt tas en avgift på {noShowFee} ut",
-  "termsCancelAfterArrived": "Avbokning efter att föraren anlänt räknas som utebliven kund",
+  "termsCancelAfterArrived": "Avbokning efter att föraren anlänt och den fria väntetiden gått ut räknas som utebliven kund",
   "termsPickupMove": "Du kan flytta upphämtningen högst {meters} m efter bokningen",
   "pickupMoved": "Upphämtningen flyttades",
   "pickupMoveTooFar": "Du kan flytta upphämtningen högst {meters} m. Avboka och boka om för en annan plats.",
