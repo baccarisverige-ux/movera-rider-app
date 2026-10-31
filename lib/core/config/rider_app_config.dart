@@ -2,6 +2,7 @@ import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/raise_limit.dart';
 
 import 'rider_zones.dart';
 import 'zone_settings.dart';
@@ -115,6 +116,7 @@ class RiderAppConfig {
     this.latestAppVersion,
     this.pickupFees = const {},
     this.usesStandard = false,
+    this.raiseMaxFactor = RaiseLimit.defaultMaxFactor,
   });
 
   /// Built-in defaults for a field neither the document nor its fallback
@@ -179,6 +181,13 @@ class RiderAppConfig {
     for (final option in tips)
       if (option.enabled) option.amount,
   ];
+
+  /// Contract v0.18.6 `RiderAppConfig.raisePrice.maxFactor` (owner G4-E4
+  /// "2×, admin can change"): the fare may be raised to at most this many
+  /// times the booked fare. The admin sets it per zone in Dispatch; the
+  /// server copies it here. Missing or outside the contract's range: the
+  /// contract default (2).
+  final double raiseMaxFactor;
 
   /// The raise-offer steps the rider may pick.
   List<Money> get enabledRaiseSteps => [
@@ -336,6 +345,14 @@ class RiderAppConfig {
       pickupFees:
           _pickupFees(raw['pickupFee'], money) ?? base?.pickupFees ?? const {},
       usesStandard: raw['usesStandard'] == true,
+      raiseMaxFactor:
+          RaiseLimit.validFactor(
+            raw['raisePrice'] is Map
+                ? (raw['raisePrice'] as Map)['maxFactor']
+                : null,
+          ) ??
+          fallback?.raiseMaxFactor ??
+          RaiseLimit.defaultMaxFactor,
     );
   }
 
@@ -1017,6 +1034,7 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
         },
       },
     },
+    'raisePrice': {'maxFactor': 2},
   };
 }
 

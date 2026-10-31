@@ -272,7 +272,7 @@
       "expectOfflineAt": 15
     },
     {
-      "id": "assigned-never-counts",
+      "id": "assigned-counts",
       "limit": 3,
       "offers": [
         "ad",
@@ -282,7 +282,8 @@
         "xd",
         "xe"
       ],
-      "expectOfflineAt": 5
+      "expectOfflineAt": 2,
+      "note": "v0.18.6 (owner G4-E3 \"Count them\"): declined or missed hand-sent (assigned) offers count like Exclusive ones."
     },
     {
       "id": "radar-accept-resets",
@@ -315,6 +316,38 @@
         "xe"
       ],
       "expectOfflineAt": 5
+    },
+    {
+      "id": "assigned-and-exclusive-mixed",
+      "note": "v0.18.6: 10 misses mixing Exclusive and hand-sent offers set the driver offline (G4-E2 limit 10, G4-E3).",
+      "limit": 10,
+      "offers": [
+        "xd",
+        "ae",
+        "xe",
+        "ad",
+        "rd",
+        "xd",
+        "ae",
+        "xd",
+        "ad",
+        "xe",
+        "ae"
+      ],
+      "expectOfflineAt": 10
+    },
+    {
+      "id": "admin-radar-group-never-counts",
+      "note": "v0.18.6: an admin radar group is a Radar offer and never counts.",
+      "limit": 3,
+      "offers": [
+        "rd",
+        "re",
+        "rd",
+        "xd",
+        "ad"
+      ],
+      "expectOfflineAt": null
     }
   ],
   "snapshot": [

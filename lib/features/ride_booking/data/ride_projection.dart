@@ -1,6 +1,7 @@
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/raise_limit.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -86,6 +87,7 @@ abstract final class RideProjection {
       paymentMethodId: paymentMethodId,
       walletAmountMinor: _int(ride['walletAmountMinor']) ?? 0,
       maxOfferMinor: _int(ride['maxOfferMinor']),
+      bookedFareMinor: RaiseLimit.bookedFareMinorOf(ride, fare.currency),
       driver: rawDriver is Map
           ? MatchedDriver.fromJson(Map<String, dynamic>.from(rawDriver))
           : null,

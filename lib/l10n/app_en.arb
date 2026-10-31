@@ -566,6 +566,7 @@
   "pickupUpdated": "Pickup updated",
   "editOfferTooLate": "Driver assigned before the offer change could be applied.",
   "editOfferFailed": "Couldn’t update offer. Try again.",
+  "raiseAboveLimit": "That’s more than the highest price you can offer for this trip. Pick a lower amount.",
   "offerSentUnconfirmed": "Offer sent. Your fare will update once Movera confirms it.",
   "offerUpdatedTo": "Updated offer: {amount}",
   "@offerUpdatedTo": {

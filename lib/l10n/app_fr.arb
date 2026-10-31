@@ -295,6 +295,7 @@
   "pickupUpdated": "Départ modifié",
   "editOfferTooLate": "Un chauffeur a été attribué avant que la nouvelle offre ne soit appliquée.",
   "editOfferFailed": "Impossible de modifier l’offre. Réessayez.",
+  "raiseAboveLimit": "C’est plus que le prix maximum que vous pouvez proposer pour cette course. Choisissez un montant plus bas.",
   "offerSentUnconfirmed": "Offre envoyée. Votre tarif sera mis à jour dès que Movera l’aura confirmé.",
   "offerUpdatedTo": "Nouvelle offre : {amount}",
   "driverAlreadyAccepted": "Un chauffeur a déjà accepté votre course, elle n’a donc pas été annulée.",

@@ -301,6 +301,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pickupUpdated': l.pickupUpdated,
   'editOfferTooLate': l.editOfferTooLate,
   'editOfferFailed': l.editOfferFailed,
+  'raiseAboveLimit': l.raiseAboveLimit,
   'offerSentUnconfirmed': l.offerSentUnconfirmed,
   'offerUpdatedTo': l.offerUpdatedTo('<amount>'),
   'driverAlreadyAccepted': l.driverAlreadyAccepted,
@@ -2349,6 +2350,8 @@ class _Exhaustive implements AppLocalizations {
   String get editOfferTooLate => '';
   @override
   String get editOfferFailed => '';
+  @override
+  String get raiseAboveLimit => '';
   @override
   String get offerSentUnconfirmed => '';
   @override

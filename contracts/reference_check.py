@@ -383,11 +383,11 @@ def auto_offline(limit, offers):
         if o == 'on': run = 0; continue
         kind, outcome = o[0], o[1]
         if outcome == 'a': run = 0; continue          # any accepted offer starts the run again
-        if kind != 'x': continue                      # radar, assigned, scheduled and on-trip ('t') misses never count
+        if kind not in ('x', 'a'): continue           # v0.18.6 (G4-E3): Exclusive and hand-sent (assigned) misses count; radar, scheduled and on-trip ('t') never
         run += 1
         if run >= limit: return idx
     return None
-if c['autoOffline']['counts'] != ['exclusive'] or c['autoOffline']['resets'][0] != 'any offer accepted' or c['configDefaults']['missedExclusiveBeforeOffline'] != 10: bad += 1; print('AUTO OFFLINE rule')
+if c['autoOffline']['counts'] != ['exclusive', 'assigned'] or 'assigned' in c['autoOffline']['neverCounts'] or c['autoOffline']['resets'][0] != 'any offer accepted' or c['configDefaults']['missedExclusiveBeforeOffline'] != 10: bad += 1; print('AUTO OFFLINE rule')
 for case in sf['autoOffline']:
     got = auto_offline(case['limit'], case['offers'])
     if got != case['expectOfflineAt']: bad += 1; print('AUTO OFFLINE', case['id'], 'expected', case['expectOfflineAt'], 'got', got)
@@ -402,6 +402,28 @@ for case in sf['useStandard']:
     std = max(case['standard'], case['own']) + 1
     got = {'standard': std, 'servedVersion': std, 'usesStandard': True}
     if got != case['expect']: bad += 1; print('USE STANDARD', case['id'], 'got', got)
+# v0.18.6 (driver group 4): no driver-visible surge words; the raise limit per zone agrees everywhere; the push sound rule (E6).
+_tip = c['driverSurgeMap']['tipTexts']
+if set(_tip) != {'sv', 'fr', 'en'} or any(w.lower() in _tip[l].lower() for l in _tip for w in c['driverSurgeMap']['forbiddenWords'][l]): bad += 1; print('SURGE WORD in driver tip')
+def _texts(o, path=''):
+    if isinstance(o, dict):
+        if {'sv', 'fr', 'en'} <= set(o) and all(isinstance(o[k], str) for k in ('sv', 'fr', 'en')): yield path, o
+        for k, v in o.items(): yield from _texts(v, path + '.' + k)
+for _p, _t in _texts(c['driverOffers']):
+    if any(w.lower() in _t[l].lower() for l in ('sv', 'fr', 'en') for w in c['driverSurgeMap']['forbiddenWords'][l]): bad += 1; print('SURGE WORD', _p)
+    if any(not _t[l].strip() for l in ('sv', 'fr', 'en')): bad += 1; print('EMPTY TEXT', _p)
+_rp = c['dispatch']['raisePrice']
+if not (_rp['maxFactor'] == c['configDefaults']['raiseMaxFactor'] == ddoc['raisePrice']['maxFactor'] == rcfg['raisePrice']['maxFactor'] == c['configDefaults']['dispatch']['zone']['raisePrice']['maxFactor'] == 2) \
+        or not (_rp['range'][0] <= _rp['maxFactor'] <= _rp['range'][1]) or c['dispatch']['ranges']['raisePrice.maxFactor'] != _rp['range']: bad += 1; print('RAISE maxFactor')
+_push = c['driverOffers']['push']
+if _push['sound'] != {'exclusive': 'offer', 'assigned': 'offer', 'radar': 'none'} or _push['vibrate'] != {'exclusive': True, 'assigned': True, 'radar': False}: bad += 1; print('OFFER PUSH sound rule (E6)')
+if dcfg['offers']['offerCard'].get('riderRating') is not c['configDefaults']['offerCardRiderRating'] is not True or 'exclusiveReasons' in dcfg['offers']: bad += 1; print('OFFER CARD rider rating / why-you line')
+# v0.18.6 (G4-F2..F6, offline reason): every text in sv / fr / en, no surge word; ranges sane.
+for _p, _t in list(_texts(c['dispatchTools'])) + list(_texts(c['driverHome']['setOffline']['reasons'])):
+    if any(not _t[l].strip() for l in ('sv', 'fr', 'en')): bad += 1; print('EMPTY TEXT', _p)
+    if any(w.lower() in _t[l].lower() for l in ('sv', 'fr', 'en') for w in c['driverSurgeMap']['forbiddenWords'][l]): bad += 1; print('SURGE WORD', _p)
+if set(c['driverHome']['setOffline']['offlineReasons']) | {'app_restart'} != set(c['driverHome']['setOffline']['reasons']): bad += 1; print('OFFLINE REASONS')
+if c['dispatchTools']['radarZones']['ranges'] != {'seconds': [5, 120], 'maxDrivers': [1, 10]} or c['dispatchTools']['groups']['sendMax'] != c['adminDispatch']['radarGroup']['maxDrivers']: bad += 1; print('DISPATCH TOOLS ranges')
 # v0.7.2: the driver map's colour levels (contract.json#driverSurgeMap.levels)
 def surge_level(m):
     return None if m <= 1.0 else 'low' if m < 1.5 else 'medium' if m <= 2.5 else 'high'

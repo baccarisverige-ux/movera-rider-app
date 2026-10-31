@@ -295,6 +295,7 @@
   "pickupUpdated": "Upphämtningen har ändrats",
   "editOfferTooLate": "En förare tilldelades innan ändringen av budet hann göras.",
   "editOfferFailed": "Kunde inte ändra budet. Försök igen.",
+  "raiseAboveLimit": "Det är mer än det högsta pris du kan erbjuda för den här resan. Välj ett lägre belopp.",
   "offerSentUnconfirmed": "Budet har skickats. Priset uppdateras när Movera bekräftar det.",
   "offerUpdatedTo": "Nytt bud: {amount}",
   "driverAlreadyAccepted": "En förare har redan accepterat din resa, så den avbröts inte.",

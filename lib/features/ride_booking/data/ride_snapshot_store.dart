@@ -43,6 +43,7 @@ class RideSnapshot {
     this.categoryId,
     this.paymentMethodId,
     this.maxOfferMinor,
+    this.bookedFareMinor,
     this.currency = Money.defaultCurrency,
     this.arrivalAnnounced = false,
     this.completedAt,
@@ -116,6 +117,12 @@ class RideSnapshot {
   /// ceiling up with it. Null for older snapshots.
   final int? maxOfferMinor;
 
+  /// Contract v0.18.6 (owner G4-E4): the fare the trip was booked at, in
+  /// minor units (the server's `quote.total`; `fare` less its `rider_raise`
+  /// lines). The raise limit is the zone's `raisePrice.maxFactor` × this.
+  /// Null for older snapshots.
+  final int? bookedFareMinor;
+
   /// rider-u49: the rider was already shown "Your driver has arrived" for
   /// this ride's current driver, so a reload does not open it again.
   final bool arrivalAnnounced;
@@ -174,6 +181,7 @@ class RideSnapshot {
     String? categoryId,
     String? paymentMethodId,
     int? maxOfferMinor,
+    int? bookedFareMinor,
     String? currency,
     bool? arrivalAnnounced,
     DateTime? completedAt,
@@ -204,6 +212,7 @@ class RideSnapshot {
       categoryId: categoryId ?? this.categoryId,
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
+      bookedFareMinor: bookedFareMinor ?? this.bookedFareMinor,
       currency: currency ?? this.currency,
       arrivalAnnounced: arrivalAnnounced ?? this.arrivalAnnounced,
       completedAt: completedAt ?? this.completedAt,
@@ -238,6 +247,7 @@ class RideSnapshot {
     if (categoryId != null) 'categoryId': categoryId,
     if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
     if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
+    if (bookedFareMinor != null) 'bookedFareMinor': bookedFareMinor,
     if (currency != Money.defaultCurrency) 'currency': currency,
     if (arrivalAnnounced) 'arrivalAnnounced': true,
     if (completedAt != null)
@@ -329,6 +339,7 @@ class RideSnapshot {
           _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
       maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
+      bookedFareMinor: _positiveMinor(json['bookedFareMinor']),
       currency:
           Money.normalizeCurrency(json['currency']) ?? Money.defaultCurrency,
       completedAt: _utcOrNull(json['completedAt']),
