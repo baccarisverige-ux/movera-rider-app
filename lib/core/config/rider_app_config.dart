@@ -117,6 +117,7 @@ class RiderAppConfig {
     this.pickupFees = const {},
     this.usesStandard = false,
     this.raiseMaxFactor = RaiseLimit.defaultMaxFactor,
+    this.cancelAfterArrivedIsNoShow = true,
   });
 
   /// Built-in defaults for a field neither the document nor its fallback
@@ -197,6 +198,12 @@ class RiderAppConfig {
 
   /// Null when neither the document nor its fallback has valid waiting rules.
   final RiderWaitingRules? waiting;
+
+  /// v0.18.7 (Q2): `waiting.cancelAfterArrivedIsNoShow`, the admin's
+  /// per-zone switch "Cancel after the driver arrived counts as a no-show"
+  /// (default on), copied into the rider document when served. Only shown
+  /// in the Terms; the server charges by it.
+  final bool cancelAfterArrivedIsNoShow;
   final List<RiderConfigCancelReason> cancelReasons;
 
   /// Ride check thresholds, as published (numbers and switches).
@@ -333,6 +340,10 @@ class RiderAppConfig {
         base?.reservationCancelFees ?? const {},
       ),
       waiting: _waiting(raw['waiting'], money, base?.waiting) ?? base?.waiting,
+      cancelAfterArrivedIsNoShow: switch (raw['waiting']) {
+        {'cancelAfterArrivedIsNoShow': final bool on} => on,
+        _ => fallback?.cancelAfterArrivedIsNoShow ?? true,
+      },
       cancelReasons:
           _reasons(raw['cancelReasons']) ?? fallback?.cancelReasons ?? const [],
       rideCheck: _flat(raw['rideCheck']) ?? fallback?.rideCheck ?? const {},
@@ -911,7 +922,7 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     'booking': {
       'maxStops': 3,
       'bookingHorizonDays': 14,
-      'maxPickupMoveMeters': 500,
+      'maxPickupMoveMeters': 200,
     },
     'waiting': {
       'freeWaitMin': 5,

@@ -2199,6 +2199,61 @@ op("get", "/driver/events", "listDriverEvents", "Events on the driver's map (run
    desc="v0.18.6 (F6): " + DT["events"]["note"])
 
 
+# ---- v0.18.7 (driver group 5: going to pickup, waiting items shared with group 6; contract.json#pickupWaiting)
+PW = C["pickupWaiting"]
+S["RiderWaiting"]["properties"]["cancelAfterArrivedIsNoShow"] = b("v0.18.7 (Q2): " + PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["note"] + " Default " + str(PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["default"]).lower() + ".")
+S["RiderAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
+S["DriverAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
+S["RiderSummary"] = obj({"firstName": s(minLength=1), "rating": n("The rider's average (2 decimals); only while DriverAppConfig.offers.offerCard.riderRating is on and the rider has one.", minimum=0, maximum=5)},
+                        ["firstName"], "v0.18.7 (Q1): " + PW["riderSummary"]["note"])
+S["TripTerms"] = obj(OrderedDict([
+    ("currency", ref("CurrencyCode")),
+    ("freeWaitMin", n(PW["terms"]["fields"]["freeWaitMin"], minimum=0)),
+    ("waitPerMin", {"allOf": [ref("Money")], "description": PW["terms"]["fields"]["waitPerMin"]}),
+    ("noShowAfterMin", n(PW["terms"]["fields"]["noShowAfterMin"], minimum=0)),
+    ("noShowFee", {"allOf": [ref("Money")], "description": PW["terms"]["fields"]["noShowFee"]}),
+    ("noShowDriverSharePct", n(PW["terms"]["fields"]["noShowDriverSharePct"], minimum=0, maximum=100)),
+    ("cancelRule", {"description": PW["terms"]["fields"]["cancelRule"], **nullable("FeeRule")}),
+    ("cancelDriverSharePct", n(PW["terms"]["fields"]["cancelDriverSharePct"], minimum=0, maximum=100)),
+    ("cancelAfterArrivedIsNoShow", b(PW["terms"]["fields"]["cancelAfterArrivedIsNoShow"])),
+    ("maxPickupMoveMeters", i(PW["terms"]["fields"]["maxPickupMoveMeters"], minimum=0)),
+]), ["currency", "freeWaitMin", "waitPerMin", "noShowAfterMin", "noShowFee", "cancelRule", "cancelAfterArrivedIsNoShow", "maxPickupMoveMeters"],
+    "v0.18.7: " + PW["terms"]["note"])
+S["TripEta"] = obj(OrderedDict([
+    ("etaSeconds", i(PW["eta"]["fields"]["etaSeconds"], minimum=60)),
+    ("distanceMeters", i(PW["eta"]["fields"]["distanceMeters"], minimum=0)),
+    ("target", s(enum=["pickup", "dropoff"])),
+    ("at", ref("Timestamp")),
+    ("source", s(PW["eta"]["fields"]["source"], enum=["osrm", "estimate", "stale"])),
+]), ["etaSeconds", "distanceMeters", "target", "at", "source"], "v0.18.7 (Q4): " + PW["eta"]["note"])
+S["TripProjection"]["properties"]["rider"] = {"allOf": [ref("RiderSummary")], "description": "v0.18.7 (Q1): driver and admin views only, from accept to the end; never in the rider's own view."}
+S["TripProjection"]["properties"]["terms"] = {"allOf": [ref("TripTerms")], "description": "v0.18.7: the rules this trip is charged by, from booking to the end (all views). " + PW["terms"]["riderView"]}
+S["TripProjection"]["properties"]["eta"] = {"allOf": [ref("TripEta")], "description": "v0.18.7 (Q4): the server's road-route ETA, refreshed every " + str(PW["eta"]["everySeconds"]) + " s while a driver is on the way or driving (all views). etaSeconds repeats eta.etaSeconds for older builds."}
+S["Waiting"]["properties"].update({
+    "noShowFee": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): the no-show fee of this trip (terms.noShowFee), set at arrive."},
+    "noShowDriverShare": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): what the driver gets of it (noShowDriverSharePct), for the no-show confirm."},
+    "chargedSecondsNow": i("v0.18.7 (Q5): while status is arrived, the paid seconds so far at read time (no version change).", minimum=0),
+    "chargedSoFar": {"allOf": [ref("Money")], "description": "v0.18.7 (Q5): while status is arrived, the waiting cost so far at read time (chargedSecondsNow × waitPerMin per minute)."},
+})
+S["Cancellation"]["properties"].update({
+    "feeKind": s("v0.18.7 (Q2): " + PW["cancelAfterArrived"]["cancellationFields"]["feeKind"], enum=["cancel", "no_show"]),
+    "driverShare": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): " + PW["cancelAfterArrived"]["cancellationFields"]["driverShare"]},
+})
+S["Rider"]["properties"]["outstandingByCurrency"] = arr(ref("Money"), description="v0.18.7 (Q3): " + PW["debtByCurrency"]["riderView"])
+S["Rider"]["properties"]["outstanding"]["description"] += " v0.18.7: the owed fees in the rider's oldest owed currency (contract.json#pickupWaiting.debtByCurrency)."
+S["RealtimeEvent"]["properties"]["eta"] = {"allOf": [ref("TripEta")], "description": "v0.18.7: on a kind=location event sent by the ETA tick (every " + str(PW["eta"]["everySeconds"]) + " s)."}
+PATHS["/trips/{tripId}"]["patch"]["description"] = PATHS["/trips/{tripId}"]["patch"].get("description", "") + " v0.18.7 (contract.json#pickupWaiting.pickupMove): " + PW["pickupMove"]["note"]
+PATHS["/trips/{tripId}"]["patch"]["summary"] = "Move the pickup (v0.18.7); route / payment change later"
+PATHS["/trips/{tripId}"]["get"]["description"] = PATHS["/trips/{tripId}"]["get"].get("description", "") + " v0.18.7 (contract.json#pickupWaiting.follow): the apps follow the trip on its stream and poll this only while the stream is down, every " + str(PW["follow"]["pollSeconds"]) + " s (never under " + str(PW["follow"]["minPollSeconds"]) + ")."
+PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.7 (Q2, contract.json#pickupWaiting.cancelAfterArrived): " + PW["cancelAfterArrived"]["note"]
+PATHS["/trips/{tripId}/arrive"]["post"]["description"] = PATHS["/trips/{tripId}/arrive"]["post"].get("description", "") + " v0.18.7 (Q6): waiting.noShowFee and waiting.noShowDriverShare are set here."
+PATHS["/quotes"]["post"]["description"] = PATHS["/quotes"]["post"].get("description", "") + " v0.18.7 (Q3, contract.json#pickupWaiting.debtByCurrency): " + PW["debtByCurrency"]["note"]
+for _p in ["/rider/config", "/driver/config"]:
+    PATHS[_p]["get"]["description"] = PATHS[_p]["get"].get("description", "") + " v0.18.7 (contract.json#pickupWaiting.servedConfig): " + PW["servedConfig"]["note"]
+PATHS["/admin/trips"]["get"]["description"] = PATHS["/admin/trips"]["get"].get("description", "") + " v0.18.7: " + PW["adminLiveRow"]["note"]
+PATHS["/rider/profile"]["get"]["description"] = PATHS["/rider/profile"]["get"].get("description", "") + " v0.18.7 (Q3): " + PW["debtByCurrency"]["riderView"]
+
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

@@ -7,6 +7,7 @@ import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 
 /// The profile the server knows (FLOW-7). The device copy stays as a cache
 /// so screens read it synchronously. The server copy is read with
@@ -118,6 +119,7 @@ class SyncedProfileRepository
 
   @override
   void clearLocal() {
+    RiderOutstanding.reset();
     _cache.clearLocal();
     _syncPending = false;
     _serverKnown = false;
@@ -243,6 +245,8 @@ class SyncedProfileRepository
         ? response
         : response['profile'];
     if (server is Map) {
+      // v0.18.7 (Q3): what the rider owes, per currency.
+      RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
       _version = _versionOf(server) ?? _version;
       final local = _cache.current;
       var merged = _fromServer(local, Map<String, dynamic>.from(server));

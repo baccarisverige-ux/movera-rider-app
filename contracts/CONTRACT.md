@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.6
+# Movera shared contract v0.18.7
+
+v0.18.7 (driver group 5 "Going to pickup" and the waiting items shared with group 6; owner decisions of 2026-10-29, the note check of 2026-10-29 and answers Q1–Q6 of 2026-10-31, `decisions/driver-g5.md`, `driver-g6.md`; builds on v0.18.6; X-Api-Version stays `0.5`, additive): **an owed fee is charged only in its own currency** (Q3: 100 kr owed never becomes 100 € in Paris; `Rider.outstandingByCurrency`); **waiting / no-show / cancel prices come from the server** (`TripProjection.terms`, served configs always carry the zone's live pricing; a driver in Paris gets the French terms); **cancel after the driver arrived counts as a no-show** as a per-zone admin setting (`DriverAppConfig.waiting.cancelAfterArrivedIsNoShow`, default on; `cancellation.feeKind`, `driverShare`); **fee amounts shown** (`waiting.noShowFee` / `noShowDriverShare` at arrive, `cancellation.driverShare`, texts for the driver island and the rider); **the rider's first name + rating for the driver** (`TripProjection.rider`, Q1); **the total incl. waiting from boarding** (`waiting.chargedSoFar`, Q5); **one road-route ETA every 30 s for both apps** (`TripProjection.eta`, the `location` event, Q4, distance display rule); **sane polling** (`pickupWaiting.follow`); **the pickup move limit is an admin setting the server checks** (`PATCH /trips/{tripId}`, `booking.maxPickupMoveMeters` default 200, event `pickup_moved`); **admin live trip rows carry the driver position and ETA**. Smart late rule, cancel reasons from the admin and destination change: next (`pickupWaiting.next`). See §33.
 
 v0.18.6 (owner decisions 1–7 of 2026-10-29 and answers G4-E1..E7 of 2026-10-30, driver group 4 "Incoming offer & exclusive offer", `decisions/driver-g4.md`; builds on v0.18.5; X-Api-Version stays `0.5`, additive except the noted behaviour changes): **a push with sound and vibration for a new offer** when the app is in the background or locked (`driverOffers.push`, kind `new_offer`, not a bell notice; Exclusive and hand-sent offers sound + vibrate, Radar quiet); **the rider's rating on the offer**, on by default, off per zone (`Offer.riderRating`, `DriverAppConfig.offers.offerCard.riderRating`; no rating = none, no made-up value); **"did my accept go through?"** (`GET /driver/offers/{offerId}` → `OfferCheck`, texts "Accepting…" / "Offer no longer available"); **auto-offline after 10 everywhere** (server migration sets every zone still on another limit, Z001 and FR-PC were 3, to 10) and **hand-sent offers count** (`autoOffline.counts` exclusive + assigned); **the rider's raise limit is a per-zone admin setting** (`DispatchDocument.raisePrice.maxFactor`, default 2, copied to `RiderAppConfig.raisePrice.maxFactor` so the app hides buttons over it); **no "why you got this trip" line** (`Offer.reasonCode` and `DriverAppConfig.offers.exclusiveReasons` deprecated, no longer sent); **no surge word for drivers** (French tip "Bonus élevé à proximité", `driverSurgeMap.tipTexts`). E1: no change; E5 not decided (rider waiting steps unchanged). See §31. Same version, owner decisions G4-F1..F6 of 2026-10-31: **the admin's Dispatch tools are real** (§32, `contract.json#dispatchTools`): no second-admin wait for dispatch (F1), saved presets per country (F2), driver groups with "send to the free ones, nearest first" (F3), radar zones + rules with "send again until taken" (F4), events with a premium icon on the driver map (F6, `GET /driver/events`); cancel checks move to group 5 (F5). And **the real reason when the server sets a driver offline** (`Driver.offlineReason`, `offlineNote`, `offlineAt`, `driverHome.setOffline.reasons` in sv / fr / en; owner 2026-10-31).
 
@@ -133,8 +135,11 @@ TripProjection {
   pickupPay?: Money,                 // Movera-paid driver pickup pay (admin / driver only; never in the rider's fare), §3.2
   paymentMethod, paymentMethodId?, paymentStatus?: PaymentStatus, ratingStatus: RatingStatus,
   driver?: DriverSummary, driverLocation?: GeoFix, etaSeconds?,
-  waiting?: { arrivedAt, freeUntil, noShowAt, chargedSeconds },
-  cancellation?: { actor, reasonCode, at, fee: Money | null, note? },
+  rider?: RiderSummary,              // v0.18.7 (§33, Q1): driver and admin views only, from accept
+  terms?: TripTerms,                 // v0.18.7 (§33): the rules this trip is charged by (all views)
+  eta?: TripEta,                     // v0.18.7 (§33, Q4): the server's road-route ETA, every 30 s
+  waiting?: { arrivedAt, freeUntil, noShowAt, chargedSeconds, noShowFee?, noShowDriverShare?, chargedSecondsNow?, chargedSoFar? },   // v0.18.7 extras (§33)
+  cancellation?: { actor, reasonCode, at, fee: Money | null, note?, feeKind?: cancel | no_show, driverShare?: Money },   // v0.18.7 extras (§33)
   pinRequired: bool,
   searchStep?: { id, kind, message, extraMin: int | null, at }   // v0.5.1: the latest rider-waiting step while searching (§3.6)
 }
@@ -143,6 +148,9 @@ TripProjection {
   // v0.5.5: fareLines code rider_raise (the rider's own raise while searching, §3.6).
   //         commission = Movera's share of the fare (fare − driverEarnings)
 DriverSummary { driverId, firstName, rating?, tripCount?, photoUrl?, vehicle: { vehicleId?, make?, model?, color?, plate?, categoryId? } }
+RiderSummary { firstName, rating? }   // v0.18.7 (§33): the rider as the driver sees him; rating only while the zone's offerCard.riderRating is on
+TripTerms { currency, freeWaitMin, waitPerMin: Money, noShowAfterMin, noShowFee: Money, noShowDriverSharePct, cancelRule: FeeRule | null, cancelDriverSharePct, cancelAfterArrivedIsNoShow, maxPickupMoveMeters }   // v0.18.7
+TripEta { etaSeconds, distanceMeters, target: pickup | dropoff, at, source: osrm | estimate }   // v0.18.7
 Offer { offerId, tripId, kind: OfferKind, status: OfferStatus, version, expiresAt, fare: Money, driverEarnings: Money,
         pickupPay?: Money, fareBoost?: Money, driverBonus?: Money, priority: bool, source: system | admin, groupId?,
         pickup: Place, dropoff: Place, stops: Place[], categoryId, paymentMethod,
@@ -152,6 +160,7 @@ Quote { quoteId, categoryId, total: Money, fareLines, expiresAt, pickup, dropoff
        // surgeMultiplier stays with the quote whatever the schedule does next (§3.4); pickup_fee is in fareLines when the category has a rider pickup fee (§3.2)
 Rider { riderId, firstName, phone?, email?, rating?, status: active | suspended, version,
         outstanding?: Money | null, language?, consents?: { rideUpdates, emailUpdates, promotions } }   // v0.5.1: unpaid cash fees (§3.7), profile language and consents
+       // v0.18.7 (§33): outstanding = the owed fees in the oldest owed currency; outstandingByCurrency?: Money[] = every currency with a debt
 Driver { driverId, accountStatus: DriverAccountStatus, onlineStatus: DriverOnlineStatus, moving?: bool, firstName, rating?, zoneIds, categoryIds, vehicleId?, documents: DocumentSummary[], version }
        // v0.5.3 (§14): accountType?: driver | fleet, lastName?, dateOfBirth?, email?, country?, cityId?, language?, termsAcceptedAt?, fleet?: FleetLink, payoutTo?: self | fleet,
        //               requiredDocuments: DocumentType[], requiredFleetDocuments?: DocumentType[]
@@ -327,7 +336,7 @@ Cash only in the test week: a cancel or no-show fee the rider does not pay at on
 
 ## 4. Realtime and synchronisation
 
-Envelope (`contract.json#realtime`): `eventId, tripId, sequence, version, kind, occurredAt, serverTime` + optional `projection, location (GeoFix), etaSeconds, cancelFee (Money|null), message (Message, only for kind=message)`. In `fixtures/events.json`, top-level `status`/`paymentStatus`/`ratingStatus` are test shorthand for the same fields in `projection`.
+Envelope (`contract.json#realtime`): `eventId, tripId, sequence, version, kind, occurredAt, serverTime` + optional `projection, location (GeoFix), etaSeconds, cancelFee (Money|null), message (Message, only for kind=message), eta (TripEta, v0.18.7, on the ETA tick's location event)`. v0.18.7 adds the kind `pickup_moved` (the rider moved the pickup; carries the projection, before terminal only). In `fixtures/events.json`, top-level `status`/`paymentStatus`/`ratingStatus` are test shorthand for the same fields in `projection`.
 
 - `sequence` is **server-assigned**, contiguous per trip. Clients never number events.
 - Gate (same in all apps; cases in `fixtures/events.json`): invalid if `sequence < 1` or blank `tripId`; duplicate if `eventId` seen or `sequence ≤ last`; gap → accept and resync; after a terminal status only `payment_updated`, `rating_updated`, `message` pass; `location` never replaces the projection.
@@ -357,7 +366,8 @@ Every admin control below has one owner page, one config path and one defined ef
 | Reservation cancel fees per category (… › Reservations) | `rider.cancelFees.reservation[categoryId]` | Free-until time, late fee | Island fee | Late fee |
 | Waiting & no-show (Dispatch › Waiting at pickup; money in Pricing) | `rider.waiting`, `driver.waiting` (+ `byCategory`) | Waiting clock, price/min per category | Waiting clock, no-show button at the category free wait | Waiting charge (100% driver), no-show fee, driver share per country |
 | Stops (Dispatch › Stops) | `rider.booking.maxStops`, `driver.booking.maxStops` | Max stops | Stop marks | Stop pricing |
-| Pickup move after accept (Dispatch) | `rider.booking.maxPickupMoveMeters`, `driver.booking.maxPickupMoveMeters` | Move pickup up to N m, further = cancel/rebook | Notified of the move | Rejects a bigger move |
+| Pickup move after accept (Dispatch) | `rider.booking.maxPickupMoveMeters`, `driver.booking.maxPickupMoveMeters` | Move pickup up to N m (default 200, v0.18.7; the server checks it), further = cancel/rebook | Island "Pickup moved" (`pickup_moved`) | Rejects a bigger move (`pickup_move_too_far`) |
+| Cancel after the driver arrived counts as a no-show (Settings › Driver app › Waiting) | `driver.waiting.cancelAfterArrivedIsNoShow` (copied to `rider.waiting`) | Pays the no-show fee when cancelling after arrival (after the free minutes) | Gets the no-show share | v0.18.7 (§33), default on |
 | Tips (Pricing, per zone or country standard; v0.8.1 `country_rules`) | `rider.tips` | Tip options | — | Tip limits |
 | Raise-offer steps (Pricing, per zone or country standard; v0.8.1 `country_rules`) | `rider.raiseSteps` | Quick "+" steps while searching | — | Fare raise |
 | Promo cap (Riders › Promotions, per country) | `rider.promoCap` | Shown in local money | — | Caps the discount |
@@ -398,7 +408,7 @@ RiderAppConfig  { version, publishedAt, zoneId, currency, timeZone, country, lan
   pickupFee: { byCategory: { [categoryId]: { live: Money | null, reservation: Money | null } } },   // §3.2
   booking: { maxStops, bookingHorizonDays, maxPickupMoveMeters },
   cancelFees: { live: { [categoryId]: FeeRule }, reservation: { [categoryId]: FeeRule } },
-  waiting: { freeWaitMin, perMin: Money, noShowAfterMin, noShowFee: Money, byCategory: { [categoryId]: CategoryWaiting } },
+  waiting: { freeWaitMin, perMin: Money, noShowAfterMin, noShowFee: Money, byCategory: { [categoryId]: CategoryWaiting }, cancelAfterArrivedIsNoShow? },   // v0.18.7: copied from the driver document
   cancelReasons: [{ code, title }],
   rideCheck: {...}, appUpdate: {...} }
 
@@ -416,7 +426,7 @@ DriverAppConfig { version, publishedAt, zoneId, currency, timeZone, country, lan
   PickupRange   { fromKm, toKm: number | null, perKm: Money, perMin: Money }
   driverBonus: { defaultLimit: Money, hardMax: Money },
   cancelFees: { live: {...}, reservation: {...}, driverSharePct },   // v0.8.0: driver's share of a cancel fee, default 100
-  waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct, driverShareWaitPct, byCategory: { [categoryId]: CategoryWaiting } },
+  waiting: { freeWaitMin, perMin, noShowAfterMin, noShowFee, driverSharePct, driverShareWaitPct, byCategory: { [categoryId]: CategoryWaiting }, cancelAfterArrivedIsNoShow? },   // v0.18.7 (§33)
   destinationMode: {...}, nextTrips: {...},
   reservations: DriverReservations,             // §6.1
   cancelReasons: { driverBeforeTrip, driverDuringTrip, driverNextTrip, scheduled, noShow },
@@ -442,7 +452,8 @@ Per-zone settings (owner round 2; defaults in `contract.json#configDefaults`, us
 | `wallet.usedFirst` | ✓ | — | `true` (one wallet per currency) |
 | `promoCap` | ✓ | — | `null` (no cap) until Admin sets one per country |
 | `booking.maxStops` | ✓ | ✓ | 3 |
-| `booking.maxPickupMoveMeters` | ✓ | ✓ | 500 (further = cancel and rebook; the driver is notified) |
+| `booking.maxPickupMoveMeters` | ✓ | ✓ | 200 (v0.18.7, was 500; range 0–2000; further = cancel and rebook; the driver is notified) |
+| `waiting.cancelAfterArrivedIsNoShow` (v0.18.7, §33) | copy | ✓ | true |
 | `waiting.byCategory[].freeWaitMin` = `noShowAfterMin` | ✓ | ✓ | 5 min, `xl` 3 min |
 | `waiting.byCategory[].perMin` (waiting fee after the free wait) | ✓ | ✓ | from Pricing; `driverShareWaitPct` 100 |
 | `waiting.driverSharePct` (no-show fee share, per country) | — | ✓ | 80 |
@@ -905,3 +916,19 @@ Owner decisions G4-F1..F6 (2026-10-31, `decisions/driver-g4.md`) and "Send the r
 - **F5 Cancel checks**: group 5.
 - **F6 Events**: `DispatchEvent { eventId, country, name, location { lat, lng }, polygon?, startsAt, endsAt, on, details { title, description, pickupNote? } × sv/fr/en }`, CRUD under `/admin/dispatch/events`; drivers `GET /driver/events` → running and upcoming (7 days) events of their country in their language; change signal = `config_published` with doc `events` on the driver config stream. No dispatch or rider change.
 - **Offline reason**: `Driver.offlineReason` (no_position | missed_offers | vehicle_blocked | fleet_removed | account_status | admin), `offlineNote` (vehicle_blocked: the admin's note), `offlineAt` while offline, cleared on going online; the set_offline notice (bell + push) carries `data.reason` for every server reason. `app_restart` is the app's own. Outside the area never sets a driver offline.
+
+## 33. Going to pickup and waiting — driver group 5 (v0.18.7)
+
+Owner decisions of 2026-10-29 (status items 1–11), the note check of 2026-10-29 and answers Q1–Q6 of 2026-10-31 (`decisions/driver-g5.md`, shared waiting items in `driver-g6.md`), `contract.json#pickupWaiting`, cases in `fixtures/pickup_waiting.json`. Sweden and France alike: every amount comes from the zone's pricing and app documents in the zone's currency, nothing is hard-coded in an app; every text in sv / fr / en. Owner rule 16: what the admin can adjust is an admin setting with a default.
+
+- **Debt only in the same currency** (Q3, `debtByCurrency`): owed fees are summed per currency. `POST /quotes` and the next trip's fare carry `outstanding_fee` only for the owed fees in the pricing document's currency (`sourceTripId` = the oldest of them); a paid cash trip settles only fees of its own currency, oldest first. `Rider.outstanding` = the oldest owed currency's sum, `Rider.outstandingByCurrency` = every currency with a debt. 100 kr owed in Stockholm never adds 100 € in Paris.
+- **Prices from the server** (`servedConfig`, `terms`; the rider's view never carries the driver shares, §2): `GET /rider/config` and `GET /driver/config` are served with `waiting` (top-level and `byCategory`) and the rider pickup fees from the zone's LIVE pricing document, whatever the app document says, so a driver in Paris reads French terms in euro. Every trip carries `TripProjection.terms` (TripTerms: currency, freeWaitMin, waitPerMin, noShowAfterMin, noShowFee, noShowDriverSharePct, cancelRule, cancelDriverSharePct, cancelAfterArrivedIsNoShow, maxPickupMoveMeters) from the booking snapshot (`bookingSnapshot.fields` grows by the last two). Texts for the apps' Terms: `terms.texts`. The rider's driver-arrived sheet shows the waiting TIME only (group 6 decision 4).
+- **Cancel after arrival = no-show** (Q2, `cancelAfterArrived`): per-zone admin setting `DriverAppConfig.waiting.cancelAfterArrivedIsNoShow` (default on; copied to the rider document when served; admin text `servedConfig.cancelAfterArrivedIsNoShow.adminText`). Inside the cancel rule's free minutes after accept the rider always cancels free, even after arrival. After them, status `arrived` + switch on + the free waiting over (`now ≥ waiting.freeUntil`, the moment the driver could mark a no-show; a reservation's clock runs from the booked time) → the fee is the trip's no-show fee with the no-show driver share (`rider_fees` kind `no_show`, `cancellation.feeKind no_show`); otherwise the normal cancel fee with the came-closer check (`feeKind cancel`). Status stays `cancelled_by_rider`. `cancellation.driverShare` = the driver's part.
+- **Amounts shown** (Q6, `feeAmountsShown`): `arrive` sets `waiting.noShowFee` and `waiting.noShowDriverShare`; the no-show confirm says "Mark as no-show? You get {amount}". After a rider cancel the island says "Rider cancelled" at once, then "You get {amount}" / "No fee" from `cancellation.fee` + `driverShare`; the rider sees "Cancellation fee {amount}" / "No-show fee {amount}" / "No fee".
+- **Rider for the driver** (Q1, `riderSummary`): `TripProjection.rider { firstName, rating? }` in the driver and admin views from accept to the end (set at accept); rating only while `DriverAppConfig.offers.offerCard.riderRating` is on; never in the rider's own view; no surname, no phone.
+- **Total incl. waiting** (Q5, `runningTotal`): the fare includes the charged waiting from `board` on (`start_trip` sets it again); the rider app shows `fare`, not `quote.total`, from `rider_onboard`. While `arrived`, reads carry `waiting.chargedSecondsNow` and `waiting.chargedSoFar` (no version change).
+- **One ETA** (status item 2, Q4, `eta`): every 30 s (`eta.everySeconds`) the server routes the driver's latest fix to the pickup (accept → boarding) or the drop-off (boarding → end) with its router (OSRM, else the estimate) and writes `TripProjection.eta` (TripEta: etaSeconds, distanceMeters, target, at, source osrm | estimate | stale — stale = no driver position for 120 s, the previous ETA kept) and a `location` event carrying `etaSeconds` + `eta`. Both apps show `eta` and the distance as `eta.distanceDisplay` says (km with one decimal from 1 km, 100 m steps under 1 km, 10 m steps under 100 m, rounded down, never under 10 m); `etaSeconds` repeats it for older builds. An ETA older than `staleAfterSeconds` (120) is replaced by the straight-line estimate on reads.
+- **Following a trip** (`follow`): the stream first; poll `GET /trips/{tripId}` only while the stream is down, every 10 s, never under 5 (the rider app's 2 s polling goes).
+- **Pickup move** (status item 4, `pickupMove`): `PATCH /trips/{tripId} { expectedVersion, pickup }` (rider) while requested / searching / offered / accepted / driver_to_pickup; the straight-line distance from the BOOKED pickup may not pass the zone's `booking.maxPickupMoveMeters` (driver document; default 200, range 0–2000; server migration 0041 moves published documents still on 500 to 200): `400 invalid_request` reason `pickup_move_too_far` (details `maxMeters=…`, `meters=…`); after arrival `409 invalid_transition` reason `pickup_fixed_after_arrival`. A move: version + 1, event kind `pickup_moved` with the projection (driver island "Pickup moved"), fare unchanged. The other `UpdateTripRequest` fields answer `400 route_change_not_available` until destination change is built.
+- **Admin live rows** (`adminLiveRow`): `GET /admin/trips` rows of a trip with a driver that is not over carry `driverLocation` and `eta`, for the live table's ETA and map link; `GET /admin/trips/{tripId}` the same.
+- **Next** (`pickupWaiting.next`): the smart late rule (heading to pickup 80 %, item 8), driver cancel reasons from the admin (item 9), destination change with a new price and a driver popup (item 5); Google Maps / Waze is app-only (item 3).

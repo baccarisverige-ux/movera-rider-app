@@ -65,6 +65,29 @@ class RideSession {
     );
   }
 
+  /// v0.18.7 (pickup move): the BOOKED pickup of each trip (lat, lng),
+  /// the point the server measures a move from. Kept from the first
+  /// time the trip was seen, or from the projection's `bookedPickup`.
+  final Map<String, ({double lat, double lng})> _bookedPickups = {};
+
+  ({double lat, double lng})? bookedPickupOf(String? tripId) =>
+      tripId == null ? null : _bookedPickups[tripId.trim()];
+
+  /// Records [tripId]'s booked pickup once; [authoritative] (the server's
+  /// own field) replaces what this device guessed.
+  void observeBookedPickup(
+    String? tripId,
+    double lat,
+    double lng, {
+    bool authoritative = false,
+  }) {
+    final id = tripId?.trim();
+    if (id == null || id.isEmpty) return;
+    if (authoritative || !_bookedPickups.containsKey(id)) {
+      _bookedPickups[id] = (lat: lat, lng: lng);
+    }
+  }
+
   /// The booked category and payment method ids of [rideId] (RIDE-19), so
   /// the search screen can request the same ride again. Set by booking and
   /// by restore; the labels shown to the rider live in the snapshot.

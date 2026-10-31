@@ -547,4 +547,49 @@ if 'PATCH /admin/auth/me' not in c['auth']['admin']['paths'] or 'every role' not
 _aa = c['driverOnboarding']['adminActions']
 if _aa['bankType'] not in c['driverOnboarding']['documents']['types'] or 'Approve all' not in _aa['note'] or any(k not in _aa for k in ['updateVehicle', 'linkDriver', 'driverCategories', 'bankReview']): bad += 1; print('ADMIN ACTIONS v0.18.0')
 if c['driverOnboarding']['carDocuments']['reason'] != 'fleet_owner_only': bad += 1; print('CAR DOCUMENTS owner only')
+# v0.18.7 (CONTRACT.md §33, contract.json#pickupWaiting): debt per currency, cancel after arrival, ETA distance display, pickup move.
+_pw = c['pickupWaiting']
+_pwf = json.load(open('fixtures/pickup_waiting.json'))
+for _p, _t in _texts(_pw):
+    if any(not _t[l].strip() for l in ('sv', 'fr', 'en')): bad += 1; print('EMPTY TEXT', _p)
+    if any(w.lower() in _t[l].lower() for l in ('sv', 'fr', 'en') for w in c['driverSurgeMap']['forbiddenWords'][l]): bad += 1; print('SURGE WORD', _p)
+def debt(owed, currency):
+    same = [f for f in owed if f['currency'] == currency]
+    return {'outstandingFee': sum(f['amountMinor'] for f in same) or None, 'sourceTripId': same[0]['tripId'] if same else None}
+def rider_debt(owed):
+    seen = []
+    for f in owed:
+        if f['currency'] not in seen: seen.append(f['currency'])
+    by = [{'amountMinor': sum(f['amountMinor'] for f in owed if f['currency'] == cur), 'currency': cur} for cur in seen]
+    return {'outstanding': by[0] if by else None, 'outstandingByCurrency': by}
+for case in _pwf['debtByCurrency']:
+    if debt(case['owed'], case['quoteCurrency']) != case['expect']: bad += 1; print('DEBT BY CURRENCY', case['id'])
+    if 'riderView' in case and rider_debt(case['owed']) != case['riderView']: bad += 1; print('DEBT RIDER VIEW', case['id'])
+def cancel_after_arrived(case):
+    rule = case['cancelRule']
+    if case['minutesSinceAccept'] < rule['freeMin']: return {'fee': None, 'feeKind': None}
+    if case['status'] == 'arrived' and case['switch'] and case['pastFreeWait']:
+        return {'fee': case['noShowFee'] or None, 'feeKind': 'no_show' if case['noShowFee'] else None}
+    fee = rule['value'] if rule['type'] == 'fixed' else None
+    return {'fee': fee or None, 'feeKind': 'cancel' if fee else None}
+for case in _pwf['cancelAfterArrived']:
+    if cancel_after_arrived(case) != case['expect']: bad += 1; print('CANCEL AFTER ARRIVED', case['id'], cancel_after_arrived(case))
+def distance_display(m):
+    if m >= 1000: return ('km', (m // 100) / 10)
+    if m >= 100: return ('m', (m // 100) * 100)
+    return ('m', max(10, (m // 10) * 10))
+for case in _pwf['distanceDisplay']:
+    if distance_display(case['meters']) != (case['unit'], case['value']): bad += 1; print('DISTANCE DISPLAY', case['meters'])
+def pickup_move(case):
+    if case['status'] not in _pw['pickupMove']['allowedStatuses']: return 'pickup_fixed_after_arrival'
+    return 'moved' if case['meters'] <= case['maxMeters'] else 'pickup_move_too_far'
+for case in _pwf['pickupMove']:
+    if pickup_move(case) != case['expect']: bad += 1; print('PICKUP MOVE', case['id'])
+if not (c['configDefaults']['maxPickupMoveMeters'] == _pw['pickupMove']['default'] == rcfg['booking']['maxPickupMoveMeters'] == dcfg['booking']['maxPickupMoveMeters'] == 200) \
+        or not (_pw['pickupMove']['range'][0] <= _pw['pickupMove']['default'] <= _pw['pickupMove']['range'][1]): bad += 1; print('PICKUP MOVE default')
+if not (c['configDefaults']['cancelAfterArrivedIsNoShow'] is _pw['servedConfig']['cancelAfterArrivedIsNoShow']['default'] is rcfg['waiting']['cancelAfterArrivedIsNoShow'] is dcfg['waiting']['cancelAfterArrivedIsNoShow'] is True): bad += 1; print('CANCEL AFTER ARRIVED default')
+if 'pickup_moved' not in c['realtime']['kinds'] or 'pickup_moved' in c['realtime']['afterTerminal'] or 'eta' not in c['realtime']['optional']: bad += 1; print('REALTIME pickup_moved / eta')
+if _pw['eta']['everySeconds'] != 30 or _pw['follow']['pollSeconds'] < _pw['follow']['minPollSeconds'] or _pw['follow']['minPollSeconds'] <= 2: bad += 1; print('ETA / FOLLOW seconds')
+if not {'cancelAfterArrivedIsNoShow', 'maxPickupMoveMeters'} <= set(c['bookingSnapshot']['fields']): bad += 1; print('SNAPSHOT fields v0.18.7')
+
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

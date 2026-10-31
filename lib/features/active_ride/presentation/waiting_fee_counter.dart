@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
-import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Where the waiting clock is at one instant (owner Q41/Q42).
@@ -78,9 +77,11 @@ String formatWaitClock(Duration value) {
 }
 
 /// The live waiting clock on the Waiting sheet while the driver is at the
-/// pickup: the free wait counting down, then (Q42) the waiting fee counting
-/// up at the category's per-minute rate from the zone's config. The fee is
-/// a preview; the trip's fare lines show what is charged.
+/// pickup: the free wait counting down, then (Q42) the paid waiting time
+/// counting up. Group 6 decision 4 / contract v0.18.7: the sheet shows the
+/// TIME only; the per-minute price and the no-show fee are in the Terms
+/// (from the trip's `terms`, never the app's own numbers). The trip's fare
+/// shows what is charged.
 class WaitingFeeCounter extends StatefulWidget {
   const WaitingFeeCounter({
     super.key,
@@ -143,20 +144,16 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
       widget.freeWaitMin,
       widget.freeUntil,
     ).inMinutes;
-    final rate = context.l10n.perMinRate(formatMoneyShort(widget.perMin));
     final charging = state.charging;
     const muted = Color(0xFF5C656C);
     const warm = Color(0xFFB4452B);
     final title = charging
-        ? context.l10n.waitingFeeAmount(formatMoney(state.fee, whole: true))
-        : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
-    final detail = charging
-        ? context.l10n.afterFreeWait(
+        ? context.l10n.waitingTimeOverFree(
             formatWaitClock(state.over),
             '$freeMin',
-            rate,
           )
-        : context.l10n.thenWaitingFee(rate);
+        : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
+    final detail = context.l10n.waitingChargedAfterFree;
     return Semantics(
       container: true,
       liveRegion: charging,

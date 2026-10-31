@@ -146,7 +146,8 @@ void main() {
 
   test('rider-u13: chained pickup moves after accept are measured from '
       'the accepted pickup', () async {
-    // Driver on the way; each move is about 300 m north of the last one.
+    // Driver on the way; each move is about 150 m north of the last one
+    // (the limit is 200 m from the accepted pickup, v0.18.7).
     final mock = InProcessMockClient();
     mock.rides['ride-chain'] = {
       'id': 'ride-chain',
@@ -177,9 +178,9 @@ void main() {
         'stops': const <Object>[],
       },
     );
-    await moveTo('First', 59.3353);
+    await moveTo('First', 59.33395);
     await expectLater(
-      moveTo('Second', 59.3380),
+      moveTo('Second', 59.3353),
       throwsA(
         isA<ApiError>().having((e) => e.detail, 'detail', 'pickup_too_far'),
       ),

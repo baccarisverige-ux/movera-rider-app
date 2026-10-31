@@ -1545,6 +1545,24 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'providerComingSoon': l.providerComingSoon,
   'authCodeFieldLabel': l.authCodeFieldLabel,
   'consentAnd': l.consentAnd,
+  'etaArrivesIn': l.etaArrivesIn('<min>', '<distance>'),
+  'etaThereIn': l.etaThereIn('<min>', '<distance>'),
+  'tripTermsTitle': l.tripTermsTitle,
+  'termsFreeWait': l.termsFreeWait('<free>', '<perMin>'),
+  'termsNoShow': l.termsNoShow('<noShowAfter>', '<noShowFee>'),
+  'termsCancelAfterArrived': l.termsCancelAfterArrived,
+  'termsPickupMove': l.termsPickupMove('<meters>'),
+  'pickupMoved': l.pickupMoved,
+  'pickupMoveTooFar': l.pickupMoveTooFar('<meters>'),
+  'pickupMoveFixedAfterArrival': l.pickupMoveFixedAfterArrival,
+  'movePickup': l.movePickup,
+  'cancelledFeeCharged': l.cancelledFeeCharged('<amount>'),
+  'cancelledNoShowFee': l.cancelledNoShowFee('<amount>'),
+  'cancelledNoFee': l.cancelledNoFee,
+  'accountOutstandingFees': l.accountOutstandingFees,
+  'outstandingInCurrency': l.outstandingInCurrency('<amount>', '<currency>'),
+  'waitingTimeOverFree': l.waitingTimeOverFree('<time>', '<minutes>'),
+  'waitingChargedAfterFree': l.waitingChargedAfterFree,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1735,6 +1753,16 @@ const messagePlaceholders = <String, List<String>>{
   'notHereZones': ['zones'],
   'errTooManyWrongCodes': ['button'],
   'retryMinutes': [],
+  'etaArrivesIn': ['min', 'distance'],
+  'etaThereIn': ['min', 'distance'],
+  'termsFreeWait': ['free', 'perMin'],
+  'termsNoShow': ['noShowAfter', 'noShowFee'],
+  'termsPickupMove': ['meters'],
+  'pickupMoveTooFar': ['meters'],
+  'cancelledFeeCharged': ['amount'],
+  'cancelledNoShowFee': ['amount'],
+  'outstandingInCurrency': ['amount', 'currency'],
+  'waitingTimeOverFree': ['time', 'minutes'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4838,4 +4866,40 @@ class _Exhaustive implements AppLocalizations {
   String get authCodeFieldLabel => '';
   @override
   String get consentAnd => '';
+  @override
+  String etaArrivesIn(String min, String distance) => '';
+  @override
+  String etaThereIn(String min, String distance) => '';
+  @override
+  String get tripTermsTitle => '';
+  @override
+  String termsFreeWait(String free, String perMin) => '';
+  @override
+  String termsNoShow(String noShowAfter, String noShowFee) => '';
+  @override
+  String get termsCancelAfterArrived => '';
+  @override
+  String termsPickupMove(String meters) => '';
+  @override
+  String get pickupMoved => '';
+  @override
+  String pickupMoveTooFar(String meters) => '';
+  @override
+  String get pickupMoveFixedAfterArrival => '';
+  @override
+  String get movePickup => '';
+  @override
+  String cancelledFeeCharged(String amount) => '';
+  @override
+  String cancelledNoShowFee(String amount) => '';
+  @override
+  String get cancelledNoFee => '';
+  @override
+  String get accountOutstandingFees => '';
+  @override
+  String outstandingInCurrency(String amount, String currency) => '';
+  @override
+  String waitingTimeOverFree(String time, String minutes) => '';
+  @override
+  String get waitingChargedAfterFree => '';
 }

@@ -7,6 +7,7 @@ class ApiError implements Exception {
     this.retryAfter,
     this.reason,
     this.projection,
+    this.details,
   });
 
   /// The contract error code (`contract.json#errors.codes`, lower case:
@@ -26,6 +27,10 @@ class ApiError implements Exception {
   /// The current resource a 409 carries (contract errors shape: always
   /// present for `version_mismatch` and `invalid_transition`).
   final Map<String, dynamic>? projection;
+
+  /// The contract's `details` lines, when the server sends them (v0.18.7:
+  /// `pickup_move_too_far` says `maxMeters=200`, `meters=…`).
+  final List<String>? details;
 
   bool get isUnauthorized => statusCode == 401;
   bool get isForbidden => statusCode == 403;

@@ -3024,5 +3024,111 @@
   "authCodeFieldLabel": "Verification code",
   "@authCodeFieldLabel": {"description": "G1-B6: screen-reader label of the 4 code boxes."},
   "consentAnd": " and ",
-  "@consentAnd": {"description": "G1-B5 owner's sentence, same as the driver app (authAnd): between the terms and the privacy policy in the consent line."}
+  "@consentAnd": {"description": "G1-B5 owner's sentence, same as the driver app (authAnd): between the terms and the privacy policy in the consent line."},
+  "etaArrivesIn": "Arrives in {min} min · {distance}",
+  "@etaArrivesIn": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "etaThereIn": "There in {min} min · {distance}",
+  "@etaThereIn": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "tripTermsTitle": "Waiting and cancellation",
+  "termsFreeWait": "Free waiting {free} min, then {perMin} per minute",
+  "@termsFreeWait": {
+    "placeholders": {
+      "free": {
+        "type": "String"
+      },
+      "perMin": {
+        "type": "String"
+      }
+    }
+  },
+  "termsNoShow": "If you do not show up within {noShowAfter} min after the driver arrives, a {noShowFee} fee applies",
+  "@termsNoShow": {
+    "placeholders": {
+      "noShowAfter": {
+        "type": "String"
+      },
+      "noShowFee": {
+        "type": "String"
+      }
+    }
+  },
+  "termsCancelAfterArrived": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show",
+  "termsPickupMove": "You can move the pickup at most {meters} m after booking",
+  "@termsPickupMove": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupMoved": "Pickup moved",
+  "pickupMoveTooFar": "You can move the pickup at most {meters} m. Cancel and book again for another place.",
+  "@pickupMoveTooFar": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupMoveFixedAfterArrival": "The driver is already there – the pickup cannot be moved",
+  "movePickup": "Move pickup",
+  "cancelledFeeCharged": "Cancellation fee {amount}",
+  "@cancelledFeeCharged": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelledNoShowFee": "No-show fee {amount}",
+  "@cancelledNoShowFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelledNoFee": "No fee",
+  "accountOutstandingFees": "Unpaid fees",
+  "outstandingInCurrency": "{amount} – charged on your next ride paid in {currency}",
+  "@outstandingInCurrency": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingTimeOverFree": "Waiting {time} past the free {minutes} min",
+  "@waitingTimeOverFree": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingChargedAfterFree": "Waiting time is charged after the free minutes"
 }

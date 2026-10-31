@@ -7,6 +7,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
@@ -125,6 +126,12 @@ class ActiveRideController {
   /// Set by [markCancelled] when the confirmed command was end-early.
   EndedEarlyTrip? get endedEarly => _endedEarly;
   EndedEarlyTrip? _endedEarly;
+
+  /// v0.18.7 (Q2/Q6): the fee and its kind the server set on the last
+  /// confirmed cancel (`cancellation.fee` + `feeKind`), for the rider to
+  /// read; null when the server answered without a projection.
+  RiderCancelOutcomeFee? get lastCancelFee => _lastCancelFee;
+  RiderCancelOutcomeFee? _lastCancelFee;
 
   /// The rider left the ended-early summary: it no longer describes a
   /// ride in hand (History keeps the record).
@@ -347,6 +354,7 @@ class ActiveRideController {
         );
         await _forgetOutboxEntry(id);
         session.observeProjection(response);
+        _lastCancelFee = _cancelOutcome(response);
         return (
           outcome: RideCancelOutcome.confirmed,
           command: entry.command,
@@ -367,6 +375,7 @@ class ActiveRideController {
           // cancel): that is what the rider asked for, quietly.
           if (alreadyCancelledByRider(apiError)) {
             final projection = {'projection': apiError.projection};
+            _lastCancelFee = _cancelOutcome(projection);
             return (
               outcome: RideCancelOutcome.confirmed,
               command: entry.command,
@@ -408,6 +417,12 @@ class ActiveRideController {
       response['projection'] ??
       response['ride'] ??
       (response['tripId'] != null ? response : null);
+
+  /// v0.18.7: the cancel fee and kind in a command response.
+  static RiderCancelOutcomeFee? _cancelOutcome(Map<String, dynamic> response) {
+    final ride = _commandProjection(response);
+    return ride is Map ? RiderCancelOutcomeFee.fromProjection(ride) : null;
+  }
 
   /// The projection's `fare` in a command response.
   static Money? _chargedFare(Map<String, dynamic> response) {

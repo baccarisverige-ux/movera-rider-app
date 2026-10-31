@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/trip_eta.dart';
+import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
@@ -65,6 +67,68 @@ class DriverTrackingController {
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
+
+  /// v0.18.7 (Q4): the server's road-route ETA as the last event carried
+  /// it (every 30 s on the stream, on every projection). Null until the
+  /// server has computed one, and while the driver waits at the pickup.
+  TripEta? serverEta;
+
+  /// v0.18.7: the rules this trip is charged by (`TripProjection.terms`):
+  /// waiting, no-show, cancel and the pickup move limit, in the trip's
+  /// currency. Null until a projection carried them.
+  TripTerms? terms;
+
+  /// v0.18.7 (Q5): the waiting cost so far while the driver waits
+  /// (`waiting.chargedSoFar`); null when not waiting or not said.
+  Money? waitingChargedSoFar;
+  int? waitingChargedSecondsNow;
+
+  /// v0.18.7 (Q2/Q6): the cancel fee and its kind once the trip was
+  /// cancelled (the rider's own cancel, or a no-show), from the projection.
+  RiderCancelOutcomeFee? cancellation;
+
+  /// v0.18.7 (item 4): a pickup the server moved (a `pickup_moved` event,
+  /// or a projection whose pickup differs from the one this screen shows).
+  /// Waiting takes it once to re-draw the route and say so.
+  ({String address, double lat, double lng})? takeMovedPickup() {
+    final moved = _movedPickup;
+    _movedPickup = null;
+    return moved;
+  }
+
+  ({String address, double lat, double lng})? _movedPickup;
+
+  void _takePickup(RideRealtimeEvent event) {
+    final pickup = event.pickup;
+    if (pickup == null) return;
+    final moved =
+        GeoDistance.metersBetween(
+          pickupLat,
+          pickupLng,
+          pickup.lat,
+          pickup.lng,
+        ) >
+        1;
+    if (!moved && event.kind != RealtimeKind.pickupMoved) return;
+    pickupLat = pickup.lat;
+    pickupLng = pickup.lng;
+    _movedPickup = pickup;
+  }
+
+  /// v0.18.7: the server facts an event carries whatever the ordering
+  /// verdict on its status: the ETA (no version change on the tick), the
+  /// terms, the waiting cost, the cancellation and the pickup.
+  void _takeServerFacts(RideRealtimeEvent event) {
+    terms = event.terms ?? terms;
+    final eta = event.eta;
+    if (eta != null) {
+      final known = serverEta;
+      if (known == null || !eta.at.isBefore(known.at)) serverEta = eta;
+    }
+    final cancellation = event.cancellation;
+    if (cancellation != null) this.cancellation = cancellation;
+    _takePickup(event);
+  }
 
   /// rider-u23: the driver who dropped the trip when the feed went straight
   /// to another driver (the polls never saw the `searching` between).
@@ -181,6 +245,7 @@ class DriverTrackingController {
                   updatedAt: event.serverTime ?? event.occurredAt,
                 );
             final statusChanged = accepted && event.status != status;
+            _takeServerFacts(event);
             if (accepted) {
               status = event.status;
               lastSignal = event.signal;
@@ -204,6 +269,19 @@ class DriverTrackingController {
                 _clearWaitingDeadlines();
               }
               fare = event.fare ?? fare;
+              // Q5: the waiting cost grows while the driver waits; it is
+              // over (and in the fare) once the rider is on board.
+              if (event.status == RideStatus.driverWaiting) {
+                waitingChargedSoFar =
+                    event.waitingChargedSoFar ?? waitingChargedSoFar;
+                waitingChargedSecondsNow =
+                    event.waitingChargedSecondsNow ?? waitingChargedSecondsNow;
+              } else {
+                waitingChargedSoFar = null;
+                waitingChargedSecondsNow = null;
+              }
+              // The car is there: no ETA while arrived (Q4).
+              if (event.status == RideStatus.driverWaiting) serverEta = null;
               acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
               if (event.waitingArrivedAt != null) {
                 waitingSince = _onDevice(event.waitingArrivedAt);
@@ -230,6 +308,15 @@ class DriverTrackingController {
             final isNewerFix =
                 currentLocationAt == null ||
                 !incomingLocationAt.isBefore(currentLocationAt);
+            // v0.18.7: the server ETA (road route, every 30 s) is what
+            // both apps show; its tick keeps the marker fresh while a
+            // parked driver's phone sends few fixes.
+            final routed = status == RideStatus.driverWaiting
+                ? null
+                : serverEta;
+            final routedAt = routed == null
+                ? null
+                : _onDevice(routed.at) ?? routed.at;
             if (event.latitude != null &&
                 event.longitude != null &&
                 isNewerFix) {
@@ -244,6 +331,8 @@ class DriverTrackingController {
                 locationAt: incomingLocationAt,
                 etaSeconds: event.etaSeconds,
                 status: status,
+                server: routed,
+                serverEtaAt: routedAt,
               );
             } else if (eta != null && eta!.locationAt != null) {
               eta = DriverEta.fromFix(
@@ -256,6 +345,8 @@ class DriverTrackingController {
                 locationAt: eta!.locationAt!,
                 etaSeconds: event.etaSeconds ?? eta!.seconds,
                 status: status,
+                server: routed,
+                serverEtaAt: routedAt,
               );
             }
             // Also persist an accepted event that confirms the current stage

@@ -23,16 +23,17 @@ class _Geo implements GeocodingRepository {
   Future<String?> reverse(GeoPoint point) async => null;
 }
 
-/// Q40: once a driver accepted, the pickup moves up to 500 m; further is
-/// cancel and rebook. The driver is told when it moved.
+/// Q40: once a driver accepted, the pickup moves up to the zone's limit
+/// (contract v0.18.7: 200 m by default, the admin can change it); further
+/// is cancel and rebook. The driver is told when it moved.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   const pickup = GeoPoint(59.3326, 18.0649);
   const drop = GeoPoint(59.3426, 18.0498);
-  // About 300 m and 800 m north of the pickup.
-  const near = GeoPoint(59.3353, 18.0649);
+  // About 150 m and 800 m north of the pickup.
+  const near = GeoPoint(59.33395, 18.0649);
   const far = GeoPoint(59.3398, 18.0649);
   final limit = RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters;
 
@@ -71,7 +72,7 @@ void main() {
     return mock;
   }
 
-  test('the default limit is 500 m', () => expect(limit, 500));
+  test('the default limit is 200 m (v0.18.7)', () => expect(limit, 200));
 
   test('a pickup moved more than the limit after accept is refused', () async {
     final changes = RouteChangeController(
@@ -114,7 +115,7 @@ void main() {
     expect(server['pickupAddress'], 'Near corner');
     final notice = (server['driverNotices'] as List).single as Map;
     expect(notice['kind'], 'pickup_moved');
-    expect(notice['meters'], inInclusiveRange(250, 350));
+    expect(notice['meters'], inInclusiveRange(100, 200));
   });
 
   test('the demo server refuses a long move after accept on its own', () async {

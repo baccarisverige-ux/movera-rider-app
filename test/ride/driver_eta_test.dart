@@ -35,7 +35,9 @@ void main() {
       longitude: 18.07,
       pickupLat: 59.3293,
       pickupLng: 18.0686,
-      locationAt: now.subtract(const Duration(seconds: 40)),
+      // v0.18.7 (`pickupWaiting.eta.staleAfterSeconds`): stale after 120 s,
+      // so a parked driver's rarer fixes are not "updating location".
+      locationAt: now.subtract(const Duration(seconds: 130)),
       now: now,
     );
     expect(eta.stale, isTrue);
