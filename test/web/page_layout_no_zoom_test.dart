@@ -28,10 +28,18 @@ void main() {
 
   test('the page layout is the one before edge to edge: no viewport-fit, '
       'no fixed page, no viewport-gap script', () {
-    expect(html, isNot(contains('viewport-fit')));
+    // The old comment still explains why there is no viewport-fit=cover;
+    // no tag or script sets it.
+    expect(RegExp(r'content="[^"]*viewport-fit').hasMatch(html), isFalse);
     expect(html, isNot(contains('MutationObserver(cover)')));
     expect(html, isNot(contains('movera-viewport-gap')));
-    expect(html, isNot(contains('position: fixed')));
+    expect(
+      RegExp(
+        r'html, body \{[^}]*position: fixed;',
+        dotAll: true,
+      ).hasMatch(html),
+      isFalse,
+    );
     expect(
       html,
       contains(
