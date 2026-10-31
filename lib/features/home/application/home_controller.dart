@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show Color, Offset;
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
@@ -16,7 +16,6 @@ import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart'
     show isDroppedPinLabel, locationOffPickupLabel, pickupLocationFallbackLabel;
 import 'package:movera_rider/core/location/location_access_issue.dart';
-import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
 
@@ -188,10 +187,8 @@ class HomeLocationController extends ChangeNotifier {
     bool? compassSupported,
     DateTime Function()? clock,
     bool? pulseAnimates,
-    bool? haloOnWebLayer,
   }) : _now = clock ?? DateTime.now,
        _pulseAnimates = pulseAnimates ?? !kIsWeb,
-       _haloOnWebLayer = haloOnWebLayer ?? kIsWeb,
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
@@ -212,13 +209,6 @@ class HomeLocationController extends ChangeNotifier {
   /// blob URL it never revokes (one every 850 ms while Home is open). The
   /// web puck therefore stays in its compact state instead of pulsing.
   final bool _pulseAnimates;
-
-  /// On the web the accuracy halo is drawn by the map's gesture layer
-  /// (web/rider_map_camera.js), which re-sizes it on the same frame as
-  /// every zoom step; [userHalo] carries it there and
-  /// [locationCircles] stays empty. Phones get a [Circle] in
-  /// [locationCircles], re-sized on every camera move.
-  final bool _haloOnWebLayer;
 
   /// UI-12: a compass sample repaints the puck only when it turned at least
   /// this far since the last repaint, or [headingRepaintInterval] has passed.
@@ -242,13 +232,11 @@ class HomeLocationController extends ChangeNotifier {
   /// Tilt of the map camera (degrees) as last reported.
   double lastMapTilt = 0;
 
-  /// The map camera moved (an onCameraMove report). [lastMapZoom] is the
-  /// new zoom; the halo keeps its on-screen size at it.
+  /// The map camera moved (an onCameraMove report).
   void noteCameraMove({double bearing = 0, double tilt = 0}) {
     _cameraMovedAt = _now();
     lastMapBearing = bearing.isFinite ? bearing : 0;
     lastMapTilt = tilt.isFinite ? tilt : 0;
-    _reclampHalo();
   }
 
   /// Whether a finger holds the map or an app glide is running (set by
@@ -284,14 +272,10 @@ class HomeLocationController extends ChangeNotifier {
   void Function(LatLng latLng, double heading)? _trackingOnFix;
   bool _resumeRefreshInFlight = false;
 
-  /// Accuracy (metres) of the last fix the puck was painted from: the
-  /// radius of its accuracy halo (U2; owner 2026-10-31, rider-pin SPEC).
+  /// Accuracy (metres) of the last fix the puck was painted from. The
+  /// halo under the pin no longer shows it (owner: "Blue must be same in
+  /// all zoom steps": a fixed-size halo).
   double? lastFixAccuracyMeters;
-
-  /// The halo under the pin: its centre and the fix accuracy in metres
-  /// (null: unknown; the halo's size does not depend on it). Null while
-  /// no pin is painted.
-  ({LatLng center, double? accuracyMeters})? userHalo;
 
   static const detectFixTimeout = Duration(seconds: 16);
   static const latestFixTimeout = Duration(seconds: 9);
@@ -970,76 +954,58 @@ class HomeLocationController extends ChangeNotifier {
     markers = {};
     locationCircles = {};
     locationDirection = {};
-    userHalo = null;
     notifyListeners();
   }
 
-  double? _paintedAccuracy;
-
-  /// The halo circle (phones) for [userHalo] at [lastMapZoom].
-  Set<Circle> _haloCircles() {
-    final halo = userHalo;
-    if (halo == null || _haloOnWebLayer) return {};
-    return {
-      Circle(
-        circleId: const CircleId('live_user_accuracy'),
-        center: halo.center,
-        radius: RiderAccuracyHalo.radiusMeters(
-          latitude: halo.center.latitude,
-          zoom: lastMapZoom,
-        ),
-        fillColor: RiderAccuracyHalo.color,
-        strokeColor: const Color(0x00000000),
-        strokeWidth: 0,
-      ),
-    };
-  }
-
-  /// A zoom changes how many metres the halo's fixed on-screen size is:
-  /// draw it again when its radius moved by more than 1 %.
-  void _reclampHalo() {
-    if (_haloOnWebLayer || _livePaused || userHalo == null) return;
-    final next = _haloCircles();
-    final now = locationCircles.length == 1 ? locationCircles.first : null;
-    if (next.isEmpty || now == null) return;
-    final change = (next.first.radius - now.radius).abs() / now.radius;
-    if (change <= 0.01) return;
-    locationCircles = next;
-    notifyListeners();
-  }
-
-  /// Paints the rider's pin at [target] with its accuracy halo. [anchor]
-  /// is the point of [icon] on [target] (the pin's centre).
+  /// Paints the rider's pin at [target]. [anchor] is the point of [icon]
+  /// on [target] (the pin's centre). [haloIcon], when given, is the grey
+  /// halo drawn under the pin as a second screen-fixed marker, centred on
+  /// the same point.
+  ///
+  /// Owner 2026-10-31 (rider-pin SPEC) + "Blue must be same in all zoom
+  /// steps": both are screen-space bitmaps, so neither changes size or
+  /// shape with the zoom or the tilt (a ground circle in metres flattened
+  /// into an ellipse on the tilted rider maps).
   void paintUserPuck({
     required LatLng target,
     required BitmapDescriptor icon,
     required double heading,
     Offset anchor = const Offset(0.5, 0.5),
+    BitmapDescriptor? haloIcon,
   }) {
     if (_livePaused) return;
-    final accuracy = lastFixAccuracyMeters;
     // UI-12: the same puck again changes nothing, so it does not notify (a
     // new set identity rebuilds the map widget).
-    final painted = markers.length == 1 ? markers.first : null;
+    Marker? painted;
+    Marker? paintedHalo;
+    for (final marker in markers) {
+      if (marker.markerId == userPinId) painted = marker;
+      if (marker.markerId == userHaloId) paintedHalo = marker;
+    }
     if (painted != null &&
-        painted.markerId == const MarkerId('live_user_location') &&
         painted.position == target &&
         identical(painted.icon, icon) &&
         painted.anchor == anchor &&
         painted.rotation == heading &&
-        _paintedAccuracy == accuracy) {
+        identical(paintedHalo?.icon, haloIcon)) {
       return;
     }
-    _paintedAccuracy = accuracy;
-    // Owner 2026-10-31 (rider-pin SPEC): one grey halo under the pin, no
-    // border, no pulse, the same size on screen at every zoom.
-    userHalo = (center: target, accuracyMeters: accuracy);
-    locationCircles = _haloCircles();
+    locationCircles = {};
     locationDirection = {};
     markers = {
+      if (haloIcon != null)
+        Marker(
+          markerId: userHaloId,
+          position: target,
+          icon: haloIcon,
+          anchor: const Offset(0.5, 0.5),
+          // Under the pin and every other pin; taps go to the map.
+          zIndexInt: 1,
+          consumeTapEvents: false,
+        ),
       // A screen-facing marker: the same size on screen at every zoom.
       Marker(
-        markerId: const MarkerId('live_user_location'),
+        markerId: userPinId,
         position: target,
         icon: icon,
         anchor: anchor,
@@ -1049,6 +1015,10 @@ class HomeLocationController extends ChangeNotifier {
     };
     notifyListeners();
   }
+
+  /// The rider's pin and the halo under it.
+  static const MarkerId userPinId = MarkerId('live_user_location');
+  static const MarkerId userHaloId = MarkerId('live_user_halo');
 
   @override
   void dispose() {

@@ -214,31 +214,63 @@ class MoveraRiderPuckMarker {
 }
 
 /// The grey halo under the rider's pin (owner 2026-10-31,
-/// plan/rider-pin/SPEC.md): one flat circle, no border, no pulse, slightly
+/// plan/rider-pin/SPEC.md): one flat disc, no border, no pulse, slightly
 /// see-through. Owner, after the before/after: "Blue must be same in all
-/// zoom steps" => like the pin, the halo is the same size on screen at
-/// every zoom: [radius] points, whatever the fix's accuracy.
+/// zoom steps" => it is a screen-space bitmap (a marker under the pin),
+/// [radius] points at every zoom and tilt, whatever the fix's accuracy.
 abstract final class RiderAccuracyHalo {
   /// #7797A8 at 35 %: about #CBD6DC over a light map, roads show through.
   static const Color color = Color(0x597797A8);
 
-  /// The halo's radius on screen, in logical points, at every zoom.
+  /// The halo's radius on screen, in logical points.
   static const double radius = 60;
 
-  /// Metres one logical point covers at [latitude] and [zoom] (Web
-  /// Mercator; Google's world is 256 points wide at zoom 0 on every
-  /// platform).
-  static double metersPerPoint(double latitude, double zoom) {
-    final lat = latitude.clamp(-85.0, 85.0) * math.pi / 180;
-    return 156543.03392 * math.cos(lat) / math.pow(2, zoom);
+  static final Map<int, Future<BitmapDescriptor>> _cache = {};
+
+  /// The halo bitmap at [pixelRatio], with its decoded image (tests read
+  /// its pixels).
+  static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
+    double pixelRatio = markerPixelRatio,
+  }) async {
+    final ratio = pixelRatio.isFinite && pixelRatio > 0 ? pixelRatio : 1.0;
+    final side = (2 * radius * ratio).ceil();
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..scale(ratio, ratio)
+      ..drawCircle(
+        const Offset(radius, radius),
+        radius,
+        Paint()
+          ..color = color
+          ..isAntiAlias = true,
+      );
+    final image = await recorder.endRecording().toImage(side, side);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    final icon = data == null
+        ? BitmapDescriptor.bytes(
+            base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            ),
+          )
+        : BitmapDescriptor.bytes(
+            data.buffer.asUint8List(),
+            width: side / ratio,
+            height: side / ratio,
+            imagePixelRatio: ratio,
+          );
+    return (icon: icon, image: image);
   }
 
-  /// The map circle's radius in metres that is [radius] points on screen
-  /// at [latitude] and [zoom].
-  static double radiusMeters({
-    required double latitude,
-    required double zoom,
-  }) => radius * metersPerPoint(latitude, zoom.isFinite ? zoom : 15);
+  /// The cached halo bitmap at [pixelRatio].
+  static Future<BitmapDescriptor> createIcon({
+    double pixelRatio = markerPixelRatio,
+  }) {
+    return _cache.putIfAbsent((pixelRatio * 100).round(), () async {
+      final visual = await createVisual(pixelRatio: pixelRatio);
+      visual.image.dispose();
+      return visual.icon;
+    });
+  }
 }
 
 /// Same top-down Movera vehicle marker used by the Driver app.

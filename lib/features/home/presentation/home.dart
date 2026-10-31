@@ -129,6 +129,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// The rider's pin, one bitmap per camera tilt bucket
   /// ([MoveraRiderPuckMarker.tiltBucket]); 0 is the flat dot.
   final Map<int, BitmapDescriptor> _pins = {};
+
+  /// The grey halo under the pin ([RiderAccuracyHalo]).
+  BitmapDescriptor? _halo;
   bool _tiltPinsStarted = false;
   int? _paintedPinBucket;
 
@@ -1965,6 +1968,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (_pins[0] == null) {
       _pins[0] ??= await _drawPin(0, ratio);
     }
+    if (_halo == null) {
+      final halo = await RiderAccuracyHalo.createVisual(pixelRatio: ratio);
+      halo.image.dispose();
+      _halo ??= halo.icon;
+    }
     if (_tiltPinsStarted || !MoveraRiderPuckMarker.tiltsWithCamera) return;
     _tiltPinsStarted = true;
     unawaited(() async {
@@ -2013,6 +2021,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       icon: icon,
       heading: 0,
       anchor: MoveraRiderPuckMarker.anchorFor(bucket.toDouble()),
+      haloIcon: _halo,
     );
   }
 

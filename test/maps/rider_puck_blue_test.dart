@@ -153,7 +153,7 @@ void main() {
     }
   });
 
-  group('accuracy halo', () {
+  group('halo', () {
     test('grey #7797A8 at about 35 %', () {
       const color = RiderAccuracyHalo.color;
       expect(color.withValues(alpha: 1), const Color(0xFF7797A8));
@@ -166,23 +166,58 @@ void main() {
       expect((seen.b * 255).round(), closeTo(0xDC, 8));
     });
 
-    test('owner: "Blue must be same in all zoom steps": the halo is 60 pt '
-        'on screen at every zoom, whatever the accuracy', () {
-      expect(RiderAccuracyHalo.radius, 60);
-      for (final lat in [59.2, 48.85]) {
-        for (final zoom in [11.0, 12.0, 14.5, 17.0, 19.0, 21.0]) {
-          final meters = RiderAccuracyHalo.radiusMeters(
-            latitude: lat,
-            zoom: zoom,
+    test('a 120 pt screen-space disc at every pixel ratio: flat colour, no '
+        'border, round', () async {
+      for (final ratio in [1.0, 2.0, 2.625, 3.0]) {
+        final visual = await RiderAccuracyHalo.createVisual(pixelRatio: ratio);
+        final icon = visual.icon as BytesMapBitmap;
+        expect(icon.width, closeTo(120, 1 / ratio));
+        expect(icon.height, closeTo(120, 1 / ratio));
+        expect(icon.imagePixelRatio, ratio);
+        final data = (await visual.image.toByteData(
+          format: ui.ImageByteFormat.rawStraightRgba,
+        ))!;
+        ({int r, int g, int b, int a}) at(double x, double y) {
+          final i =
+              ((y * ratio).floor() * visual.image.width + (x * ratio).floor()) *
+              4;
+          return (
+            r: data.getUint8(i),
+            g: data.getUint8(i + 1),
+            b: data.getUint8(i + 2),
+            a: data.getUint8(i + 3),
           );
-          final onScreen = meters / RiderAccuracyHalo.metersPerPoint(lat, zoom);
-          expect(onScreen, closeTo(60, 1e-9), reason: 'zoom $zoom');
         }
+
+        // The same colour from the centre to just inside the edge: no
+        // border, no gradient.
+        for (final p in [
+          const Offset(60, 60),
+          const Offset(60, 3),
+          const Offset(117, 60),
+          const Offset(20, 60),
+        ]) {
+          final px = at(p.dx, p.dy);
+          expect(px.a, closeTo(89, 2), reason: '$p @$ratio');
+          expect(px.r, closeTo(0x77, 3), reason: '$p @$ratio');
+          expect(px.g, closeTo(0x97, 3), reason: '$p @$ratio');
+          expect(px.b, closeTo(0xA8, 3), reason: '$p @$ratio');
+        }
+        // Round: the square's corners are empty.
+        expect(at(4, 4).a, 0);
+        expect(at(116, 116).a, 0);
+        visual.image.dispose();
       }
-      // One zoom step in: half the metres, so the same points.
-      final at17 = RiderAccuracyHalo.radiusMeters(latitude: 59.2, zoom: 17);
-      final at18 = RiderAccuracyHalo.radiusMeters(latitude: 59.2, zoom: 18);
-      expect(at18, closeTo(at17 / 2, 1e-9));
+    });
+
+    test('the halo bitmap is cached per pixel ratio', () {
+      expect(
+        identical(
+          RiderAccuracyHalo.createIcon(pixelRatio: 3),
+          RiderAccuracyHalo.createIcon(pixelRatio: 3),
+        ),
+        isTrue,
+      );
     });
   });
 }

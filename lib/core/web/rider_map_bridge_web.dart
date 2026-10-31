@@ -54,30 +54,6 @@ void redraw(int mapId) {
   layer.callMethod<JSAny?>('redraw'.toJS, mapId.toJS);
 }
 
-void halo(
-  int mapId,
-  double? lat,
-  double? lng,
-  double? accuracy,
-  double minRadius,
-  double maxRadius,
-  String color,
-  double opacity,
-) {
-  final layer = _forMap(mapId);
-  if (layer == null || !layer.has('halo')) return;
-  layer.callMethodVarArgs<JSAny?>('halo'.toJS, [
-    mapId.toJS,
-    lat?.toJS,
-    lng?.toJS,
-    accuracy?.toJS,
-    minRadius.toJS,
-    maxRadius.toJS,
-    color.toJS,
-    opacity.toJS,
-  ]);
-}
-
 void release(int mapId) {
   final layer = _forMap(mapId);
   if (layer == null || !layer.has('release')) return;

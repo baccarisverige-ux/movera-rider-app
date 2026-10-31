@@ -13,7 +13,6 @@ import 'package:movera_rider/core/motion/location_smoother.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
-import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 
 /// Batch 9 Phase 98 — U2 current-location reliability, D-002, D-003, D-004.
 Position _position({
@@ -208,43 +207,52 @@ void main() {
     expect(detected.address, isNot('Current location'));
   });
 
-  test('rider-pin SPEC: every fix paints one grey halo, 60 pt on screen at '
-      'every zoom whatever the accuracy ("Blue must be same in all zoom '
-      'steps")', () async {
-    final location = _Location();
-    final ctl = _controller(location);
+  test('rider-pin SPEC: the halo is a second screen-fixed marker under the '
+      'pin; zoom, tilt and accuracy never change it ("Blue must be same in '
+      'all zoom steps")', () async {
+    final ctl = _controller(_Location());
     addTearDown(ctl.dispose);
     const at = LatLng(59.33, 18.06);
-    double onScreen(double zoom) =>
-        ctl.locationCircles.single.radius /
-        RiderAccuracyHalo.metersPerPoint(at.latitude, zoom);
-    ctl.lastMapZoom = 15.5;
-    for (final accuracy in [3.0, 80.0, 900.0, null]) {
-      ctl.lastFixAccuracyMeters = accuracy;
-      ctl.paintUserPuck(
-        target: at,
-        icon: BitmapDescriptor.defaultMarker,
-        heading: 0,
-      );
-      expect(onScreen(15.5), closeTo(60, 1e-6), reason: 'accuracy $accuracy');
-    }
-    final halo = ctl.locationCircles.single;
-    expect(halo.fillColor, RiderAccuracyHalo.color);
-    expect(halo.strokeWidth, 0, reason: 'no border');
-    expect(halo.center, at);
-    // Zooming in or out keeps 60 pt: the circle is re-sized in metres.
+    final pinIcon = BitmapDescriptor.defaultMarker;
+    final haloIcon = BitmapDescriptor.defaultMarkerWithHue(200);
+    ctl.lastFixAccuracyMeters = 80;
+    ctl.paintUserPuck(
+      target: at,
+      icon: pinIcon,
+      heading: 0,
+      haloIcon: haloIcon,
+    );
+    Marker byId(MarkerId id) => ctl.markers.firstWhere((m) => m.markerId == id);
+    final halo = byId(HomeLocationController.userHaloId);
+    final pin = byId(HomeLocationController.userPinId);
+    expect(ctl.markers, hasLength(2));
+    expect(identical(halo.icon, haloIcon), isTrue);
+    expect(halo.position, at);
+    expect(halo.anchor, const Offset(0.5, 0.5));
+    expect(halo.flat, isFalse, reason: 'faces the screen: no tilt ellipse');
+    expect(halo.consumeTapEvents, isFalse);
+    expect(halo.zIndexInt, lessThan(pin.zIndexInt));
+    expect(ctl.locationCircles, isEmpty, reason: 'no ground circle');
+    final before = ctl.markers;
     var notified = 0;
     ctl.addListener(() => notified += 1);
-    for (final zoom in [12.0, 14.5, 17.0, 19.0]) {
+    // Zoom and tilt steps leave the markers alone (no per-zoom repaint).
+    for (final zoom in [12.0, 15.5, 19.0]) {
       ctl.lastMapZoom = zoom;
-      ctl.noteCameraMove();
-      expect(onScreen(zoom), closeTo(60, 1e-6), reason: 'zoom $zoom');
-      expect(ctl.locationCircles.single.fillColor, RiderAccuracyHalo.color);
+      ctl.noteCameraMove(tilt: zoom > 12 ? 45 : 0);
     }
-    expect(notified, 4);
-    // A camera move that changes nothing does not rebuild the map.
-    ctl.noteCameraMove();
-    expect(notified, 4);
+    expect(identical(ctl.markers, before), isTrue);
+    expect(notified, 0);
+    // Another accuracy paints the same markers: nothing to repaint.
+    ctl.lastFixAccuracyMeters = 900;
+    ctl.paintUserPuck(
+      target: at,
+      icon: pinIcon,
+      heading: 0,
+      haloIcon: haloIcon,
+    );
+    expect(identical(ctl.markers, before), isTrue);
+    expect(notified, 0);
   });
 
   test('rider-pin SPEC: the pin is a screen-facing marker anchored at its '
