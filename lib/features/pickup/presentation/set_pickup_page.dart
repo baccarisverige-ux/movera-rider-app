@@ -13,6 +13,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -368,7 +369,8 @@ class _SetPickupPageState extends State<SetPickupPage>
   // Screen geometry of the pin: how far above the map centre it sits, and
   // the current zoom, so camera positions convert to the pickup point.
   double _pinAboveCentrePx = 0;
-  double _zoom = 16.2;
+  // Owner 2026-10-31: the closest a rider map goes.
+  double _zoom = riderMaxZoom;
   bool _resolving = false;
   bool _confirming = false;
 

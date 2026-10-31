@@ -2,6 +2,40 @@ import 'dart:math' as math;
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+/// The closest every rider map goes (owner, 2026-10-31, own iPhone, rider
+/// Home in Södertälje: "Make Max zoom in rider app exact exact like this").
+/// Measured from the owner's screenshot (road junctions fitted with a tilted
+/// camera): zoom 13.8, tilted 35° by [tiltForZoom]. No pinch, double tap,
+/// wheel, recenter, route fit or screen opening goes past it, on the web
+/// (web/rider_map_camera.js MAX_ZOOM, keep both in step) and on phones.
+const double riderMaxZoom = 13.8;
+
+/// The zoom range every rider map widget allows: out as far as Google
+/// goes, in no closer than [riderMaxZoom].
+const MinMaxZoomPreference riderZoomPreference = MinMaxZoomPreference(
+  null,
+  riderMaxZoom,
+);
+
+/// [zoom] no closer than [riderMaxZoom].
+double capRiderZoom(double zoom) => zoom > riderMaxZoom ? riderMaxZoom : zoom;
+
+/// [position] no closer than [riderMaxZoom]. A capped pose keeps its tilt's
+/// offset from the zoom's tilt (a flat map stays flat, a pose on the tilt
+/// curve lands on the curve at the cap), within what the cap zoom allows.
+CameraPosition capRiderCamera(CameraPosition position) {
+  if (!(position.zoom > riderMaxZoom)) return position;
+  final tilt =
+      (position.tilt - tiltForZoom(position.zoom) + tiltForZoom(riderMaxZoom))
+          .clamp(0.0, maxTiltForZoom(riderMaxZoom));
+  return CameraPosition(
+    target: position.target,
+    zoom: riderMaxZoom,
+    bearing: position.bearing,
+    tilt: tilt,
+  );
+}
+
 /// The steepest tilt Google Maps accepts anywhere (vector JS maps and the
 /// native SDKs both top out at 67.5°).
 const double maxMapTilt = 67.5;
@@ -67,8 +101,9 @@ double _latitudeForMercatorY(double y) {
 /// of a few metres (pickup and destination on the same street) used to fit
 /// at zoom 21 with the full 67.5° tilt: a street-level view in which the
 /// route line filled half the map as a wedge. A fit never goes past the
-/// street zoom; the two points keep a span on screen instead.
-const double routeFitMaxZoom = 17;
+/// street zoom; the two points keep a span on screen instead. Since the
+/// owner's max zoom (2026-10-31) that is [riderMaxZoom].
+const double routeFitMaxZoom = riderMaxZoom;
 
 /// The flat (untilted) camera that `newLatLngBounds(bounds, padding)` would
 /// produce on a map viewport of [width] × [height] logical pixels, with the
@@ -85,7 +120,7 @@ CameraPosition? tiltedFitCamera({
   required double width,
   required double height,
   double padding = 0,
-  double maxZoom = 21,
+  double maxZoom = riderMaxZoom,
   bool tilted = true,
 }) {
   final w = width - 2 * padding;

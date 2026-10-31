@@ -9,6 +9,7 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
@@ -128,7 +129,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   /// "Open settings" for a blocked permission or Location Services off.
   LocationSettingsOpener? _pickupSettings;
   bool _hasUsablePickupCoordinates = true;
-  final ValueNotifier<double> _zoom = ValueNotifier<double>(16.4);
+  final ValueNotifier<double> _zoom = ValueNotifier<double>(riderMaxZoom);
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
@@ -354,7 +355,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   CustomGoogleMap(
                     initialPosition: CameraPosition(
                       target: _center,
-                      zoom: 16.4,
+                      zoom: riderMaxZoom,
                     ),
                     myLocationEnabled: true,
                     myLocationButtonEnabled: false,

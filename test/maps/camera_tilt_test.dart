@@ -119,9 +119,19 @@ void main() {
     });
 
     test('a first move lands at once with the tilt of its zoom', () async {
-      await maps.animateCamera(const GeoPoint(59.33, 18.06), zoom: 17);
+      await maps.animateCamera(const GeoPoint(59.33, 18.06), zoom: 13.5);
       expect(fake.calls.single.$1, 'move');
-      expect(_tilt(fake.poses.single), maxMapTilt);
+      expect(_tilt(fake.poses.single), closeTo(tiltForZoom(13.5), 1e-9));
+    });
+
+    test('a move asked closer than the max zoom lands on it (owner '
+        '2026-10-31)', () async {
+      await maps.animateCamera(const GeoPoint(59.33, 18.06), zoom: 17);
+      expect(_zoom(fake.poses.single), riderMaxZoom);
+      expect(
+        _tilt(fake.poses.single),
+        closeTo(tiltForZoom(riderMaxZoom), 1e-9),
+      );
     });
 
     test('Home at zoom 11.7 is flat', () async {
@@ -133,15 +143,15 @@ void main() {
       expect(_zoom(fake.poses.single), 11.7);
     });
 
-    test('recenter is street zoom 15 with that zoom\'s tilt', () async {
+    test('recenter is the max zoom 13.8 with that zoom\'s tilt', () async {
       final camera = MapCameraController(maps);
       await camera.followUser(const GeoPoint(59.33, 18.06));
-      expect(recenterZoom, 15);
-      expect(_zoom(fake.poses.single), 15);
-      expect(_tilt(fake.poses.single), closeTo(tiltForZoom(15), 1e-9));
-      expect(_tilt(fake.poses.single), greaterThan(57));
+      expect(recenterZoom, riderMaxZoom);
+      expect(_zoom(fake.poses.single), 13.8);
+      expect(_tilt(fake.poses.single), closeTo(tiltForZoom(13.8), 1e-9));
+      expect(_tilt(fake.poses.single), greaterThan(34));
       // A recentred map hides the recenter button.
-      expect(camera.showRecenter(zoom: 15, metersFromUser: 0), isFalse);
+      expect(camera.showRecenter(zoom: 13.8, metersFromUser: 0), isFalse);
       expect(camera.showRecenter(zoom: 13, metersFromUser: 0), isTrue);
     });
 
@@ -163,9 +173,11 @@ void main() {
         const GeoPoint(59.3313, 18.0716),
       );
       final pose = fake.poses.single;
-      expect(_zoom(pose), greaterThan(14));
+      // Owner 2026-10-31: no closer than the max zoom 13.8.
+      expect(_zoom(pose), greaterThan(13));
+      expect(_zoom(pose), lessThanOrEqualTo(riderMaxZoom));
       expect(_tilt(pose), closeTo(tiltForZoom(_zoom(pose)), 1e-9));
-      expect(_tilt(pose), greaterThan(40));
+      expect(_tilt(pose), greaterThan(25));
       expect(_target(pose)[0], closeTo(59.3303, 0.0002));
       expect(_target(pose)[1], closeTo(18.0701, 0.0002));
     });
@@ -226,7 +238,7 @@ void main() {
         ..supportsTilt = false;
       await maps.fitBounds(
         const GeoPoint(59.3293, 18.0686),
-        const GeoPoint(59.3313, 18.0716),
+        const GeoPoint(59.6519, 17.9186),
       );
       expect(fake.calls.single.$2.first, 'newLatLngBounds');
     });
@@ -822,9 +834,9 @@ void main() {
     testWidgets('the map opens with the tilt of its zoom', (tester) async {
       final (_, map) = await pumpMap(
         tester,
-        initial: const CameraPosition(target: _stockholm, zoom: 14),
+        initial: const CameraPosition(target: _stockholm, zoom: 13.5),
       );
-      expect(map.initialCameraPosition.tilt, closeTo(tiltForZoom(14), 1e-9));
+      expect(map.initialCameraPosition.tilt, closeTo(tiltForZoom(13.5), 1e-9));
       final (_, flat) = await pumpMap(
         tester,
         tiltWithZoom: false,

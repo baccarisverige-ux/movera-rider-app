@@ -345,12 +345,19 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     final bool hasMapId = mapId.isNotEmpty;
     // The map opens with the tilt of its zoom, so the first frame is
     // already the pose the camera keeps (no tilt correction afterwards).
-    final requested = widget.initialPosition ?? _defaultPosition;
+    // Owner 2026-10-31: no rider map opens closer than riderMaxZoom.
+    final requested = capRiderCamera(
+      widget.initialPosition ?? _defaultPosition,
+    );
     final initial = _tiltsWithZoom && (!kIsWeb || hasMapId)
         ? withZoomTilt(requested)
         : requested;
     final map = GoogleMap(
       initialCameraPosition: initial,
+      // Owner 2026-10-31: pinch, double tap and every camera update stop at
+      // riderMaxZoom (native SDKs; on the web the plugin sets maxZoom and
+      // web/rider_map_camera.js caps its own gestures and flights).
+      minMaxZoomPreference: riderZoomPreference,
       markers: widget.markers ?? {},
       polylines: widget.polylines ?? {},
       circles: widget.circles ?? {},
