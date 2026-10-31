@@ -174,6 +174,38 @@ void main() {
       expect(find.byKey(const ValueKey('safety-call-112')), findsNothing);
     });
 
+    testWidgets('checker LOW 9: while finding a driver (no driver yet) the '
+        'kit offers only "Call 112"; with a driver, SOS', (tester) async {
+      for (final assigned in [false, true]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SafetyKitSheetRow(
+                rideId: 'trp_s',
+                driverAssigned: assigned,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(SafetyKitSheetRow));
+        await tester.pumpAndSettle();
+        final sheet = tester.widget<RideSafetyKitSheet>(
+          find.byType(RideSafetyKitSheet),
+        );
+        expect(sheet.duringTrip, assigned, reason: 'assigned=$assigned');
+        expect(
+          find.byKey(const ValueKey('safety-call-112')),
+          assigned ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('safety-sos')),
+          assigned ? findsOneWidget : findsNothing,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      }
+    });
+
     test('"Call 112" is the contract text; no demo words', () {
       final t = _contract['safety']['onlyDuringTrip']['texts']['call112'];
       for (final lang in ['sv', 'fr', 'en']) {

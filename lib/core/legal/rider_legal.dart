@@ -199,6 +199,10 @@ class RiderLegalController extends ChangeNotifier {
   /// re-accept is asked for.
   LegalTexts? _armed;
   final Map<String, int> _accepted = {};
+
+  /// The version the server said this rider has not accepted
+  /// (`409 terms_not_accepted`): asked whatever this device remembers.
+  int? _refused;
   bool _signedIn = false;
   bool _loading = false;
   bool _failed = false;
@@ -215,6 +219,7 @@ class RiderLegalController extends ChangeNotifier {
     final armed = _armed;
     if (!_signedIn || onTrip.value || armed == null) return false;
     if (!armed.reaccept || armed.version <= 0) return false;
+    if (_refused == armed.version) return true;
     return (_accepted[armed.country] ?? 0) < armed.version;
   }
 
@@ -229,6 +234,10 @@ class RiderLegalController extends ChangeNotifier {
   /// Sign-out: nothing to accept for nobody.
   void signedOut() {
     _signedIn = false;
+    // The next rider on this device has accepted nothing here yet; what
+    // they accepted is read again from the store (wiped at sign-out).
+    _accepted.clear();
+    _refused = null;
     _changed();
   }
 
@@ -240,15 +249,18 @@ class RiderLegalController extends ChangeNotifier {
     } catch (_) {
       return;
     }
-    if (_texts?.country != code) {
-      try {
+    try {
+      if (_texts?.country != code) {
         final kept = await _store.read(code);
         if (kept != null) _texts = kept;
+      }
+      // Read again after a sign-out (the next rider's own answer).
+      if (!_accepted.containsKey(code)) {
         final accepted = await _store.accepted(code);
         if (accepted != null) _accepted[code] = accepted;
-      } catch (error) {
-        AppLog.warning('rider_legal.cache_failed', extra: {'error': '$error'});
       }
+    } catch (error) {
+      AppLog.warning('rider_legal.cache_failed', extra: {'error': '$error'});
     }
     final client = api;
     if (client == null) return _changed();
@@ -284,6 +296,8 @@ class RiderLegalController extends ChangeNotifier {
   Future<void> onTermsNotAccepted() async {
     await load();
     _armed = _texts;
+    // The server's word wins over what this device remembers.
+    _refused = _armed?.version;
     _changed();
   }
 
@@ -309,6 +323,7 @@ class RiderLegalController extends ChangeNotifier {
       return false;
     }
     _accepted[armed.country] = armed.version;
+    _refused = null;
     try {
       await _store.writeAccepted(armed.country, armed.version);
     } catch (error) {

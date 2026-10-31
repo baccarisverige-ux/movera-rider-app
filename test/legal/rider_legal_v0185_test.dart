@@ -256,4 +256,33 @@ void main() {
     expect(server.requests.last.url.path, '/api/v1/account/legal/accept');
     expect(legal.mustAccept, isFalse);
   });
+
+  test(
+    'checker MEDIUM 3: a second rider on the same app run is asked; '
+    'a booking refused with terms_not_accepted always shows the terms',
+    () async {
+      final (legal, _, _) = await _controller(
+        () => _answer('SE', version: 5, reaccept: true),
+      );
+      legal.signedIn();
+      await legal.load(start: true);
+      expect(await legal.accept(), isTrue);
+      expect(legal.mustAccept, isFalse);
+
+      // Rider A signs out; rider B signs in without a restart.
+      legal.signedOut();
+      legal.signedIn();
+      expect(legal.mustAccept, isTrue, reason: 'B never accepted version 5');
+
+      // Even when this device believes it was accepted, the server's 409
+      // terms_not_accepted shows the terms.
+      expect(await legal.accept(), isTrue);
+      expect(legal.mustAccept, isFalse);
+      await legal.onTermsNotAccepted();
+      expect(legal.mustAccept, isTrue);
+      expect(legal.toAccept?.version, 5);
+      expect(await legal.accept(), isTrue);
+      expect(legal.mustAccept, isFalse);
+    },
+  );
 }

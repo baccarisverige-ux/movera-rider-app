@@ -21,9 +21,16 @@ const Color _line = Color(0xFFE7EBEE);
 const Color _icon = Color(0xFF3A4550);
 
 class SafetyKitMapButton extends StatelessWidget {
-  const SafetyKitMapButton({super.key, this.rideId});
+  const SafetyKitMapButton({
+    super.key,
+    this.rideId,
+    this.driverAssigned = true,
+  });
 
   final String? rideId;
+
+  /// G14: false while Movera is still finding a driver (no trip yet).
+  final bool driverAssigned;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +41,11 @@ class SafetyKitMapButton extends StatelessWidget {
         shadowColor: Colors.black26,
         borderRadius: BorderRadius.circular(28),
         child: InkWell(
-          onTap: () => showRideSafetyKit(context, rideId: rideId),
+          onTap: () => showRideSafetyKit(
+            context,
+            rideId: rideId,
+            driverAssigned: driverAssigned,
+          ),
           borderRadius: BorderRadius.circular(28),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
@@ -68,9 +79,12 @@ class SafetyKitMapButton extends StatelessWidget {
 }
 
 class SafetyKitSheetRow extends StatelessWidget {
-  const SafetyKitSheetRow({super.key, this.rideId});
+  const SafetyKitSheetRow({super.key, this.rideId, this.driverAssigned = true});
 
   final String? rideId;
+
+  /// G14: false while Movera is still finding a driver (no trip yet).
+  final bool driverAssigned;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +92,11 @@ class SafetyKitSheetRow extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        onTap: () => showRideSafetyKit(context, rideId: rideId),
+        onTap: () => showRideSafetyKit(
+          context,
+          rideId: rideId,
+          driverAssigned: driverAssigned,
+        ),
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -109,11 +127,22 @@ class SafetyKitSheetRow extends StatelessWidget {
   }
 }
 
-Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
+/// Contract v0.18.5 `safety.onlyDuringTrip` (owner G14): SOS and Share trip
+/// only once a driver has the trip; while Movera is still finding one
+/// ([driverAssigned] false) the sheet offers "Call 112" and Safety
+/// preferences only (the server answers an SOS then 409 trip_not_live).
+Future<void> showRideSafetyKit(
+  BuildContext context, {
+  String? rideId,
+  bool driverAssigned = true,
+}) {
   SheetCoordinator.instance.open(RideSheet.safety);
   return MoveraSheet.show<void>(
     context: context,
-    builder: (_) => RideSafetyKitSheet(rideId: rideId),
+    builder: (_) => RideSafetyKitSheet(
+      rideId: rideId,
+      duringTrip: driverAssigned && (rideId?.trim().isNotEmpty ?? false),
+    ),
   ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.safety));
 }
 
