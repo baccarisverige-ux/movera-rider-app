@@ -3168,7 +3168,9 @@ paths:
         approved, categoryIds } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without
         at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year,
         seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers
-        only the categories the car fits (Vehicle.fitCategories).'
+        only the categories the car fits (Vehicle.fitCategories). An id that is no category of the car''s country and no extra
+        (e.g. ''foo'') is refused the same way: 409 vehicle_rules_not_met with details ''<id>:unknown_category''; it is never
+        stored.'
   /driver/documents:
     get:
       operationId: listDriverDocuments
@@ -5767,8 +5769,9 @@ paths:
         the shield shows only ''Call 112'' (opens the phone''s dialer, nothing sent to Movera) and Safety preferences; during
         a trip it shows SOS (112 + alert Movera), Share trip and Ride check. Same in the rider app; sv / fr / en. No demo
         words ("others in preview"). POST /rider/trips/{tripId}/sos and POST /driver/trips/{tripId}/sos needs a trip; outside
-        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (unchanged, confirmed).
-        Sharing needs a live trip too.'
+        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (the rider''s list no
+        longer has searching / offered: a trip counts only once a driver is assigned, accepted … approaching_dropoff; a rider
+        still searching sees only ''Call 112''). Sharing needs a live trip too.'
       tags:
       - Safety
       x-actor:
@@ -5821,8 +5824,9 @@ paths:
         the shield shows only ''Call 112'' (opens the phone''s dialer, nothing sent to Movera) and Safety preferences; during
         a trip it shows SOS (112 + alert Movera), Share trip and Ride check. Same in the rider app; sv / fr / en. No demo
         words ("others in preview"). POST /rider/trips/{tripId}/sos and POST /driver/trips/{tripId}/sos needs a trip; outside
-        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (unchanged, confirmed).
-        Sharing needs a live trip too.'
+        safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (the rider''s list no
+        longer has searching / offered: a trip counts only once a driver is assigned, accepted … approaching_dropoff; a rider
+        still searching sees only ''Call 112''). Sharing needs a live trip too.'
       tags:
       - Safety
       x-actor:
@@ -6353,10 +6357,12 @@ paths:
         approved, categoryIds } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without
         at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year,
         seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers
-        only the categories the car fits (Vehicle.fitCategories). v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"): every
-        rejection needs a reason: POST /admin/documents/{documentId}/review, /admin/drivers/{driverId}/documents/{type}/check
-        and /admin/drivers/{driverId}/bank/review with decision rejected, and /admin/vehicles/{vehicleId}/review with rejected
-        or blocked, without a non-empty note are 400 invalid_request, reason note_required. The driver always sees why.'
+        only the categories the car fits (Vehicle.fitCategories). An id that is no category of the car''s country and no extra
+        (e.g. ''foo'') is refused the same way: 409 vehicle_rules_not_met with details ''<id>:unknown_category''; it is never
+        stored. v0.18.5 (owner G2-D5.7 "Reason always (Recommended)"): every rejection needs a reason: POST /admin/documents/{documentId}/review,
+        /admin/drivers/{driverId}/documents/{type}/check and /admin/drivers/{driverId}/bank/review with decision rejected,
+        and /admin/vehicles/{vehicleId}/review with rejected or blocked, without a non-empty note are 400 invalid_request,
+        reason note_required. The driver always sees why.'
   /admin/documents/{documentId}/review:
     post:
       operationId: adminReviewDocument
@@ -10369,15 +10375,17 @@ paths:
         policy per country (SE, FR) in sv / fr / en, edited by the admin (Content › Legal, the content place legal), versioned,
         shown in both apps (also before sign-in) and accepted again when a new version asks for it. The built-in texts are
         Movera-made drafts: a lawyer must review them before launch. GET /legal/{country} (no token, auth.beforeSignIn.allowed)
-        → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, terms: LegalDocument { title, text
-        } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled. version 0 =
-        the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read
-        it on start and when they come back to the foreground (no stream event), and keep the last answer offline. Both apps
-        show ''Terms'' and ''Privacy'' as two separate links on the sign-in screen and in the menu, read from GET /legal/{country}
-        of the start country (auth.startCountry), else of the account''s country. When reaccept is true and the person has
-        not accepted the live version, the next app start (never during a trip) shows the new terms with ''Jag godkänner''
-        / ''J''accepte'' / ''I accept''. Drafts (version 0) say so on their first line. A lawyer reviews the texts before
-        launch; the admin publishes the reviewed ones.'
+        → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, reacceptFrom, terms: LegalDocument
+        { title, text } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled.
+        version 0 = the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown).
+        Apps read it on start and when they come back to the foreground (no stream event), and keep the last answer offline.
+        reacceptFrom = the newest version published with reaccept true (null when none was): the version a person must have
+        accepted (or a later one). Both apps show ''Terms'' and ''Privacy'' as two separate links on the sign-in screen and
+        in the menu, read from GET /legal/{country} of the start country (auth.startCountry), else of the account''s country.
+        When reacceptFrom is not null and the person has not accepted a version >= reacceptFrom (it then accepts the live
+        version), the next app start (never during a trip) shows the new terms with ''Jag godkänner'' / ''J''accepte'' / ''I
+        accept''. Drafts (version 0) say so on their first line. A lawyer reviews the texts before launch; the admin publishes
+        the reviewed ones.'
       tags:
       - Account
       x-actor:
@@ -10512,10 +10520,13 @@ paths:
       operationId: acceptLegal
       summary: Accept the live legal texts of a country
       description: 'v0.18.5: POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live
-        one (409 conflict, reason terms_version_not_current). With reaccept true on the live version, until accepted the rider
-        cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability
-        409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup
-        zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted at sign-up).'
+        one (409 conflict, reason terms_version_not_current). Who must accept: the newest version published with reaccept
+        true (LegalTexts.reacceptFrom) is the one that counts; accepting it or any later version satisfies it (accepting v3
+        also satisfies v2), and a later publish without reaccept never unblocks a person who did not accept it. Until then
+        the rider cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST
+        /driver/availability 409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his
+        zones (rider: the pickup zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted
+        at sign-up).'
       tags:
       - Account
       x-actor:
@@ -12063,7 +12074,8 @@ components:
           - $ref: '#/components/schemas/Id'
           description: 'v0.18.5 (G2-D1): GET /driver/documents, Driver.documents (DocumentSummary with renewalOf) and the
             admin driver page list both: the approved one and, right after it, its renewal. The Home line of the approved
-            one (expiring / expired) carries renewalStatus (in_review | rejected).'
+            one (expiring / expired) carries renewalStatus (in_review | rejected). With renewalStatus rejected the line also
+            carries reviewNote = the admin''s note on the rejected renewal (why), so Home can show it.'
     Document:
       type: object
       required:
@@ -18244,7 +18256,9 @@ components:
             } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride
             category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel
             per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only
-            the categories the car fits (Vehicle.fitCategories).'
+            the categories the car fits (Vehicle.fitCategories). An id that is no category of the car''s country and no extra
+            (e.g. ''foo'') is refused the same way: 409 vehicle_rules_not_met with details ''<id>:unknown_category''; it is
+            never stored.'
           deprecated: true
         fuel:
           type: string
@@ -18646,7 +18660,9 @@ components:
             } (or the car''s categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride
             category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel
             per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only
-            the categories the car fits (Vehicle.fitCategories).'
+            the categories the car fits (Vehicle.fitCategories). An id that is no category of the car''s country and no extra
+            (e.g. ''foo'') is refused the same way: 409 vehicle_rules_not_met with details ''<id>:unknown_category''; it is
+            never stored.'
     DocumentReviewCommand:
       type: object
       description: 'Document has no version in CONTRACT.md §2; Idempotency-Key only. v0.18.0: v0.18.0 (owner item 1: "First
@@ -20870,10 +20886,11 @@ components:
     LegalTexts:
       type: object
       description: 'v0.18.5: GET /legal/{country} (no token, auth.beforeSignIn.allowed) → LegalTexts { country, version, source:
-        default | admin, publishedAt?, reaccept, terms: LegalDocument { title, text } , privacy: LegalDocument } with title
-        and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing published).
-        Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come back to the
-        foreground (no stream event), and keep the last answer offline.'
+        default | admin, publishedAt?, reaccept, reacceptFrom, terms: LegalDocument { title, text } , privacy: LegalDocument
+        } with title and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing
+        published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come
+        back to the foreground (no stream event), and keep the last answer offline. reacceptFrom = the newest version published
+        with reaccept true (null when none was): the version a person must have accepted (or a later one).'
       required:
       - country
       - version
@@ -20896,6 +20913,13 @@ components:
           $ref: '#/components/schemas/Timestamp'
         reaccept:
           type: boolean
+        reacceptFrom:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          description: 'The newest version published with reaccept (null: none); a person must have accepted it or a later
+            version (contract.json#legal.accept).'
         terms:
           $ref: '#/components/schemas/LegalDocument'
         privacy:
@@ -20973,10 +20997,13 @@ components:
     LegalAcceptCommand:
       type: object
       description: 'v0.18.5: POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live
-        one (409 conflict, reason terms_version_not_current). With reaccept true on the live version, until accepted the rider
-        cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability
-        409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup
-        zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted at sign-up).'
+        one (409 conflict, reason terms_version_not_current). Who must accept: the newest version published with reaccept
+        true (LegalTexts.reacceptFrom) is the one that counts; accepting it or any later version satisfies it (accepting v3
+        also satisfies v2), and a later publish without reaccept never unblocks a person who did not accept it. Until then
+        the rider cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST
+        /driver/availability 409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his
+        zones (rider: the pickup zone; driver: his zones and his latest position''s zone). Version 0 needs no accept (accepted
+        at sign-up).'
       required:
       - country
       - version

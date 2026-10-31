@@ -57,6 +57,7 @@ class LegalTexts {
     required this.terms,
     required this.privacy,
     this.source = 'default',
+    this.reacceptFrom,
   });
 
   final String country;
@@ -65,6 +66,11 @@ class LegalTexts {
   final int version;
   final String source;
   final bool reaccept;
+
+  /// The newest version published with re-accept on (null when none): the
+  /// rider must have accepted it or a later one (accepting v3 covers v2; a
+  /// later publish without re-accept does not clear it).
+  final int? reacceptFrom;
   final LegalDocument terms;
   final LegalDocument privacy;
 
@@ -87,6 +93,9 @@ class LegalTexts {
       version: version.toInt(),
       source: raw['source'] is String ? raw['source'] as String : 'default',
       reaccept: raw['reaccept'] == true,
+      reacceptFrom: raw['reacceptFrom'] is num
+          ? (raw['reacceptFrom'] as num).toInt()
+          : null,
       terms: terms,
       privacy: privacy,
     );
@@ -97,6 +106,7 @@ class LegalTexts {
     'version': version,
     'source': source,
     'reaccept': reaccept,
+    'reacceptFrom': reacceptFrom,
     'terms': terms.toJson(),
     'privacy': privacy.toJson(),
   };
@@ -164,8 +174,9 @@ class MemoryLegalStore implements LegalStore {
 ///   the last answer is kept for offline use.
 /// - Country: the start country before sign-in, the rider's zone country
 ///   after ([country]).
-/// - Re-accept: when the answer known at this app start has `reaccept` and
-///   the rider has not accepted that version, [mustAccept] is true (never
+/// - Re-accept: when the answer known at this app start has `reacceptFrom`
+///   and the rider has not accepted that version or a later one (accepting
+///   sends the live version), [mustAccept] is true (never
 ///   during a trip, never signed out) until `POST /account/legal/accept`.
 ///   A later publish shows at the next start, never mid-session; a booking
 ///   refused with `terms_not_accepted` arms it at once ([onTermsNotAccepted]).
@@ -218,9 +229,14 @@ class RiderLegalController extends ChangeNotifier {
   bool get mustAccept {
     final armed = _armed;
     if (!_signedIn || onTrip.value || armed == null) return false;
-    if (!armed.reaccept || armed.version <= 0) return false;
-    if (_refused == armed.version) return true;
-    return (_accepted[armed.country] ?? 0) < armed.version;
+    // The server refused a booking (409 terms_not_accepted): ask, whatever
+    // this device remembers.
+    if (_refused == armed.version && armed.version > 0) return true;
+    // Contract v0.18.5 legal.accept: reacceptFrom counts (accepting it or
+    // any later version), not the live version's own reaccept flag.
+    final from = armed.reacceptFrom;
+    if (from == null || from <= 0) return false;
+    return (_accepted[armed.country] ?? 0) < from;
   }
 
   LegalTexts? get toAccept => mustAccept ? _armed : null;

@@ -35,6 +35,7 @@ Map<String, Object?> _answer(
   String country, {
   int version = 0,
   bool reaccept = false,
+  int? reacceptFrom,
 }) {
   final contract =
       jsonDecode(File('contracts/contract.json').readAsStringSync()) as Map;
@@ -44,6 +45,8 @@ Map<String, Object?> _answer(
     'version': version,
     'source': version == 0 ? 'default' : 'admin',
     'reaccept': reaccept,
+    // The newest version published with re-accept on.
+    'reacceptFrom': reacceptFrom ?? (reaccept ? version : null),
     'terms': defaults['terms'],
     'privacy': defaults['privacy'],
   };
@@ -285,4 +288,39 @@ void main() {
       expect(legal.mustAccept, isFalse);
     },
   );
+
+  test('reacceptFrom: v2 published with re-accept, then v3 without: still '
+      'asked; accepting v3 (the live one) covers v2', () async {
+    final (legal, server, _) = await _controller(
+      () => _answer('SE', version: 3, reacceptFrom: 2),
+    );
+    legal.signedIn();
+    await legal.load(start: true);
+    expect(legal.texts!.reaccept, isFalse);
+    expect(legal.texts!.reacceptFrom, 2);
+    expect(legal.mustAccept, isTrue, reason: 'v3 without tick never clears v2');
+    expect(await legal.accept(), isTrue);
+    expect(jsonDecode(server.requests.last.body), {
+      'country': 'SE',
+      'version': 3,
+    });
+    expect(legal.mustAccept, isFalse);
+  });
+
+  test('reacceptFrom already accepted (or a later one): not asked', () async {
+    final store = MemoryLegalStore()..acceptedVersions['SE'] = 4;
+    final legal = RiderLegalController(
+      api: ApiClient(
+        env: _env,
+        client: MockClient(
+          (_) async => _json(200, _answer('SE', version: 5, reacceptFrom: 3)),
+        ),
+        tokens: MemoryTokenStore(),
+      ),
+      store: store,
+      country: () async => 'SE',
+    )..signedIn();
+    await legal.load(start: true);
+    expect(legal.mustAccept, isFalse);
+  });
 }

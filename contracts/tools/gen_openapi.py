@@ -2077,7 +2077,8 @@ S["LegalCompany"] = obj({"companyName": s(maxLength=200), "orgNumber": s(maxLeng
                          "supportPhone": s(pattern=r"^\+[1-9]\d{6,14}$")}, [], "v0.18.5: " + LG["company"])
 S["LegalCountry"] = s(enum=LG["countries"])
 S["LegalTexts"] = obj({"country": ref("LegalCountry"), "version": i(minimum=0), "source": s(enum=["default", "admin"]), "publishedAt": ref("Timestamp"),
-                       "reaccept": b(), "terms": ref("LegalDocument"), "privacy": ref("LegalDocument")},
+                       "reaccept": b(), "reacceptFrom": {"type": ["integer", "null"], "minimum": 1, "description": "The newest version published with reaccept (null: none); a person must have accepted it or a later version (contract.json#legal.accept)."},
+                       "terms": ref("LegalDocument"), "privacy": ref("LegalDocument")},
                       ["country", "version", "source", "reaccept", "terms", "privacy"], "v0.18.5: " + LG["read"])
 S["LegalVersion"] = obj({"country": ref("LegalCountry"), "version": i(minimum=0), "source": s(enum=["default", "admin"]), "publishedAt": ref("Timestamp"), "publishedBy": ref("Id"),
                          "reaccept": b(), "terms": ref("LegalDocument"), "privacy": ref("LegalDocument"), "company": ref("LegalCompany")},
