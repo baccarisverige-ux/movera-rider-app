@@ -206,14 +206,35 @@ void main() {
       }
     });
 
-    test('"Call 112" is the contract text; no demo words', () {
+    testWidgets('"Call 112" is the contract text; no demo words on the '
+        'sheet', (tester) async {
       final t = _contract['safety']['onlyDuringTrip']['texts']['call112'];
+      final ctl = (await tester.runAsync(
+        () => controller(RecordingEmergencyDialer()),
+      ))!;
       for (final lang in ['sv', 'fr', 'en']) {
         L10n.use(lang);
         expect(L10n.current.safetyCall112, t[lang]);
-        final arb = File('lib/l10n/app_$lang.arb').readAsStringSync();
-        expect(arb.toLowerCase(), isNot(contains('in preview')));
-        expect(arb.toLowerCase(), isNot(contains('en aperçu')));
+        for (final rideId in [null, 'trp_1']) {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: RideSafetyKitSheet(rideId: rideId, controller: ctl),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final shown = tester
+              .widgetList<Text>(find.byType(Text))
+              .map((w) => (w.data ?? w.textSpan?.toPlainText() ?? ''))
+              .join('\n')
+              .toLowerCase();
+          expect(shown, isNot(contains('in preview')), reason: lang);
+          expect(shown, isNot(contains('en aperçu')), reason: lang);
+          expect(shown, isNot(contains('demo')), reason: lang);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        }
       }
     });
   });

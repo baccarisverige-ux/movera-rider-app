@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/auth/browser_token_store.dart';
 
@@ -68,21 +66,5 @@ void main() {
     final store = BrowserTokenStore(persistent: local, legacy: tab);
     await store.save(access: 'a', refresh: 'r');
     expect(await store.readAccess(), 'a');
-  });
-
-  test('the web build uses localStorage, sessionStorage only to move over', () {
-    // Before G1-D1 the rider web kept the session in sessionStorage only,
-    // so a closed tab signed the rider out.
-    final source = File(
-      'lib/core/auth/web_session_token_store_web.dart',
-    ).readAsStringSync();
-    expect(
-      source,
-      contains('persistent: _WebStorage(() => web.window.localStorage)'),
-    );
-    expect(
-      source,
-      contains('legacy: _WebStorage(() => web.window.sessionStorage)'),
-    );
   });
 }

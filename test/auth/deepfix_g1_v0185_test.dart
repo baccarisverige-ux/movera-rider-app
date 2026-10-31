@@ -457,31 +457,35 @@ void main() {
     });
 
     test('same words as the driver app, sv / fr / en', () {
-      final pairs = {
-        'consentPrefix': 'authConsentPrefix',
-        'consentTerms': 'authConsentTerms',
-        'consentPrivacy': 'authConsentPrivacy',
-        'consentLabel': 'authConsentLabel',
-        'consentAnd': 'authAnd',
-        'authOr': 'authOr',
-        'providerComingSoon': 'authProviderComingSoon',
-      };
       for (final lang in ['sv', 'fr', 'en']) {
-        final rider =
-            jsonDecode(File('lib/l10n/app_$lang.arb').readAsStringSync())
-                as Map<String, dynamic>;
+        L10n.use(lang);
+        final t = L10n.current;
         expect(
-          rider['consentPrefix'],
-          startsWith(switch (lang) {
-            'sv' => 'Genom att fortsätta',
-            'fr' => 'En continuant',
-            _ => 'By continuing',
-          }),
+          '${t.consentPrefix}${t.consentTerms}${t.consentAnd}'
+          '${t.consentPrivacy}',
+          switch (lang) {
+            'sv' =>
+              'Genom att fortsätta godkänner du villkoren och '
+                  'integritetspolicyn',
+            'fr' =>
+              'En continuant, vous acceptez les conditions et la '
+                  'politique de confidentialité',
+            _ => 'By continuing you accept the terms and privacy policy',
+          },
         );
-        for (final key in pairs.keys) {
-          expect(rider[key], isA<String>(), reason: '$lang $key');
-        }
+        expect(t.authOr, switch (lang) {
+          'sv' => 'eller',
+          'fr' => 'ou',
+          _ => 'or',
+        });
+        expect(t.consentLabel, isNotEmpty, reason: '$lang consentLabel');
+        expect(
+          t.providerComingSoon,
+          isNotEmpty,
+          reason: '$lang providerComingSoon',
+        );
       }
+      L10n.use('en');
       expect(L10n.languages.map((l) => l.name), [
         'Svenska',
         'Français',
