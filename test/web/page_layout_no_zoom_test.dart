@@ -19,28 +19,33 @@ class _Fixed implements SafeAreaSource {
   void dispose() {}
 }
 
-/// Owner 2026-10-30 "Map under the strip" and the iPhone 15 / iOS 17 zoom
-/// check (same Flutter web setup as the driver app).
+/// Owner 2026-10-31 "Go back to before": the edge-to-edge page (Map under
+/// the strip, rider #448/#449) left the iPhone Home Screen app short of the
+/// bottom, so web/index.html is back to the layout before it; the iPhone 15 /
+/// iOS 17 no-zoom rule stays (same Flutter web setup as the driver app).
 void main() {
   final html = File('web/index.html').readAsStringSync();
 
-  test('the page is edge to edge, fixed at 0,0 (one origin for drawing and '
-      'taps), and viewport-fit=cover survives the engine\'s viewport swap', () {
-    expect(html, contains('viewport-fit=cover'));
-    expect(html, contains("new MutationObserver(cover).observe(document.head"));
+  test('the page layout is the one before edge to edge: no viewport-fit, '
+      'no fixed page, no viewport-gap script', () {
+    expect(html, isNot(contains('viewport-fit')));
+    expect(html, isNot(contains('MutationObserver(cover)')));
+    expect(html, isNot(contains('movera-viewport-gap')));
+    expect(html, isNot(contains('position: fixed')));
+    expect(
+      html,
+      contains(
+        '<meta name="viewport" content="width=device-width, initial-scale=1, '
+        'maximum-scale=1, user-scalable=no">',
+      ),
+    );
     expect(
       html,
       contains(
         'apple-mobile-web-app-status-bar-style" content="black-translucent"',
       ),
     );
-    expect(
-      RegExp(
-        r'html, body \{[^}]*position: fixed;[^}]*inset: 0;',
-        dotAll: true,
-      ).hasMatch(html),
-      isTrue,
-    );
+    expect(html, contains('<meta name="theme-color" content="#eef1e8">'));
   });
 
   test('Safari never zooms on a field: inputs are 16px', () {
@@ -50,6 +55,8 @@ void main() {
     );
   });
 
+  // SafeAreaFromPage stays: without viewport-fit=cover the page's insets
+  // read 0 and it changes nothing; it still merges real insets correctly.
   testWidgets('the page\'s safe-area insets reach MediaQuery; the keyboard '
       'keeps the bottom', (tester) async {
     final source = _Fixed(const EdgeInsets.only(top: 59, bottom: 34));

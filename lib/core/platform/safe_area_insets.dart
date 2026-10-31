@@ -5,12 +5,13 @@ import 'package:movera_rider/core/platform/safe_area_insets_io.dart'
 /// The phone's safe-area insets (status bar, notch, home indicator) as the
 /// page sees them through CSS `env(safe-area-inset-*)`.
 ///
-/// Owner 2026-10-30 "Map under the strip" (rider app, same as the driver
-/// app): the Home map draws behind the status bar, edge to edge, and every top button and sheet moves by the
-/// real insets. A store app gets them from the system ([MediaQuery]); the
-/// web engine reports `viewPadding` as zero in every browser, so the web
-/// build reads them from CSS (web/index.html sets `viewport-fit=cover`) and
-/// [SafeAreaFromPage] puts them into [MediaQuery].
+/// A store app gets them from the system ([MediaQuery]); the web engine
+/// reports `viewPadding` as zero in every browser, so the web build reads
+/// them from CSS and [SafeAreaFromPage] puts them into [MediaQuery].
+///
+/// Owner 2026-10-31 "Go back to before": web/index.html no longer sets
+/// `viewport-fit=cover` (the edge-to-edge page of 2026-10-30 is undone), so
+/// in the browser these read 0 and [SafeAreaFromPage] changes nothing.
 abstract class SafeAreaSource {
   /// The insets now, in logical pixels; [EdgeInsets.zero] off the web.
   EdgeInsets read();
