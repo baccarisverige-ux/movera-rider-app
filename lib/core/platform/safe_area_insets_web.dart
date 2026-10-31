@@ -5,8 +5,8 @@ import 'package:movera_rider/core/platform/safe_area_insets.dart';
 import 'package:web/web.dart' as web;
 
 /// Reads `env(safe-area-inset-*)` from a hidden, fixed probe element whose
-/// padding is those four values (web/index.html adds `viewport-fit=cover`,
-/// without which they are all 0).
+/// padding is those four values. Without `viewport-fit=cover` (removed from
+/// web/index.html on 2026-10-31) they are all 0.
 SafeAreaSource platformSafeAreaSource() => _CssSafeArea();
 
 class _CssSafeArea implements SafeAreaSource {

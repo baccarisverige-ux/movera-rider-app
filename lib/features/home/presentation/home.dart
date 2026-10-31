@@ -2424,8 +2424,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final viewportHeight = MediaQuery.of(context).size.height;
     final mapHeight = _stableMapHeight(MediaQuery.of(context).size);
-    final safeTop = MediaQuery.of(context).padding.top;
-    final topInset = safeTop + ResSize.h * 8;
+    final topInset = MediaQuery.of(context).padding.top + ResSize.h * 8;
     final fullSheetPixels = viewportHeight - topInset;
 
     return PopScope(
@@ -2552,8 +2551,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         ),
                       Positioned(
                         left: screenHorizPadding,
-                        // "Map under the strip": below the status bar.
-                        top: math.max(ResSize.h * 60, safeTop + 18),
+                        top: ResSize.h * 60,
                         child: HomeReservationChrono(
                           onRebook: () => unawaited(_openSchedule()),
                           openRoute: _withParkedHomeMap,
@@ -2563,10 +2561,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
                             screenHorizPadding,
-                            // Owner 2026-10-30 "Map under the strip": the
-                            // map draws under the status bar; Menu and
-                            // Account stay below it (real safe-area inset).
-                            math.max(ResSize.h * 50, safeTop + 8),
+                            ResSize.h * 50,
                             screenHorizPadding,
                             0,
                           ),
