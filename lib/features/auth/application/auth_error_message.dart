@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
+import 'package:movera_rider/features/auth/data/provider_token_source.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider was doing when sign-in failed.
@@ -8,6 +9,13 @@ enum AuthAction { sendCode, verifyCode, providerSignIn }
 /// Contract v0.15.0 `429 rate_limited`, reason `otp_too_many_attempts`.
 bool isTooManyWrongCodes(Object error) =>
     error is ApiError && error.detail == 'otp_too_many_attempts';
+
+/// G1-B1 / G1-E: Apple or Google cannot be used yet, here (no SDK set up)
+/// or on the server (`503 unavailable`, reason `provider_not_configured`):
+/// "coming soon – use your phone number", like the driver app.
+bool isProviderComingSoon(Object error) =>
+    error is ProviderUnavailable ||
+    (error is ApiError && error.detail == 'provider_not_configured');
 
 /// The contract's reason for a wrong code (`400 invalid_request`, reason
 /// `invalid_otp_code`; `invalid_otp` is an older alias).
@@ -35,6 +43,8 @@ String authWaitText(Duration wait) {
 /// failure, including no connection. Riders now learn whether the code was
 /// wrong, expired, rate limited, or never reached the server.
 String authErrorMessage(Object error, AuthAction action, {String? provider}) {
+  // A provider without keys answers 503: "coming soon", not a fault.
+  if (isProviderComingSoon(error)) return L10n.current.providerComingSoon;
   switch (riderErrorKind(error)) {
     case RiderErrorKind.offline:
       return L10n.current.errOffline;

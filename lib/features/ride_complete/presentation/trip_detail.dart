@@ -12,6 +12,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
   const RideCompletedTripDetail({super.key, this.controller, this.rideId});
@@ -183,15 +184,17 @@ class RideCompletedTripDetail extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const ValueKey<String>('receipt-dispute-submit'),
-                    onPressed: submitting ? null : submit,
-                    child: Text(
-                      submitting
-                          ? context.l10n.submitting
-                          : context.l10n.submitIssue,
+                KeyboardAnchor(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const ValueKey<String>('receipt-dispute-submit'),
+                      onPressed: submitting ? null : submit,
+                      child: Text(
+                        submitting
+                            ? context.l10n.submitting
+                            : context.l10n.submitIssue,
+                      ),
                     ),
                   ),
                 ),

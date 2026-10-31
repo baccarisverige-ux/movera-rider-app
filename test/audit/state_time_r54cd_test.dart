@@ -613,7 +613,8 @@ void main() {
     addTearDown(() => L10n.use('en'));
     await language.choose('sv');
     await language.useZone(config: _FrenchZone(), zone: RiderZones.france);
-    expect(language.available, ['en', 'fr']);
+    // G1-B5: languages listed Svenska, Français, English.
+    expect(language.available, ['fr', 'en']);
     expect(language.code, 'fr');
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 
 class DriverProfilePage extends StatelessWidget {
   const DriverProfilePage({super.key, required this.driver});
@@ -38,21 +39,16 @@ class DriverProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Center(
-            child: CircleAvatar(
+            child: DriverPhotoAvatar(
+              driver: driver,
               radius: 44,
-              backgroundImage: driver.photoAsset != null
-                  ? AssetImage(driver.photoAsset!)
-                  : null,
-              backgroundColor: const Color(0xFFF3F6FB),
-              child: driver.photoAsset == null
-                  ? Text(
-                      driver.firstName.isEmpty ? '?' : driver.firstName[0],
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : null,
+              fallback: Text(
+                driver.firstName.isEmpty ? '?' : driver.firstName[0],
+                style: GoogleFonts.poppins(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),

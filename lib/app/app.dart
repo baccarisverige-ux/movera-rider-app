@@ -5,6 +5,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
+import 'package:movera_rider/core/platform/safe_area_insets.dart';
 import 'package:movera_rider/features/content/presentation/content_gate.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
@@ -41,11 +42,16 @@ class MoveraApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
           // v0.10.0 Content: update block, terms and update messages.
-          builder: (context, child) => LanguageRebuild(
-            code: language.code,
-            child: ContentGate(
-              controller: AppScope.instance.content,
-              child: child!,
+          // Owner 2026-10-30 "Map under the strip": on the web the page's
+          // safe-area insets reach MediaQuery (the engine reports none).
+          builder: (context, child) => SafeAreaFromPage(
+            child: LanguageRebuild(
+              code: language.code,
+              child: ContentGate(
+                controller: AppScope.instance.content,
+                legal: AppScope.instance.legal,
+                child: child!,
+              ),
             ),
           ),
           home: RideRestoreGate(key: RideRestoreGate.gateKey),

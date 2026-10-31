@@ -14,6 +14,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 
 class AddPlace extends StatefulWidget {
   const AddPlace({
@@ -296,15 +297,17 @@ class _AddPlaceState extends State<AddPlace> {
                       ),
                     ],
                     const Spacer(),
-                    SafeArea(
-                      top: false,
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _saving ? null : _save,
-                          child: Text(
-                            _saving ? context.l10n.saving : context.l10n.save,
+                    KeyboardAnchor(
+                      child: SafeArea(
+                        top: false,
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _saving ? null : _save,
+                            child: Text(
+                              _saving ? context.l10n.saving : context.l10n.save,
+                            ),
                           ),
                         ),
                       ),

@@ -75,6 +75,7 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 
 /// D-016: how long the driver marker eases towards a new fix. Following the
 /// actual interval between fixes (clamped) removes the move-then-stall rhythm
@@ -2295,7 +2296,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     String headline,
   ) {
     final plate = driver?.plate?.trim() ?? '';
-    final photo = driver?.photoAsset;
     return Positioned(
       top: _handleHeight,
       left: 0,
@@ -2334,16 +2334,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Row(
               children: [
-                CircleAvatar(
+                DriverPhotoAvatar(
+                  driver: driver,
                   radius: 22,
-                  backgroundColor: const Color(0xFFF3F6FB),
-                  backgroundImage: photo != null ? AssetImage(photo) : null,
-                  child: photo == null
-                      ? Text(
-                          driver?.initial ?? '',
-                          style: waitingText(15, weight: FontWeight.w700),
-                        )
-                      : null,
+                  fallback: Text(
+                    driver?.initial ?? '',
+                    style: waitingText(15, weight: FontWeight.w700),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

@@ -21,9 +21,16 @@ const Color _line = Color(0xFFE7EBEE);
 const Color _icon = Color(0xFF3A4550);
 
 class SafetyKitMapButton extends StatelessWidget {
-  const SafetyKitMapButton({super.key, this.rideId});
+  const SafetyKitMapButton({
+    super.key,
+    this.rideId,
+    this.driverAssigned = true,
+  });
 
   final String? rideId;
+
+  /// G14: false while Movera is still finding a driver (no trip yet).
+  final bool driverAssigned;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +41,11 @@ class SafetyKitMapButton extends StatelessWidget {
         shadowColor: Colors.black26,
         borderRadius: BorderRadius.circular(28),
         child: InkWell(
-          onTap: () => showRideSafetyKit(context, rideId: rideId),
+          onTap: () => showRideSafetyKit(
+            context,
+            rideId: rideId,
+            driverAssigned: driverAssigned,
+          ),
           borderRadius: BorderRadius.circular(28),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
@@ -68,9 +79,12 @@ class SafetyKitMapButton extends StatelessWidget {
 }
 
 class SafetyKitSheetRow extends StatelessWidget {
-  const SafetyKitSheetRow({super.key, this.rideId});
+  const SafetyKitSheetRow({super.key, this.rideId, this.driverAssigned = true});
 
   final String? rideId;
+
+  /// G14: false while Movera is still finding a driver (no trip yet).
+  final bool driverAssigned;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +92,11 @@ class SafetyKitSheetRow extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        onTap: () => showRideSafetyKit(context, rideId: rideId),
+        onTap: () => showRideSafetyKit(
+          context,
+          rideId: rideId,
+          driverAssigned: driverAssigned,
+        ),
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -109,18 +127,39 @@ class SafetyKitSheetRow extends StatelessWidget {
   }
 }
 
-Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
+/// Contract v0.18.5 `safety.onlyDuringTrip` (owner G14): SOS and Share trip
+/// only once a driver has the trip; while Movera is still finding one
+/// ([driverAssigned] false) the sheet offers "Call 112" and Safety
+/// preferences only (the server answers an SOS then 409 trip_not_live).
+Future<void> showRideSafetyKit(
+  BuildContext context, {
+  String? rideId,
+  bool driverAssigned = true,
+}) {
   SheetCoordinator.instance.open(RideSheet.safety);
   return MoveraSheet.show<void>(
     context: context,
-    builder: (_) => RideSafetyKitSheet(rideId: rideId),
+    builder: (_) => RideSafetyKitSheet(
+      rideId: rideId,
+      duringTrip: driverAssigned && (rideId?.trim().isNotEmpty ?? false),
+    ),
   ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.safety));
 }
 
 class RideSafetyKitSheet extends StatefulWidget {
-  const RideSafetyKitSheet({super.key, this.rideId, this.controller});
+  const RideSafetyKitSheet({
+    super.key,
+    this.rideId,
+    this.controller,
+    this.duringTrip,
+  });
   final String? rideId;
   final SafetyController? controller;
+
+  /// Contract v0.18.5 `safety.onlyDuringTrip` (owner "Only during a trip
+  /// (Recommended)"): SOS and Share trip only while a trip is live. Null:
+  /// a trip id was given.
+  final bool? duringTrip;
 
   @override
   State<RideSafetyKitSheet> createState() => _RideSafetyKitSheetState();
@@ -174,6 +213,21 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
       fontWeight: weight,
       color: color,
     );
+  }
+
+  /// The ride screens (Finding, Waiting, On trip) open the kit with their
+  /// trip id; without one there is no trip to send an SOS for or share.
+  bool get _duringTrip =>
+      widget.duringTrip ?? (widget.rideId?.trim().isNotEmpty ?? false);
+
+  /// v0.18.5 `safety.onlyDuringTrip.texts.call112`: with no trip only the
+  /// phone's dialer opens; nothing is sent to Movera.
+  Future<void> _dial112() async {
+    try {
+      await _ctl.emergency.callEmergencyNumber();
+    } on EmergencyCallException catch (error) {
+      if (mounted) MoveraToast.show(context, error.message);
+    }
   }
 
   /// rider-u215: the SOS reaches Movera whether or not the phone dialer
@@ -301,39 +355,54 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                 style: _text(22, weight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Tool(
-                      icon: Icons.call_outlined,
-                      label: context.l10n.contact112,
-                      onTap: _call112,
-                    ),
-                  ),
-                  if (showsAudio) ...[
-                    const SizedBox(width: 10),
+              if (!_duringTrip)
+                Row(
+                  children: [
                     Expanded(
                       child: _Tool(
-                        icon: recording
-                            ? Icons.stop_circle_outlined
-                            : Icons.mic_outlined,
-                        label: recording
-                            ? context.l10n.stopAudio
-                            : context.l10n.recordAudio,
-                        onTap: _toggleAudio,
+                        key: const ValueKey('safety-call-112'),
+                        icon: Icons.call_outlined,
+                        label: context.l10n.safetyCall112,
+                        onTap: _dial112,
                       ),
                     ),
                   ],
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Tool(
-                      icon: Icons.ios_share_outlined,
-                      label: context.l10n.shareTrip,
-                      onTap: _shareTrip,
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: _Tool(
+                        key: const ValueKey('safety-sos'),
+                        icon: Icons.call_outlined,
+                        label: context.l10n.contact112,
+                        onTap: _call112,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    if (showsAudio) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Tool(
+                          icon: recording
+                              ? Icons.stop_circle_outlined
+                              : Icons.mic_outlined,
+                          label: recording
+                              ? context.l10n.stopAudio
+                              : context.l10n.recordAudio,
+                          onTap: _toggleAudio,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _Tool(
+                        icon: Icons.ios_share_outlined,
+                        label: context.l10n.shareTrip,
+                        onTap: _shareTrip,
+                      ),
+                    ),
+                  ],
+                ),
               if (_audioNote != null) ...[
                 const SizedBox(height: 12),
                 Text(_audioNote!, style: _text(12, color: _muted)),
@@ -389,7 +458,12 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
 }
 
 class _Tool extends StatelessWidget {
-  const _Tool({required this.icon, required this.label, required this.onTap});
+  const _Tool({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;

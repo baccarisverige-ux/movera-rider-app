@@ -216,6 +216,10 @@ Future<void> bootstrap() async {
   await bootStep('server_reads', () async {
     await SignedInLoads.app.atLaunch();
   });
+  // v0.18.5 legal (G1-B2): read on start, with or without a session
+  // (GET /legal/{country} needs no token); this answer is the one a
+  // re-accept is asked for.
+  unawaited(AppScope.instance.legal.load(start: true));
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(

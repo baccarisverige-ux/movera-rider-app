@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
@@ -5,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/legal/rider_legal.dart';
 
 const Color kAccountInk = Color(0xFF1C2329);
 // UI-6: was 0xFF7A858E (3.77:1 on white); now ≥ 4.5:1 on kAccountSoft.
@@ -423,10 +427,14 @@ Future<String?> showAccountChoice(
   );
 }
 
-class AccountLegalPage extends StatelessWidget {
-  const AccountLegalPage({super.key, required this.kind});
+class AccountLegalPage extends StatefulWidget {
+  const AccountLegalPage({super.key, required this.kind, this.legal});
 
   final String kind;
+
+  /// Contract v0.18.5 `legal` (owner G1-B2 "Real texts from admin"): the
+  /// texts of `GET /legal/{country}`. Default: the app's own controller.
+  final RiderLegalController? legal;
 
   /// The sections of the Terms or the Privacy notice (owner round 3: the
   /// full texts, written from what the app does; company details in square
@@ -471,7 +479,82 @@ class AccountLegalPage extends StatelessWidget {
   }
 
   @override
+  State<AccountLegalPage> createState() => _AccountLegalPageState();
+}
+
+class _AccountLegalPageState extends State<AccountLegalPage> {
+  late final RiderLegalController _legal =
+      widget.legal ?? AppScope.instance.legal;
+
+  @override
+  void initState() {
+    super.initState();
+    // The texts may have changed since the last read.
+    if (_legal.api != null) unawaited(_legal.load());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _legal,
+      builder: (context, _) {
+        final texts = _legal.texts;
+        if (texts != null) return _server(context, texts);
+        // The demo (no server) keeps its built-in sample texts.
+        if (_legal.api == null) return _builtIn(context);
+        return AccountScaffold(
+          child: Center(
+            child: _legal.failed
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          context.l10n.apiUnreachable,
+                          key: const ValueKey('legal-failed'),
+                          textAlign: TextAlign.center,
+                          style: accountText(15, color: kAccountMuted),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () => unawaited(_legal.load()),
+                          child: Text(context.l10n.tryAgain),
+                        ),
+                      ],
+                    ),
+                  )
+                : const CircularProgressIndicator(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The server's texts: title, then the paragraphs (blank-line separated).
+  Widget _server(BuildContext context, LegalTexts texts) {
+    final doc = texts.of(widget.kind);
+    final code = L10n.code;
+    return AccountScaffold(
+      child: ListView(
+        key: const ValueKey('legal-server-text'),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          AccountHeadline(doc.titleIn(code)),
+          for (final paragraph in doc.paragraphsIn(code)) ...[
+            const SizedBox(height: 14),
+            Text(
+              paragraph,
+              style: accountText(15, color: kAccountMuted, height: 1.5),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _builtIn(BuildContext context) {
+    final kind = widget.kind;
     final terms = kind == 'terms';
     final l = context.l10n;
     return AccountScaffold(
@@ -496,7 +579,10 @@ class AccountLegalPage extends StatelessWidget {
             terms ? l.legalTermsIntro : l.legalPrivacyIntro,
             style: accountText(15, color: kAccountMuted, height: 1.5),
           ),
-          for (final (i, section) in sections(l, terms: terms).indexed) ...[
+          for (final (i, section) in AccountLegalPage.sections(
+            l,
+            terms: terms,
+          ).indexed) ...[
             const SizedBox(height: 22),
             Semantics(
               header: true,

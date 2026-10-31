@@ -27,17 +27,19 @@ class AppLanguage {
 abstract final class L10n {
   static const fallbackCode = 'en';
 
+  /// G1-B5 "Same in both (Recommended)": Svenska, Français, English, in
+  /// this order in every language list, as in the driver app.
   static const languages = <AppLanguage>[
-    AppLanguage('en', 'English'),
-    AppLanguage('fr', 'Français'),
     AppLanguage('sv', 'Svenska'),
+    AppLanguage('fr', 'Français'),
+    AppLanguage('en', 'English'),
   ];
 
   static final Set<String> codes = {for (final l in languages) l.code};
 
   static AppLanguage languageOf(String code) => languages.firstWhere(
     (l) => l.code == code,
-    orElse: () => languages.first,
+    orElse: () => languages.firstWhere((l) => l.code == fallbackCode),
   );
 
   /// [code] when the app ships it, else English.

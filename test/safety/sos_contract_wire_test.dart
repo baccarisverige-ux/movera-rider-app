@@ -146,7 +146,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: RideSafetyKitSheet(rideId: 'trp_0001', controller: ctl),
+          body: RideSafetyKitSheet(
+            rideId: 'trp_0001',
+            controller: ctl,
+            duringTrip: true,
+          ),
         ),
       ),
     );

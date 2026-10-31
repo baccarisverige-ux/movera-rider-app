@@ -69,6 +69,9 @@ class SignedInLoads {
 /// start reads again (zones, content, catalog, rules) or keeps the watch it
 /// already has (config stream).
 Future<void> startServerReads() async {
+  // v0.18.5 legal: the terms of the rider's country; re-accept may show.
+  AppScope.instance.legal.signedIn();
+  unawaited(AppScope.instance.legal.load());
   unawaited(AppScope.instance.zones.refresh());
   // Owner 2026-10-27: new rider settings reach an open app at once
   // (config_published on /rider/config/stream) and are read again on start;

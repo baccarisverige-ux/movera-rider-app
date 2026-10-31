@@ -124,7 +124,11 @@ void main() {
     unawaited(
       MoveraSheet.show<void>(
         context: navigator.currentContext!,
-        builder: (_) => RideSafetyKitSheet(rideId: _rideId, controller: safety),
+        builder: (_) => RideSafetyKitSheet(
+          rideId: _rideId,
+          controller: safety,
+          duringTrip: true,
+        ),
       ),
     );
     await tester.pumpAndSettle();

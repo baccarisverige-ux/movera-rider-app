@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/content/rider_content.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/content/rider_content_controller.dart';
+import 'package:movera_rider/core/legal/rider_legal.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -54,21 +55,26 @@ class ContentGate extends StatelessWidget {
     super.key,
     required this.controller,
     required this.child,
+    this.legal,
     this.onCallEmergency,
     this.onOpenStore,
   });
 
   final RiderContentController controller;
   final Widget child;
+
+  /// v0.18.5 `legal` (G1-B2): the re-accept of new terms.
+  final RiderLegalController? legal;
   final VoidCallback? onCallEmergency;
   final VoidCallback? onOpenStore;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, ?legal]),
       builder: (context, _) {
         final decision = controller.decision;
+        final legalToAccept = legal?.toAccept;
         final sos =
             onCallEmergency ??
             () => EmergencyCallService.shared.callEmergencyNumber();
@@ -76,6 +82,12 @@ class ContentGate extends StatelessWidget {
         Widget? cover;
         if (decision.blockForUpdate) {
           cover = UpdateRequiredScreen(onOpenStore: store, onCallSos: sos);
+        } else if (legalToAccept != null) {
+          cover = LegalAcceptScreen(
+            texts: legalToAccept,
+            onAccept: legal!.accept,
+            onCallSos: sos,
+          );
         } else if (decision.acceptTerms case final legal?) {
           cover = TermsAcceptScreen(
             item: legal,
@@ -331,6 +343,120 @@ class _TermsAcceptScreenState extends State<TermsAcceptScreen> {
               const SizedBox(height: 16),
               _PrimaryButton(
                 key: const Key('content-terms-accept'),
+                label: context.l10n.contentTermsAccept,
+                onTap: _accept,
+                busy: _busy,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// v0.18.5 `legal.apps` (owner G1-B2): a new version published with
+/// "Ask everyone to accept again", at the next app start (never during a
+/// trip): the new Terms and Privacy policy with "I accept"
+/// (`POST /account/legal/accept`).
+class LegalAcceptScreen extends StatefulWidget {
+  const LegalAcceptScreen({
+    super.key,
+    required this.texts,
+    required this.onAccept,
+    required this.onCallSos,
+  });
+
+  final LegalTexts texts;
+  final Future<bool> Function() onAccept;
+  final VoidCallback onCallSos;
+
+  @override
+  State<LegalAcceptScreen> createState() => _LegalAcceptScreenState();
+}
+
+class _LegalAcceptScreenState extends State<LegalAcceptScreen> {
+  bool _busy = false;
+  bool _failed = false;
+
+  Future<void> _accept() async {
+    setState(() {
+      _busy = true;
+      _failed = false;
+    });
+    final ok = await widget.onAccept();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _failed = !ok;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final code = L10n.code;
+    final texts = widget.texts;
+    return Material(
+      key: const Key('legal-accept'),
+      color: Colors.white,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.contentTermsTitle,
+                      style: _text(13, weight: FontWeight.w600, c: _muted),
+                    ),
+                  ),
+                  _SosButton(onTap: widget.onCallSos),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _soft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ListView(
+                    children: [
+                      for (final doc in [texts.terms, texts.privacy]) ...[
+                        Semantics(
+                          header: true,
+                          child: Text(
+                            doc.titleIn(code),
+                            style: _text(20, weight: FontWeight.w700),
+                          ),
+                        ),
+                        for (final p in doc.paragraphsIn(code))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(p, style: _text(14.5)),
+                          ),
+                        const SizedBox(height: 22),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              if (_failed)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    context.l10n.contentTermsFailed,
+                    style: _text(13, c: _sos),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              _PrimaryButton(
+                key: const Key('legal-accept-button'),
                 label: context.l10n.contentTermsAccept,
                 onTap: _accept,
                 busy: _busy,

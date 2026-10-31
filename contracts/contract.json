@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.4",
+  "version": "0.18.5",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -836,7 +836,7 @@
       "retryAfterSeconds": 30,
       "maxAttempts": 5,
       "channel": "sms",
-      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors."
+      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors. v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server counts before it answers), so the 5th wrong code shows \"Too many wrong tries\"."
     },
     "providers": [
       "apple",
@@ -847,7 +847,9 @@
       "access": "JWT, short-lived (accessExpiresSeconds), bearer on every call",
       "refresh": "opaque, rotated on every POST /auth/refresh; a used or revoked one is 401 unauthenticated",
       "accessExpiresSeconds": 900,
-      "refreshExpiresDays": 30
+      "refreshExpiresDays": 30,
+      "refreshRetryWindowSeconds": 60,
+      "refreshRetry": "v0.18.5 (G1-B6): an answer to POST /auth/refresh lost on a bad connection: the app may send the same refresh token again within refreshRetryWindowSeconds (60 s) of its first use, as long as the new token it was given has not been used; the server then answers a fresh pair and drops the lost one. After 60 s, or once the new token was used, the old token is treated as stolen: the whole session ends (401 unauthenticated, reason refresh_token_reused). Apps send one refresh at a time and retry a lost one at once."
     },
     "testSignIn": {
       "note": "Outside production the server seed lists test phone numbers; an OTP request for one of them sends no SMS and the fixed code signs it in. Production has no test numbers. The code below is the placeholder until the owner sets one.",
@@ -943,7 +945,7 @@
       "invalid_otp_code": "400 invalid_request: a wrong code (counts as an attempt) or not 4 digits",
       "invalid_otp_session": "400 invalid_request: unknown, replaced or used sign-in session",
       "otp_expired": "410 otp_expired: the code is older than otp.expiresSeconds; the app says so (no separate expiry hint, owner decision 8)",
-      "otp_too_many_attempts": "429 rate_limited after otp.maxAttempts wrong codes on one session (decision 3): the app says \"Too many wrong tries – tap Send new code\" and highlights its resend button; a new code starts a new session",
+      "otp_too_many_attempts": "429 rate_limited on the wrong code that reaches otp.maxAttempts (v0.18.5 G1-B3: the 5th wrong code itself, counted before the answer) and on every try after it on that session: the app says \"Too many wrong tries – tap Send new code\", disables Verify and highlights its resend button; a new code starts a new session",
       "otp_resend_too_soon": "429 rate_limited: a new code within otp.retryAfterSeconds of the last one",
       "otp_too_many": "429 rate_limited: auth.limits reached (decision 4, wait in minutes)",
       "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)"
@@ -1013,7 +1015,7 @@
       "fallback": "en"
     },
     "beforeSignIn": {
-      "note": "v0.18.2 (owner 2026-10-30, 'Yes, stop it (Recommended)'): with no stored session the apps call only endpoints that need no bearer token; config, config stream, zones, content and profile load right after sign-in. A 401 is never retried in a loop and is not sent as an error report.",
+      "note": "v0.18.2 (owner 2026-10-30, 'Yes, stop it (Recommended)'): with no stored session the apps call only endpoints that need no bearer token; config, config stream, zones, content and profile load right after sign-in. A 401 is never retried in a loop and is not sent as an error report. v0.18.5 (G1-B2): GET /legal/{country} needs no token, so the terms and privacy policy open from the sign-in screen.",
       "allowed": [
         "POST /auth/otp/request",
         "POST /auth/otp/verify",
@@ -1023,10 +1025,49 @@
         "POST /telemetry/logs",
         "POST /telemetry/analytics",
         "POST /telemetry/crashes",
-        "GET /push/config"
+        "GET /push/config",
+        "GET /legal/{country}"
       ]
     },
-    "driverTermsOnce": "v0.18.2 (owner 2026-10-30, 'Ask once (Recommended)'): the driver app asks for the terms once, on the phone-number screen (as the rider app); its details step has no second tick and still sends termsAccepted: true on POST /driver/onboarding (server unchanged)."
+    "driverTermsOnce": "v0.18.2 (owner 2026-10-30, 'Ask once (Recommended)'): the driver app asks for the terms once, on the phone-number screen (as the rider app); its details step has no second tick and still sends termsAccepted: true on POST /driver/onboarding (server unchanged).",
+    "signedOut": {
+      "note": "v0.18.5 (owner G1-D3 \"Show a message (Recommended)\"): when POST /auth/refresh answers 401 the app signs out and its sign-in screen shows why, in sv / fr / en. The 401 reason says which.",
+      "reasons": {
+        "session_expired": "expired",
+        "session_ended": "revoked",
+        "refresh_token_reused": "revoked",
+        "refresh_token_unknown": "revoked"
+      },
+      "kinds": {
+        "expired": "not used for refreshExpiresDays (30 days)",
+        "revoked": "Movera ended the session (an admin, a security check of a reused token, or a session that no longer exists)"
+      },
+      "texts": {
+        "expired": {
+          "sv": "Du loggades ut – logga in igen",
+          "fr": "Vous avez été déconnecté – reconnectez-vous",
+          "en": "You were signed out – please sign in again"
+        },
+        "revoked": {
+          "sv": "Du loggades ut – logga in igen",
+          "fr": "Vous avez été déconnecté – reconnectez-vous",
+          "en": "You were signed out – please sign in again"
+        }
+      },
+      "detail": {
+        "expired": {
+          "sv": "Du har inte använt appen på 30 dagar.",
+          "fr": "Vous n’avez pas utilisé l’application depuis 30 jours.",
+          "en": "You have not used the app for 30 days."
+        },
+        "revoked": {
+          "sv": "Movera avslutade din session.",
+          "fr": "Movera a fermé votre session.",
+          "en": "Movera ended your session."
+        }
+      },
+      "ownSignOut": "After the person's own Sign out the app shows no message."
+    }
   },
   "configVersion": {
     "note": "v0.8.0 (owner 2026-10-27, \"the server's version number counts\"): the SERVER stamps version and publishedAt on every publish; whatever the admin sends in those two fields is ignored. version is strictly increasing per zone and document as the apps see it: a zone that served its country's standard (configDocs.standard) and then gets its own document continues above the standard's version. config_published carries the same version. Apps keep the last good document and ignore an older or equal version."
@@ -1827,7 +1868,15 @@
           "image/heic",
           "application/pdf"
         ],
-        "note": "Files are stored by the server (encrypted at rest, Europe) and read only through GET /driver/documents/{documentId}/file (the owner) and GET /admin/documents/{documentId}/file (documents.approve). fileUrl is that path, never a public link."
+        "note": "Files are stored by the server (encrypted at rest, Europe) and read only through GET /driver/documents/{documentId}/file (the owner) and GET /admin/documents/{documentId}/file (documents.approve). fileUrl is that path, never a public link.",
+        "contentCheck": "v0.18.5 (owner G2-D5.2 \"Check real file (Recommended)\"): the server reads the file's first bytes; only a real JPEG (FF D8 FF), PNG (89 50 4E 47 0D 0A 1A 0A), HEIC (ftyp heic/heix/hevc/hevx/mif1/msf1/heim/heis) or PDF (%PDF-) is accepted, whatever media type was sent; else 400 invalid_request, reason invalid_file_content, and the app says \"This file is not a photo or PDF\". The stored media type is the one the content shows.",
+        "texts": {
+          "invalid_file_content": {
+            "sv": "Filen är inte ett foto eller en PDF",
+            "fr": "Ce fichier n’est pas une photo ni un PDF",
+            "en": "This file is not a photo or PDF"
+          }
+        }
       },
       "namesByCountry": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R5 \"Name per country (Recommended)\"): a type may carry nameByCountry[country] = { en, sv, fr }; the name shown for a document is, in order: the admin's settings.texts[type].name of the country, nameByCountry[country], name. So the Swedish bank statement reads \"Relevé bancaire de l’entreprise\" in French and the French one \"RIB de la société\"; the Swedish company registration is not called Kbis. The server already puts the country's name in DocumentTypeInfo.name (GET /driver/onboarding/settings documentTypes) and in its notices; the admin panel shows and edits names per country (settings.texts)."
     },
@@ -1848,7 +1897,9 @@
         "fr": "{driver} veut rejoindre {fleet} dans Movera. Ouvrez l’application pour répondre.",
         "en": "{driver} wants to join {fleet} in Movera. Open the app to answer."
       },
-      "appLink": "the SMS to a number without an account ends with the app's install link (deploy setting)"
+      "appLink": "the SMS to a number without an account ends with the app's install link (deploy setting)",
+      "privacy": "v0.18.5 (owner G2-D5.5 \"Name after he accepts (Recommended)\"): an owner_invite shows the owner only the phone number (\"Invitation sent to +46 70…\") until the driver accepts: no driverId or driverName in the owner's view, and a decline notice names the number, not the person.",
+      "homeReminder": "v0.18.5 (owner G2-D5.6 \"Show invitation (Recommended)\"): a pending owner_invite for a driver account is a Home reminder line kind fleet_invitation (level waiting) \"<Fleet> invited you\" with invitationId, fleetName and actions accept_invitation / decline_invitation (POST /driver/fleet/invitations/{invitationId}/accept | decline)."
     },
     "settings": {
       "note": "v0.18.0 (owner decisions of 2026-10-29, driver group 2 \"Onboarding\", items 1, 3, 10, 11 and the note check \"Use admin's settings (Recommended)\"): the admin's Drivers › Onboarding and Vehicles › Rules settings are one config document per country, onboarding (configDocs.rules, configDocs.countryOnly), saved and published with GET/PUT /admin/config/onboarding?country and POST /admin/config/onboarding/publish { country } (settings.edit / settings.publish), the same draft / publish / version rule as the other documents. Until a country has one published, the server and the apps use defaults[country] (the admin's own defaults). Publishing changes at once: the documents each new and existing account needs (Driver.requiredDocuments, requiredFleetDocuments, Vehicle.requiredDocuments), the expiry warnings, the sign-up reminders and the car rules. Tunisia stays present but closed (no documents). v0.18.0 (owner item 14: \"First answer , and admin can change text and add or delete documents so must add on contract and server and admin ! Also same for Sweden\"): per country the admin also creates new document types (customTypes), changes the name and help text of any type (texts), sets which expire (expiringTypes), and adds or removes types in each list.",
@@ -2430,6 +2481,15 @@
         "urssaf_certificate": {
           "months": 6
         }
+      },
+      "maxYearsAhead": 15,
+      "maxNote": "v0.18.5 (owner G2-D5.8 \"Max 15 years ahead (Recommended)\"): an expiresAt more than 15 years after today (admin review, valid months result, or the driver's upload) is 400 invalid_request, reason expiry_too_far; the admin panel says \"Check the end date\".",
+      "texts": {
+        "expiry_too_far": {
+          "sv": "Kontrollera slutdatumet",
+          "fr": "Vérifiez la date de fin",
+          "en": "Check the end date"
+        }
       }
     },
     "reminders": {
@@ -2452,7 +2512,8 @@
         "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
         "no_vehicle": "blocks_online: the fleet has a car that can be picked but this driver has none picked (fix: pick_vehicle)",
         "admin_check_waiting": "waiting: a custom admin_check document not marked yet; status waiting_for_movera (no fix)",
-        "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\""
+        "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\"",
+        "fleet_invitation": "v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it expires"
       },
       "fixTargets": [
         "document",
@@ -2460,7 +2521,9 @@
         "fleet_vehicles",
         "pick_vehicle",
         "join_fleet",
-        "start_company"
+        "start_company",
+        "accept_invitation",
+        "decline_invitation"
       ],
       "scope": "driver (Driver.requiredDocuments), fleet (requiredFleetDocuments), vehicle (the picked car, or for a fleet owner every car of the fleet)",
       "texts": {
@@ -2470,9 +2533,9 @@
           "en": "Add 4 photos of your car"
         },
         "no_fleet": {
-          "sv": "Gå med i ett åkeri för att köra – be din åkare om Movera-koden",
-          "fr": "Rejoignez une flotte pour rouler – demandez le code Movera à votre gérant de flotte",
-          "en": "Join a fleet to drive – ask your fleet owner for the Movera code"
+          "sv": "Gå med i ett åkeri för att köra – be din åkare om Movera-koden, hans namn och e-post",
+          "fr": "Rejoignez une flotte pour rouler – demandez à votre gérant le code Movera, son nom et son e-mail",
+          "en": "Join a fleet to drive – ask your fleet owner for the Movera code, his name and e-mail"
         },
         "actions": {
           "join_fleet": {
@@ -2484,10 +2547,26 @@
             "sv": "Starta mitt eget företag",
             "fr": "Créer ma propre société",
             "en": "Start my own company"
+          },
+          "accept_invitation": {
+            "sv": "Acceptera",
+            "fr": "Accepter",
+            "en": "Accept"
+          },
+          "decline_invitation": {
+            "sv": "Avböj",
+            "fr": "Refuser",
+            "en": "Decline"
           }
+        },
+        "fleet_invitation": {
+          "sv": "{fleet} bjöd in dig",
+          "fr": "{fleet} vous a invité",
+          "en": "{fleet} invited you"
         }
       },
-      "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company)."
+      "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company).",
+      "renewal": "v0.18.5 (G2-D1): DriverReminder.renewalStatus (in_review | rejected) on an expiring / expired line whose renewal waits or was rejected; the line keeps its level (a renewal never unblocks)."
     },
     "infoSession": {
       "note": "v0.18.0 (owner item 8: \"How to book + 'Waiting for Movera' (Recommended)\"): the info_session document (kind admin_check; Sweden and France (owner item 13: \"Yes, same as Sweden\")) shows the shown state waiting_for_movera until an admin marks it approved. Tapping it opens \"How to book your info session\", the admin's content slot driver-info-session (title, text sv / fr / en, an https link in the text) from GET /driver/content. v0.18.3 (R10): the admin edits the slot with the Content API (POST /admin/content/driver-info-session/publish { zoneIds, title, text: { sv, fr, en } }), per zone of Sweden and France; the driver app falls back to its built-in text while nothing is published.",
@@ -2513,7 +2592,10 @@
       ],
       "extras": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2): an extra category (extraCategories: child_seat, the driver app's \"Booster Seat\") is only allowed together with at least one ride category (any category that is not an extra); alone it is details \"child_seat:extra_needs_ride\".",
       "approval": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2: \"admin sees a red warning and cannot approve a rule-breaking car\"): POST /admin/vehicles/{vehicleId}/review { decision: approved } of a car that breaks the rules now (base year, a category problem, an extra alone) is 409 invalid_transition, reason vehicle_rules_not_met, details \"<category>:<problem>\"; rejected and blocked are always allowed. Vehicle.ruleProblems (admin and fleet-owner views) lists the same details while the car breaks the rules, so the panel shows them in red and disables Approve. Server migration 0035 put every approved car below its country's base year back to pending (the 2012 test car TST G2A included).",
-      "approvalReason": "vehicle_rules_not_met"
+      "approvalReason": "vehicle_rules_not_met",
+      "categoriesByAdmin": "v0.18.5 (owner G2-D5.3: \"The owner never decide !! Admin who gave him the allowed cathegories after approve !\"): the fleet owner does not pick ride types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds (accepted for older apps, never stored); the car is still checked against the country's base year (400 category_not_allowed, car:year_too_old). The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision: approved, categoryIds } (or the car's categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only the categories the car fits (Vehicle.fitCategories). An id that is no category of the car's country and no extra (e.g. 'foo') is refused the same way: 409 vehicle_rules_not_met with details '<id>:unknown_category'; it is never stored.",
+      "fitCategories": "v0.18.5: Vehicle.fitCategories (admin and fleet-owner views) = the country's ride categories and extras the car fits now (no problem from categoryProblem); the admin picks among them.",
+      "testCars": "v0.18.5 (owner G2-D5.4): the owner's test cars TST 001–003 keep working: their data is corrected (7 seats, electric) so they fit every category they have; they are not sent back for review (server migration 0038)."
     },
     "startCompany": {
       "note": "v0.18.0 (owner item 7: \"First answer but his account become like fleet company account and the documents that already exist no need to uppload again only the new documents and procces like fleet account and wait for admin approv\"): POST /driver/fleet/start-company { expectedVersion, company } (\"Start my own company\" in My fleet). Only an account of type driver, not on a trip (409 invalid_transition, reasons already_fleet, on_trip). The driver leaves his fleet (car released, offline), the account becomes type fleet with a new pending fleet he owns, and the account goes on_hold. Every document he has stays as it is (approved ones count, nothing is uploaded again); only requiredFleetDocuments he does not have yet and the new cars' documents are needed. An admin then reviews the fleet (POST /admin/fleets/{fleetId}/review) and activates the account (POST /admin/drivers/{driverId}/status, the fleet documents checked) like a new fleet.",
@@ -2644,7 +2726,53 @@
         }
       },
       "placeholders": "{name} = the document's name in the country and language (namesByCountry); {plate} = the car's plate; {note} = the admin's note as typed."
-    }
+    },
+    "documentRenewal": {
+      "note": "v0.18.5 (owner G2-D1 \"Keep old until new approved (Recommended)\"): uploading a document of a type that is approved (or was approved and expired) does not touch it: the new file waits as a separate renewal (a Document with its own documentId and renewalOf = the approved document's id, status in_review). The approved one stays valid until its own expiresAt. Approving the renewal (POST /admin/documents/{renewal's documentId}/review) puts its file and end date on the approved document, which keeps its documentId (the answer is that Document; the renewal is gone); rejecting it (a note is needed) leaves the approved one as it was and the renewal shows rejected. A new upload while a renewal exists replaces that renewal (one per document). A type that was never approved (in review, rejected) is still replaced as before. The file endpoints take the renewal's documentId too. SE and FR alike.",
+      "blocking": "Going online stays blocked by a required document that is expired, or approved but past its expiresAt (blockAtExpiry). A renewal in review never unblocks: if the approved one expires first, the driver is blocked until the admin approves the renewal.",
+      "views": "GET /driver/documents, Driver.documents (DocumentSummary with renewalOf) and the admin driver page list both: the approved one and, right after it, its renewal. The Home line of the approved one (expiring / expired) carries renewalStatus (in_review | rejected). With renewalStatus rejected the line also carries reviewNote = the admin's note on the rejected renewal (why), so Home can show it."
+    },
+    "ownerPrivacy": {
+      "note": "v0.18.5 (owner G2-D2: \"Fleet owner see nothing about his driver documents ! He see only his documents and Hulu's cars documents\"): a fleet owner sees only his own documents and his fleet's cars' documents. His drivers' documents are never shown to him: no file (GET /driver/documents/{documentId}/file of a member is 404 document_not_found), no status, no list (FleetView members carry no documents or documentStatus)."
+    },
+    "riderDriverPhoto": {
+      "note": "v0.18.5 (owner G2-D3 \"Yes, approved photo (Recommended)\"): the rider sees the driver's approved profile photo with his first name, car and plate while the driver comes and during the trip. SE and FR.",
+      "url": "TripProjection.driver.photoUrl (DriverSummary) = /api/v1/rider/trips/{tripId}/driver-photo, set when the driver accepts and only when his profile_photo is approved.",
+      "endpoint": "GET /rider/trips/{tripId}/driver-photo (rider bearer token): the image, only for the trip's rider while the trip is in tripStatus.driverAssigned, and only the approved profile_photo (never one in review, rejected or expired); else 404 not_found (reason driver_photo_unavailable). Cache-Control private, no-store; never a public link."
+    },
+    "fleetLeaveNotices": {
+      "note": "v0.18.5 (owner G2-D4 \"Notice to the other (Recommended)\"): when an owner removes a driver, the driver gets a bell notice (and push); when a driver leaves, the owner gets one. Kind fleet_membership, in the person's language. SE and FR.",
+      "kind": "fleet_membership",
+      "data": "{ fleetId, driverId, change: removed | left }",
+      "deepLink": "movera-driver://fleet",
+      "texts": {
+        "removed": {
+          "title": {
+            "sv": "Du är inte längre med i {fleet}",
+            "fr": "Vous ne faites plus partie de {fleet}",
+            "en": "You are no longer in {fleet}"
+          },
+          "body": {
+            "sv": "Åkeriet tog bort dig. Gå med i ett annat åkeri för att köra.",
+            "fr": "La flotte vous a retiré. Rejoignez une autre flotte pour rouler.",
+            "en": "The fleet removed you. Join another fleet to drive."
+          }
+        },
+        "left": {
+          "title": {
+            "sv": "{driver} lämnade ditt åkeri",
+            "fr": "{driver} a quitté votre flotte",
+            "en": "{driver} left your fleet"
+          },
+          "body": {
+            "sv": "Föraren är inte längre med i {fleet}.",
+            "fr": "Le chauffeur ne fait plus partie de {fleet}.",
+            "en": "The driver is no longer in {fleet}."
+          }
+        }
+      }
+    },
+    "reviewReason": "v0.18.5 (owner G2-D5.7 \"Reason always (Recommended)\"): every rejection needs a reason: POST /admin/documents/{documentId}/review, /admin/drivers/{driverId}/documents/{type}/check and /admin/drivers/{driverId}/bank/review with decision rejected, and /admin/vehicles/{vehicleId}/review with rejected or blocked, without a non-empty note are 400 invalid_request, reason note_required. The driver always sees why."
   },
   "outstandingFee": {
     "note": "v0.5.1 (CONTRACT.md §3.7), owner decision 7: an unpaid cash cancel or no-show fee puts the rider in minus (Rider.outstanding) and is added to the next trip as the outstanding_fee line.",
@@ -3380,7 +3508,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -3478,8 +3606,6 @@
     ],
     "sos": {
       "riderStatuses": [
-        "searching",
-        "offered",
         "accepted",
         "driver_to_pickup",
         "arrived",
@@ -3495,7 +3621,7 @@
         "in_trip",
         "approaching_dropoff"
       ],
-      "note": "One open SOS incident per trip: a second SOS on the same trip (any key, either side) returns that incident. The body carries the phone's GPS once; the admin also sees the car's latest position (driverPosition, from POST /driver/location)."
+      "note": "One open SOS incident per trip: a second SOS on the same trip (any key, either side) returns that incident. The body carries the phone's GPS once; the admin also sees the car's latest position (driverPosition, from POST /driver/location). v0.18.5 (owner G14 'SOS only during a trip'): the rider's SOS needs an assigned driver too (accepted … approaching_dropoff); while searching or offered it is 409 invalid_transition, reason trip_not_live, and the app shows only 'Call 112'."
     },
     "escalateAfterSeconds": 120,
     "escalationNote": "An incident with alarm true (sos, driver_silent, ride_check with need_help) not taken within escalateAfterSeconds raises incident_escalated: from then on every signed-in admin gets its events (before: only admins with incidents.read whose zones cover the incident's zone). No SMS when nobody is online. A no-answer ride_check incident is never escalated.",
@@ -3560,6 +3686,17 @@
       "completedWithinMinutes": 30,
       "idempotency": "checkId is the app's id of one check (unique per trip and side). The same checkId again is the same check: a shown report after it is known changes nothing; ok then need_help moves it to need_help; need_help then ok keeps need_help; a repeat answer returns the same receipt. The Idempotency-Key retry returns the stored answer.",
       "oneIncidentPerTrip": "At most one open ride_check incident per trip, for both sides: a no-answer incident that later gets need_help (either side) becomes alarm true (incident_updated, the 2-minute escalation starts then); a need_help incident is joined by later checks. An answer that comes after the no-answer incident opened is kept as rideCheck.lateAnswer (incident_updated) and the incident stays for the admin to close."
+    },
+    "onlyDuringTrip": {
+      "note": "v0.18.5 (owner 2026-10-30 \"Only during a trip (Recommended)\"): with no trip the shield shows only 'Call 112' (opens the phone's dialer, nothing sent to Movera) and Safety preferences; during a trip it shows SOS (112 + alert Movera), Share trip and Ride check. Same in the rider app; sv / fr / en. No demo words (\"others in preview\").",
+      "server": "POST /rider/trips/{tripId}/sos and POST /driver/trips/{tripId}/sos needs a trip; outside safety.sos.riderStatuses / driverStatuses it is 409 invalid_transition, reason trip_not_live (the rider's list no longer has searching / offered: a trip counts only once a driver is assigned, accepted … approaching_dropoff; a rider still searching sees only 'Call 112'). Sharing needs a live trip too.",
+      "texts": {
+        "call112": {
+          "sv": "Ring 112",
+          "fr": "Appeler le 112",
+          "en": "Call 112"
+        }
+      }
     }
   },
   "stopWaits": {
@@ -4280,7 +4417,7 @@
     "adminPermission": "support.reply",
     "adminScope": "An admin reads (GET) and writes (POST) /trips/{tripId}/messages only with support.reply and only for a trip in one of the admin's zones (super admin: all). Without the permission: 403 forbidden; outside the zones: 403 forbidden, reason zone_out_of_scope.",
     "openStatuses": "tripStatus.driverAssigned",
-    "window": "The chat is open from driver assignment until drop-off. When the trip is terminal (tripStatus.terminal) a POST from the rider or the driver is 409 invalid_transition, reason chat_closed; there is no grace period after the trip (the earlier 1 hour is removed). Reading the history stays allowed while the messages are kept. Support (admin) may still write on a closed trip.",
+    "window": "The chat is open from driver assignment until drop-off. When the trip is terminal (tripStatus.terminal) a POST from the rider or the driver is 409 invalid_transition, reason chat_closed; there is no grace period after the trip (the earlier 1 hour is removed). v0.18.5: after the trip the rider and the driver read no history (chat.appStorage.afterTrip); admins read it while the messages are kept. Support (admin) may still write on a closed trip.",
     "retentionDays": 90,
     "retention": "A daily server job deletes trip chat messages older than 90 days. Messages of a trip that has a safety incident (SOS, driver_silent or any incident linked to the trip) are kept with the case and are deleted only with the case.",
     "fleetChat": "None: there is no fleet owner to driver chat.",
@@ -4292,6 +4429,20 @@
       "unavailable": "503 unavailable, reason call_unavailable, while no telephony provider is set up (the server default). The app then hides the call button or offers the chat.",
       "closed": "409 invalid_transition, reason chat_closed, outside the open statuses.",
       "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'."
+    },
+    "appStorage": {
+      "note": "v0.18.5 (owner 2026-10-30: \"Never store messages between rider or driver in driver app or rider app !!!!!!' Only admin panel inside the ride details\"): the chat between rider and driver lives only during the trip.",
+      "noBellNotice": "The server writes no stored notification (GET /notifications) for a chat message, so no bell line carries a message. Notices kind trip_message already stored are deleted (server migration).",
+      "liveAlert": "While the trip is open the other side learns of a message only through the trip stream (event kind message); the app may show a short 'New message' alert and play a sound, without the text and without keeping it.",
+      "afterTrip": "Once the trip is terminal, GET /trips/{tripId}/messages answers { items: [], nextCursor: null, closed: true } to the rider and the driver, and their trip events (GET /trips/{tripId}/events and the stream) carry no message text. The apps clear the chat when the trip ends and keep no copy.",
+      "admin": "Admins with support.reply keep the full chat in the trip details (GET /trips/{tripId}/messages as admin), within chat.retentionDays.",
+      "texts": {
+        "newMessage": {
+          "sv": "Nytt meddelande",
+          "fr": "Nouveau message",
+          "en": "New message"
+        }
+      }
     }
   },
   "tripPath": {
@@ -4440,6 +4591,86 @@
         "tight",
         "short"
       ]
+    }
+  },
+  "legal": {
+    "note": "v0.18.5 (owner G1-B2 \"Real texts from admin (Recommended)\"): the terms of use and the privacy policy per country (SE, FR) in sv / fr / en, edited by the admin (Content › Legal, the content place legal), versioned, shown in both apps (also before sign-in) and accepted again when a new version asks for it. The built-in texts are Movera-made drafts: a lawyer must review them before launch.",
+    "lawyerReview": "Drafts (version 0) say so on their first line. A lawyer reviews the texts before launch; the admin publishes the reviewed ones.",
+    "countries": [
+      "SE",
+      "FR"
+    ],
+    "documents": [
+      "terms",
+      "privacy"
+    ],
+    "slot": "legal",
+    "placeholders": [
+      "companyName",
+      "orgNumber",
+      "address",
+      "supportEmail",
+      "supportPhone"
+    ],
+    "company": "LegalCompany { companyName?, orgNumber?, address?, supportEmail?, supportPhone? }, filled by the admin. In the texts a placeholder {companyName} … is replaced by the admin's value; a paragraph whose placeholder has no value is left out, so nothing empty or made up is shown.",
+    "read": "GET /legal/{country} (no token, auth.beforeSignIn.allowed) → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, reacceptFrom, terms: LegalDocument { title, text } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come back to the foreground (no stream event), and keep the last answer offline. reacceptFrom = the newest version published with reaccept true (null when none was): the version a person must have accepted (or a later one).",
+    "admin": "GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: { title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in that country, or a Super admin, may edit it.",
+    "accept": "POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live one (409 conflict, reason terms_version_not_current). Who must accept: the newest version published with reaccept true (LegalTexts.reacceptFrom) is the one that counts; accepting it or any later version satisfies it (accepting v3 also satisfies v2), and a later publish without reaccept never unblocks a person who did not accept it. Until then the rider cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability 409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup zone; driver: his zones and his latest position's zone). Version 0 needs no accept (accepted at sign-up).",
+    "apps": "Both apps show 'Terms' and 'Privacy' as two separate links on the sign-in screen and in the menu, read from GET /legal/{country} of the start country (auth.startCountry), else of the account's country. When reacceptFrom is not null and the person has not accepted a version >= reacceptFrom (it then accepts the live version), the next app start (never during a trip) shows the new terms with 'Jag godkänner' / 'J'accepte' / 'I accept'.",
+    "legacyContent": "The zone content item legal (§19) stays readable for older apps; new apps use GET /legal/{country}.",
+    "defaults": {
+      "SE": {
+        "terms": {
+          "title": {
+            "sv": "Användarvillkor",
+            "fr": "Conditions générales d’utilisation",
+            "en": "Terms of use"
+          },
+          "text": {
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan passagerare och förare med taxitrafiktillstånd i Sverige. Resan utförs av föraren och dess åkeri.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna som visas i appen. Betalning sker med de sätt som erbjuds i din zon.\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, taxiförarlegitimation, fordon med taxitrafiktillstånd och försäkring) och följa svensk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen. För själva resan gäller lagen om taxitrafik och åkeriets ansvar.\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Svensk lag gäller. Du kan vända dig till Allmänna reklamationsnämnden (ARN) som konsument.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs titulaires d’une autorisation de taxi en Suède. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte de chauffeur de taxi, véhicule autorisé et assuré) et respecter la loi suédoise.\n\n7. Responsabilité. Movera est responsable de la mise en relation. La course relève de la loi suédoise sur le taxi et de la société de transport.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit suédois s’applique. Les consommateurs peuvent saisir l’Allmänna reklamationsnämnden (ARN).\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with drivers who hold a taxi permit in Sweden. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, taxi driver licence, a permitted and insured car) and follow Swedish law.\n\n7. Liability. Movera is responsible for connecting you. The ride itself falls under the Swedish Taxi Act and the transport company.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. Swedish law applies. Consumers can turn to the National Board for Consumer Disputes (ARN).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+          }
+        },
+        "privacy": {
+          "title": {
+            "sv": "Integritetspolicy",
+            "fr": "Politique de confidentialité",
+            "en": "Privacy policy"
+          },
+          "text": {
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa lagen (bl.a. taxilagens krav på uppgifter om resor).\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan passagerare och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos Integritetsskyddsmyndigheten (IMY).\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Données. Numéro de mobile, nom, e-mail, langue, position pendant la réservation et la course, courses, paiements, notes et messages au support. Pour les chauffeurs aussi documents et véhicule.\n\n2. Pourquoi. Mettre en relation et réaliser les courses, encaisser, garder le service sûr et respecter la loi (dont la loi suédoise sur le taxi).\n\n3. Partage. Le chauffeur voit votre prénom, le départ et la destination. Vous voyez le prénom du chauffeur, sa photo approuvée, sa voiture et sa plaque. Aucun numéro de téléphone n’est affiché.\n\n4. Messages. Les messages entre passager et chauffeur ne sont pas conservés dans les applications. Movera les garde 90 jours pour le support et la sécurité.\n\n5. Conservation. Les données sont stockées dans l’UE et supprimées quand elles ne sont plus nécessaires ou exigées par la loi.\n\n6. Vos droits. Accès, rectification, effacement et opposition. Vous pouvez saisir l’autorité suédoise IMY.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. What data. Mobile number, name, e-mail, language, location while booking and riding, rides, payments, ratings and messages to support. For drivers also documents and car.\n\n2. Why. To connect and carry out rides, take payment, keep the service safe and follow the law (including the Swedish Taxi Act's ride records).\n\n3. Sharing. The driver sees your first name, pickup and destination. You see the driver's first name, approved profile photo, car and plate. No phone numbers are shown.\n\n4. Chat. Messages between rider and driver are not kept in the apps. Movera keeps them 90 days for support and safety.\n\n5. Storage. Data is stored in the EU and deleted when no longer needed or required by law.\n\n6. Your rights. Access, correction, deletion and objection. You can complain to the Swedish Authority for Privacy Protection (IMY).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+          }
+        }
+      },
+      "FR": {
+        "terms": {
+          "title": {
+            "sv": "Användarvillkor",
+            "fr": "Conditions générales d’utilisation",
+            "en": "Terms of use"
+          },
+          "text": {
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan passagerare och VTC-förare i Frankrike. Resan utförs av föraren och dess företag.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna i appen.\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, VTC-kort, registrering i VTC-registret, fordon med försäkring och RC Pro) och följa fransk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen enligt fransk transportlag (Code des transports).\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Fransk lag gäller. Som konsument kan du vända dig till en konsumentmedlare.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs VTC en France. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte VTC, inscription au registre VTC, véhicule assuré et RC Pro) et respecter la loi française.\n\n7. Responsabilité. Movera est responsable de la mise en relation selon le Code des transports.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit français s’applique. Les consommateurs peuvent saisir gratuitement un médiateur de la consommation.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with VTC drivers in France. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, VTC card, VTC register entry, insured car and RC Pro) and follow French law.\n\n7. Liability. Movera is responsible for connecting you under the French Transport Code.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. French law applies. Consumers can turn to a consumer mediator free of charge.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+          }
+        },
+        "privacy": {
+          "title": {
+            "sv": "Integritetspolicy",
+            "fr": "Politique de confidentialité",
+            "en": "Privacy policy"
+          },
+          "text": {
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa fransk lag.\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan passagerare och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos CNIL.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Données. Numéro de mobile, nom, e-mail, langue, position pendant la réservation et la course, courses, paiements, notes et messages au support. Pour les chauffeurs aussi documents et véhicule.\n\n2. Pourquoi. Mettre en relation et réaliser les courses, encaisser, garder le service sûr et respecter la loi française.\n\n3. Partage. Le chauffeur voit votre prénom, le départ et la destination. Vous voyez le prénom du chauffeur, sa photo approuvée, sa voiture et sa plaque. Aucun numéro de téléphone n’est affiché.\n\n4. Messages. Les messages entre passager et chauffeur ne sont pas conservés dans les applications. Movera les garde 90 jours pour le support et la sécurité.\n\n5. Conservation. Les données sont stockées dans l’UE et supprimées quand elles ne sont plus nécessaires ou exigées par la loi.\n\n6. Vos droits. Accès, rectification, effacement, opposition et portabilité. Vous pouvez saisir la CNIL.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. What data. Mobile number, name, e-mail, language, location while booking and riding, rides, payments, ratings and messages to support. For drivers also documents and car.\n\n2. Why. To connect and carry out rides, take payment, keep the service safe and follow French law.\n\n3. Sharing. The driver sees your first name, pickup and destination. You see the driver's first name, approved profile photo, car and plate. No phone numbers are shown.\n\n4. Chat. Messages between rider and driver are not kept in the apps. Movera keeps them 90 days for support and safety.\n\n5. Storage. Data is stored in the EU and deleted when no longer needed or required by law.\n\n6. Your rights. Access, correction, deletion, objection and portability. You can complain to the CNIL.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+          }
+        }
+      }
     }
   }
 }

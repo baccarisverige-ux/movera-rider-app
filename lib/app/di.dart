@@ -1,6 +1,8 @@
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
+import 'package:movera_rider/app/legal_country.dart';
 import 'package:movera_rider/core/content/rider_content_controller.dart';
+import 'package:movera_rider/core/legal/rider_legal.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
@@ -53,6 +55,8 @@ import 'package:movera_rider/features/history/data/ride_history_repositories.dar
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/messages/data/api_trip_call.dart';
 import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
+import 'package:movera_rider/features/messages/data/messages_repository.dart';
+import 'package:movera_rider/features/driver_arriving/application/driver_photo.dart';
 import 'package:movera_rider/features/messages/domain/trip_call_transport.dart';
 import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
@@ -109,6 +113,7 @@ class AppScope {
       pickup = PickupSession(),
       destination = DestinationSession(),
       booking = BookingCoordinator() {
+    _endChatsWhenNoRide();
     api = ApiClient(
       env: environment,
       tokens: tokens,
@@ -125,6 +130,8 @@ class AppScope {
         // Sign in becomes the root gate's child so the gate survives. The
         // screen is registered from app.dart so DI never imports
         // presentation (ARCH-17).
+        // v0.18.5 legal: no re-accept screen over Sign in.
+        AppScope.instance.legal.signedOut();
         AppScope.showSignInOnSessionExpired?.call();
       },
     );
@@ -413,6 +420,29 @@ class AppScope {
   late final RiderContentController content = RiderContentController(
     api: api.contractWire ? api : null,
     onTrip: RideSnapshotStore.rideLive,
+  );
+
+  /// Terms of use and privacy policy (contract v0.18.5 `legal`, owner G1-B2):
+  /// `GET /legal/{country}` on the contract wire, also before sign-in.
+  /// v0.18.5 chat.appStorage: when no ride is live any more (the trip
+  /// ended or was cleared), every chat held in memory is emptied.
+  static void _endChatsWhenNoRide() {
+    var wasLive = RideSnapshotStore.rideLive.value;
+    RideSnapshotStore.rideLive.addListener(() {
+      final live = RideSnapshotStore.rideLive.value;
+      if (wasLive && !live) {
+        MessagesRepository.endAllRides();
+        // G2-D3: the driver's photo is not kept after the trip.
+        DriverPhotos.clear();
+      }
+      wasLive = live;
+    });
+  }
+
+  late final RiderLegalController legal = RiderLegalController(
+    api: api.contractWire ? api : null,
+    onTrip: RideSnapshotStore.rideLive,
+    country: riderLegalCountry,
   );
 
   /// Demo saved cards (stored on this device until the payment partner's

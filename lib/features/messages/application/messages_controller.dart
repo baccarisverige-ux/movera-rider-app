@@ -82,7 +82,9 @@ class MessagesController extends ChangeNotifier {
   /// ended, or the server answered 409 chat_closed).
   static void closeRide(String rideId) {
     final id = rideId.trim();
-    if (id.isNotEmpty) MessagesRepository.forRide(id).markClosed();
+    if (id.isEmpty) return;
+    // v0.18.5 chat.appStorage: the chat lives only during the trip.
+    MessagesRepository.endRide(id);
   }
 
   /// Shows the message at once and sends it. False when there is nothing

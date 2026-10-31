@@ -1068,7 +1068,11 @@ class _FindingDriversState extends State<FindingDrivers> {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: SafetyKitMapButton(rideId: _match.ride.rideId),
+                        child: SafetyKitMapButton(
+                          rideId: _match.ride.rideId,
+                          // G14: no driver yet, no trip: Call 112 only.
+                          driverAssigned: false,
+                        ),
                       ),
                     ),
                   ],
@@ -1352,7 +1356,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             ),
           ),
           const SizedBox(height: 12),
-          SafetyKitSheetRow(rideId: _match.ride.rideId),
+          SafetyKitSheetRow(rideId: _match.ride.rideId, driverAssigned: false),
         ],
       ),
     );

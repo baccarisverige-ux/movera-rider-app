@@ -1532,6 +1532,18 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'authNeedHelp': l.authNeedHelp,
   'authHelpComingSoon': l.authHelpComingSoon,
   'authHelpCompany': l.authHelpCompany,
+  'signedOutExpired': l.signedOutExpired,
+  'signedOutRevoked': l.signedOutRevoked,
+  'signedOutDetailExpired': l.signedOutDetailExpired,
+  'signedOutDetailRevoked': l.signedOutDetailRevoked,
+  'chatNewMessage': l.chatNewMessage,
+  'safetyCall112': l.safetyCall112,
+  'legalTermsLink': l.legalTermsLink,
+  'legalPrivacyLink': l.legalPrivacyLink,
+  'authOr': l.authOr,
+  'providerComingSoon': l.providerComingSoon,
+  'authCodeFieldLabel': l.authCodeFieldLabel,
+  'consentAnd': l.consentAnd,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4799,4 +4811,28 @@ class _Exhaustive implements AppLocalizations {
   String get authHelpComingSoon => '';
   @override
   String get authHelpCompany => '';
+  @override
+  String get signedOutExpired => '';
+  @override
+  String get signedOutRevoked => '';
+  @override
+  String get signedOutDetailExpired => '';
+  @override
+  String get signedOutDetailRevoked => '';
+  @override
+  String get chatNewMessage => '';
+  @override
+  String get safetyCall112 => '';
+  @override
+  String get legalTermsLink => '';
+  @override
+  String get legalPrivacyLink => '';
+  @override
+  String get authOr => '';
+  @override
+  String get providerComingSoon => '';
+  @override
+  String get authCodeFieldLabel => '';
+  @override
+  String get consentAnd => '';
 }
