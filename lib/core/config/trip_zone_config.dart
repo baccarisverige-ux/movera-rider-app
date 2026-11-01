@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/location/location_repository.dart';
 
+import 'api_rider_config_repository.dart';
 import 'rider_app_config.dart';
 import 'rider_zones.dart';
 
@@ -17,6 +18,7 @@ extension TripZoneConfig on RiderConfigRepository {
     required String currency,
     double? pickupLat,
     double? pickupLng,
+    bool fresh = false,
   }) async {
     final ids = <String>{
       if (pickupLat != null && pickupLng != null)
@@ -25,6 +27,10 @@ extension TripZoneConfig on RiderConfigRepository {
     };
     for (final id in ids) {
       try {
+        // G7 live fix: [fresh] reads the server again first (settings the
+        // admin changed since the app started, e.g. routeChange).
+        final self = this;
+        if (fresh && self is ApiRiderConfigRepository) await self.refresh(id);
         final config = await forZone(id);
         if (config.currency == currency) return config;
       } catch (_) {

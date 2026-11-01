@@ -113,7 +113,11 @@ class ApiRiderConfigRepository extends ChangeNotifier
       final raw = await _api.get('$path?zoneId=${Uri.encodeComponent(zoneId)}');
       final parsed = RiderAppConfig.fromJson(raw, fallback: _seed(zoneId));
       if (parsed == null) throw const FormatException('not a RiderAppConfig');
-      _keep(zoneId, parsed);
+      // G7 live fix: the served document of the same version may differ
+      // (the server copies the zone's driver document settings, e.g.
+      // `routeChange`, and live prices into it without a new rider
+      // version), so a fresh read replaces an equal version.
+      _keep(zoneId, parsed, replaceEqual: true);
       if (_documents[zoneId] == parsed) {
         try {
           await _cache.write(zoneId, Map<String, Object?>.from(raw));
@@ -139,9 +143,15 @@ class ApiRiderConfigRepository extends ChangeNotifier
   }
 
   /// Keeps [next] unless the zone already has the same or a newer version.
-  void _keep(String zoneId, RiderAppConfig next) {
+  /// With [replaceEqual] (a fresh server read) an equal version replaces
+  /// the kept one too.
+  void _keep(String zoneId, RiderAppConfig next, {bool replaceEqual = false}) {
     final known = _documents[zoneId];
-    if (known != null && known.version >= next.version) return;
+    if (known != null &&
+        (known.version > next.version ||
+            (known.version == next.version && !replaceEqual))) {
+      return;
+    }
     _documents[zoneId] = next;
     if (!_disposed) notifyListeners();
   }
