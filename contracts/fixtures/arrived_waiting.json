@@ -1311,6 +1311,30 @@
         "pin_locked",
         "pin_locked"
       ]
+    },
+    {
+      "id": "blocked-after-3x",
+      "maxAttempts": 2,
+      "lockBetween": true,
+      "tries": [
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "1234"
+      ],
+      "pin": "1234",
+      "expect": [
+        "pin_wrong:1",
+        "pin_locked",
+        "pin_wrong:1",
+        "pin_locked",
+        "pin_wrong:1",
+        "pin_blocked",
+        "pin_blocked"
+      ]
     }
   ],
   "reverseNoShow": [
@@ -1358,7 +1382,7 @@
       "sharePct": 80,
       "takeBack": false,
       "expect": {
-        "feeStatus": "refunded",
+        "feeStatus": "waived",
         "fare": 0,
         "driverEarnings": 520,
         "adjustment": 0,

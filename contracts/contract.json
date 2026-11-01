@@ -3537,7 +3537,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, not_a_no_show."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -5285,10 +5285,10 @@
     },
     "pin": {
       "switch": "DriverAppConfig.pickupPin { required: bool (default false), maxAttempts: int (default 5, 1–10), lockMinutes: int (default 5, 1–60) } — Admin › Zone › Safety 'Rider PIN before Start', per zone. Kept on the trip at booking (Trip.pinRequired); a later switch never changes a booked trip.",
-      "code": "With pinRequired the server makes a 4-digit PIN (0000–9999, random) when the trip is booked. The rider sees it: TripProjection.pickupPin (rider and admin views only; never the driver's, not on the driver's stream) and GET /trips/{tripId}/pin → PinCode { tripId, pin, expiresAt } (expiresAt = the trip's end, at most 24 h after booking or the booked time). Without pinRequired: no pickupPin; GET /pin answers 404 not_found (reason pin_not_required).",
-      "check": "The driver sends the PIN: POST /trips/{tripId}/pin/verify { pin } → PinVerification { verifiedPinToken, expiresAt }, or directly { pin } in the body of board or start. A trip with pinRequired cannot be boarded / started until the PIN was right once (TripProjection.pinVerified true): board / start without it → 409 invalid_transition (reason pin_required). Wrong PIN → 400 invalid_request (reason pin_wrong, details ['attemptsLeft=N']); after maxAttempts wrong tries in a row the trip is locked for lockMinutes → 429 rate_limited (reason pin_locked, retryAfterSeconds); the count starts again after the lock or a right PIN. The tries are counted even though the command fails. The PIN is checked only while the trip is arrived or driver_to_pickup.",
-      "admin": "GET /admin/trips/{tripId} carries pickupPin, pinVerified and pinAttempts (the admin can read the PIN to the driver on the phone).",
-      "compat": "Default off: live 0.18.7 driver apps keep working. Switch it on in a zone only once the driver app with the PIN step is live there; a driver app without it cannot start a trip of that zone (409 pin_required).",
+      "code": "With pinRequired the server makes a 4-digit PIN (0000–9999, random) when the trip is booked. The rider sees it: TripProjection.pickupPin (rider and admin views only; never the driver's, not on the driver's stream) and GET /trips/{tripId}/pin → PinCode { tripId, pin, expiresAt } (expiresAt = 24 h after booking or the booked time; once the trip is over 404 not_found, reason pin_trip_over). Without pinRequired: no pickupPin; GET /pin answers 404 not_found (reason pin_not_required).",
+      "check": "The driver sends the PIN: POST /trips/{tripId}/pin/verify { pin } → PinVerification { verifiedPinToken, expiresAt, version }, or directly { pin } in the body of board or start. Guesses are taken only while the trip is arrived (else 409 invalid_transition, reason pin_not_now). A trip with pinRequired cannot be boarded / started until the PIN was right once (TripProjection.pinVerified true): board / start without it → 409 invalid_transition (reason pin_required). A right PIN is its own change: version + 1 and a trip_projection event (the rider's pinVerified updates); with { pin } in board / start the step then goes on from that version (send the version you saw). Wrong PIN → 400 invalid_request (reason pin_wrong, details ['attemptsLeft=N']); after maxAttempts wrong tries in a row the trip is locked for lockMinutes → 429 rate_limited (reason pin_locked, retryAfterSeconds); after 3 × maxAttempts wrong tries in all the PIN is blocked → 429 rate_limited (reason pin_blocked, no retryAfterSeconds) until an admin unlocks it. Tries are counted although the command fails; the comparison is constant-time. verifiedPinToken is informative only (the verification is kept on the trip).",
+      "admin": "GET /admin/trips/{tripId} carries pickupPin, pinVerified, pinAttempts and pinBlocked (the admin can read the PIN to the driver on the phone). POST /admin/trips/{tripId}/pin/unlock { expectedVersion, reason } (trips.intervene, audited trip.pin_unlock) clears the lock, the block and the counts; the PIN stays.",
+      "compat": "Default off: live 0.18.7 driver apps keep working. Driver apps from 0.18.8 send the header X-Contract-Version (e.g. 0.18.8) on board / start; for a request without it, or with a lower version, the server skips the PIN check (and logs it), so an older app is never stuck. Admin warning: the switch only protects trips of drivers on the new app.",
       "texts": {
         "adminSwitch": {
           "sv": "Passagerarens PIN före Starta resa",
@@ -5319,12 +5319,23 @@
           "sv": "Din kod: {pin}. Säg den till föraren",
           "fr": "Votre code : {pin}. Donnez-le au chauffeur",
           "en": "Your code: {pin}. Tell it to the driver"
+        },
+        "driverBlocked": {
+          "sv": "För många fel koder. Ring Movera support",
+          "fr": "Trop de codes incorrects. Appelez le support Movera",
+          "en": "Too many wrong codes. Call Movera support"
+        },
+        "adminUnlock": {
+          "sv": "Lås upp PIN",
+          "fr": "Débloquer le code PIN",
+          "en": "Unlock PIN"
         }
-      }
+      },
+      "driverChange": "When the trip leaves its driver (driver cancel before boarding, admin reassign, back to dispatch) the PIN state is cleared (verified, tries, lock, block) and a new PIN is made; the rider sees the new pickupPin."
     },
     "reverseNoShow": {
       "note": "Admin › Trip › 'Reverse no-show' (owner decision 3 + 34): POST /admin/trips/{tripId}/reverse-no-show { expectedVersion, reason (1–1000 chars, required), takeBackDriverShare?: bool (default false) } — permission trips.manage, audited trip.reverse_no_show. Only a trip with status no_show (else 409 invalid_transition, reason not_a_no_show).",
-      "effect": "The status stays no_show (terminal statuses never change, §3) and the trip gets cancellation.reversal { at, by (adminId), reason, driverShareTakenBack }. The no-show fee goes: an owed fee is waived (feeStatus waived, Rider.outstanding recomputed); a fee already paid is refunded to the rider's wallet (wallet entry kind refund) and feeStatus becomes refunded. The trip's fare becomes 0 (fareLines []). takeBackDriverShare false (default): the driver keeps his share (earnings unchanged, Movera pays it: commission = − share); true: an earnings adjustment of − share in the trip currency, earnings 0. A fee carried by a ride going on now → 409 conflict (reason fee_on_running_trip), as for a waive. The reversed no-show no longer counts in the rider's no-show count.",
+      "effect": "The status stays no_show (terminal statuses never change, §3) and the trip gets cancellation.reversal { at, by (adminId), reason, driverShareTakenBack }. The no-show fee goes: an owed fee is waived (feeStatus waived, Rider.outstanding recomputed); a fee already paid is refunded to the rider's wallet (wallet entry kind refund): feeStatus waived plus refundedAt and refundedToWallet true on cancellation (live 0.18.7 apps know only paid / owed / waived). The trip's fare becomes 0 (fareLines []). takeBackDriverShare false (default): the driver keeps his share (earnings unchanged, Movera pays it: commission = − share); true: an earnings adjustment of − share in the trip currency, earnings 0. A fee carried by a ride going on now → 409 conflict (reason fee_on_running_trip), as for a waive. The reversed no-show no longer counts in the rider's no-show count.",
       "idempotent": "Again on a reversed trip: 200 with the trip as it is, nothing changes, no second audit row (the first reason stays).",
       "texts": {
         "action": {

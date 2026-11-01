@@ -618,18 +618,23 @@ for case in _awf['ruleSelection']:
 for case in _awf['stopFree']:
     if [max(0, s - case['stopFreeWaitMin'] * 60) for s in case['waitedSeconds']] != case['charged']: bad += 1; print('STOP FREE', case['id'])
 def pin_tries(case):
-    out, wrong = [], 0
+    # lockBetween: the lock time passes after each lock (the count restarts); 3 x maxAttempts wrong in all block for good.
+    out, wrong, total, locked, blocked = [], 0, 0, False, False
     for t in case['tries']:
-        if wrong >= case['maxAttempts']: out.append('pin_locked'); continue
+        if blocked: out.append('pin_blocked'); continue
+        if locked and not case.get('lockBetween'): out.append('pin_locked'); continue
+        locked = False
         if t == case['pin']: out.append('ok'); wrong = 0; continue
-        wrong += 1
-        out.append('pin_locked' if wrong >= case['maxAttempts'] else f"pin_wrong:{case['maxAttempts'] - wrong}")
+        wrong += 1; total += 1
+        if total >= 3 * case['maxAttempts']: blocked = True; out.append('pin_blocked'); continue
+        if wrong >= case['maxAttempts']: locked = True; wrong = 0; out.append('pin_locked'); continue
+        out.append(f"pin_wrong:{case['maxAttempts'] - wrong}")
     return out
 for case in _awf['pinAttempts']:
     if pin_tries(case) != case['expect']: bad += 1; print('PIN TRIES', case['id'], pin_tries(case))
 def reverse(case):
     fee = case['fee']; share = (fee['amountMinor'] * case['sharePct'] * 2 + 100) // 200 if fee else 0
-    status = {'owed': 'waived', 'paid': 'refunded'}.get(case['feeStatus']) if fee else None
+    status = 'waived' if fee and case['feeStatus'] in ('owed', 'paid') else None
     return {'feeStatus': status, 'fare': 0, 'driverEarnings': 0 if case['takeBack'] else share, 'adjustment': -share if case['takeBack'] else 0, 'walletRefund': fee['amountMinor'] if fee and case['feeStatus'] == 'paid' else 0}
 for case in _awf['reverseNoShow']:
     if reverse(case) != case['expect']: bad += 1; print('REVERSE NO-SHOW', case['id'], reverse(case))

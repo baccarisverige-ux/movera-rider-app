@@ -2296,13 +2296,17 @@ S["TripTerms"]["properties"]["waitingRules"] = arr(s(enum=_AWR["ruleIds"]), desc
 S["TripTerms"]["properties"]["stopFreeWaitMin"] = n("v0.18.8: free minutes at each middle stop (0 = none).", minimum=0)
 S["Cancellation"]["properties"]["reversal"] = obj({"at": ref("Timestamp"), "by": ref("Id"), "reason": s(maxLength=1000), "driverShareTakenBack": b()}, ["at", "by", "reason", "driverShareTakenBack"],
                                                    "v0.18.8 (admin view; rider and driver see it without reason and by): " + AW["reverseNoShow"]["effect"])
-S["Cancellation"]["properties"]["feeStatus"] = s("owed | paid | waived | refunded (v0.18.8: refunded after a reverse no-show of a paid fee).")
+S["Cancellation"]["properties"]["refundedAt"] = {"allOf": [ref("Timestamp")], "description": "v0.18.8: a reversed no-show whose fee was already paid: when it went back to the wallet (feeStatus stays waived)."}
+S["Cancellation"]["properties"]["refundedToWallet"] = b("v0.18.8: the paid fee went back to the rider's wallet (reverse no-show).")
 S["TripProjection"]["properties"]["pickupPin"] = s("v0.18.8: rider and admin views only. " + AW["pin"]["code"], pattern=r"^\d{4}$")
 S["TripProjection"]["properties"]["pinVerified"] = b("v0.18.8: the driver gave the right PIN (only with pinRequired).")
 S["TripProjection"]["properties"]["pinAttempts"] = i("v0.18.8: admin view only, wrong PIN tries in a row.", minimum=0)
+S["TripProjection"]["properties"]["pinBlocked"] = b("v0.18.8: admin view only, the PIN is blocked after 3 × maxAttempts wrong tries until an admin unlocks it.")
+S["PinVerification"]["properties"]["version"] = i("v0.18.8: the trip's version after the right PIN (version + 1).", minimum=1)
+S["BoardCommand"]["allOf"][1]["properties"]["verifiedPinToken"]["description"] = "Informative since v0.18.8: the verification is kept on the trip; send { pin } or verify first."
+S["BoardCommand"]["allOf"][1]["properties"]["verifiedPinToken"]["deprecated"] = True
 S["BoardCommand"]["allOf"][1]["properties"]["pin"] = s("v0.18.8: the rider's 4-digit PIN (instead of verifiedPinToken). " + AW["pin"]["check"], pattern=r"^\d{4}$", writeOnly=True)
-S["StartTripCommand"] = {"allOf": [ref("TripCommand"), obj({"pin": s("v0.18.8: the rider's 4-digit PIN when the trip needs one and it was not given yet.", pattern=r"^\d{4}$", writeOnly=True),
-                                                           "verifiedPinToken": s("v0.18.8: the token from POST /trips/{tripId}/pin/verify.")})]}
+S["StartTripCommand"] = {"allOf": [ref("TripCommand"), obj({"pin": s("v0.18.8: the rider's 4-digit PIN when the trip needs one and it was not given yet.", pattern=r"^\d{4}$", writeOnly=True)})]}
 PATHS["/trips/{tripId}/start"]["post"]["requestBody"]["content"]["application/json"]["schema"] = ref("StartTripCommand")
 PATHS["/trips/{tripId}/pin/verify"]["post"]["description"] = "v0.18.8: " + AW["pin"]["check"]
 PATHS["/trips/{tripId}/pin"]["get"]["description"] = "v0.18.8: " + AW["pin"]["code"]
@@ -2312,6 +2316,11 @@ S["AdminReverseNoShowCommand"] = obj(dict(EV, reason=s(minLength=1, maxLength=10
 op("post", "/admin/trips/{tripId}/reverse-no-show", "adminReverseNoShow", "Reverse a no-show (reason required, driver share kept unless taken back)", ["admin"], "Admin · Trips",
    params=TID, body="AdminReverseNoShowCommand", ok=(200, TP), mutation=True, permission="trips.intervene", permission_v050="trips.edit",
    desc="v0.18.8: " + AW["reverseNoShow"]["note"] + " " + AW["reverseNoShow"]["effect"] + " " + AW["reverseNoShow"]["idempotent"])
+S["AdminPinUnlockCommand"] = obj(dict(EV, reason=s(minLength=1, maxLength=1000)), ["expectedVersion", "reason"], "v0.18.8: " + AW["pin"]["admin"])
+op("post", "/admin/trips/{tripId}/pin/unlock", "adminUnlockTripPin", "Unlock a blocked or locked rider PIN", ["admin"], "Admin · Trips",
+   params=TID, body="AdminPinUnlockCommand", ok=(200, TP), mutation=True, permission="trips.intervene", permission_v050="trips.edit", desc="v0.18.8: " + AW["pin"]["admin"])
+for _p in ["/trips/{tripId}/board", "/trips/{tripId}/start"]:
+    PATHS[_p]["post"]["description"] = PATHS[_p]["post"].get("description", "") + " v0.18.8: " + AW["pin"]["compat"]
 PATHS["/legal/{country}"]["get"].setdefault("parameters", []).append(q("zoneId", ref("Id"), "v0.18.8: fills {waitingRules} with this zone's live numbers (contract.json#arrivedWaiting.termsTexts)."))
 PATHS["/legal/{country}"]["get"]["description"] += " v0.18.8: " + AW["termsTexts"]["note"]
 
