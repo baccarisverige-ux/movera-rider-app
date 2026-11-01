@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -639,6 +640,8 @@ class ApiRideRealtime implements RideRealtime {
         },
       ),
     );
+    // v0.18.10: SOS only while the server takes one (G8 Q4).
+    SosAvailability.record(poll.id, ride['sosAvailable']);
     connection.markConnected();
   }
 

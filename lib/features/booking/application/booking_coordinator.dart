@@ -188,11 +188,15 @@ class BookingCoordinator {
               ),
           ],
       'kind': 'live',
-      'paymentMethod': contractPaymentMethod(paymentMethod),
+      // v0.18.10: the wallet is not a PaymentMethod; it pays first
+      // (walletFirst) and the rest is paid in the car.
+      'paymentMethod': paymentMethod == 'wallet'
+          ? 'cash'
+          : contractPaymentMethod(paymentMethod),
       // A saved card is a method of its own (`card:<id>`).
       if (paymentMethod.startsWith('card:'))
         'paymentMethodId': paymentMethod.substring(5),
-      if (walletFirst) 'walletFirst': true,
+      if (walletFirst || paymentMethod == 'wallet') 'walletFirst': true,
       // Bags, pet, baby and child: the driver reads them before accepting.
       if (note.isNotEmpty) 'notes': note,
     };

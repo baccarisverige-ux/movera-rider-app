@@ -338,9 +338,11 @@ class RideSelectionController {
           return [item];
         })
         .where((item) {
+          // The wallet is not a payment method of its own (it pays first,
+          // the rest in the car) and stays under its own rules below.
           if (_served &&
-              (item.brand == 'wallet' ||
-                  paymentStatusOf(item.brand) != 'available')) {
+              item.brand != 'wallet' &&
+              paymentStatusOf(item.brand) != 'available') {
             return false;
           }
           final zoneMethod = zoneMethodOf(item.brand);

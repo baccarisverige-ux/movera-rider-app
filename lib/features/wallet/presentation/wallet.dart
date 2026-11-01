@@ -719,15 +719,26 @@ class _WalletScreenState extends State<WalletScreen> {
   String _currency = Money.defaultCurrency;
   List<String> _zoneMethods = ZoneDefaults.paymentMethods;
   WalletController get _wallet => _homeWallet.forCurrency(_currency);
-  bool _offers(String method) => _zoneMethods.contains(method);
+
+  /// v0.18.10 `paymentOptions` (owner G8 item 2): null from an older
+  /// server.
+  Map<String, String>? _paymentOptions;
+  bool _offers(String method) =>
+      _zoneMethods.contains(method) &&
+      (_paymentOptions == null || _paymentOptions!.containsKey(method));
+
+  /// On in admin but not taken by the server yet: shown "Kommer snart",
+  /// never the default.
+  bool _soon(String method) => _paymentOptions?[method] == 'coming_soon';
 
   Future<void> _loadZone() async {
     final zone = await currentRiderZone();
     List<String>? methods;
+    Map<String, String>? options;
     try {
-      methods = (await AppScope.instance.riderConfig.forZone(
-        zone.id,
-      )).paymentMethods;
+      final config = await AppScope.instance.riderConfig.forZone(zone.id);
+      methods = config.paymentMethods;
+      options = config.paymentOptions;
     } catch (_) {
       methods = null;
     }
@@ -735,6 +746,7 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() {
       _currency = zone.currency;
       if (methods != null) _zoneMethods = methods;
+      _paymentOptions = options;
     });
     await _reloadBalance();
   }
@@ -997,6 +1009,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               title: 'Apple Pay',
                               detail: context.l10n.paysWhenSearchStarts,
                               brand: 'apple',
+                              comingSoon: _soon('apple_pay'),
                             ),
                           const Divider(
                             height: 1,
@@ -1025,8 +1038,23 @@ class _WalletScreenState extends State<WalletScreen> {
                               brand: method['id']!,
                             ),
                           ],
+                          if (_soon('card')) ...[
+                            const Divider(
+                              height: 1,
+                              indent: 62,
+                              endIndent: 16,
+                              color: _line,
+                            ),
+                            _paymentTile(
+                              id: 'cards',
+                              title: context.l10n.payCard,
+                              detail: '',
+                              brand: 'cards',
+                              comingSoon: true,
+                            ),
+                          ],
                           for (final card
-                              in _offers('card')
+                              in _offers('card') && !_soon('card')
                                   ? _cards.list()
                                   : const <SavedCard>[]) ...[
                             const Divider(
@@ -1045,7 +1073,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               onRemove: () => _confirmRemoveCard(card),
                             ),
                           ],
-                          if (CardEntryPolicy.enabled && _offers('card')) ...[
+                          if (CardEntryPolicy.enabled &&
+                              _offers('card') &&
+                              !_soon('card')) ...[
                             const Divider(
                               height: 1,
                               indent: 62,
@@ -1273,7 +1303,40 @@ class _WalletScreenState extends State<WalletScreen> {
     required String detail,
     required String brand,
     VoidCallback? onRemove,
+    bool comingSoon = false,
   }) {
+    if (comingSoon) {
+      return Opacity(
+        key: ValueKey('wallet-method-$id-soon'),
+        opacity: 0.5,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              _brandMark(brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: _style(12.5, weight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.l10n.paymentComingSoon,
+                      style: _style(
+                        9.3,
+                        weight: FontWeight.w400,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final selected = _selectedMethod == id;
     return Material(
       key: ValueKey('wallet-method-$id'),
