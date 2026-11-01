@@ -14,7 +14,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
-    show RideSnapshot, RouteChangeController;
+    show RideSnapshot, RouteChangeController, RouteChangeException;
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
@@ -84,6 +84,9 @@ import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/core/contracts/on_trip.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_pending_card.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 
 /// D-016: how long the driver marker eases towards a new fix. Following the
@@ -302,6 +305,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   late LatLng _destinationPosition = widget.destinationPosition;
   late List<RouteStop> _stops = List<RouteStop>.from(widget.stops);
   bool _routeEditOpen = false;
+
+  /// v0.18.9: a withdraw of the pending route change is on its way.
+  bool _routeWithdrawing = false;
 
   /// Natural height of the sheet's content; the full stop ends there.
   double? _contentHeight;
@@ -568,6 +574,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         );
     }
     _maybeFetchPin();
+    _onTripG7();
     // v0.18.7 (item 4): the server moved the pickup (`pickup_moved`).
     if (_tracking.takeMovedPickup() case final moved?) {
       final changed =
@@ -1859,13 +1866,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       await _parkMapForStageChange();
       if (!mounted) return;
       final updated = removeStop != null
-          ? await removeRouteStop(context, ride: ride, index: removeStop)
+          ? await removeRouteStop(
+              context,
+              ride: ride,
+              index: removeStop,
+              onProposed: _onRouteProposed,
+            )
           : await openRouteChange(
               context,
               ride: ride,
               entry: entry,
               pickupLocked: !_pickupEditable,
               driverAccepted: true,
+              onProposed: _onRouteProposed,
             );
       if (!mounted) return;
       if (updated != null) _applyRouteChange(updated);
@@ -2104,6 +2117,85 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       await answered.future;
     } finally {
       rideCheck.removeListener(listen);
+    }
+  }
+
+  // ---- Contract v0.18.9 (driver group 7): on trip. ----
+
+  /// The confirmed change waits for the driver (the card says so).
+  void _onRouteProposed(TripRouteChange change) {
+    if (!mounted) return;
+    setState(() => _tracking.routeChange = change);
+  }
+
+  /// The server's ride check (G7 decision 1) opens the Ride check card; a
+  /// route change the driver answered (decision 3) is told once.
+  void _onTripG7() {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    final check = _tracking.rideCheck;
+    final trigger = parseRideCheckTrigger(check?.trigger);
+    if (check != null &&
+        trigger != null &&
+        check.openForRider(DateTime.now().toUtc())) {
+      unawaited(
+        RideCheckController.shared.openServer(
+          rideId: rideId,
+          checkId: check.checkId,
+          trigger: trigger,
+          askedAt: check.askedAt,
+        ),
+      );
+    }
+    final outcome = _tracking.takeRouteChangeOutcome();
+    if (outcome == null) return;
+    final String text;
+    if (outcome.accepted) {
+      text = context.l10n.g7RouteAccepted;
+      unawaited(_adoptAcceptedRoute(outcome));
+    } else if (outcome.status == 'withdrawn') {
+      text = context.l10n.g7RouteWithdrawn;
+    } else {
+      text = context.l10n.g7RouteRefused;
+    }
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: ValueKey('route-change-${outcome.status}'),
+          content: Text(text),
+        ),
+      );
+  }
+
+  Future<void> _adoptAcceptedRoute(TripRouteChange change) async {
+    final ride = await _currentRide();
+    if (ride == null || !mounted) return;
+    final updated = await RouteChangeController.adoptAccepted(ride, change);
+    if (!mounted) return;
+    setState(() => _applyRouteChange(updated));
+  }
+
+  Future<void> _withdrawRouteChange(TripRouteChange change) async {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty || _routeWithdrawing) return;
+    setState(() => _routeWithdrawing = true);
+    try {
+      final after = await RouteChangeController(
+        api: AppScope.instance.api,
+        geocoding: AppScope.instance.geocoding,
+        session: AppScope.instance.ride,
+      ).withdraw(tripId: rideId, changeId: change.changeId);
+      if (!mounted) return;
+      _tracking.routeChange = after ?? _tracking.routeChange;
+      _onTripG7();
+    } on RouteChangeException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _routeWithdrawing = false);
     }
   }
 
@@ -2428,6 +2520,25 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                         LiveFeedDegradedBanner(onRetry: _retryLiveFeed),
                       ],
                     ],
+                  ),
+                ),
+              ),
+            // v0.18.9: the confirmed route change waits for the driver.
+            if (_tracking.routeChange case final change?
+                when change.pending && !_leaving)
+              Positioned(
+                top:
+                    media.padding.top +
+                    (widget.realtime == null || _tracking.connectionDegraded
+                        ? 130
+                        : 62),
+                left: 12,
+                right: 12,
+                child: PointerInterceptor(
+                  child: RouteChangePendingCard(
+                    change: change,
+                    withdrawing: _routeWithdrawing,
+                    onWithdraw: () => _withdrawRouteChange(change),
                   ),
                 ),
               ),
@@ -2789,11 +2900,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: _callDriver,
-        // v0.18.7: on the contract wire a route change is not served yet
-        // (`route_change_not_available`); nothing to open on board.
-        onMore: _serverPickupMove
+        // v0.18.9 (G7 decision 3): the destination and the stops change
+        // on board too (the server prices it, the driver answers).
+        onMore: widget.routeChangeSupported ? _openDetails : null,
+        stopNote: _stops.isEmpty || _tracking.terms == null
             ? null
-            : (widget.routeChangeSupported ? _openDetails : null),
+            : TripTermsLines.stopWaitLine(_tracking.terms!),
         onCancel: _confirmCancel,
       );
     }

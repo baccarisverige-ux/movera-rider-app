@@ -6,6 +6,7 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
@@ -107,11 +108,24 @@ enum RouteChangeFailure {
 
   /// P5-R4: the server does not offer route changes.
   unavailable,
+
+  /// v0.18.9 (G7 decision 5): more stops than the zone's `booking.maxStops`.
+  tooManyStops,
+
+  /// v0.18.9: a change already waits for the driver.
+  pending,
 }
 
 class RouteChangeException implements Exception {
-  const RouteChangeException(this.failure, {this.maxPickupMoveMeters});
+  const RouteChangeException(
+    this.failure, {
+    this.maxPickupMoveMeters,
+    this.maxStops,
+  });
   final RouteChangeFailure failure;
+
+  /// The zone's limit behind [RouteChangeFailure.tooManyStops].
+  final int? maxStops;
 
   /// The zone's limit behind [RouteChangeFailure.pickupTooFar] (Q40).
   final int? maxPickupMoveMeters;
@@ -124,6 +138,10 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.priceChanged => L10n.current.routePriceChanged,
     RouteChangeFailure.stale => rideJustChangedMessage,
     RouteChangeFailure.unavailable => L10n.current.routeChangeUnavailable,
+    RouteChangeFailure.tooManyStops => L10n.current.g7TooManyStops(
+      '${maxStops ?? RiderAppConfig.defaultMaxStops}',
+    ),
+    RouteChangeFailure.pending => L10n.current.g7RouteWaiting,
     RouteChangeFailure.pickupTooFar => L10n.current.routePickupTooFar(
       '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}',
     ),
@@ -137,9 +155,21 @@ class RouteChangeController {
     required ApiClient api,
     required GeocodingRepository geocoding,
     RideSession? session,
+    bool zoneAllows = false,
+    int? maxStops,
   }) : _api = api,
        _geocoding = geocoding,
-       _session = session;
+       _session = session,
+       _zoneAllows = zoneAllows,
+       _maxStops = maxStops;
+
+  /// Contract v0.18.9 (G7 decision 3): the trip zone's `routeChange.on`.
+  /// On the contract wire a change is offered only when it is on.
+  final bool _zoneAllows;
+
+  /// The zone's `booking.maxStops` (G7 decision 5); null = not checked here
+  /// (the server still refuses `too_many_stops`).
+  final int? _maxStops;
 
   final ApiClient _api;
   final GeocodingRepository _geocoding;
@@ -154,7 +184,14 @@ class RouteChangeController {
   /// controller still speaks the demo's `/rides/{id}` dialect, so on the
   /// contract wire a change could never be priced: the rider is told so
   /// before editing anything, and no request is sent.
-  bool get available => !_api.contractWire;
+  ///
+  /// Contract v0.18.9 (driver group 7): movera-server prices and applies a
+  /// change (`/trips/{id}/route-quote`, `PATCH /trips/{id}`), so on the
+  /// contract wire it is offered when the trip zone switches it on.
+  bool get available => !_api.contractWire || _zoneAllows;
+
+  /// True when this controller speaks the contract (v0.18.9) wire.
+  bool get contractWire => _api.contractWire;
 
   /// The ride as last saved on this device, if any.
   static Future<RideSnapshot?> storedRide() => RideSnapshotStore.read();
@@ -225,6 +262,22 @@ class RouteChangeController {
         ),
       );
     }
+    final max = _maxStops;
+    if (max != null && located.length > max) {
+      throw RouteChangeException(
+        RouteChangeFailure.tooManyStops,
+        maxStops: max,
+      );
+    }
+    if (_api.contractWire) {
+      return _contractQuote(
+        ride: ride,
+        id: id,
+        destination: destination,
+        destinationAt: destinationAt,
+        stops: located,
+      );
+    }
     final draft = RouteChangeQuote(
       pickupAddress: pickup,
       pickupPoint: pickupAt,
@@ -267,6 +320,133 @@ class RouteChangeController {
       expectedVersion: version,
       currency: ride.currency,
     );
+  }
+
+  /// v0.18.9 `POST /trips/{id}/route-quote { expectedVersion, dropoff,
+  /// stops }` → `RouteQuote { routeQuoteId, total, difference, expiresAt }`.
+  /// The pickup stays (the server prices from where the trip is).
+  Future<RouteChangeQuote> _contractQuote({
+    required RideSnapshot ride,
+    required String id,
+    required String destination,
+    required GeoPoint destinationAt,
+    required List<RouteStop> stops,
+  }) async {
+    final version = _session?.projectionVersionOf(id);
+    final response = await _send(
+      () => _api.post(
+        '/api/v1/trips/${Uri.encodeComponent(id)}/route-quote',
+        body: {
+          'expectedVersion': ?version,
+          'dropoff': {
+            'lat': destinationAt.latitude,
+            'lng': destinationAt.longitude,
+            'address': destination,
+          },
+          'stops': [
+            for (final stop in stops)
+              {
+                'lat': stop.latitude,
+                'lng': stop.longitude,
+                'address': stop.address,
+              },
+          ],
+        },
+      ),
+    );
+    final total = Money.fromWire(response['total']);
+    final price = total != null && total.currency == ride.currency
+        ? total
+        : null;
+    final quoteId = response['routeQuoteId'];
+    return RouteChangeQuote(
+      pickupAddress: ride.pickupAddress,
+      pickupPoint: GeoPoint(ride.pickupLat, ride.pickupLng),
+      destinationAddress: destination,
+      destinationPoint: destinationAt,
+      stops: stops,
+      oldPriceKr: ride.price,
+      newPriceKr: price?.major ?? ride.price,
+      routeQuoteId: quoteId is String && quoteId.trim().isNotEmpty
+          ? quoteId.trim()
+          : null,
+      expiresAt: WireTime.tryParse(response['expiresAt']),
+      newTotalMinor: price?.amountMinor,
+      differenceMinor: Money.fromWire(response['difference'])?.amountMinor,
+      expectedVersion: version,
+      currency: ride.currency,
+    );
+  }
+
+  /// v0.18.9 `PATCH /trips/{id} { expectedVersion, routeQuoteId }`: the
+  /// driver is asked; the route changes only once they accept (or at once
+  /// when the zone lets no driver refuse). Returns the projection's
+  /// `routeChange` (pending, or accepted by the system).
+  Future<TripRouteChange?> propose({
+    required RideSnapshot ride,
+    required RouteChangeQuote quote,
+  }) async {
+    final id = ride.rideId;
+    final quoteId = quote.routeQuoteId;
+    if (id == null || quoteId == null) {
+      throw const RouteChangeException(RouteChangeFailure.network);
+    }
+    final version = _session?.projectionVersionOf(id) ?? quote.expectedVersion;
+    final response = await _send(
+      () => _api.patch(
+        '/api/v1/trips/${Uri.encodeComponent(id)}',
+        body: {'expectedVersion': ?version, 'routeQuoteId': quoteId},
+        idempotencyKey: stableIdempotencyKey('route-change', quoteId),
+      ),
+    );
+    _session?.observeProjection(response);
+    return TripRouteChange.fromWire(response['routeChange']);
+  }
+
+  /// v0.18.9 `POST /trips/{id}/route-change/withdraw { expectedVersion,
+  /// changeId }`: the rider takes a pending change back.
+  Future<TripRouteChange?> withdraw({
+    required String tripId,
+    required String changeId,
+  }) async {
+    final version = _session?.projectionVersionOf(tripId);
+    final response = await _send(
+      () => _api.post(
+        '/api/v1/trips/${Uri.encodeComponent(tripId)}/route-change/withdraw',
+        body: {'expectedVersion': ?version, 'changeId': changeId},
+      ),
+    );
+    _session?.observeProjection(response);
+    return TripRouteChange.fromWire(response['routeChange']);
+  }
+
+  /// The saved ride once the driver accepted [change]: its drop-off, stops
+  /// and new total.
+  static Future<RideSnapshot> adoptAccepted(
+    RideSnapshot ride,
+    TripRouteChange change,
+  ) async {
+    final drop = change.dropoff;
+    final total = change.total;
+    final updated = ride.copyWith(
+      savedAt: DateTime.now(),
+      destinationAddress: drop?.address ?? ride.destinationAddress,
+      destinationLat: drop?.lat ?? ride.destinationLat,
+      destinationLng: drop?.lng ?? ride.destinationLng,
+      stops: [
+        for (final stop in change.stops)
+          RouteStop(
+            address: stop.address ?? '',
+            latitude: stop.lat,
+            longitude: stop.lng,
+          ),
+      ],
+      price: total != null && total.currency == ride.currency
+          ? total.major
+          : ride.price,
+    );
+    await RideSnapshotStore.save(updated);
+    return updated;
   }
 
   /// Applies a previewed change and returns the updated, saved snapshot.
@@ -391,11 +571,28 @@ class RouteChangeController {
       }
       // R-O4: the lower-case reason beside the contract code, else the
       // contract code itself.
+      if (error.detail == 'too_many_stops') {
+        final max = (error.details ?? const <String>[])
+            .map((d) => RegExp(r'^maxStops=(\d+)$').firstMatch(d))
+            .whereType<RegExpMatch>()
+            .map((m) => int.parse(m.group(1)!))
+            .firstOrNull;
+        throw RouteChangeException(
+          RouteChangeFailure.tooManyStops,
+          maxStops: max ?? _maxStops,
+        );
+      }
       throw RouteChangeException(switch (error.detail) {
         'pickup_locked' => RouteChangeFailure.pickupLocked,
         'pickup_too_far' => RouteChangeFailure.pickupTooFar,
         'ride_finished' ||
         'invalid_transition' => RouteChangeFailure.rideFinished,
+        'route_change_pending' => RouteChangeFailure.pending,
+        'route_change_off' ||
+        'route_change_fixed_route' => RouteChangeFailure.unavailable,
+        'visited_stop_changed' ||
+        'route_change_not_pending' => RouteChangeFailure.rideFinished,
+        'route_quote_used' ||
         'route_quote_expired' ||
         'route_quote_not_found' ||
         'route_quote_mismatch' ||

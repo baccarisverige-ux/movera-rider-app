@@ -27,6 +27,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.onCall,
     this.onMore,
     required this.onCancel,
+    this.stopNote,
   });
 
   final String destinationAddress;
@@ -52,6 +53,10 @@ class RiderInTripPanel extends StatelessWidget {
   /// Null where the route cannot change (rider-u55).
   final VoidCallback? onMore;
   final VoidCallback onCancel;
+
+  /// v0.18.9 (G7 decision 4): the price of waiting at a stop, when the trip
+  /// has stops ("Waiting at a stop: 4,50 kr/min").
+  final String? stopNote;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +129,14 @@ class RiderInTripPanel extends StatelessWidget {
                         color: MoveraTokens.muted,
                       ).copyWith(height: 1.35),
                     ),
+                    if (stopNote case final note?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        note,
+                        key: const ValueKey('in-trip-stop-price'),
+                        style: waitingText(13, color: MoveraTokens.muted),
+                      ),
+                    ],
                   ],
                 ),
               ),

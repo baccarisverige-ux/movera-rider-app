@@ -1219,6 +1219,22 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                     padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
                     child: _fields(),
                   ),
+                  // v0.18.9 (G7 decision 5): the zone's max stops, shown
+                  // once the route has a stop (the server checks it too).
+                  if (widget.stopsSupported && _stops.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 20, 4),
+                      child: Text(
+                        _stops.length >= _maxStops
+                            ? context.l10n.g7TooManyStops('$_maxStops')
+                            : context.l10n.g7MaxStopsShown('$_maxStops'),
+                        key: const ValueKey('route-picker-max-stops'),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF5C656C),
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: ListView(
                       keyboardDismissBehavior:

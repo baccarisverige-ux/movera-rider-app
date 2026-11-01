@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
@@ -33,20 +34,25 @@ Future<RideSnapshot?> openRouteChange(
   required bool pickupLocked,
   bool driverAccepted = false,
   RouteChangeController? controller,
+  void Function(TripRouteChange change)? onProposed,
 }) async {
-  final changes =
-      controller ??
-      RouteChangeController(
-        api: AppScope.instance.api,
-        geocoding: AppScope.instance.geocoding,
-        session: AppScope.instance.ride,
-      );
+  final changes = controller ?? await _controllerFor(ride);
+  if (!context.mounted) return null;
   if (!changes.available) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(context.l10n.routeChangeUnavailable)),
+      SnackBar(
+        content: Text(
+          controller == null && changes.contractWire
+              ? context.l10n.g7RouteChangeOff
+              : context.l10n.routeChangeUnavailable,
+        ),
+      ),
     );
     return null;
   }
+  // v0.18.9: the server prices from where the trip is; the pickup moves
+  // only through its own step (pickup move).
+  final lockPickup = pickupLocked || changes.contractWire;
   final places = HomePlacesController();
   await places.load();
   if (!context.mounted) return null;
@@ -66,10 +72,10 @@ Future<RideSnapshot?> openRouteChange(
               GeoPoint(stop.latitude, stop.longitude),
           ],
           stopsSupported: true,
-          pickupLocked: pickupLocked,
+          pickupLocked: lockPickup,
           openWithNewStop: entry == RouteChangeEntry.newStop,
           initialField: switch (entry) {
-            RouteChangeEntry.pickup when !pickupLocked => 'pickup',
+            RouteChangeEntry.pickup when !lockPickup => 'pickup',
             _ => 'destination',
           },
           finishLabel: context.l10n.seeNewPrice,
@@ -110,8 +116,8 @@ Future<RideSnapshot?> openRouteChange(
             try {
               final quote = await changes.preview(
                 ride: ride,
-                pickupAddress: pickupLocked ? null : selection.pickup,
-                pickupPoint: pickupLocked ? null : selection.pickupPoint,
+                pickupAddress: lockPickup ? null : selection.pickup,
+                pickupPoint: lockPickup ? null : selection.pickupPoint,
                 destinationAddress: selection.destination,
                 destinationPoint: selection.destinationPoint,
                 stops: selection.stops,
@@ -129,6 +135,17 @@ Future<RideSnapshot?> openRouteChange(
                 paymentMethodId: ride.paymentMethodId,
               );
               if (!decision.confirmed || !context.mounted) return null;
+              if (changes.contractWire) {
+                // v0.18.9: the driver answers; the route changes on accept.
+                final updated = await _propose(
+                  changes,
+                  ride,
+                  quote,
+                  onProposed,
+                );
+                if (updated == null) return {'pending': true};
+                return {'ride': updated, 'differenceKr': quote.differenceKr};
+              }
               final updated = await changes.apply(
                 ride: ride,
                 quote: quote,
@@ -164,6 +181,46 @@ Future<RideSnapshot?> openRouteChange(
   } finally {
     capture.stop();
   }
+}
+
+/// v0.18.9 (driver group 7): a controller with the trip zone's
+/// `routeChange.on` and `booking.maxStops` (on and 3 when no config of the
+/// trip's currency can be read; the server checks both again).
+Future<RouteChangeController> _controllerFor(RideSnapshot ride) async {
+  RiderAppConfig? config;
+  try {
+    config = await AppScope.instance.riderConfig.forTrip(
+      currency: ride.currency,
+      pickupLat: ride.pickupLat,
+      pickupLng: ride.pickupLng,
+    );
+  } catch (_) {
+    config = null;
+  }
+  return RouteChangeController(
+    api: AppScope.instance.api,
+    geocoding: AppScope.instance.geocoding,
+    session: AppScope.instance.ride,
+    zoneAllows: config?.routeChangeOn ?? true,
+    maxStops: config?.maxStops,
+  );
+}
+
+/// Sends a confirmed change to the driver. Returns the saved ride when it
+/// applied at once (the zone lets no driver refuse); null while the driver
+/// is asked ([onProposed] is told, the trip screen waits for the answer).
+Future<RideSnapshot?> _propose(
+  RouteChangeController changes,
+  RideSnapshot ride,
+  RouteChangeQuote quote,
+  void Function(TripRouteChange change)? onProposed,
+) async {
+  final change = await changes.propose(ride: ride, quote: quote);
+  if (change != null && change.accepted) {
+    return RouteChangeController.adoptAccepted(ride, change);
+  }
+  if (change != null) onProposed?.call(change);
+  return null;
 }
 
 /// Q40: how far the pickup of [ride] may move after accept, from its
@@ -311,16 +368,12 @@ Future<RideSnapshot?> removeRouteStop(
   required RideSnapshot ride,
   required int index,
   RouteChangeController? controller,
+  void Function(TripRouteChange change)? onProposed,
 }) async {
   if (index < 0 || index >= ride.stops.length) return null;
   lastRouteDifferenceKr = null;
-  final changes =
-      controller ??
-      RouteChangeController(
-        api: AppScope.instance.api,
-        geocoding: AppScope.instance.geocoding,
-        session: AppScope.instance.ride,
-      );
+  final changes = controller ?? await _controllerFor(ride);
+  if (!context.mounted) return null;
   final kept = [
     for (var i = 0; i < ride.stops.length; i++)
       if (i != index) ride.stops[i],
@@ -343,6 +396,11 @@ Future<RideSnapshot?> removeRouteStop(
       paymentMethodId: ride.paymentMethodId,
     );
     if (!decision.confirmed || !context.mounted) return null;
+    if (changes.contractWire) {
+      final updated = await _propose(changes, ride, quote, onProposed);
+      if (updated != null) lastRouteDifferenceKr = quote.differenceKr;
+      return updated;
+    }
     final updated = await changes.apply(
       ride: ride,
       quote: quote,

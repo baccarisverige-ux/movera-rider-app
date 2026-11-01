@@ -25,7 +25,20 @@ class TripTermsLines {
     noShowFee: terms.noShowFee,
     cancelAfterArrivedIsNoShow: terms.cancelAfterArrivedIsNoShow,
     maxPickupMoveMeters: terms.maxPickupMoveMeters,
+    stopLine: stopWaitLine(terms),
   );
+
+  /// v0.18.9 (G7 decision 4, `onTrip.stopWaiting.texts`): what a minute of
+  /// waiting at a middle stop costs, from the trip's own terms; null from
+  /// an older server.
+  static String? stopWaitLine(TripTerms terms) {
+    final perMin = terms.stopWaitPerMin;
+    if (perMin == null) return null;
+    final l10n = L10n.current;
+    return terms.stopFreeWaitMin > 0
+        ? l10n.g7StopFree('${terms.stopFreeWaitMin}', formatMoney(perMin))
+        : l10n.g7StopPrice(formatMoney(perMin));
+  }
 
   /// Before a trip exists: the zone's `waiting` (served with the live
   /// pricing) and `booking.maxPickupMoveMeters`.
@@ -55,6 +68,7 @@ class TripTermsLines {
     required Money noShowFee,
     required bool cancelAfterArrivedIsNoShow,
     required int maxPickupMoveMeters,
+    String? stopLine,
   }) {
     final l10n = L10n.current;
     String minutes(num value) =>
@@ -66,6 +80,7 @@ class TripTermsLines {
       if (cancelAfterArrivedIsNoShow && noShowFee.isPositive)
         l10n.termsCancelAfterArrived,
       l10n.termsPickupMove('$maxPickupMoveMeters'),
+      ?stopLine,
     ]);
   }
 }

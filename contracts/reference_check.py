@@ -653,4 +653,28 @@ if not (c['configDefaults']['pickupPin'] == {'required': False, 'maxAttempts': 5
 if not (c['configDefaults']['stopFreeWaitMin'] == _aw['rules']['defaults']['stopFreeWaitMin'] == dcfg['waiting']['stopFreeWaitMin'] == 0): bad += 1; print('STOP FREE default')
 if not {'waitingRules', 'stopFreeWaitMin', 'pinRequired'} <= set(c['bookingSnapshot']['fields']): bad += 1; print('SNAPSHOT fields v0.18.8')
 
+# v0.18.9 (CONTRACT.md §35, contract.json#onTrip): ride check and route change settings per zone, max stops, texts in sv / fr / en.
+_ot = c['onTrip']
+_rcfg = rcfg
+import re
+if not (c['configDefaults']['rideCheck'] == dcfg['rideCheck'] == _rcfg['rideCheck']) or c['configDefaults']['rideCheck']['offRouteKm'] != 2: bad += 1; print('RIDE CHECK defaults (owner decision 2: 2 km)')
+if not (c['configDefaults']['routeChange'] == dcfg['routeChange'] == _rcfg['routeChange'] == {'on': True, 'driverCanRefuse': True, 'answerSeconds': 60, 'beforePickup': True, 'fixedPriceTrips': 'block'}): bad += 1; print('ROUTE CHANGE defaults')
+# v0.18.9 owner rule 16: the 4 settings of the G7 open questions.
+if set(_ot['routeChange']['settings']['fields']) != set(c['configDefaults']['routeChange']): bad += 1; print('ROUTE CHANGE fields')
+if _ot['routeChange']['settings']['values']['fixedPriceTrips'] != ['block', 'switch_to_normal']: bad += 1; print('ROUTE CHANGE fixedPriceTrips values')
+if not set(_ot['routeChange']['beforePickupStatuses']) < set(_ot['routeChange']['statuses']): bad += 1; print('ROUTE CHANGE beforePickupStatuses')
+if 'route_change_before_pickup_off' not in _ot['errors'] or _ot['rideCheck']['push']['kind'] != 'ride_check': bad += 1; print('G7 rule 16 errors / push')
+for _k, (_lo, _hi) in _ot['rideCheck']['settings']['ranges'].items():
+    if not (_lo <= c['configDefaults']['rideCheck'][_k] <= _hi): bad += 1; print('RIDE CHECK range', _k)
+if set(_ot['rideCheck']['settings']['fields']) != set(c['configDefaults']['rideCheck']): bad += 1; print('RIDE CHECK fields')
+if c['configDefaults']['maxStops'] != 3: bad += 1; print('MAX STOPS default')
+if c['configDefaults']['stopFreeWaitMin'] != 0: bad += 1; print('STOP FREE default v0.18.9')
+for _grp in (_ot['rideCheck']['texts'], _ot['routeChange']['texts'], _ot['stopWaiting']['texts'], _ot['maxStops']['texts']):
+    for _name, _t in _grp.items():
+        if set(_t) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t.values()): bad += 1; print('ON TRIP text langs', _name)
+        if 'passagerare' in _t['sv'].lower(): bad += 1; print('ON TRIP sv says passagerare', _name)
+for _e in _ot['errors']:
+    if not re.match(r'^[a-z][a-z0-9_]*$', _e): bad += 1; print('ON TRIP error code', _e)
+if set(_ot['routeChange']['statuses']) - set(c['tripStatus']['values'] if isinstance(c['tripStatus'], dict) else c['tripStatus']): bad += 1; print('ROUTE CHANGE statuses')
+
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

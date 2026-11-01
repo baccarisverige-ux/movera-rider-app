@@ -631,6 +631,9 @@ class ApiRideRealtime implements RideRealtime {
           if (ride['pinVerified'] is bool) pinVerifiedKey: ride['pinVerified'],
           if (_waitingField(ride, 'alerts') case final List alerts)
             waitingAlertsKey: alerts,
+          // v0.18.9: the server's ride check and the route change.
+          if (ride['rideCheck'] is Map) rideCheckKey: ride['rideCheck'],
+          if (ride['routeChange'] is Map) routeChangeKey: ride['routeChange'],
           if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },

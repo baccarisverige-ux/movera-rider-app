@@ -56,14 +56,18 @@ class RideCheckService {
     required RideCheckTrigger trigger,
     required DateTime at,
     RideCheckReason reason = const RideCheckReason(),
+    bool reportShown = true,
   }) async {
     // Contract v0.12.0: Movera starts its 2-minute clock on this report.
-    await _store.reportRideCheckShown(
-      tripId: rideId,
-      checkId: eventId,
-      trigger: trigger,
-      at: at,
-    );
+    // v0.18.9: a check the server asked already runs on the server's clock.
+    if (reportShown) {
+      await _store.reportRideCheckShown(
+        tripId: rideId,
+        checkId: eventId,
+        trigger: trigger,
+        at: at,
+      );
+    }
     return _store.postEvent(
       RideCheckEvent(
         eventId: eventId,

@@ -520,6 +520,55 @@ class RideCheckController extends ChangeNotifier {
     return RideCheckOpenResult.shown;
   }
 
+  /// Contract v0.18.9 (owner G7 decision 1): the server saw a long stop,
+  /// the car off the route or a trip that ended far from the destination
+  /// and asks the rider "Is everything OK?" (`TripProjection.rideCheck`).
+  /// The card is the same; its id is the server's `checkId`, so the answer
+  /// reaches that check. Shown once per check, whatever the rider's own
+  /// switch (no answer alerts the safety team).
+  Future<RideCheckOpenResult> openServer({
+    required String rideId,
+    required String checkId,
+    required RideCheckTrigger trigger,
+    DateTime? askedAt,
+  }) async {
+    final id = rideId.trim();
+    if (id.isEmpty) return RideCheckOpenResult.noTrip;
+    if (_closed.contains(checkId) || _shown.contains(checkId)) {
+      return RideCheckOpenResult.alreadyShown;
+    }
+    if (_session != null) return RideCheckOpenResult.busy;
+    _shown
+      ..add(checkId)
+      ..add('$id|${trigger.name}');
+    final destination = _trip?.rideId == id ? _trip?.destination?.label : null;
+    final reason = RideCheckReason(destinationLabel: destination);
+    final session = RideCheckSession(
+      checkId: checkId,
+      rideId: id,
+      trigger: trigger,
+      reason: reason,
+      shownAt: (askedAt ?? _clock()).toUtc(),
+    );
+    _session = session;
+    AppLog.info(
+      'safety.ridecheck.server_opened',
+      extra: {'rideId': id, 'trigger': trigger.wire},
+    );
+    _changed();
+    _enqueue('open', () async {
+      await _service.open(
+        eventId: checkId,
+        rideId: id,
+        trigger: trigger,
+        at: session.shownAt,
+        reason: reason,
+        reportShown: false,
+      );
+    });
+    return RideCheckOpenResult.shown;
+  }
+
   /// A screen for [rideId] is showing: bring back a card the rider had not
   /// answered (the app was closed or reloaded), and open a queued QA check.
   Future<void> resume(String rideId) async {

@@ -242,6 +242,7 @@ void main() {
       fixture.cancelReasons.map((r) => '${r.code}:${r.title}'),
     );
     expect(seed.rideCheck, fixture.rideCheck);
+    expect(seed.routeChange, fixture.routeChange);
     expect(seed.latestAppVersion, fixture.latestAppVersion);
   });
 }
