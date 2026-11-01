@@ -347,7 +347,42 @@
         }
       }
     },
-    "cancelAfterArrivedIsNoShow": true
+    "cancelAfterArrivedIsNoShow": true,
+    "farPickup": {
+      "on": true,
+      "km": 5,
+      "freeWaitMin": 1,
+      "perMin": null,
+      "noShowAfterMin": null,
+      "noShowFee": {
+        "amountMinor": 8500,
+        "currency": "SEK"
+      }
+    },
+    "rideTypes": {
+      "scheduled": {
+        "on": true,
+        "freeWaitMin": null,
+        "perMin": null,
+        "noShowAfterMin": null,
+        "noShowFee": null
+      },
+      "airport": {
+        "on": true,
+        "freeWaitMin": 15,
+        "perMin": null,
+        "noShowAfterMin": 20,
+        "noShowFee": null
+      },
+      "event": {
+        "on": true,
+        "freeWaitMin": 3,
+        "perMin": null,
+        "noShowAfterMin": null,
+        "noShowFee": null
+      }
+    },
+    "stopFreeWaitMin": 0
   },
   "cancelReasons": [
     {

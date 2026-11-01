@@ -1,11 +1,11 @@
-# Movera API v0.18.7 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.8 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.7
+  version: 0.18.8
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.7 in this folder; this file must agree with them.
+    v0.18.8 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.7
+  version: 0.18.8
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1025,6 +1025,10 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.8: With pinRequired the server makes a 4-digit PIN (0000–9999, random) when the trip is booked.
+        The rider sees it: TripProjection.pickupPin (rider and admin views only; never the driver''s, not on the driver''s
+        stream) and GET /trips/{tripId}/pin → PinCode { tripId, pin, expiresAt } (expiresAt = the trip''s end, at most 24
+        h after booking or the booked time). Without pinRequired: no pickupPin; GET /pin answers 404 not_found (reason pin_not_required).'
   /trips/{tripId}/rating:
     post:
       operationId: rateTrip
@@ -2637,7 +2641,10 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.7 (Q6): waiting.noShowFee and waiting.noShowDriverShare are set here.'
+      description: ' v0.18.7 (Q6): waiting.noShowFee and waiting.noShowDriverShare are set here. v0.18.8: arrive: the server
+        computes the effective terms once, when the driver arrives, and keeps them on the trip (waiting.rules, freeWaitMin,
+        perMin, noShowAfterMin, noShowFee; freeUntil / noShowAt from them). The waiting charge (board), the no-show fee, a
+        cancel that counts as a no-show and the running total all use these numbers.'
   /trips/{tripId}/board:
     post:
       operationId: boardRider
@@ -2703,7 +2710,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TripCommand'
+              $ref: '#/components/schemas/StartTripCommand'
       responses:
         '200':
           description: OK
@@ -2826,7 +2833,13 @@ paths:
     post:
       operationId: verifyTripPin
       summary: Verify the rider PIN
-      description: Wrong PIN → 400 invalid_request (retryable=false); too many attempts → 429.
+      description: 'v0.18.8: The driver sends the PIN: POST /trips/{tripId}/pin/verify { pin } → PinVerification { verifiedPinToken,
+        expiresAt }, or directly { pin } in the body of board or start. A trip with pinRequired cannot be boarded / started
+        until the PIN was right once (TripProjection.pinVerified true): board / start without it → 409 invalid_transition
+        (reason pin_required). Wrong PIN → 400 invalid_request (reason pin_wrong, details [''attemptsLeft=N'']); after maxAttempts
+        wrong tries in a row the trip is locked for lockMinutes → 429 rate_limited (reason pin_locked, retryAfterSeconds);
+        the count starts again after the lock or a right PIN. The tries are counted even though the command fails. The PIN
+        is checked only while the trip is arrived or driver_to_pickup.'
       tags:
       - Driver · Trip
       x-actor:
@@ -10469,12 +10482,18 @@ paths:
         version 0 = the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown).
         Apps read it on start and when they come back to the foreground (no stream event), and keep the last answer offline.
         reacceptFrom = the newest version published with reaccept true (null when none was): the version a person must have
-        accepted (or a later one). Both apps show ''Terms'' and ''Privacy'' as two separate links on the sign-in screen and
-        in the menu, read from GET /legal/{country} of the start country (auth.startCountry), else of the account''s country.
-        When reacceptFrom is not null and the person has not accepted a version >= reacceptFrom (it then accepts the live
-        version), the next app start (never during a trip) shows the new terms with ''Jag godkänner'' / ''J''accepte'' / ''I
-        accept''. Drafts (version 0) say so on their first line. A lawyer reviews the texts before launch; the admin publishes
-        the reviewed ones.'
+        accepted (or a later one). v0.18.8: ?zoneId= (optional) fills {waitingRules} with that zone''s live waiting, no-show
+        and cancel numbers (contract.json#arrivedWaiting.termsTexts). Both apps show ''Terms'' and ''Privacy'' as two separate
+        links on the sign-in screen and in the menu, read from GET /legal/{country} of the start country (auth.startCountry),
+        else of the account''s country. When reacceptFrom is not null and the person has not accepted a version >= reacceptFrom
+        (it then accepts the live version), the next app start (never during a trip) shows the new terms with ''Jag godkänner''
+        / ''J''accepte'' / ''I accept''. Drafts (version 0) say so on their first line. A lawyer reviews the texts before
+        launch; the admin publishes the reviewed ones. v0.18.8: The Terms (contract.json#legal.defaults SE / FR, terms, sv
+        / fr / en) state the waiting, no-show and cancel rules (owner decision 4) in paragraphs 3.1–3.5. Paragraph 3.5 holds
+        the placeholder {waitingRules}: GET /legal/{country}?zoneId= fills it with the zone''s live numbers, one line per
+        category of the zone''s pricing and one per extra rule that is on, in the text''s language and the zone''s currency
+        (templates below); without zoneId (or a zone of another country) the paragraph is left out like any paragraph with
+        an empty placeholder. An admin who publishes own texts keeps {waitingRules} where the numbers should go.'
       tags:
       - Account
       x-actor:
@@ -10484,6 +10503,12 @@ paths:
       - $ref: '#/components/parameters/LegalCountryPath'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+        description: 'v0.18.8: fills {waitingRules} with this zone''s live numbers (contract.json#arrivedWaiting.termsTexts).'
       responses:
         '200':
           description: OK
@@ -11618,6 +11643,64 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/reverse-no-show:
+    post:
+      operationId: adminReverseNoShow
+      summary: Reverse a no-show (reason required, driver share kept unless taken back)
+      description: 'v0.18.8: Admin › Trip › ''Reverse no-show'' (owner decision 3 + 34): POST /admin/trips/{tripId}/reverse-no-show
+        { expectedVersion, reason (1–1000 chars, required), takeBackDriverShare?: bool (default false) } — permission trips.manage,
+        audited trip.reverse_no_show. Only a trip with status no_show (else 409 invalid_transition, reason not_a_no_show).
+        The status stays no_show (terminal statuses never change, §3) and the trip gets cancellation.reversal { at, by (adminId),
+        reason, driverShareTakenBack }. The no-show fee goes: an owed fee is waived (feeStatus waived, Rider.outstanding recomputed);
+        a fee already paid is refunded to the rider''s wallet (wallet entry kind refund) and feeStatus becomes refunded. The
+        trip''s fare becomes 0 (fareLines []). takeBackDriverShare false (default): the driver keeps his share (earnings unchanged,
+        Movera pays it: commission = − share); true: an earnings adjustment of − share in the trip currency, earnings 0. A
+        fee carried by a ride going on now → 409 conflict (reason fee_on_running_trip), as for a waive. The reversed no-show
+        no longer counts in the rider''s no-show count. Again on a reversed trip: 200 with the trip as it is, nothing changes,
+        no second audit row (the first reason stays).'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.intervene
+      x-permission-v050: trips.edit
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReverseNoShowCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -12699,6 +12782,43 @@ components:
           - $ref: '#/components/schemas/Money'
           description: 'v0.18.7 (Q5): while status is arrived, the waiting cost so far at read time (chargedSecondsNow × waitPerMin
             per minute).'
+        rules:
+          type: array
+          items:
+            type: string
+            enum:
+            - airport
+            - scheduled
+            - event
+            - far_pickup
+          description: 'v0.18.8: the applied waiting rules (set at arrive; [] = the category''s own terms). One ride type
+            at most, the first that matches and is on: airport, then scheduled, then event. Then far_pickup on top. A later
+            rule wins where it sets a value. When a rule sets freeWaitMin but not noShowAfterMin, noShowAfterMin follows it
+            (owner decision 5: the no-show time is the end of the free waiting). Finally noShowAfterMin is never below freeWaitMin.'
+        freeWaitMin:
+          type: number
+          minimum: 0
+          description: 'v0.18.8: the effective free waiting minutes (set at arrive).'
+        perMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.8: the effective waiting price per minute (set at arrive).'
+        noShowAfterMin:
+          type: number
+          minimum: 0
+          description: 'v0.18.8: the effective no-show minutes (set at arrive).'
+        paidMinutes:
+          type: integer
+          minimum: 0
+          description: 'v0.18.8: TripProjection.waiting gains (from arrive) rules: string[] (the applied rule ids, [] = the
+            category''s own terms), freeWaitMin, perMin: Money, noShowAfterMin (the effective numbers), paidMinutes (whole
+            minutes of paid waiting, rounded up: from chargedSeconds once boarded, from chargedSecondsNow while arrived; for
+            the admin waiting box — money is still counted by the second) and alerts (see alerts).'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitingAlert'
+          description: 'v0.18.8: island messages sent so far (contract.json#arrivedWaiting.alerts).'
     Cancellation:
       type: object
       required:
@@ -12723,12 +12843,7 @@ components:
           maxLength: 1000
         feeStatus:
           type: string
-          enum:
-          - paid
-          - owed
-          - waived
-          description: 'v0.5.1 (CONTRACT.md §3.7): owed = an unpaid cash fee, in Rider.outstanding and the next trip''s outstanding_fee
-            line.'
+          description: 'owed | paid | waived | refunded (v0.18.8: refunded after a reverse no-show of a paid fee).'
         feeKind:
           type: string
           enum:
@@ -12739,6 +12854,31 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: 'v0.18.7 (Q6): Money: the driver''s part of the fee, credited at once (absent when fee is null)'
+        reversal:
+          type: object
+          description: 'v0.18.8 (admin view; rider and driver see it without reason and by): The status stays no_show (terminal
+            statuses never change, §3) and the trip gets cancellation.reversal { at, by (adminId), reason, driverShareTakenBack
+            }. The no-show fee goes: an owed fee is waived (feeStatus waived, Rider.outstanding recomputed); a fee already
+            paid is refunded to the rider''s wallet (wallet entry kind refund) and feeStatus becomes refunded. The trip''s
+            fare becomes 0 (fareLines []). takeBackDriverShare false (default): the driver keeps his share (earnings unchanged,
+            Movera pays it: commission = − share); true: an earnings adjustment of − share in the trip currency, earnings
+            0. A fee carried by a ride going on now → 409 conflict (reason fee_on_running_trip), as for a waive. The reversed
+            no-show no longer counts in the rider''s no-show count.'
+          required:
+          - at
+          - by
+          - reason
+          - driverShareTakenBack
+          properties:
+            at:
+              $ref: '#/components/schemas/Timestamp'
+            by:
+              $ref: '#/components/schemas/Id'
+            reason:
+              type: string
+              maxLength: 1000
+            driverShareTakenBack:
+              type: boolean
     VehicleSummary:
       type: object
       properties:
@@ -12938,6 +13078,21 @@ components:
           - $ref: '#/components/schemas/TripEta'
           description: 'v0.18.7 (Q4): the server''s road-route ETA, refreshed every 30 s while a driver is on the way or driving
             (all views). etaSeconds repeats eta.etaSeconds for older builds.'
+        pickupPin:
+          type: string
+          pattern: ^\d{4}$
+          description: 'v0.18.8: rider and admin views only. With pinRequired the server makes a 4-digit PIN (0000–9999, random)
+            when the trip is booked. The rider sees it: TripProjection.pickupPin (rider and admin views only; never the driver''s,
+            not on the driver''s stream) and GET /trips/{tripId}/pin → PinCode { tripId, pin, expiresAt } (expiresAt = the
+            trip''s end, at most 24 h after booking or the booked time). Without pinRequired: no pickupPin; GET /pin answers
+            404 not_found (reason pin_not_required).'
+        pinVerified:
+          type: boolean
+          description: 'v0.18.8: the driver gave the right PIN (only with pinRequired).'
+        pinAttempts:
+          type: integer
+          minimum: 0
+          description: 'v0.18.8: admin view only, wrong PIN tries in a row.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -15509,6 +15664,12 @@ components:
             standard, Settings › Driver app › Waiting (DriverAppConfig.waiting): ''Cancel after the driver arrived counts
             as a no-show''. Default on. The server copies it to RiderAppConfig.waiting.cancelAfterArrivedIsNoShow when serving
             GET /rider/config, so the rider app can show the rule in its Terms. Default true.'
+        farPickup:
+          description: 'v0.18.8: copied from the zone''s driver document when served (GET /rider/config).'
+        rideTypes:
+          description: 'v0.18.8: copied from the zone''s driver document when served (GET /rider/config).'
+        stopFreeWaitMin:
+          description: 'v0.18.8: copied from the zone''s driver document when served (GET /rider/config).'
     DriverWaiting:
       allOf:
       - $ref: '#/components/schemas/RiderWaiting'
@@ -15524,6 +15685,34 @@ components:
             minimum: 0
             maximum: 100
             description: Driver's share of the waiting fee (100).
+      - type: object
+        description: 'v0.18.8 (contract.json#arrivedWaiting.rules): One ride type at most, the first that matches and is on:
+          airport, then scheduled, then event. Then far_pickup on top. A later rule wins where it sets a value. When a rule
+          sets freeWaitMin but not noShowAfterMin, noShowAfterMin follows it (owner decision 5: the no-show time is the end
+          of the free waiting). Finally noShowAfterMin is never below freeWaitMin.'
+        properties:
+          farPickup:
+            $ref: '#/components/schemas/FarPickupWaiting'
+          rideTypes:
+            type: object
+            properties:
+              scheduled:
+                allOf:
+                - $ref: '#/components/schemas/WaitingRuleOverride'
+                description: 'v0.18.8: Trip.kind is scheduled; freeWaitMin = the reservation policy''s included waiting.'
+              airport:
+                allOf:
+                - $ref: '#/components/schemas/WaitingRuleOverride'
+                description: 'v0.18.8: the trip''s pickup lies in an airport zone (the server''s price extra pickupInAirportZone,
+                  set at booking)'
+              event:
+                $ref: '#/components/schemas/EventWaiting'
+          stopFreeWaitMin:
+            type: number
+            minimum: 0
+            description: 'v0.18.8: Free wait at each stop (owner re-check 2026-11-01): DriverAppConfig.waiting.stopFreeWaitMin
+              (default 0 = no free minutes, as v0.7.1). stop_waiting charges, per stop, only the seconds after the first stopFreeWaitMin
+              minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin).'
     AmountOption:
       type: object
       description: One admin-editable amount (tip or raise-offer step) in the zone's currency.
@@ -16755,6 +16944,8 @@ components:
           type: object
         appUpdate:
           $ref: '#/components/schemas/AppUpdate'
+        pickupPin:
+          $ref: '#/components/schemas/PickupPinSettings'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -18675,7 +18866,7 @@ components:
             invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
-            route_change_not_available.'
+            route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, not_a_no_show.'
         details:
           type: array
           items:
@@ -18992,6 +19183,18 @@ components:
           verifiedPinToken:
             type: string
             description: Required when the trip has pinRequired=true.
+          pin:
+            type: string
+            pattern: ^\d{4}$
+            writeOnly: true
+            description: 'v0.18.8: the rider''s 4-digit PIN (instead of verifiedPinToken). The driver sends the PIN: POST
+              /trips/{tripId}/pin/verify { pin } → PinVerification { verifiedPinToken, expiresAt }, or directly { pin } in
+              the body of board or start. A trip with pinRequired cannot be boarded / started until the PIN was right once
+              (TripProjection.pinVerified true): board / start without it → 409 invalid_transition (reason pin_required).
+              Wrong PIN → 400 invalid_request (reason pin_wrong, details [''attemptsLeft=N'']); after maxAttempts wrong tries
+              in a row the trip is locked for lockMinutes → 429 rate_limited (reason pin_locked, retryAfterSeconds); the count
+              starts again after the lock or a right PIN. The tries are counted even though the command fails. The PIN is
+              checked only while the trip is arrived or driver_to_pickup.'
     CompleteCommand:
       allOf:
       - $ref: '#/components/schemas/TripCommand'
@@ -22183,7 +22386,8 @@ components:
         } with title and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing
         published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come
         back to the foreground (no stream event), and keep the last answer offline. reacceptFrom = the newest version published
-        with reaccept true (null when none was): the version a person must have accepted (or a later one).'
+        with reaccept true (null when none was): the version a person must have accepted (or a later one). v0.18.8: ?zoneId=
+        (optional) fills {waitingRules} with that zone''s live waiting, no-show and cancel numbers (contract.json#arrivedWaiting.termsTexts).'
       required:
       - country
       - version
@@ -23052,6 +23256,22 @@ components:
           type: integer
           minimum: 0
           description: how far the rider may move the pickup after booking (pickupMove)
+        waitingRules:
+          type: array
+          items:
+            type: string
+            enum:
+            - airport
+            - scheduled
+            - event
+            - far_pickup
+          description: 'v0.18.8: TripProjection.terms: from arrive, freeWaitMin, waitPerMin, noShowAfterMin and noShowFee
+            are the effective numbers and terms.waitingRules lists the applied rule ids; before arrive they are the category''s.
+            New terms.stopFreeWaitMin (free minutes at each middle stop, 0 = none).'
+        stopFreeWaitMin:
+          type: number
+          minimum: 0
+          description: 'v0.18.8: free minutes at each middle stop (0 = none).'
     TripEta:
       type: object
       description: 'v0.18.7 (Q4): Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every
@@ -23092,3 +23312,142 @@ components:
           description: 'osrm | estimate | stale (stale: the driver sent no position for more than 120 s, dispatch''s "gone"
             age; the previous ETA is kept with at = now, nothing new is routed; the apps show the last number and may say
             it is old)'
+    WaitingRuleOverride:
+      type: object
+      description: 'v0.18.8: DriverAppConfig.waiting (Admin › Dispatch › Waiting at pickup, per zone): farPickup { on, km,
+        freeWaitMin, perMin, noShowAfterMin, noShowFee }, rideTypes { scheduled | airport | event: { on, freeWaitMin, perMin,
+        noShowAfterMin, noShowFee, radiusMeters? (event), afterEndMin? (event) } } and stopFreeWaitMin (Admin › Zone › Stops
+        ''Free wait at each stop''). A null field keeps the value it would have without the rule. Money fields are Money in
+        the zone''s currency; a Money in another currency is ignored (the category value stays). rideTypes.scheduled.freeWaitMin
+        is the reservation policy''s included waiting (the admin publishes it there). The rider document gets the same fields
+        when served (GET /rider/config).'
+      properties:
+        'on':
+          type: boolean
+          description: The rule is used (default true).
+        freeWaitMin:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          description: null = keep.
+        perMin:
+          description: null = keep; Money in the zone's currency.
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        noShowAfterMin:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          description: null = follows freeWaitMin when this rule sets it, else keep.
+        noShowFee:
+          description: null = keep; Money in the zone's currency.
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+    FarPickupWaiting:
+      allOf:
+      - $ref: '#/components/schemas/WaitingRuleOverride'
+      - type: object
+        properties:
+          km:
+            type: number
+            minimum: 0
+            description: Pickups strictly farther than this (driver's distance at accept) get the rule (default 5).
+      description: 'v0.18.8: a live trip whose driver was more than farPickup.km away from the pickup when he accepted (Offer.pickupMeters
+        of the accepted offer, strictly more than km × 1000)'
+    EventWaiting:
+      allOf:
+      - $ref: '#/components/schemas/WaitingRuleOverride'
+      - type: object
+        properties:
+          radiusMeters:
+            type: integer
+            minimum: 0
+            description: 'Event without a polygon: pickups within this distance of its location (default 500).'
+          afterEndMin:
+            type: integer
+            minimum: 0
+            description: Minutes after endsAt the rule still applies (default 0).
+      description: 'v0.18.8: at arrive, an admin event (Dispatch › Events, the trip''s country) is on and running (startsAt
+        ≤ now ≤ endsAt + afterEndMin, default 0) and the pickup lies inside its polygon, or within radiusMeters (default 500)
+        of its location when it has none'
+    PickupPinSettings:
+      type: object
+      description: 'v0.18.8: DriverAppConfig.pickupPin { required: bool (default false), maxAttempts: int (default 5, 1–10),
+        lockMinutes: int (default 5, 1–60) } — Admin › Zone › Safety ''Rider PIN before Start'', per zone. Kept on the trip
+        at booking (Trip.pinRequired); a later switch never changes a booked trip. Default off: live 0.18.7 driver apps keep
+        working. Switch it on in a zone only once the driver app with the PIN step is live there; a driver app without it
+        cannot start a trip of that zone (409 pin_required).'
+      properties:
+        required:
+          type: boolean
+          description: Rider PIN before Start in this zone.
+          default: false
+        maxAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Wrong tries in a row before the lock.
+          default: 5
+        lockMinutes:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Lock after maxAttempts wrong tries.
+          default: 5
+    WaitingAlert:
+      type: object
+      description: 'v0.18.8: Island messages, no sound (owner decision 6). The server books two timers at arrive: at waiting.freeUntil
+        (paid_waiting_started) and at waiting.noShowAt (no_show_possible). When one fires while the trip is still arrived
+        with the same arrival, waiting.alerts gains { kind, at } and a trip_projection event goes out (no version change,
+        like a search step). Apps show each kind once per trip as a short island message without sound; they may also start
+        it from freeUntil / noShowAt themselves (the event is the server''s confirmation). A free wait of 0 min fires paid_waiting_started
+        at arrival.'
+      required:
+      - kind
+      - at
+      properties:
+        kind:
+          type: string
+          enum:
+          - paid_waiting_started
+          - no_show_possible
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    StartTripCommand:
+      allOf:
+      - $ref: '#/components/schemas/TripCommand'
+      - type: object
+        properties:
+          pin:
+            type: string
+            pattern: ^\d{4}$
+            writeOnly: true
+            description: 'v0.18.8: the rider''s 4-digit PIN when the trip needs one and it was not given yet.'
+          verifiedPinToken:
+            type: string
+            description: 'v0.18.8: the token from POST /trips/{tripId}/pin/verify.'
+    AdminReverseNoShowCommand:
+      type: object
+      description: 'v0.18.8: Admin › Trip › ''Reverse no-show'' (owner decision 3 + 34): POST /admin/trips/{tripId}/reverse-no-show
+        { expectedVersion, reason (1–1000 chars, required), takeBackDriverShare?: bool (default false) } — permission trips.manage,
+        audited trip.reverse_no_show. Only a trip with status no_show (else 409 invalid_transition, reason not_a_no_show).'
+      required:
+      - expectedVersion
+      - reason
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        takeBackDriverShare:
+          type: boolean
+          description: Take back the driver's share of the no-show fee (default false, owner decision 34).
+          default: false
