@@ -527,7 +527,11 @@ class _WalletHomeState extends State<WalletHome> {
               const SizedBox(height: 6),
               Center(
                 child: Text(
-                  context.l10n.addFundsToWallet,
+                  // Page audit round 2: no "top up" heading while top-up is
+                  // not available; the button below says why.
+                  _demoPayments
+                      ? context.l10n.addFundsToWallet
+                      : context.l10n.walletHeadingNoTopUp,
                   textAlign: TextAlign.center,
                   style: _style(15, weight: FontWeight.w700),
                 ),
@@ -535,7 +539,9 @@ class _WalletHomeState extends State<WalletHome> {
               const SizedBox(height: 4),
               Center(
                 child: Text(
-                  context.l10n.topUpForRides,
+                  _demoPayments
+                      ? context.l10n.topUpForRides
+                      : context.l10n.walletSubtitleNoTopUp,
                   textAlign: TextAlign.center,
                   style: _style(12, color: _muted),
                 ),
