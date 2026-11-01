@@ -786,7 +786,7 @@ void main() {
           find.byKey(const ValueKey<String>('ride-check-trip-entry')),
           findsOneWidget,
         );
-        expect(find.text('Ride check'), findsOneWidget);
+        expect(find.text('Trip check'), findsOneWidget);
         expect(find.text('${timeOf(record)} · Long stop'), findsOneWidget);
         expect(find.text("I'm OK"), findsOneWidget);
       },
@@ -805,7 +805,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Ride check'), findsNothing);
+      expect(find.text('Trip check'), findsNothing);
     });
 
     testWidgets('a completed ride in History shows its Ride check', (
@@ -846,7 +846,7 @@ void main() {
       await tester.tap(find.textContaining('Solna centrum').first);
       await tester.pumpAndSettle();
       expect(find.text('Completed ride'), findsOneWidget);
-      expect(find.text('Ride check'), findsOneWidget);
+      expect(find.text('Trip check'), findsOneWidget);
       expect(find.textContaining('Long stop'), findsOneWidget);
       expect(find.text("I'm OK"), findsOneWidget);
     });
@@ -911,8 +911,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Ride check'), 200);
-    expect(find.text('Ride check'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Trip check'), 200);
+    expect(find.text('Trip check'), findsOneWidget);
     expect(find.textContaining('Off the route'), findsOneWidget);
     expect(find.text('I asked for this route'), findsOneWidget);
   });

@@ -244,7 +244,7 @@ void main() {
       );
       // Its trip details carry the entry.
       await tester.scrollUntilVisible(
-        find.text('Ride check'),
+        find.text('Trip check'),
         200,
         scrollable: find
             .descendant(
@@ -253,7 +253,7 @@ void main() {
             )
             .first,
       );
-      expect(find.text('Ride check'), findsOneWidget);
+      expect(find.text('Trip check'), findsOneWidget);
       expect(find.text('I was left at the wrong place'), findsOneWidget);
     },
   );

@@ -36,7 +36,7 @@ class SupportController {
 
   /// The Support row for a History ride (also "Get help" in History).
   static SupportRide rideFor(Reservation ride) {
-    final to = ride.destination.label.trim();
+    final to = L10n.place(ride.destination.label.trim());
     final charged = ride.chargedFare;
     final currency = charged?.currency ?? ride.currency;
     final fee = ride.cancellationFee;

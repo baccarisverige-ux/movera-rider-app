@@ -248,7 +248,14 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Widget _currencyChips() {
-    final codes = [for (final zone in RiderZones.all) zone.currency];
+    // Audit 2026-11-01: one chip per currency (several French zones all
+    // pay in EUR: it showed "EUR EUR EUR SEK"), the shown one always in
+    // the list, and no chips at all when there is only one currency.
+    final codes = <String>{
+      for (final zone in RiderZones.all) zone.currency,
+      _currency,
+    }.toList();
+    if (codes.length < 2) return const SizedBox.shrink();
     return Wrap(
       spacing: 6,
       children: [

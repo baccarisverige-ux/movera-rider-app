@@ -69,6 +69,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'menuSavedPlaces': l.menuSavedPlaces,
   'menuSupport': l.menuSupport,
   'menuPromoBodyNone': l.menuPromoBodyNone,
+  'menuNoPromosNow': l.menuNoPromosNow,
   'menuPromoBody': l.menuPromoBody('<percent>', '<rides>', '<left>'),
   'menuYourPromos': l.menuYourPromos,
   'menuSafetyCheckup': l.menuSafetyCheckup,
@@ -1920,6 +1921,8 @@ class _Exhaustive implements AppLocalizations {
   String get menuSupport => '';
   @override
   String get menuPromoBodyNone => '';
+  @override
+  String get menuNoPromosNow => '';
   @override
   String menuPromoBody(String percent, String rides, String left) => '';
   @override
