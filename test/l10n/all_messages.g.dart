@@ -570,6 +570,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'demoTopUpNote': l.demoTopUpNote,
   'simulateTopUp': l.simulateTopUp,
   'addFundsToWallet': l.addFundsToWallet,
+  'walletHeadingNoTopUp': l.walletHeadingNoTopUp,
+  'walletSubtitleNoTopUp': l.walletSubtitleNoTopUp,
   'topUpForRides': l.topUpForRides,
   'walletLoadFailed': l.walletLoadFailed,
   'walletLoadFailedBody': l.walletLoadFailedBody,
@@ -2943,6 +2945,10 @@ class _Exhaustive implements AppLocalizations {
   String get simulateTopUp => '';
   @override
   String get addFundsToWallet => '';
+  @override
+  String get walletHeadingNoTopUp => '';
+  @override
+  String get walletSubtitleNoTopUp => '';
   @override
   String get topUpForRides => '';
   @override

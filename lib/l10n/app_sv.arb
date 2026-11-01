@@ -564,6 +564,8 @@
   "demoTopUpNote": "Demopåfyllning använder en simulerad betalning. Inget kort eller leverantör debiteras.",
   "simulateTopUp": "Simulera påfyllning",
   "addFundsToWallet": "Fyll på din plånbok",
+  "walletHeadingNoTopUp": "Din plånbok",
+  "walletSubtitleNoTopUp": "Ditt saldo visas här.",
   "topUpForRides": "Fyll på inför resor.",
   "walletLoadFailed": "Kunde inte ladda plånboken",
   "walletLoadFailedBody": "Ditt saldo kunde inte läsas. Försök igen.",

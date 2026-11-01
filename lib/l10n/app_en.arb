@@ -1181,6 +1181,8 @@
   "demoTopUpNote": "Demo top-up uses a simulated payment. No card or provider is charged.",
   "simulateTopUp": "Simulate top-up",
   "addFundsToWallet": "Add funds to your wallet",
+  "walletHeadingNoTopUp": "Your wallet",
+  "walletSubtitleNoTopUp": "Your balance is shown here.",
   "topUpForRides": "Top up for rides.",
   "walletLoadFailed": "Couldn’t load wallet",
   "walletLoadFailedBody": "Your balance couldn’t be read. Try again.",
