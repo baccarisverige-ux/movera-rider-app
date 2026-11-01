@@ -119,6 +119,30 @@ abstract final class RideProjection {
     return fee != null && fee.isPositive ? fee : null;
   }
 
+  /// G6 (contract v0.18.8 §34, round 1): a reversed no-show.
+  /// `cancellation.reversal` marks it; `feeStatus` stays `waived` and a
+  /// paid fee that went back to the wallet carries `refundedToWallet: true`
+  /// and `refundedAt` (the amount is the `fee`). A `refunded` status from
+  /// the first 0.18.8 draft is read the same. Anything else = no fee.
+  static ({bool reversed, Money? refunded}) noShowReversal(
+    Map<String, dynamic> ride,
+  ) {
+    final cancellation = ride['cancellation'];
+    if (cancellation is! Map || cancellation['reversal'] is! Map) {
+      return (reversed: false, refunded: null);
+    }
+    final refundedAt = cancellation['refundedAt'];
+    final refunded =
+        cancellation['refundedToWallet'] == true ||
+        cancellation['feeStatus'] == 'refunded' ||
+        (refundedAt is String && refundedAt.isNotEmpty);
+    final fee = Money.fromWire(cancellation['fee']);
+    return (
+      reversed: true,
+      refunded: refunded && fee != null && fee.isPositive ? fee : null,
+    );
+  }
+
   static RouteStop? _place(Map<String, dynamic> ride, String name) {
     final nested = ride[name];
     if (nested is Map) {

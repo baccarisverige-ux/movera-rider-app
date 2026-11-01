@@ -185,6 +185,8 @@ abstract final class OnDemandRideHistoryStore {
     bool endedEarly = false,
     Money? charged,
     Money? cancellationFee,
+    bool noShowReversed = false,
+    Money? refundedToWallet,
   }) {
     final rideId = snapshot.rideId?.trim();
     final reservationStatus = _reservationStatus(terminalStatus);
@@ -231,9 +233,14 @@ abstract final class OnDemandRideHistoryStore {
           _endedSearchReason(terminalStatus),
       endedEarly: endedEarly && terminalStatus == RideStatus.cancelledByRider,
       chargedFare: charged,
-      cancellationFee: cancellationFee != null && cancellationFee.isPositive
+      cancellationFee:
+          !noShowReversed &&
+              cancellationFee != null &&
+              cancellationFee.isPositive
           ? cancellationFee
           : null,
+      noShowReversed: noShowReversed,
+      refundedToWallet: noShowReversed ? refundedToWallet : null,
       paymentFailed: terminalStatus == RideStatus.paymentFailed,
     );
   }

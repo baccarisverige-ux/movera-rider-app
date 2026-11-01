@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/active_ride/presentation/trip_pin_card.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -22,13 +23,14 @@ Future<void> showDriverArrivedSheet(
   MatchedDriver? driver,
   Future<void> Function()? onWay,
   ValueChanged<Route<Object?>>? onRoute,
+  String? pin,
 }) {
   return MoveraSheet.show<void>(
     context: context,
     builder: (sheetContext) {
       final route = ModalRoute.of(sheetContext);
       if (route != null) onRoute?.call(route);
-      return DriverArrivedSheet(driver: driver, onWay: onWay);
+      return DriverArrivedSheet(driver: driver, onWay: onWay, pin: pin);
     },
   );
 }
@@ -47,9 +49,12 @@ void closeRouteByReference(Route<Object?>? route) {
 }
 
 class DriverArrivedSheet extends StatelessWidget {
-  const DriverArrivedSheet({super.key, this.driver, this.onWay});
+  const DriverArrivedSheet({super.key, this.driver, this.onWay, this.pin});
 
   final MatchedDriver? driver;
+
+  /// G6: the trip PIN to tell the driver (null = no PIN on this trip).
+  final String? pin;
   final Future<void> Function()? onWay;
 
   @override
@@ -133,6 +138,10 @@ class DriverArrivedSheet extends StatelessWidget {
                   ],
                 ),
               ),
+            ],
+            if (pin case final code?) ...[
+              const SizedBox(height: 16),
+              TripPinCard(pin: code),
             ],
             const SizedBox(height: 20),
             SizedBox(

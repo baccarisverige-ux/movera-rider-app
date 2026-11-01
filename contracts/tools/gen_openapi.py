@@ -2254,6 +2254,76 @@ PATHS["/admin/trips"]["get"]["description"] = PATHS["/admin/trips"]["get"].get("
 PATHS["/rider/profile"]["get"]["description"] = PATHS["/rider/profile"]["get"].get("description", "") + " v0.18.7 (Q3): " + PW["debtByCurrency"]["riderView"]
 
 
+
+# ---- v0.18.8 (driver group 6: arrived and waiting; contract.json#arrivedWaiting)
+AW = C["arrivedWaiting"]
+_AWR = AW["rules"]
+S["WaitingRuleOverride"] = obj(OrderedDict([
+    ("on", b("The rule is used (default true).")),
+    ("freeWaitMin", {"type": ["number", "null"], "minimum": 0, "description": "null = keep."}),
+    ("perMin", {"description": "null = keep; Money in the zone's currency.", **nullable("Money")}),
+    ("noShowAfterMin", {"type": ["number", "null"], "minimum": 0, "description": "null = follows freeWaitMin when this rule sets it, else keep."}),
+    ("noShowFee", {"description": "null = keep; Money in the zone's currency.", **nullable("Money")}),
+]), desc="v0.18.8: " + _AWR["source"])
+S["FarPickupWaiting"] = {"allOf": [ref("WaitingRuleOverride"), obj({"km": n("Pickups strictly farther than this (driver's distance at accept) get the rule (default 5).", minimum=0)})], "description": "v0.18.8: " + _AWR["match"]["far_pickup"]}
+S["EventWaiting"] = {"allOf": [ref("WaitingRuleOverride"), obj({"radiusMeters": i("Event without a polygon: pickups within this distance of its location (default 500).", minimum=0),
+                                                                 "afterEndMin": i("Minutes after endsAt the rule still applies (default 0).", minimum=0)})], "description": "v0.18.8: " + _AWR["match"]["event"]}
+S["DriverWaiting"]["allOf"].append(obj(OrderedDict([
+    ("farPickup", ref("FarPickupWaiting")),
+    ("rideTypes", obj({"scheduled": {"allOf": [ref("WaitingRuleOverride")], "description": "v0.18.8: " + _AWR["match"]["scheduled"] + "; freeWaitMin = the reservation policy's included waiting."},
+                       "airport": {"allOf": [ref("WaitingRuleOverride")], "description": "v0.18.8: " + _AWR["match"]["airport"]},
+                       "event": ref("EventWaiting")})),
+    ("stopFreeWaitMin", n("v0.18.8: " + _AWR["stops"], minimum=0)),
+]), desc="v0.18.8 (contract.json#arrivedWaiting.rules): " + _AWR["order"]))
+for _k in ("farPickup", "rideTypes", "stopFreeWaitMin"):
+    S["RiderWaiting"]["properties"][_k] = {"description": "v0.18.8: copied from the zone's driver document when served (GET /rider/config)."}
+S["PickupPinSettings"] = obj(OrderedDict([
+    ("required", {**b("Rider PIN before Start in this zone."), "default": False}),
+    ("maxAttempts", {**i("Wrong tries in a row before the lock.", minimum=1, maximum=10), "default": 5}),
+    ("lockMinutes", {**i("Lock after maxAttempts wrong tries.", minimum=1, maximum=60), "default": 5}),
+]), desc="v0.18.8: " + AW["pin"]["switch"] + " " + AW["pin"]["compat"])
+S["DriverAppConfig"]["properties"]["pickupPin"] = ref("PickupPinSettings")
+S["WaitingAlert"] = obj({"kind": s(enum=AW["alerts"]["kinds"]), "at": ref("Timestamp")}, ["kind", "at"], "v0.18.8: " + AW["alerts"]["note"])
+S["Waiting"]["properties"].update({
+    "rules": arr(s(enum=_AWR["ruleIds"]), description="v0.18.8: the applied waiting rules (set at arrive; [] = the category's own terms). " + _AWR["order"]),
+    "freeWaitMin": n("v0.18.8: the effective free waiting minutes (set at arrive).", minimum=0),
+    "perMin": {"allOf": [ref("Money")], "description": "v0.18.8: the effective waiting price per minute (set at arrive)."},
+    "noShowAfterMin": n("v0.18.8: the effective no-show minutes (set at arrive).", minimum=0),
+    "paidMinutes": i("v0.18.8: " + _AWR["projection"]["waiting"], minimum=0),
+    "alerts": arr(ref("WaitingAlert"), description="v0.18.8: island messages sent so far (contract.json#arrivedWaiting.alerts)."),
+})
+S["TripTerms"]["properties"]["waitingRules"] = arr(s(enum=_AWR["ruleIds"]), description="v0.18.8: " + _AWR["projection"]["terms"])
+S["TripTerms"]["properties"]["stopFreeWaitMin"] = n("v0.18.8: free minutes at each middle stop (0 = none).", minimum=0)
+S["Cancellation"]["properties"]["reversal"] = obj({"at": ref("Timestamp"), "by": ref("Id"), "reason": s(maxLength=1000), "driverShareTakenBack": b()}, ["at", "by", "reason", "driverShareTakenBack"],
+                                                   "v0.18.8 (admin view; rider and driver see it without reason and by): " + AW["reverseNoShow"]["effect"])
+S["Cancellation"]["properties"]["refundedAt"] = {"allOf": [ref("Timestamp")], "description": "v0.18.8: a reversed no-show whose fee was already paid: when it went back to the wallet (feeStatus stays waived)."}
+S["Cancellation"]["properties"]["refundedToWallet"] = b("v0.18.8: the paid fee went back to the rider's wallet (reverse no-show).")
+S["TripProjection"]["properties"]["pickupPin"] = s("v0.18.8: rider and admin views only. " + AW["pin"]["code"], pattern=r"^\d{4}$")
+S["TripProjection"]["properties"]["pinVerified"] = b("v0.18.8: the driver gave the right PIN (only with pinRequired).")
+S["TripProjection"]["properties"]["pinAttempts"] = i("v0.18.8: admin view only, wrong PIN tries in a row.", minimum=0)
+S["TripProjection"]["properties"]["pinBlocked"] = b("v0.18.8: admin view only, the PIN is blocked after 3 × maxAttempts wrong tries until an admin unlocks it.")
+S["PinVerification"]["properties"]["version"] = i("v0.18.8: the trip's version after the right PIN (version + 1).", minimum=1)
+S["BoardCommand"]["allOf"][1]["properties"]["verifiedPinToken"]["description"] = "Informative since v0.18.8: the verification is kept on the trip; send { pin } or verify first."
+S["BoardCommand"]["allOf"][1]["properties"]["verifiedPinToken"]["deprecated"] = True
+S["BoardCommand"]["allOf"][1]["properties"]["pin"] = s("v0.18.8: the rider's 4-digit PIN (instead of verifiedPinToken). " + AW["pin"]["check"], pattern=r"^\d{4}$", writeOnly=True)
+S["StartTripCommand"] = {"allOf": [ref("TripCommand"), obj({"pin": s("v0.18.8: the rider's 4-digit PIN when the trip needs one and it was not given yet.", pattern=r"^\d{4}$", writeOnly=True)})]}
+PATHS["/trips/{tripId}/start"]["post"]["requestBody"]["content"]["application/json"]["schema"] = ref("StartTripCommand")
+PATHS["/trips/{tripId}/pin/verify"]["post"]["description"] = "v0.18.8: " + AW["pin"]["check"]
+PATHS["/trips/{tripId}/pin"]["get"]["description"] = "v0.18.8: " + AW["pin"]["code"]
+PATHS["/trips/{tripId}/arrive"]["post"]["description"] += " v0.18.8: " + _AWR["appliedAt"]
+S["AdminReverseNoShowCommand"] = obj(dict(EV, reason=s(minLength=1, maxLength=1000), takeBackDriverShare={**b("Take back the driver's share of the no-show fee (default false, owner decision 34)."), "default": False}),
+                                     ["expectedVersion", "reason"], "v0.18.8: " + AW["reverseNoShow"]["note"])
+op("post", "/admin/trips/{tripId}/reverse-no-show", "adminReverseNoShow", "Reverse a no-show (reason required, driver share kept unless taken back)", ["admin"], "Admin · Trips",
+   params=TID, body="AdminReverseNoShowCommand", ok=(200, TP), mutation=True, permission="trips.intervene", permission_v050="trips.edit",
+   desc="v0.18.8: " + AW["reverseNoShow"]["note"] + " " + AW["reverseNoShow"]["effect"] + " " + AW["reverseNoShow"]["idempotent"])
+S["AdminPinUnlockCommand"] = obj(dict(EV, reason=s(minLength=1, maxLength=1000)), ["expectedVersion", "reason"], "v0.18.8: " + AW["pin"]["admin"])
+op("post", "/admin/trips/{tripId}/pin/unlock", "adminUnlockTripPin", "Unlock a blocked or locked rider PIN", ["admin"], "Admin · Trips",
+   params=TID, body="AdminPinUnlockCommand", ok=(200, TP), mutation=True, permission="trips.intervene", permission_v050="trips.edit", desc="v0.18.8: " + AW["pin"]["admin"])
+for _p in ["/trips/{tripId}/board", "/trips/{tripId}/start"]:
+    PATHS[_p]["post"]["description"] = PATHS[_p]["post"].get("description", "") + " v0.18.8: " + AW["pin"]["compat"]
+PATHS["/legal/{country}"]["get"].setdefault("parameters", []).append(q("zoneId", ref("Id"), "v0.18.8: fills {waitingRules} with this zone's live numbers (contract.json#arrivedWaiting.termsTexts)."))
+PATHS["/legal/{country}"]["get"]["description"] += " v0.18.8: " + AW["termsTexts"]["note"]
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

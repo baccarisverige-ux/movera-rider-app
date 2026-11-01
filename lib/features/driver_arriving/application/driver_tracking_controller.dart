@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 
 class DriverTrackingController {
   DriverTrackingController({
@@ -87,6 +88,122 @@ class DriverTrackingController {
   /// cancelled (the rider's own cancel, or a no-show), from the projection.
   RiderCancelOutcomeFee? cancellation;
 
+  /// v0.18.8 (`arrivedWaiting.pin`): the trip needs the rider PIN before
+  /// Start, the PIN itself (rider view only) and whether the driver has
+  /// entered it. The PIN shows while [showPin] is true.
+  bool pinRequired = false;
+  String? pickupPin;
+  bool pinVerified = false;
+
+  /// The PIN card shows from accept until the driver entered the code.
+  bool get showPin =>
+      pinRequired &&
+      !pinVerified &&
+      pickupPin != null &&
+      (status == RideStatus.driverAssigned ||
+          status == RideStatus.driverArriving ||
+          status == RideStatus.driverWaiting);
+
+  /// v0.18.8 (`arrivedWaiting.alerts`, owner decision 6): each waiting
+  /// alert kind shows once per arrival; the screen takes new ones here.
+  List<String> takeNewAlerts() {
+    final fresh = List<String>.of(_newAlerts);
+    _newAlerts.clear();
+    return fresh;
+  }
+
+  final Set<String> _alertsSeen = {};
+  final List<String> _newAlerts = [];
+
+  /// Kept on the device as `trip|arrivedAt|kind` so a message already shown
+  /// does not come back when the app is reopened during the same wait.
+  static const alertsSeenKey = 'movera_waiting_alerts_seen_v1';
+  static const _alertsKept = 40;
+  Set<String>? _persistedAlerts;
+  final List<String> _alertsBeforeLoad = [];
+  bool _alertsLoadStarted = false;
+
+  void _loadPersistedAlerts() {
+    if (_alertsLoadStarted) return;
+    _alertsLoadStarted = true;
+    unawaited(() async {
+      Set<String> kept = {};
+      try {
+        final prefs = await PreferencesStore.load();
+        kept = {...?prefs.getStringList(alertsSeenKey)};
+      } catch (_) {
+        kept = {};
+      }
+      _persistedAlerts = kept;
+      final waiting = List<String>.of(_alertsBeforeLoad);
+      _alertsBeforeLoad.clear();
+      var fresh = false;
+      for (final entry in waiting) {
+        fresh = _offerAlert(entry) || fresh;
+      }
+      if (fresh) onChange?.call();
+    }());
+  }
+
+  bool _offerAlert(String entry) {
+    final kept = _persistedAlerts;
+    if (kept == null) {
+      if (!_alertsBeforeLoad.contains(entry)) _alertsBeforeLoad.add(entry);
+      return false;
+    }
+    if (!_alertsSeen.add(entry) || kept.contains(entry)) return false;
+    kept.add(entry);
+    _newAlerts.add(entry.substring(entry.lastIndexOf('|') + 1));
+    final list = kept.toList();
+    final trimmed = list.length > _alertsKept
+        ? list.sublist(list.length - _alertsKept)
+        : list;
+    unawaited(() async {
+      try {
+        await (await PreferencesStore.load()).setStringList(
+          alertsSeenKey,
+          trimmed,
+        );
+      } catch (_) {
+        // Only a convenience: at worst the message shows once more.
+      }
+    }());
+    return true;
+  }
+
+  void _takeAlerts(RideRealtimeEvent event) {
+    if (event.status != RideStatus.driverWaiting) return;
+    final arrival = event.waitingArrivedAt?.toUtc().toIso8601String() ?? '';
+    for (final kind in event.waitingAlerts) {
+      _offerAlert('${event.tripId}|$arrival|$kind');
+    }
+  }
+
+  /// A new PIN (the trip changed driver) replaces the old one and is shown
+  /// again until that driver enters it; `pinVerified` follows every
+  /// projection (a `trip_projection` event after the driver's check).
+  void _takePin(RideRealtimeEvent event) {
+    pinRequired = event.pinRequired ?? pinRequired;
+    final pin = event.pickupPin;
+    if (pin != null && pin != pickupPin) {
+      pickupPin = pin;
+      pinVerified = false;
+    }
+    pinVerified = event.pinVerified ?? pinVerified;
+    if (event.status.isTerminal) clearPin();
+  }
+
+  /// The trip is over (404 `pin_trip_over`, or an end status): no PIN.
+  void clearPin() {
+    pickupPin = null;
+    pinRequired = false;
+  }
+
+  /// `GET /trips/{id}/pin` answered (same value as `pickupPin`).
+  void setFetchedPin(String pin) {
+    if (RegExp(r'^\d{4}$').hasMatch(pin)) pickupPin = pin;
+  }
+
   /// v0.18.7 (item 4): a pickup the server moved (a `pickup_moved` event,
   /// or a projection whose pickup differs from the one this screen shows).
   /// Waiting takes it once to re-draw the route and say so.
@@ -128,6 +245,8 @@ class DriverTrackingController {
     final cancellation = event.cancellation;
     if (cancellation != null) this.cancellation = cancellation;
     _takePickup(event);
+    _takePin(event);
+    _takeAlerts(event);
   }
 
   /// rider-u23: the driver who dropped the trip when the feed went straight
@@ -194,6 +313,9 @@ class DriverTrackingController {
   void _clearWaitingDeadlines() {
     waitingFreeUntil = null;
     waitingNoShowAt = null;
+    // A new arrival (another driver) may send its alerts again.
+    _alertsSeen.clear();
+    _newAlerts.clear();
   }
 
   void start({
@@ -214,6 +336,7 @@ class DriverTrackingController {
     // the screen fell back to "now" on every rebuild.
     if (status == RideStatus.driverWaiting) waitingSince ??= DateTime.now();
     this.onChange = onChange;
+    _loadPersistedAlerts();
     // rider-26: a restored matched ride tells the server feed what the
     // rider last saw, so a first poll that says `searching` is read as the
     // driver drop it is (and Waiting goes back to the search).

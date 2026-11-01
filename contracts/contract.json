@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.7",
+  "version": "0.18.8",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -2810,7 +2810,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2).",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting).",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
     "freeWaitMin": {
@@ -3467,7 +3467,13 @@
     "noFixMinutesBeforeOffline": 5,
     "raiseMaxFactor": 2,
     "offerCardRiderRating": true,
-    "cancelAfterArrivedIsNoShow": true
+    "cancelAfterArrivedIsNoShow": true,
+    "pickupPin": {
+      "required": false,
+      "maxAttempts": 5,
+      "lockMinutes": 5
+    },
+    "stopFreeWaitMin": 0
   },
   "realtime": {
     "envelope": [
@@ -3531,7 +3537,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -3543,7 +3549,7 @@
     "driverSharePctDefault": 100
   },
   "bookingSnapshot": {
-    "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them).",
+    "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them). v0.18.8: also the zone's waiting.farPickup / rideTypes (waitingRules), waiting.stopFreeWaitMin and pickupPin.required (Trip.pinRequired) of booking time (contract.json#arrivedWaiting).",
     "fields": [
       "pricing",
       "cancelRule",
@@ -3552,7 +3558,10 @@
       "noShowDriverSharePct",
       "waitDriverSharePct",
       "cancelAfterArrivedIsNoShow",
-      "maxPickupMoveMeters"
+      "maxPickupMoveMeters",
+      "waitingRules",
+      "stopFreeWaitMin",
+      "pinRequired"
     ]
   },
   "autoOffline": {
@@ -4716,7 +4725,7 @@
       "supportPhone"
     ],
     "company": "LegalCompany { companyName?, orgNumber?, address?, supportEmail?, supportPhone? }, filled by the admin. In the texts a placeholder {companyName} … is replaced by the admin's value; a paragraph whose placeholder has no value is left out, so nothing empty or made up is shown.",
-    "read": "GET /legal/{country} (no token, auth.beforeSignIn.allowed) → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, reacceptFrom, terms: LegalDocument { title, text } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come back to the foreground (no stream event), and keep the last answer offline. reacceptFrom = the newest version published with reaccept true (null when none was): the version a person must have accepted (or a later one).",
+    "read": "GET /legal/{country} (no token, auth.beforeSignIn.allowed) → LegalTexts { country, version, source: default | admin, publishedAt?, reaccept, reacceptFrom, terms: LegalDocument { title, text } , privacy: LegalDocument } with title and text in sv / fr / en and the placeholders already filled. version 0 = the built-in drafts (nothing published). Unknown country: 404 not_found (reason legal_country_unknown). Apps read it on start and when they come back to the foreground (no stream event), and keep the last answer offline. reacceptFrom = the newest version published with reaccept true (null when none was): the version a person must have accepted (or a later one). v0.18.8: ?zoneId= (optional) fills {waitingRules} with that zone's live waiting, no-show and cancel numbers (contract.json#arrivedWaiting.termsTexts).",
     "admin": "GET /admin/legal/{country} (settings.read) → LegalAdminView { live: LegalVersion (raw texts with placeholders and company), history: LegalVersion[] newest first }; POST /admin/legal/{country}/publish { terms: { title, text }, privacy: { title, text }, company?, reaccept? } (settings.publish, audited legal.publish) → LegalVersion with version + 1; every title and text needs sv, fr and en (text up to 20000 characters). An admin with a zone in that country, or a Super admin, may edit it.",
     "accept": "POST /account/legal/accept { country, version } (rider, driver) → 204; version must be the live one (409 conflict, reason terms_version_not_current). Who must accept: the newest version published with reaccept true (LegalTexts.reacceptFrom) is the one that counts; accepting it or any later version satisfies it (accepting v3 also satisfies v2), and a later publish without reaccept never unblocks a person who did not accept it. Until then the rider cannot book (POST /trips 409 conflict, reason terms_not_accepted) and the driver cannot go online (POST /driver/availability 409 invalid_transition, reason terms_not_accepted); a person counts for the countries of his zones (rider: the pickup zone; driver: his zones and his latest position's zone). Version 0 needs no accept (accepted at sign-up).",
     "apps": "Both apps show 'Terms' and 'Privacy' as two separate links on the sign-in screen and in the menu, read from GET /legal/{country} of the start country (auth.startCountry), else of the account's country. When reacceptFrom is not null and the person has not accepted a version >= reacceptFrom (it then accepts the live version), the next app start (never during a trip) shows the new terms with 'Jag godkänner' / 'J'accepte' / 'I accept'.",
@@ -4730,9 +4739,9 @@
             "en": "Terms of use"
           },
           "text": {
-            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan passagerare och förare med taxitrafiktillstånd i Sverige. Resan utförs av föraren och dess åkeri.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna som visas i appen. Betalning sker med de sätt som erbjuds i din zon.\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, taxiförarlegitimation, fordon med taxitrafiktillstånd och försäkring) och följa svensk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen. För själva resan gäller lagen om taxitrafik och åkeriets ansvar.\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Svensk lag gäller. Du kan vända dig till Allmänna reklamationsnämnden (ARN) som konsument.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
-            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs titulaires d’une autorisation de taxi en Suède. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte de chauffeur de taxi, véhicule autorisé et assuré) et respecter la loi suédoise.\n\n7. Responsabilité. Movera est responsable de la mise en relation. La course relève de la loi suédoise sur le taxi et de la société de transport.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit suédois s’applique. Les consommateurs peuvent saisir l’Allmänna reklamationsnämnden (ARN).\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
-            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with drivers who hold a taxi permit in Sweden. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, taxi driver licence, a permitted and insured car) and follow Swedish law.\n\n7. Liability. Movera is responsible for connecting you. The ride itself falls under the Swedish Taxi Act and the transport company.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. Swedish law applies. Consumers can turn to the National Board for Consumer Disputes (ARN).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan resenärer och förare med taxitrafiktillstånd i Sverige. Resan utförs av föraren och dess åkeri.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna som visas i appen. Betalning sker med de sätt som erbjuds i din zon.\n\n3.1 Väntetid vid upphämtning. När föraren har kommit fram är de första minuternas väntan gratis. Därefter läggs varje minuts väntan till priset, räknat per sekund. Väntepengarna går till föraren.\n\n3.2 Utebliven kund. Om du inte har kommit till bilen när den fria väntetiden är slut får föraren avsluta resan som utebliven kund och en avgift för utebliven kund tas ut. Avbokar du efter att föraren kommit fram och den fria väntetiden är slut räknas det som utebliven kund där områdets regler säger så.\n\n3.3 Avbokning. Du kan avboka gratis de första minuterna efter att en förare har accepterat (en bokad resa: fram till tiden som visas före upphämtningen). Därefter kan en avbokningsavgift tas ut, bara om föraren verkligen var på väg.\n\n3.4 Särskilda upphämtningar. Annan fri väntetid kan gälla på flygplatser, vid evenemang, för bokade resor och när föraren kommer långt ifrån; vid stopp under resan kan några fria minuter gälla innan väntan kostar. Resan visar vilka regler den följer, och det är de siffrorna den debiteras efter.\n\n3.5 Reglerna i ditt område just nu:\n{waitingRules}\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, taxiförarlegitimation, fordon med taxitrafiktillstånd och försäkring) och följa svensk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen. För själva resan gäller lagen om taxitrafik och åkeriets ansvar.\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Svensk lag gäller. Du kan vända dig till Allmänna reklamationsnämnden (ARN) som konsument.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs titulaires d’une autorisation de taxi en Suède. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Client absent. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de client absent sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course réservée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses réservées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte de chauffeur de taxi, véhicule autorisé et assuré) et respecter la loi suédoise.\n\n7. Responsabilité. Movera est responsable de la mise en relation. La course relève de la loi suédoise sur le taxi et de la société de transport.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit suédois s’applique. Les consommateurs peuvent saisir l’Allmänna reklamationsnämnden (ARN).\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with drivers who hold a taxi permit in Sweden. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n3.1 Waiting at pickup. When the driver has arrived, the first minutes of waiting are free. After that, every minute of waiting is added to the price, counted by the second. The waiting money goes to the driver.\n\n3.2 No-show. If you have not come to the car when the free waiting is over, the driver may end the ride as a no-show and a no-show fee is charged. Cancelling after the driver arrived and the free waiting is over counts as a no-show where the area’s rules say so.\n\n3.3 Cancelling. You can cancel for free during the first minutes after a driver accepted (a booked ride: until the time shown before pickup). After that a cancellation fee may be charged, only when the driver was really on the way.\n\n3.4 Special pickups. Other free waiting can apply at airports, at events, for booked rides and when the driver comes from far away; at stops on the way a few free minutes can apply before waiting is charged. The ride shows the rules it follows, and these are the numbers it is charged by.\n\n3.5 The rules in your area now:\n{waitingRules}\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, taxi driver licence, a permitted and insured car) and follow Swedish law.\n\n7. Liability. Movera is responsible for connecting you. The ride itself falls under the Swedish Taxi Act and the transport company.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. Swedish law applies. Consumers can turn to the National Board for Consumer Disputes (ARN).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
         },
         "privacy": {
@@ -4742,7 +4751,7 @@
             "en": "Privacy policy"
           },
           "text": {
-            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa lagen (bl.a. taxilagens krav på uppgifter om resor).\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan passagerare och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos Integritetsskyddsmyndigheten (IMY).\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa lagen (bl.a. taxilagens krav på uppgifter om resor).\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan resenärer och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos Integritetsskyddsmyndigheten (IMY).\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
             "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Données. Numéro de mobile, nom, e-mail, langue, position pendant la réservation et la course, courses, paiements, notes et messages au support. Pour les chauffeurs aussi documents et véhicule.\n\n2. Pourquoi. Mettre en relation et réaliser les courses, encaisser, garder le service sûr et respecter la loi (dont la loi suédoise sur le taxi).\n\n3. Partage. Le chauffeur voit votre prénom, le départ et la destination. Vous voyez le prénom du chauffeur, sa photo approuvée, sa voiture et sa plaque. Aucun numéro de téléphone n’est affiché.\n\n4. Messages. Les messages entre passager et chauffeur ne sont pas conservés dans les applications. Movera les garde 90 jours pour le support et la sécurité.\n\n5. Conservation. Les données sont stockées dans l’UE et supprimées quand elles ne sont plus nécessaires ou exigées par la loi.\n\n6. Vos droits. Accès, rectification, effacement et opposition. Vous pouvez saisir l’autorité suédoise IMY.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
             "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. What data. Mobile number, name, e-mail, language, location while booking and riding, rides, payments, ratings and messages to support. For drivers also documents and car.\n\n2. Why. To connect and carry out rides, take payment, keep the service safe and follow the law (including the Swedish Taxi Act's ride records).\n\n3. Sharing. The driver sees your first name, pickup and destination. You see the driver's first name, approved profile photo, car and plate. No phone numbers are shown.\n\n4. Chat. Messages between rider and driver are not kept in the apps. Movera keeps them 90 days for support and safety.\n\n5. Storage. Data is stored in the EU and deleted when no longer needed or required by law.\n\n6. Your rights. Access, correction, deletion and objection. You can complain to the Swedish Authority for Privacy Protection (IMY).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
@@ -4756,9 +4765,9 @@
             "en": "Terms of use"
           },
           "text": {
-            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan passagerare och VTC-förare i Frankrike. Resan utförs av föraren och dess företag.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna i appen.\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, VTC-kort, registrering i VTC-registret, fordon med försäkring och RC Pro) och följa fransk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen enligt fransk transportlag (Code des transports).\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Fransk lag gäller. Som konsument kan du vända dig till en konsumentmedlare.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
-            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs VTC en France. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte VTC, inscription au registre VTC, véhicule assuré et RC Pro) et respecter la loi française.\n\n7. Responsabilité. Movera est responsable de la mise en relation selon le Code des transports.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit français s’applique. Les consommateurs peuvent saisir gratuitement un médiateur de la consommation.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
-            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with VTC drivers in France. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, VTC card, VTC register entry, insured car and RC Pro) and follow French law.\n\n7. Liability. Movera is responsible for connecting you under the French Transport Code.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. French law applies. Consumers can turn to a consumer mediator free of charge.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan resenärer och VTC-förare i Frankrike. Resan utförs av föraren och dess företag.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna i appen.\n\n3.1 Väntetid vid upphämtning. När föraren har kommit fram är de första minuternas väntan gratis. Därefter läggs varje minuts väntan till priset, räknat per sekund. Väntepengarna går till föraren.\n\n3.2 Utebliven kund. Om du inte har kommit till bilen när den fria väntetiden är slut får föraren avsluta resan som utebliven kund och en avgift för utebliven kund tas ut. Avbokar du efter att föraren kommit fram och den fria väntetiden är slut räknas det som utebliven kund där områdets regler säger så.\n\n3.3 Avbokning. Du kan avboka gratis de första minuterna efter att en förare har accepterat (en bokad resa: fram till tiden som visas före upphämtningen). Därefter kan en avbokningsavgift tas ut, bara om föraren verkligen var på väg.\n\n3.4 Särskilda upphämtningar. Annan fri väntetid kan gälla på flygplatser, vid evenemang, för bokade resor och när föraren kommer långt ifrån; vid stopp under resan kan några fria minuter gälla innan väntan kostar. Resan visar vilka regler den följer, och det är de siffrorna den debiteras efter.\n\n3.5 Reglerna i ditt område just nu:\n{waitingRules}\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, VTC-kort, registrering i VTC-registret, fordon med försäkring och RC Pro) och följa fransk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen enligt fransk transportlag (Code des transports).\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Fransk lag gäller. Som konsument kan du vända dig till en konsumentmedlare.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs VTC en France. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Client absent. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de client absent sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course réservée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses réservées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte VTC, inscription au registre VTC, véhicule assuré et RC Pro) et respecter la loi française.\n\n7. Responsabilité. Movera est responsable de la mise en relation selon le Code des transports.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit français s’applique. Les consommateurs peuvent saisir gratuitement un médiateur de la consommation.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with VTC drivers in France. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n3.1 Waiting at pickup. When the driver has arrived, the first minutes of waiting are free. After that, every minute of waiting is added to the price, counted by the second. The waiting money goes to the driver.\n\n3.2 No-show. If you have not come to the car when the free waiting is over, the driver may end the ride as a no-show and a no-show fee is charged. Cancelling after the driver arrived and the free waiting is over counts as a no-show where the area’s rules say so.\n\n3.3 Cancelling. You can cancel for free during the first minutes after a driver accepted (a booked ride: until the time shown before pickup). After that a cancellation fee may be charged, only when the driver was really on the way.\n\n3.4 Special pickups. Other free waiting can apply at airports, at events, for booked rides and when the driver comes from far away; at stops on the way a few free minutes can apply before waiting is charged. The ride shows the rules it follows, and these are the numbers it is charged by.\n\n3.5 The rules in your area now:\n{waitingRules}\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, VTC card, VTC register entry, insured car and RC Pro) and follow French law.\n\n7. Liability. Movera is responsible for connecting you under the French Transport Code.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. French law applies. Consumers can turn to a consumer mediator free of charge.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
         },
         "privacy": {
@@ -4768,7 +4777,7 @@
             "en": "Privacy policy"
           },
           "text": {
-            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa fransk lag.\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan passagerare och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos CNIL.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
+            "sv": "Utkast – granskas av jurist före lansering.\n\n1. Vilka uppgifter. Mobilnummer, namn, e-post, språk, position under bokning och resa, resor, betalningar, betyg och meddelanden till support. För förare även dokument och fordon.\n\n2. Varför. För att förmedla och genomföra resor, ta betalt, hålla tjänsten säker och följa fransk lag.\n\n3. Delning. Föraren ser ditt förnamn, upphämtning och mål. Du ser förarens förnamn, godkända profilbild, bil och registreringsnummer. Inga telefonnummer visas.\n\n4. Chatt. Meddelanden mellan resenärer och förare sparas inte i apparna. Movera sparar dem i 90 dagar för support och säkerhet.\n\n5. Lagring. Uppgifterna lagras inom EU och raderas när de inte längre behövs eller lagen inte kräver dem.\n\n6. Dina rättigheter. Du kan begära utdrag, rättelse eller radering och invända mot behandling. Du kan klaga hos CNIL.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
             "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Données. Numéro de mobile, nom, e-mail, langue, position pendant la réservation et la course, courses, paiements, notes et messages au support. Pour les chauffeurs aussi documents et véhicule.\n\n2. Pourquoi. Mettre en relation et réaliser les courses, encaisser, garder le service sûr et respecter la loi française.\n\n3. Partage. Le chauffeur voit votre prénom, le départ et la destination. Vous voyez le prénom du chauffeur, sa photo approuvée, sa voiture et sa plaque. Aucun numéro de téléphone n’est affiché.\n\n4. Messages. Les messages entre passager et chauffeur ne sont pas conservés dans les applications. Movera les garde 90 jours pour le support et la sécurité.\n\n5. Conservation. Les données sont stockées dans l’UE et supprimées quand elles ne sont plus nécessaires ou exigées par la loi.\n\n6. Vos droits. Accès, rectification, effacement, opposition et portabilité. Vous pouvez saisir la CNIL.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
             "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. What data. Mobile number, name, e-mail, language, location while booking and riding, rides, payments, ratings and messages to support. For drivers also documents and car.\n\n2. Why. To connect and carry out rides, take payment, keep the service safe and follow French law.\n\n3. Sharing. The driver sees your first name, pickup and destination. You see the driver's first name, approved profile photo, car and plate. No phone numbers are shown.\n\n4. Chat. Messages between rider and driver are not kept in the apps. Movera keeps them 90 days for support and safety.\n\n5. Storage. Data is stored in the EU and deleted when no longer needed or required by law.\n\n6. Your rights. Access, correction, deletion, objection and portability. You can complain to the CNIL.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
@@ -5186,6 +5195,237 @@
       "Status item 9 (driver cancel reasons from the admin's list, sv/fr/en, built-in list as offline backup) — next contract.",
       "Status item 5 (destination change with a new price the rider confirms and a driver popup) — next contract; route changes answer route_change_not_available until then.",
       "Status item 3 (Google Maps / Waze choice in the driver app's settings) — app only, no server part."
+    ]
+  },
+  "arrivedWaiting": {
+    "note": "v0.18.8 (driver group 6 'Arrived and waiting'; owner decisions 1-6 of 2026-10-29, re-check 2026-11-01, Rules decisions/driver-g6.md; builds on v0.18.7 pickupWaiting; X-Api-Version stays 0.5, additive). Every waiting rule the admin sets is enforced by the server: far pickup, airport, event and scheduled-ride rules with their overrides, free wait at each stop; the server picks the matching rule at arrive and the trip carries the effective numbers (TripProjection.waiting + terms), so both apps show the server's numbers and the driver app's local rules go. Rider PIN before Start (per-zone admin switch, default off), admin Reverse no-show, the waiting / no-show / cancel rules in the Terms, island messages when paid waiting starts and when a no-show becomes possible. Sweden and France alike: every amount is in the trip's currency, from the zone's documents; nothing is hard-coded in an app.",
+    "rules": {
+      "source": "DriverAppConfig.waiting (Admin › Dispatch › Waiting at pickup, per zone): farPickup { on, km, freeWaitMin, perMin, noShowAfterMin, noShowFee }, rideTypes { scheduled | airport | event: { on, freeWaitMin, perMin, noShowAfterMin, noShowFee, radiusMeters? (event), afterEndMin? (event) } } and stopFreeWaitMin (Admin › Zone › Stops 'Free wait at each stop'). A null field keeps the value it would have without the rule. Money fields are Money in the zone's currency; a Money in another currency is ignored (the category value stays). rideTypes.scheduled.freeWaitMin is the reservation policy's included waiting (the admin publishes it there). The rider document gets the same fields when served (GET /rider/config).",
+      "base": "The category's waiting terms from Pricing (pricingDocument.categories[categoryId].waiting: freeWaitMin, perMin, noShowAfterMin, noShowFee), as in v0.18.7.",
+      "match": {
+        "airport": "the trip's pickup lies in an airport zone (the server's price extra pickupInAirportZone, set at booking)",
+        "scheduled": "Trip.kind is scheduled",
+        "event": "at arrive, an admin event (Dispatch › Events, the trip's country) is on and running (startsAt ≤ now ≤ endsAt + afterEndMin, default 0) and the pickup lies inside its polygon, or within radiusMeters (default 500) of its location when it has none",
+        "far_pickup": "a live trip whose driver was more than farPickup.km away from the pickup when he accepted (Offer.pickupMeters of the accepted offer, strictly more than km × 1000)"
+      },
+      "order": "One ride type at most, the first that matches and is on: airport, then scheduled, then event. Then far_pickup on top. A later rule wins where it sets a value. When a rule sets freeWaitMin but not noShowAfterMin, noShowAfterMin follows it (owner decision 5: the no-show time is the end of the free waiting). Finally noShowAfterMin is never below freeWaitMin.",
+      "ruleIds": [
+        "airport",
+        "scheduled",
+        "event",
+        "far_pickup"
+      ],
+      "appliedAt": "arrive: the server computes the effective terms once, when the driver arrives, and keeps them on the trip (waiting.rules, freeWaitMin, perMin, noShowAfterMin, noShowFee; freeUntil / noShowAt from them). The waiting charge (board), the no-show fee, a cancel that counts as a no-show and the running total all use these numbers.",
+      "snapshot": "POST /trips keeps the zone's farPickup, rideTypes and stopFreeWaitMin of booking time (contract.json#bookingSnapshot field waitingRules); a later publish never changes a booked trip. A trip booked before v0.18.8 has none: no extra rule, no free stop minutes (as before).",
+      "projection": {
+        "waiting": "TripProjection.waiting gains (from arrive) rules: string[] (the applied rule ids, [] = the category's own terms), freeWaitMin, perMin: Money, noShowAfterMin (the effective numbers), paidMinutes (whole minutes of paid waiting, rounded up: from chargedSeconds once boarded, from chargedSecondsNow while arrived; for the admin waiting box — money is still counted by the second) and alerts (see alerts).",
+        "terms": "TripProjection.terms: from arrive, freeWaitMin, waitPerMin, noShowAfterMin and noShowFee are the effective numbers and terms.waitingRules lists the applied rule ids; before arrive they are the category's. New terms.stopFreeWaitMin (free minutes at each middle stop, 0 = none)."
+      },
+      "stops": "Free wait at each stop (owner re-check 2026-11-01): DriverAppConfig.waiting.stopFreeWaitMin (default 0 = no free minutes, as v0.7.1). stop_waiting charges, per stop, only the seconds after the first stopFreeWaitMin minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin).",
+      "defaults": {
+        "note": "Used when the driver document lacks the field: the admin panel's own defaults (Dispatch › Waiting at pickup). Money defaults per currency; another currency: the category's fee.",
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "SEK": 8500,
+            "EUR": 810
+          }
+        },
+        "scheduled": {
+          "on": true,
+          "freeWaitMin": null,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": null
+        },
+        "airport": {
+          "on": true,
+          "freeWaitMin": 15,
+          "perMin": null,
+          "noShowAfterMin": 20,
+          "noShowFee": null
+        },
+        "event": {
+          "on": true,
+          "freeWaitMin": 3,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": null,
+          "radiusMeters": 500,
+          "afterEndMin": 0
+        },
+        "stopFreeWaitMin": 0
+      },
+      "texts": {
+        "airport": {
+          "sv": "Hämtning på flygplats",
+          "fr": "Prise en charge à l’aéroport",
+          "en": "Airport pickup"
+        },
+        "scheduled": {
+          "sv": "Bokad resa",
+          "fr": "Course réservée",
+          "en": "Booked ride"
+        },
+        "event": {
+          "sv": "Hämtning vid evenemang",
+          "fr": "Prise en charge à un événement",
+          "en": "Event pickup"
+        },
+        "far_pickup": {
+          "sv": "Upphämtning över {km} km bort",
+          "fr": "Prise en charge à plus de {km} km",
+          "en": "Pickup over {km} km away"
+        }
+      }
+    },
+    "pin": {
+      "switch": "DriverAppConfig.pickupPin { required: bool (default false), maxAttempts: int (default 5, 1–10), lockMinutes: int (default 5, 1–60) } — Admin › Zone › Safety 'Rider PIN before Start', per zone. Kept on the trip at booking (Trip.pinRequired); a later switch never changes a booked trip.",
+      "code": "With pinRequired the server makes a 4-digit PIN (0000–9999, random) when the trip is booked. The rider sees it: TripProjection.pickupPin (rider and admin views only; never the driver's, not on the driver's stream) and GET /trips/{tripId}/pin → PinCode { tripId, pin, expiresAt } (expiresAt = 24 h after booking or the booked time; once the trip is over 404 not_found, reason pin_trip_over). Without pinRequired: no pickupPin; GET /pin answers 404 not_found (reason pin_not_required).",
+      "check": "The driver sends the PIN: POST /trips/{tripId}/pin/verify { pin } → PinVerification { verifiedPinToken, expiresAt, version }, or directly { pin } in the body of board or start. Guesses are taken only while the trip is arrived (else 409 invalid_transition, reason pin_not_now). A trip with pinRequired cannot be boarded / started until the PIN was right once (TripProjection.pinVerified true): board / start without it → 409 invalid_transition (reason pin_required). A right PIN is its own change: version + 1 and a trip_projection event (the rider's pinVerified updates); with { pin } in board / start the step then goes on from that version (send the version you saw). Wrong PIN → 400 invalid_request (reason pin_wrong, details ['attemptsLeft=N']); after maxAttempts wrong tries in a row the trip is locked for lockMinutes → 429 rate_limited (reason pin_locked, retryAfterSeconds); after 3 × maxAttempts wrong tries in all the PIN is blocked → 429 rate_limited (reason pin_blocked, no retryAfterSeconds) until an admin unlocks it. Tries are counted although the command fails; the comparison is constant-time. verifiedPinToken is informative only (the verification is kept on the trip).",
+      "admin": "GET /admin/trips/{tripId} carries pickupPin, pinVerified, pinAttempts and pinBlocked (the admin can read the PIN to the driver on the phone). POST /admin/trips/{tripId}/pin/unlock { expectedVersion, reason } (trips.intervene, audited trip.pin_unlock) clears the lock, the block and the counts; the PIN stays.",
+      "compat": "Default off: live 0.18.7 driver apps keep working. Driver apps from 0.18.8 send the header X-Contract-Version (e.g. 0.18.8) on board / start; for a request without it, or with a lower version, the server skips the PIN check (and logs it), so an older app is never stuck. Admin warning: the switch only protects trips of drivers on the new app.",
+      "texts": {
+        "adminSwitch": {
+          "sv": "Resenärns PIN före Starta resa",
+          "fr": "Code PIN du passager avant Démarrer",
+          "en": "Rider PIN before Start"
+        },
+        "adminHelp": {
+          "sv": "Föraren måste skriva resenärens fyrsiffriga kod innan resan startar.",
+          "fr": "Le chauffeur doit saisir le code à 4 chiffres du passager avant de démarrer.",
+          "en": "The driver must enter the rider’s 4-digit code before the trip starts."
+        },
+        "driverAsk": {
+          "sv": "Fråga resenären efter den fyrsiffriga koden",
+          "fr": "Demandez au passager son code à 4 chiffres",
+          "en": "Ask the rider for the 4-digit code"
+        },
+        "driverWrong": {
+          "sv": "Fel kod. {left} försök kvar",
+          "fr": "Code incorrect. Encore {left} essais",
+          "en": "Wrong code. {left} tries left"
+        },
+        "driverLocked": {
+          "sv": "För många försök. Försök igen om {min} min",
+          "fr": "Trop d’essais. Réessayez dans {min} min",
+          "en": "Too many tries. Try again in {min} min"
+        },
+        "riderShow": {
+          "sv": "Din kod: {pin}. Säg den till föraren",
+          "fr": "Votre code : {pin}. Donnez-le au chauffeur",
+          "en": "Your code: {pin}. Tell it to the driver"
+        },
+        "driverBlocked": {
+          "sv": "För många fel koder. Ring Movera support",
+          "fr": "Trop de codes incorrects. Appelez le support Movera",
+          "en": "Too many wrong codes. Call Movera support"
+        },
+        "adminUnlock": {
+          "sv": "Lås upp PIN",
+          "fr": "Débloquer le code PIN",
+          "en": "Unlock PIN"
+        }
+      },
+      "driverChange": "When the trip leaves its driver (driver cancel before boarding, admin reassign, back to dispatch) the PIN state is cleared (verified, tries, lock, block) and a new PIN is made; the rider sees the new pickupPin."
+    },
+    "reverseNoShow": {
+      "note": "Admin › Trip › 'Reverse no-show' (owner decision 3 + 34): POST /admin/trips/{tripId}/reverse-no-show { expectedVersion, reason (1–1000 chars, required), takeBackDriverShare?: bool (default false) } — permission trips.manage, audited trip.reverse_no_show. Only a trip with status no_show (else 409 invalid_transition, reason not_a_no_show).",
+      "effect": "The status stays no_show (terminal statuses never change, §3) and the trip gets cancellation.reversal { at, by (adminId), reason, driverShareTakenBack }. The no-show fee goes: an owed fee is waived (feeStatus waived, Rider.outstanding recomputed); a fee already paid is refunded to the rider's wallet (wallet entry kind refund): feeStatus waived plus refundedAt and refundedToWallet true on cancellation (live 0.18.7 apps know only paid / owed / waived). The trip's fare becomes 0 (fareLines []). takeBackDriverShare false (default): the driver keeps his share (earnings unchanged, Movera pays it: commission = − share); true: an earnings adjustment of − share in the trip currency, earnings 0. A fee carried by a ride going on now → 409 conflict (reason fee_on_running_trip), as for a waive. The reversed no-show no longer counts in the rider's no-show count.",
+      "idempotent": "Again on a reversed trip: 200 with the trip as it is, nothing changes, no second audit row (the first reason stays).",
+      "texts": {
+        "action": {
+          "sv": "Ångra utebliven kund",
+          "fr": "Annuler le client absent",
+          "en": "Reverse no-show"
+        },
+        "reason": {
+          "sv": "Anledning (krävs)",
+          "fr": "Motif (obligatoire)",
+          "en": "Reason (required)"
+        },
+        "takeBack": {
+          "sv": "Ta tillbaka förarens andel",
+          "fr": "Reprendre la part du chauffeur",
+          "en": "Take back the driver’s share"
+        },
+        "done": {
+          "sv": "Utebliven kund ångrad",
+          "fr": "Client absent annulé",
+          "en": "No-show reversed"
+        }
+      }
+    },
+    "alerts": {
+      "note": "Island messages, no sound (owner decision 6). The server books two timers at arrive: at waiting.freeUntil (paid_waiting_started) and at waiting.noShowAt (no_show_possible). When one fires while the trip is still arrived with the same arrival, waiting.alerts gains { kind, at } and a trip_projection event goes out (no version change, like a search step). Apps show each kind once per trip as a short island message without sound; they may also start it from freeUntil / noShowAt themselves (the event is the server's confirmation). A free wait of 0 min fires paid_waiting_started at arrival.",
+      "kinds": [
+        "paid_waiting_started",
+        "no_show_possible"
+      ],
+      "texts": {
+        "driverPaid": {
+          "sv": "Betald väntetid har börjat",
+          "fr": "L’attente payante a commencé",
+          "en": "Paid waiting has started"
+        },
+        "driverNoShow": {
+          "sv": "Du kan nu markera utebliven kund",
+          "fr": "Vous pouvez maintenant signaler un client absent",
+          "en": "You can now mark a no-show"
+        },
+        "riderPaid": {
+          "sv": "Den fria väntetiden är slut",
+          "fr": "L’attente gratuite est terminée",
+          "en": "The free waiting is over"
+        },
+        "riderNoShow": {
+          "sv": "Föraren kan nu avsluta resan som utebliven",
+          "fr": "Le chauffeur peut maintenant clôturer la course pour absence",
+          "en": "The driver may now end the ride as a no-show"
+        }
+      }
+    },
+    "termsTexts": {
+      "note": "The Terms (contract.json#legal.defaults SE / FR, terms, sv / fr / en) state the waiting, no-show and cancel rules (owner decision 4) in paragraphs 3.1–3.5. Paragraph 3.5 holds the placeholder {waitingRules}: GET /legal/{country}?zoneId= fills it with the zone's live numbers, one line per category of the zone's pricing and one per extra rule that is on, in the text's language and the zone's currency (templates below); without zoneId (or a zone of another country) the paragraph is left out like any paragraph with an empty placeholder. An admin who publishes own texts keeps {waitingRules} where the numbers should go.",
+      "placeholder": "waitingRules",
+      "money": "sv / fr: '12,26 kr', '0,50 €'; en: '12.26 kr', '€0.50' (two decimals; whole amounts without decimals: '65 kr', '8 €').",
+      "lines": {
+        "category": {
+          "sv": "{category}: fri väntetid {free} min, därefter {perMin} per minut; utebliven kund efter {noShowAfter} min, avgift {noShowFee}.",
+          "fr": "{category} : attente gratuite {free} min, puis {perMin} par minute ; client absent après {noShowAfter} min, frais {noShowFee}.",
+          "en": "{category}: free waiting {free} min, then {perMin} per minute; no-show after {noShowAfter} min, fee {noShowFee}."
+        },
+        "cancelFixed": {
+          "sv": "{category}: avbokning efter {freeMin} min kostar {fee}.",
+          "fr": "{category} : annulation après {freeMin} min : {fee}.",
+          "en": "{category}: cancelling after {freeMin} min costs {fee}."
+        },
+        "cancelPercent": {
+          "sv": "{category}: avbokning efter {freeMin} min kostar {pct} % av priset.",
+          "fr": "{category} : annulation après {freeMin} min : {pct} % du prix.",
+          "en": "{category}: cancelling after {freeMin} min costs {pct} % of the price."
+        },
+        "rule": {
+          "sv": "{rule}: fri väntetid {free} min; utebliven kund efter {noShowAfter} min, avgift {noShowFee}.",
+          "fr": "{rule} : attente gratuite {free} min ; client absent après {noShowAfter} min, frais {noShowFee}.",
+          "en": "{rule}: free waiting {free} min; no-show after {noShowAfter} min, fee {noShowFee}."
+        },
+        "stops": {
+          "sv": "Vid varje stopp: {free} min fritt, därefter {perMin} per minut.",
+          "fr": "À chaque arrêt : {free} min gratuites, puis {perMin} par minute.",
+          "en": "At each stop: {free} min free, then {perMin} per minute."
+        }
+      },
+      "ruleLinesUse": "rule lines use the headline category (economy, else the first) with the rule applied; the far_pickup label fills {km}."
+    },
+    "next": [
+      "Driver app: PIN step, island messages, waiting box from waiting.rules / terms, delete lib/core/ride/waiting_rules.dart local rules (app job).",
+      "Rider app: show pickupPin, Terms link with zoneId, island messages (app job).",
+      "Admin: Reverse no-show dialog, pickupPin switch per zone, publish stopFreeWaitMin, trips list waiting minutes (admin job)."
     ]
   }
 }

@@ -1556,5 +1556,10 @@
   "accountOutstandingFees": "Frais impayés",
   "outstandingInCurrency": "{amount} – prélevé sur votre prochaine course payée en {currency}",
   "waitingTimeOverFree": "Attente de {time} après les {minutes} min gratuites",
-  "waitingChargedAfterFree": "Le temps d’attente est facturé après les minutes gratuites"
+  "waitingChargedAfterFree": "Le temps d’attente est facturé après les minutes gratuites",
+  "tripPinTellDriver": "Donnez ce code à votre chauffeur",
+  "waitingAlertPaid": "L’attente gratuite est terminée",
+  "waitingAlertNoShow": "Le chauffeur peut maintenant clôturer la course pour absence",
+  "noShowReversedNoFee": "Absence annulée · aucuns frais",
+  "refundedToWallet": "Remboursé sur votre portefeuille {amount}"
 }

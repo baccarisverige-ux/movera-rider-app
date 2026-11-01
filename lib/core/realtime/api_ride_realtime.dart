@@ -625,6 +625,12 @@ class ApiRideRealtime implements RideRealtime {
           if (ride['cancellation'] is Map)
             cancellationKey: ride['cancellation'],
           if (ride['pickup'] is Map) pickupKey: ride['pickup'],
+          // v0.18.8: rider PIN and waiting island messages.
+          if (ride['pinRequired'] is bool) pinRequiredKey: ride['pinRequired'],
+          if (ride['pickupPin'] is String) pickupPinKey: ride['pickupPin'],
+          if (ride['pinVerified'] is bool) pinVerifiedKey: ride['pinVerified'],
+          if (_waitingField(ride, 'alerts') case final List alerts)
+            waitingAlertsKey: alerts,
           if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },

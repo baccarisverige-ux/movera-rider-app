@@ -37,6 +37,17 @@ const String waitingChargedSecondsNowKey = 'waitingChargedSecondsNow';
 const String cancellationKey = 'cancellation';
 const String pickupKey = 'pickup';
 
+/// v0.18.8 (`arrivedWaiting`): the rider PIN (`pinRequired`, `pickupPin`,
+/// `pinVerified`) and the waiting island messages (`waiting.alerts`).
+const String pinRequiredKey = 'pinRequired';
+const String pickupPinKey = 'pickupPin';
+const String pinVerifiedKey = 'pinVerified';
+const String waitingAlertsKey = 'waitingAlerts';
+
+/// `arrivedWaiting.alerts.kinds`.
+const String alertPaidWaitingStarted = 'paid_waiting_started';
+const String alertNoShowPossible = 'no_show_possible';
+
 class RideRealtimeEvent {
   RideRealtimeEvent({
     String? rideId,
@@ -143,6 +154,38 @@ class RideRealtimeEvent {
       RiderCancelOutcomeFee.fromProjection({
         'cancellation': payload[cancellationKey],
       });
+
+  /// v0.18.8: whether this trip needs the rider PIN before Start; null when
+  /// the projection does not say.
+  bool? get pinRequired {
+    final raw = payload[pinRequiredKey];
+    return raw is bool ? raw : null;
+  }
+
+  /// v0.18.8: the 4-digit rider PIN (rider view only), when carried.
+  String? get pickupPin {
+    final raw = payload[pickupPinKey];
+    return raw is String && RegExp(r'^\d{4}$').hasMatch(raw) ? raw : null;
+  }
+
+  /// v0.18.8: the driver entered the right PIN; null when not said.
+  bool? get pinVerified {
+    final raw = payload[pinVerifiedKey];
+    return raw is bool ? raw : null;
+  }
+
+  /// v0.18.8: the kinds in `waiting.alerts` (known kinds only).
+  Set<String> get waitingAlerts {
+    final raw = payload[waitingAlertsKey];
+    if (raw is! List) return const {};
+    return {
+      for (final alert in raw)
+        if (alert is Map &&
+            (alert['kind'] == alertPaidWaitingStarted ||
+                alert['kind'] == alertNoShowPossible))
+          alert['kind'] as String,
+    };
+  }
 
   /// v0.18.7 (item 4): the projection's pickup (address and point), when
   /// the event carries it (a `pickup_moved` event always does).

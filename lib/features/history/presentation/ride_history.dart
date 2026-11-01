@@ -545,7 +545,25 @@ class _RideHistoryState extends State<RideHistory> {
                 style: _text(13.5, color: _muted),
               ),
             ],
-            if (ride.cancellationFee case final fee? when fee.isPositive) ...[
+            if (ride.noShowReversed) ...[
+              const SizedBox(height: 5),
+              Text(
+                context.l10n.noShowReversedNoFee,
+                key: const ValueKey('history-no-show-reversed'),
+                style: _text(13.5, color: _muted),
+              ),
+              if (ride.refundedToWallet case final refund?) ...[
+                const SizedBox(height: 5),
+                Text(
+                  context.l10n.refundedToWallet(
+                    ReservationFormat.money(refund),
+                  ),
+                  style: _text(13.5, color: _muted),
+                ),
+              ],
+            ],
+            if (ride.cancellationFee case final fee?
+                when fee.isPositive && !ride.noShowReversed) ...[
               const SizedBox(height: 5),
               Text(
                 context.l10n.cancelFee(ReservationFormat.money(fee)),

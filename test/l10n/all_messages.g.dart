@@ -1563,6 +1563,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'outstandingInCurrency': l.outstandingInCurrency('<amount>', '<currency>'),
   'waitingTimeOverFree': l.waitingTimeOverFree('<time>', '<minutes>'),
   'waitingChargedAfterFree': l.waitingChargedAfterFree,
+  'tripPinTellDriver': l.tripPinTellDriver,
+  'waitingAlertPaid': l.waitingAlertPaid,
+  'waitingAlertNoShow': l.waitingAlertNoShow,
+  'noShowReversedNoFee': l.noShowReversedNoFee,
+  'refundedToWallet': l.refundedToWallet('<amount>'),
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1763,6 +1768,7 @@ const messagePlaceholders = <String, List<String>>{
   'cancelledNoShowFee': ['amount'],
   'outstandingInCurrency': ['amount', 'currency'],
   'waitingTimeOverFree': ['time', 'minutes'],
+  'refundedToWallet': ['amount'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4902,4 +4908,14 @@ class _Exhaustive implements AppLocalizations {
   String waitingTimeOverFree(String time, String minutes) => '';
   @override
   String get waitingChargedAfterFree => '';
+  @override
+  String get tripPinTellDriver => '';
+  @override
+  String get waitingAlertPaid => '';
+  @override
+  String get waitingAlertNoShow => '';
+  @override
+  String get noShowReversedNoFee => '';
+  @override
+  String refundedToWallet(String amount) => '';
 }

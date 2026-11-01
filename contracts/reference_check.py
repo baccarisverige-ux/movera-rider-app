@@ -592,4 +592,65 @@ if 'pickup_moved' not in c['realtime']['kinds'] or 'pickup_moved' in c['realtime
 if _pw['eta']['everySeconds'] != 30 or _pw['follow']['pollSeconds'] < _pw['follow']['minPollSeconds'] or _pw['follow']['minPollSeconds'] <= 2: bad += 1; print('ETA / FOLLOW seconds')
 if not {'cancelAfterArrivedIsNoShow', 'maxPickupMoveMeters'} <= set(c['bookingSnapshot']['fields']): bad += 1; print('SNAPSHOT fields v0.18.7')
 
+# v0.18.8 (CONTRACT.md §34, contract.json#arrivedWaiting): the effective waiting rule at arrive, free wait at stops, PIN tries, reverse no-show, terms money.
+_aw = c['arrivedWaiting']
+_awf = json.load(open('fixtures/arrived_waiting.json'))
+for _p, _t in _texts(_aw):
+    if any(not _t[l].strip() for l in ('sv', 'fr', 'en')): bad += 1; print('EMPTY TEXT', _p)
+def effective_wait(base, rules, trip, currency):
+    eff = dict(base); applied = []
+    def apply(rule, rid):
+        applied.append(rid)
+        for k in ('freeWaitMin', 'noShowAfterMin'):
+            if rule.get(k) is not None: eff[k] = rule[k]
+        for k in ('perMin', 'noShowFee'):
+            if rule.get(k) is not None and rule[k]['currency'] == currency: eff[k] = rule[k]
+        if rule.get('freeWaitMin') is not None and rule.get('noShowAfterMin') is None: eff['noShowAfterMin'] = rule['freeWaitMin']
+    rt = rules['rideTypes']
+    kind = 'airport' if trip['pickupInAirportZone'] and rt['airport']['on'] else 'scheduled' if trip['kind'] == 'scheduled' and rt['scheduled']['on'] else 'event' if trip['inEvent'] and rt['event']['on'] else None
+    if kind: apply(rt[kind], kind)
+    far = rules['farPickup']
+    if far['on'] and trip['kind'] == 'live' and trip['acceptPickupMeters'] is not None and trip['acceptPickupMeters'] > far['km'] * 1000: apply(far, 'far_pickup')
+    eff['noShowAfterMin'] = max(eff['noShowAfterMin'], eff['freeWaitMin'])
+    return dict(eff, rules=applied)
+for case in _awf['ruleSelection']:
+    if effective_wait(case['base'], case['rules'], case['trip'], case['currency']) != case['expect']: bad += 1; print('WAIT RULE', case['id'], effective_wait(case['base'], case['rules'], case['trip'], case['currency']))
+for case in _awf['stopFree']:
+    if [max(0, s - case['stopFreeWaitMin'] * 60) for s in case['waitedSeconds']] != case['charged']: bad += 1; print('STOP FREE', case['id'])
+def pin_tries(case):
+    # lockBetween: the lock time passes after each lock (the count restarts); 3 x maxAttempts wrong in all block for good.
+    out, wrong, total, locked, blocked = [], 0, 0, False, False
+    for t in case['tries']:
+        if blocked: out.append('pin_blocked'); continue
+        if locked and not case.get('lockBetween'): out.append('pin_locked'); continue
+        locked = False
+        if t == case['pin']: out.append('ok'); wrong = 0; continue
+        wrong += 1; total += 1
+        if total >= 3 * case['maxAttempts']: blocked = True; out.append('pin_blocked'); continue
+        if wrong >= case['maxAttempts']: locked = True; wrong = 0; out.append('pin_locked'); continue
+        out.append(f"pin_wrong:{case['maxAttempts'] - wrong}")
+    return out
+for case in _awf['pinAttempts']:
+    if pin_tries(case) != case['expect']: bad += 1; print('PIN TRIES', case['id'], pin_tries(case))
+def reverse(case):
+    fee = case['fee']; share = (fee['amountMinor'] * case['sharePct'] * 2 + 100) // 200 if fee else 0
+    status = 'waived' if fee and case['feeStatus'] in ('owed', 'paid') else None
+    return {'feeStatus': status, 'fare': 0, 'driverEarnings': 0 if case['takeBack'] else share, 'adjustment': -share if case['takeBack'] else 0, 'walletRefund': fee['amountMinor'] if fee and case['feeStatus'] == 'paid' else 0}
+for case in _awf['reverseNoShow']:
+    if reverse(case) != case['expect']: bad += 1; print('REVERSE NO-SHOW', case['id'], reverse(case))
+def terms_money(m, lang):
+    v = m['amountMinor']; whole = v % 100 == 0
+    num = str(v // 100) if whole else f"{v // 100}.{v % 100:02d}"
+    if lang != 'en': num = num.replace('.', ',')
+    if m['currency'] == 'SEK': return f"{num} kr"
+    return f"{num} €" if lang != 'en' else f"€{num}"
+for case in _awf['termsMoney']:
+    if terms_money(case['amount'], case['lang']) != case['text']: bad += 1; print('TERMS MONEY', case)
+for _cty in ('SE', 'FR'):
+    for _l in ('sv', 'fr', 'en'):
+        if '{waitingRules}' not in c['legal']['defaults'][_cty]['terms']['text'][_l]: bad += 1; print('TERMS waitingRules', _cty, _l)
+if not (c['configDefaults']['pickupPin'] == {'required': False, 'maxAttempts': 5, 'lockMinutes': 5} == dcfg['pickupPin']): bad += 1; print('PIN defaults')
+if not (c['configDefaults']['stopFreeWaitMin'] == _aw['rules']['defaults']['stopFreeWaitMin'] == dcfg['waiting']['stopFreeWaitMin'] == 0): bad += 1; print('STOP FREE default')
+if not {'waitingRules', 'stopFreeWaitMin', 'pinRequired'} <= set(c['bookingSnapshot']['fields']): bad += 1; print('SNAPSHOT fields v0.18.8')
+
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

@@ -1,0 +1,1457 @@
+{
+  "note": "v0.18.8 driver group 6 (CONTRACT.md §34, contract.json#arrivedWaiting): effective waiting rule at arrive, free wait at stops, PIN tries, reverse no-show, terms money format. Sweden (SEK) and France (EUR).",
+  "ruleSelection": [
+    {
+      "id": "se-base",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [],
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-far",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 5600
+      },
+      "expect": {
+        "rules": [
+          "far_pickup"
+        ],
+        "freeWaitMin": 1,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 1,
+        "noShowFee": {
+          "amountMinor": 8500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-far-exactly-5km-not-far",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 5000
+      },
+      "expect": {
+        "rules": [],
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-airport",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": true,
+        "inEvent": false,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "airport"
+        ],
+        "freeWaitMin": 15,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 20,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-event",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "event"
+        ],
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 3,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-scheduled",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "scheduled",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 30000
+      },
+      "expect": {
+        "rules": [
+          "scheduled"
+        ],
+        "freeWaitMin": 10,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 10,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-airport-before-event",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": true,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "airport"
+        ],
+        "freeWaitMin": 15,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 20,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-airport-off-event",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": false,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": true,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "event"
+        ],
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 3,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-airport-and-far",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": true,
+        "inEvent": false,
+        "acceptPickupMeters": 8000
+      },
+      "expect": {
+        "rules": [
+          "airport",
+          "far_pickup"
+        ],
+        "freeWaitMin": 1,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 1,
+        "noShowFee": {
+          "amountMinor": 8500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-override-perMin",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": {
+              "amountMinor": 2000,
+              "currency": "SEK"
+            },
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "event"
+        ],
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 2000,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 3,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-wrong-currency-ignored",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": {
+              "amountMinor": 90,
+              "currency": "EUR"
+            },
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "event"
+        ],
+        "freeWaitMin": 3,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 3,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-noShow-not-below-free",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 8,
+            "perMin": null,
+            "noShowAfterMin": 2,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": true,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "event"
+        ],
+        "freeWaitMin": 8,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 8,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-far-off",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": false,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 9000
+      },
+      "expect": {
+        "rules": [],
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se-scheduled-not-far",
+      "currency": "SEK",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 8500,
+            "currency": "SEK"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "scheduled",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 9000
+      },
+      "expect": {
+        "rules": [
+          "scheduled"
+        ],
+        "freeWaitMin": 10,
+        "perMin": {
+          "amountMinor": 1226,
+          "currency": "SEK"
+        },
+        "noShowAfterMin": 10,
+        "noShowFee": {
+          "amountMinor": 6500,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "fr-base",
+      "currency": "EUR",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 650,
+          "currency": "EUR"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 810,
+            "currency": "EUR"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [],
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 650,
+          "currency": "EUR"
+        }
+      }
+    },
+    {
+      "id": "fr-far",
+      "currency": "EUR",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 650,
+          "currency": "EUR"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 810,
+            "currency": "EUR"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": false,
+        "inEvent": false,
+        "acceptPickupMeters": 7000
+      },
+      "expect": {
+        "rules": [
+          "far_pickup"
+        ],
+        "freeWaitMin": 1,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 1,
+        "noShowFee": {
+          "amountMinor": 810,
+          "currency": "EUR"
+        }
+      }
+    },
+    {
+      "id": "fr-airport",
+      "currency": "EUR",
+      "base": {
+        "freeWaitMin": 5,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 5,
+        "noShowFee": {
+          "amountMinor": 650,
+          "currency": "EUR"
+        }
+      },
+      "rules": {
+        "farPickup": {
+          "on": true,
+          "km": 5,
+          "freeWaitMin": 1,
+          "perMin": null,
+          "noShowAfterMin": null,
+          "noShowFee": {
+            "amountMinor": 810,
+            "currency": "EUR"
+          }
+        },
+        "rideTypes": {
+          "scheduled": {
+            "on": true,
+            "freeWaitMin": 10,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          },
+          "airport": {
+            "on": true,
+            "freeWaitMin": 15,
+            "perMin": null,
+            "noShowAfterMin": 20,
+            "noShowFee": null
+          },
+          "event": {
+            "on": true,
+            "freeWaitMin": 3,
+            "perMin": null,
+            "noShowAfterMin": null,
+            "noShowFee": null
+          }
+        }
+      },
+      "trip": {
+        "kind": "live",
+        "pickupInAirportZone": true,
+        "inEvent": false,
+        "acceptPickupMeters": 1200
+      },
+      "expect": {
+        "rules": [
+          "airport"
+        ],
+        "freeWaitMin": 15,
+        "perMin": {
+          "amountMinor": 50,
+          "currency": "EUR"
+        },
+        "noShowAfterMin": 20,
+        "noShowFee": {
+          "amountMinor": 650,
+          "currency": "EUR"
+        }
+      }
+    }
+  ],
+  "stopFree": [
+    {
+      "id": "no-free",
+      "stopFreeWaitMin": 0,
+      "waitedSeconds": [
+        400,
+        0
+      ],
+      "charged": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "three-free",
+      "stopFreeWaitMin": 3,
+      "waitedSeconds": [
+        400,
+        120,
+        180
+      ],
+      "charged": [
+        220,
+        0,
+        0
+      ]
+    }
+  ],
+  "pinAttempts": [
+    {
+      "id": "right-first",
+      "maxAttempts": 5,
+      "tries": [
+        "1234"
+      ],
+      "pin": "1234",
+      "expect": [
+        "ok"
+      ]
+    },
+    {
+      "id": "wrong-then-right",
+      "maxAttempts": 5,
+      "tries": [
+        "0000",
+        "1234"
+      ],
+      "pin": "1234",
+      "expect": [
+        "pin_wrong:4",
+        "ok"
+      ]
+    },
+    {
+      "id": "locked",
+      "maxAttempts": 3,
+      "tries": [
+        "0001",
+        "0002",
+        "0003",
+        "1234"
+      ],
+      "pin": "1234",
+      "expect": [
+        "pin_wrong:2",
+        "pin_wrong:1",
+        "pin_locked",
+        "pin_locked"
+      ]
+    },
+    {
+      "id": "blocked-after-3x",
+      "maxAttempts": 2,
+      "lockBetween": true,
+      "tries": [
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "0000",
+        "1234"
+      ],
+      "pin": "1234",
+      "expect": [
+        "pin_wrong:1",
+        "pin_locked",
+        "pin_wrong:1",
+        "pin_locked",
+        "pin_wrong:1",
+        "pin_blocked",
+        "pin_blocked"
+      ]
+    }
+  ],
+  "reverseNoShow": [
+    {
+      "id": "owed-keep-share",
+      "feeStatus": "owed",
+      "fee": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "sharePct": 80,
+      "takeBack": false,
+      "expect": {
+        "feeStatus": "waived",
+        "fare": 0,
+        "driverEarnings": 5200,
+        "adjustment": 0,
+        "walletRefund": 0
+      }
+    },
+    {
+      "id": "owed-take-back",
+      "feeStatus": "owed",
+      "fee": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "sharePct": 80,
+      "takeBack": true,
+      "expect": {
+        "feeStatus": "waived",
+        "fare": 0,
+        "driverEarnings": 0,
+        "adjustment": -5200,
+        "walletRefund": 0
+      }
+    },
+    {
+      "id": "paid-refund",
+      "feeStatus": "paid",
+      "fee": {
+        "amountMinor": 650,
+        "currency": "EUR"
+      },
+      "sharePct": 80,
+      "takeBack": false,
+      "expect": {
+        "feeStatus": "waived",
+        "fare": 0,
+        "driverEarnings": 520,
+        "adjustment": 0,
+        "walletRefund": 650
+      }
+    },
+    {
+      "id": "no-fee",
+      "feeStatus": null,
+      "fee": null,
+      "sharePct": 80,
+      "takeBack": true,
+      "expect": {
+        "feeStatus": null,
+        "fare": 0,
+        "driverEarnings": 0,
+        "adjustment": 0,
+        "walletRefund": 0
+      }
+    }
+  ],
+  "termsMoney": [
+    {
+      "lang": "sv",
+      "amount": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "text": "12,26 kr"
+    },
+    {
+      "lang": "en",
+      "amount": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "text": "65 kr"
+    },
+    {
+      "lang": "fr",
+      "amount": {
+        "amountMinor": 50,
+        "currency": "EUR"
+      },
+      "text": "0,50 €"
+    },
+    {
+      "lang": "en",
+      "amount": {
+        "amountMinor": 810,
+        "currency": "EUR"
+      },
+      "text": "€8.10"
+    },
+    {
+      "lang": "fr",
+      "amount": {
+        "amountMinor": 800,
+        "currency": "EUR"
+      },
+      "text": "8 €"
+    },
+    {
+      "lang": "en",
+      "amount": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "text": "12.26 kr"
+    }
+  ]
+}
