@@ -96,8 +96,23 @@ abstract final class L10n {
     'Location off, set pickup' => current.locationOffSetPickup,
     // rider-56: pickupLocationFallbackLabel, a pin with no street.
     'Pickup location' => current.pickupLocation,
-    _ => label,
+    _ => withoutCountry(label),
   };
+
+  /// Audit 2026-11-01: the map service ends addresses with the country in
+  /// English ("…, 151 38 Södertälje, Sweden"). Movera works in Sweden and
+  /// France only, so the country adds nothing; it is dropped in every
+  /// language instead of showing English in a Swedish or French app.
+  static String withoutCountry(String label) {
+    final match = _trailingCountry.firstMatch(label);
+    if (match == null || match.start == 0) return label;
+    return label.substring(0, match.start);
+  }
+
+  static final RegExp _trailingCountry = RegExp(
+    r'\s*,\s*(Sweden|Sverige|Suède|Suede|Schweden|France|Frankrike|Frankreich)\s*$',
+    caseSensitive: false,
+  );
 
   /// True when [label] is "Cash" in any app language.
   static bool isCashLabel(String label) {

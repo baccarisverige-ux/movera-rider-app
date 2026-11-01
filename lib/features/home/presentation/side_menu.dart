@@ -273,12 +273,18 @@ class RiderMenuPage extends StatelessWidget {
                             color: _ink,
                           ),
                           const SizedBox(width: 10),
+                          // Audit 2026-11-01: the whole question fits
+                          // ("Vart vill du åk…" was cut): it shrinks a
+                          // little on narrow phones instead.
                           Expanded(
-                            child: Text(
-                              context.l10n.whereTo,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _text(16, color: _muted),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                context.l10n.whereTo,
+                                maxLines: 1,
+                                style: _text(16, color: _muted),
+                              ),
                             ),
                           ),
                           ConstrainedBox(
@@ -327,8 +333,11 @@ class RiderMenuPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          _picture('navigation', width: 72, height: 56),
+          // The picture gives way on narrow phones so the question fits.
+          if (MediaQuery.sizeOf(context).width >= 360) ...[
+            const SizedBox(width: 10),
+            _picture('navigation', width: 72, height: 56),
+          ],
         ],
       ),
     );
@@ -537,7 +546,16 @@ class RiderMenuPage extends StatelessWidget {
           if (promotion != null) {
             PromotionDetailsSheet.open(context, promotion);
           } else {
-            _pushPage(context, const WalletAndPaymentsScreen());
+            // Audit 2026-11-01: no offer → say so here; it opened the
+            // wallet, which is not where offers are.
+            ScaffoldMessenger.maybeOf(context)
+              ?..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  key: const ValueKey('menu-no-promos'),
+                  content: Text(context.l10n.menuNoPromosNow),
+                ),
+              );
           }
         },
       ),

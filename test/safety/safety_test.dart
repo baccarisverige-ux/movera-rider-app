@@ -117,7 +117,7 @@ void main() {
       'PIN verification',
       'Emergency contacts',
       'Share trip status',
-      'RideCheck',
+      'Trip check',
     ]) {
       // UI-7: the row reads its title first, then its subtitle and status.
       final row = find.bySemanticsLabel(RegExp('^${RegExp.escape(label)}, '));
@@ -148,7 +148,7 @@ void main() {
       ('PIN verification', 'Verify rides with a PIN'),
       ('Emergency contacts', 'No emergency contacts yet'),
       ('Share trip status', 'Trip sharing'),
-      ('RideCheck', 'RideCheck alerts'),
+      ('Trip check', 'Trip check alerts'),
     ]) {
       final ctl = buildController();
       await ctl.load();

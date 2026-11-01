@@ -98,6 +98,7 @@
   "menuSavedPlaces": "Saved Places",
   "menuSupport": "Support",
   "menuPromoBodyNone": "Offers you can use are applied automatically to your ride.",
+  "menuNoPromosNow": "You have no offers right now. New offers will show here.",
   "menuPromoBody": "{percent}% off your next {rides} rides · {left} left. We apply the offer that saves you the most.",
   "@menuPromoBody": {
     "placeholders": {
@@ -1180,6 +1181,8 @@
   "demoTopUpNote": "Demo top-up uses a simulated payment. No card or provider is charged.",
   "simulateTopUp": "Simulate top-up",
   "addFundsToWallet": "Add funds to your wallet",
+  "walletHeadingNoTopUp": "Your wallet",
+  "walletSubtitleNoTopUp": "Your balance is shown here.",
   "topUpForRides": "Top up for rides.",
   "walletLoadFailed": "Couldn’t load wallet",
   "walletLoadFailedBody": "Your balance couldn’t be read. Try again.",
@@ -1976,7 +1979,7 @@
   "stopAudio": "Stop audio",
   "recordAudio": "Record audio",
   "safetyPreferences": "Safety preferences",
-  "safetyPreferencesBody": "PIN, contacts, trip sharing and RideCheck",
+  "safetyPreferencesBody": "PIN, contacts, trip sharing and trip check",
   "rtConnecting": "Connecting",
   "rtConnectingBody": "Restoring the live ride connection.",
   "rtReconnecting": "Reconnecting",
@@ -2004,7 +2007,7 @@
   "safetyContactsSubtitle": "Choose trusted contacts for emergencies.",
   "safetyShareTitle": "Share trip status",
   "safetyShareSubtitle": "Let people you trust follow your ride.",
-  "rideCheckTitle": "RideCheck",
+  "rideCheckTitle": "Trip check",
   "safetyRideCheckSubtitle": "Checks on you if a trip looks wrong.",
   "safetyResources": "Safety resources",
   "safetyTipsTitle": "Safety tips",
@@ -2029,7 +2032,7 @@
   "safetyContactDeleteFailed": "Could not delete that contact.",
   "safetyPrimaryChangeFailed": "Could not change the primary contact.",
   "safetyShareUpdateFailed": "Could not update trip sharing.",
-  "safetyRideCheckUpdateFailed": "Could not update RideCheck.",
+  "safetyRideCheckUpdateFailed": "Could not update trip check.",
   "contactDeleteQ": "Delete {name}?",
   "@contactDeleteQ": {
     "placeholders": {
@@ -2127,7 +2130,7 @@
   "rcReasonCrashBefore": "We noticed a ",
   "rcReasonCrashBold": "very hard stop",
   "rcIsEverythingOk": "Is everything OK?",
-  "rcRideCheck": "Ride check",
+  "rcRideCheck": "Trip check",
   "rcHeaderCaps": "RIDE CHECK",
   "rcHeaderCapsWith": "RIDE CHECK · {heading}",
   "@rcHeaderCapsWith": {
@@ -2169,8 +2172,8 @@
   "rcSavedOnPhone": " · saved only on this phone",
   "rcAFewWords": "A few words",
   "rcPageIntro": "When something on a trip looks wrong, Ride check asks if everything is OK. You can call 112 from it at any time.",
-  "rcAlertsToggle": "RideCheck alerts",
-  "rcLooksFor": "What RideCheck looks for",
+  "rcAlertsToggle": "Trip check alerts",
+  "rcLooksFor": "What trip check looks for",
   "rcSetByMovera": "Set by Movera.",
   "rcFinishedFarTitle": "Finished far from drop-off",
   "rcFinishedFarBody": "Your driver finishes the trip more than {km} km from your drop-off.",
@@ -2208,7 +2211,7 @@
   "rcTryDemoBody": "Plays a made-up trip and shows what you would see.",
   "rcDemoDroppedFar": "Driver finished far from drop-off",
   "rcPlay": "Play",
-  "rcDemoDroppedFarScenario": "Your driver tapped Finish more than {km} km from {place}. RideCheck opens right after the trip ends.",
+  "rcDemoDroppedFarScenario": "Your driver tapped Finish more than {km} km from {place}. Trip check opens right after the trip ends.",
   "@rcDemoDroppedFarScenario": {
     "placeholders": {
       "km": {
@@ -2219,7 +2222,7 @@
       }
     }
   },
-  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop. RideCheck opens right away, during the trip.",
+  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop. Trip check opens right away, during the trip.",
   "@rcDemoLongStopScenario": {
     "placeholders": {
       "minutes": {
@@ -2227,14 +2230,14 @@
       }
     }
   },
-  "rcDemoOtherScenario": "RideCheck opens on the trip.",
+  "rcDemoOtherScenario": "Trip check opens on the trip.",
   "rcDemoStarting": "Starting the demo trip…",
   "rcDemoAnswered": "Answered. Play it again any time.",
-  "rcDemoRiderOff": "RideCheck alerts are off. Turn them on to see the demo.",
+  "rcDemoRiderOff": "Trip check alerts are off. Turn them on to see the demo.",
   "rcDemoTriggerOff": "Movera has turned this check off.",
-  "rcDemoBusy": "Another RideCheck is open. Answer it first.",
-  "rcDemoNotOpened": "The demo didn't open RideCheck.",
-  "rcDemoTitle": "RideCheck demo",
+  "rcDemoBusy": "Another trip check is open. Answer it first.",
+  "rcDemoNotOpened": "The demo didn't open trip check.",
+  "rcDemoTitle": "Trip check demo",
   "rcPlayAgain": "Play again",
   "rcEntrySemantics": "Ride check at {time}, {trigger}. {answers}",
   "@rcEntrySemantics": {

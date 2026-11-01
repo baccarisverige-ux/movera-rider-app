@@ -69,6 +69,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'menuSavedPlaces': l.menuSavedPlaces,
   'menuSupport': l.menuSupport,
   'menuPromoBodyNone': l.menuPromoBodyNone,
+  'menuNoPromosNow': l.menuNoPromosNow,
   'menuPromoBody': l.menuPromoBody('<percent>', '<rides>', '<left>'),
   'menuYourPromos': l.menuYourPromos,
   'menuSafetyCheckup': l.menuSafetyCheckup,
@@ -569,6 +570,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'demoTopUpNote': l.demoTopUpNote,
   'simulateTopUp': l.simulateTopUp,
   'addFundsToWallet': l.addFundsToWallet,
+  'walletHeadingNoTopUp': l.walletHeadingNoTopUp,
+  'walletSubtitleNoTopUp': l.walletSubtitleNoTopUp,
   'topUpForRides': l.topUpForRides,
   'walletLoadFailed': l.walletLoadFailed,
   'walletLoadFailedBody': l.walletLoadFailedBody,
@@ -1962,6 +1965,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get menuPromoBodyNone => '';
   @override
+  String get menuNoPromosNow => '';
+  @override
   String menuPromoBody(String percent, String rides, String left) => '';
   @override
   String get menuYourPromos => '';
@@ -2961,6 +2966,10 @@ class _Exhaustive implements AppLocalizations {
   String get simulateTopUp => '';
   @override
   String get addFundsToWallet => '';
+  @override
+  String get walletHeadingNoTopUp => '';
+  @override
+  String get walletSubtitleNoTopUp => '';
   @override
   String get topUpForRides => '';
   @override
