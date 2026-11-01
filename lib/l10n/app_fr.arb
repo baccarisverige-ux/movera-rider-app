@@ -564,6 +564,8 @@
   "demoTopUpNote": "Le rechargement de démo utilise un paiement simulé. Aucune carte ni aucun prestataire n’est débité.",
   "simulateTopUp": "Simuler un rechargement",
   "addFundsToWallet": "Rechargez votre portefeuille",
+  "walletHeadingNoTopUp": "Votre portefeuille",
+  "walletSubtitleNoTopUp": "Votre solde s’affiche ici.",
   "topUpForRides": "Rechargez pour vos courses.",
   "walletLoadFailed": "Impossible de charger le portefeuille",
   "walletLoadFailedBody": "Votre solde n’a pas pu être lu. Réessayez.",
