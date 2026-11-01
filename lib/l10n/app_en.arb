@@ -3164,5 +3164,11 @@
   "g7MaxStopsShown": "Up to {max} stops",
   "@g7MaxStopsShown": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"max": {"type": "String"}}},
   "g7RouteChangeOff": "Changing the route during the trip is turned off in this area. You can tell your driver.",
-  "@g7RouteChangeOff": {"description": "Rider G7 (contract 0.18.9 onTrip)"}
+  "@g7RouteChangeOff": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteLeavesFixedPrice": "The fixed price no longer applies: the trip is charged at the normal price.",
+  "@g7RouteLeavesFixedPrice": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteFixedRoute": "This trip has a fixed price, so its route can’t change. You can tell your driver.",
+  "@g7RouteFixedRoute": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteBeforePickupOff": "You can change the route once you are in the car.",
+  "@g7RouteBeforePickupOff": {"description": "Rider G7 (contract 0.18.9 onTrip)"}
 }

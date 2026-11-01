@@ -1573,5 +1573,8 @@
   "g7RouteWithdraw": "Ångra ändringen",
   "g7RouteWithdrawn": "Ändringen är ångrad. Resan fortsätter till den första destinationen.",
   "g7MaxStopsShown": "Högst {max} stopp",
-  "g7RouteChangeOff": "Att ändra resan under resan är avstängt i det här området. Du kan säga till din förare."
+  "g7RouteChangeOff": "Att ändra rutten under resan är avstängt i det här området. Du kan säga till din förare.",
+  "g7RouteLeavesFixedPrice": "Det fasta priset gäller inte längre: resan debiteras med vanligt pris.",
+  "g7RouteFixedRoute": "Den här resan har fast pris, så rutten kan inte ändras. Du kan säga till din förare.",
+  "g7RouteBeforePickupOff": "Du kan ändra rutten när du sitter i bilen."
 }

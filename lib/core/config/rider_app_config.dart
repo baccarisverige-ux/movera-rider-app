@@ -217,6 +217,10 @@ class RiderAppConfig {
   /// `routeChange.on` (default on): the rider may change the destination or
   /// the stops of a booked trip.
   bool get routeChangeOn => routeChange['on'] != false;
+
+  /// `routeChange.beforePickup` (default on): the route may change before
+  /// the rider is on board; off = only once on board.
+  bool get routeChangeBeforePickup => routeChange['beforePickup'] != false;
   final String? minimumAppVersion;
   final String? latestAppVersion;
 

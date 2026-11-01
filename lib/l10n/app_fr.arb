@@ -1573,5 +1573,8 @@
   "g7RouteWithdraw": "Annuler le changement",
   "g7RouteWithdrawn": "Changement annulé. La course continue vers la première destination.",
   "g7MaxStopsShown": "Jusqu’à {max} arrêts",
-  "g7RouteChangeOff": "La modification de l’itinéraire pendant la course est désactivée dans cette zone. Vous pouvez le dire à votre chauffeur."
+  "g7RouteChangeOff": "La modification de l’itinéraire pendant la course est désactivée dans cette zone. Vous pouvez le dire à votre chauffeur.",
+  "g7RouteLeavesFixedPrice": "Le prix fixe ne s'applique plus : la course est facturée au prix normal.",
+  "g7RouteFixedRoute": "Cette course a un prix fixe, son itinéraire ne peut pas changer. Vous pouvez le dire à votre chauffeur.",
+  "g7RouteBeforePickupOff": "Vous pourrez modifier l’itinéraire une fois dans la voiture."
 }

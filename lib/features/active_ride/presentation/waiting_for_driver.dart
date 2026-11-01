@@ -410,7 +410,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     return stored?.rideId?.trim() == rideId ? stored?.categoryId : null;
   }
 
+  /// v0.18.9 `routeChange.beforePickup` of the trip zone (default on).
+  bool _changeBeforePickup = true;
+
   Future<void> _loadWaitingTerms() async {
+    unawaited(_loadRouteChangeRules());
     try {
       final category = await _tripCategoryId();
       if (category == null) return;
@@ -430,6 +434,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       });
     } catch (_) {
       // No counter without terms.
+    }
+  }
+
+  Future<void> _loadRouteChangeRules() async {
+    try {
+      final config = await AppScope.instance.riderConfig.forTrip(
+        currency: widget.currency,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+      );
+      if (!mounted || config == null) return;
+      setState(() => _changeBeforePickup = config.routeChangeBeforePickup);
+    } catch (_) {
+      // The server refuses (route_change_before_pickup_off) if it must.
     }
   }
 
@@ -1636,6 +1654,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       !_tracking.status.isTerminal;
   bool get _routeEditable =>
       widget.routeChangeSupported &&
+      // v0.18.9: before boarding only when the zone allows it.
+      (_isInTrip || _changeBeforePickup || !_serverPickupMove) &&
       !_tracking.status.isTerminal &&
       !_completedOpened;
 

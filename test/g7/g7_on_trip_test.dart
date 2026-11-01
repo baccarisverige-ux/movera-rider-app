@@ -15,6 +15,7 @@ import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_pending_card.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/trip_terms_note.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -347,6 +348,148 @@ void main() {
       expect(TripTermsLines.stopWaitLine(old), isNull);
       expect(Money(1, 'SEK').currency, 'SEK');
     });
+  });
+
+  group('4. checker round: zone rules and server refusals', () {
+    test('routeChange.beforePickup is read (default on)', () {
+      RiderAppConfig cfg(Map<String, Object> rc) => RiderAppConfig.fromJson({
+        'version': 1,
+        'currency': 'SEK',
+        'routeChange': rc,
+      })!;
+      expect(cfg({'on': true}).routeChangeBeforePickup, isTrue);
+      expect(cfg({'beforePickup': false}).routeChangeBeforePickup, isFalse);
+    });
+
+    for (final (reason, failure, language, text) in [
+      (
+        'route_change_before_pickup_off',
+        RouteChangeFailure.beforePickupOff,
+        'sv',
+        'Du kan ändra rutten när du sitter i bilen.',
+      ),
+      (
+        'route_change_fixed_route',
+        RouteChangeFailure.fixedRoute,
+        'fr',
+        'Cette course a un prix fixe, son itinéraire ne peut pas changer. Vous pouvez le dire à votre chauffeur.',
+      ),
+    ]) {
+      test('409 $reason has its own words ($language)', () async {
+        final r = server(
+          (_) => json({
+            'code': 'conflict',
+            'reason': reason,
+            'message': 'No',
+          }, 409),
+        );
+        L10n.use(language);
+        await expectLater(
+          RouteChangeController(
+            api: r.api,
+            geocoding: _Geo(),
+            zoneAllows: true,
+          ).preview(
+            ride: ride(),
+            destinationAddress: 'Odenplan',
+            destinationPoint: const GeoPoint(59.3429, 18.0496),
+          ),
+          throwsA(
+            isA<RouteChangeException>()
+                .having((e) => e.failure, 'failure', failure)
+                .having((e) => e.message, 'message', text),
+          ),
+        );
+      });
+    }
+
+    testWidgets('leavesFixedPrice is read and said before confirm', (
+      tester,
+    ) async {
+      final r = server(
+        (_) => json({
+          'routeQuoteId': 'rq_9',
+          'total': money(30000, 'SEK'),
+          'difference': money(4000, 'SEK'),
+          'leavesFixedPrice': true,
+        }, 201),
+      );
+      late RouteChangeQuote quote;
+      await tester.runAsync(() async {
+        quote =
+            await RouteChangeController(
+              api: r.api,
+              geocoding: _Geo(),
+              zoneAllows: true,
+            ).preview(
+              ride: ride(),
+              destinationAddress: 'Odenplan',
+              destinationPoint: const GeoPoint(59.3429, 18.0496),
+            );
+      });
+      expect(quote.leavesFixedPrice, isTrue);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RouteChangeSheet(quote: quote, paymentMethod: 'Cash'),
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey('route-change-leaves-fixed-price')),
+        findsOneWidget,
+      );
+      expect(find.text(L10n.current.g7RouteLeavesFixedPrice), findsOneWidget);
+    });
+
+    test(
+      'driver cannot refuse: the change is applied at once (system)',
+      () async {
+        final r = server(
+          (_) => json({
+            'tripId': 'trp_1',
+            'version': 8,
+            'routeChange': {
+              'changeId': 'rc_2',
+              'status': 'accepted',
+              'answeredBy': 'system',
+              'dropoff': {
+                'lat': 59.3383,
+                'lng': 17.9393,
+                'address': 'Brommaplan',
+              },
+              'stops': [],
+              'total': money(25000, 'SEK'),
+            },
+          }),
+        );
+        final change =
+            await RouteChangeController(
+              api: r.api,
+              geocoding: _Geo(),
+              zoneAllows: true,
+            ).propose(
+              ride: ride(),
+              quote: RouteChangeQuote(
+                pickupAddress: 'Sergels torg',
+                pickupPoint: const GeoPoint(59.3326, 18.0649),
+                destinationAddress: 'Brommaplan',
+                destinationPoint: const GeoPoint(59.3383, 17.9393),
+                stops: const [],
+                oldPriceKr: 190,
+                newPriceKr: 250,
+                routeQuoteId: 'rq_2',
+              ),
+            );
+        expect(change!.accepted, isTrue);
+        expect(change.answeredBy, 'system');
+        final saved = await RouteChangeController.adoptAccepted(ride(), change);
+        expect(saved.destinationAddress, 'Brommaplan');
+        expect(saved.price, 250);
+      },
+    );
   });
 }
 

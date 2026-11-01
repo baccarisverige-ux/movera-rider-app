@@ -1580,6 +1580,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'g7RouteWithdrawn': l.g7RouteWithdrawn,
   'g7MaxStopsShown': l.g7MaxStopsShown('<max>'),
   'g7RouteChangeOff': l.g7RouteChangeOff,
+  'g7RouteLeavesFixedPrice': l.g7RouteLeavesFixedPrice,
+  'g7RouteFixedRoute': l.g7RouteFixedRoute,
+  'g7RouteBeforePickupOff': l.g7RouteBeforePickupOff,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -4959,4 +4962,10 @@ class _Exhaustive implements AppLocalizations {
   String g7MaxStopsShown(String max) => '';
   @override
   String get g7RouteChangeOff => '';
+  @override
+  String get g7RouteLeavesFixedPrice => '';
+  @override
+  String get g7RouteFixedRoute => '';
+  @override
+  String get g7RouteBeforePickupOff => '';
 }

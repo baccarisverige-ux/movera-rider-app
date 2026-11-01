@@ -36,7 +36,12 @@ class RouteChangeQuote {
     this.differenceMinor,
     this.expectedVersion,
     this.currency = Money.defaultCurrency,
+    this.leavesFixedPrice = false,
   });
+
+  /// v0.18.9 `RouteQuote.leavesFixedPrice`: the new route ends the trip's
+  /// fixed price (`fixedPriceTrips: switch_to_normal`); said before confirm.
+  final bool leavesFixedPrice;
 
   final String pickupAddress;
   final GeoPoint pickupPoint;
@@ -114,6 +119,13 @@ enum RouteChangeFailure {
 
   /// v0.18.9: a change already waits for the driver.
   pending,
+
+  /// v0.18.9: a fixed-price trip keeps its route (`fixedPriceTrips: block`).
+  fixedRoute,
+
+  /// v0.18.9: the zone allows a change only once the rider is on board
+  /// (`routeChange.beforePickup: false`).
+  beforePickupOff,
 }
 
 class RouteChangeException implements Exception {
@@ -142,6 +154,8 @@ class RouteChangeException implements Exception {
       '${maxStops ?? RiderAppConfig.defaultMaxStops}',
     ),
     RouteChangeFailure.pending => L10n.current.g7RouteWaiting,
+    RouteChangeFailure.fixedRoute => L10n.current.g7RouteFixedRoute,
+    RouteChangeFailure.beforePickupOff => L10n.current.g7RouteBeforePickupOff,
     RouteChangeFailure.pickupTooFar => L10n.current.routePickupTooFar(
       '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}',
     ),
@@ -178,16 +192,11 @@ class RouteChangeController {
   /// Without one, requests carry no `expectedVersion`.
   final RideSession? _session;
 
-  /// Audit Phase 5 (P5-R4): whether this server changes a booked route.
-  /// movera-server answers `POST /trips/{id}/route-quote` and
-  /// `PATCH /trips/{id}` with 404 `operation_not_enabled`, and this
-  /// controller still speaks the demo's `/rides/{id}` dialect, so on the
-  /// contract wire a change could never be priced: the rider is told so
-  /// before editing anything, and no request is sent.
-  ///
-  /// Contract v0.18.9 (driver group 7): movera-server prices and applies a
-  /// change (`/trips/{id}/route-quote`, `PATCH /trips/{id}`), so on the
-  /// contract wire it is offered when the trip zone switches it on.
+  /// Whether a booked route can change here. The demo always can. On the
+  /// contract wire (v0.18.9, driver group 7) movera-server prices and
+  /// applies a change (`/trips/{id}/route-quote`, `PATCH /trips/{id}`), so
+  /// it is offered when the trip zone's `routeChange.on` is on; otherwise
+  /// the rider is told so before editing anything and no request is sent.
   bool get available => !_api.contractWire || _zoneAllows;
 
   /// True when this controller speaks the contract (v0.18.9) wire.
@@ -375,6 +384,7 @@ class RouteChangeController {
       differenceMinor: Money.fromWire(response['difference'])?.amountMinor,
       expectedVersion: version,
       currency: ride.currency,
+      leavesFixedPrice: response['leavesFixedPrice'] == true,
     );
   }
 
@@ -588,8 +598,9 @@ class RouteChangeController {
         'ride_finished' ||
         'invalid_transition' => RouteChangeFailure.rideFinished,
         'route_change_pending' => RouteChangeFailure.pending,
-        'route_change_off' ||
-        'route_change_fixed_route' => RouteChangeFailure.unavailable,
+        'route_change_off' => RouteChangeFailure.unavailable,
+        'route_change_fixed_route' => RouteChangeFailure.fixedRoute,
+        'route_change_before_pickup_off' => RouteChangeFailure.beforePickupOff,
         'visited_stop_changed' ||
         'route_change_not_pending' => RouteChangeFailure.rideFinished,
         'route_quote_used' ||
