@@ -10,6 +10,8 @@ import 'package:movera_rider/features/booking/application/booking_coordinator.da
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/core/realtime/sos_availability.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 
 /// Contract v0.18.10 (driver group 8 "Finish & cash"): only cash ("Pay in
 /// car"), card and Apple Pay; the server says what it takes; tips go to
@@ -134,5 +136,67 @@ void main() {
     expect(receipt.tip?.amountMinor, 2000);
     expect(receipt.debtIncluded?.amountMinor, 24000);
     expect(receipt.refunded, isNull);
+  });
+
+  group('G8 checker gaps', () {
+    test('Payments tab: a coming-soon method is greyed, never a default', () {
+      const zone = ['cash', 'card', 'apple_pay'];
+      const options = {'cash': 'available', 'apple_pay': 'coming_soon'};
+      expect(
+        walletMethodState('apple_pay', zone, options),
+        WalletMethodState.comingSoon,
+      );
+      expect(
+        walletMethodState('cash', zone, options),
+        WalletMethodState.available,
+      );
+      // Not listed by the server: hidden.
+      expect(
+        walletMethodState('card', zone, options),
+        WalletMethodState.hidden,
+      );
+      // An older server: as before.
+      expect(
+        walletMethodState('card', zone, null),
+        WalletMethodState.available,
+      );
+    });
+
+    test('Select Ride keeps the wallet row with paymentOptions', () {
+      final selection = RideSelectionController()
+        ..setPaymentOptions({'cash': 'available', 'card': 'coming_soon'})
+        ..setWalletBalance(120);
+      expect(selection.payments().map((p) => p.brand), contains('wallet'));
+      expect(selection.payments().map((p) => p.brand), contains('cash'));
+      expect(
+        selection.payments().map((p) => p.brand),
+        isNot(contains('cards')),
+      );
+    });
+
+    test('a wallet booking is cash with walletFirst', () {
+      final body = BookingCoordinator.contractTripBody(
+        quoteId: 'q_1',
+        categoryId: 'economy',
+        paymentMethod: 'wallet',
+        pickupLat: 59.33,
+        pickupLng: 18.06,
+        destinationLat: 59.32,
+        destinationLng: 18.07,
+      );
+      expect(body['paymentMethod'], 'cash');
+      expect(body['walletFirst'], isTrue);
+    });
+
+    test('SOS follows the server sosAvailable, else the driver rule', () {
+      addTearDown(SosAvailability.resetForTest);
+      expect(SosAvailability.forTrip('trp_1'), isNull);
+      SosAvailability.record('trp_1', false);
+      expect(SosAvailability.forTrip('trp_1'), isFalse);
+      SosAvailability.record('trp_1', true);
+      expect(SosAvailability.forTrip('trp_1'), isTrue);
+      SosAvailability.record('trp_1', 'yes');
+      expect(SosAvailability.forTrip('trp_1'), isTrue);
+    });
   });
 }

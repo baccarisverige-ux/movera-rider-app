@@ -717,6 +717,28 @@ class WalletScreen extends StatefulWidget {
   State<WalletScreen> createState() => _WalletScreenState();
 }
 
+/// How the Payments tab shows a contract payment method (v0.18.10, owner
+/// G8 item 2).
+enum WalletMethodState { hidden, comingSoon, available }
+
+/// [method] on the Payments tab: hidden when the zone or the server does
+/// not offer it, coming soon (greyed, never the default) when the server
+/// does not take it yet. Without [options] (an older server) every zone
+/// method is available, as before.
+WalletMethodState walletMethodState(
+  String method,
+  List<String> zoneMethods,
+  Map<String, String>? options,
+) {
+  if (!zoneMethods.contains(method)) return WalletMethodState.hidden;
+  if (options == null) return WalletMethodState.available;
+  return switch (options[method]) {
+    'available' => WalletMethodState.available,
+    'coming_soon' => WalletMethodState.comingSoon,
+    _ => WalletMethodState.hidden,
+  };
+}
+
 class _WalletScreenState extends State<WalletScreen> {
   static const Color _ink = Color(0xFF171C1F);
   static const Color _muted = Color(0xFF5C656C);
@@ -737,12 +759,14 @@ class _WalletScreenState extends State<WalletScreen> {
   /// server.
   Map<String, String>? _paymentOptions;
   bool _offers(String method) =>
-      _zoneMethods.contains(method) &&
-      (_paymentOptions == null || _paymentOptions!.containsKey(method));
+      walletMethodState(method, _zoneMethods, _paymentOptions) !=
+      WalletMethodState.hidden;
 
   /// On in admin but not taken by the server yet: shown "Kommer snart",
   /// never the default.
-  bool _soon(String method) => _paymentOptions?[method] == 'coming_soon';
+  bool _soon(String method) =>
+      walletMethodState(method, _zoneMethods, _paymentOptions) ==
+      WalletMethodState.comingSoon;
 
   Future<void> _loadZone() async {
     final zone = await currentRiderZone();
