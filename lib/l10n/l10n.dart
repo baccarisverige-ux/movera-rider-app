@@ -102,6 +102,8 @@ abstract final class L10n {
   /// True when [label] is "Cash" in any app language.
   static bool isCashLabel(String label) {
     final value = label.trim().toLowerCase();
+    // v0.18.10: "Pay in car" replaced the older cash names on saved rides.
+    if (const {'cash', 'kontant', 'espèces'}.contains(value)) return true;
     return languages.any(
       (l) =>
           lookupAppLocalizations(Locale(l.code)).payCash.toLowerCase() == value,

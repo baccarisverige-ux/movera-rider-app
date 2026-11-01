@@ -4,7 +4,6 @@ class FeatureFlags {
   const FeatureFlags({
     this.enableCash = true,
     this.enableApplePay = true,
-    this.enableGooglePay = true,
     this.enableScheduledRide = true,
     this.enableLuxury = true,
     this.enableWallet = true,
@@ -17,7 +16,6 @@ class FeatureFlags {
 
   final bool enableCash;
   final bool enableApplePay;
-  final bool enableGooglePay;
   final bool enableScheduledRide;
   final bool enableLuxury;
   final bool enableWallet;

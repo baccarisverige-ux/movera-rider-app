@@ -17,11 +17,16 @@ class PayWithMethod {
     required this.brand,
     required this.name,
     required this.detail,
+    this.comingSoon = false,
   });
 
   final String brand;
   final String name;
   final String detail;
+
+  /// v0.18.10 (owner G8 item 2): on in admin but not taken by the server
+  /// yet: shown greyed with "Coming soon", never picked.
+  final bool comingSoon;
 }
 
 /// "Pay with": opens only when the rider taps the payment line. Returns the
@@ -206,7 +211,7 @@ class _PayWithPageState extends State<PayWithPage> {
     // The generic "Card" row only until the rider has saved a card.
     final rideMethods = methods
         .where((m) => m.brand != 'wallet')
-        .where((m) => !(hasSavedCards && m.brand == 'cards'))
+        .where((m) => !(hasSavedCards && m.brand == 'cards' && !m.comingSoon))
         .toList();
     final hasWallet =
         walletBalance > 0 && methods.any((m) => m.brand == 'wallet');
@@ -268,15 +273,27 @@ class _PayWithPageState extends State<PayWithPage> {
             ],
             _section(context.l10n.paymentMethods),
             for (final method in rideMethods)
-              _row(
-                key: ValueKey('pay-with-${method.brand}'),
-                leading: brandMark(method.brand),
-                title: paymentNameFor(method.brand, method.name),
-                subtitle: paymentDetailFor(method.brand, method.detail),
-                trailing: _radio(selectedBrand == method.brand),
-                onTap: () => Navigator.of(context).pop(method.brand),
-              ),
-            if (CardEntryPolicy.enabled)
+              if (method.comingSoon)
+                Opacity(
+                  opacity: 0.5,
+                  child: _row(
+                    key: ValueKey('pay-with-${method.brand}-soon'),
+                    leading: brandMark(method.brand),
+                    title: paymentNameFor(method.brand, method.name),
+                    subtitle: context.l10n.paymentComingSoon,
+                  ),
+                )
+              else
+                _row(
+                  key: ValueKey('pay-with-${method.brand}'),
+                  leading: brandMark(method.brand),
+                  title: paymentNameFor(method.brand, method.name),
+                  subtitle: paymentDetailFor(method.brand, method.detail),
+                  trailing: _radio(selectedBrand == method.brand),
+                  onTap: () => Navigator.of(context).pop(method.brand),
+                ),
+            if (CardEntryPolicy.enabled &&
+                !methods.any((m) => m.comingSoon && m.brand == 'cards'))
               _row(
                 key: const ValueKey('pay-with-add'),
                 leading: const Icon(Icons.add_rounded, color: _ink, size: 24),

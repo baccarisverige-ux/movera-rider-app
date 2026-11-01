@@ -66,19 +66,11 @@ abstract final class ZoneDefaults {
   static const languages = <String>['en', 'fr', 'sv'];
 
   /// `contract.json#zonePaymentMethods` (owner Q7): every country offers
-  /// these four. No Swish, no D17; the wallet is separate.
-  static const paymentMethods = <String>[
-    'cash',
-    'card',
-    'apple_pay',
-    'google_pay',
-  ];
+  /// these three (v0.18.10: no Google Pay). No Swish, no D17; the wallet is separate.
+  static const paymentMethods = <String>['cash', 'card', 'apple_pay'];
 
   /// v0.3 ids read as their v0.4 names for one release.
-  static const paymentMethodAliases = <String, String>{
-    'apple': 'apple_pay',
-    'google': 'google_pay',
-  };
+  static const paymentMethodAliases = <String, String>{'apple': 'apple_pay'};
 
   static const maxStops = 3;
   static const maxPickupMoveMeters = 200;

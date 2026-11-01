@@ -36,9 +36,8 @@ class RideCompleteController {
   final RideFeedbackRepository _feedback;
   final RiderConfigRepository? _config;
 
-  /// False against movera-server, which has no tips yet
-  /// (`tips_not_available`): the screen then offers none (its honest
-  /// "Tips unavailable" state) instead of amounts that are never sent.
+  /// False hides the tip amounts (the honest "Tips unavailable" state).
+  /// movera-server takes tips since contract v0.18.10.
   final bool tipsOnServer;
 
   void close() => _ride.markClosed();
@@ -101,6 +100,20 @@ class RideCompleteController {
       pickupLng: ride?.pickupLng,
     );
     return config?.enabledTips ?? initialTips(rideId: rideId);
+  }
+
+  /// v0.18.10 `RiderAppConfig.tipRules` of the trip's zone: a typed
+  /// amount up to its max when the admin allows it.
+  Future<TipRules> tipRules({String? rideId}) async {
+    final ride = LastCompletedRide.forRide(rideId);
+    final currency = _tripCurrency(rideId);
+    final config = await (_config ?? AppScope.instance.riderConfig).forTrip(
+      currency: currency,
+      pickupLat: ride?.pickupLat,
+      pickupLng: ride?.pickupLng,
+    );
+    return config?.tipRules ??
+        TipRules.forCountry(ZoneDefaults.countryOf(currency), currency);
   }
 
   Future<void> submitDispute({

@@ -50,8 +50,7 @@
   "paymentMethods": [
     "cash",
     "card",
-    "apple_pay",
-    "google_pay"
+    "apple_pay"
   ],
   "booking": {
     "maxStops": 3,
@@ -199,7 +198,11 @@
         "max": null
       }
     },
-    "driverSharePct": 100
+    "driverSharePct": 100,
+    "earlyEnd": {
+      "repriceOverKm": 2,
+      "repriceOverMin": 8
+    }
   },
   "waiting": {
     "freeWaitMin": 5,

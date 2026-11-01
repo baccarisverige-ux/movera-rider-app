@@ -118,7 +118,7 @@ void main() {
     expect(find.text('Promotion 30%'), findsOneWidget);
     expect(find.text('-102 kr'), findsOneWidget);
     expect(find.text('237 kr'), findsOneWidget);
-    expect(find.text('Cash'), findsOneWidget);
+    expect(find.text('Pay in car'), findsOneWidget);
     expect(find.text('Confirm and search'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-pin')), findsOneWidget);
   });

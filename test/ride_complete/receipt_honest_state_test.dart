@@ -80,7 +80,7 @@ void main() {
     expect(find.text('Arlanda Terminal 5'), findsOneWidget);
     expect(find.text('522 kr'), findsOneWidget);
     expect(find.text('Total payment'), findsOneWidget);
-    expect(find.text('Cash'), findsOneWidget);
+    expect(find.text('Pay in car'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsNothing);
   });
 

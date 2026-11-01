@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -295,8 +296,8 @@ class _RideCompletedState extends State<RideCompleted> {
           _feedbackMutation.succeeded(feedbackIntent);
         }
       }
-    } catch (_) {
-      _stayWithError();
+    } catch (error) {
+      _stayWithError(error);
       return;
     }
     if (!mounted) return;
@@ -323,11 +324,24 @@ class _RideCompletedState extends State<RideCompleted> {
     RideNavigator.home(context, status: RideStatus.closed);
   }
 
-  void _stayWithError() {
+  void _stayWithError([Object? error]) {
     if (!mounted) return;
+    final l10n = context.l10n;
+    // v0.18.10 (`finish.tips`): a refused tip says why, in plain words.
+    final tipText = error is ApiError
+        ? switch (error.detail) {
+            'tips_not_available' => l10n.tipsNotOnHere,
+            'tip_amount_not_allowed' => l10n.tipAmountNotAllowed,
+            'tip_already_given' => l10n.tipAlreadyGiven,
+            'tip_not_allowed' => l10n.tipNotAllowed,
+            'tip_cash_after_trip_off' => l10n.tipCashAfterTripOff,
+            'tip_above_max' => l10n.tipAboveMax,
+            _ => null,
+          }
+        : null;
     setState(() {
       _leaving = false;
-      _submitError = context.l10n.feedbackSaveFailed;
+      _submitError = tipText ?? l10n.feedbackSaveFailed;
     });
   }
 

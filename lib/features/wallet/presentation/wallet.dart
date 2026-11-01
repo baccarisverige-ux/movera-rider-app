@@ -4,7 +4,6 @@ import 'package:movera_rider/features/payments/application/saved_cards_controlle
 import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_settings.dart';
@@ -750,7 +749,6 @@ class _WalletScreenState extends State<WalletScreen> {
   int _methodEdits = 0;
   int _profileEdits = 0;
 
-  bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
   bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
   List<Map<String, String>> _extraMethods = [];
 
@@ -999,19 +997,6 @@ class _WalletScreenState extends State<WalletScreen> {
                               title: 'Apple Pay',
                               detail: context.l10n.paysWhenSearchStarts,
                               brand: 'apple',
-                            ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          if (!_isIos && _offers('google_pay'))
-                            _paymentTile(
-                              id: 'google',
-                              title: 'Google Pay',
-                              detail: context.l10n.paysWhenSearchStarts,
-                              brand: 'google',
                             ),
                           const Divider(
                             height: 1,
@@ -1377,15 +1362,11 @@ class _WalletScreenState extends State<WalletScreen> {
         fit: BoxFit.contain,
       );
     } else if (brand == 'apple') {
-      logo = SvgPicture.asset(
-        'assets/images/apple_pay_brand.svg',
-        fit: BoxFit.contain,
-      );
-    } else if (brand == 'google') {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        'assets/images/google_pay_brand.png',
-        fit: BoxFit.contain,
+      // Owner rules (G8): no Apple logo; Apple Pay is named as text.
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 22,
       );
     } else if (brand == 'cards') {
       logo = Row(

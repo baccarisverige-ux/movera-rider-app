@@ -76,7 +76,7 @@ void main() {
     expect(s.walletBalance, 50);
     expect(s.selectedPaymentItem()?.brand, 'cash');
 
-    await tester.tap(find.text('Cash').first);
+    await tester.tap(find.text('Pay in car').first);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

@@ -1586,7 +1586,6 @@ class InProcessMockClient extends http.BaseClient {
         'methods': const [
           {'id': 'wallet', 'kind': 'wallet', 'label': 'Movera Wallet'},
           {'id': 'apple', 'kind': 'applePay', 'label': 'Apple Pay'},
-          {'id': 'google', 'kind': 'googlePay', 'label': 'Google Pay'},
           {'id': 'cash', 'kind': 'cash', 'label': 'Cash'},
         ],
         'defaultMethodId': defaultPaymentMethodId,

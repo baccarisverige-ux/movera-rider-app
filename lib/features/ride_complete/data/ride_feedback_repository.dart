@@ -1,7 +1,6 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/contracts/money.dart';
-import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 
 /// Sends optional post-trip feedback through the same API transport as the ride.
@@ -19,6 +18,7 @@ class RideFeedbackRepository {
     String tipCurrency = Money.defaultCurrency,
     List<String> tags = const <String>[],
     String? comment,
+    String tipMethod = 'cash',
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
@@ -43,15 +43,20 @@ class RideFeedbackRepository {
       throw ArgumentError.value(tipMinor, 'tipMinor');
     }
     if (_api.contractWire) {
-      // Contract `POST /trips/{tripId}/rating` (`RatingRequest`): whole
-      // stars; the server answers 201 with the `Rating`. Tips are not
-      // available on the server yet (`tips_not_available`), so a tip is
-      // never sent with the rating and a tip alone is refused here.
+      // Contract v0.18.10 (`finish.tips`, owner G8 item 1): the tip rides
+      // with the rating (`RatingRequest.tip` + `tipMethod`) or, alone, on
+      // `POST /trips/{tripId}/tip`. Cash only today: the rider gives it in
+      // the driver's hand; all of it goes to the driver.
+      final tip = tipMinor == null
+          ? null
+          : {'amountMinor': tipMinor, 'currency': tipCurrency};
       if (rating == null) {
-        throw StateError('Tips are not available yet.');
-      }
-      if (tipMinor != null) {
-        AppLog.warning('ride.feedback.tip_not_sent', extra: {'rideId': rideId});
+        await _api.post(
+          _api.tripPath(rideId, 'tip'),
+          body: {'amount': tip, 'method': tipMethod},
+          idempotencyKey: idempotencyKey,
+        );
+        return;
       }
       await _api.post(
         _api.tripPath(rideId, 'rating'),
@@ -59,6 +64,8 @@ class RideFeedbackRepository {
           'stars': rating.round(),
           if (tags.isNotEmpty) 'tags': tags,
           if (note != null && note.isNotEmpty) 'comment': note,
+          if (tip != null) 'tip': tip,
+          if (tip != null) 'tipMethod': tipMethod,
         },
         idempotencyKey: idempotencyKey,
       );

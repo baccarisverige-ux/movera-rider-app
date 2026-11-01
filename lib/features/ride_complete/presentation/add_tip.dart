@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
@@ -38,10 +40,92 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final String? _driverName = _ctl.driver(rideId: widget.rideId)?.name;
   Money? _selected;
 
+  /// v0.18.10 `tipRules`: a typed amount up to its max when allowed.
+  TipRules? _rules;
+
   @override
   void initState() {
     super.initState();
     _loadTips();
+    _loadRules();
+  }
+
+  Future<void> _loadRules() async {
+    try {
+      final rules = await _ctl.tipRules(rideId: widget.rideId);
+      if (!mounted) return;
+      setState(() => _rules = rules);
+    } catch (error) {
+      // Presets only.
+      AppLog.warning('ride.tip_rules.not_read', extra: {'error': '$error'});
+    }
+  }
+
+  Money? get _customMax {
+    final rules = _rules;
+    if (rules == null || !rules.customAmount) return null;
+    final currency = _amounts.isEmpty ? null : _amounts.first.currency;
+    final max = rules.customMax;
+    if (max == null || (currency != null && max.currency != currency)) {
+      return null;
+    }
+    return max;
+  }
+
+  /// "Other amount": whole units from 1 up to the zone's max.
+  Future<void> _chooseCustom() async {
+    final max = _customMax;
+    if (max == null) return;
+    final per = Money.minorPerMajor(max.currency);
+    final field = TextEditingController();
+    String? error;
+    final amount = await showDialog<Money>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setLocal) => AlertDialog(
+          semanticLabel: context.l10n.tipCustomAmount,
+          title: Text(context.l10n.tipCustomAmount),
+          content: TextField(
+            key: const ValueKey('tip-custom-field'),
+            controller: field,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              suffixText: max.currency == 'SEK' ? 'kr' : max.currency,
+              helperText: context.l10n.tipMax(formatMoneyShort(max)),
+              errorText: error,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.cancel),
+            ),
+            TextButton(
+              key: const ValueKey('tip-custom-ok'),
+              onPressed: () {
+                final whole = int.tryParse(field.text.trim());
+                if (whole == null || whole < 1) {
+                  setLocal(() => error = context.l10n.tipAmountNotAllowed);
+                  return;
+                }
+                final money = Money(whole * per, max.currency);
+                if (money.amountMinor > max.amountMinor) {
+                  setLocal(() => error = context.l10n.tipAboveMax);
+                  return;
+                }
+                Navigator.of(dialogContext).pop(money);
+              },
+              child: Text(context.l10n.gotIt),
+            ),
+          ],
+        ),
+      ),
+    );
+    field.dispose();
+    if (amount == null || !mounted) return;
+    setState(() => _selected = amount);
+    widget.onTipChanged?.call(amount.amountMinor);
   }
 
   Future<void> _loadTips() async {
@@ -108,6 +192,16 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                     selected: _selected == amount,
                     onTap: () => _choose(amount),
                   ),
+                if (_customMax != null)
+                  _TipChip(
+                    key: const ValueKey('tip-custom'),
+                    amount: _selected != null && !_amounts.contains(_selected)
+                        ? formatMoneyShort(_selected!)
+                        : context.l10n.tipCustomAmount,
+                    selected:
+                        _selected != null && !_amounts.contains(_selected),
+                    onTap: _chooseCustom,
+                  ),
               ],
             ),
           ),
@@ -120,6 +214,19 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
             fontSize: 12,
             fontWeight: fwMedium,
           ),
+          // v0.18.10 (owner G8 item 1): cash in the driver's hand, all of
+          // it to the driver.
+          const SizedBox(height: 4),
+          TextWidget(
+            key: const ValueKey('tip-cash-note'),
+            text: _selected == null
+                ? context.l10n.tipAllToDriver
+                : context.l10n.tipCashInHand,
+            color: AppColor.subtitle,
+            fontSize: 12,
+            fontWeight: fwMedium,
+            textAlign: TextAlign.center,
+          ),
         ],
       ],
     );
@@ -128,6 +235,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
 
 class _TipChip extends StatelessWidget {
   const _TipChip({
+    super.key,
     required this.amount,
     required this.selected,
     required this.onTap,

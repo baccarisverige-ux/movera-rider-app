@@ -201,7 +201,6 @@ class BookingCoordinator {
   /// The contract `PaymentMethod` for a Select Ride payment brand.
   static String contractPaymentMethod(String brand) => switch (brand) {
     'apple' || 'apple_pay' => 'apple_pay',
-    'google' || 'google_pay' => 'google_pay',
     'cards' || 'card' => 'card',
     _ when brand.startsWith('card:') => 'card',
     _ => brand,

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.9",
+  "version": "0.18.10",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -64,22 +64,19 @@
   "paymentMethods": [
     "card",
     "apple_pay",
-    "google_pay",
     "cash",
     "wallet"
   ],
   "paymentMethodAliases": {
-    "note": "Read-only aliases accepted for one release (v0.3 ids). Never sent.",
-    "apple": "apple_pay",
-    "google": "google_pay"
+    "note": "Read-only aliases accepted for one release (v0.3 ids). Never sent. v0.18.10: google / google_pay removed (owner G8 item 2: no Google Pay).",
+    "apple": "apple_pay"
   },
   "zonePaymentMethods": {
-    "note": "Owner Q7 (final): every country offers exactly these methods, in this order; config paymentMethods is a subset. No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet, wallet.usedFirst).",
+    "note": "Owner Q7, changed by owner G8 item 2 (2026-10-29, v0.18.10): every country offers at most these methods, in this order: cash (shown as 'Pay in car'), card, Apple Pay. Google Pay is removed everywhere. config paymentMethods is the admin's per-country / per-zone on list (a subset); the server adds what it can take today (finish.paymentMethods.served). No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet, wallet.usedFirst).",
     "values": [
       "cash",
       "card",
-      "apple_pay",
-      "google_pay"
+      "apple_pay"
     ]
   },
   "languages": {
@@ -2810,7 +2807,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\".",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €).",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
     "freeWaitMin": {
@@ -3489,6 +3486,25 @@
       "answerSeconds": 60,
       "beforePickup": true,
       "fixedPriceTrips": "block"
+    },
+    "earlyEnd": {
+      "repriceOverKm": 2,
+      "repriceOverMin": 8
+    },
+    "tipRules": {
+      "cashAfterTrip": false,
+      "cashInCarMinutes": 5,
+      "customAmount": false,
+      "customMax": {
+        "SE": {
+          "amountMinor": 20000,
+          "currency": "SEK"
+        },
+        "FR": {
+          "amountMinor": 2000,
+          "currency": "EUR"
+        }
+      }
     }
   },
   "realtime": {
@@ -3563,7 +3579,8 @@
   },
   "cancelFees": {
     "note": "v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in Admin › Dispatch per zone: the driver's share of a rider's cancel fee, 0–100, default 100. Movera keeps the rest.",
-    "driverSharePctDefault": 100
+    "driverSharePctDefault": 100,
+    "earlyEnd": "v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard). See finish.earlyEnd.driver."
   },
   "bookingSnapshot": {
     "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them). v0.18.8: also the zone's waiting.farPickup / rideTypes (waitingRules), waiting.stopFreeWaitMin and pickupPin.required (Trip.pinRequired) of booking time (contract.json#arrivedWaiting).",
@@ -3578,7 +3595,8 @@
       "maxPickupMoveMeters",
       "waitingRules",
       "stopFreeWaitMin",
-      "pinRequired"
+      "pinRequired",
+      "earlyEnd"
     ]
   },
   "autoOffline": {
@@ -5755,5 +5773,364 @@
       "Rider app: server ride check card, route change with new price + waiting / refused messages (replace the mock route_change_controller), max stops, stop waiting price.",
       "Push for a server ride check when the app is in the background (not in this contract)."
     ]
+  },
+  "finish": {
+    "note": "v0.18.10 (driver group 8 'Finish & cash'; owner items 1–2 of 2026-10-29, Q1–Q4 of 2026-11-01, the re-checks of 2026-10-30 and 2026-11-01; Rules decisions/driver-g8.md). CONTRACT.md §36. Sweden and France alike; every number is a per-zone (or country standard) admin setting with a default (owner rule 16); every text in sv / fr / en (Swedish rider = resenär). No other company's logo: Apple Pay is shown as text only (owner rules: Apple / Google logos only on sign-in buttons). X-Api-Version stays 0.5; additive except google_pay leaving the enums.",
+    "paymentMethods": {
+      "values": [
+        "cash",
+        "card",
+        "apple_pay"
+      ],
+      "removed": [
+        "google_pay"
+      ],
+      "adminSetting": "RiderAppConfig.paymentMethods (and DriverAppConfig.paymentMethods, same list) of the zone or the country standard = the methods the admin turned ON (Admin › Settings › Payment methods, per country, every zone of it or one zone). Default: cash, card, apple_pay.",
+      "serverSupport": "The server takes only the methods of its own list (today: cash only; card and Apple Pay need a payment company, owner 'Coming soon until a payment company is chosen'). It is not an admin setting: it changes when Movera connects a payment company.",
+      "served": "GET /rider/config and GET /driver/config add paymentOptions: [{ method, status: available | coming_soon }] in the admin's order, one per method the admin turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon; it never shows a method that is not listed.",
+      "booking": "POST /trips (the trip's paymentMethod, in the quote's zone; POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request, reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon; anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked trip stays unavailable (PATCH answers route_change_not_available, as before).",
+      "migration": "Server migration 0045: google_pay is taken out of every stored rider / driver document (live, draft, history) and of the trips / quotes check; a trip or quote with google_pay never existed (booking always failed).",
+      "texts": {
+        "cash": {
+          "sv": "Betala i bilen",
+          "fr": "Payer dans la voiture",
+          "en": "Pay in car"
+        },
+        "cashHint": {
+          "sv": "Betala föraren i bilen när resan är klar.",
+          "fr": "Payez le chauffeur dans la voiture à la fin de la course.",
+          "en": "Pay the driver in the car when the trip ends."
+        },
+        "card": {
+          "sv": "Kort",
+          "fr": "Carte",
+          "en": "Card"
+        },
+        "apple_pay": {
+          "sv": "Apple Pay",
+          "fr": "Apple Pay",
+          "en": "Apple Pay"
+        },
+        "comingSoon": {
+          "sv": "Kommer snart",
+          "fr": "Bientôt disponible",
+          "en": "Coming soon"
+        },
+        "payment_method_off": {
+          "sv": "Det här betalsättet finns inte här. Välj ett annat.",
+          "fr": "Ce moyen de paiement n’est pas proposé ici. Choisissez-en un autre.",
+          "en": "This payment method is not offered here. Choose another one."
+        },
+        "payment_method_coming_soon": {
+          "sv": "Det här betalsättet kommer snart. Välj Betala i bilen.",
+          "fr": "Ce moyen de paiement arrive bientôt. Choisissez Payer dans la voiture.",
+          "en": "This payment method is coming soon. Choose Pay in car."
+        },
+        "payment_method_not_available": {
+          "sv": "Det här betalsättet går inte att använda. Välj ett annat.",
+          "fr": "Ce moyen de paiement ne peut pas être utilisé. Choisissez-en un autre.",
+          "en": "This payment method cannot be used. Choose another one."
+        }
+      }
+    },
+    "tips": {
+      "adminSetting": "The tip amounts are RiderAppConfig.tips (AmountOption[]: amount + enabled) of the trip's zone, written by Admin › Tips & limits (country_rules, per zone or the country standard). Defaults: Sweden 10 / 20 / 30 kr, France 1 / 2 / 5 € (configDefaults.countries.*.tips). No enabled amount = tips are off in that zone.",
+      "endpoint": "POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay } (rider; Idempotency-Key) → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip (+ tipMethod, default cash) with the rating: the same rules.",
+      "rules": "One tip per trip. Allowed when the trip is completed, or ended early by the rider (end_early). amount must be one of the zone's enabled tip amounts, in the trip's currency. method cash: the rider gives the tip in the driver's hand; card / apple_pay only when that method is available (finish.paymentMethods.served), else payment_method_coming_soon / payment_method_off.",
+      "driverShare": "100 % to the driver (owner item 1): an earnings entry kind tip of the full amount; Movera keeps nothing. A cash tip is also counted as cash the driver already holds (cashCollected), so the weekly payout does not pay it a second time.",
+      "projection": "TripProjection.tip { amount, method, at } on the rider, driver and admin views once given (event tip_added as a trip_projection event without a version change, also sent after the trip ended).",
+      "earnings": "GET /driver/earnings: tips in EarningsPeriod.tips (and in net); cash tips also in cashCollected. Payouts: the tips line (PayoutLine tips), cash tips subtracted in cash_collected. The trip's driverTotal includes the tip.",
+      "receipt": "Receipt.tip { amount, method } and the line texts.receiptLine, outside the fare.",
+      "errors": [
+        "tips_not_available",
+        "tip_amount_not_allowed",
+        "tip_already_given",
+        "tip_not_allowed",
+        "tip_cash_after_trip_off",
+        "tip_above_max"
+      ],
+      "texts": {
+        "title": {
+          "sv": "Ge dricks",
+          "fr": "Laisser un pourboire",
+          "en": "Add a tip"
+        },
+        "allToDriver": {
+          "sv": "Hela dricksen går till föraren.",
+          "fr": "Tout le pourboire va au chauffeur.",
+          "en": "The whole tip goes to the driver."
+        },
+        "cashInHand": {
+          "sv": "Ge dricksen kontant till föraren.",
+          "fr": "Donnez le pourboire en espèces au chauffeur.",
+          "en": "Give the tip to the driver in cash."
+        },
+        "thanks": {
+          "sv": "Tack! Föraren får hela dricksen.",
+          "fr": "Merci ! Le chauffeur reçoit tout le pourboire.",
+          "en": "Thank you! The driver gets the whole tip."
+        },
+        "driverGot": {
+          "sv": "Dricks från resenären: {amount}",
+          "fr": "Pourboire du passager : {amount}",
+          "en": "Tip from the rider: {amount}"
+        },
+        "driverGotCash": {
+          "sv": "Resenären ger dig {amount} i dricks kontant.",
+          "fr": "Le passager vous donne {amount} de pourboire en espèces.",
+          "en": "The rider gives you a {amount} tip in cash."
+        },
+        "receiptLine": {
+          "sv": "Dricks",
+          "fr": "Pourboire",
+          "en": "Tip"
+        },
+        "tips_not_available": {
+          "sv": "Dricks är inte på här.",
+          "fr": "Les pourboires ne sont pas activés ici.",
+          "en": "Tips are not on here."
+        },
+        "tip_amount_not_allowed": {
+          "sv": "Välj ett av beloppen.",
+          "fr": "Choisissez un des montants.",
+          "en": "Choose one of the amounts."
+        },
+        "tip_already_given": {
+          "sv": "Du har redan gett dricks för den här resan.",
+          "fr": "Vous avez déjà laissé un pourboire pour cette course.",
+          "en": "You already tipped for this trip."
+        },
+        "tip_not_allowed": {
+          "sv": "Dricks går bara efter en avslutad resa.",
+          "fr": "Le pourboire n’est possible qu’après une course terminée.",
+          "en": "A tip is only possible after a finished trip."
+        },
+        "tip_cash_after_trip_off": {
+          "sv": "Kontant dricks går bara i bilen. Välj kort när det finns.",
+          "fr": "Le pourboire en espèces se donne seulement dans la voiture.",
+          "en": "A cash tip can only be given in the car."
+        },
+        "tip_above_max": {
+          "sv": "Beloppet är för högt.",
+          "fr": "Le montant est trop élevé.",
+          "en": "The amount is too high."
+        },
+        "customAmount": {
+          "sv": "Annat belopp",
+          "fr": "Autre montant",
+          "en": "Other amount"
+        },
+        "adminCashAfterTrip": {
+          "sv": "Tillåt kontant dricks efter resan",
+          "fr": "Autoriser le pourboire en espèces après la course",
+          "en": "Allow cash tips after the trip"
+        },
+        "adminCustomAmount": {
+          "sv": "Resenären får skriva eget belopp (max {max})",
+          "fr": "Le passager peut saisir un montant libre (max {max})",
+          "en": "Rider may type an amount (max {max})"
+        }
+      },
+      "settings": "RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60), customAmount (default false), customMax: Money (default SE 200 kr, FR 20 €) }, Admin › Tips & limits, per zone or country standard; missing / out of range = default. cashAfterTrip false: a cash tip is only accepted while the rider is still in the car = within cashInCarMinutes after the trip ended (the finish screen); later → 409 tip_cash_after_trip_off (card / Apple Pay tips are not limited). customAmount true: besides the preset amounts the rider may type any whole amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed).",
+      "settings_ranges": {
+        "cashInCarMinutes": [
+          0,
+          60
+        ]
+      }
+    },
+    "earlyEnd": {
+      "rider": "Owner G8 Q1 'Cash screen + rating (Recommended)': when the rider ends early (POST /trips/{tripId}/end-early) the driver gets the normal finish: TripProjection.finish (driver and admin views; rider view without the driver's money) with endedEarly true, endedBy rider, the amount for the distance driven (finish.total), the cash to collect (finish.cashToCollect), his money (finish.driverTotal + earningsBreakdown) and ratingAllowed true; driverRatingStatus is pending, so POST /driver/trips/{tripId}/rating works on a cancelled_by_rider trip ended by end_early. The driver app shows the cash sheet with this amount (texts.driverRiderEnded), then the rating, never straight Home. Stop waiting already charged is kept.",
+      "driver": "Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m) from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2) OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked) plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone's live driver document (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).",
+      "settings": {
+        "where": "DriverAppConfig.cancelFees.earlyEnd { repriceOverKm, repriceOverMin } — Admin › Cancellation, per zone or country standard.",
+        "ranges": {
+          "repriceOverKm": [
+            0,
+            50
+          ],
+          "repriceOverMin": [
+            0,
+            120
+          ]
+        }
+      },
+      "projection": "TripProjection.finish { endedEarly, endedBy?: rider | driver, reasonCode?, repriced?: boolean, total, cashToCollect, driverTotal?, earningsBreakdown?, ratingAllowed } on every ended trip with a fare (completed, end_early, driver cancel on board). driverTotal and earningsBreakdown only on the driver and admin views. CompletePreview gains earlyEnd details: repriced, shortKm, shortMin.",
+      "texts": {
+        "endedEarly": {
+          "sv": "Avslutad tidigt",
+          "fr": "Terminée plus tôt",
+          "en": "Ended early"
+        },
+        "riderEnded": {
+          "sv": "Resenären avslutade resan i förtid.",
+          "fr": "Le passager a terminé la course plus tôt.",
+          "en": "The rider ended the trip early."
+        },
+        "driverEnded": {
+          "sv": "Föraren avslutade resan före målet.",
+          "fr": "Le chauffeur a terminé la course avant la destination.",
+          "en": "The driver ended the trip before the destination."
+        },
+        "driverRiderEnded": {
+          "sv": "Resenären avslutade resan. Ta betalt {amount}.",
+          "fr": "Le passager a terminé la course. Encaissez {amount}.",
+          "en": "The rider ended the trip. Collect {amount}."
+        },
+        "pricedForDriven": {
+          "sv": "Priset gäller sträckan som körts.",
+          "fr": "Le prix correspond au trajet effectué.",
+          "en": "The price is for the distance driven."
+        },
+        "bookedPriceStands": {
+          "sv": "Det bokade priset gäller.",
+          "fr": "Le prix réservé s’applique.",
+          "en": "The booked price applies."
+        },
+        "adminSettings": {
+          "sv": "Avslutad tidigt: nytt pris bara om resan är mer än {km} km eller {min} min kortare",
+          "fr": "Fin anticipée : nouveau prix seulement si la course est plus courte de plus de {km} km ou {min} min",
+          "en": "Ended early: new price only when the trip is more than {km} km or {min} min shorter"
+        }
+      }
+    },
+    "receipt": {
+      "rider": "GET /trips/{tripId}/receipt (rider, own trip) → Receipt; the driver reads GET /driver/trips/{tripId}/receipt (own trip, without the rider's wallet), the admin GET /admin/trips/{tripId}/receipt (trips.read). Only for an ended trip that was paid (payment_status captured / partially_refunded / refunded) or a fee trip; else 409 invalid_transition, reason receipt_not_ready.",
+      "fields": "Receipt { tripId, issuedAt, zoneId, country, currency, categoryId, pickup, dropoff, stops, paymentMethod, fareLines (the rider's lines), total, walletPaid, cashPaid, debtIncluded? (an old unpaid fee paid with this trip), tip?, refunds [{ refundId, amount, at }], refunded, endedEarly, endedBy?, endedEarlyReason? (reasonCode), distanceMeters? }.",
+      "endedEarly": "endedEarly true when the rider ended early or the driver ended before the drop-off (finish.endedEarly); endedBy rider | driver and the reason code. Apps print texts.endedEarly + finish.earlyEnd.texts.riderEnded / driverEnded.",
+      "resend": "POST /admin/trips/{tripId}/receipt/resend { reason } (trips.intervene) → 200 { tripId, notificationId, sentAt }: the rider gets a bell notice + push kind receipt (texts.resendTitle / resendBody in the rider's language, deep link movera-rider://trip/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as above. E-mail receipts wait for the owner's choice of an e-mail company.",
+      "errors": [
+        "receipt_not_ready"
+      ],
+      "texts": {
+        "title": {
+          "sv": "Kvitto",
+          "fr": "Reçu",
+          "en": "Receipt"
+        },
+        "resendTitle": {
+          "sv": "Ditt kvitto",
+          "fr": "Votre reçu",
+          "en": "Your receipt"
+        },
+        "resendBody": {
+          "sv": "Kvittot för din resa {date}: {amount}.",
+          "fr": "Le reçu de votre course du {date} : {amount}.",
+          "en": "The receipt for your trip on {date}: {amount}."
+        },
+        "debtIncluded": {
+          "sv": "Tidigare obetald avgift",
+          "fr": "Ancien frais impayé",
+          "en": "Earlier unpaid fee"
+        },
+        "refunded": {
+          "sv": "Återbetalt",
+          "fr": "Remboursé",
+          "en": "Refunded"
+        },
+        "paidInCar": {
+          "sv": "Betalt i bilen",
+          "fr": "Payé dans la voiture",
+          "en": "Paid in car"
+        },
+        "paidWallet": {
+          "sv": "Betalt med saldo",
+          "fr": "Payé avec le solde",
+          "en": "Paid with balance"
+        }
+      }
+    },
+    "driverMoney": {
+      "rule": "Owner G8 Q3 'One number (Recommended)': everywhere the server sends the driver's money for a trip it also sends driverTotal = driverEarnings + pickupPay + driverBonus + tip + Movera's changes (adjustments, incl. a refund taken from the driver), with earningsBreakdown [{ code: trip | pickup_pay | bonus | tip | adjustment, amount }] (only lines that are not 0, trip always). Apps show driverTotal as 'Your share' (texts.yourShare) on the offer-free screens: cash sheet (CompletePreview.driverTotal), finished screen, trip history, admin; the breakdown under it. driverEarnings keeps its old meaning (the fare part only) for older apps.",
+      "where": "TripProjection.driverTotal / earningsBreakdown (driver and admin views, every trip with a driver and money), CompletePreview.driverTotal / earningsBreakdown, Receipt (not), Offer (unchanged: the offer already shows the total incl. pickup pay).",
+      "payChange": "POST /admin/trips/{tripId}/driver-pay { change: Money (non-zero, the trip currency), reason } (finance.edit, Idempotency-Key) on an ended trip with a driver → 200 TripProjection (admin): an earnings entry kind adjustment of change (paid with the next payout), trip.driverAdjustments += change, driverTotal moves; audit trip.driver_pay with before / after / reason; the driver gets a bell notice kind driver_pay_changed (texts.payChanged). Errors: driver_pay_not_ended, driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch.",
+      "errors": [
+        "driver_pay_not_ended",
+        "driver_pay_no_driver",
+        "driver_pay_below_zero"
+      ],
+      "texts": {
+        "yourShare": {
+          "sv": "Din andel",
+          "fr": "Votre part",
+          "en": "Your share"
+        },
+        "trip": {
+          "sv": "Resa",
+          "fr": "Course",
+          "en": "Trip"
+        },
+        "pickup_pay": {
+          "sv": "Upphämtning",
+          "fr": "Approche",
+          "en": "Pickup pay"
+        },
+        "bonus": {
+          "sv": "Bonus",
+          "fr": "Bonus",
+          "en": "Bonus"
+        },
+        "tip": {
+          "sv": "Dricks",
+          "fr": "Pourboire",
+          "en": "Tip"
+        },
+        "adjustment": {
+          "sv": "Ändrat av Movera",
+          "fr": "Modifié par Movera",
+          "en": "Changed by Movera"
+        },
+        "payChanged": {
+          "sv": "Movera ändrade din ersättning för en resa: {change}. Orsak: {reason}",
+          "fr": "Movera a modifié votre rémunération pour une course : {change}. Motif : {reason}",
+          "en": "Movera changed your pay for a trip: {change}. Reason: {reason}"
+        }
+      }
+    },
+    "debt": {
+      "bug": "Live 2026-11-01: the driver's finished screen and the admin 'Who gets what' showed 'Movera commission −257,95 kr' on a 318 kr cash trip that carried the rider's 240 kr old fee: the old fee was counted as Movera's commission.",
+      "rule": "commission = fare − debtCollected − driverEarnings − pickupPay − driverBonus, where debtCollected = the trip's outstanding_fee line (an earlier fee the rider pays with this trip; it settles the old trip's fee, whose driver share was already credited then). TripProjection.debtCollected (driver and admin views) and Receipt.debtIncluded show it as its own line (texts.debtLine). Server migration 0045 corrects commission on stored trips.",
+      "moneySplit": "Admin view: TripProjection.moneySplit { riderPaid, driverTotal, movera (= commission), debtCollected, tip?, refunded } — 'Who gets what': riderPaid = fare (+ tip) − refunded; driverTotal + movera + debtCollected (+ tip) = fare (+ tip) before refunds.",
+      "texts": {
+        "debtLine": {
+          "sv": "Tidigare obetald avgift (till den resan)",
+          "fr": "Ancien frais impayé (pour cette course-là)",
+          "en": "Earlier unpaid fee (to that trip)"
+        },
+        "moveraCommission": {
+          "sv": "Moveras provision",
+          "fr": "Commission Movera",
+          "en": "Movera commission"
+        }
+      }
+    },
+    "safety": {
+      "rule": "Owner G8 Q4 'Only with a driver (Recommended)': the rider's SOS (112 + alert Movera) only once a driver is assigned (safety.sos.riderStatuses, server-enforced since v0.18.5: 409 trip_not_live); plain 'Call 112' (safety.onlyDuringTrip.texts.call112) is always in the safety menu.",
+      "projection": "TripProjection.sosAvailable (rider and driver views): true while the status is in safety.sos.riderStatuses / driverStatuses. The rider app shows SOS only when true, else only Call 112."
+    },
+    "refund": {
+      "existing": "For the admin trip page (Give money back): POST /admin/trips/{tripId}/refund { expectedVersion, amount: Money, reason, fromDriver? } (payments.refund) → 201 Refund (or 202 PendingApproval over the role limit). At most what the rider paid (cash + wallet) less earlier refunds (400 refund_too_large); only a paid ended trip (409 not_paid). fromDriver true ('take from driver', owner decision 31): the driver loses his share of the refunded money (an earnings adjustment − share), now also in driverTotal / driverAdjustments. The rider chooses where the money goes (POST /rider/refunds/{refundId}/destination); the admin marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid, finance.edit). Lists: GET /admin/refunds/payouts."
+    },
+    "admin": {
+      "settings": "Settings › Payment methods: per country (standard) or zone, ticks cash ('Pay in car'), card, Apple Pay → RiderAppConfig.paymentMethods and DriverAppConfig.paymentMethods (publish both); show 'Coming soon' next to card / Apple Pay while GET /rider/config paymentOptions says coming_soon. No Google Pay column. Tips & limits: tip amounts per country / zone (country_rules.tips), defaults SE 10 / 20 / 30 kr, FR 1 / 2 / 5 €. Cancellation: 'Ended early by the driver: new price only when more than X km or Y min shorter' → DriverAppConfig.cancelFees.earlyEnd.",
+      "tripPage": "Give money back → refund (finish.refund.existing, incl. Take from driver). Change pay → POST /admin/trips/{tripId}/driver-pay. Resend receipt → POST /admin/trips/{tripId}/receipt/resend. Receipt view → GET /admin/trips/{tripId}/receipt. Who gets what → TripProjection.moneySplit / debtCollected / driverTotal + earningsBreakdown; tip → TripProjection.tip; ended early → TripProjection.finish."
+    },
+    "errors": [
+      "payment_method_off",
+      "payment_method_coming_soon",
+      "payment_method_not_available",
+      "tips_not_available",
+      "tip_amount_not_allowed",
+      "tip_already_given",
+      "tip_not_allowed",
+      "receipt_not_ready",
+      "driver_pay_not_ended",
+      "driver_pay_no_driver",
+      "driver_pay_below_zero",
+      "tip_cash_after_trip_off",
+      "tip_above_max"
+    ],
+    "compat": "Additive for 0.18.9 apps except: google_pay is no longer a PaymentMethod / ZonePaymentMethod value (no trip ever had it: booking with it always failed); live apps that still offer Google Pay get 400 payment_method_not_available instead of a silent fail. Older driver apps ignore finish / driverTotal and keep driverEarnings.",
+    "next": "Driver app: cash sheet + rating after the rider's early end, 'Din andel' = driverTotal everywhere, tip line. Rider app: payment list from paymentOptions (Pay in car, card / Apple Pay coming soon, no Google Pay, no logos), tip buttons from RiderAppConfig.tips → POST /trips/{tripId}/tip, receipt with ended early, SOS only when sosAvailable. Admin: finish.admin."
   }
 }
