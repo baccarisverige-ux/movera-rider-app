@@ -5550,14 +5550,14 @@
         }
       },
       "push": {
-        "rule": "Owner rule 16 (2026-11-01, G7 open question 3): every server ride check is ALSO sent as a push to the rider and the driver (safety), so a phone in the background or locked still asks; the app card shows as before when the app is open. Push only (not a bell notice), not sent after answerBy, never to a side that already answered. Title = texts.title, body = texts.<trigger>, in the person's language, else the trip's country language (SE sv, FR fr), else English.",
+        "rule": "Owner rule 16 (2026-11-01, G7 open question 3): every server ride check is ALSO sent as a push to the rider and the driver (safety), so a phone in the background or locked still asks; the app card shows as before when the app is open. Push only (not a bell notice), sent even when the rider turned ride-update notifications off (safety), not sent after answerBy, never to a side that already answered. Title = texts.title, body = texts.<trigger>, in the person's language, else the trip's country language (SE sv, FR fr), else English.",
         "kind": "ride_check",
         "deepLink": {
           "rider": "movera-rider://trip/{tripId}",
           "driver": "movera-driver://trip/{tripId}"
         },
-        "data": "{ tripId, checkId, trigger, answerBy, sound: \"alert\", vibrate: \"true\" }",
-        "sound": "alert",
+        "data": "{ tripId, checkId, trigger, answerBy, sound: \"default\", vibrate: \"true\" }",
+        "sound": "default",
         "vibrate": true
       }
     },
@@ -5728,7 +5728,7 @@
       "new": {
         "flag": "POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged, reason?, by, at }; the admin trip view and GET /admin/trips rows carry adminFlag; GET /admin/trips?flagged=true. No trip version change, the apps never see it. Audited trip.flag / trip.unflag.",
         "notes": "GET /admin/trips/{tripId}/notes and POST /admin/trips/{tripId}/notes { text } (trips.read / trips.annotate) → AdminTripNote { noteId, tripId, text, adminId, adminName?, at }; newest first. Admin only, audited trip.note.",
-        "case": "POST /admin/trips/{tripId}/case { about: rider | driver, category, subject, text, visibleToPerson? } (support.reply) → 201 SupportTicket opened by support for that person and trip (status open; safety → priority high). visibleToPerson (owner rule 16, 2026-11-01, G7 open question 2): the admin chooses per case; false (default) = internal: the rider's / driver's own ticket list does not show it; true = the person sees it in their help list and can reply. SupportTicket.visibleToPerson on admin views. Audited trip.case.",
+        "case": "POST /admin/trips/{tripId}/case { about: rider | driver, category, subject, text, visibleToPerson? } (support.reply) → 201 SupportTicket opened by support for that person and trip (status open; safety → priority high). visibleToPerson (owner rule 16, 2026-11-01, G7 open question 2): the admin chooses per case; false (default) = internal: the rider's / driver's own ticket list does not show it; true = the person sees it, with support's messages, in their own help list (GET /support/tickets). SupportTicket.visibleToPerson on admin views. Audited trip.case.",
         "revealContact": "POST /admin/trips/{tripId}/reveal-contact { who: rider | driver, reason } (riders.viewSensitive for the rider, drivers.viewSensitive for the driver; the admin's zones) → { who, phone, revealedAt }. Reason required; audited trip.reveal_contact with the reason (never the number).",
         "incidentLevel": "POST /admin/incidents/{incidentId}/level { expectedVersion, severity: low | medium | high | critical, note? } (safety.edit) → Incident (incident_updated, audited incident.level).",
         "rideChecks": "GET /admin/ride-checks (see rideCheck.adminList).",

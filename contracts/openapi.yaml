@@ -12202,8 +12202,8 @@ paths:
       description: 'v0.18.9: POST /admin/trips/{tripId}/case { about: rider | driver, category, subject, text, visibleToPerson?
         } (support.reply) → 201 SupportTicket opened by support for that person and trip (status open; safety → priority high).
         visibleToPerson (owner rule 16, 2026-11-01, G7 open question 2): the admin chooses per case; false (default) = internal:
-        the rider''s / driver''s own ticket list does not show it; true = the person sees it in their help list and can reply.
-        SupportTicket.visibleToPerson on admin views. Audited trip.case.'
+        the rider''s / driver''s own ticket list does not show it; true = the person sees it, with support''s messages, in
+        their own help list (GET /support/tickets). SupportTicket.visibleToPerson on admin views. Audited trip.case.'
       tags:
       - Admin · Trips
       x-actor:
@@ -24528,8 +24528,8 @@ components:
           maxLength: 5000
         visibleToPerson:
           type: boolean
-          description: 'v0.18.9 (owner rule 16): true = the person sees the case in their help list and can reply; false (default)
-            = internal.'
+          description: 'v0.18.9 (owner rule 16): true = the person sees the case in their own help list; false (default) =
+            internal.'
     AdminRevealContactCommand:
       type: object
       required:
