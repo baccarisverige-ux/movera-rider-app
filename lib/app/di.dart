@@ -443,6 +443,7 @@ class AppScope {
     api: api.contractWire ? api : null,
     onTrip: RideSnapshotStore.rideLive,
     country: riderLegalCountry,
+    zoneId: riderLegalZoneId,
   );
 
   /// Demo saved cards (stored on this device until the payment partner's

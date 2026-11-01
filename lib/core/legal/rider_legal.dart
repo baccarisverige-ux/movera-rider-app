@@ -187,13 +187,21 @@ class RiderLegalController extends ChangeNotifier {
     LegalStore? store,
     ValueListenable<bool>? onTrip,
     required this.country,
+    this.zoneId,
   }) : _store = store ?? const PrefsLegalStore(),
        onTrip = onTrip ?? ValueNotifier(false) {
     this.onTrip.addListener(_changed);
   }
 
-  static String pathOf(String country) =>
-      '/api/v1/legal/${Uri.encodeComponent(country)}';
+  /// G6 (contract v0.18.8 `legal.read`): with `?zoneId=` the server fills
+  /// paragraph 3.5 with that zone's live waiting / no-show numbers.
+  static String pathOf(String country, {String? zoneId}) {
+    final base = '/api/v1/legal/${Uri.encodeComponent(country)}';
+    final zone = zoneId?.trim();
+    if (zone == null || zone.isEmpty) return base;
+    return '$base?zoneId=${Uri.encodeQueryComponent(zone)}';
+  }
+
   static const acceptPath = '/api/v1/account/legal/accept';
 
   final ApiClient? api;
@@ -202,6 +210,10 @@ class RiderLegalController extends ChangeNotifier {
 
   /// `SE` or `FR` (contract `legal.countries`).
   final Future<String> Function() country;
+
+  /// G6: the rider's current zone id (sent as `?zoneId=` so the terms show
+  /// the zone's waiting rules); null or failing = no zone.
+  final Future<String?> Function(String country)? zoneId;
 
   LegalTexts? _texts;
   LegalTexts? get texts => _texts;
@@ -283,7 +295,15 @@ class RiderLegalController extends ChangeNotifier {
     _loading = true;
     _changed();
     try {
-      final parsed = LegalTexts.fromJson(await client.get(pathOf(code)));
+      String? zone;
+      try {
+        zone = await zoneId?.call(code);
+      } catch (_) {
+        zone = null;
+      }
+      final parsed = LegalTexts.fromJson(
+        await client.get(pathOf(code, zoneId: zone)),
+      );
       if (parsed == null) throw const FormatException('not LegalTexts');
       _texts = parsed;
       _failed = false;

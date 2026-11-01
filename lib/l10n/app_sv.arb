@@ -1556,5 +1556,8 @@
   "accountOutstandingFees": "Obetalda avgifter",
   "outstandingInCurrency": "{amount} – dras på din nästa resa som betalas i {currency}",
   "waitingTimeOverFree": "Väntetid {time} efter de {minutes} fria minuterna",
-  "waitingChargedAfterFree": "Väntetid debiteras efter de fria minuterna"
+  "waitingChargedAfterFree": "Väntetid debiteras efter de fria minuterna",
+  "tripPinTellDriver": "Säg den här koden till föraren",
+  "waitingAlertPaid": "Den fria väntetiden är slut",
+  "waitingAlertNoShow": "Föraren kan nu avsluta resan som utebliven"
 }

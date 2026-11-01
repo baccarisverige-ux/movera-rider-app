@@ -15,3 +15,15 @@ Future<String> riderLegalCountry() async {
   final start = (await defaultPhoneCountry()).iso;
   return start == 'FR' ? 'FR' : 'SE';
 }
+
+/// G6 (contract v0.18.8): the zone sent as `?zoneId=` with the terms so
+/// paragraph 3.5 shows its live waiting / no-show numbers; only a zone of
+/// the terms' own [country] (another country's zone leaves 3.5 out).
+Future<String?> riderLegalZoneId(String country) async {
+  try {
+    final zone = await currentRiderZone();
+    return zone.country == country ? zone.id : null;
+  } catch (_) {
+    return null;
+  }
+}

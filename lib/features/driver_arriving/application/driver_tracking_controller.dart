@@ -87,6 +87,51 @@ class DriverTrackingController {
   /// cancelled (the rider's own cancel, or a no-show), from the projection.
   RiderCancelOutcomeFee? cancellation;
 
+  /// v0.18.8 (`arrivedWaiting.pin`): the trip needs the rider PIN before
+  /// Start, the PIN itself (rider view only) and whether the driver has
+  /// entered it. The PIN shows while [showPin] is true.
+  bool pinRequired = false;
+  String? pickupPin;
+  bool pinVerified = false;
+
+  /// The PIN card shows from accept until the driver entered the code.
+  bool get showPin =>
+      pinRequired &&
+      !pinVerified &&
+      pickupPin != null &&
+      (status == RideStatus.driverAssigned ||
+          status == RideStatus.driverArriving ||
+          status == RideStatus.driverWaiting);
+
+  /// v0.18.8 (`arrivedWaiting.alerts`, owner decision 6): each waiting
+  /// alert kind shows once per arrival; the screen takes new ones here.
+  List<String> takeNewAlerts() {
+    final fresh = List<String>.of(_newAlerts);
+    _newAlerts.clear();
+    return fresh;
+  }
+
+  final Set<String> _alertsSeen = {};
+  final List<String> _newAlerts = [];
+
+  void _takeAlerts(RideRealtimeEvent event) {
+    if (event.status != RideStatus.driverWaiting) return;
+    for (final kind in event.waitingAlerts) {
+      if (_alertsSeen.add(kind)) _newAlerts.add(kind);
+    }
+  }
+
+  void _takePin(RideRealtimeEvent event) {
+    pinRequired = event.pinRequired ?? pinRequired;
+    pickupPin = event.pickupPin ?? pickupPin;
+    pinVerified = event.pinVerified ?? pinVerified;
+  }
+
+  /// `GET /trips/{id}/pin` answered (same value as `pickupPin`).
+  void setFetchedPin(String pin) {
+    if (RegExp(r'^\d{4}$').hasMatch(pin)) pickupPin = pin;
+  }
+
   /// v0.18.7 (item 4): a pickup the server moved (a `pickup_moved` event,
   /// or a projection whose pickup differs from the one this screen shows).
   /// Waiting takes it once to re-draw the route and say so.
@@ -128,6 +173,8 @@ class DriverTrackingController {
     final cancellation = event.cancellation;
     if (cancellation != null) this.cancellation = cancellation;
     _takePickup(event);
+    _takePin(event);
+    _takeAlerts(event);
   }
 
   /// rider-u23: the driver who dropped the trip when the feed went straight
@@ -194,6 +241,9 @@ class DriverTrackingController {
   void _clearWaitingDeadlines() {
     waitingFreeUntil = null;
     waitingNoShowAt = null;
+    // A new arrival (another driver) may send its alerts again.
+    _alertsSeen.clear();
+    _newAlerts.clear();
   }
 
   void start({

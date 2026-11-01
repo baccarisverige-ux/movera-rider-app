@@ -52,6 +52,8 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/trip_pin_card.dart';
+import 'package:movera_rider/features/active_ride/application/trip_pin.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -511,6 +513,28 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
+  bool _pinFetchStarted = false;
+
+  /// G6: `GET /trips/{id}/pin` when the trip needs a PIN and the
+  /// projection did not carry it (same value as `pickupPin`).
+  void _maybeFetchPin() {
+    if (_pinFetchStarted) return;
+    if (!_tracking.pinRequired || _tracking.pinVerified) return;
+    if (_tracking.pickupPin != null) return;
+    final rideId = _rideId;
+    if (rideId == null || rideId.trim().isEmpty) return;
+    final api = AppScope.instance.api;
+    if (!api.contractWire) return;
+    _pinFetchStarted = true;
+    unawaited(
+      fetchTripPin(api, rideId).then((pin) {
+        if (pin == null || !mounted) return;
+        _tracking.setFetchedPin(pin);
+        setState(() {});
+      }),
+    );
+  }
+
   void _retryLiveFeed() {
     final rideId = _rideId;
     if (rideId == null || rideId.trim().isEmpty) return;
@@ -526,6 +550,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _onLiveTick() {
     if (!mounted) return;
     final status = _tracking.status;
+    // G6 (owner decision 6): one short message per waiting alert, no sound.
+    for (final kind in _tracking.takeNewAlerts()) {
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            key: ValueKey('waiting-alert-$kind'),
+            content: Text(waitingAlertText(context.l10n, kind)),
+          ),
+        );
+    }
+    _maybeFetchPin();
     // v0.18.7 (item 4): the server moved the pickup (`pickup_moved`).
     if (_tracking.takeMovedPickup() case final moved?) {
       final changed =
@@ -700,6 +736,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
+        pin: _tracking.showPin ? _tracking.pickupPin : null,
         // The builder runs again while a closed sheet animates out.
         onRoute: (route) {
           if (token == _arrivedSheetToken) _arrivedSheetRoute = route;
@@ -2768,6 +2805,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             onMore: _moreAction,
           ),
           const SizedBox(height: 12),
+          if (_tracking.showPin) ...[
+            TripPinCard(pin: _tracking.pickupPin!),
+            const SizedBox(height: 12),
+          ],
           if (_waitingFeeCounter() case final counter?) ...[
             counter,
             const SizedBox(height: 12),

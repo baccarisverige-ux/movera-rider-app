@@ -511,7 +511,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1185,7 +1190,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -1563,6 +1571,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'outstandingInCurrency': l.outstandingInCurrency('<amount>', '<currency>'),
   'waitingTimeOverFree': l.waitingTimeOverFree('<time>', '<minutes>'),
   'waitingChargedAfterFree': l.waitingChargedAfterFree,
+  'tripPinTellDriver': l.tripPinTellDriver,
+  'waitingAlertPaid': l.waitingAlertPaid,
+  'waitingAlertNoShow': l.waitingAlertNoShow,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -2799,7 +2810,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupLocation => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -4902,4 +4918,10 @@ class _Exhaustive implements AppLocalizations {
   String waitingTimeOverFree(String time, String minutes) => '';
   @override
   String get waitingChargedAfterFree => '';
+  @override
+  String get tripPinTellDriver => '';
+  @override
+  String get waitingAlertPaid => '';
+  @override
+  String get waitingAlertNoShow => '';
 }

@@ -3130,5 +3130,11 @@
       }
     }
   },
-  "waitingChargedAfterFree": "Waiting time is charged after the free minutes"
+  "waitingChargedAfterFree": "Waiting time is charged after the free minutes",
+  "tripPinTellDriver": "Tell your driver this code",
+  "@tripPinTellDriver": {"description": "G6 (contract v0.18.8 arrivedWaiting.pin)"},
+  "waitingAlertPaid": "The free waiting is over",
+  "@waitingAlertPaid": {"description": "G6 arrivedWaiting.alerts.texts.riderPaid"},
+  "waitingAlertNoShow": "The driver may now end the ride as a no-show",
+  "@waitingAlertNoShow": {"description": "G6 arrivedWaiting.alerts.texts.riderNoShow"}
 }
