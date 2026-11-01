@@ -95,6 +95,17 @@ class RideCheckTriggerSettings {
   /// The car has stood still for [still]: is that more than admin's time?
   bool isLongStop(Duration still) => still > Duration(minutes: longStopMinutes);
 
+  /// v0.18.9 (G7): the trip zone's `rideCheck` from the rider config
+  /// (RiderAppConfig.rideCheck). Its `endFarMeters` is the per-zone
+  /// "dropped far from drop-off" distance; the retired
+  /// `finishFarFromDropoffKm` is no longer sent. A missing or bad value
+  /// keeps these settings.
+  RideCheckTriggerSettings withZoneRideCheck(Map<String, Object?>? zone) {
+    final endFar = zone?['endFarMeters'];
+    if (endFar is! num || !endFar.isFinite || endFar <= 0) return this;
+    return copyWith(finishFarFromDropoffKm: endFar / 1000);
+  }
+
   RideCheckTriggerSettings copyWith({
     bool? droppedFarEnabled,
     double? finishFarFromDropoffKm,
