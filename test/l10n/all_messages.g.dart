@@ -1574,6 +1574,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripPinTellDriver': l.tripPinTellDriver,
   'waitingAlertPaid': l.waitingAlertPaid,
   'waitingAlertNoShow': l.waitingAlertNoShow,
+  'noShowReversedNoFee': l.noShowReversedNoFee,
+  'refundedToWallet': l.refundedToWallet('<amount>'),
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1774,6 +1776,7 @@ const messagePlaceholders = <String, List<String>>{
   'cancelledNoShowFee': ['amount'],
   'outstandingInCurrency': ['amount', 'currency'],
   'waitingTimeOverFree': ['time', 'minutes'],
+  'refundedToWallet': ['amount'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4924,4 +4927,8 @@ class _Exhaustive implements AppLocalizations {
   String get waitingAlertPaid => '';
   @override
   String get waitingAlertNoShow => '';
+  @override
+  String get noShowReversedNoFee => '';
+  @override
+  String refundedToWallet(String amount) => '';
 }

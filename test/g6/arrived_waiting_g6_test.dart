@@ -18,7 +18,11 @@ import 'package:movera_rider/features/active_ride/presentation/trip_pin_card.dar
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Driver group 6 "Arrived and waiting" (contract v0.18.8) in the rider
 /// app: the trip PIN, the Terms with the zone's live waiting rules
@@ -76,7 +80,11 @@ class _Feed implements RideRealtime {
   void dispose() => unawaited(_events.close());
 }
 
-Future<void> _flush() => Future<void>.delayed(Duration.zero);
+Future<void> _flush() async {
+  for (var i = 0; i < 5; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
 
 (DriverTrackingController, _Feed) _tracking() {
   final feed = _Feed();
@@ -108,6 +116,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   tearDown(() => L10n.use('en'));
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('trip PIN', () {
     test('shows from accept while the driver is on the way and waiting, '
@@ -132,6 +141,34 @@ void main() {
         payload: {...pin, pinVerifiedKey: true},
       );
       await _flush();
+      expect(tracking.showPin, isFalse);
+    });
+
+    test('a new driver brings a new PIN, shown again until entered; '
+        'an end status stops it', () async {
+      final (tracking, feed) = _tracking();
+      feed.add(
+        RideStatus.driverWaiting,
+        payload: {
+          pinRequiredKey: true,
+          pickupPinKey: '1234',
+          pinVerifiedKey: true,
+        },
+      );
+      await _flush();
+      expect(tracking.showPin, isFalse);
+      // Trip changed driver: new PIN in the projection.
+      feed.add(
+        RideStatus.driverArriving,
+        payload: {pinRequiredKey: true, pickupPinKey: '8765'},
+      );
+      await _flush();
+      expect(tracking.pickupPin, '8765');
+      expect(tracking.showPin, isTrue);
+      feed.add(RideStatus.noShow, payload: {pinRequiredKey: true});
+      await _flush();
+      expect(tracking.pickupPin, isNull);
+      tracking.clearPin();
       expect(tracking.showPin, isFalse);
     });
 
@@ -168,6 +205,7 @@ void main() {
     test('GET /trips/{id}/pin returns the PinCode pin; 404 = none', () async {
       final requests = <http.Request>[];
       var status = 200;
+      var reason = 'pin_not_required';
       final tokens = MemoryTokenStore();
       await tokens.save(access: 'a', refresh: 'r');
       final api = ApiClient(
@@ -184,15 +222,19 @@ void main() {
               : _json(404, {
                   'code': 'not_found',
                   'message': 'x',
-                  'reason': 'pin_not_required',
+                  'reason': reason,
                 });
         }),
       );
-      expect(await fetchTripPin(api, 'T1'), '0042');
+      expect((await fetchTripPin(api, 'T1')).pin, '0042');
       expect(requests.single.url.path, '/api/v1/trips/T1/pin');
       expect(requests.single.method, 'GET');
       status = 404;
-      expect(await fetchTripPin(api, 'T1'), isNull);
+      final none = await fetchTripPin(api, 'T1');
+      expect((none.pin, none.over), (null, false));
+      reason = 'pin_trip_over';
+      final over = await fetchTripPin(api, 'T1');
+      expect((over.pin, over.over), (null, true));
     });
 
     for (final (locale, title) in [
@@ -300,6 +342,154 @@ void main() {
         }
       }
     });
+  });
+
+  group('waiting alerts survive a reopen', () {
+    Map<String, Object?> alerts(List<String> kinds, String arrivedAt) => {
+      waitingArrivedAtKey: arrivedAt,
+      waitingAlertsKey: [
+        for (final kind in kinds) {'kind': kind, 'at': arrivedAt},
+      ],
+    };
+
+    test('a reopened screen does not show the same alert again; '
+        'a new arrival does', () async {
+      final (first, feed1) = _tracking();
+      await _flush();
+      feed1.add(
+        RideStatus.driverWaiting,
+        payload: alerts([alertPaidWaitingStarted], '2026-11-01T10:00:00Z'),
+      );
+      await _flush();
+      expect(first.takeNewAlerts(), [alertPaidWaitingStarted]);
+
+      // App reopened: a new controller, same trip and arrival.
+      final (second, feed2) = _tracking();
+      feed2.add(
+        RideStatus.driverWaiting,
+        payload: alerts([
+          alertPaidWaitingStarted,
+          alertNoShowPossible,
+        ], '2026-11-01T10:00:00Z'),
+      );
+      await _flush();
+      expect(second.takeNewAlerts(), [alertNoShowPossible]);
+
+      // Another arrival (new driver) on the same trip.
+      final (third, feed3) = _tracking();
+      feed3.add(
+        RideStatus.driverWaiting,
+        payload: alerts([alertPaidWaitingStarted], '2026-11-01T10:30:00Z'),
+      );
+      await _flush();
+      expect(third.takeNewAlerts(), [alertPaidWaitingStarted]);
+    });
+  });
+
+  group('reversed no-show', () {
+    Map<String, dynamic> trip(Map<String, Object?> extra) => {
+      'cancellation': {
+        'actor': 'driver',
+        'reasonCode': 'no_show',
+        'at': '2026-11-01T10:10:00Z',
+        'fee': {'amountMinor': 6500, 'currency': 'SEK'},
+        'feeKind': 'no_show',
+        'reversal': {'at': '2026-11-01T11:00:00Z'},
+        ...extra,
+      },
+    };
+
+    test('round 1: feeStatus waived + refundedToWallet = refunded', () {
+      final r = RideProjection.noShowReversal(
+        trip({
+          'feeStatus': 'waived',
+          'refundedToWallet': true,
+          'refundedAt': '2026-11-01T11:00:00Z',
+        }),
+      );
+      expect(r.reversed, isTrue);
+      expect(r.refunded?.amountMinor, 6500);
+    });
+
+    test('feeStatus refunded or refundedAt = refunded to wallet', () {
+      final a = RideProjection.noShowReversal(trip({'feeStatus': 'refunded'}));
+      expect(a.reversed, isTrue);
+      expect(a.refunded?.amountMinor, 6500);
+      final b = RideProjection.noShowReversal(
+        trip({'feeStatus': 'paid', 'refundedAt': '2026-11-01T11:00:00Z'}),
+      );
+      expect(b.refunded?.amountMinor, 6500);
+    });
+
+    test('waived or unknown status = no fee, no refund, no crash', () {
+      for (final status in ['waived', 'brand_new_status', 42, null]) {
+        final r = RideProjection.noShowReversal(trip({'feeStatus': status}));
+        expect(r.reversed, isTrue);
+        expect(r.refunded, isNull);
+      }
+      expect(
+        RideProjection.noShowReversal({'cancellation': 'x'}).reversed,
+        isFalse,
+      );
+      final plain = trip({})..['cancellation'].remove('reversal');
+      expect(RideProjection.noShowReversal(plain).reversed, isFalse);
+    });
+
+    test('kept on the history record across a restart', () {
+      final json = {
+        'reservationId': 'ondemand-T1',
+        'createdAt': '2026-11-01T09:00:00Z',
+        'scheduledPickupAt': '2026-11-01T10:00:00Z',
+        'pickup': {'label': 'A', 'lat': 59.3, 'lng': 18.0},
+        'destination': {'label': 'B', 'lat': 59.4, 'lng': 18.1},
+        'categoryId': 'movera',
+        'categoryName': 'Movera',
+        'price': 100,
+        'currency': 'SEK',
+        'paymentMethod': 'Wallet',
+        'status': 'cancelled',
+        'noShowReversed': true,
+        'refundedToWallet': {'amountMinor': 6500, 'currency': 'SEK'},
+      };
+      final parsed = Reservation.tryParse(json)!;
+      expect(parsed.noShowReversed, isTrue);
+      expect(parsed.refundedToWallet, const Money(6500, 'SEK'));
+      final again = Reservation.tryParse(parsed.toJson())!;
+      expect(again.noShowReversed, isTrue);
+      expect(again.refundedToWallet?.amountMinor, 6500);
+    });
+
+    for (final (locale, line, refund) in [
+      ('en', 'No-show reversed · no fee', 'Refunded to your wallet X'),
+      (
+        'sv',
+        'Utebliven kund ångrad · ingen avgift',
+        'Återbetalt till din plånbok X',
+      ),
+      (
+        'fr',
+        'Absence annulée · aucuns frais',
+        'Remboursé sur votre portefeuille X',
+      ),
+    ]) {
+      testWidgets('texts ($locale)', (tester) async {
+        late String a, b;
+        await tester.pumpWidget(
+          _app(
+            Builder(
+              builder: (context) {
+                a = context.l10n.noShowReversedNoFee;
+                b = context.l10n.refundedToWallet('X');
+                return const SizedBox();
+              },
+            ),
+            locale: locale,
+          ),
+        );
+        expect(a, line);
+        expect(b, refund);
+      });
+    }
   });
 
   group('Terms with the zone', () {

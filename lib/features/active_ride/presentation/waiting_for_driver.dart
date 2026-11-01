@@ -527,9 +527,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!api.contractWire) return;
     _pinFetchStarted = true;
     unawaited(
-      fetchTripPin(api, rideId).then((pin) {
-        if (pin == null || !mounted) return;
-        _tracking.setFetchedPin(pin);
+      fetchTripPin(api, rideId).then((answer) {
+        if (!mounted) return;
+        if (answer.over) {
+          _tracking.clearPin();
+        } else if (answer.pin case final pin?) {
+          _tracking.setFetchedPin(pin);
+        } else {
+          return;
+        }
         setState(() {});
       }),
     );

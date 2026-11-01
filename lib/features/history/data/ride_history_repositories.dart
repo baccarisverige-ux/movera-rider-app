@@ -82,6 +82,7 @@ class ApiRideHistoryRepository
         snapshot.status == RideStatus.cancelledByRider &&
         rating != null &&
         rating != TripRatingStatus.notRequested;
+    final reversal = RideProjection.noShowReversal(trip);
     return OnDemandRideHistoryStore.recordFor(
       snapshot,
       terminalStatus: snapshot.status,
@@ -95,6 +96,8 @@ class ApiRideHistoryRepository
           WireTime.tryParse(trip['updatedAt']),
       // rider-u33: the fee the server charged for a cancel.
       cancellationFee: RideProjection.cancellationFee(trip),
+      noShowReversed: reversal.reversed,
+      refundedToWallet: reversal.refunded,
     );
   }
 }

@@ -3136,5 +3136,9 @@
   "waitingAlertPaid": "The free waiting is over",
   "@waitingAlertPaid": {"description": "G6 arrivedWaiting.alerts.texts.riderPaid"},
   "waitingAlertNoShow": "The driver may now end the ride as a no-show",
-  "@waitingAlertNoShow": {"description": "G6 arrivedWaiting.alerts.texts.riderNoShow"}
+  "@waitingAlertNoShow": {"description": "G6 arrivedWaiting.alerts.texts.riderNoShow"},
+  "noShowReversedNoFee": "No-show reversed · no fee",
+  "@noShowReversedNoFee": {"description": "G6 reversed no-show on the trip history"},
+  "refundedToWallet": "Refunded to your wallet {amount}",
+  "@refundedToWallet": {"description": "G6 reversed no-show refund", "placeholders": {"amount": {"type": "String"}}}
 }

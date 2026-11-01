@@ -1559,5 +1559,7 @@
   "waitingChargedAfterFree": "Väntetid debiteras efter de fria minuterna",
   "tripPinTellDriver": "Säg den här koden till föraren",
   "waitingAlertPaid": "Den fria väntetiden är slut",
-  "waitingAlertNoShow": "Föraren kan nu avsluta resan som utebliven"
+  "waitingAlertNoShow": "Föraren kan nu avsluta resan som utebliven",
+  "noShowReversedNoFee": "Utebliven kund ångrad · ingen avgift",
+  "refundedToWallet": "Återbetalt till din plånbok {amount}"
 }

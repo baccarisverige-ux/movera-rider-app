@@ -297,6 +297,8 @@ class Reservation {
     this.parentReservationId,
     this.previousDriver,
     this.cancellationFee,
+    this.noShowReversed = false,
+    this.refundedToWallet,
     this.endedEarly = false,
     this.chargedFare,
     this.paymentFailed = false,
@@ -332,6 +334,13 @@ class Reservation {
 
   /// The fee the rider agreed to when cancelling late, if any.
   final Money? cancellationFee;
+
+  /// G6 (v0.18.8 `cancellation.reversal`): an admin reversed the no-show,
+  /// so the rider owes no fee.
+  final bool noShowReversed;
+
+  /// G6: the paid no-show fee went back to the wallet on the reversal.
+  final Money? refundedToWallet;
 
   /// UI-01: the rider ended the trip on board (contract `end_early`). The
   /// ride is `cancelled`, but they paid for the distance driven.
@@ -415,6 +424,8 @@ class Reservation {
     bool clearDriver = false,
     ReservationDriver? previousDriver,
     Money? cancellationFee,
+    bool? noShowReversed,
+    Money? refundedToWallet,
     bool? endedEarly,
     Money? chargedFare,
     bool? paymentFailed,
@@ -445,6 +456,8 @@ class Reservation {
       parentReservationId: parentReservationId ?? this.parentReservationId,
       previousDriver: previousDriver ?? this.previousDriver,
       cancellationFee: cancellationFee ?? this.cancellationFee,
+      noShowReversed: noShowReversed ?? this.noShowReversed,
+      refundedToWallet: refundedToWallet ?? this.refundedToWallet,
       endedEarly: endedEarly ?? this.endedEarly,
       chargedFare: chargedFare ?? this.chargedFare,
       paymentFailed: paymentFailed ?? this.paymentFailed,
@@ -480,6 +493,9 @@ class Reservation {
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
     if (previousDriver != null) 'previousDriver': previousDriver!.toJson(),
     if (cancellationFee != null) 'cancellationFee': cancellationFee!.toJson(),
+    if (noShowReversed) 'noShowReversed': true,
+    if (refundedToWallet != null)
+      'refundedToWallet': refundedToWallet!.toJson(),
     if (endedEarly) 'endedEarly': true,
     if (chargedFare != null) 'chargedFare': chargedFare!.toJson(),
     if (paymentFailed) 'paymentFailed': true,
@@ -541,6 +557,8 @@ class Reservation {
         parentReservationId: map['parentReservationId'] as String?,
         previousDriver: ReservationDriver.tryParse(map['previousDriver']),
         cancellationFee: Money.fromWire(map['cancellationFee']),
+        noShowReversed: map['noShowReversed'] == true,
+        refundedToWallet: Money.fromWire(map['refundedToWallet']),
         endedEarly: map['endedEarly'] == true,
         chargedFare: Money.fromWire(map['chargedFare']),
         paymentFailed: map['paymentFailed'] == true,
