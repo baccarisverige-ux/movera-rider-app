@@ -308,6 +308,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   /// v0.18.9: a withdraw of the pending route change is on its way.
   bool _routeWithdrawing = false;
+  String? _routeChangeShown;
 
   /// Natural height of the sheet's content; the full stop ends there.
   double? _contentHeight;
@@ -2146,6 +2147,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           askedAt: check.askedAt,
         ),
       );
+    }
+    // The pending card follows the projection (a change from another
+    // device, an answer): rebuild when its state moved.
+    final shownKey =
+        '${_tracking.routeChange?.changeId}:'
+        '${_tracking.routeChange?.status}';
+    if (shownKey != _routeChangeShown) {
+      _routeChangeShown = shownKey;
+      setState(() {});
     }
     final outcome = _tracking.takeRouteChangeOutcome();
     if (outcome == null) return;
