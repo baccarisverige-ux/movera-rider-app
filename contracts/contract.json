@@ -757,7 +757,15 @@
     ],
     "driverBonus": {
       "paidBy": "movera",
-      "note": "Movera-paid extra for the driver (\"add money to trip\"). The rider never pays it. It is included in Offer.fare and Offer.driverEarnings as the driver sees them; TripProjection.fare (rider) never includes it. Above driver.driverBonus.defaultLimit the server answers 400 invalid_request (\"adjust the limit in Pricing\"); the limit itself can never exceed driverBonus.hardMax."
+      "note": "Movera-paid extra for the driver (\"add money to trip\"). The rider never pays it. It is included in Offer.fare and Offer.driverEarnings as the driver sees them; TripProjection.fare (rider) never includes it. Above driver.driverBonus.defaultLimit the server answers 400 invalid_request (\"adjust the limit in Pricing\"); the limit itself can never exceed driverBonus.hardMax.",
+      "applyTo": {
+        "values": [
+          "exclusive",
+          "radar",
+          "both"
+        ],
+        "note": "Owner bug 2026-11-01 (admin \"Add money\", Apply to: Exclusive arrived on a Radar offer). Optional applyTo on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both. Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus WITH applyTo also sends at once (same rules and timers as the admin's Exclusive / Radar sends; a driver who cannot take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free driver of the trip's category; radar → the trip's open exclusive offers become radar offers and, if no radar offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus, commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the badge is set; TripProjection.driverBonus is the larger of the two until accept."
+      }
     },
     "nearbyScopes": [
       "radius",
@@ -2807,7 +2815,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €).",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €). v0.18.10 checker: driverPayChangeMax (CountryRules.driverPayChangeMax, SE 1000 kr / FR 100 €).",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
     "freeWaitMin": {
@@ -3504,6 +3512,16 @@
           "amountMinor": 2000,
           "currency": "EUR"
         }
+      }
+    },
+    "driverPayChangeMax": {
+      "SE": {
+        "amountMinor": 100000,
+        "currency": "SEK"
+      },
+      "FR": {
+        "amountMinor": 10000,
+        "currency": "EUR"
       }
     }
   },
@@ -5517,7 +5535,7 @@
       },
       "adminList": {
         "endpoint": "GET /admin/ride-checks?zoneId=&tripId=&trigger=&answer=&origin=&from=&to=&cursor=&limit= (incidents.read; the admin's zones)",
-        "row": "RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger, shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, createdAt }, newest first; nextCursor.",
+        "row": "RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger, shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, measured?: { value, unit: min | km | m } (server checks: minutes stopped, km off the route, metres from the drop-off when asked), answerSeconds? (the zone's noAnswerSeconds when asked), createdAt }, newest first; nextCursor. A served DriverAppConfig / RiderAppConfig rideCheck never carries the pre-v0.18.9 finishFarFromDropoffKm; endFarMeters is the one setting.",
         "answerFilter": "answer = ok | need_help | no_answer | waiting (no answer yet, not timed out)."
       },
       "texts": {
@@ -5735,11 +5753,11 @@
       "existing": {
         "cancel": "POST /admin/trips/{tripId}/cancel { expectedVersion, reasonCode, note?, driverBonus? } (trips.intervene)",
         "reassign": "POST /admin/trips/{tripId}/reassign { expectedVersion, reasonCode, note?, driverBonus? } (trips.intervene)",
-        "assign": "POST /admin/trips/{tripId}/assign { expectedVersion, driverId, note?, driverBonus?, priority? } (trips.intervene)",
+        "assign": "POST /admin/trips/{tripId}/assign { expectedVersion, driverId, note?, driverBonus?, priority?, applyTo? } (trips.intervene)",
         "noShow": "POST /admin/trips/{tripId}/no-show { expectedVersion, note?, waiveFee? } (trips.intervene)",
         "complete": "POST /admin/trips/{tripId}/complete { expectedVersion, note?, fare? } (trips.intervene)",
         "adjust": "POST /admin/trips/{tripId}/adjust { expectedVersion, fare?, waitingSeconds?, waiveCancelFee?, reason? } (trips.intervene): price adjust and waiting (waitingSeconds = the pickup waiting that is charged).",
-        "driverBonus": "POST /admin/trips/{tripId}/driver-bonus { expectedVersion, amount, priority?, note? } (trips.intervene)",
+        "driverBonus": "POST /admin/trips/{tripId}/driver-bonus { expectedVersion, amount, priority?, note?, applyTo? } (trips.intervene)",
         "reverseNoShow": "POST /admin/trips/{tripId}/reverse-no-show (v0.18.8)",
         "pinUnlock": "POST /admin/trips/{tripId}/pin/unlock (v0.18.8)"
       },
@@ -5789,7 +5807,7 @@
       "serverSupport": "The server takes only the methods of its own list (today: cash only; card and Apple Pay need a payment company, owner 'Coming soon until a payment company is chosen'). It is not an admin setting: it changes when Movera connects a payment company.",
       "served": "GET /rider/config and GET /driver/config add paymentOptions: [{ method, status: available | coming_soon }] in the admin's order, one per method the admin turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon; it never shows a method that is not listed.",
       "booking": "POST /trips (the trip's paymentMethod, in the quote's zone; POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request, reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon; anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked trip stays unavailable (PATCH answers route_change_not_available, as before).",
-      "migration": "Server migration 0045: google_pay is taken out of every stored rider / driver document (live, draft, history) and of the trips / quotes check; a trip or quote with google_pay never existed (booking always failed).",
+      "migration": "Server migration 0045: google_pay is taken out of every stored rider / driver document (live, draft, history) and of the trips / quotes check; a trip or quote with google_pay never existed (booking always failed). Defensive: any trip with google_pay is set to cash before the check is changed.",
       "texts": {
         "cash": {
           "sv": "Betala i bilen",
@@ -5931,13 +5949,14 @@
           "en": "Rider may type an amount (max {max})"
         }
       },
-      "settings": "RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60), customAmount (default false), customMax: Money (default SE 200 kr, FR 20 €) }, Admin › Tips & limits, per zone or country standard; missing / out of range = default. cashAfterTrip false: a cash tip is only accepted while the rider is still in the car = within cashInCarMinutes after the trip ended (the finish screen); later → 409 tip_cash_after_trip_off (card / Apple Pay tips are not limited). customAmount true: besides the preset amounts the rider may type any whole amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed).",
+      "settings": "RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60), customAmount (default false), customMax: Money (default SE 200 kr, FR 20 €) }, Admin › Tips & limits, per zone or country standard; missing / out of range = default. cashAfterTrip false: a cash tip is only accepted while the rider is still in the car = within cashInCarMinutes after the trip ended (the finish screen); later → 409 tip_cash_after_trip_off (card / Apple Pay tips are not limited). customAmount true: besides the preset amounts the rider may type any whole amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed). customMax never unlimited: a document without one uses the country default, else 20 × the highest preset amount.",
       "settings_ranges": {
         "cashInCarMinutes": [
           0,
           60
         ]
-      }
+      },
+      "withRating": "RatingRequest.tip: the rating is saved first; a tip that cannot be given does not lose the stars: the answer is the rating (201, or 200 with only tipError for a skip) with tipError { code, reason, message } and no tip."
     },
     "earlyEnd": {
       "rider": "Owner G8 Q1 'Cash screen + rating (Recommended)': when the rider ends early (POST /trips/{tripId}/end-early) the driver gets the normal finish: TripProjection.finish (driver and admin views; rider view without the driver's money) with endedEarly true, endedBy rider, the amount for the distance driven (finish.total), the cash to collect (finish.cashToCollect), his money (finish.driverTotal + earningsBreakdown) and ratingAllowed true; driverRatingStatus is pending, so POST /driver/trips/{tripId}/rating works on a cancelled_by_rider trip ended by end_early. The driver app shows the cash sheet with this amount (texts.driverRiderEnded), then the rating, never straight Home. Stop waiting already charged is kept.",
@@ -6043,11 +6062,12 @@
     "driverMoney": {
       "rule": "Owner G8 Q3 'One number (Recommended)': everywhere the server sends the driver's money for a trip it also sends driverTotal = driverEarnings + pickupPay + driverBonus + tip + Movera's changes (adjustments, incl. a refund taken from the driver), with earningsBreakdown [{ code: trip | pickup_pay | bonus | tip | adjustment, amount }] (only lines that are not 0, trip always). Apps show driverTotal as 'Your share' (texts.yourShare) on the offer-free screens: cash sheet (CompletePreview.driverTotal), finished screen, trip history, admin; the breakdown under it. driverEarnings keeps its old meaning (the fare part only) for older apps.",
       "where": "TripProjection.driverTotal / earningsBreakdown (driver and admin views, every trip with a driver and money), CompletePreview.driverTotal / earningsBreakdown, Receipt (not), Offer (unchanged: the offer already shows the total incl. pickup pay).",
-      "payChange": "POST /admin/trips/{tripId}/driver-pay { change: Money (non-zero, the trip currency), reason } (finance.edit, Idempotency-Key) on an ended trip with a driver → 200 TripProjection (admin): an earnings entry kind adjustment of change (paid with the next payout), trip.driverAdjustments += change, driverTotal moves; audit trip.driver_pay with before / after / reason; the driver gets a bell notice kind driver_pay_changed (texts.payChanged). Errors: driver_pay_not_ended, driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch.",
+      "payChange": "POST /admin/trips/{tripId}/driver-pay { change: Money (non-zero, the trip currency), reason } (finance.edit, Idempotency-Key) on an ended trip with a driver → 200 TripProjection (admin): an earnings entry kind adjustment of change (paid with the next payout), trip.driverAdjustments += change, driverTotal moves; audit trip.driver_pay with before / after / reason; the driver gets a bell notice kind driver_pay_changed (texts.payChanged). Errors: driver_pay_not_ended, driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch. Checker: the size of one change (plus or minus) is at most CountryRules.driverPayChangeMax of the trip's zone (Admin › Tips & limits, per zone or country; default SE 1000 kr, FR 100 €) → else 400 driver_pay_above_max. A refund taken from the driver never takes more than his one number on the trip (never below 0).",
       "errors": [
         "driver_pay_not_ended",
         "driver_pay_no_driver",
-        "driver_pay_below_zero"
+        "driver_pay_below_zero",
+        "driver_pay_above_max"
       ],
       "texts": {
         "yourShare": {
@@ -6090,7 +6110,7 @@
     "debt": {
       "bug": "Live 2026-11-01: the driver's finished screen and the admin 'Who gets what' showed 'Movera commission −257,95 kr' on a 318 kr cash trip that carried the rider's 240 kr old fee: the old fee was counted as Movera's commission.",
       "rule": "commission = fare − debtCollected − driverEarnings − pickupPay − driverBonus, where debtCollected = the trip's outstanding_fee line (an earlier fee the rider pays with this trip; it settles the old trip's fee, whose driver share was already credited then). TripProjection.debtCollected (driver and admin views) and Receipt.debtIncluded show it as its own line (texts.debtLine). Server migration 0045 corrects commission on stored trips.",
-      "moneySplit": "Admin view: TripProjection.moneySplit { riderPaid, driverTotal, movera (= commission), debtCollected, tip?, refunded } — 'Who gets what': riderPaid = fare (+ tip) − refunded; driverTotal + movera + debtCollected (+ tip) = fare (+ tip) before refunds.",
+      "moneySplit": "Admin view only: TripProjection.moneySplit { riderPaid, driverTotal, movera, debtCollected, tip?, refunded } — 'Who gets what'. riderPaid = fare + tip − refunded; driverTotal is the driver's one number (incl. tip, Movera's pay changes and refunds taken from him); movera = riderPaid − driverTotal − debtCollected, so driverTotal + movera + debtCollected = riderPaid always (a refund Movera pays and a pay change lower Movera's part; the tip is never Movera's).",
       "texts": {
         "debtLine": {
           "sv": "Tidigare obetald avgift (till den resan)",
@@ -6102,7 +6122,8 @@
           "fr": "Commission Movera",
           "en": "Movera commission"
         }
-      }
+      },
+      "earningsEntries": "Older earnings_entries rows are not affected: their trip line already stored commission as fare − the old fee − earnings (§3.7)."
     },
     "safety": {
       "rule": "Owner G8 Q4 'Only with a driver (Recommended)': the rider's SOS (112 + alert Movera) only once a driver is assigned (safety.sos.riderStatuses, server-enforced since v0.18.5: 409 trip_not_live); plain 'Call 112' (safety.onlyDuringTrip.texts.call112) is always in the safety menu.",
@@ -6128,9 +6149,11 @@
       "driver_pay_no_driver",
       "driver_pay_below_zero",
       "tip_cash_after_trip_off",
-      "tip_above_max"
+      "tip_above_max",
+      "driver_pay_above_max"
     ],
     "compat": "Additive for 0.18.9 apps except: google_pay is no longer a PaymentMethod / ZonePaymentMethod value (no trip ever had it: booking with it always failed); live apps that still offer Google Pay get 400 payment_method_not_available instead of a silent fail. Older driver apps ignore finish / driverTotal and keep driverEarnings.",
-    "next": "Driver app: cash sheet + rating after the rider's early end, 'Din andel' = driverTotal everywhere, tip line. Rider app: payment list from paymentOptions (Pay in car, card / Apple Pay coming soon, no Google Pay, no logos), tip buttons from RiderAppConfig.tips → POST /trips/{tripId}/tip, receipt with ended early, SOS only when sosAvailable. Admin: finish.admin."
+    "next": "Driver app: cash sheet + rating after the rider's early end, 'Din andel' = driverTotal everywhere, tip line. Rider app: payment list from paymentOptions (Pay in car, card / Apple Pay coming soon, no Google Pay, no logos), tip buttons from RiderAppConfig.tips → POST /trips/{tripId}/tip, receipt with ended early, SOS only when sosAvailable. Admin: finish.admin.",
+    "paymentsAdmin": "Payments › refund policy, reconcile, disputes, retry and rules stay 'Not connected yet' on live until a payment company is chosen (cash only today)."
   }
 }

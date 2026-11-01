@@ -1111,7 +1111,8 @@ REASON = {"reasonCode": ref("AdminCancelReasonCode"), "note": s(minLength=1, max
 S["AdminCancelCommand"] = obj(dict(EV, **REASON), ["expectedVersion", "reasonCode", "note"], "Reason required.")
 S["AdminReassignCommand"] = obj(dict(EV, **REASON), ["expectedVersion", "reasonCode", "note"])
 BONUS = {"driverBonus": {"allOf": [ref("Money")], "description": "Movera-paid extra for the driver, in the zone's currency; over driverBonus.defaultLimit → 400 invalid_request."},
-         "priority": b("Show the Priority badge on the offer.")}
+         "priority": b("Show the Priority badge on the offer."),
+         "applyTo": s(C["adminDispatch"]["driverBonus"]["applyTo"]["note"], enum=C["adminDispatch"]["driverBonus"]["applyTo"]["values"])}
 S["AdminAssignCommand"] = obj(dict(EV, driverId=ref("Id"), note=s(maxLength=1000), **BONUS), ["expectedVersion", "driverId"],
                               "Direct assign: an exclusive offer to one driver (offer kind=assigned, source=admin); the driver accepts or declines. "
                               "409 invalid_transition once a driver has accepted (locked).")
@@ -1122,7 +1123,7 @@ S["AdminRadarGroupCommand"] = obj(dict(EV, driverIds=arr(ref("Id"), minItems=C["
 S["AdminRadarGroup"] = obj({"groupId": ref("Id"), "tripId": ref("Id"), "offers": arr(ref("Offer")),
                             "expiresAt": {"allOf": [ref("Timestamp")], "description": "Countdown end shown to the admin."},
                             "projection": ref("TripProjection")}, ["groupId", "tripId", "offers", "expiresAt", "projection"])
-S["AdminDriverBonusCommand"] = obj(dict(EV, amount=ref("Money"), priority=b(), note=s(maxLength=1000)), ["expectedVersion", "amount"],
+S["AdminDriverBonusCommand"] = obj(dict(EV, amount=ref("Money"), priority=b(), note=s(maxLength=1000), applyTo=BONUS["applyTo"]), ["expectedVersion", "amount"],
                                    "Add money to the trip for the driver (paid by Movera). Open offers are updated (offer_updated) with the new fare.")
 S["NearbyDriver"] = obj({"driverId": ref("Id"), "firstName": s(), "onlineStatus": ref("DriverOnlineStatus"), "moving": b("Latest GeoFix.moving (v0.5.0)."),
                          "location": ref("GeoFix"), "distanceMeters": i(minimum=0), "pickupEtaSeconds": ref("DurationSeconds"),
@@ -2365,6 +2366,9 @@ S["TripRouteChange"] = obj(OrderedDict([
     ("earningsDifference", {"allOf": [ref("Money")], "description": "Driver and admin views only: new − current earnings."}),
 ]), ["changeId", "status", "dropoff", "stops", "total", "difference", "askedAt", "answerBy"], "v0.18.9: " + _RX["projection"] + " " + _RX["price"])
 S["TripProjection"]["properties"]["rideCheck"] = ref("TripRideCheck")
+S["DriverBonusOfKind"] = obj({"amountMinor": i(minimum=0), "currency": s(pattern="^[A-Z]{3}$"), "priority": b()}, ["amountMinor", "currency", "priority"], "The admin's money and Priority badge for one kind of offer.")
+S["TripProjection"]["properties"]["moneySend"] = obj({"exclusiveTo": {"oneOf": [ref("Id"), {"type": "null"}]}, "radarTo": arr(ref("Id"))}, ["exclusiveTo", "radarTo"], "Answer of POST /admin/trips/{tripId}/driver-bonus with applyTo only: who got an offer with the money at once.")
+S["TripProjection"]["properties"]["driverBonusByKind"] = obj({"exclusive": ref("DriverBonusOfKind"), "radar": ref("DriverBonusOfKind")}, ["exclusive", "radar"], "Admin view only (owner bug 2026-11-01): " + C["adminDispatch"]["driverBonus"]["applyTo"]["note"])
 S["TripProjection"]["properties"]["routeChange"] = ref("TripRouteChange")
 S["AdminTripFlag"] = obj({"flagged": b(), "reason": s(maxLength=500), "by": ref("Id"), "at": ref("Timestamp")}, ["flagged", "by", "at"], "v0.18.9: " + OT["adminTrip"]["new"]["flag"])
 S["TripProjection"]["properties"]["adminFlag"] = {"allOf": [ref("AdminTripFlag")], "description": "v0.18.9: admin view only."}
@@ -2422,6 +2426,9 @@ S["EarlyEndSettings"] = obj(OrderedDict([
 S["CancelFees"]["properties"]["earlyEnd"] = {"allOf": [ref("EarlyEndSettings")], "description": "DriverAppConfig only. " + C["cancelFees"]["earlyEnd"]}
 S["TipRules"] = obj(OrderedDict([("cashAfterTrip", {**b(), "default": False}), ("cashInCarMinutes", {**i(minimum=0, maximum=60), "default": 5}), ("customAmount", {**b(), "default": False}), ("customMax", ref("Money"))]), desc="v0.18.10: " + _FT["settings"])
 S["RiderAppConfig"]["properties"]["tipRules"] = ref("TipRules")
+S["CountryRules"]["properties"]["driverPayChangeMax"] = {"allOf": [ref("Money")], "description": "v0.18.10 checker: the largest single change of a driver's pay on a trip (POST /admin/trips/{tripId}/driver-pay). Default SE 1000 kr, FR 100 €."}
+S["RatingTipError"] = obj({"code": s(), "reason": s(), "message": s()}, ["code", "reason"], "v0.18.10: " + _FT["withRating"])
+S["Rating"]["properties"]["tipError"] = ref("RatingTipError")
 S["TipMethod"] = s("v0.18.10: " + _FT["rules"], enum=_FP["values"])
 S["TripTip"] = obj({"amount": ref("Money"), "method": ref("TipMethod"), "driverShare": {"allOf": [ref("Money")], "description": _FT["driverShare"]}, "at": ref("Timestamp")}, ["amount", "method", "at"], "v0.18.10: " + _FT["projection"])
 S["TipRequest"] = obj({"amount": ref("Money"), "method": ref("TipMethod")}, ["amount", "method"], "v0.18.10: " + _FT["endpoint"] + " " + _FT["rules"])

@@ -12594,7 +12594,10 @@ paths:
         } (finance.edit, Idempotency-Key) on an ended trip with a driver → 200 TripProjection (admin): an earnings entry kind
         adjustment of change (paid with the next payout), trip.driverAdjustments += change, driverTotal moves; audit trip.driver_pay
         with before / after / reason; the driver gets a bell notice kind driver_pay_changed (texts.payChanged). Errors: driver_pay_not_ended,
-        driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch.'
+        driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch. Checker: the size of
+        one change (plus or minus) is at most CountryRules.driverPayChangeMax of the trip''s zone (Admin › Tips & limits,
+        per zone or country; default SE 1000 kr, FR 100 €) → else 400 driver_pay_above_max. A refund taken from the driver
+        never takes more than his one number on the trip (never below 0).'
       tags:
       - Admin · Trips
       x-actor:
@@ -14047,6 +14050,48 @@ components:
             it.'
         rideCheck:
           $ref: '#/components/schemas/TripRideCheck'
+        moneySend:
+          type: object
+          description: 'Answer of POST /admin/trips/{tripId}/driver-bonus with applyTo only: who got an offer with the money
+            at once.'
+          required:
+          - exclusiveTo
+          - radarTo
+          properties:
+            exclusiveTo:
+              oneOf:
+              - $ref: '#/components/schemas/Id'
+              - type: 'null'
+            radarTo:
+              type: array
+              items:
+                $ref: '#/components/schemas/Id'
+        driverBonusByKind:
+          type: object
+          description: 'Admin view only (owner bug 2026-11-01): Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive
+            arrived on a Radar offer). Optional applyTo on driver-bonus, assign and radar-group says which kind of offer the
+            money and the Priority badge are for: exclusive = exclusive offers (admin assign kind=assigned and automatic kind=exclusive),
+            radar = radar offers, both = both. Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group
+            radar. Open offers of the chosen kind get offer_updated at once; the other kind keeps its money. Owner decision
+            2026-11-01: driver-bonus WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar
+            sends; a driver who cannot take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned)
+            offer to the nearest free driver of the trip''s category; radar → the trip''s open exclusive offers become radar
+            offers and, if no radar offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive
+            to the nearest and radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId]
+            }. Nobody free → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing
+            is sent. The limit counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he
+            took (driverBonus, commission). A driver kept in a radar-group send with an open automatic exclusive offer has
+            it turned into a radar offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo
+            says. Admin view only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority }
+            while money or the badge is set; TripProjection.driverBonus is the larger of the two until accept.'
+          required:
+          - exclusive
+          - radar
+          properties:
+            exclusive:
+              $ref: '#/components/schemas/DriverBonusOfKind'
+            radar:
+              $ref: '#/components/schemas/DriverBonusOfKind'
         routeChange:
           $ref: '#/components/schemas/TripRouteChange'
         adminFlag:
@@ -15256,6 +15301,8 @@ components:
         comment:
           type: string
           maxLength: 2000
+        tipError:
+          $ref: '#/components/schemas/RatingTipError'
     RatingTag:
       type: string
       enum:
@@ -16490,6 +16537,11 @@ components:
             $ref: '#/components/schemas/AmountOption'
         driverBonus:
           $ref: '#/components/schemas/DriverBonusLimits'
+        driverPayChangeMax:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10 checker: the largest single change of a driver''s pay on a trip (POST /admin/trips/{tripId}/driver-pay).
+            Default SE 1000 kr, FR 100 €.'
       x-server-only: true
     FeeRule:
       type: object
@@ -20948,6 +21000,28 @@ components:
         priority:
           type: boolean
           description: Show the Priority badge on the offer.
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
     AdminRadarGroupCommand:
       type: object
       description: 'Radar group: one radar offer per chosen driver on the zone''s normal timer; the first to accept wins.
@@ -20978,6 +21052,28 @@ components:
         priority:
           type: boolean
           description: Show the Priority badge on the offer.
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
         groupId:
           $ref: '#/components/schemas/Id'
         radarZoneId:
@@ -21034,6 +21130,28 @@ components:
         note:
           type: string
           maxLength: 1000
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
     NearbyDriver:
       type: object
       required:
@@ -24745,6 +24863,22 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: 'Driver and admin views only: new − current earnings.'
+    DriverBonusOfKind:
+      type: object
+      description: The admin's money and Priority badge for one kind of offer.
+      required:
+      - amountMinor
+      - currency
+      - priority
+      properties:
+        amountMinor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        priority:
+          type: boolean
     AdminTripFlag:
       type: object
       description: 'v0.18.9: POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged,
@@ -24780,7 +24914,10 @@ components:
     RideCheckRow:
       type: object
       description: 'v0.18.9: RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger,
-        shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, createdAt }, newest first; nextCursor.'
+        shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, measured?: { value, unit: min
+        | km | m } (server checks: minutes stopped, km off the route, metres from the drop-off when asked), answerSeconds?
+        (the zone''s noAnswerSeconds when asked), createdAt }, newest first; nextCursor. A served DriverAppConfig / RiderAppConfig
+        rideCheck never carries the pre-v0.18.9 finishFarFromDropoffKm; endFarMeters is the one setting.'
       required:
       - tripId
       - zoneId
@@ -25027,7 +25164,8 @@ components:
         country standard; missing / out of range = default. cashAfterTrip false: a cash tip is only accepted while the rider
         is still in the car = within cashInCarMinutes after the trip ended (the finish screen); later → 409 tip_cash_after_trip_off
         (card / Apple Pay tips are not limited). customAmount true: besides the preset amounts the rider may type any whole
-        amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed).'
+        amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed). customMax
+        never unlimited: a document without one uses the country default, else 20 × the highest preset amount.'
       properties:
         cashAfterTrip:
           type: boolean
@@ -25042,6 +25180,21 @@ components:
           default: false
         customMax:
           $ref: '#/components/schemas/Money'
+    RatingTipError:
+      type: object
+      description: 'v0.18.10: RatingRequest.tip: the rating is saved first; a tip that cannot be given does not lose the stars:
+        the answer is the rating (201, or 200 with only tipError for a skip) with tipError { code, reason, message } and no
+        tip.'
+      required:
+      - code
+      - reason
+      properties:
+        code:
+          type: string
+        reason:
+          type: string
+        message:
+          type: string
     TipMethod:
       type: string
       enum:
@@ -25159,9 +25312,11 @@ components:
           description: The viewer may still rate (its rating status is pending).
     MoneySplit:
       type: object
-      description: 'v0.18.10: admin view only. Admin view: TripProjection.moneySplit { riderPaid, driverTotal, movera (= commission),
-        debtCollected, tip?, refunded } — ''Who gets what'': riderPaid = fare (+ tip) − refunded; driverTotal + movera + debtCollected
-        (+ tip) = fare (+ tip) before refunds.'
+      description: 'v0.18.10: admin view only. Admin view only: TripProjection.moneySplit { riderPaid, driverTotal, movera,
+        debtCollected, tip?, refunded } — ''Who gets what''. riderPaid = fare + tip − refunded; driverTotal is the driver''s
+        one number (incl. tip, Movera''s pay changes and refunds taken from him); movera = riderPaid − driverTotal − debtCollected,
+        so driverTotal + movera + debtCollected = riderPaid always (a refund Movera pays and a pay change lower Movera''s
+        part; the tip is never Movera''s).'
       required:
       - riderPaid
       - driverTotal
