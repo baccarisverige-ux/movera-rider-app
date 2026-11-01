@@ -359,7 +359,8 @@ class AppScope {
   final BookingCoordinator booking;
   late final DestinationSearchController destinationSearch;
   late final RoutingService routing;
-  late final RideRealtime rideRealtime;
+  // Not final: tests put the live transport in place of the demo one.
+  late RideRealtime rideRealtime;
   late final ReservationController reservations;
   late final ProfileController profile;
   late final AccountSecurityController accountSecurity;
