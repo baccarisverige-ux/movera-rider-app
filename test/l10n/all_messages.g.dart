@@ -1571,6 +1571,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'waitingAlertNoShow': l.waitingAlertNoShow,
   'noShowReversedNoFee': l.noShowReversedNoFee,
   'refundedToWallet': l.refundedToWallet('<amount>'),
+  'g7TooManyStops': l.g7TooManyStops('<max>'),
+  'g7RouteWaiting': l.g7RouteWaiting,
+  'g7RouteNewPrice': l.g7RouteNewPrice('<total>', '<difference>'),
+  'g7RouteConfirm': l.g7RouteConfirm,
+  'g7RouteAccepted': l.g7RouteAccepted,
+  'g7RouteRefused': l.g7RouteRefused,
+  'g7StopPrice': l.g7StopPrice('<perMin>'),
+  'g7StopFree': l.g7StopFree('<min>', '<perMin>'),
+  'g7RouteWithdraw': l.g7RouteWithdraw,
+  'g7RouteWithdrawn': l.g7RouteWithdrawn,
+  'g7MaxStopsShown': l.g7MaxStopsShown('<max>'),
+  'g7RouteChangeOff': l.g7RouteChangeOff,
+  'g7RouteLeavesFixedPrice': l.g7RouteLeavesFixedPrice,
+  'g7RouteFixedRoute': l.g7RouteFixedRoute,
+  'g7RouteBeforePickupOff': l.g7RouteBeforePickupOff,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1772,6 +1787,11 @@ const messagePlaceholders = <String, List<String>>{
   'outstandingInCurrency': ['amount', 'currency'],
   'waitingTimeOverFree': ['time', 'minutes'],
   'refundedToWallet': ['amount'],
+  'g7TooManyStops': ['max'],
+  'g7RouteNewPrice': ['total', 'difference'],
+  'g7StopPrice': ['perMin'],
+  'g7StopFree': ['min', 'perMin'],
+  'g7MaxStopsShown': ['max'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4927,4 +4947,34 @@ class _Exhaustive implements AppLocalizations {
   String get noShowReversedNoFee => '';
   @override
   String refundedToWallet(String amount) => '';
+  @override
+  String g7TooManyStops(String max) => '';
+  @override
+  String get g7RouteWaiting => '';
+  @override
+  String g7RouteNewPrice(String total, String difference) => '';
+  @override
+  String get g7RouteConfirm => '';
+  @override
+  String get g7RouteAccepted => '';
+  @override
+  String get g7RouteRefused => '';
+  @override
+  String g7StopPrice(String perMin) => '';
+  @override
+  String g7StopFree(String min, String perMin) => '';
+  @override
+  String get g7RouteWithdraw => '';
+  @override
+  String get g7RouteWithdrawn => '';
+  @override
+  String g7MaxStopsShown(String max) => '';
+  @override
+  String get g7RouteChangeOff => '';
+  @override
+  String get g7RouteLeavesFixedPrice => '';
+  @override
+  String get g7RouteFixedRoute => '';
+  @override
+  String get g7RouteBeforePickupOff => '';
 }

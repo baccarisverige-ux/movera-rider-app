@@ -4,6 +4,7 @@ import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_eta.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
+import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
 enum RideRealtimeSignal { driverArrived, riderOnTheWay }
@@ -43,6 +44,10 @@ const String pinRequiredKey = 'pinRequired';
 const String pickupPinKey = 'pickupPin';
 const String pinVerifiedKey = 'pinVerified';
 const String waitingAlertsKey = 'waitingAlerts';
+
+/// v0.18.9 (`onTrip`): the server's ride check and the route change.
+const String rideCheckKey = 'rideCheck';
+const String routeChangeKey = 'routeChange';
 
 /// `arrivedWaiting.alerts.kinds`.
 const String alertPaidWaitingStarted = 'paid_waiting_started';
@@ -137,6 +142,13 @@ class RideRealtimeEvent {
 
   /// v0.18.7: the rules this trip is charged by, when the projection says.
   TripTerms? get terms => TripTerms.fromWire(payload[termsKey]);
+
+  /// v0.18.9: the server's "Is everything OK?" for this trip, if any.
+  TripRideCheck? get rideCheck => TripRideCheck.fromWire(payload[rideCheckKey]);
+
+  /// v0.18.9: the rider's route change and the driver's answer, if any.
+  TripRouteChange? get routeChange =>
+      TripRouteChange.fromWire(payload[routeChangeKey]);
 
   /// v0.18.7 (Q5): the waiting cost so far while the driver waits.
   Money? get waitingChargedSoFar =>

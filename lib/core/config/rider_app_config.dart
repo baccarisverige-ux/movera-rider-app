@@ -112,6 +112,7 @@ class RiderAppConfig {
     this.waiting,
     this.cancelReasons = const [],
     this.rideCheck = const {},
+    this.routeChange = const {},
     this.minimumAppVersion,
     this.latestAppVersion,
     this.pickupFees = const {},
@@ -208,6 +209,18 @@ class RiderAppConfig {
 
   /// Ride check thresholds, as published (numbers and switches).
   final Map<String, Object> rideCheck;
+
+  /// Contract v0.18.9 `RiderAppConfig.routeChange` (G7 decision 3): the
+  /// zone's switches for changing the route during the trip.
+  final Map<String, Object> routeChange;
+
+  /// `routeChange.on` (default on): the rider may change the destination or
+  /// the stops of a booked trip.
+  bool get routeChangeOn => routeChange['on'] != false;
+
+  /// `routeChange.beforePickup` (default on): the route may change before
+  /// the rider is on board; off = only once on board.
+  bool get routeChangeBeforePickup => routeChange['beforePickup'] != false;
   final String? minimumAppVersion;
   final String? latestAppVersion;
 
@@ -347,6 +360,8 @@ class RiderAppConfig {
       cancelReasons:
           _reasons(raw['cancelReasons']) ?? fallback?.cancelReasons ?? const [],
       rideCheck: _flat(raw['rideCheck']) ?? fallback?.rideCheck ?? const {},
+      routeChange:
+          _flat(raw['routeChange']) ?? fallback?.routeChange ?? const {},
       minimumAppVersion:
           _string(appUpdate is Map ? appUpdate['minimumVersion'] : null) ??
           fallback?.minimumAppVersion,
@@ -967,7 +982,22 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       {'code': 'plans_changed', 'title': 'Plans changed'},
       {'code': 'something_else', 'title': 'Something else'},
     ],
-    'rideCheck': {'stopMinutes': 2, 'offRouteKm': 3},
+    'rideCheck': {
+      'on': true,
+      'stopMinutes': 2,
+      'offRouteKm': 2,
+      'endFarMeters': 500,
+      'noAnswerSeconds': 120,
+      'repeatMinutes': 10,
+      'noAnswerAlarm': false,
+    },
+    'routeChange': {
+      'on': true,
+      'driverCanRefuse': true,
+      'answerSeconds': 60,
+      'beforePickup': true,
+      'fixedPriceTrips': 'block',
+    },
     'appUpdate': {'minimumVersion': '1.0.0', 'latestVersion': '1.2.0'},
     'cancelFees': {
       'live': {

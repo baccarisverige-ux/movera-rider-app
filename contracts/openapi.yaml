@@ -1,11 +1,11 @@
-# Movera API v0.18.8 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.9 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.8
+  version: 0.18.9
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.8 in this folder; this file must agree with them.
+    v0.18.9 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.8
+  version: 0.18.9
   source: contract.json
 paths:
   /auth/otp/request:
@@ -514,7 +514,8 @@ paths:
         currency. A rider who owes 100 kr from Stockholm is quoted in Paris without it (never +100 €); the debt waits for
         the next Swedish trip. The server sums the owed fees per currency: a quote and the fare of the next trip carry outstanding_fee
         = the owed fees in the pricing document''s currency (FareLine.sourceTripId = the oldest of them); a paid cash trip
-        settles only owed fees of its own currency, oldest first.'
+        settles only owed fees of its own currency, oldest first. v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
+        with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"].'
       tags:
       - Rider · Booking
       x-actor:
@@ -600,6 +601,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote with more stops → 400 invalid_request,
+        reason too_many_stops, details ["maxStops=N"].'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -684,18 +687,9 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.7 (contract.json#pickupWaiting.pickupMove): Status item 4 + note check (owner ''200 m default,
-        admin can change''): the rider moves the pickup with PATCH /trips/{tripId} { expectedVersion, pickup } while the trip
-        is requested, searching, offered, accepted or driver_to_pickup. The server measures the straight-line distance from
-        the BOOKED pickup (the first one) to the new one and refuses more than the zone''s booking.maxPickupMoveMeters (the
-        zone''s driver document, admin Dispatch › Booking ''Pickup move after accept''; default 200, range 0–2000; server
-        migration sets every published document still on the old 500 to 200): 400 invalid_request, reason pickup_move_too_far,
-        details ["maxMeters=200", "meters=…"]. After the driver arrived: 409 invalid_transition, reason pickup_fixed_after_arrival.
-        A move changes pickup, version + 1, and sends one event of kind pickup_moved (new realtime kind, with the projection,
-        before terminal only) to the rider, the driver and the admin; the driver app re-routes and shows texts.island on the
-        island; open offers show the new pickup on their next read; the fare does not change (≤ 200 m). The other UpdateTripRequest
-        fields (dropoff, stops, routeQuoteId, payment method) are not served yet: 400 invalid_request, reason route_change_not_available
-        (destination change is the next job, decision 5).'
+      description: 'v0.18.9: 2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId } → 200 TripProjection
+        with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse false the route changes
+        in the same call. v0.18.7: { expectedVersion, pickup } moves the pickup.'
   /trips/{tripId}/route-quote:
     post:
       operationId: quoteRouteChange
@@ -741,6 +735,18 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.9: 1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote
+        { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money).
+        dropoff absent = the current one. Valid 5 minutes. The new stops may not pass the zone''s maxStops (400 too_many_stops,
+        details maxStops=N). Stops the driver already tapped arrived at must stay first, in the same order (400 visited_stop_changed).
+        One pending change at a time (409 route_change_pending). A fixed-route trip: fixedPriceTrips block → 409 route_change_fixed_route;
+        switch_to_normal → the route quote prices the new route at the normal price (total = current fare + (normal price
+        of the new route − fixed price), never below half of (booked fare + raises)); RouteQuote.leavesFixedPrice true; on
+        accept the trip''s fixedRouteId is removed, so the end fare is the normal price. An expired or used route quote →
+        409 route_quote_expired / route_quote_used; a route quote made at another trip version → 409 version_mismatch on PATCH.
+        Zone switch off → 409 route_change_off; status outside statuses → 409 invalid_transition. accept / refuse with another
+        changeId or a change no longer pending → 409 route_change_not_pending. beforePickup false and the trip still before
+        pickup (beforePickupStatuses) → 409 route_change_before_pickup_off.'
   /trips/{tripId}/cancel:
     post:
       operationId: cancelTrip
@@ -3952,6 +3958,12 @@ paths:
       - $ref: '#/components/parameters/Q'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - name: flagged
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: 'v0.18.9: only flagged trips.'
       responses:
         '200':
           description: OK
@@ -5185,7 +5197,8 @@ paths:
       summary: Adjust fare / waiting / waive cancel fee
       description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
         v0.7.2 (owner 2026-10-28, one admin is enough): 200 / 201 at once for every admin with the permission, written in
-        the audit.'
+        the audit. v0.18.9: POST /admin/trips/{tripId}/adjust { expectedVersion, fare?, waitingSeconds?, waiveCancelFee?,
+        reason? } (trips.intervene): price adjust and waiting (waitingSeconds = the pickup waiting that is charged).'
       tags:
       - Admin · Trips
       x-actor:
@@ -11765,6 +11778,571 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/route-change/accept:
+    post:
+      operationId: acceptRouteChange
+      summary: Driver accepts the rider's route change
+      description: 'v0.18.9: 1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote
+        { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money).
+        dropoff absent = the current one. Valid 5 minutes. 2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId
+        } → 200 TripProjection with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse
+        false the route changes in the same call. 3. Driver: POST /trips/{tripId}/route-change/accept or /route-change/refuse
+        { expectedVersion, changeId } → 200 TripProjection. Accept: dropoff, stops, fare, fareLines, driverEarnings and the
+        route change at once. Refuse (or no answer in answerSeconds → expired): nothing changes, the trip goes on to the old
+        destination. 4. Rider may withdraw a pending change: POST /trips/{tripId}/route-change/withdraw { expectedVersion,
+        changeId }. The new stops may not pass the zone''s maxStops (400 too_many_stops, details maxStops=N). Stops the driver
+        already tapped arrived at must stay first, in the same order (400 visited_stop_changed). One pending change at a time
+        (409 route_change_pending). A fixed-route trip: fixedPriceTrips block → 409 route_change_fixed_route; switch_to_normal
+        → the route quote prices the new route at the normal price (total = current fare + (normal price of the new route
+        − fixed price), never below half of (booked fare + raises)); RouteQuote.leavesFixedPrice true; on accept the trip''s
+        fixedRouteId is removed, so the end fare is the normal price. An expired or used route quote → 409 route_quote_expired
+        / route_quote_used; a route quote made at another trip version → 409 version_mismatch on PATCH. Zone switch off →
+        409 route_change_off; status outside statuses → 409 invalid_transition. accept / refuse with another changeId or a
+        change no longer pending → 409 route_change_not_pending. beforePickup false and the trip still before pickup (beforePickupStatuses)
+        → 409 route_change_before_pickup_off.'
+      tags:
+      - Trips
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteChangeAnswer'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/route-change/refuse:
+    post:
+      operationId: refuseRouteChange
+      summary: Driver refuses the rider's route change (the old route stays)
+      description: 'v0.18.9: 1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote
+        { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money).
+        dropoff absent = the current one. Valid 5 minutes. 2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId
+        } → 200 TripProjection with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse
+        false the route changes in the same call. 3. Driver: POST /trips/{tripId}/route-change/accept or /route-change/refuse
+        { expectedVersion, changeId } → 200 TripProjection. Accept: dropoff, stops, fare, fareLines, driverEarnings and the
+        route change at once. Refuse (or no answer in answerSeconds → expired): nothing changes, the trip goes on to the old
+        destination. 4. Rider may withdraw a pending change: POST /trips/{tripId}/route-change/withdraw { expectedVersion,
+        changeId }. The new stops may not pass the zone''s maxStops (400 too_many_stops, details maxStops=N). Stops the driver
+        already tapped arrived at must stay first, in the same order (400 visited_stop_changed). One pending change at a time
+        (409 route_change_pending). A fixed-route trip: fixedPriceTrips block → 409 route_change_fixed_route; switch_to_normal
+        → the route quote prices the new route at the normal price (total = current fare + (normal price of the new route
+        − fixed price), never below half of (booked fare + raises)); RouteQuote.leavesFixedPrice true; on accept the trip''s
+        fixedRouteId is removed, so the end fare is the normal price. An expired or used route quote → 409 route_quote_expired
+        / route_quote_used; a route quote made at another trip version → 409 version_mismatch on PATCH. Zone switch off →
+        409 route_change_off; status outside statuses → 409 invalid_transition. accept / refuse with another changeId or a
+        change no longer pending → 409 route_change_not_pending. beforePickup false and the trip still before pickup (beforePickupStatuses)
+        → 409 route_change_before_pickup_off.'
+      tags:
+      - Trips
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteChangeAnswer'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/route-change/withdraw:
+    post:
+      operationId: withdrawRouteChange
+      summary: Rider withdraws a pending route change
+      description: 'v0.18.9: 1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote
+        { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money).
+        dropoff absent = the current one. Valid 5 minutes. 2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId
+        } → 200 TripProjection with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse
+        false the route changes in the same call. 3. Driver: POST /trips/{tripId}/route-change/accept or /route-change/refuse
+        { expectedVersion, changeId } → 200 TripProjection. Accept: dropoff, stops, fare, fareLines, driverEarnings and the
+        route change at once. Refuse (or no answer in answerSeconds → expired): nothing changes, the trip goes on to the old
+        destination. 4. Rider may withdraw a pending change: POST /trips/{tripId}/route-change/withdraw { expectedVersion,
+        changeId }. The new stops may not pass the zone''s maxStops (400 too_many_stops, details maxStops=N). Stops the driver
+        already tapped arrived at must stay first, in the same order (400 visited_stop_changed). One pending change at a time
+        (409 route_change_pending). A fixed-route trip: fixedPriceTrips block → 409 route_change_fixed_route; switch_to_normal
+        → the route quote prices the new route at the normal price (total = current fare + (normal price of the new route
+        − fixed price), never below half of (booked fare + raises)); RouteQuote.leavesFixedPrice true; on accept the trip''s
+        fixedRouteId is removed, so the end fare is the normal price. An expired or used route quote → 409 route_quote_expired
+        / route_quote_used; a route quote made at another trip version → 409 version_mismatch on PATCH. Zone switch off →
+        409 route_change_off; status outside statuses → 409 invalid_transition. accept / refuse with another changeId or a
+        change no longer pending → 409 route_change_not_pending. beforePickup false and the trip still before pickup (beforePickupStatuses)
+        → 409 route_change_before_pickup_off.'
+      tags:
+      - Trips
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteChangeAnswer'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ride-checks:
+    get:
+      operationId: adminListRideChecks
+      summary: Every ride check (server and app), newest first
+      description: 'v0.18.9: GET /admin/ride-checks?zoneId=&tripId=&trigger=&answer=&origin=&from=&to=&cursor=&limit= (incidents.read;
+        the admin''s zones) answer = ok | need_help | no_answer | waiting (no answer yet, not timed out).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - name: zoneId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: tripId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: trigger
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/RideCheckTrigger'
+      - name: answer
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ok
+          - need_help
+          - no_answer
+          - waiting
+      - name: origin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - server
+          - app
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RideCheckList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/flag:
+    post:
+      operationId: adminFlagTrip
+      summary: Flag or unflag a trip (admin only)
+      description: 'v0.18.9: POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged,
+        reason?, by, at }; the admin trip view and GET /admin/trips rows carry adminFlag; GET /admin/trips?flagged=true. No
+        trip version change, the apps never see it. Audited trip.flag / trip.unflag.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.annotate
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTripFlagCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTripFlag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/notes:
+    get:
+      operationId: adminTripNotes
+      summary: The admins' notes on a trip
+      description: 'v0.18.9: GET /admin/trips/{tripId}/notes and POST /admin/trips/{tripId}/notes { text } (trips.read / trips.annotate)
+        → AdminTripNote { noteId, tripId, text, adminId, adminName?, at }; newest first. Admin only, audited trip.note.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTripNoteList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminAddTripNote
+      summary: Add a note to a trip
+      description: 'v0.18.9: GET /admin/trips/{tripId}/notes and POST /admin/trips/{tripId}/notes { text } (trips.read / trips.annotate)
+        → AdminTripNote { noteId, tripId, text, adminId, adminName?, at }; newest first. Admin only, audited trip.note.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.annotate
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTripNoteCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTripNote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/case:
+    post:
+      operationId: adminOpenTripCase
+      summary: Open a support case for the trip's rider or driver
+      description: 'v0.18.9: POST /admin/trips/{tripId}/case { about: rider | driver, category, subject, text, visibleToPerson?
+        } (support.reply) → 201 SupportTicket opened by support for that person and trip (status open; safety → priority high).
+        visibleToPerson (owner rule 16, 2026-11-01, G7 open question 2): the admin chooses per case; false (default) = internal:
+        the rider''s / driver''s own ticket list does not show it; true = the person sees it, with support''s messages, in
+        their own help list (GET /support/tickets). SupportTicket.visibleToPerson on admin views. Audited trip.case.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTripCaseCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/reveal-contact:
+    post:
+      operationId: adminRevealTripContact
+      summary: Show the rider's or driver's phone number (reason, audited)
+      description: 'v0.18.9: POST /admin/trips/{tripId}/reveal-contact { who: rider | driver, reason } (riders.viewSensitive
+        for the rider, drivers.viewSensitive for the driver; the admin''s zones) → { who, phone, revealedAt }. Reason required;
+        audited trip.reveal_contact with the reason (never the number).'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.viewSensitive
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRevealContactCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedContact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/level:
+    post:
+      operationId: adminIncidentLevel
+      summary: Change an incident's level
+      description: 'v0.18.9: POST /admin/incidents/{incidentId}/level { expectedVersion, severity: low | medium | high | critical,
+        note? } (safety.edit) → Incident (incident_updated, audited incident.level).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminIncidentLevelCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -13175,6 +13753,14 @@ components:
           type: boolean
           description: 'v0.18.8: admin view only, the PIN is blocked after 3 × maxAttempts wrong tries until an admin unlocks
             it.'
+        rideCheck:
+          $ref: '#/components/schemas/TripRideCheck'
+        routeChange:
+          $ref: '#/components/schemas/TripRouteChange'
+        adminFlag:
+          allOf:
+          - $ref: '#/components/schemas/AdminTripFlag'
+          description: 'v0.18.9: admin view only.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -13385,6 +13971,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Place'
+        leavesFixedPrice:
+          type: boolean
+          description: 'v0.18.9 (owner rule 16): true when the trip has a fixed price and the zone''s routeChange.fixedPriceTrips
+            is switch_to_normal: on accept the trip is priced like a normal trip.'
         expiresAt:
           $ref: '#/components/schemas/Timestamp'
     Rider:
@@ -14570,6 +15160,10 @@ components:
           description: 'v0.9.0: the trip''s zone, else the person''s first zone; admins see tickets of their zones.'
         lastMessageAt:
           $ref: '#/components/schemas/Timestamp'
+        visibleToPerson:
+          type: boolean
+          description: 'v0.18.9: admin views only; a case opened by support that the rider / driver sees in their own list
+            (contract.json#onTrip.adminTrip.new.case).'
         messages:
           type: array
           items:
@@ -15698,14 +16292,50 @@ components:
           format: uri
     RideCheck:
       type: object
-      description: Ride check thresholds (Safety).
+      description: 'Ride check settings (Safety). v0.18.9: DriverAppConfig.rideCheck (Admin › Safety › Ride check, per zone,
+        live: the server reads the zone''s live driver document at each check). GET /rider/config serves the same object as
+        RiderAppConfig.rideCheck (copied from the zone''s driver document), so both apps show the same numbers. A missing
+        field or one outside its range reads as the default.'
       properties:
+        'on':
+          type: boolean
+          description: 'v0.18.9: true = the server starts ride checks in this zone (default true). false = no server checks;
+            the apps also stop their own checks.'
+          default: true
         stopMinutes:
           type: number
           minimum: 0
+          description: 'v0.18.9: Long stop: the car stood still (every fix within 50 m) this many minutes with the rider on
+            board (default 2; 1–30).'
+          default: 2
         offRouteKm:
           type: number
           minimum: 0
+          description: 'v0.18.9: Off route: the car is farther than this from the trip''s route (default 2; 0.5–20). Owner
+            decision 2 (2026-10-29): 2 km.'
+          default: 2
+        endFarMeters:
+          type: integer
+          minimum: 0
+          description: 'v0.18.9: Unexpected end: the driver ended the trip (complete, or cancel with the rider on board) farther
+            than this from the drop-off (default 500; 100–5000).'
+          default: 500
+        noAnswerSeconds:
+          type: integer
+          minimum: 0
+          description: 'v0.18.9: Nobody answered within this many seconds → the safety team is alerted (an open ride_check
+            incident) (default 120; 30–600). Also used for the apps'' own checks.'
+          default: 120
+        repeatMinutes:
+          type: integer
+          minimum: 0
+          description: 'v0.18.9: The same reason does not ask again within this many minutes of the trip (default 10; 1–120).'
+          default: 10
+        noAnswerAlarm:
+          type: boolean
+          description: 'v0.18.9: true = a no-answer case also rings the admin alarm and escalates like an SOS; false (default,
+            as v0.12.0) = it shows in the safety list without sound.'
+          default: false
     CategoryWaiting:
       type: object
       description: Waiting terms of one category. Default free wait 5 min, xl 3 min (contract.json#configDefaults).
@@ -16791,6 +17421,10 @@ components:
                 writes it there from the zone''s dispatch document and also sets it when it serves GET /rider/config) and
                 hides every raise button whose amount would take the fare above maxFactor × the booked fare (booked fare =
                 Trip fare minus its rider_raise lines). The same in SE and FR.'
+        routeChange:
+          allOf:
+          - $ref: '#/components/schemas/RouteChangeSettings'
+          description: 'v0.18.9: copied from the zone''s driver document when served (GET /rider/config).'
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -17032,6 +17666,8 @@ components:
           $ref: '#/components/schemas/AppUpdate'
         pickupPin:
           $ref: '#/components/schemas/PickupPinSettings'
+        routeChange:
+          $ref: '#/components/schemas/RouteChangeSettings'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -18807,7 +19443,10 @@ components:
         seen eventId or sequence <= last seen; a gap (sequence > last + 1) is accepted and triggers a resync; after a terminal
         lifecycle status only afterTerminal kinds are accepted; a location event never replaces the cached projection; resync:
         GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}; v0.18.7: pickup_moved carries the projection
-        like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds.'
+        like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds;
+        v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a
+        version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection
+        events with version + 1. No new event kinds..'
       required:
       - eventId
       - tripId
@@ -19494,7 +20133,9 @@ components:
             the ride part, otherwise the category is priced normally.'
     UpdateTripRequest:
       type: object
-      description: Route change (needs routeQuoteId from /route-quote) and/or payment method change.
+      description: 'Route change (needs routeQuoteId from /route-quote) and/or payment method change. v0.18.9: 2. Rider confirms:
+        PATCH /trips/{tripId} { expectedVersion, routeQuoteId } → 200 TripProjection with routeChange { status: pending }
+        (version + 1, trip_projection event). With driverCanRefuse false the route changes in the same call.'
       required:
       - expectedVersion
       properties:
@@ -19538,6 +20179,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/Place'
           description: 'v0.5.1, optional: price a moved pickup.'
+      description: 'v0.18.9: 1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote
+        { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money).
+        dropoff absent = the current one. Valid 5 minutes.'
     RatingRequest:
       type: object
       description: stars required unless skip=true.
@@ -23364,6 +24008,11 @@ components:
           type: number
           minimum: 0
           description: 'v0.18.8: free minutes at each middle stop (0 = none).'
+        stopWaitPerMin:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.9: PricingDocument.categories[categoryId].stopWaitPerMin per zone (Admin › Pricing), in the
+            zone''s currency; now also on TripProjection.terms.stopWaitPerMin so both apps show it.'
     TripEta:
       type: object
       description: 'v0.18.7 (Q4): Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every
@@ -23557,4 +24206,378 @@ components:
         reason:
           type: string
           minLength: 1
+          maxLength: 1000
+    RouteChangeSettings:
+      type: object
+      description: 'v0.18.9: DriverAppConfig.routeChange (Admin › Dispatch › Stops: ''Change stops during trip'', ''Driver
+        can refuse'', per zone, live). Served also as RiderAppConfig.routeChange (copied from the zone''s driver document).'
+      properties:
+        'on':
+          type: boolean
+          description: 'v0.18.9: true (default) = the rider may change the destination or add / remove stops once a driver
+            has the trip. false = 409 route_change_off.'
+          default: true
+        driverCanRefuse:
+          type: boolean
+          description: 'v0.18.9: true (default) = the driver gets Accept / Refuse. false = the change applies at once and
+            the driver is only told (status accepted, answeredBy system).'
+          default: true
+        answerSeconds:
+          type: integer
+          minimum: 15
+          maximum: 300
+          description: 'v0.18.9: The driver''s time to answer (default 60; 15–300). No answer = refused (status expired):
+            the trip keeps the old route.'
+          default: 60
+        beforePickup:
+          type: boolean
+          description: 'v0.18.9: true (default) = the rider may also change the route before being picked up (accepted, driver_to_pickup,
+            arrived), with the same driver Accept / Refuse. false = only once on board (rider_onboard, in_trip, approaching_dropoff);
+            before that 409 route_change_before_pickup_off. Owner rule 16 (2026-11-01, G7 open question 1).'
+          default: true
+        fixedPriceTrips:
+          type: string
+          enum:
+          - block
+          - switch_to_normal
+          description: 'v0.18.9: "block" (default) = a fixed-price route trip cannot change its route (409 route_change_fixed_route).
+            "switch_to_normal" = the change is allowed and, once accepted, the trip leaves its fixed price and is priced like
+            a normal trip (the trip''s pricing document, surge and car type, without the fixed route). Owner rule 16 (2026-11-01,
+            G7 open question 4).'
+          default: block
+    TripRideCheck:
+      type: object
+      description: 'v0.18.9: TripProjection.rideCheck { checkId, trigger, askedAt, answerBy, answers { rider?, driver? },
+        alertedAt? } on the rider''s, the driver''s and the admin''s view (every viewer). checkId starts with srv_. Sent as
+        a trip_projection event without a version change; also on every GET /trips/{tripId}. Both apps open the same ''Is
+        everything OK?'' card (texts below) when rideCheck has a checkId they have not answered and their own side has no
+        answer, and answer with the existing POST /{rider|driver}/trips/{tripId}/ride-check { checkId, trigger, at, answer
+        } (contract §22). A shown report is not needed (the server already counts the card as shown at askedAt).'
+      required:
+      - checkId
+      - trigger
+      - askedAt
+      - answerBy
+      - answers
+      properties:
+        checkId:
+          $ref: '#/components/schemas/Id'
+        trigger:
+          $ref: '#/components/schemas/RideCheckTrigger'
+        askedAt:
+          $ref: '#/components/schemas/Timestamp'
+        answerBy:
+          $ref: '#/components/schemas/Timestamp'
+        answers:
+          type: object
+          description: Each side's answer so far.
+          properties:
+            rider:
+              type: string
+              enum:
+              - ok
+              - need_help
+            driver:
+              type: string
+              enum:
+              - ok
+              - need_help
+        alertedAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'A side did not answer in time: the safety team was alerted (ride_check incident).'
+    TripRouteChange:
+      type: object
+      description: 'v0.18.9: TripProjection.routeChange { changeId, routeQuoteId, status: pending | accepted | refused | expired
+        | withdrawn, dropoff, stops, total, difference, askedAt, answerBy, answeredAt?, answeredBy?: driver | rider | system,
+        driverEarnings?, earningsDifference? } — the latest change of the trip; driverEarnings and earningsDifference only
+        in the driver and admin views. Owner decision 5 of v0.4.3 (§3 ''Route-change pricing''), in practice: total = current
+        fare + (price of the new route − price of the current route), both priced with the trip''s own pricing document, surge
+        and car type (distance, time, stop fee, app fee, minimum); never below half of (booked fare + raises); difference
+        = total − current fare (may be negative). The driver''s new earnings = current earnings + (his share of the new route
+        − his share of the current route); raises stay. Cash: the difference is only shown.'
+      required:
+      - changeId
+      - status
+      - dropoff
+      - stops
+      - total
+      - difference
+      - askedAt
+      - answerBy
+      properties:
+        changeId:
+          $ref: '#/components/schemas/Id'
+        routeQuoteId:
+          $ref: '#/components/schemas/Id'
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - refused
+          - expired
+          - withdrawn
+        dropoff:
+          $ref: '#/components/schemas/Place'
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Place'
+        total:
+          $ref: '#/components/schemas/Money'
+        difference:
+          $ref: '#/components/schemas/Money'
+        askedAt:
+          $ref: '#/components/schemas/Timestamp'
+        answerBy:
+          $ref: '#/components/schemas/Timestamp'
+        answeredAt:
+          $ref: '#/components/schemas/Timestamp'
+        answeredBy:
+          type: string
+          enum:
+          - driver
+          - rider
+          - system
+        driverEarnings:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'Driver and admin views only: the driver''s earnings with the new route.'
+        earningsDifference:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'Driver and admin views only: new − current earnings.'
+    AdminTripFlag:
+      type: object
+      description: 'v0.18.9: POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged,
+        reason?, by, at }; the admin trip view and GET /admin/trips rows carry adminFlag; GET /admin/trips?flagged=true. No
+        trip version change, the apps never see it. Audited trip.flag / trip.unflag.'
+      required:
+      - flagged
+      - by
+      - at
+      properties:
+        flagged:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 500
+        by:
+          $ref: '#/components/schemas/Id'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    RouteChangeAnswer:
+      type: object
+      description: 'v0.18.9: the driver''s answer or the rider''s withdraw of a pending route change.'
+      required:
+      - expectedVersion
+      - changeId
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        changeId:
+          $ref: '#/components/schemas/Id'
+    RideCheckRow:
+      type: object
+      description: 'v0.18.9: RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger,
+        shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, createdAt }, newest first; nextCursor.'
+      required:
+      - tripId
+      - zoneId
+      - side
+      - checkId
+      - origin
+      - trigger
+      - createdAt
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        side:
+          type: string
+          enum:
+          - rider
+          - driver
+        checkId:
+          $ref: '#/components/schemas/Id'
+        origin:
+          type: string
+          enum:
+          - server
+          - app
+        trigger:
+          $ref: '#/components/schemas/RideCheckTrigger'
+        shownAt:
+          $ref: '#/components/schemas/Timestamp'
+        answer:
+          type: string
+          enum:
+          - ok
+          - need_help
+        answeredAt:
+          $ref: '#/components/schemas/Timestamp'
+        noAnswerAt:
+          $ref: '#/components/schemas/Timestamp'
+        incidentId:
+          $ref: '#/components/schemas/Id'
+        position:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+            accuracyM:
+              type: number
+            at:
+              $ref: '#/components/schemas/Timestamp'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+    RideCheckList:
+      type: object
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RideCheckRow'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    AdminTripFlagCommand:
+      type: object
+      required:
+      - flagged
+      properties:
+        flagged:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 500
+    AdminTripNote:
+      type: object
+      required:
+      - noteId
+      - tripId
+      - text
+      - adminId
+      - at
+      properties:
+        noteId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        adminId:
+          $ref: '#/components/schemas/Id'
+        adminName:
+          type: string
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    AdminTripNoteList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTripNote'
+    AdminTripNoteCommand:
+      type: object
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    AdminTripCaseCommand:
+      type: object
+      required:
+      - about
+      - category
+      - subject
+      - text
+      properties:
+        about:
+          type: string
+          enum:
+          - rider
+          - driver
+        category:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        visibleToPerson:
+          type: boolean
+          description: 'v0.18.9 (owner rule 16): true = the person sees the case in their own help list; false (default) =
+            internal.'
+    AdminRevealContactCommand:
+      type: object
+      required:
+      - who
+      - reason
+      properties:
+        who:
+          type: string
+          enum:
+          - rider
+          - driver
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    RevealedContact:
+      type: object
+      required:
+      - who
+      - phone
+      - revealedAt
+      properties:
+        who:
+          type: string
+          enum:
+          - rider
+          - driver
+        phone:
+          type: string
+        revealedAt:
+          $ref: '#/components/schemas/Timestamp'
+    AdminIncidentLevelCommand:
+      type: object
+      required:
+      - expectedVersion
+      - severity
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        severity:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          - critical
+        note:
+          type: string
           maxLength: 1000

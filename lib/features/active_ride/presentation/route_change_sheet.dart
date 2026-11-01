@@ -224,6 +224,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
             ],
           ),
         ),
+        if (quote.leavesFixedPrice) ...[
+          const SizedBox(height: 10),
+          Text(
+            context.l10n.g7RouteLeavesFixedPrice,
+            key: const ValueKey('route-change-leaves-fixed-price'),
+            style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
+          ),
+        ],
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-confirm'),

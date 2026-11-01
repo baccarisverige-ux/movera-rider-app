@@ -204,6 +204,7 @@ S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
                        "difference": {"allOf": [ref("Money")], "description": "total − current fare (may be negative). Re-quoting "
                                       "the route the trip already has gives 0; a route change never refunds an offer raise."},
                        "fareLines": arr(ref("FareLine")), "dropoff": ref("Place"), "stops": arr(ref("Place")),
+                       "leavesFixedPrice": b("v0.18.9 (owner rule 16): true when the trip has a fixed price and the zone's routeChange.fixedPriceTrips is switch_to_normal: on accept the trip is priced like a normal trip."),
                        "expiresAt": ref("Timestamp")},
                       ["routeQuoteId", "tripId", "total", "difference", "dropoff", "stops", "expiresAt"],
                       "Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking "
@@ -375,6 +376,7 @@ S["SupportTicket"] = obj({"ticketId": ref("Id"), "tripId": ref("Id"), "openedBy"
                           "createdAt": ref("Timestamp"), "updatedAt": ref("Timestamp"),
                           "zoneId": {"allOf": [ref("Id")], "description": "v0.9.0: the trip's zone, else the person's first zone; admins see tickets of their zones."},
                           "lastMessageAt": ref("Timestamp"),
+                          "visibleToPerson": b("v0.18.9: admin views only; a case opened by support that the rider / driver sees in their own list (contract.json#onTrip.adminTrip.new.case)."),
                           "messages": arr(ref("TicketMessage"), description="v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first.")},
                          ["ticketId", "openedBy", "category", "subject", "status", "createdAt", "updatedAt"])
 S["TicketMessage"] = obj({"messageId": ref("Id"), "from": s(enum=["rider", "driver", "support"]), "text": s(minLength=1, maxLength=5000),
@@ -2323,6 +2325,88 @@ for _p in ["/trips/{tripId}/board", "/trips/{tripId}/start"]:
     PATHS[_p]["post"]["description"] = PATHS[_p]["post"].get("description", "") + " v0.18.8: " + AW["pin"]["compat"]
 PATHS["/legal/{country}"]["get"].setdefault("parameters", []).append(q("zoneId", ref("Id"), "v0.18.8: fills {waitingRules} with this zone's live numbers (contract.json#arrivedWaiting.termsTexts)."))
 PATHS["/legal/{country}"]["get"]["description"] += " v0.18.8: " + AW["termsTexts"]["note"]
+
+
+# ---- v0.18.9 (driver group 7: on trip; contract.json#onTrip)
+OT = C["onTrip"]
+_RC = OT["rideCheck"]
+_RX = OT["routeChange"]
+_RCD = C["configDefaults"]["rideCheck"]
+_RXD = C["configDefaults"]["routeChange"]
+S["RideCheck"] = obj(OrderedDict([
+    ("on", {**b("v0.18.9: " + _RC["settings"]["fields"]["on"]), "default": _RCD["on"]}),
+    ("stopMinutes", {**n("v0.18.9: " + _RC["settings"]["fields"]["stopMinutes"], minimum=0), "default": _RCD["stopMinutes"]}),
+    ("offRouteKm", {**n("v0.18.9: " + _RC["settings"]["fields"]["offRouteKm"], minimum=0), "default": _RCD["offRouteKm"]}),
+    ("endFarMeters", {**i("v0.18.9: " + _RC["settings"]["fields"]["endFarMeters"], minimum=0), "default": _RCD["endFarMeters"]}),
+    ("noAnswerSeconds", {**i("v0.18.9: " + _RC["settings"]["fields"]["noAnswerSeconds"], minimum=0), "default": _RCD["noAnswerSeconds"]}),
+    ("repeatMinutes", {**i("v0.18.9: " + _RC["settings"]["fields"]["repeatMinutes"], minimum=0), "default": _RCD["repeatMinutes"]}),
+    ("noAnswerAlarm", {**b("v0.18.9: " + _RC["settings"]["fields"]["noAnswerAlarm"]), "default": _RCD["noAnswerAlarm"]}),
+]), desc="Ride check settings (Safety). v0.18.9: " + _RC["settings"]["where"] + " " + _RC["settings"]["invalid"])
+S["RouteChangeSettings"] = obj(OrderedDict([
+    ("on", {**b("v0.18.9: " + _RX["settings"]["fields"]["on"]), "default": _RXD["on"]}),
+    ("driverCanRefuse", {**b("v0.18.9: " + _RX["settings"]["fields"]["driverCanRefuse"]), "default": _RXD["driverCanRefuse"]}),
+    ("answerSeconds", {**i("v0.18.9: " + _RX["settings"]["fields"]["answerSeconds"], minimum=15, maximum=300), "default": _RXD["answerSeconds"]}),
+    ("beforePickup", {**b("v0.18.9: " + _RX["settings"]["fields"]["beforePickup"]), "default": _RXD["beforePickup"]}),
+    ("fixedPriceTrips", {**s("v0.18.9: " + _RX["settings"]["fields"]["fixedPriceTrips"], enum=_RX["settings"]["values"]["fixedPriceTrips"]), "default": _RXD["fixedPriceTrips"]}),
+]), desc="v0.18.9: " + _RX["settings"]["where"])
+S["DriverAppConfig"]["properties"]["routeChange"] = ref("RouteChangeSettings")
+S["RiderAppConfig"]["properties"]["routeChange"] = {"allOf": [ref("RouteChangeSettings")], "description": "v0.18.9: copied from the zone's driver document when served (GET /rider/config)."}
+S["TripRideCheck"] = obj(OrderedDict([
+    ("checkId", ref("Id")), ("trigger", ref("RideCheckTrigger")), ("askedAt", ref("Timestamp")), ("answerBy", ref("Timestamp")),
+    ("answers", obj({"rider": s(enum=["ok", "need_help"]), "driver": s(enum=["ok", "need_help"])}, desc="Each side's answer so far.")),
+    ("alertedAt", {"allOf": [ref("Timestamp")], "description": "A side did not answer in time: the safety team was alerted (ride_check incident)."}),
+]), ["checkId", "trigger", "askedAt", "answerBy", "answers"], "v0.18.9: " + _RC["ask"]["projection"] + " " + _RC["ask"]["apps"])
+S["TripRouteChange"] = obj(OrderedDict([
+    ("changeId", ref("Id")), ("routeQuoteId", ref("Id")), ("status", s(enum=["pending", "accepted", "refused", "expired", "withdrawn"])),
+    ("dropoff", ref("Place")), ("stops", arr(ref("Place"))), ("total", ref("Money")), ("difference", ref("Money")),
+    ("askedAt", ref("Timestamp")), ("answerBy", ref("Timestamp")), ("answeredAt", ref("Timestamp")),
+    ("answeredBy", s(enum=["driver", "rider", "system"])),
+    ("driverEarnings", {"allOf": [ref("Money")], "description": "Driver and admin views only: the driver's earnings with the new route."}),
+    ("earningsDifference", {"allOf": [ref("Money")], "description": "Driver and admin views only: new − current earnings."}),
+]), ["changeId", "status", "dropoff", "stops", "total", "difference", "askedAt", "answerBy"], "v0.18.9: " + _RX["projection"] + " " + _RX["price"])
+S["TripProjection"]["properties"]["rideCheck"] = ref("TripRideCheck")
+S["TripProjection"]["properties"]["routeChange"] = ref("TripRouteChange")
+S["AdminTripFlag"] = obj({"flagged": b(), "reason": s(maxLength=500), "by": ref("Id"), "at": ref("Timestamp")}, ["flagged", "by", "at"], "v0.18.9: " + OT["adminTrip"]["new"]["flag"])
+S["TripProjection"]["properties"]["adminFlag"] = {"allOf": [ref("AdminTripFlag")], "description": "v0.18.9: admin view only."}
+S["TripTerms"]["properties"]["stopWaitPerMin"] = {"allOf": [ref("Money")], "description": "v0.18.9: " + OT["stopWaiting"]["pricePerMinute"]}
+S["UpdateTripRequest"]["description"] += " v0.18.9: " + " ".join(_RX["flow"][1:2])
+S["RouteQuoteRequest"]["description"] = "v0.18.9: " + _RX["flow"][0]
+S["RouteChangeAnswer"] = obj(dict(EV, changeId=ref("Id")), ["expectedVersion", "changeId"], "v0.18.9: the driver's answer or the rider's withdraw of a pending route change.")
+for seg, opid, summ, who in [("accept", "acceptRouteChange", "Driver accepts the rider's route change", "driver"), ("refuse", "refuseRouteChange", "Driver refuses the rider's route change (the old route stays)", "driver"),
+                             ("withdraw", "withdrawRouteChange", "Rider withdraws a pending route change", "rider")]:
+    op("post", f"/trips/{{tripId}}/route-change/{seg}", opid, summ, [who], "Trips", params=TID, body="RouteChangeAnswer", ok=(200, TP), mutation=True,
+       desc="v0.18.9: " + " ".join(_RX["flow"]) + " " + " ".join(_RX["rules"].values()))
+PATHS["/trips/{tripId}/route-quote"]["post"]["description"] = "v0.18.9: " + _RX["flow"][0] + " " + " ".join(_RX["rules"].values())
+PATHS["/trips/{tripId}"]["patch"]["description"] = "v0.18.9: " + _RX["flow"][1] + " v0.18.7: { expectedVersion, pickup } moves the pickup."
+for _p in ["/quotes", "/trips"]:
+    PATHS[_p]["post"]["description"] = PATHS[_p]["post"].get("description", "") + " v0.18.9: " + OT["maxStops"]["enforced"]
+S["RideCheckRow"] = obj(OrderedDict([
+    ("tripId", ref("Id")), ("zoneId", ref("Id")), ("side", s(enum=["rider", "driver"])), ("checkId", ref("Id")), ("origin", s(enum=["server", "app"])),
+    ("trigger", ref("RideCheckTrigger")), ("shownAt", ref("Timestamp")), ("answer", s(enum=["ok", "need_help"])), ("answeredAt", ref("Timestamp")),
+    ("noAnswerAt", ref("Timestamp")), ("incidentId", ref("Id")), ("position", obj({"lat": n(), "lng": n(), "accuracyM": n(), "at": ref("Timestamp")})), ("createdAt", ref("Timestamp")),
+]), ["tripId", "zoneId", "side", "checkId", "origin", "trigger", "createdAt"], "v0.18.9: " + _RC["adminList"]["row"])
+S["RideCheckList"] = obj({"items": arr(ref("RideCheckRow")), "nextCursor": {"type": ["string", "null"]}}, ["items", "nextCursor"])
+op("get", "/admin/ride-checks", "adminListRideChecks", "Every ride check (server and app), newest first", ["admin"], "Admin · Safety",
+   params=[q("zoneId", ref("Id")), q("tripId", ref("Id")), q("trigger", ref("RideCheckTrigger")), q("answer", s(enum=["ok", "need_help", "no_answer", "waiting"])),
+           q("origin", s(enum=["server", "app"])), q("from", ref("Timestamp")), q("to", ref("Timestamp")), q("cursor", s()), q("limit", i(minimum=1, maximum=200))],
+   ok=(200, "RideCheckList"), permission="incidents.read", desc="v0.18.9: " + _RC["adminList"]["endpoint"] + " " + _RC["adminList"]["answerFilter"])
+S["AdminTripFlagCommand"] = obj({"flagged": b(), "reason": s(maxLength=500)}, ["flagged"])
+op("post", "/admin/trips/{tripId}/flag", "adminFlagTrip", "Flag or unflag a trip (admin only)", ["admin"], "Admin · Trips", params=TID, body="AdminTripFlagCommand",
+   ok=(200, "AdminTripFlag"), mutation=True, permission="trips.annotate", desc="v0.18.9: " + OT["adminTrip"]["new"]["flag"])
+S["AdminTripNote"] = obj({"noteId": ref("Id"), "tripId": ref("Id"), "text": s(minLength=1, maxLength=2000), "adminId": ref("Id"), "adminName": s(), "at": ref("Timestamp")}, ["noteId", "tripId", "text", "adminId", "at"])
+S["AdminTripNoteList"] = obj({"items": arr(ref("AdminTripNote"))}, ["items"])
+S["AdminTripNoteCommand"] = obj({"text": s(minLength=1, maxLength=2000)}, ["text"])
+op("get", "/admin/trips/{tripId}/notes", "adminTripNotes", "The admins' notes on a trip", ["admin"], "Admin · Trips", params=TID, ok=(200, "AdminTripNoteList"), permission="trips.read", desc="v0.18.9: " + OT["adminTrip"]["new"]["notes"])
+op("post", "/admin/trips/{tripId}/notes", "adminAddTripNote", "Add a note to a trip", ["admin"], "Admin · Trips", params=TID, body="AdminTripNoteCommand", ok=(201, "AdminTripNote"), mutation=True, permission="trips.annotate", desc="v0.18.9: " + OT["adminTrip"]["new"]["notes"])
+S["AdminTripCaseCommand"] = obj({"about": s(enum=["rider", "driver"]), "category": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "subject": s(minLength=1, maxLength=200), "text": s(minLength=1, maxLength=5000), "visibleToPerson": b("v0.18.9 (owner rule 16): true = the person sees the case in their own help list; false (default) = internal.")}, ["about", "category", "subject", "text"])
+op("post", "/admin/trips/{tripId}/case", "adminOpenTripCase", "Open a support case for the trip's rider or driver", ["admin"], "Admin · Trips", params=TID, body="AdminTripCaseCommand", ok=(201, "SupportTicket"), mutation=True, permission="support.reply", desc="v0.18.9: " + OT["adminTrip"]["new"]["case"])
+S["AdminRevealContactCommand"] = obj({"who": s(enum=["rider", "driver"]), "reason": s(minLength=1, maxLength=500)}, ["who", "reason"])
+S["RevealedContact"] = obj({"who": s(enum=["rider", "driver"]), "phone": s(), "revealedAt": ref("Timestamp")}, ["who", "phone", "revealedAt"])
+op("post", "/admin/trips/{tripId}/reveal-contact", "adminRevealTripContact", "Show the rider's or driver's phone number (reason, audited)", ["admin"], "Admin · Trips", params=TID, body="AdminRevealContactCommand", ok=(200, "RevealedContact"), mutation=True, permission="riders.viewSensitive", desc="v0.18.9: " + OT["adminTrip"]["new"]["revealContact"])
+S["AdminIncidentLevelCommand"] = obj(dict(EV, severity=s(enum=["low", "medium", "high", "critical"]), note=s(maxLength=1000)), ["expectedVersion", "severity"])
+op("post", "/admin/incidents/{incidentId}/level", "adminIncidentLevel", "Change an incident's level", ["admin"], "Admin · Safety", params=[pref("IncidentId")], body="AdminIncidentLevelCommand", ok=(200, "Incident"), mutation=True, permission="safety.edit", desc="v0.18.9: " + OT["adminTrip"]["new"]["incidentLevel"])
+PATHS["/admin/trips"]["get"].setdefault("parameters", []).append(q("flagged", b(), "v0.18.9: only flagged trips."))
+PATHS["/admin/trips/{tripId}/adjust"]["post"]["description"] = PATHS["/admin/trips/{tripId}/adjust"]["post"].get("description", "") + " v0.18.9: " + OT["adminTrip"]["existing"]["adjust"]
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"

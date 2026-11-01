@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_eta.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
+import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
@@ -78,6 +79,29 @@ class DriverTrackingController {
   /// waiting, no-show, cancel and the pickup move limit, in the trip's
   /// currency. Null until a projection carried them.
   TripTerms? terms;
+
+  /// v0.18.9 (G7 decision 1): the server's ride check of this trip.
+  TripRideCheck? rideCheck;
+
+  /// v0.18.9 (G7 decision 3): the newest route change and its answer.
+  TripRouteChange? routeChange;
+
+  /// A route change that was answered since the screen last looked: once
+  /// per change and status, so the rider is told once.
+  TripRouteChange? takeRouteChangeOutcome() {
+    final change = routeChange;
+    if (change == null || change.pending) return null;
+    if (!_routeOutcomesSeen.add('${change.changeId}:${change.status}')) {
+      return null;
+    }
+    return change;
+  }
+
+  final Set<String> _routeOutcomesSeen = {};
+
+  /// Marks the outcomes already there when the screen opens as told.
+  void markRouteChangeSeen(TripRouteChange change) =>
+      _routeOutcomesSeen.add('${change.changeId}:${change.status}');
 
   /// v0.18.7 (Q5): the waiting cost so far while the driver waits
   /// (`waiting.chargedSoFar`); null when not waiting or not said.
@@ -237,6 +261,8 @@ class DriverTrackingController {
   /// terms, the waiting cost, the cancellation and the pickup.
   void _takeServerFacts(RideRealtimeEvent event) {
     terms = event.terms ?? terms;
+    rideCheck = event.rideCheck ?? rideCheck;
+    routeChange = event.routeChange ?? routeChange;
     final eta = event.eta;
     if (eta != null) {
       final known = serverEta;

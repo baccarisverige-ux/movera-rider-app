@@ -399,8 +399,13 @@
     }
   ],
   "rideCheck": {
+    "on": true,
     "stopMinutes": 2,
-    "offRouteKm": 3
+    "offRouteKm": 2,
+    "endFarMeters": 500,
+    "noAnswerSeconds": 120,
+    "repeatMinutes": 10,
+    "noAnswerAlarm": false
   },
   "appUpdate": {
     "minimumVersion": "1.0.0",
@@ -408,5 +413,12 @@
   },
   "raisePrice": {
     "maxFactor": 2
+  },
+  "routeChange": {
+    "on": true,
+    "driverCanRefuse": true,
+    "answerSeconds": 60,
+    "beforePickup": true,
+    "fixedPriceTrips": "block"
   }
 }

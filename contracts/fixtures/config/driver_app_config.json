@@ -372,8 +372,13 @@
     "restMinutes": 30
   },
   "rideCheck": {
+    "on": true,
     "stopMinutes": 2,
-    "offRouteKm": 3
+    "offRouteKm": 2,
+    "endFarMeters": 500,
+    "noAnswerSeconds": 120,
+    "repeatMinutes": 10,
+    "noAnswerAlarm": false
   },
   "texts": {
     "byLanguage": {}
@@ -387,5 +392,12 @@
     "required": false,
     "maxAttempts": 5,
     "lockMinutes": 5
+  },
+  "routeChange": {
+    "on": true,
+    "driverCanRefuse": true,
+    "answerSeconds": 60,
+    "beforePickup": true,
+    "fixedPriceTrips": "block"
   }
 }

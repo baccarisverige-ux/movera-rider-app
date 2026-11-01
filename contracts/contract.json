@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.8",
+  "version": "0.18.9",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -2810,7 +2810,7 @@
     ]
   },
   "configDefaults": {
-    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting).",
+    "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\".",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
     "freeWaitMin": {
@@ -3473,7 +3473,23 @@
       "maxAttempts": 5,
       "lockMinutes": 5
     },
-    "stopFreeWaitMin": 0
+    "stopFreeWaitMin": 0,
+    "rideCheck": {
+      "on": true,
+      "stopMinutes": 2,
+      "offRouteKm": 2,
+      "endFarMeters": 500,
+      "noAnswerSeconds": 120,
+      "repeatMinutes": 10,
+      "noAnswerAlarm": false
+    },
+    "routeChange": {
+      "on": true,
+      "driverCanRefuse": true,
+      "answerSeconds": 60,
+      "beforePickup": true,
+      "fixedPriceTrips": "block"
+    }
   },
   "realtime": {
     "envelope": [
@@ -3517,7 +3533,8 @@
       "after a terminal lifecycle status only afterTerminal kinds are accepted",
       "a location event never replaces the cached projection",
       "resync: GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}",
-      "v0.18.7: pickup_moved carries the projection like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds"
+      "v0.18.7: pickup_moved carries the projection like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds",
+      "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds."
     ]
   },
   "errors": {
@@ -3685,7 +3702,7 @@
     },
     "alarmNote": "v0.12.0: a ride_check incident rings the alarm (and escalates) only when someone answered need_help (Incident.alarm true); a no-answer ride_check incident (Incident.alarm false) shows in the cases list without sound and is never escalated. sos and driver_silent incidents always have alarm true.",
     "rideCheck": {
-      "note": "v0.12.0 (owner safety part 2, 2026-10-28; CONTRACT.md §22). The rider and driver apps detect a ride check themselves (rider.rideCheck / driver.rideCheck config) and report it: once when the card shows (answer absent) and once with the answer. ok is only saved on the trip; need_help opens (or joins) the trip's ride_check incident with the alarm; no answer within noAnswerSeconds of the server receiving the shown report opens it without the alarm. The app shows only 'Sent' after answering.",
+      "note": "v0.12.0 (owner safety part 2, 2026-10-28; CONTRACT.md §22). The rider and driver apps detect a ride check themselves (rider.rideCheck / driver.rideCheck config) and report it: once when the card shows (answer absent) and once with the answer. ok is only saved on the trip; need_help opens (or joins) the trip's ride_check incident with the alarm; no answer within noAnswerSeconds of the server receiving the shown report opens it without the alarm. The app shows only 'Sent' after answering. v0.18.9 (contract.json#onTrip.rideCheck): the server also starts checks itself from the driver's GPS and asks BOTH the rider and the driver; noAnswerSeconds is now the zone's DriverAppConfig.rideCheck.noAnswerSeconds (default 120).",
       "endpoints": [
         "POST /rider/trips/{tripId}/ride-check",
         "POST /driver/trips/{tripId}/ride-check"
@@ -5426,6 +5443,317 @@
       "Driver app: PIN step, island messages, waiting box from waiting.rules / terms, delete lib/core/ride/waiting_rules.dart local rules (app job).",
       "Rider app: show pickupPin, Terms link with zoneId, island messages (app job).",
       "Admin: Reverse no-show dialog, pickupPin switch per zone, publish stopFreeWaitMin, trips list waiting minutes (admin job)."
+    ]
+  },
+  "onTrip": {
+    "note": "v0.18.9 (driver group 7 'On trip'; owner decisions 1–5 of 2026-10-29, re-check 2026-10-30, job list 2026-11-01; Rules decisions/driver-g7.md, plan/g7-job-list.md). CONTRACT.md §35. Sweden and France alike; every number is a per-zone admin setting with a default (owner rule 16); every text in sv / fr / en (Swedish rider = resenär).",
+    "rideCheck": {
+      "settings": {
+        "where": "DriverAppConfig.rideCheck (Admin › Safety › Ride check, per zone, live: the server reads the zone's live driver document at each check). GET /rider/config serves the same object as RiderAppConfig.rideCheck (copied from the zone's driver document), so both apps show the same numbers.",
+        "fields": {
+          "on": "true = the server starts ride checks in this zone (default true). false = no server checks; the apps also stop their own checks.",
+          "stopMinutes": "Long stop: the car stood still (every fix within 50 m) this many minutes with the rider on board (default 2; 1–30).",
+          "offRouteKm": "Off route: the car is farther than this from the trip's route (default 2; 0.5–20). Owner decision 2 (2026-10-29): 2 km.",
+          "endFarMeters": "Unexpected end: the driver ended the trip (complete, or cancel with the rider on board) farther than this from the drop-off (default 500; 100–5000).",
+          "noAnswerSeconds": "Nobody answered within this many seconds → the safety team is alerted (an open ride_check incident) (default 120; 30–600). Also used for the apps' own checks.",
+          "repeatMinutes": "The same reason does not ask again within this many minutes of the trip (default 10; 1–120).",
+          "noAnswerAlarm": "true = a no-answer case also rings the admin alarm and escalates like an SOS; false (default, as v0.12.0) = it shows in the safety list without sound."
+        },
+        "ranges": {
+          "stopMinutes": [
+            1,
+            30
+          ],
+          "offRouteKm": [
+            0.5,
+            20
+          ],
+          "endFarMeters": [
+            100,
+            5000
+          ],
+          "noAnswerSeconds": [
+            30,
+            600
+          ],
+          "repeatMinutes": [
+            1,
+            120
+          ]
+        },
+        "invalid": "A missing field or one outside its range reads as the default."
+      },
+      "detection": {
+        "when": "From every POST /driver/location batch while the trip is rider_onboard, in_trip or approaching_dropoff (a server job, a few seconds later), and at the driver's complete / cancel.",
+        "long_stop": "The trip boarded at least stopMinutes ago and every fix (accuracy ≤ 50 m) of the last stopMinutes is within 50 m of the newest one, the fixes cover the whole stopMinutes, the car is not at a middle stop the driver tapped arrived at, and not within 300 m of the drop-off.",
+        "off_route": "The newest fix (accuracy ≤ 50 m) is farther than offRouteKm from the trip's route: the server's road route pickup → stops → drop-off (kept on the trip, made again after a route change), straight lines between those points when the road route has no shape.",
+        "dropped_far": "Unexpected end: the driver completes or cancels with the rider on board farther than endFarMeters from the drop-off (the driver's latest fix). The trip still ends; the rider may answer up to safety.rideCheck.completedWithinMinutes (30) after it.",
+        "possible_crash": "Stays with the apps (phone sensors); the apps report it as before.",
+        "once": "One open server check per trip at a time; the same trigger again only after repeatMinutes."
+      },
+      "ask": {
+        "projection": "TripProjection.rideCheck { checkId, trigger, askedAt, answerBy, answers { rider?, driver? }, alertedAt? } on the rider's, the driver's and the admin's view (every viewer). checkId starts with srv_. Sent as a trip_projection event without a version change; also on every GET /trips/{tripId}.",
+        "apps": "Both apps open the same 'Is everything OK?' card (texts below) when rideCheck has a checkId they have not answered and their own side has no answer, and answer with the existing POST /{rider|driver}/trips/{tripId}/ride-check { checkId, trigger, at, answer } (contract §22). A shown report is not needed (the server already counts the card as shown at askedAt).",
+        "answers": "ok on one side does not close the other side: each side answers for itself. need_help (either side) opens the ride_check incident with the alarm at once (§22). Each answer updates rideCheck.answers (trip_projection event, no version change).",
+        "noAnswer": "A side with no answer at answerBy (askedAt + noAnswerSeconds): the server opens (or joins) the trip's ride_check incident, raisedBy system, rideCheck.answer no_answer, alarm = noAnswerAlarm, and sets rideCheck.alertedAt."
+      },
+      "adminList": {
+        "endpoint": "GET /admin/ride-checks?zoneId=&tripId=&trigger=&answer=&origin=&from=&to=&cursor=&limit= (incidents.read; the admin's zones)",
+        "row": "RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger, shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, createdAt }, newest first; nextCursor.",
+        "answerFilter": "answer = ok | need_help | no_answer | waiting (no answer yet, not timed out)."
+      },
+      "texts": {
+        "title": {
+          "en": "Is everything OK?",
+          "sv": "Är allt OK?",
+          "fr": "Tout va bien ?"
+        },
+        "ok": {
+          "en": "I'm OK",
+          "sv": "Jag är OK",
+          "fr": "Tout va bien"
+        },
+        "needHelp": {
+          "en": "I need help",
+          "sv": "Jag behöver hjälp",
+          "fr": "J'ai besoin d'aide"
+        },
+        "long_stop": {
+          "en": "The car has been standing still for a while.",
+          "sv": "Bilen har stått still en stund.",
+          "fr": "La voiture est à l'arrêt depuis un moment."
+        },
+        "off_route": {
+          "en": "The car is far from the planned route.",
+          "sv": "Bilen är långt från den planerade vägen.",
+          "fr": "La voiture est loin de l'itinéraire prévu."
+        },
+        "dropped_far": {
+          "en": "The trip ended far from the destination.",
+          "sv": "Resan avslutades långt från destinationen.",
+          "fr": "La course s'est terminée loin de la destination."
+        },
+        "sent": {
+          "en": "Sent",
+          "sv": "Skickat",
+          "fr": "Envoyé"
+        },
+        "adminSettings": {
+          "en": "Ride check",
+          "sv": "Resekontroll",
+          "fr": "Contrôle de course"
+        },
+        "adminHelp": {
+          "en": "Movera asks the rider and the driver “Is everything OK?” when the car stops too long, leaves the route or the trip ends far from the destination. No answer in time alerts the safety team.",
+          "sv": "Movera frågar resenären och föraren ”Är allt OK?” när bilen står still för länge, lämnar vägen eller resan slutar långt från destinationen. Inget svar i tid larmar säkerhetsteamet.",
+          "fr": "Movera demande au passager et au chauffeur « Tout va bien ? » quand la voiture s'arrête trop longtemps, quitte l'itinéraire ou que la course se termine loin de la destination. Sans réponse à temps, l'équipe sécurité est alertée."
+        }
+      },
+      "push": {
+        "rule": "Owner rule 16 (2026-11-01, G7 open question 3): every server ride check is ALSO sent as a push to the rider and the driver (safety), so a phone in the background or locked still asks; the app card shows as before when the app is open. Push only (not a bell notice), sent even when the rider turned ride-update notifications off (safety), not sent after answerBy, never to a side that already answered. Title = texts.title, body = texts.<trigger>, in the person's language, else the trip's country language (SE sv, FR fr), else English.",
+        "kind": "ride_check",
+        "deepLink": {
+          "rider": "movera-rider://trip/{tripId}",
+          "driver": "movera-driver://trip/{tripId}"
+        },
+        "data": "{ tripId, checkId, trigger, answerBy, sound: \"default\", vibrate: \"true\" }",
+        "sound": "default",
+        "vibrate": true
+      }
+    },
+    "routeChange": {
+      "settings": {
+        "where": "DriverAppConfig.routeChange (Admin › Dispatch › Stops: 'Change stops during trip', 'Driver can refuse', per zone, live). Served also as RiderAppConfig.routeChange (copied from the zone's driver document).",
+        "fields": {
+          "on": "true (default) = the rider may change the destination or add / remove stops once a driver has the trip. false = 409 route_change_off.",
+          "driverCanRefuse": "true (default) = the driver gets Accept / Refuse. false = the change applies at once and the driver is only told (status accepted, answeredBy system).",
+          "answerSeconds": "The driver's time to answer (default 60; 15–300). No answer = refused (status expired): the trip keeps the old route.",
+          "beforePickup": "true (default) = the rider may also change the route before being picked up (accepted, driver_to_pickup, arrived), with the same driver Accept / Refuse. false = only once on board (rider_onboard, in_trip, approaching_dropoff); before that 409 route_change_before_pickup_off. Owner rule 16 (2026-11-01, G7 open question 1).",
+          "fixedPriceTrips": "\"block\" (default) = a fixed-price route trip cannot change its route (409 route_change_fixed_route). \"switch_to_normal\" = the change is allowed and, once accepted, the trip leaves its fixed price and is priced like a normal trip (the trip's pricing document, surge and car type, without the fixed route). Owner rule 16 (2026-11-01, G7 open question 4)."
+        },
+        "ranges": {
+          "answerSeconds": [
+            15,
+            300
+          ]
+        },
+        "values": {
+          "fixedPriceTrips": [
+            "block",
+            "switch_to_normal"
+          ]
+        },
+        "invalid": "A missing field or a value outside its range / values reads as the default."
+      },
+      "statuses": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived",
+        "rider_onboard",
+        "in_trip",
+        "approaching_dropoff"
+      ],
+      "flow": [
+        "1. Rider: POST /trips/{tripId}/route-quote { expectedVersion, dropoff?, stops } → 201 RouteQuote { routeQuoteId, tripId, total, difference, fareLines, dropoff, stops, expiresAt } (the new price; no driver money). dropoff absent = the current one. Valid 5 minutes.",
+        "2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId } → 200 TripProjection with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse false the route changes in the same call.",
+        "3. Driver: POST /trips/{tripId}/route-change/accept or /route-change/refuse { expectedVersion, changeId } → 200 TripProjection. Accept: dropoff, stops, fare, fareLines, driverEarnings and the route change at once. Refuse (or no answer in answerSeconds → expired): nothing changes, the trip goes on to the old destination.",
+        "4. Rider may withdraw a pending change: POST /trips/{tripId}/route-change/withdraw { expectedVersion, changeId }."
+      ],
+      "projection": "TripProjection.routeChange { changeId, routeQuoteId, status: pending | accepted | refused | expired | withdrawn, dropoff, stops, total, difference, askedAt, answerBy, answeredAt?, answeredBy?: driver | rider | system, driverEarnings?, earningsDifference? } — the latest change of the trip; driverEarnings and earningsDifference only in the driver and admin views.",
+      "price": "Owner decision 5 of v0.4.3 (§3 'Route-change pricing'), in practice: total = current fare + (price of the new route − price of the current route), both priced with the trip's own pricing document, surge and car type (distance, time, stop fee, app fee, minimum); never below half of (booked fare + raises); difference = total − current fare (may be negative). The driver's new earnings = current earnings + (his share of the new route − his share of the current route); raises stay. Cash: the difference is only shown.",
+      "rules": {
+        "maxStops": "The new stops may not pass the zone's maxStops (400 too_many_stops, details maxStops=N).",
+        "visitedStops": "Stops the driver already tapped arrived at must stay first, in the same order (400 visited_stop_changed).",
+        "onePending": "One pending change at a time (409 route_change_pending).",
+        "fixedRoute": "A fixed-route trip: fixedPriceTrips block → 409 route_change_fixed_route; switch_to_normal → the route quote prices the new route at the normal price (total = current fare + (normal price of the new route − fixed price), never below half of (booked fare + raises)); RouteQuote.leavesFixedPrice true; on accept the trip's fixedRouteId is removed, so the end fare is the normal price.",
+        "quote": "An expired or used route quote → 409 route_quote_expired / route_quote_used; a route quote made at another trip version → 409 version_mismatch on PATCH.",
+        "off": "Zone switch off → 409 route_change_off; status outside statuses → 409 invalid_transition.",
+        "answer": "accept / refuse with another changeId or a change no longer pending → 409 route_change_not_pending.",
+        "beforePickup": "beforePickup false and the trip still before pickup (beforePickupStatuses) → 409 route_change_before_pickup_off."
+      },
+      "texts": {
+        "riderNewPrice": {
+          "en": "New price {total} ({difference})",
+          "sv": "Nytt pris {total} ({difference})",
+          "fr": "Nouveau prix {total} ({difference})"
+        },
+        "riderConfirm": {
+          "en": "Confirm change",
+          "sv": "Bekräfta ändringen",
+          "fr": "Confirmer le changement"
+        },
+        "riderWaiting": {
+          "en": "Waiting for the driver to accept…",
+          "sv": "Väntar på att föraren godkänner…",
+          "fr": "En attente de l'acceptation du chauffeur…"
+        },
+        "riderAccepted": {
+          "en": "The driver accepted the new route.",
+          "sv": "Föraren godkände den nya vägen.",
+          "fr": "Le chauffeur a accepté le nouvel itinéraire."
+        },
+        "riderRefused": {
+          "en": "The driver could not take the change. The trip goes on to the first destination.",
+          "sv": "Föraren kunde inte ta ändringen. Resan fortsätter till den första destinationen.",
+          "fr": "Le chauffeur n'a pas pu accepter le changement. La course continue vers la première destination."
+        },
+        "driverAsk": {
+          "en": "The rider wants to change the route",
+          "sv": "Resenären vill ändra resan",
+          "fr": "Le passager souhaite modifier l'itinéraire"
+        },
+        "driverEarnings": {
+          "en": "New earnings {earnings} ({difference})",
+          "sv": "Ny intjäning {earnings} ({difference})",
+          "fr": "Nouveau gain {earnings} ({difference})"
+        },
+        "driverAccept": {
+          "en": "Accept",
+          "sv": "Godkänn",
+          "fr": "Accepter"
+        },
+        "driverRefuse": {
+          "en": "Refuse",
+          "sv": "Neka",
+          "fr": "Refuser"
+        },
+        "driverChanged": {
+          "en": "The route was changed by the rider.",
+          "sv": "Resenären har ändrat resan.",
+          "fr": "Le passager a modifié l'itinéraire."
+        },
+        "adminSwitch": {
+          "en": "Change stops during trip",
+          "sv": "Ändra stopp under resan",
+          "fr": "Modifier les arrêts pendant la course"
+        },
+        "adminRefuse": {
+          "en": "Driver can refuse",
+          "sv": "Föraren kan neka",
+          "fr": "Le chauffeur peut refuser"
+        },
+        "riderLeavesFixedPrice": {
+          "en": "The fixed price no longer applies: the trip is charged at the normal price.",
+          "sv": "Det fasta priset gäller inte längre: resan debiteras med vanligt pris.",
+          "fr": "Le prix fixe ne s'applique plus : la course est facturée au prix normal."
+        }
+      },
+      "beforePickupStatuses": [
+        "accepted",
+        "driver_to_pickup",
+        "arrived"
+      ]
+    },
+    "stopWaiting": {
+      "note": "Owner decision 4 (2026-10-29): at middle stops no free minutes by default, charged from minute 1; the pickup keeps its own free minutes (the category's waiting.freeWaitMin, e.g. 3).",
+      "freeMinutes": "DriverAppConfig.waiting.stopFreeWaitMin per zone (default 0, v0.18.8), kept on the trip at booking (terms.stopFreeWaitMin).",
+      "pricePerMinute": "PricingDocument.categories[categoryId].stopWaitPerMin per zone (Admin › Pricing), in the zone's currency; now also on TripProjection.terms.stopWaitPerMin so both apps show it.",
+      "migration": "Server migration: published driver documents still on the admin's old stop default waiting.stopFreeWaitMin 3 move to 0 (owner decision 4); published ride check offRouteKm 3 move to 2 (decision 2).",
+      "texts": {
+        "stopPrice": {
+          "en": "Waiting at a stop: {perMin}/min",
+          "sv": "Väntan vid stopp: {perMin}/min",
+          "fr": "Attente à un arrêt : {perMin}/min"
+        },
+        "stopFree": {
+          "en": "{min} min free at each stop, then {perMin}/min",
+          "sv": "{min} min gratis vid varje stopp, sedan {perMin}/min",
+          "fr": "{min} min gratuites à chaque arrêt, puis {perMin}/min"
+        }
+      }
+    },
+    "maxStops": {
+      "where": "RiderAppConfig.booking.maxStops (else DriverAppConfig.booking.maxStops, else configDefaults.maxStops 3); range 0–10. Admin › Dispatch › Stops, per zone, live.",
+      "enforced": "POST /quotes, POST /trips and POST /trips/{tripId}/route-quote with more stops → 400 invalid_request, reason too_many_stops, details [\"maxStops=N\"].",
+      "texts": {
+        "tooMany": {
+          "en": "You can add at most {max} stops.",
+          "sv": "Du kan lägga till högst {max} stopp.",
+          "fr": "Vous pouvez ajouter au maximum {max} arrêts."
+        }
+      }
+    },
+    "adminTrip": {
+      "existing": {
+        "cancel": "POST /admin/trips/{tripId}/cancel { expectedVersion, reasonCode, note?, driverBonus? } (trips.intervene)",
+        "reassign": "POST /admin/trips/{tripId}/reassign { expectedVersion, reasonCode, note?, driverBonus? } (trips.intervene)",
+        "assign": "POST /admin/trips/{tripId}/assign { expectedVersion, driverId, note?, driverBonus?, priority? } (trips.intervene)",
+        "noShow": "POST /admin/trips/{tripId}/no-show { expectedVersion, note?, waiveFee? } (trips.intervene)",
+        "complete": "POST /admin/trips/{tripId}/complete { expectedVersion, note?, fare? } (trips.intervene)",
+        "adjust": "POST /admin/trips/{tripId}/adjust { expectedVersion, fare?, waitingSeconds?, waiveCancelFee?, reason? } (trips.intervene): price adjust and waiting (waitingSeconds = the pickup waiting that is charged).",
+        "driverBonus": "POST /admin/trips/{tripId}/driver-bonus { expectedVersion, amount, priority?, note? } (trips.intervene)",
+        "reverseNoShow": "POST /admin/trips/{tripId}/reverse-no-show (v0.18.8)",
+        "pinUnlock": "POST /admin/trips/{tripId}/pin/unlock (v0.18.8)"
+      },
+      "new": {
+        "flag": "POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged, reason?, by, at }; the admin trip view and GET /admin/trips rows carry adminFlag; GET /admin/trips?flagged=true. No trip version change, the apps never see it. Audited trip.flag / trip.unflag.",
+        "notes": "GET /admin/trips/{tripId}/notes and POST /admin/trips/{tripId}/notes { text } (trips.read / trips.annotate) → AdminTripNote { noteId, tripId, text, adminId, adminName?, at }; newest first. Admin only, audited trip.note.",
+        "case": "POST /admin/trips/{tripId}/case { about: rider | driver, category, subject, text, visibleToPerson? } (support.reply) → 201 SupportTicket opened by support for that person and trip (status open; safety → priority high). visibleToPerson (owner rule 16, 2026-11-01, G7 open question 2): the admin chooses per case; false (default) = internal: the rider's / driver's own ticket list does not show it; true = the person sees it, with support's messages, in their own help list (GET /support/tickets). SupportTicket.visibleToPerson on admin views. Audited trip.case.",
+        "revealContact": "POST /admin/trips/{tripId}/reveal-contact { who: rider | driver, reason } (riders.viewSensitive for the rider, drivers.viewSensitive for the driver; the admin's zones) → { who, phone, revealedAt }. Reason required; audited trip.reveal_contact with the reason (never the number).",
+        "incidentLevel": "POST /admin/incidents/{incidentId}/level { expectedVersion, severity: low | medium | high | critical, note? } (safety.edit) → Incident (incident_updated, audited incident.level).",
+        "rideChecks": "GET /admin/ride-checks (see rideCheck.adminList).",
+        "rideCheckSettings": "Admin edits DriverAppConfig.rideCheck and DriverAppConfig.routeChange with the usual config draft / publish (Admin › Safety, Admin › Dispatch › Stops)."
+      }
+    },
+    "errors": [
+      "too_many_stops",
+      "visited_stop_changed",
+      "route_change_off",
+      "route_change_before_pickup_off",
+      "route_change_pending",
+      "route_change_not_pending",
+      "route_change_fixed_route",
+      "route_quote_expired",
+      "route_quote_used",
+      "route_quote_not_found",
+      "nothing_to_change"
+    ],
+    "compat": "Additive. X-Api-Version stays 0.5. Live 0.18.8 apps keep working: they ignore rideCheck / routeChange on the projection; the server's own checks then simply time out into the safety list (as an unanswered app check would). The only refusal older apps can meet is too_many_stops when they offer more stops than the zone's maxStops (live apps already read booking.maxStops). v0.18.9 rule-16 additions (routeChange.beforePickup, routeChange.fixedPriceTrips, case visibleToPerson, ride-check push) are additive with defaults that keep the earlier behaviour except the push, which older apps show as a normal notification.",
+    "next": [
+      "Admin: Safety › Ride check settings + list, Dispatch › Stops switches + max stops + free minutes default 0, trip page actions (flag, notes, case, reveal), incident level.",
+      "Driver app: server ride check card, route change Accept / Refuse sheet with earnings, stop waiting price.",
+      "Rider app: server ride check card, route change with new price + waiting / refused messages (replace the mock route_change_controller), max stops, stop waiting price.",
+      "Push for a server ride check when the app is in the background (not in this contract)."
     ]
   }
 }
