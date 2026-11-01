@@ -155,7 +155,26 @@ bool driverMarkerEases = !kIsWeb;
   );
 }
 
+/// What the trip screen's three dots open
+/// ([WaitingForDriver.detailsAction]).
+enum DetailsAction { routeScreen, movePickup, refused }
+
 class WaitingForDriver extends StatefulWidget {
+  /// G7 live fix: how long "the driver refused / you withdrew / accepted"
+  /// stays (a close button ends it sooner); the default 4 s was too short.
+  /// G7: what the three dots open. With `routeChange.beforePickup` off
+  /// before boarding only the destination and the stops are refused: the
+  /// pickup still moves while the driver is on the way (owner decision).
+  static DetailsAction detailsAction({
+    required bool beforePickupOff,
+    required bool pickupEditable,
+  }) {
+    if (!beforePickupOff) return DetailsAction.routeScreen;
+    return pickupEditable ? DetailsAction.movePickup : DetailsAction.refused;
+  }
+
+  static const routeOutcomeNoticeDuration = Duration(seconds: 10);
+
   const WaitingForDriver({
     super.key,
     required this.pickupAddress,
@@ -423,6 +442,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         pickupLat: _pickupPosition.latitude,
         pickupLng: _pickupPosition.longitude,
       );
+      final rideId = _rideId?.trim();
+      if (config != null && rideId != null && rideId.isNotEmpty) {
+        RideCheckController.shared.setZoneRideCheck(rideId, config.rideCheck);
+      }
       final terms = config?.waiting?.forCategory(category);
       if (!mounted || terms == null) return;
       // Never a rate in another currency than the trip's.
@@ -443,8 +466,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         currency: widget.currency,
         pickupLat: _pickupPosition.latitude,
         pickupLng: _pickupPosition.longitude,
+        fresh: true,
       );
       if (!mounted || config == null) return;
+      final rideId = _rideId?.trim();
+      if (rideId != null && rideId.isNotEmpty) {
+        RideCheckController.shared.setZoneRideCheck(rideId, config.rideCheck);
+      }
       setState(() => _changeBeforePickup = config.routeChangeBeforePickup);
     } catch (_) {
       // The server refuses (route_change_before_pickup_off) if it must.
@@ -1403,7 +1431,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
     if (!mounted) return;
     if (outcome.changeDestination) {
-      // Q2: the rider chose to change the destination instead.
+      // Q2: the rider chose to change the destination instead. G7: the
+      // zone's switch is read again, as for the three dots.
+      if (await _routeChangeOffBeforePickup()) {
+        if (mounted) _showRouteBeforePickupOff();
+        return;
+      }
+      if (!mounted) return;
       await _changeRoute(null, RouteChangeEntry.destination);
       return;
     }
@@ -1662,8 +1696,48 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// The three dots on the ride card: the route screen with the current
   /// addresses. The pickup can move until the driver is there; the
   /// destination and the stops can change until the trip ends.
-  Future<void> _openDetails() =>
-      _changeRoute(null, RouteChangeEntry.destination);
+  Future<void> _openDetails() async {
+    if (_routeEditOpen || _leaving) return;
+    // G7 live fix: before boarding, read the zone's switch again (the admin
+    // may have changed it since this screen opened). `beforePickup` covers
+    // only the destination and the stops: with it off, the pickup can still
+    // move (owner decision), so the three dots open the pickup move.
+    final off = await _routeChangeOffBeforePickup();
+    if (!mounted) return;
+    switch (WaitingForDriver.detailsAction(
+      beforePickupOff: off,
+      pickupEditable: _pickupEditable,
+    )) {
+      case DetailsAction.routeScreen:
+        await _changeRoute(null, RouteChangeEntry.destination);
+      case DetailsAction.movePickup:
+        await _movePickup();
+      case DetailsAction.refused:
+        _showRouteBeforePickupOff();
+    }
+  }
+
+  /// Before boarding on the server wire: re-reads the zone's
+  /// `routeChange.beforePickup` and says whether a destination or stop
+  /// change is refused now.
+  Future<bool> _routeChangeOffBeforePickup() async {
+    if (_isInTrip || !widget.routeChangeSupported || !_serverPickupMove) {
+      return false;
+    }
+    await _loadRouteChangeRules();
+    return mounted && !_isInTrip && !_changeBeforePickup;
+  }
+
+  void _showRouteBeforePickupOff() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.g7RouteBeforePickupOff),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+  }
 
   double? _changedPrice;
 
@@ -2194,6 +2268,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         SnackBar(
           key: ValueKey('route-change-${outcome.status}'),
           content: Text(text),
+          // G7 live fix: long enough to read, and closable.
+          duration: WaitingForDriver.routeOutcomeNoticeDuration,
+          showCloseIcon: true,
         ),
       );
   }

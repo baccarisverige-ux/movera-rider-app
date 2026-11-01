@@ -247,7 +247,7 @@ class RideCheckController extends ChangeNotifier {
     _parkOtherRide(trip.rideId);
     if (!sameRide || _monitor == null) {
       _monitor = RideCheckMonitor(
-        settings: _service.policy().triggers,
+        settings: _zoneTriggers(_service.policy().triggers),
         plan: plan,
       );
     }
@@ -283,6 +283,27 @@ class RideCheckController extends ChangeNotifier {
     _trip = change(current);
   }
 
+  /// v0.18.9 (G7): the trip zone's `rideCheck` (RiderAppConfig.rideCheck),
+  /// once the trip screen has read it. Its `endFarMeters` sets the
+  /// "dropped far" distance of this trip.
+  void setZoneRideCheck(String rideId, Map<String, Object?> rideCheck) {
+    if (_trip?.rideId != rideId) return;
+    _zoneRideCheck = rideCheck;
+    _zoneRideCheckRideId = rideId;
+    final monitor = _monitor;
+    if (monitor != null) {
+      monitor.settings = _zoneTriggers(_service.policy().triggers);
+    }
+  }
+
+  Map<String, Object?>? _zoneRideCheck;
+  String? _zoneRideCheckRideId;
+
+  RideCheckTriggerSettings _zoneTriggers(RideCheckTriggerSettings base) =>
+      _zoneRideCheckRideId != null && _zoneRideCheckRideId == _trip?.rideId
+      ? base.withZoneRideCheck(_zoneRideCheck)
+      : base;
+
   /// The rider changed the route mid-trip.
   void replan(String rideId, RideCheckPlan plan) {
     if (_trip?.rideId != rideId) return;
@@ -313,7 +334,7 @@ class RideCheckController extends ChangeNotifier {
     );
     final policy = _service.policy();
     if (!policy.enabled) return;
-    monitor.settings = policy.triggers;
+    monitor.settings = _zoneTriggers(policy.triggers);
     final hit = monitor.addSample(sample);
     if (hit != null) unawaited(_openDetected(rideId, hit));
   }
@@ -334,7 +355,7 @@ class RideCheckController extends ChangeNotifier {
     if (monitor == null) return;
     final policy = _service.policy();
     if (!policy.enabled) return;
-    monitor.settings = policy.triggers;
+    monitor.settings = _zoneTriggers(policy.triggers);
     final hit = monitor.checkStill(_clock());
     if (hit != null) unawaited(_openDetected(rideId, hit));
   }
@@ -348,7 +369,7 @@ class RideCheckController extends ChangeNotifier {
     }
     final policy = _service.policy();
     if (!policy.enabled) return RideCheckOpenResult.riderOff;
-    monitor.settings = policy.triggers;
+    monitor.settings = _zoneTriggers(policy.triggers);
     final hit = monitor.tripEnded(end);
     if (hit == null) return RideCheckOpenResult.noTrigger;
     return _openDetected(rideId, hit);
@@ -375,7 +396,7 @@ class RideCheckController extends ChangeNotifier {
     if (point == null) return RideCheckOpenResult.noTrigger;
     final policy = _service.policy();
     if (!policy.enabled) return RideCheckOpenResult.riderOff;
-    monitor.settings = policy.triggers;
+    monitor.settings = _zoneTriggers(policy.triggers);
     final hit = monitor.tripEnded(point);
     if (hit == null) return RideCheckOpenResult.noTrigger;
     return _openDetected(rideId, hit);

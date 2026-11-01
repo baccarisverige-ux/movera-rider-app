@@ -81,6 +81,32 @@ void main() {
     expect(older?.version, 5);
   });
 
+  test('G7 live fix: a fresh read of the same version takes the served '
+      'routeChange the admin changed in the driver document', () async {
+    var beforePickup = true;
+    final repo = ApiRiderConfigRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              ...document(5),
+              'routeChange': {'on': true, 'beforePickup': beforePickup},
+            }),
+            200,
+          ),
+        ),
+      ),
+      cache: MemoryRiderConfigCache(),
+    );
+    expect((await repo.forZone('Z001')).routeChangeBeforePickup, isTrue);
+    beforePickup = false;
+    // The kept document answers until the server is read again.
+    expect((await repo.forZone('Z001')).routeChangeBeforePickup, isTrue);
+    await repo.refresh('Z001');
+    expect((await repo.forZone('Z001')).routeChangeBeforePickup, isFalse);
+  });
+
   test(
     'no server: the last document received, else the built-in seed',
     () async {
