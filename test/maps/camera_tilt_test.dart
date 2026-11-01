@@ -223,15 +223,23 @@ void main() {
       expect(_tilt(fake.poses.single), 0);
     });
 
-    test('a raster web map keeps the plain bounds fit', () async {
+    test('R-007: a raster web map gets a flat computed pose, not Google\'s '
+        'fitBounds (a reused web map kept painting the pickup)', () async {
       mapViewOf(fake)
         ..size = const Size(390, 700)
-        ..supportsTilt = false;
+        ..supportsTilt = false
+        ..pose = null; // Land at once instead of gliding.
+      // Stockholm city -> Arlanda airport.
       await maps.fitBounds(
-        const GeoPoint(59.3293, 18.0686),
-        const GeoPoint(59.3313, 18.0716),
+        const GeoPoint(59.3326, 18.0649),
+        const GeoPoint(59.6498, 17.9238),
       );
-      expect(fake.calls.single.$2.first, 'newLatLngBounds');
+      expect(fake.calls.where((c) => c.$2.first == 'newLatLngBounds'), isEmpty);
+      final pose = fake.poses.single;
+      expect(_tilt(pose), 0);
+      // Both ends on the 390 x 700 map: a regional zoom, centred between.
+      expect(_zoom(pose), inInclusiveRange(8, 10.5));
+      expect(_target(pose)[0], closeTo((59.3326 + 59.6498) / 2, 0.01));
     });
   });
 

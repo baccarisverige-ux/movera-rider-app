@@ -582,7 +582,7 @@
   "chooseDefaultMethod": "Välj standardsätt för dina resor med Movera.",
   "paymentMethodsUpper": "BETALSÄTT",
   "payFromBalance": "Betala med ditt saldo",
-  "paysWhenSearchStarts": "Betalas när sökningen startar",
+  "paysWhenSearchStarts": "Beloppet reserveras när sökningen börjar och dras när resan är klar",
   "payDriverCash": "Betala föraren kontant",
   "vouchersUpper": "VÄRDEKODER",
   "paymentPrefsProtected": "Dina betalningsval är skyddade och kan ändras när som helst.",

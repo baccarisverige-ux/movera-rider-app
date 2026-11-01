@@ -217,4 +217,37 @@ void main() {
       expect(fit.padding, selectRideEdgePadding);
     });
   });
+
+  group('R-007: a long route fits above the opened sheet', () {
+    test('Stockholm city -> Arlanda keeps the route large in the strip of '
+        'map the sheet leaves', () {
+      // Live iPhone (390 x 664): map 373 px, sheet over the bottom 160 px,
+      // search bar over the top 76 px; only 137 px of map are visible.
+      const pickup = GeoPoint(59.3326, 18.0649);
+      const arlanda = GeoPoint(59.6498, 17.9238);
+      final fit = selectRideCameraFit(
+        pickup: pickup,
+        destination: arlanda,
+        mapHeight: 373,
+        bottomObstruction: 160,
+        topObstruction: 76,
+      );
+      const visible = 373 - 160 - 76;
+      // The padding gives way so the route keeps most of the strip.
+      expect(fit.padding, lessThanOrEqualTo(visible * 0.2 + 1e-9));
+      final span = arlanda.latitude - pickup.latitude;
+      final fitted = fit.northeast.latitude - fit.southwest.latitude;
+      // Before: the bounds were stretched ~6.3x (zoom ~6, route a dot).
+      expect(fitted / span, lessThan(4.5));
+      // The route's own pixels sit between the search bar and the sheet.
+      final pxPerDeg = (373 - 2 * fit.padding) / fitted;
+      final routeTop =
+          fit.padding + (fit.northeast.latitude - arlanda.latitude) * pxPerDeg;
+      final routeBottom =
+          fit.padding + (fit.northeast.latitude - pickup.latitude) * pxPerDeg;
+      expect(routeTop, greaterThanOrEqualTo(76 - 1e-6));
+      expect(routeBottom, lessThanOrEqualTo(373 - 160 + 1e-6));
+      expect(routeBottom - routeTop, greaterThan(visible * 0.5));
+    });
+  });
 }

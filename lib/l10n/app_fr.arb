@@ -582,7 +582,7 @@
   "chooseDefaultMethod": "Choisissez le moyen par défaut pour vos courses Movera.",
   "paymentMethodsUpper": "MOYENS DE PAIEMENT",
   "payFromBalance": "Payer avec votre solde",
-  "paysWhenSearchStarts": "Payé au début de la recherche",
+  "paysWhenSearchStarts": "Le montant est réservé au début de la recherche et débité à la fin de la course",
   "payDriverCash": "Payer le chauffeur en espèces",
   "vouchersUpper": "BONS",
   "paymentPrefsProtected": "Vos préférences de paiement sont protégées et modifiables à tout moment.",
