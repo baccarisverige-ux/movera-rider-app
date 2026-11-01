@@ -54,20 +54,22 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
     west = math.min(west, point.longitude);
     east = math.max(east, point.longitude);
   }
-  final full = math.max(mapHeight - 2 * edgePadding, 1.0);
   final bottom = math.max(bottomObstruction, 0.0);
   final top = math.max(topObstruction, 0.0);
-  final usable = math.max(
-    mapHeight - bottom - top - 2 * edgePadding,
-    full * 0.2,
-  );
+  // R-007: with the sheet up only a strip of map is left; the full edge
+  // padding on both sides of it left almost nothing, so the bounds were
+  // stretched ~6x and a long route (city -> airport) shrank to a dot. The
+  // padding gives way to at most a fifth of the visible strip each side.
+  final visible = math.max(mapHeight - bottom - top, 1.0);
+  final padding = math.min(edgePadding, math.max(visible * 0.2, 12.0));
+  final usable = math.max(visible - 2 * padding, visible * 0.4);
   final span = north - south;
   final stretchedSouth = south - span * (bottom / usable);
   final stretchedNorth = north + span * (top / usable);
   return (
     southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
     northeast: GeoPoint(math.min(stretchedNorth, 85.0), east),
-    padding: edgePadding,
+    padding: padding,
   );
 }
 

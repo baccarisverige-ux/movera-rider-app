@@ -150,7 +150,12 @@ class GoogleMapProvider implements MapProvider {
     );
     final view = mapViewOf(map);
     final size = view.size;
-    if (size != null && view.supportsTilt) {
+    // R-007: a raster web map gets the same computed flat pose instead of
+    // Google's own fitBounds. On the live web the select-ride map is a
+    // reused (pooled) map: fitBounds updated its camera state but the map
+    // kept painting the pickup until the next real camera move, so a long
+    // route (city -> airport) never showed. A pose sent by moveCamera paints.
+    if (size != null) {
       final fitted = tiltedFitCamera(
         southwest: southwest,
         northeast: northeast,
@@ -158,7 +163,7 @@ class GoogleMapProvider implements MapProvider {
         height: size.height,
         padding: padding,
         maxZoom: routeFitMaxZoom,
-        tilted: view.tiltWithZoom,
+        tilted: view.supportsTilt && view.tiltWithZoom,
       );
       if (fitted != null) {
         // A requested fit (the route overview) is a flight that lands on

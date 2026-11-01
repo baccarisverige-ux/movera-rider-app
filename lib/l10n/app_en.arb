@@ -1206,7 +1206,7 @@
   "chooseDefaultMethod": "Choose the default method for your Movera rides.",
   "paymentMethodsUpper": "PAYMENT METHODS",
   "payFromBalance": "Pay from your balance",
-  "paysWhenSearchStarts": "Pays when the search starts",
+  "paysWhenSearchStarts": "The amount is held when the search starts and charged when the ride ends",
   "payDriverCash": "Pay the driver in cash",
   "vouchersUpper": "VOUCHERS",
   "paymentPrefsProtected": "Your payment preferences are protected and can be changed anytime.",
