@@ -2884,11 +2884,10 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   /// openapi `PaymentMethod` for a client method id (`card_…` and `cards`
-  /// are saved cards; `apple` / `google` are the v0.3 aliases).
+  /// are saved cards; `apple` is the v0.3 alias; no Google Pay since v0.18.10).
   static String _paymentMethodKind(String id) {
     final value = id.trim().toLowerCase();
     if (value == 'apple' || value == 'apple_pay') return 'apple_pay';
-    if (value == 'google' || value == 'google_pay') return 'google_pay';
     if (value == 'cash' || value == 'wallet') return value;
     return 'card';
   }

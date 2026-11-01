@@ -3204,7 +3204,7 @@
   "@tipCashAfterTripOff": {"description": "Rider G8 (contract 0.18.10 finish)"},
   "receiptDriverEnded": "The driver ended the trip before the destination.",
   "@receiptDriverEnded": {"description": "Rider G8 (contract 0.18.10 finish)"},
-  "receiptRiderEnded": "The rider ended the trip early.",
+  "receiptRiderEnded": "You ended the trip early.",
   "@receiptRiderEnded": {"description": "Rider G8 (contract 0.18.10 finish)"},
   "endedEarlyReason": "Reason",
   "@endedEarlyReason": {"description": "Rider G8 (contract 0.18.10 finish)"},

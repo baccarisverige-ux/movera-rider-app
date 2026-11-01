@@ -1595,9 +1595,9 @@
   "tipNotAllowed": "Le pourboire n’est possible qu’après une course terminée.",
   "tipCashAfterTripOff": "Le pourboire en espèces se donne seulement dans la voiture.",
   "receiptDriverEnded": "Le chauffeur a terminé la course avant la destination.",
-  "receiptRiderEnded": "Le passager a terminé la course plus tôt.",
+  "receiptRiderEnded": "Vous avez terminé la course plus tôt.",
   "endedEarlyReason": "Motif",
-  "receiptDebtIncluded": "Ancien frais impayé",
+  "receiptDebtIncluded": "Anciens frais impayés",
   "receiptTip": "Pourboire",
   "receiptRefunded": "Remboursé"
 }

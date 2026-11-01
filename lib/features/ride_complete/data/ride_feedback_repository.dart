@@ -1,5 +1,9 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
+
+export 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 
@@ -43,32 +47,37 @@ class RideFeedbackRepository {
       throw ArgumentError.value(tipMinor, 'tipMinor');
     }
     if (_api.contractWire) {
-      // Contract v0.18.10 (`finish.tips`, owner G8 item 1): the tip rides
-      // with the rating (`RatingRequest.tip` + `tipMethod`) or, alone, on
+      // Contract v0.18.10 (`finish.tips`, owner G8 item 1): the tip goes on
       // `POST /trips/{tripId}/tip`. Cash only today: the rider gives it in
       // the driver's hand; all of it goes to the driver.
       final tip = tipMinor == null
           ? null
           : {'amountMinor': tipMinor, 'currency': tipCurrency};
-      if (rating == null) {
+      // The rating and the tip go separately (the server answers each on
+      // its own), so a refused tip never loses the rating.
+      if (rating != null) {
         await _api.post(
-          _api.tripPath(rideId, 'tip'),
-          body: {'amount': tip, 'method': tipMethod},
+          _api.tripPath(rideId, 'rating'),
+          body: {
+            'stars': rating.round(),
+            if (tags.isNotEmpty) 'tags': tags,
+            if (note != null && note.isNotEmpty) 'comment': note,
+          },
           idempotencyKey: idempotencyKey,
         );
-        return;
       }
-      await _api.post(
-        _api.tripPath(rideId, 'rating'),
-        body: {
-          'stars': rating.round(),
-          if (tags.isNotEmpty) 'tags': tags,
-          if (note != null && note.isNotEmpty) 'comment': note,
-          if (tip != null) 'tip': tip,
-          if (tip != null) 'tipMethod': tipMethod,
-        },
-        idempotencyKey: idempotencyKey,
-      );
+      if (tip != null) {
+        try {
+          await _api.post(
+            _api.tripPath(rideId, 'tip'),
+            body: {'amount': tip, 'method': tipMethod},
+            idempotencyKey: '$idempotencyKey-tip',
+          );
+        } on ApiError catch (error) {
+          if (rating == null) rethrow;
+          throw TipRefusedAfterRating(error);
+        }
+      }
       return;
     }
     final response = await _api.post(

@@ -107,10 +107,11 @@ void main() {
         tipCurrency: 'EUR',
         idempotencyKey: 'k-bbbbbbbbbbbbbbbb',
       );
-      expect(sent['/api/v1/trips/trp_1/rating'], {
-        'stars': 5,
-        'tip': {'amountMinor': 2000, 'currency': 'SEK'},
-        'tipMethod': 'cash',
+      // Separate calls: a refused tip keeps the rating.
+      expect(sent['/api/v1/trips/trp_1/rating'], {'stars': 5});
+      expect(sent['/api/v1/trips/trp_1/tip'], {
+        'amount': {'amountMinor': 2000, 'currency': 'SEK'},
+        'method': 'cash',
       });
       expect(sent['/api/v1/trips/trp_2/tip'], {
         'amount': {'amountMinor': 200, 'currency': 'EUR'},
@@ -198,5 +199,44 @@ void main() {
       SosAvailability.record('trp_1', 'yes');
       expect(SosAvailability.forTrip('trp_1'), isTrue);
     });
+  });
+
+  test('a tip refused after the rating keeps the rating', () async {
+    final paths = <String>[];
+    final repository = RideFeedbackRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          if (request.url.path.endsWith('/tip')) {
+            return http.Response(
+              jsonEncode({
+                'code': 'conflict',
+                'message': 'x',
+                'reason': 'tip_cash_after_trip_off',
+              }),
+              409,
+            );
+          }
+          return http.Response(jsonEncode({'tripId': 'trp_3'}), 201);
+        }),
+      ),
+    );
+    await expectLater(
+      repository.submit(
+        rideId: 'trp_3',
+        rating: 4,
+        tipMinor: 1000,
+        idempotencyKey: 'k-cccccccccccccccc',
+      ),
+      throwsA(
+        isA<TipRefusedAfterRating>().having(
+          (e) => e.cause.detail,
+          'reason',
+          'tip_cash_after_trip_off',
+        ),
+      ),
+    );
+    expect(paths, ['/api/v1/trips/trp_3/rating', '/api/v1/trips/trp_3/tip']);
   });
 }
