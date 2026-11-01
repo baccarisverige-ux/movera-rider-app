@@ -44975,24 +44975,25 @@ b4S:function b4S(){},
 MR(a){var s=a.r,r=a.a.b,q=B.d.aJ(348+s.d,300,Math.max(300,r*0.48)),p=a.gdD().b7(0,1)>=1.6?0:52,o=r-s.b-p
 s=q+64
 return o<s?s:o},
-cvb(a,b,c,d,e,f){var s,r,q,p,o,n,m,l,k,j=d.a,i=b.a,h=Math.min(j,i),g=Math.max(j,i)
-i=d.b
-j=b.b
-s=Math.min(i,j)
-r=Math.max(i,j)
-for(j=e.length,q=0;q<j;++q){p=e[q]
-i=p.a
-h=Math.min(h,i)
-g=Math.max(g,i)
-i=p.b
-s=Math.min(s,i)
-r=Math.max(r,i)}o=Math.max(c-152,1)
-n=Math.max(a,0)
-m=Math.max(f,0)
-l=Math.max(c-n-m-152,o*0.2)
-k=g-h
-j=Math.max(h-k*(n/l),-85)
-return new A.avS(new A.aT(Math.min(g+k*(m/l),85),r),76,new A.aT(j,s))},
+cvb(a,b,c,d,e,a0){var s,r,q,p,o,n,m,l,k,j,i=d.a,h=b.a,g=Math.min(i,h),f=Math.max(i,h)
+h=d.b
+i=b.b
+s=Math.min(h,i)
+r=Math.max(h,i)
+for(i=e.length,q=0;q<i;++q){p=e[q]
+h=p.a
+g=Math.min(g,h)
+f=Math.max(f,h)
+h=p.b
+s=Math.min(s,h)
+r=Math.max(r,h)}o=Math.max(a,0)
+n=Math.max(a0,0)
+m=Math.max(c-o-n,1)
+l=Math.min(76,Math.max(m*0.2,12))
+k=Math.max(m-2*l,m*0.4)
+j=f-g
+i=Math.max(g-j*(o/k),-85)
+return new A.avS(new A.aT(Math.min(f+j*(n/k),85),r),l,new A.aT(i,s))},
 aC5(a,b,c){var s,r,q=A.a([a],t.Jm)
 B.b.C(q,b)
 q.push(c)
@@ -140227,10 +140228,11 @@ e=e>o?e:o
 j=A.cd(e,m>l?m:l)
 i=A.tw(d)
 h=i.a
-s=h!=null&&i.d?3:4
+s=h!=null?3:4
 break
 case 3:e=h.a
-g=A.c4a(h.b,17,j,a0,k,i.c,e)
+o=h.b
+g=A.c4a(o,17,j,a0,k,i.d&&i.c,e)
 s=g!=null?5:6
 break
 case 5:s=7
@@ -174904,7 +174906,7 @@ gajC(){return"How would you like\nto pay?"},
 gae_(){return"Choose the default method for your Movera rides."},
 ganc(){return"PAYMENT METHODS"},
 gYm(){return"Pay from your balance"},
-gM6(){return"Pays when the search starts"},
+gM6(){return"The amount is held when the search starts and charged when the ride ends"},
 gYl(){return"Pay the driver in cash"},
 gaw7(){return"VOUCHERS"},
 gane(){return"Your payment preferences are protected and can be changed anytime."},
@@ -176414,7 +176416,7 @@ gajC(){return"Comment souhaitez-vous\npayer\xa0?"},
 gae_(){return"Choisissez le moyen par d\xe9faut pour vos courses Movera."},
 ganc(){return"MOYENS DE PAIEMENT"},
 gYm(){return"Payer avec votre solde"},
-gM6(){return"Pay\xe9 au d\xe9but de la recherche"},
+gM6(){return"Le montant est r\xe9serv\xe9 au d\xe9but de la recherche et d\xe9bit\xe9 \xe0 la fin de la course"},
 gYl(){return"Payer le chauffeur en esp\xe8ces"},
 gaw7(){return"BONS"},
 gane(){return"Vos pr\xe9f\xe9rences de paiement sont prot\xe9g\xe9es et modifiables \xe0 tout moment."},
@@ -177926,7 +177928,7 @@ gajC(){return"Hur vill du\nbetala?"},
 gae_(){return"V\xe4lj standards\xe4tt f\xf6r dina resor med Movera."},
 ganc(){return"BETALS\xc4TT"},
 gYm(){return"Betala med ditt saldo"},
-gM6(){return"Betalas n\xe4r s\xf6kningen startar"},
+gM6(){return"Beloppet reserveras n\xe4r s\xf6kningen b\xf6rjar och dras n\xe4r resan \xe4r klar"},
 gYl(){return"Betala f\xf6raren kontant"},
 gaw7(){return"V\xc4RDEKODER"},
 gane(){return"Dina betalningsval \xe4r skyddade och kan \xe4ndras n\xe4r som helst."},
