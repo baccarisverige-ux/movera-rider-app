@@ -28,6 +28,7 @@ class AuthScaffold extends StatelessWidget {
     this.sceneKey,
     this.overlay,
     this.showCar = true,
+    this.compactCard = false,
     required this.card,
   });
 
@@ -51,6 +52,10 @@ class AuthScaffold extends StatelessWidget {
   /// Painted over the whole page, above the card; never takes touches.
   final Widget? overlay;
   final bool showCar;
+
+  /// Owner 2026-11-02: the sign-in card uses a little less padding, so the
+  /// picture shows the whole skyline on phone-size screens.
+  final bool compactCard;
   final Widget card;
 
   @override
@@ -164,7 +169,12 @@ class AuthScaffold extends StatelessWidget {
         // over the scene by a shadow cast upward.
         Container(
           key: const ValueKey('auth-card'),
-          padding: EdgeInsets.fromLTRB(20, 22, 20, 18 + bottomInset),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            compactCard ? 12 : 22,
+            20,
+            (compactCard ? 12 : 18) + bottomInset,
+          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             boxShadow: [
