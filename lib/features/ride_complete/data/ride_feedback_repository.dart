@@ -1,7 +1,10 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
+
+export 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
 import 'package:movera_rider/core/contracts/money.dart';
-import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 
 /// Sends optional post-trip feedback through the same API transport as the ride.
@@ -19,6 +22,7 @@ class RideFeedbackRepository {
     String tipCurrency = Money.defaultCurrency,
     List<String> tags = const <String>[],
     String? comment,
+    String tipMethod = 'cash',
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
@@ -43,25 +47,37 @@ class RideFeedbackRepository {
       throw ArgumentError.value(tipMinor, 'tipMinor');
     }
     if (_api.contractWire) {
-      // Contract `POST /trips/{tripId}/rating` (`RatingRequest`): whole
-      // stars; the server answers 201 with the `Rating`. Tips are not
-      // available on the server yet (`tips_not_available`), so a tip is
-      // never sent with the rating and a tip alone is refused here.
-      if (rating == null) {
-        throw StateError('Tips are not available yet.');
+      // Contract v0.18.10 (`finish.tips`, owner G8 item 1): the tip goes on
+      // `POST /trips/{tripId}/tip`. Cash only today: the rider gives it in
+      // the driver's hand; all of it goes to the driver.
+      final tip = tipMinor == null
+          ? null
+          : {'amountMinor': tipMinor, 'currency': tipCurrency};
+      // The rating and the tip go separately (the server answers each on
+      // its own), so a refused tip never loses the rating.
+      if (rating != null) {
+        await _api.post(
+          _api.tripPath(rideId, 'rating'),
+          body: {
+            'stars': rating.round(),
+            if (tags.isNotEmpty) 'tags': tags,
+            if (note != null && note.isNotEmpty) 'comment': note,
+          },
+          idempotencyKey: idempotencyKey,
+        );
       }
-      if (tipMinor != null) {
-        AppLog.warning('ride.feedback.tip_not_sent', extra: {'rideId': rideId});
+      if (tip != null) {
+        try {
+          await _api.post(
+            _api.tripPath(rideId, 'tip'),
+            body: {'amount': tip, 'method': tipMethod},
+            idempotencyKey: '$idempotencyKey-tip',
+          );
+        } on ApiError catch (error) {
+          if (rating == null) rethrow;
+          throw TipRefusedAfterRating(error);
+        }
       }
-      await _api.post(
-        _api.tripPath(rideId, 'rating'),
-        body: {
-          'stars': rating.round(),
-          if (tags.isNotEmpty) 'tags': tags,
-          if (note != null && note.isNotEmpty) 'comment': note,
-        },
-        idempotencyKey: idempotencyKey,
-      );
       return;
     }
     final response = await _api.post(

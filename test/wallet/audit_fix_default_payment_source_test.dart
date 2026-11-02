@@ -1,6 +1,7 @@
 // rider-u232: in release the Payments tab read and wrote the default method
 // in local prefs while Select Ride used the server default, so the choice
 // made on the tab was ignored at booking.
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
@@ -16,36 +17,39 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('the Payments tab shows the default Select Ride uses', () async {
-    // The server says Google Pay; the device prefs say nothing (Cash).
-    final server = MemoryDefaultPaymentStore('google');
+    // The server says Apple Pay; the device prefs say nothing (Cash).
+    final server = MemoryDefaultPaymentStore('apple');
     final wallet = WalletController(defaultPayment: server);
-    expect((await wallet.loadPayments()).defaultMethod, 'google');
+    expect((await wallet.loadPayments()).defaultMethod, 'apple');
   });
 
   test(
     'a default picked on the Payments tab is the one Select Ride books',
     () async {
+      // G8: no Google Pay; Apple Pay on an iPhone.
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final server = MemoryDefaultPaymentStore('cash');
       final wallet = WalletController(defaultPayment: server);
       final settings = await wallet.loadPayments();
       await wallet.savePayments(
         WalletPaymentSettings(
-          defaultMethod: 'google',
+          defaultMethod: 'apple',
           business: settings.business,
         ),
       );
-      expect(server.value, 'google');
+      expect(server.value, 'apple');
 
       final selection = RideSelectionController(paymentStore: server);
       await selection.restoreDefaultPayment();
-      expect(selection.selectedPaymentItem()?.brand, 'google');
+      expect(selection.selectedPaymentItem()?.brand, 'apple');
     },
   );
 
   test('the wallet of another currency uses the same default', () async {
-    final server = MemoryDefaultPaymentStore('google');
+    final server = MemoryDefaultPaymentStore('apple');
     final wallet = WalletController(defaultPayment: server).forCurrency('EUR');
-    expect((await wallet.loadPayments()).defaultMethod, 'google');
+    expect((await wallet.loadPayments()).defaultMethod, 'apple');
   });
 
   test('release builds give the wallet the composed default store', () {

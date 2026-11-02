@@ -42,7 +42,7 @@ void main() {
   testWidgets('wallet hides Add card when the policy is off', (tester) async {
     CardEntryPolicy.debugOverride = false;
     await pumpPhone(tester, const WalletScreen());
-    expect(find.text('Cash'), findsOneWidget);
+    expect(find.text('Pay in car'), findsOneWidget);
     expect(find.text('Add card'), findsNothing);
   });
 

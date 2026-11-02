@@ -75,12 +75,7 @@ void main() {
           ],
           [lang, lang, lang],
         );
-        expect(config.paymentMethods, [
-          'cash',
-          'card',
-          'apple_pay',
-          'google_pay',
-        ]);
+        expect(config.paymentMethods, ['cash', 'card', 'apple_pay']);
         expect(config.walletUsedFirst, isTrue);
         expect(_minor(config.enabledTips), tips);
         expect(_minor(config.enabledRaiseSteps), steps);
@@ -145,12 +140,7 @@ void main() {
           7,
         ],
       })!;
-      expect(config.paymentMethods, [
-        'card',
-        'apple_pay',
-        'google_pay',
-        'cash',
-      ]);
+      expect(config.paymentMethods, ['card', 'apple_pay', 'cash']);
       final onlySwish = RiderAppConfig.fromJson({
         'version': 1,
         'currency': 'SEK',

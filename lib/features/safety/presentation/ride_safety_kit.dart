@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
@@ -141,7 +142,11 @@ Future<void> showRideSafetyKit(
     context: context,
     builder: (_) => RideSafetyKitSheet(
       rideId: rideId,
-      duringTrip: driverAssigned && (rideId?.trim().isNotEmpty ?? false),
+      // v0.18.10 (owner G8 Q4): the server's sosAvailable when it said,
+      // else a driver has the trip.
+      duringTrip:
+          (rideId?.trim().isNotEmpty ?? false) &&
+          (SosAvailability.forTrip(rideId) ?? driverAssigned),
     ),
   ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.safety));
 }

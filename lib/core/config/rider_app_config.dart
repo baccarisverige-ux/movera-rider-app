@@ -119,6 +119,8 @@ class RiderAppConfig {
     this.usesStandard = false,
     this.raiseMaxFactor = RaiseLimit.defaultMaxFactor,
     this.cancelAfterArrivedIsNoShow = true,
+    this.paymentOptions,
+    this.tipRules = const TipRules(),
   });
 
   /// Built-in defaults for a field neither the document nor its fallback
@@ -150,8 +152,8 @@ class RiderAppConfig {
   /// `features.*` flags; an unknown flag reads as off ([feature]).
   final Map<String, bool> features;
 
-  /// Contract zone payment methods offered (`cash`, `card`, `apple_pay`,
-  /// `google_pay`; owner Q7). The wallet is separate ([walletUsedFirst]).
+  /// Contract zone payment methods offered (`cash`, `card`, `apple_pay`;
+  /// owner Q7, v0.18.10 no Google Pay). The wallet is separate ([walletUsedFirst]).
   final List<String> paymentMethods;
   final int maxStops;
   final int bookingHorizonDays;
@@ -177,6 +179,21 @@ class RiderAppConfig {
 
   /// The wallet balance (one per currency) pays first (Q7/Q8).
   final bool walletUsedFirst;
+
+  static Map<String, String>? _paymentOptions(Object? raw) {
+    if (raw is! List) return null;
+    final out = <String, String>{};
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final method = item['method'];
+      final status = item['status'];
+      if (method is! String || status is! String) continue;
+      if (!ZoneDefaults.paymentMethods.contains(method)) continue;
+      if (status != 'available' && status != 'coming_soon') continue;
+      out[method] = status;
+    }
+    return out;
+  }
 
   /// The tips the rider may pick.
   List<Money> get enabledTips => [
@@ -205,6 +222,27 @@ class RiderAppConfig {
   /// (default on), copied into the rider document when served. Only shown
   /// in the Terms; the server charges by it.
   final bool cancelAfterArrivedIsNoShow;
+
+  /// v0.18.10 (`finish.paymentMethods.served`, owner G8 item 2): the
+  /// server's `paymentOptions`, method → `available | coming_soon`, in
+  /// the admin's order; a method the admin turned off is not listed. Null
+  /// from an older server: then only cash is taken and card / Apple Pay
+  /// read as coming soon.
+  final Map<String, String>? paymentOptions;
+
+  /// v0.18.10 `RiderAppConfig.tipRules` (Admin › Tips & limits).
+  final TipRules tipRules;
+
+  /// [method]'s state: `available`, `coming_soon`, or null when it is not
+  /// offered here. Google Pay and the wallet are never a ride method.
+  String? paymentStatus(String method) {
+    if (!ZoneDefaults.paymentMethods.contains(method)) return null;
+    final options = paymentOptions;
+    if (options != null) return options[method];
+    if (!paymentMethods.contains(method)) return null;
+    return method == 'cash' ? 'available' : 'coming_soon';
+  }
+
   final List<RiderConfigCancelReason> cancelReasons;
 
   /// Ride check thresholds, as published (numbers and switches).
@@ -371,6 +409,11 @@ class RiderAppConfig {
       pickupFees:
           _pickupFees(raw['pickupFee'], money) ?? base?.pickupFees ?? const {},
       usesStandard: raw['usesStandard'] == true,
+      paymentOptions: _paymentOptions(raw['paymentOptions']),
+      tipRules:
+          TipRules.read(raw['tipRules'], money, country) ??
+          base?.tipRules ??
+          TipRules.forCountry(country, currency),
       raiseMaxFactor:
           RaiseLimit.validFactor(
             raw['raisePrice'] is Map
@@ -899,7 +942,7 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       'pin': false,
       'shareTrip': true,
     },
-    'paymentMethods': ['cash', 'card', 'apple_pay', 'google_pay'],
+    'paymentMethods': ['cash', 'card', 'apple_pay'],
     'wallet': {'usedFirst': true},
     'tips': [
       {
@@ -1114,6 +1157,45 @@ class LiveCancelFeePreview {
       freeMinutesLeft: fee.isPositive || minutes >= rule.freeMin
           ? 0
           : rule.freeMin - minutes,
+    );
+  }
+}
+
+/// v0.18.10 `RiderAppConfig.tipRules` (contract `finish.tips.settings`):
+/// a cash tip only in the car unless [cashAfterTrip]; a typed amount up
+/// to [customMax] only when [customAmount].
+class TipRules {
+  const TipRules({
+    this.cashAfterTrip = false,
+    this.cashInCarMinutes = 5,
+    this.customAmount = false,
+    this.customMax,
+  });
+
+  final bool cashAfterTrip;
+  final int cashInCarMinutes;
+  final bool customAmount;
+  final Money? customMax;
+
+  /// The contract defaults: SE 200 kr, FR 20 €.
+  static TipRules forCountry(String country, String currency) =>
+      TipRules(customMax: Money(currency == 'SEK' ? 20000 : 2000, currency));
+
+  static TipRules? read(
+    Object? raw,
+    Money? Function(Object?) money,
+    String country,
+  ) {
+    if (raw is! Map) return null;
+    final minutes = raw['cashInCarMinutes'];
+    final max = money(raw['customMax']);
+    return TipRules(
+      cashAfterTrip: raw['cashAfterTrip'] == true,
+      cashInCarMinutes: minutes is int && minutes >= 0 && minutes <= 60
+          ? minutes
+          : 5,
+      customAmount: raw['customAmount'] == true,
+      customMax: max != null && max.amountMinor > 0 ? max : null,
     );
   }
 }

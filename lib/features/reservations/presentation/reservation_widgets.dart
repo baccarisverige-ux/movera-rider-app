@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -667,20 +666,17 @@ class ReservationPaymentMark extends StatelessWidget {
     final lower = method.toLowerCase();
     Widget logo;
     Color background = Colors.white;
-    if (lower.contains('apple')) {
-      logo = SvgPicture.asset(
-        'assets/images/apple_pay_brand.svg',
-        fit: BoxFit.contain,
+    // Owner rules (G8): no other company's logo; Apple Pay and cards get a
+    // plain card icon and their name as text.
+    if (lower.contains('apple') ||
+        lower.contains('visa') ||
+        lower.contains('master') ||
+        lower.contains('card')) {
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 20,
       );
-    } else if (lower.contains('google')) {
-      logo = Image.asset(
-        'assets/images/google_pay_brand.png',
-        fit: BoxFit.contain,
-      );
-    } else if (lower.contains('visa')) {
-      logo = Image.asset(AppAssets.visa, fit: BoxFit.contain);
-    } else if (lower.contains('master') || lower.contains('card')) {
-      logo = Image.asset(AppAssets.mastercard, fit: BoxFit.contain);
     } else if (lower.contains('cash') ||
         lower.contains('pay in car') ||
         // Swish was removed (owner Q7); an old booking reads as Cash.

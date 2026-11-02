@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -92,6 +94,9 @@ class _RideCompletedState extends State<RideCompleted> {
   double? _rating;
   RatingFeedback? _feedback;
   int? _tipMinor;
+
+  /// The rating was saved; only the tip was refused (v0.18.10).
+  bool _ratingSaved = false;
   String? _submitError;
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
   String? _acceptedFeedbackIntent;
@@ -285,7 +290,9 @@ class _RideCompletedState extends State<RideCompleted> {
         if (_acceptedFeedbackIntent != feedbackIntent) {
           await _controller.submitFeedback(
             rideId: id,
-            rating: _rating,
+            // G8: a rating already saved is not sent again with a retried
+            // tip.
+            rating: _ratingSaved ? null : _rating,
             tipMinor: _tipMinor,
             tags: _feedback?.tags ?? const <String>[],
             comment: _feedback?.sentComment,
@@ -295,8 +302,13 @@ class _RideCompletedState extends State<RideCompleted> {
           _feedbackMutation.succeeded(feedbackIntent);
         }
       }
-    } catch (_) {
-      _stayWithError();
+    } on TipRefusedAfterRating catch (error) {
+      // The rating is kept; the rider is told why the tip was not.
+      _ratingSaved = true;
+      _stayWithError(error.cause);
+      return;
+    } catch (error) {
+      _stayWithError(error);
       return;
     }
     if (!mounted) return;
@@ -323,11 +335,24 @@ class _RideCompletedState extends State<RideCompleted> {
     RideNavigator.home(context, status: RideStatus.closed);
   }
 
-  void _stayWithError() {
+  void _stayWithError([Object? error]) {
     if (!mounted) return;
+    final l10n = context.l10n;
+    // v0.18.10 (`finish.tips`): a refused tip says why, in plain words.
+    final tipText = error is ApiError
+        ? switch (error.detail) {
+            'tips_not_available' => l10n.tipsNotOnHere,
+            'tip_amount_not_allowed' => l10n.tipAmountNotAllowed,
+            'tip_already_given' => l10n.tipAlreadyGiven,
+            'tip_not_allowed' => l10n.tipNotAllowed,
+            'tip_cash_after_trip_off' => l10n.tipCashAfterTripOff,
+            'tip_above_max' => l10n.tipAboveMax,
+            _ => null,
+          }
+        : null;
     setState(() {
       _leaving = false;
-      _submitError = context.l10n.feedbackSaveFailed;
+      _submitError = tipText ?? l10n.feedbackSaveFailed;
     });
   }
 

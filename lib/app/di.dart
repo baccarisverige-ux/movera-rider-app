@@ -377,7 +377,8 @@ class AppScope {
   late final AuthController auth = AuthController();
   // The contract wire (movera-server) has no tips yet: none are offered.
   late final RideCompleteController rideComplete = RideCompleteController(
-    tipsOnServer: !api.contractWire,
+    // v0.18.10: movera-server takes tips (POST /trips/{id}/tip).
+    tipsOnServer: true,
   );
   late final WalletController walletController = WalletController(
     balances: walletBalances,
