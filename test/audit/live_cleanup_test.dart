@@ -12,6 +12,9 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
@@ -104,14 +107,47 @@ void main() {
     expect(find.text('Offers'), findsNothing);
   });
 
-  testWidgets('H1: no Later button without Book for later', (tester) async {
+  testWidgets('Owner 2026-11-02: the Later button and the Book ahead card '
+      'with its picture are back on home', (tester) async {
+    var taps = 0;
     await pumpPhone(
       tester,
       Scaffold(
-        body: WhereToCard(destinationAddress: null, onDestinationTap: () {}),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              WhereToCard(
+                destinationAddress: null,
+                onDestinationTap: () {},
+                onOpenSchedule: () => taps++,
+              ),
+              AdvanceBookingCard(onOpenSchedule: () => taps++),
+            ],
+          ),
+        ),
       ),
     );
-    expect(find.text('Later'), findsNothing);
+    expect(find.text('Later'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is AppIconAsset && w.asset == AppAssets.solarCalendar,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is ResizeImage &&
+            ((w.image as ResizeImage).imageProvider as AssetImage).assetName ==
+                'assets/images/advance_booking_driver.webp',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Later'));
+    await tester.ensureVisible(find.byType(AdvanceBookingCard));
+    await tester.tap(find.byType(AdvanceBookingCard));
+    expect(taps, 2);
   });
 
   test('M5: a France zone never falls back to SEK', () {
