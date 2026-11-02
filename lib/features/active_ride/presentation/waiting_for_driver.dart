@@ -1757,7 +1757,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// screen is not served.
   bool get _serverPickupMove {
     if (widget.pickupMove != null) return true;
-    final realtime = widget.realtime;
+    // G7 live fix 2: the live screens (restore and the in-app booking) get
+    // no `realtime:` and use the app's transport, so read that one, not
+    // only the injected one.
+    final realtime = _realtime;
     return realtime is ApiRideRealtime && realtime.contractWire;
   }
 
@@ -1767,6 +1770,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   VoidCallback? get _moreAction {
     if (_serverPickupMove) return _pickupEditable ? _movePickup : null;
     return widget.routeChangeSupported ? _openDetails : null;
+  }
+
+  /// G7 live fix 2: the ride card's three dots. On the server wire they
+  /// follow the zone's `routeChange.beforePickup` ([_openDetails]: the
+  /// route screen when on, the pickup move when off); the driver card's
+  /// dots stay the pickup move ([_moreAction]).
+  VoidCallback? get _rideCardMore {
+    if (_serverPickupMove && widget.routeChangeSupported) return _openDetails;
+    return _moreAction;
   }
 
   /// The pickup as booked: the server measures a move from it. The
@@ -3047,7 +3059,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             currency: widget.currency,
-            onMore: _moreAction,
+            onMore: _rideCardMore,
           ),
           if (_termsLines() case final lines?) ...[
             const SizedBox(height: 12),
